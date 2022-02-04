@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
+
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoModule;
+import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
  * Test implementation of {@link PageIoModule}.
@@ -45,17 +48,14 @@ public class TestPageIoModule implements PageIoModule {
     public static class TestPageIo extends PageIo {
         /**
          * Constructor.
-         *
-         * @param type Page type.
-         * @param ver  Page format version.
          */
-        protected TestPageIo() {
-            super(TEST_PAGE_TYPE, TEST_PAGE_VER);
+        public TestPageIo() {
+            super(TEST_PAGE_TYPE, TEST_PAGE_VER, FLAG_DATA);
         }
 
         /** {@inheritDoc} */
         @Override
-        protected void printPage(long addr, int pageSize, StringBuilder sb) {
+        protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
         }
     }
 }

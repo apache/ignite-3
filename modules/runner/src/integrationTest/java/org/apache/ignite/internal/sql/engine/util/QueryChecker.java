@@ -95,14 +95,14 @@ public abstract class QueryChecker {
      */
     public static Matcher<String> notContainsProject(String schema, String tblName) {
         return CoreMatchers.not(containsSubPlan("Scan(table=[[" + schema + ", "
-                + tblName + "]], " + "requiredColunms="));
+                + tblName + "]], " + "requiredColumns="));
     }
 
     /**
      * {@link #containsProject(String, String, int...)} reverter.
      */
-    public static Matcher<String> notContainsProject(String schema, String tblName, int... requiredColunms) {
-        return CoreMatchers.not(containsProject(schema, tblName, requiredColunms));
+    public static Matcher<String> notContainsProject(String schema, String tblName, int... requiredColumns) {
+        return CoreMatchers.not(containsProject(schema, tblName, requiredColumns));
     }
 
     /**
@@ -110,13 +110,13 @@ public abstract class QueryChecker {
      *
      * @param schema          Schema name.
      * @param tblName         Table name.
-     * @param requiredColunms columns in projection.
+     * @param requiredColumns columns in projection.
      * @return Matcher.
      */
-    public static Matcher<String> containsProject(String schema, String tblName, int... requiredColunms) {
+    public static Matcher<String> containsProject(String schema, String tblName, int... requiredColumns) {
         Matcher<String> res = matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
-                + Arrays.toString(requiredColunms)
+                + Arrays.toString(requiredColumns)
                         .replaceAll("\\[", "")
                         .replaceAll("]", "") + "\\}\\].*");
         return res;
@@ -127,13 +127,13 @@ public abstract class QueryChecker {
      *
      * @param schema          Schema name.
      * @param tblName         Table name.
-     * @param requiredColunms columns in projection.
+     * @param requiredColumns columns in projection.
      * @return Matcher.
      */
-    public static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColunms) {
+    public static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColumns) {
         return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
-                + Arrays.toString(requiredColunms)
+                + Arrays.toString(requiredColumns)
                         .replaceAll("\\[", "")
                         .replaceAll("]", "") + "\\}\\].*");
     }

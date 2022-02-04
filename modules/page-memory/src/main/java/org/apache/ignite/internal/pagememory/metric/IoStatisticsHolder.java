@@ -27,22 +27,22 @@ public interface IoStatisticsHolder {
      *
      * @param pageAddr Address of page.
      */
-    public void trackLogicalRead(long pageAddr);
+    void trackLogicalRead(long pageAddr);
 
     /**
      * Track physical and logical read of given page.
      *
-     * @param pageAddr start address of page.
+     * @param pageAddr Start address of page.
      */
-    public void trackPhysicalAndLogicalRead(long pageAddr);
+    void trackPhysicalAndLogicalRead(long pageAddr);
 
     /**
      * Returns a number of logical reads.
      */
-    public long logicalReads();
+    long logicalReads();
 
     /**
      * Returns a number of physical reads.
      */
-    public long physicalReads();
+    long physicalReads();
 }

@@ -19,13 +19,13 @@ package org.apache.ignite.internal.table;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,7 +46,7 @@ public interface InternalTable extends AutoCloseable {
      *
      * @return Table id as UUID.
      */
-    @NotNull IgniteUuid tableId();
+    @NotNull UUID tableId();
 
     /**
      * Gets a name of the table.

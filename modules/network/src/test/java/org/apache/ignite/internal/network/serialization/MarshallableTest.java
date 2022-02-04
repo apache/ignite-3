@@ -30,20 +30,19 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InboundDecoder;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
-import org.apache.ignite.internal.network.serialization.marshal.UnmarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
@@ -189,23 +188,19 @@ public class MarshallableTest {
         }
 
         @Override
-        public MarshalledObject marshal(@Nullable Object object, Class<?> declaredClass) throws MarshalException {
+        public MarshalledObject marshal(@Nullable Object object) throws MarshalException {
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
                 oos.writeObject(object);
                 oos.close();
-                return new MarshalledObject(baos.toByteArray(), Collections.singleton(descriptor));
+                return new MarshalledObject(baos.toByteArray(), IntSets.singleton(descriptor.descriptorId()));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
+        @SuppressWarnings("unchecked")
         @Override
-        public MarshalledObject marshal(@Nullable Object object) throws MarshalException {
-            return marshal(object, object != null ? object.getClass() : null);
-        }
-
-        @Override
-        public <T> @Nullable T unmarshal(byte[] bytes, IdIndexedDescriptors mergedDescriptors) throws UnmarshalException {
+        public <T> @Nullable T unmarshal(byte[] bytes, DescriptorRegistry mergedDescriptors) {
             try (var bais = new ByteArrayInputStream(bytes); var ois = new ObjectInputStream(bais)) {
                 return (T) ois.readObject();
             } catch (Exception e) {

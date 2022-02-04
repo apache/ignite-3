@@ -17,48 +17,24 @@
 
 package org.apache.ignite.configuration.schemas.store;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
+import static org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema.ROCKSDB_DATA_REGION_TYPE;
+
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.Min;
-import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * Configuration schema for data region. Currently it represents configuration for rocksdb storage engine only.
+ * Configuration schema for data region.
  */
-@Config
+@PolymorphicConfig
 public class DataRegionConfigurationSchema {
-    /** Type of the RocksDB data region. */
-    public static final String ROCKSDB_DATA_REGION_TYPE = "rocksdb";
-
-    /** Cache type for the RocksDB LRU cache. */
-    public static final String ROCKSDB_LRU_CACHE = "lru";
-
-    /** Cache type for the RocksDB LRU cache. */
-    public static final String ROCKSDB_CLOCK_CACHE = "clock";
-
     /** Type for the future polymorphic configuration schemas. */
     @Immutable
-    @OneOf(ROCKSDB_DATA_REGION_TYPE)
-    @Value(hasDefault = true)
+    @PolymorphicId(hasDefault = true)
     public String type = ROCKSDB_DATA_REGION_TYPE;
 
-    /** Size of the rocksdb offheap cache. */
-    @Value(hasDefault = true)
-    public long size = 256 * 1024 * 1024;
-
-    /** Size of rocksdb write buffer. */
-    @Value(hasDefault = true)
-    @Min(1)
-    public long writeBufferSize = 64 * 1024 * 1024;
-
-    /** Cache type - only {@code LRU} is supported at the moment. {@code Clock} implementation has known bugs. */
-    @OneOf({ROCKSDB_LRU_CACHE})
-    @Value(hasDefault = true)
-    public String cache = ROCKSDB_LRU_CACHE;
-
-    /** The cache is sharded to 2^numShardBits shards, by hash of the key. */
-    @Min(-1)
-    @Value(hasDefault = true)
-    public int numShardBits = -1;
+    /** Name of the data region. */
+    @InjectedName
+    public String name;
 }

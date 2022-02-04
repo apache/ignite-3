@@ -20,8 +20,11 @@ package org.apache.ignite.internal.network.serialization;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMaps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -70,6 +73,24 @@ public class ClassDescriptor {
     /** Total number of non-primitive fields. */
     private final int objectFieldsCount;
 
+    /**
+     * Size of the nulls bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
+     * fields that have a type known upfront.
+     *
+     * @see #fieldNullsBitmapIndices
+     * @see #isRuntimeTypeKnownUpfront()
+     */
+    private final int fieldNullsBitmapSize;
+
+    /**
+     * Map from field names to indices in the nulls bitmap corresponding to the described class. It contains an entry
+     * for each field, but only entries for nullable (that is, non-primitive) fields which types are known upfront
+     * have meaningful (non-negative) indices; all other fields have -1 as a value in this map.
+     *
+     * @see #isRuntimeTypeKnownUpfront()
+     */
+    private final Object2IntMap<String> fieldNullsBitmapIndices;
+
     private Map<String, FieldDescriptor> fieldsByName;
     /**
      * Offsets into primitive fields data array (which has size {@link #primitiveFieldsDataSize}).
@@ -79,6 +100,8 @@ public class ClassDescriptor {
     private Object2IntMap<String> primitiveFieldDataOffsets;
     /** Indices of non-primitive fields in the object fields array. */
     private Object2IntMap<String> objectFieldIndices;
+
+    private final List<ClassDescriptor> lineage;
 
     private final SpecialSerializationMethods serializationMethods;
 
@@ -102,6 +125,11 @@ public class ClassDescriptor {
         primitiveFieldsDataSize = computePrimitiveFieldsDataSize(fields);
         objectFieldsCount = computeObjectFieldsCount(fields);
 
+        fieldNullsBitmapSize = computeFieldNullsBitmapSize(fields);
+        fieldNullsBitmapIndices = computeFieldNullsBitmapIndices(fields);
+
+        lineage = computeLineage(this);
+
         serializationMethods = new SpecialSerializationMethodsImpl(this);
     }
 
@@ -119,6 +147,43 @@ public class ClassDescriptor {
         return (int) fields.stream()
                 .filter(fieldDesc -> !fieldDesc.isPrimitive())
                 .count();
+    }
+
+    private static int computeFieldNullsBitmapSize(List<FieldDescriptor> fields) {
+        int count = 0;
+        for (FieldDescriptor fieldDescriptor : fields) {
+            if (!fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront()) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static Object2IntMap<String> computeFieldNullsBitmapIndices(List<FieldDescriptor> fields) {
+        Object2IntMap<String> map = new Object2IntOpenHashMap<>();
+
+        int index = 0;
+        for (FieldDescriptor fieldDescriptor : fields) {
+            int indexToPut = !fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront() ? (index++) : -1;
+            map.put(fieldDescriptor.name(), indexToPut);
+        }
+
+        return Object2IntMaps.unmodifiable(map);
+    }
+
+    private static List<ClassDescriptor> computeLineage(ClassDescriptor descriptor) {
+        List<ClassDescriptor> descriptors = new ArrayList<>();
+
+        ClassDescriptor currentDesc = descriptor;
+        while (currentDesc != null) {
+            descriptors.add(currentDesc);
+            currentDesc = currentDesc.superClassDescriptor();
+        }
+
+        Collections.reverse(descriptors);
+
+        return List.copyOf(descriptors);
     }
 
     /**
@@ -366,6 +431,34 @@ public class ClassDescriptor {
     }
 
     /**
+     * Returns size of the nulls bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
+     * fields that have a type known upfront.
+     *
+     * @return size of the nulls bitmap for the described class
+     * @see #fieldIndexInNullsBitmap(String)
+     * @see #isRuntimeTypeKnownUpfront()
+     */
+    public int fieldIndexInNullsBitmapSize() {
+        return fieldNullsBitmapSize;
+    }
+
+    /**
+     * Returns index of a field in the nulls bitmap for the described class (if it's nullable and its type is known upfront),
+     * or -1 otherwise.
+     *
+     * @param fieldName name of the field
+     * @return index of a field in the nulls bitmap for the described class (if it's nullable and its type is known upfront),
+     *     or -1 otherwise
+     */
+    public int fieldIndexInNullsBitmap(String fieldName) {
+        if (!fieldNullsBitmapIndices.containsKey(fieldName)) {
+            throw new IllegalStateException("Unknown field " + fieldName);
+        }
+
+        return fieldNullsBitmapIndices.getInt(fieldName);
+    }
+
+    /**
      * Return offset into primitive fields data (which has size {@link #primitiveFieldsDataSize()}).
      * These are different from the offsets used in the context of {@link sun.misc.Unsafe}.
      *
@@ -420,7 +513,7 @@ public class ClassDescriptor {
             }
         }
 
-        return map;
+        return Object2IntMaps.unmodifiable(map);
     }
 
     /**
@@ -452,7 +545,47 @@ public class ClassDescriptor {
             }
         }
 
-        return map;
+        return Object2IntMaps.unmodifiable(map);
+    }
+
+    /**
+     * Returns the lineage (all the ancestors, from the progenitor (excluding Object) down the line, including this descriptor).
+     *
+     * @return ancestors from the progenitor (excluding Object) down the line, plus this descriptor
+     */
+    public List<ClassDescriptor> lineage() {
+        return lineage;
+    }
+
+    /**
+     * Returns {@code true} if the descriptor describes an enum class.
+     *
+     * @return {@code true} if the descriptor describes an enum class
+     */
+    public boolean isEnum() {
+        return Classes.isRuntimeEnum(clazz);
+    }
+
+    /**
+     * Returns {@code true} if the descriptor describes a String that is represented with Latin-1 internally.
+     * Needed to apply an optimization.
+     *
+     * @return {@code true} if the descriptor describes a String that is represented with Latin-1 internally
+     */
+    public boolean isLatin1String() {
+        return descriptorId == BuiltInType.STRING_LATIN1.descriptorId();
+    }
+
+    /**
+     * Returns {@code true} if a field (or array item) of the described class can only host (at runtime) instances of this type
+     * (and not subtypes), so the runtime marshalling type is known upfront. This is also true for enums, even though technically
+     * their values might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
+     *
+     * @return {@code true} if a field (or array item) of the described class can only host (at runtime) instances of the concrete type
+     *     that is known upfront
+     */
+    public boolean isRuntimeTypeKnownUpfront() {
+        return Classes.isRuntimeTypeKnownUpfront(clazz);
     }
 
     /** {@inheritDoc} */

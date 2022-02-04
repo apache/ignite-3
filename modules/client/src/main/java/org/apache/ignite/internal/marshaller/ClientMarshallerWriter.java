@@ -52,8 +52,7 @@ public class ClientMarshallerWriter implements MarshallerWriter {
     /** {@inheritDoc} */
     @Override
     public void writeAbsentValue() {
-        // TODO: Handle missing values and null values differently (IGNITE-16093).
-        packer.packNil();
+        packer.packNoValue();
     }
 
     /** {@inheritDoc} */

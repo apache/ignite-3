@@ -34,10 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InvalidObjectException;
@@ -50,7 +48,8 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -64,7 +63,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
-    private final IdIndexedDescriptors descriptors = new ContextBasedIdIndexedDescriptors(descriptorRegistry);
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
@@ -93,7 +91,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptors);
+        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
 
         assertThat(unmarshalled, is(notNullValue()));
 
@@ -126,7 +124,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     private byte[] readOverrideBytes(MarshalledObject marshalled) throws IOException {
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        IgniteDataInput dis = new IgniteUnsafeDataInput(marshalled.bytes());
 
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
@@ -145,7 +143,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
                 new ReadWriteSpec<>("double", oos -> oos.writeDouble(42.0), DataInput::readDouble, 42.0),
                 new ReadWriteSpec<>("char", oos -> oos.writeChar('a'), DataInput::readChar, 'a'),
                 new ReadWriteSpec<>("boolean", oos -> oos.writeBoolean(true), DataInput::readBoolean, true),
-                new ReadWriteSpec<>("stream byte", oos -> oos.write(42), ObjectInputStream::read, DataInputStream::read, 42),
+                new ReadWriteSpec<>("stream byte", oos -> oos.write(42), ObjectInputStream::read, IgniteDataInput::read, 42),
                 new ReadWriteSpec<>(
                         "byte array",
                         oos -> oos.write(new byte[]{42, 43}),
@@ -199,7 +197,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
                         "readAllBytes",
                         oos -> oos.write(new byte[]{42, 43}),
                         InputStream::readAllBytes,
-                        InputStream::readAllBytes,
+                        IgniteDataInput::readAllBytes,
                         new byte[]{42, 43}
                 ),
                 new ReadWriteSpec<>(
@@ -228,7 +226,23 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     @SuppressWarnings("SameParameterValue")
+    private static byte[] readBytes(IgniteDataInput is, int count) throws IOException {
+        byte[] bytes = new byte[count];
+        int read = is.read(bytes);
+        assertThat(read, is(count));
+        return bytes;
+    }
+
+    @SuppressWarnings("SameParameterValue")
     private static byte[] readRange(InputStream is, int count) throws IOException {
+        byte[] bytes = new byte[count];
+        int read = is.read(bytes, 0, count);
+        assertThat(read, is(count));
+        return bytes;
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static byte[] readRange(IgniteDataInput is, int count) throws IOException {
         byte[] bytes = new byte[count];
         int read = is.read(bytes, 0, count);
         assertThat(read, is(count));
@@ -255,12 +269,19 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
         return bytes;
     }
 
-    private static <T> T consumeAndUnmarshal(DataInputStream stream) throws IOException {
+    @SuppressWarnings("SameParameterValue")
+    private static byte[] readNumBytesRange(IgniteDataInput is, int count) throws IOException {
+        byte[] bytes = new byte[count];
+        is.readFewBytes(bytes, 0, count);
+        return bytes;
+    }
+
+    private static <T> T consumeAndUnmarshal(IgniteDataInput stream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        stream.transferTo(baos);
+        baos.write(stream.readAllBytes());
 
         try {
-            return staticMarshaller.unmarshal(baos.toByteArray(), new ContextBasedIdIndexedDescriptors(staticDescriptorRegistry));
+            return staticMarshaller.unmarshal(baos.toByteArray(), staticDescriptorRegistry);
         } catch (UnmarshalException e) {
             throw new RuntimeException("Unmarshalling failed", e);
         }
@@ -587,13 +608,13 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
         MarshalledObject marshalled = marshaller.marshal(original);
 
         byte[] overrideBytes = readOverrideBytes(marshalled);
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(overrideBytes));
+        var dis = new IgniteUnsafeDataInput(overrideBytes);
 
         assertThat(dis.readInt(), is(42));
         assertThatDrained(dis);
     }
 
-    private void assertThatDrained(DataInputStream dis) throws IOException {
+    private void assertThatDrained(InputStream dis) throws IOException {
         assertThat("Stream is not drained", dis.read(), is(lessThan(0)));
     }
 
@@ -632,7 +653,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     private interface DataReader<T> {
-        T readFrom(DataInputStream stream) throws IOException;
+        T readFrom(IgniteDataInput stream) throws IOException;
     }
 
     private interface InputReader<T> {
@@ -669,7 +690,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
         }
 
         private T parseOverrideValue(byte[] overrideBytes) throws IOException {
-            DataInputStream dis = new DataInputStream(new ByteArrayInputStream(overrideBytes));
+            IgniteDataInput dis = new IgniteUnsafeDataInput(overrideBytes);
             return dataReader.readFrom(dis);
         }
 

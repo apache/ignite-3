@@ -170,15 +170,15 @@ public class ExpandableByteBuf {
      * @throws CharacterCodingException If encoding failed.
      */
     public int putString(int off, String val, CharsetEncoder encoder) throws CharacterCodingException {
+        ensureCapacity(off);
+
+        buf.position(off);
+
         if (val.isEmpty()) {
             return 0;
         }
 
-        ensureCapacity(off);
-
         encoder.reset();
-
-        buf.position(off);
 
         try {
             CharBuffer valBuf = CharBuffer.wrap(val);

@@ -18,13 +18,12 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import static java.util.Collections.singletonList;
+import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.writeLength;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +34,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.network.serialization.Classes;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Utility to (un)marshal built-in collections and maps.
@@ -65,28 +67,70 @@ class BuiltInContainerMarshallers {
     /**
      * Used to write elements.
      */
-    private final ValueWriter<?> elementWriter;
+    private final TypedValueWriter typedWriter;
+    private final ValueWriter<Object> untypedWriter;
 
-    BuiltInContainerMarshallers(ValueWriter<?> elementWriter) {
-        this.elementWriter = elementWriter;
+    private final TypedValueReader typedReader;
+
+    BuiltInContainerMarshallers(TypedValueWriter typedWriter, TypedValueReader typedReader) {
+        this.typedWriter = typedWriter;
+        untypedWriter = (obj, out, ctx) -> typedWriter.write(obj, null, out, ctx);
+        this.typedReader = typedReader;
     }
 
-    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutputStream output, MarshallingContext context)
+    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
-        output.writeUTF(array.getClass().getComponentType().getName());
-        writeCollection(Arrays.asList(array), arrayDescriptor, output, context);
+        Class<?> componentType = array.getClass().getComponentType();
+
+        BuiltInMarshalling.writeClass(componentType, output);
+        writeLength(array.length, output);
+
+        if (array.length > 0 && Classes.isRuntimeTypeKnownUpfront(componentType)) {
+            BitSet nullsBitSet = new BitSet(array.length);
+
+            for (int i = 0; i < array.length; i++) {
+                if (array[i] == null) {
+                    nullsBitSet.set(i);
+                }
+            }
+
+            BuiltInMarshalling.writeBitSet(nullsBitSet, output);
+        }
+
+        for (Object object : array) {
+            typedWriter.write(object, componentType, output, context);
+        }
+
+        context.addUsedDescriptor(arrayDescriptor);
     }
 
     <T> T[] preInstantiateGenericRefArray(DataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
         return BuiltInMarshalling.preInstantiateGenericRefArray(input, context);
     }
 
-    <T> void fillGenericRefArray(DataInputStream input, T[] array, ValueReader<T> elementReader, UnmarshallingContext context)
+    @SuppressWarnings("unchecked")
+    <T> void fillGenericRefArrayFrom(IgniteDataInput input, T[] array, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        BuiltInMarshalling.fillGenericRefArrayFrom(input, array, elementReader, context);
+        if (array.length == 0) {
+            return;
+        }
+
+        if (Classes.isRuntimeTypeKnownUpfront(array.getClass().getComponentType())) {
+            BitSet nullsBitSet = BuiltInMarshalling.readBitSet(input);
+
+            for (int i = 0; i < array.length; i++) {
+                if (!nullsBitSet.get(i)) {
+                    array[i] = (T) typedReader.read(input, array.getClass().getComponentType(), context);
+                }
+            }
+        } else {
+            for (int i = 0; i < array.length; i++) {
+                array[i] = (T) typedReader.read(input, array.getClass().getComponentType(), context);
+            }
+        }
     }
 
-    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (supportsAsMutableBuiltInCollection(descriptor)) {
             writeCollection(object, descriptor, output, context);
@@ -112,20 +156,20 @@ class BuiltInContainerMarshallers {
     private void writeCollection(
             Collection<?> collection,
             ClassDescriptor collectionDescriptor,
-            DataOutputStream output,
+            IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        context.addUsedDescriptor(collectionDescriptor);
+        BuiltInMarshalling.writeCollection(collection, output, untypedWriter(), context);
 
-        BuiltInMarshalling.writeCollection(collection, output, valueWriter(), context);
+        context.addUsedDescriptor(collectionDescriptor);
     }
 
     @SuppressWarnings("unchecked")
-    private <T> ValueWriter<T> valueWriter() {
-        return (ValueWriter<T>) elementWriter;
+    private <T> ValueWriter<T> untypedWriter() {
+        return (ValueWriter<T>) untypedWriter;
     }
 
-    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, DataOutputStream output, MarshallingContext context)
+    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         assert list.size() == 1;
 
@@ -133,7 +177,7 @@ class BuiltInContainerMarshallers {
 
         context.addUsedDescriptor(listDescriptor);
 
-        valueWriter().write(element, output, context);
+        typedWriter.write(element, null, output, context);
     }
 
     @SuppressWarnings("unchecked")
@@ -175,7 +219,7 @@ class BuiltInContainerMarshallers {
     }
 
     <T, C extends Collection<T>> void fillBuiltInCollectionFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             C collection,
             ClassDescriptor collectionDescriptor,
             ValueReader<T> elementReader,
@@ -190,7 +234,7 @@ class BuiltInContainerMarshallers {
         BuiltInMarshalling.fillCollectionFrom(input, collection, elementReader, context);
     }
 
-    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         if (!supportsAsBuiltInMap(mapDescriptor)) {
             throw new IllegalStateException("Marshalling of " + mapDescriptor.clazz() + " is not supported, but it's marked as a built-in");
@@ -198,7 +242,7 @@ class BuiltInContainerMarshallers {
 
         context.addUsedDescriptor(mapDescriptor);
 
-        BuiltInMarshalling.writeMap(map, output, valueWriter(), valueWriter(), context);
+        BuiltInMarshalling.writeMap(map, output, untypedWriter(), untypedWriter(), context);
     }
 
     private boolean supportsAsBuiltInMap(ClassDescriptor mapDescriptor) {
@@ -233,7 +277,7 @@ class BuiltInContainerMarshallers {
     }
 
     <K, V, M extends Map<K, V>> void fillBuiltInMapFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,

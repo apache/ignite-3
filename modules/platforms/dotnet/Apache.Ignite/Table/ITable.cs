@@ -34,6 +34,9 @@ namespace Apache.Ignite.Table
 
         /// <summary>
         /// Gets the record view mapped to specified type <typeparamref name="T"/>.
+        /// <para />
+        /// Table columns will be mapped to properties or fields by name, ignoring case. Any fields are supported,
+        /// including private and readonly.
         /// </summary>
         /// <typeparam name="T">Record type.</typeparam>
         /// <returns>Record view.</returns>

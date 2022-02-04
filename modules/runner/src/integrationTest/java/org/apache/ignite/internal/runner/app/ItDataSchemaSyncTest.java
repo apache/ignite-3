@@ -154,7 +154,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             table.recordView().insert(
                     null,
                     Tuple.create()
-                            .set("key", Long.valueOf(i))
+                            .set("key", (long) i)
                             .set("valInt", i)
                             .set("valStr", "str_" + i)
             );
@@ -190,7 +190,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             table.recordView().insert(
                     null,
                     Tuple.create()
-                            .set("key", Long.valueOf(i))
+                            .set("key", (long) i)
                             .set("valInt", i)
                             .set("valStr", "str_" + i)
                             .set("valStr2", "str2_" + i)
@@ -201,19 +201,19 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 table1.recordView().insert(
                         null,
                         Tuple.create()
-                                .set("key", Long.valueOf(0))
+                                .set("key", 0L)
                                 .set("valInt", 0)
                                 .set("valStr", "str_" + 0)
                                 .set("valStr2", "str2_" + 0)
                 ));
 
         final CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
-            table1.recordView().get(null, Tuple.create().set("key", Long.valueOf(10)));
+            table1.recordView().get(null, Tuple.create().set("key", 10L));
         });
 
         final CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
             assertEquals("default",
-                    table1.recordView().get(null, Tuple.create().set("key", Long.valueOf(0)))
+                    table1.recordView().get(null, Tuple.create().set("key", 0L))
                             .value("valStr2"));
         });
 
@@ -233,7 +233,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             Table tableOnNode = node.tables().table(TABLE_NAME);
 
             for (int i = 0; i < 20; i++) {
-                Tuple row = tableOnNode.recordView().get(null, Tuple.create().set("key", Long.valueOf(i)));
+                Tuple row = tableOnNode.recordView().get(null, Tuple.create().set("key", (long) i));
 
                 assertNotNull(row);
 

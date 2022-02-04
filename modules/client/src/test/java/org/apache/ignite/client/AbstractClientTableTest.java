@@ -213,4 +213,11 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public BigDecimal zdecimal;
         public BigInteger znumber;
     }
+
+    /** Columns with default values. */
+    protected static class DefaultValuesPojo {
+        public int id;
+        public String str;
+        public String strNonNull;
+    }
 }

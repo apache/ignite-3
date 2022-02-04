@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,5 +56,27 @@ class IgniteUtilsTest {
         assertThat(e.getSuppressed(), arrayWithSize(2));
 
         closeables.forEach(c -> assertTrue(c.closed));
+    }
+
+    @Test
+    public void testIsPow2() {
+        assertTrue(isPow2(1));
+        assertTrue(isPow2(2));
+        assertTrue(isPow2(4));
+        assertTrue(isPow2(8));
+        assertTrue(isPow2(16));
+        assertTrue(isPow2(16 * 16));
+        assertTrue(isPow2(32 * 32));
+
+        assertFalse(isPow2(-4));
+        assertFalse(isPow2(-3));
+        assertFalse(isPow2(-2));
+        assertFalse(isPow2(-1));
+        assertFalse(isPow2(0));
+        assertFalse(isPow2(3));
+        assertFalse(isPow2(5));
+        assertFalse(isPow2(6));
+        assertFalse(isPow2(7));
+        assertFalse(isPow2(9));
     }
 }

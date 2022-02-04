@@ -17,27 +17,26 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.NotActiveException;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Context of unmarshalling act. Created once per unmarshalling a root object.
  */
-class UnmarshallingContext implements IdIndexedDescriptors {
-    private final ByteArrayInputStream source;
-    private final IdIndexedDescriptors descriptors;
+class UnmarshallingContext implements DescriptorRegistry {
+    private final IgniteDataInput source;
+    private final DescriptorRegistry descriptors;
     private final ClassLoader classLoader;
 
-    private final Map<Integer, Object> idsToObjects = new HashMap<>();
+    private final Int2ObjectMap<Object> idsToObjects = new Int2ObjectOpenHashMap<>();
     private final IntSet unsharedObjectIds = new IntOpenHashSet();
 
     private Object objectCurrentlyReadWithReadObject;
@@ -45,7 +44,7 @@ class UnmarshallingContext implements IdIndexedDescriptors {
 
     private UosObjectInputStream objectInputStream;
 
-    public UnmarshallingContext(ByteArrayInputStream source, IdIndexedDescriptors descriptors, ClassLoader classLoader) {
+    public UnmarshallingContext(IgniteDataInput source, DescriptorRegistry descriptors, ClassLoader classLoader) {
         this.source = source;
         this.descriptors = descriptors;
         this.classLoader = classLoader;
@@ -53,8 +52,30 @@ class UnmarshallingContext implements IdIndexedDescriptors {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable ClassDescriptor getDescriptor(int descriptorId) {
+    @Nullable
+    public ClassDescriptor getDescriptor(int descriptorId) {
         return descriptors.getDescriptor(descriptorId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Nullable
+    public ClassDescriptor getDescriptor(Class<?> clazz) {
+        return descriptors.getDescriptor(clazz);
+    }
+
+    public ClassDescriptor resolveDescriptorOfDeclaredClass(Class<?> declaredClass) throws UnmarshalException {
+        if (declaredClass == null) {
+            throw new UnmarshalException("NOT_NULL marker encountered, but we are not reading a field value");
+        }
+
+        ClassDescriptor descriptor = DescriptorResolver.resolveDescriptor(declaredClass, this);
+
+        if (descriptor == null) {
+            throw new UnmarshalException("Did not find a descriptor for " + declaredClass);
+        }
+
+        return descriptor;
     }
 
     public ClassLoader classLoader() {
@@ -66,6 +87,10 @@ class UnmarshallingContext implements IdIndexedDescriptors {
         if (unshared) {
             unsharedObjectIds.add(objectId);
         }
+    }
+
+    public boolean isKnownObjectId(int objectId) {
+        return idsToObjects.containsKey(objectId);
     }
 
     @SuppressWarnings("unchecked")
@@ -87,7 +112,7 @@ class UnmarshallingContext implements IdIndexedDescriptors {
         source.mark(readAheadLimit);
     }
 
-    public void resetSourceToMark() {
+    public void resetSourceToMark() throws IOException {
         source.reset();
     }
 
@@ -118,9 +143,9 @@ class UnmarshallingContext implements IdIndexedDescriptors {
     }
 
     UosObjectInputStream objectInputStream(
-            DataInputStream input,
-            ValueReader<Object> valueReader,
-            ValueReader<Object> unsharedReader,
+            IgniteDataInput input,
+            TypedValueReader valueReader,
+            TypedValueReader unsharedReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter
     ) throws IOException {
         if (objectInputStream == null) {

@@ -26,7 +26,6 @@ import java.math.BigInteger;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.lang.IgniteUuid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -181,14 +180,6 @@ public class ClientMessageUnpackerTest {
         testUnpacker(p -> p.writePayload(b, 1, 1), p -> p.readPayload(1), new byte[]{5});
     }
 
-    @ParameterizedTest
-    @ValueSource(longs = {0, 1, 255, 256, 65535, 65536, Integer.MAX_VALUE, Long.MAX_VALUE, Long.MIN_VALUE, Integer.MIN_VALUE})
-    public void testUnpackIgniteUuid(long l) {
-        IgniteUuid id = new IgniteUuid(UUID.randomUUID(), l);
-
-        testUnpacker(p -> p.packIgniteUuid(id), ClientMessageUnpacker::unpackIgniteUuid, id);
-    }
-
     @Test
     public void testSkipValues() {
         testUnpacker(p -> {
@@ -199,9 +190,9 @@ public class ClientMessageUnpackerTest {
             p.packString("x");
             p.packNil();
             p.packUuid(UUID.randomUUID());
-            p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), 123));
+            p.packLong(123);
             p.packUuid(UUID.randomUUID());
-            p.packIgniteUuid(new IgniteUuid(UUID.randomUUID(), UUID.randomUUID().getLeastSignificantBits()));
+            p.packLong(UUID.randomUUID().getLeastSignificantBits());
 
             p.packDouble(1.1);
             p.packDouble(2.2);

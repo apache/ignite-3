@@ -20,6 +20,7 @@ package org.apache.ignite.distributed;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
@@ -99,8 +99,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         var table = new InternalTableImpl(
                 "table",
-                new IgniteUuid(UUID.randomUUID(), 0),
-                Map.of(0, service),
+                UUID.randomUUID(),
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
                 txManager,
@@ -121,8 +121,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         var table = new InternalTableImpl(
                 "table",
-                new IgniteUuid(UUID.randomUUID(), 0),
-                Map.of(0, service),
+                UUID.randomUUID(),
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
                 txManager,
@@ -149,8 +149,8 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
         var table = new InternalTableImpl(
                 "table",
-                new IgniteUuid(UUID.randomUUID(), 0),
-                Map.of(0, service),
+                UUID.randomUUID(),
+                Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
                 txManager,
@@ -202,7 +202,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     txManager.start(); // Init listener.
 
                     PartitionListener listener = new PartitionListener(
-                            new IgniteUuid(UUID.randomUUID(), 0),
+                            UUID.randomUUID(),
                             new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
 
                     paths.put(listener, workDir);

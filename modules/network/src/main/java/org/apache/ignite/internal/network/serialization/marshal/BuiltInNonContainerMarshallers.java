@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.BitSet;
@@ -30,6 +28,8 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.Null;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.lang.IgniteUuid;
 
 /**
@@ -62,11 +62,7 @@ class BuiltInNonContainerMarshallers {
         addSingle(map, double[].class, BuiltInMarshalling::writeDoubleArray, BuiltInMarshalling::readDoubleArray);
         addSingle(map, boolean[].class, BuiltInMarshalling::writeBooleanArray, BuiltInMarshalling::readBooleanArray);
         addSingle(map, char[].class, BuiltInMarshalling::writeCharArray, BuiltInMarshalling::readCharArray);
-        addSingle(map, String[].class, BuiltInMarshalling::writeStringArray, BuiltInMarshalling::readStringArray);
         addSingle(map, BigDecimal.class, BuiltInMarshalling::writeBigDecimal, BuiltInMarshalling::readBigDecimal);
-        addSingle(map, BigDecimal[].class, BuiltInMarshalling::writeBigDecimalArray, BuiltInMarshalling::readBigDecimalArray);
-        addSingle(map, Enum.class, (obj, out, ctx) -> BuiltInMarshalling.writeEnum(obj, out), BuiltInMarshalling::readEnum);
-        addSingle(map, Enum[].class, BuiltInMarshalling::writeEnumArray, BuiltInMarshalling::readEnumArray);
         addSingle(map, BitSet.class, BuiltInMarshalling::writeBitSet, BuiltInMarshalling::readBitSet);
         addSingle(map, Null.class, (obj, output) -> {}, input -> null);
         addSingle(map, Class.class, (obj, out, ctx) -> BuiltInMarshalling.writeClass(obj, out), BuiltInMarshalling::readClass);
@@ -122,26 +118,58 @@ class BuiltInNonContainerMarshallers {
     /**
      * Returns {@code true} if the given descriptor is a built-in we can handle.
      *
-     * @param classToCheck the class to check
+     * @param descriptor class descriptor to check
      * @return {@code true} if we the given descriptor is a built-in we can handle
      */
-    boolean supports(Class<?> classToCheck) {
-        return builtInMarshallers.containsKey(classToCheck);
+    boolean supports(ClassDescriptor descriptor) {
+        return descriptor.isEnum() || descriptor.isLatin1String()
+                || builtInMarshallers.containsKey(descriptor.clazz());
     }
 
-    void writeBuiltIn(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltIn(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
-        BuiltInMarshaller<?> builtInMarshaller = findBuiltInMarshaller(descriptor);
-
-        builtInMarshaller.marshal(object, output, context);
+        actuallyWrite(object, descriptor, output, context);
 
         context.addUsedDescriptor(descriptor);
     }
 
-    Object readBuiltIn(ClassDescriptor descriptor, DataInputStream input, UnmarshallingContext context)
+    private void actuallyWrite(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
+            throws IOException, MarshalException {
+        if (descriptor.isLatin1String()) {
+            BuiltInMarshalling.writeLatin1String((String) object, output);
+            return;
+        }
+        if (descriptor.isEnum()) {
+            BuiltInMarshalling.writeEnum((Enum<?>) object, output);
+            return;
+        }
+
+        writeWithBuiltInMarshaller(object, descriptor, output, context);
+    }
+
+    private void writeWithBuiltInMarshaller(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
+            throws IOException, MarshalException {
+        BuiltInMarshaller<?> builtInMarshaller = findBuiltInMarshaller(descriptor);
+
+        builtInMarshaller.marshal(object, output, context);
+    }
+
+    Object readBuiltIn(ClassDescriptor descriptor, IgniteDataInput input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
+        if (descriptor.isLatin1String()) {
+            return BuiltInMarshalling.readLatin1String(input);
+        }
+        if (descriptor.isEnum()) {
+            return readEnum(descriptor, input);
+        }
+
         BuiltInMarshaller<?> builtinMarshaller = findBuiltInMarshaller(descriptor);
         return builtinMarshaller.unmarshal(input, context);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object readEnum(ClassDescriptor descriptor, DataInput input) throws IOException {
+        return BuiltInMarshalling.readEnum(input, (Class<? extends Enum>) descriptor.clazz());
     }
 
     private BuiltInMarshaller<?> findBuiltInMarshaller(ClassDescriptor descriptor) {
@@ -163,11 +191,11 @@ class BuiltInNonContainerMarshallers {
             this.reader = reader;
         }
 
-        private void marshal(Object object, DataOutputStream output, MarshallingContext context) throws IOException, MarshalException {
+        private void marshal(Object object, IgniteDataOutput output, MarshallingContext context) throws IOException, MarshalException {
             writer.write(valueRefClass.cast(object), output, context);
         }
 
-        private Object unmarshal(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        private Object unmarshal(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
             return reader.read(input, context);
         }
     }
@@ -181,7 +209,7 @@ class BuiltInNonContainerMarshallers {
          * @throws IOException      if an I/O problem occurs
          * @throws MarshalException if another problem occurs
          */
-        void write(T value, DataOutput output) throws IOException, MarshalException;
+        void write(T value, IgniteDataOutput output) throws IOException, MarshalException;
     }
 
 
@@ -194,6 +222,6 @@ class BuiltInNonContainerMarshallers {
          * @throws IOException          if an I/O problem occurs
          * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
          */
-        T read(DataInput input) throws IOException, UnmarshalException;
+        T read(IgniteDataInput input) throws IOException, UnmarshalException;
     }
 }
