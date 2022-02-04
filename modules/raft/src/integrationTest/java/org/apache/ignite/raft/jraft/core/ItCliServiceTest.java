@@ -139,8 +139,6 @@ public class ItCliServiceTest {
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {
-                IgniteUtils.dumpStack(LOG, "Shutdown the clietn!");
-
                 super.shutdown();
 
                 clientSvc.stop();
@@ -275,7 +273,7 @@ public class ItCliServiceTest {
     }
 
     @Test
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15157")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15157")
     public void testAddPeerRemovePeer() throws Exception {
         PeerId peer3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3);
         assertTrue(cluster.start(peer3.getEndpoint()));
