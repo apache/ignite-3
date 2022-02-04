@@ -854,6 +854,49 @@
                 </plugins>
             </build>
         </profile>
+
+        <!--
+            This profile is used to check the code for legacy API.
+
+            It runs by default and can be skipped with either
+            -Dmaven.chechstyle.skip or -Dmodernize.skip flag.
+        -->
+        <profile>
+            <id>modernizer</id>
+            <activation>
+                <property>
+                    <name>!maven.all-checks.skip</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.gaul</groupId>
+                        <artifactId>modernizer-maven-plugin</artifactId>
+                        <configuration>
+                            <javaVersion>${maven.compiler.source}</javaVersion>
+                            <!-- Augment the standard rule set with our rules -->
+                            <violationsFiles>
+                                <violationFile>check-rules/modernizer-rules.xml</violationFile>
+                            </violationsFiles>
+                            <ignorePackages>
+                                <package>org.apache.ignite.internal.sql.engine</package>
+                                <package>org.apache.ignite.internal.generated</package>
+                            </ignorePackages>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>modernizer</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>modernizer</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <build>
@@ -1336,32 +1379,6 @@
                             </manualIncludes>
                             <verbose>true</verbose>
                         </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <configuration>
-                    <javaVersion>${maven.compiler.source}</javaVersion>
-                    <!-- Augment the standard rule set with our rules -->
-                    <violationsFiles>
-                        <violationFile>check-rules/modernizer-rules.xml</violationFile>
-                    </violationsFiles>
-
-                    <ignorePackages>
-                        <package>org.apache.ignite.internal.sql.engine</package>
-                        <package>org.apache.ignite.internal.generated</package>
-                    </ignorePackages>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>modernizer</id>
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>modernizer</goal>
-                        </goals>
                     </execution>
                 </executions>
             </plugin>
