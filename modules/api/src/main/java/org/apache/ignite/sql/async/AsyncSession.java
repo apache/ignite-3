@@ -33,7 +33,7 @@ public interface AsyncSession {
     int DEFAULT_PAGE_SIZE = 1024;
 
     /**
-     * Executes SQL query in async way.
+     * Executes SQL query in an asynchronous way.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
      * @param query SQL query template.
@@ -45,7 +45,7 @@ public interface AsyncSession {
             @Nullable Object... arguments);
 
     /**
-     * Executes SQL statement in async way.
+     * Executes SQL statement in an asynchronous way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
@@ -55,7 +55,7 @@ public interface AsyncSession {
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull Statement statement);
 
     /**
-     * Executes batched SQL query in async way.
+     * Executes batched SQL query in an asynchronous way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param query SQL query template.
@@ -70,7 +70,7 @@ public interface AsyncSession {
     );
 
     /**
-     * Executes batched SQL query in async way.
+     * Executes batched SQL query in an asynchronous way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
@@ -85,7 +85,7 @@ public interface AsyncSession {
     );
 
     /**
-     * Sets default page size for async queries.
+     * Sets default page size for asynchronous queries.
      *
      * @param pageSize Maximal number of rows in a page.
      * @return {@code this} for chaining.
@@ -93,7 +93,7 @@ public interface AsyncSession {
     AsyncSession pageSize(int pageSize);
 
     /**
-     * Returns default page size for async queries.
+     * Returns default page size for asynchronous queries.
      *
      * <p>Default value is {@link #DEFAULT_PAGE_SIZE}.
      *

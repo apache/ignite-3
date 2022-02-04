@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface ReactiveSession {
     /**
-     * Executes SQL query in reactive way.
+     * Executes SQL query in a reactive way.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
      * @param query SQL query template.
@@ -42,7 +42,7 @@ public interface ReactiveSession {
             @Nullable Object... arguments);
 
     /**
-     * Executes SQL query in reactive way.
+     * Executes SQL query in a reactive way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement.
@@ -52,7 +52,7 @@ public interface ReactiveSession {
     ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull Statement statement);
 
     /**
-     * Executes batched SQL query in reactive way.
+     * Executes batched SQL query in a reactive way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param query SQL query template.
@@ -67,7 +67,7 @@ public interface ReactiveSession {
     );
 
     /**
-     * Executes batched SQL query in reactive way.
+     * Executes batched SQL query in a reactive way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
