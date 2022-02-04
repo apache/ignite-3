@@ -230,7 +230,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
                                 IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
-                        // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
+                        // TODO: IGNITE-16369 Listener with any placeholder should be used instead.
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
                                 .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override

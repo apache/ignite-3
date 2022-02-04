@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationNotifier;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -163,16 +164,14 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
     }
 
     /**
-     * Touches current Dynamic Configuration node. Currently this method makes sense for {@link NamedListConfiguration} class only, but this
-     * will be changed in <a href="https://issues.apache.org/jira/browse/IGNITE-14645">IGNITE-14645
-     * </a>.
+     * Touches current Dynamic Configuration node. Currently, this method makes sense for {@link NamedListConfiguration} class only.
      * Method is invoked on configuration initialization and on every configuration update, even those that don't affect current node. Its
      * goal is to have a fine control over sub-nodes of the configuration. Accessor methods on the Dynamic Configuration nodes can be called
      * at any time and have to return up-to-date value. This means that one can read updated configuration value before notification
      * listeners have been invoked on it. At that point, for example, deleted named list elements disappear from the object and cannot be
      * accessed with a regular API. The only way to access them is to have a cached copy of all elements (members). This method does exactly
      * that. It returns cached copy of members and then sets it to a new, maybe different, set of members. No one except for {@link
-     * ConfigurationNotificationsUtil} should ever call this method.
+     * ConfigurationNotifier} should ever call this method.
      *
      * @return Members map associated with "previous" node state.
      */
