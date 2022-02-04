@@ -218,9 +218,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
-        private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
 
@@ -232,9 +230,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -255,9 +251,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -278,9 +272,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -303,9 +295,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
-        private AbstractIndexEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private AbstractIndexEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
 
@@ -317,9 +307,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class IndexCreatedListener extends AbstractIndexEventListener {
-        private IndexCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private IndexCreatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
@@ -341,9 +329,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class IndexDroppedListener extends AbstractIndexEventListener {
-        private IndexDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private IndexDroppedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
