@@ -47,19 +47,19 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      */
     @BeforeAll
     static void initTestData() {
-        //Table emp1 = createTable("EMP1");
+        Table emp1 = createTable("EMP1");
         Table emp2 = createTable("EMP2");
 
         int idx = 0;
-//        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
-//                {idx++, "Igor", 10d},
-//                {idx++, "Igor", 11d},
-//                {idx++, "Igor", 12d},
-//                {idx++, "Igor1", 13d},
-//                {idx++, "Igor1", 13d},
-//                {idx++, "Igor1", 13d},
-//                {idx, "Roman", 14d}
-//        });
+        insertData(emp1, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
+                {idx++, "Igor", 10d},
+                {idx++, "Igor", 11d},
+                {idx++, "Igor", 12d},
+                {idx++, "Igor1", 13d},
+                {idx++, "Igor1", 13d},
+                {idx++, "Igor1", 13d},
+                {idx, "Roman", 14d}
+        });
 
         idx = 0;
         insertData(emp2, new String[]{"ID", "NAME", "SALARY"}, new Object[][]{
@@ -101,7 +101,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     /** Tests varchar min\max aggregates. */
     @Test
-    @Disabled
     public void testVarCharMinMax() {
         sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
@@ -111,7 +110,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(Arrays.asList("щщ", "Б"), first(rows));
     }
 
-    @RepeatedTest(1000)
+    @Test
     public void testOrderingByColumnOutsideSelectList() {
         assertQuery("select salary from emp2 order by id desc")
                 .returns(13d)
@@ -121,15 +120,14 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
                 .returns(11d)
                 .returns(10d)
                 .check();
-//
-//        assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
-//                .returns("Roman", 46d)
-//                .returns("Igor1", 26d)
-//                .check();
+
+        assertQuery("select name, sum(salary) from emp2 group by name order by count(salary)")
+                .returns("Roman", 46d)
+                .returns("Igor1", 26d)
+                .check();
     }
 
     @Test
-    @Disabled
     public void testEqConditionWithDistinctSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT DISTINCT(salary) FROM emp2 WHERE name='Igor1')");
@@ -138,7 +136,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testEqConditionWithAggregateSubqueryMax() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MAX(salary) FROM emp2 WHERE name='Roman')");
@@ -147,7 +144,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testEqConditionWithAggregateSubqueryMin() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MIN(salary) FROM emp2 WHERE name='Roman')");
@@ -156,7 +152,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testInConditionWithSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE name IN (SELECT name FROM emp2)");
@@ -165,7 +160,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testDistinctQueryWithInConditionWithSubquery() {
         List<List<?>> rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
                 + "   SELECT name"
@@ -175,7 +169,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testNotInConditionWithSubquery() {
         List<List<?>> rows = sql(
                 "SELECT name FROM emp1 WHERE name NOT IN (SELECT name FROM emp2)");
@@ -184,7 +177,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testExistsConditionWithSubquery() {
         List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
                 + "   SELECT 1"
@@ -195,7 +187,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
-    @Disabled
     public void testNotExistsConditionWithSubquery() {
         List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
                 + "   SELECT 1"
@@ -234,7 +225,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
-    @Disabled
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -272,7 +262,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     /** Quantified predicates test. */
     @Test
-    @Disabled
     public void quantifiedCompTest() throws InterruptedException {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
                 .returns(11d)
@@ -308,7 +297,6 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Checks bang equal is allowed and works.
      */
     @Test
-    @Disabled
     public void testBangEqual() {
         assertEquals(4, sql("SELECT * FROM EMP1 WHERE name != ?", "Igor").size());
     }
@@ -399,8 +387,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
-                        .changePartitions(1)
+                        .changeReplicas(1)
+                        .changePartitions(10)
         );
     }
 }
