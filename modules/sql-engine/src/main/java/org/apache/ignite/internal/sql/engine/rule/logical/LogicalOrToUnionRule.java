@@ -28,7 +28,6 @@ import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -43,11 +42,13 @@ import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.immutables.value.Value;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts OR to UNION ALL.
  */
+@Value.Enclosing
 public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     /** Instance. */
     public static final RelOptRule INSTANCE = new LogicalOrToUnionRule(Config.SCAN);
@@ -191,17 +192,14 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
      * Config interface.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public interface Config extends RelRule.Config {
-        Config DEFAULT = RelRule.Config.EMPTY
-                .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
-                .as(Config.class);
-
-        Config SCAN = DEFAULT
+    @Value.Immutable(singleton = false)
+    public interface Config extends RuleFactoryConfig<Config> {
+        Config SCAN = ImmutableLogicalOrToUnionRule.Config.builder()
+                .withRuleFactory(LogicalOrToUnionRule::new)
                 .withDescription("ScanLogicalOrToUnionRule")
                 .withOperandSupplier(o -> o.operand(IgniteLogicalTableScan.class)
                         .predicate(scan -> scan.condition() != null)
-                        .noInputs()
-                )
-                .as(Config.class);
+                        .noInputs())
+                .build();
     }
 }

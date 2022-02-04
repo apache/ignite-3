@@ -291,11 +291,21 @@
                     </dependency>
                 </dependencies>
                 <configuration>
+                    <!--
+                    <compilerArgs>
+                        <arg>-verbose</arg> <arg>-XprintRounds</arg> <arg>-XprintProcessorInfo</arg> <arg>-Xlint</arg> <arg>-J-verbose</arg>
+                    </compilerArgs>
+                    -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.apache.ignite</groupId>
                             <artifactId>ignite-network-annotation-processor</artifactId>
                             <version>${project.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.immutables</groupId>
+                            <artifactId>value-annotations</artifactId>
+                            <version>${immutables.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
