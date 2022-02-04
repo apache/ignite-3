@@ -27,7 +27,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.index.ColumnCollation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -106,18 +105,18 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(lowerBound);
         assertEquals(3, lowerBound.size());
 
-        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+        assertNull(lowerBound.get(0));
         assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
+        assertNull(lowerBound.get(2));
 
         List<RexNode> upperBound = idxSpool.indexCondition().upperBound();
 
         assertNotNull(upperBound);
         assertEquals(3, upperBound.size());
 
-        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
-        assertTrue(((RexLiteral) upperBound.get(2)).isNull());
+        assertNull(upperBound.get(0));
         assertTrue(upperBound.get(1) instanceof RexFieldAccess);
+        assertNull(upperBound.get(2));
     }
 
     /**
@@ -183,20 +182,20 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
         assertNotNull(lowerBound);
         assertEquals(4, lowerBound.size());
 
-        assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
+        assertNull(lowerBound.get(0));
         assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
+        assertNull(lowerBound.get(2));
+        assertNull(lowerBound.get(3));
 
         List<RexNode> upperBound = idxSpool.indexCondition().upperBound();
 
         assertNotNull(upperBound);
         assertEquals(4, upperBound.size());
 
-        assertTrue(((RexLiteral) upperBound.get(0)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
-        assertTrue(((RexLiteral) lowerBound.get(3)).isNull());
+        assertNull(upperBound.get(0));
         assertTrue(upperBound.get(1) instanceof RexFieldAccess);
+        assertNull(lowerBound.get(2));
+        assertNull(lowerBound.get(3));
     }
 
     /**
@@ -228,9 +227,9 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                                     assertNotNull(lowerBound);
                                     assertEquals(3, lowerBound.size());
 
-                                    assertTrue(((RexLiteral) lowerBound.get(0)).isNull());
+                                    assertNull(lowerBound.get(0));
                                     assertTrue(lowerBound.get(1) instanceof RexFieldAccess);
-                                    assertTrue(((RexLiteral) lowerBound.get(2)).isNull());
+                                    assertNull(lowerBound.get(2));
 
                                     List<RexNode> upperBound = spool.indexCondition().upperBound();
 

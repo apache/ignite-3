@@ -21,7 +21,9 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -119,22 +122,57 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
                     testFilter.delegate = param.pred;
                     System.arraycopy(param.bounds, 0, searchRow, 0, searchRow.length);
 
-                    int cnt = 0;
-
-                    while (root.hasNext()) {
-                        root.next();
-
-                        cnt++;
-                    }
-
-                    assertEquals(param.expectedResultSize, cnt, "Invalid result size");
-
-                    root.rewind();
+                    assertEquals(param.expectedResultSize, root.rowsCount(), "Invalid result size");
                 }
 
                 root.closeRewindableRoot();
             }
         }
+    }
+
+    /** */
+    @Test
+    public void testNullsInSearchRow() {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+        RelDataType rowType = TypeUtils.createRowType(ctx.getTypeFactory(), int.class, int.class);
+
+        ScanNode<Object[]> scan = new ScanNode<>(ctx, rowType, new TestTable(
+                4,
+                rowType,
+                (rowId) -> (rowId & 1) == 0 ? null : 1,
+                (rowId) -> (rowId & 2) == 0 ? null : 1
+        ));
+
+        Object[] searchRow = new Object[2];
+
+        IndexSpoolNode<Object[]> spool = IndexSpoolNode.createHashSpool(
+                ctx,
+                rowType,
+                ImmutableBitSet.of(0, 1),
+                null,
+                () -> searchRow
+        );
+
+        spool.register(scan);
+
+        RootRewindable<Object[]> root = new RootRewindable<>(ctx, rowType);
+
+        root.register(spool);
+
+        List<Pair<Object[], Integer>> testBounds = Arrays.asList(
+                new Pair<>(new Object[] {null, null}, 0),
+                new Pair<>(new Object[] {1, null}, 0),
+                new Pair<>(new Object[] {null, 1}, 0),
+                new Pair<>(new Object[] {1, 1}, 1)
+        );
+
+        for (Pair<Object[], Integer> bound : testBounds) {
+            System.arraycopy(bound.getFirst(), 0, searchRow, 0, searchRow.length);
+
+            assertEquals((int)bound.getSecond(), root.rowsCount(), "Invalid result size");
+        }
+
+        root.closeRewindableRoot();
     }
 
     static class TestPredicate implements Predicate<Object[]> {

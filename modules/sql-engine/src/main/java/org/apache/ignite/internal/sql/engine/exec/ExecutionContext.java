@@ -52,6 +52,9 @@ import org.jetbrains.annotations.Nullable;
  * Runtime context allowing access to the tables in a database.
  */
 public class ExecutionContext<RowT> extends AbstractQueryContext implements DataContext {
+    /** Placeholder for values, which expressions is not specified. */
+    private static final Object UNSPECIFIED_VALUE = new Object();
+
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
 
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
@@ -362,6 +365,11 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    /** */
+    public Object unspecifiedValue() {
+        return UNSPECIFIED_VALUE;
     }
 
     /** {@inheritDoc} */

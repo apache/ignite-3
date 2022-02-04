@@ -302,6 +302,21 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
             // No-op
         }
 
+        /** */
+        public int rowsCount() {
+            int cnt = 0;
+
+            while (hasNext()) {
+                next();
+
+                cnt++;
+            }
+
+            rewind();
+
+            return cnt;
+        }
+
         /**
          * CloseRewindableRoot.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859

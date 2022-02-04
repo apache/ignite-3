@@ -323,7 +323,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
             Object val = hnd.get(colDesc.logicalIndex(), row);
 
-            if (val != null) {
+            if (val != ectx.unspecifiedValue()) {
                 if (colDesc.key()) {
                     nonNullVarlenKeyCols++;
                 } else {
@@ -450,7 +450,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
             Object val = hnd.get(colDesc.logicalIndex(), row);
 
-            if (val != null) {
+            if (val != ectx.unspecifiedValue()) {
                 nonNullVarlenKeyCols++;
             }
         }
