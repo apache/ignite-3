@@ -213,11 +213,12 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         /** {@inheritDoc} */
         @Override
         protected RowT row2indexRow(RowT bound) {
-            RowT rowBound  = ectx.rowHandler().factory(Commons.typeFactory(), rowType).create();
+            RowHandler<RowT> hndl = ectx.rowHandler();
+            RowT rowBound  = hndl.factory(Commons.typeFactory(), rowType).create();
 
             ImmutableIntList keys = collation.getKeys();
             for (int i = 0; i < keys.size(); ++i) {
-                ectx.rowHandler().set(keys.get(i), rowBound, ectx.rowHandler().get(i, bound));
+                hndl.set(keys.get(i), rowBound, hndl.get(i, bound));
             }
 
             return rowBound;
