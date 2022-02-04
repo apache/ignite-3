@@ -165,7 +165,6 @@ public class ClientSchema {
         for (int i = 0; i < colCount; i++) {
             var col = columns[i  + firstColIdx];
 
-            // TODO: Pass default value supplier that indicates "no value" (IGNITE-16093).
             cols[i] = new MarshallerColumn(col.name(), mode(col.type()));
         }
 

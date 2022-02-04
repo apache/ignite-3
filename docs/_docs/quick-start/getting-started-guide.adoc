@@ -135,10 +135,7 @@ ignite init --help
 
 Ignite CLI allows to install Ignite modules and 3rd party Maven dependencies.
 
-WARNING:
-----
-If you have installed one of the Ignite 3 Alpha releases before, please remove the `~/.ignitecfg` file before proceeding. This is a temporary step, the procedure will be improved in the future releases.
-----
+WARNING: If you have installed one of the Ignite 3 Alpha releases before, please remove the `~/.ignitecfg` file before proceeding. This is a temporary step, the procedure will be improved in the future releases.
 
 . To start an Ignite 3.0 Alpha 4 cluster, you need to install Ignite core artifacts first:
 +

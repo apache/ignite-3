@@ -36,7 +36,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly ClientFailoverSocket _socket;
 
         /** Table id. */
-        private readonly IgniteUuid _id;
+        private readonly Guid _id;
 
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
@@ -56,7 +56,7 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="name">Table name.</param>
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
-        public Table(string name, IgniteUuid id, ClientFailoverSocket socket)
+        public Table(string name, Guid id, ClientFailoverSocket socket)
         {
             _socket = socket;
             Name = name;

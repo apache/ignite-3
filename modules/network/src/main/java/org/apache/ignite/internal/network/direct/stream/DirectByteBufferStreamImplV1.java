@@ -1380,7 +1380,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     MarshalledObject res = serializationService.writeMarshallable(object);
                     marshallable = res.bytes();
                     // Get descriptors that were not previously sent to the remote node
-                    descriptors = serializationService.createClassDescriptorsMessages(res.usedDescriptors());
+                    descriptors = serializationService.createClassDescriptorsMessages(res.usedDescriptorIds());
                 }
 
                 writeCollection(descriptors, MessageCollectionItemType.MSG, writer);

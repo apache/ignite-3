@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.util.Arrays;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.Objects;
-import java.util.Set;
-import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 
 /**
  * Represents a marshalled object: the marshalled representation with information about how it was marshalled
@@ -30,21 +28,21 @@ public class MarshalledObject {
     /** Marshalled object representation. */
     private final byte[] bytes;
 
-    /** The descriptors that were used while marshalling the object. */
-    private final Set<ClassDescriptor> usedDescriptors;
+    /** IDs of the descriptors that were used while marshalling the object. */
+    private final IntSet usedDescriptorIds;
 
     /**
      * Creates a new {@link MarshalledObject}.
      *
      * @param bytes           marshalled representation bytes
-     * @param usedDescriptors the descriptors that were used to marshal the object
+     * @param usedDescriptorIds the descriptors that were used to marshal the object
      */
-    public MarshalledObject(byte[] bytes, Set<ClassDescriptor> usedDescriptors) {
+    public MarshalledObject(byte[] bytes, IntSet usedDescriptorIds) {
         Objects.requireNonNull(bytes, "bytes is null");
-        Objects.requireNonNull(usedDescriptors, "usedDescriptors is null");
+        Objects.requireNonNull(usedDescriptorIds, "usedDescriptorIds is null");
 
-        this.bytes = Arrays.copyOf(bytes, bytes.length);
-        this.usedDescriptors = Set.copyOf(usedDescriptors);
+        this.bytes = bytes;
+        this.usedDescriptorIds = usedDescriptorIds;
     }
 
     /**
@@ -53,15 +51,15 @@ public class MarshalledObject {
      * @return marshalled object representation
      */
     public byte[] bytes() {
-        return Arrays.copyOf(bytes, bytes.length);
+        return bytes;
     }
 
     /**
-     * Returns the descriptors that were used while marshalling the object.
+     * Returns IDs of the descriptors that were used while marshalling the object.
      *
-     * @return the descriptors that were used while marshalling the object
+     * @return IDs of the descriptors that were used while marshalling the object
      */
-    public Set<ClassDescriptor> usedDescriptors() {
-        return usedDescriptors;
+    public IntSet usedDescriptorIds() {
+        return usedDescriptorIds;
     }
 }

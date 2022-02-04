@@ -161,8 +161,6 @@ public class ClientKeyValueBinaryView implements KeyValueView<Tuple, Tuple> {
     public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
         Objects.requireNonNull(key);
 
-        // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
-        // If it does not match the latest schema, then request latest and convert again.
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> ser.writeKvTuple(tx, key, val, s, w, false),

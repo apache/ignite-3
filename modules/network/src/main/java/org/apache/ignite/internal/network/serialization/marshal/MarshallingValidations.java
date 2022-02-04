@@ -19,6 +19,9 @@ package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.network.serialization.Classes;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,32 +29,58 @@ import org.jetbrains.annotations.Nullable;
  * Validations that are run before marshalling objects.
  */
 class MarshallingValidations {
-    static void throwIfMarshallingNotSupported(@Nullable Object object) {
+    private final Map<Class<?>, Marshallability> marshallabilityMap = new WeakHashMap<>();
+
+    private final Function<Class<?>, Marshallability> marshallabilityFunction = this::marshallability;
+
+    void throwIfMarshallingNotSupported(@Nullable Object object) {
         if (object == null) {
-            return;
-        }
-        if (Enum.class.isAssignableFrom(object.getClass())) {
             return;
         }
 
         Class<?> objectClass = object.getClass();
-        if (isInnerClass(objectClass)) {
-            throw new MarshallingNotSupportedException("Non-static inner class instances are not supported for marshalling: "
-                    + objectClass);
-        }
-        if (isCapturingClosure(objectClass)) {
-            throw new MarshallingNotSupportedException("Capturing nested class instances are not supported for marshalling: " + object);
-        }
-        if (Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass)) {
-            throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: " + object);
+
+        Marshallability marshallability = marshallabilityMap.computeIfAbsent(objectClass, marshallabilityFunction);
+
+        switch (marshallability) {
+            case INNER_CLASS:
+                throw new MarshallingNotSupportedException("Non-static inner class instances are not supported for marshalling: "
+                        + objectClass);
+            case CAPTUREING_CLOSURE:
+                throw new MarshallingNotSupportedException("Capturing nested class instances are not supported for marshalling: " + object);
+            case NON_SERIALIZABLE_LAMBDA:
+                throw new MarshallingNotSupportedException("Non-serializable lambda instances are not supported for marshalling: "
+                        + object);
+            default:
+                // do nothing
         }
     }
 
-    private static boolean isInnerClass(Class<?> objectClass) {
+    private Marshallability marshallability(Class<?> objectClass) {
+        if (Enum.class.isAssignableFrom(objectClass)) {
+            return Marshallability.OK;
+        }
+
+        if (isInnerClass(objectClass)) {
+            return Marshallability.INNER_CLASS;
+        }
+
+        if (isCapturingClosure(objectClass)) {
+            return Marshallability.CAPTUREING_CLOSURE;
+        }
+
+        if (isNonSerializableLambda(objectClass)) {
+            return Marshallability.NON_SERIALIZABLE_LAMBDA;
+        }
+
+        return Marshallability.OK;
+    }
+
+    private boolean isInnerClass(Class<?> objectClass) {
         return objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
     }
 
-    private static boolean isCapturingClosure(Class<?> objectClass) {
+    private boolean isCapturingClosure(Class<?> objectClass) {
         for (Field field : objectClass.getDeclaredFields()) {
             if ((field.isSynthetic() && field.getName().equals("this$0"))
                     || field.getName().startsWith("arg$")) {
@@ -62,6 +91,14 @@ class MarshallingValidations {
         return false;
     }
 
-    private MarshallingValidations() {
+    private boolean isNonSerializableLambda(Class<?> objectClass) {
+        return Classes.isLambda(objectClass) && !Classes.isSerializable(objectClass);
+    }
+
+    private enum Marshallability {
+        OK,
+        INNER_CLASS,
+        CAPTUREING_CLOSURE,
+        NON_SERIALIZABLE_LAMBDA
     }
 }

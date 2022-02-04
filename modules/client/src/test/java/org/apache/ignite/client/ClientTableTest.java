@@ -27,10 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
-import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -100,7 +98,6 @@ public class ClientTableTest extends AbstractClientTableTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15194")
     public void testGetReturningTupleWithUnknownSchemaRequestsNewSchema() throws Exception {
         FakeSchemaRegistry.setLastVer(2);
 
@@ -113,11 +110,13 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         try (var client2 = startClient()) {
             RecordView<Tuple> table2 = client2.tables().table(table.name()).recordView();
-            var tuple2 = tuple();
-            var resTuple = table2.get(null, tuple2);
+            var resTuple = table2.get(null, tuple);
 
-            assertEquals(1, ((ClientTuple) tuple2).schema().version());
-            assertEquals(2, ((ClientTuple) resTuple).schema().version());
+            assertEquals(2, tuple.columnCount());
+            assertEquals(3, resTuple.columnCount());
+
+            assertEquals(-1, tuple.columnIndex("XYZ"));
+            assertEquals(2, resTuple.columnIndex("XYZ"));
 
             assertEquals(DEFAULT_NAME, resTuple.stringValue("name"));
             assertEquals(DEFAULT_ID, resTuple.longValue("id"));
@@ -342,7 +341,7 @@ public class ClientTableTest extends AbstractClientTableTest {
         var res = table.get(null, tuple);
 
         assertEquals("def_str", res.stringValue("str"));
-        assertEquals("def_str2", res.stringValue("str_non_null"));
+        assertEquals("def_str2", res.stringValue("strNonNull"));
     }
 
     @Test
@@ -366,7 +365,7 @@ public class ClientTableTest extends AbstractClientTableTest {
 
         var tuple = Tuple.create()
                 .set("id", 1)
-                .set("str_non_null", null);
+                .set("strNonNull", null);
 
         var ex = assertThrows(IgniteClientException.class, () -> table.upsert(null, tuple));
 

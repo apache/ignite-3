@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataInputStream;
 import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 
 /**
- * Knows how to read a value from a {@link DataInputStream}.
+ * Knows how to read a value from an input.
  */
 interface ValueReader<T> {
     /**
-     * Reads the next value from a {@link DataInputStream}.
+     * Reads the next value from an input.
      *
      * @param input     from where to read
      * @param context   unmarshalling context
@@ -33,5 +33,5 @@ interface ValueReader<T> {
      * @throws IOException          if an I/O problem occurs
      * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
      */
-    T read(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException;
+    T read(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException;
 }

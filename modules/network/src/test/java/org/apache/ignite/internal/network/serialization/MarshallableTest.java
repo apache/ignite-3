@@ -30,13 +30,13 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
+import it.unimi.dsi.fastutil.ints.IntSets;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
@@ -192,7 +192,7 @@ public class MarshallableTest {
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
                 oos.writeObject(object);
                 oos.close();
-                return new MarshalledObject(baos.toByteArray(), Collections.singleton(descriptor));
+                return new MarshalledObject(baos.toByteArray(), IntSets.singleton(descriptor.descriptorId()));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

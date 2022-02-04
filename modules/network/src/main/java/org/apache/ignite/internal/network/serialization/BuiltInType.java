@@ -76,7 +76,8 @@ public enum BuiltInType {
     NULL(38, Null.class),
     REFERENCE(39, ReferencePlaceholder.class),
     CLASS(40, Class.class),
-    PROXY(41, Proxy.class)
+    PROXY(41, Proxy.class),
+    STRING_LATIN1(42, StringLatin1Placeholder.class)
     ;
 
     /**
@@ -136,6 +137,6 @@ public enum BuiltInType {
     private static class ReferencePlaceholder {
     }
 
-    private static class NotNullPlaceholder {
+    private static class StringLatin1Placeholder {
     }
 }

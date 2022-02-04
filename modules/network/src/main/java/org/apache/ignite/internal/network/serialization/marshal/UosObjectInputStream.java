@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
@@ -26,13 +25,14 @@ import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.Primitives;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ObjectInputStream} specialization used by User Object Serialization.
  */
 class UosObjectInputStream extends ObjectInputStream {
-    private final DataInputStream input;
+    private final IgniteDataInput input;
     private final TypedValueReader valueReader;
     private final TypedValueReader unsharedReader;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
@@ -41,7 +41,7 @@ class UosObjectInputStream extends ObjectInputStream {
     private UosGetField currentGet;
 
     UosObjectInputStream(
-            DataInputStream input,
+            IgniteDataInput input,
             TypedValueReader valueReader,
             TypedValueReader unsharedReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter,
@@ -71,6 +71,11 @@ class UosObjectInputStream extends ObjectInputStream {
     @Override
     public int read(byte[] buf, int off, int len) throws IOException {
         return input.read(buf, off, len);
+    }
+
+    @Override
+    public byte[] readAllBytes() throws IOException {
+        return super.readAllBytes();
     }
 
     /** {@inheritDoc} */
@@ -279,7 +284,7 @@ class UosObjectInputStream extends ObjectInputStream {
         /** {@inheritDoc} */
         @Override
         public boolean get(String name, boolean val) throws IOException {
-            return Bits.getBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class));
+            return LittleEndianBits.getBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class));
         }
 
         /** {@inheritDoc} */
@@ -291,37 +296,37 @@ class UosObjectInputStream extends ObjectInputStream {
         /** {@inheritDoc} */
         @Override
         public char get(String name, char val) throws IOException {
-            return Bits.getChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class));
+            return LittleEndianBits.getChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public short get(String name, short val) throws IOException {
-            return Bits.getShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class));
+            return LittleEndianBits.getShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public int get(String name, int val) throws IOException {
-            return Bits.getInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class));
+            return LittleEndianBits.getInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public long get(String name, long val) throws IOException {
-            return Bits.getLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class));
+            return LittleEndianBits.getLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public float get(String name, float val) throws IOException {
-            return Bits.getFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class));
+            return LittleEndianBits.getFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public double get(String name, double val) throws IOException {
-            return Bits.getDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class));
+            return LittleEndianBits.getDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class));
         }
 
         /** {@inheritDoc} */

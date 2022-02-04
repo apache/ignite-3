@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -33,7 +34,6 @@ import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.lang.IgniteUuid;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -45,7 +45,7 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
      *
      * @return And id of the table.
      */
-    IgniteUuid id();
+    UUID id();
 
     /**
      * Returns a descriptor of the table.

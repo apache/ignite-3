@@ -47,6 +47,6 @@ public interface ColumnDefinition {
      *
      * @return Default column value expression.
      */
-    //TODO: IGNITE-15341 Rename to defaultValueExpr or allow constants? How to distinct expression from string constant???
+    //TODO: IGNITE-14479: Rename to defaultValueExpr or allow constants? How to distinct expression from string constant???
     Object defaultValue();
 }

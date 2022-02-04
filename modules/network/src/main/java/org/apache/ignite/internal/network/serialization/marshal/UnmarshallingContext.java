@@ -17,27 +17,26 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.NotActiveException;
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Context of unmarshalling act. Created once per unmarshalling a root object.
  */
 class UnmarshallingContext implements DescriptorRegistry {
-    private final ByteArrayInputStream source;
+    private final IgniteDataInput source;
     private final DescriptorRegistry descriptors;
     private final ClassLoader classLoader;
 
-    private final Map<Integer, Object> idsToObjects = new HashMap<>();
+    private final Int2ObjectMap<Object> idsToObjects = new Int2ObjectOpenHashMap<>();
     private final IntSet unsharedObjectIds = new IntOpenHashSet();
 
     private Object objectCurrentlyReadWithReadObject;
@@ -45,7 +44,7 @@ class UnmarshallingContext implements DescriptorRegistry {
 
     private UosObjectInputStream objectInputStream;
 
-    public UnmarshallingContext(ByteArrayInputStream source, DescriptorRegistry descriptors, ClassLoader classLoader) {
+    public UnmarshallingContext(IgniteDataInput source, DescriptorRegistry descriptors, ClassLoader classLoader) {
         this.source = source;
         this.descriptors = descriptors;
         this.classLoader = classLoader;
@@ -113,7 +112,7 @@ class UnmarshallingContext implements DescriptorRegistry {
         source.mark(readAheadLimit);
     }
 
-    public void resetSourceToMark() {
+    public void resetSourceToMark() throws IOException {
         source.reset();
     }
 
@@ -144,7 +143,7 @@ class UnmarshallingContext implements DescriptorRegistry {
     }
 
     UosObjectInputStream objectInputStream(
-            DataInputStream input,
+            IgniteDataInput input,
             TypedValueReader valueReader,
             TypedValueReader unsharedReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter

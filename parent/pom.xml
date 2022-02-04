@@ -61,8 +61,8 @@
         <junit.version>5.8.1</junit.version>
         <micronaut.version>2.1.2</micronaut.version>
         <micronaut.test.junit5.version>2.3.1</micronaut.test.junit5.version>
-        <mockito.framework.version>3.8.0</mockito.framework.version>
-        <mockito.junit.jupiter.version>3.3.3</mockito.junit.jupiter.version>
+        <mockito.framework.version>4.3.1</mockito.framework.version>
+        <mockito.junit.jupiter.version>4.3.1</mockito.junit.jupiter.version>
         <picocli.version>4.5.2</picocli.version>
         <slf4j.version>1.7.32</slf4j.version>
         <spoon.framework.version>8.4.0-beta-18</spoon.framework.version>
@@ -86,11 +86,12 @@
         <msgpack.version>0.8.21</msgpack.version>
         <caffeine.version>3.0.4</caffeine.version>
         <fastutil.version>8.5.6</fastutil.version>
+        <kryo.version>4.0.1</kryo.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
         <checkstyle.puppycrawl.version>8.45</checkstyle.puppycrawl.version>
-        <launch.maven.plugin.version>1.7.25</launch.maven.plugin.version>
+        <launch.maven.plugin.version>2.1.2</launch.maven.plugin.version>
         <maven.antrun.plugin.version>3.0.0</maven.antrun.plugin.version>
         <maven.assembly.plugin.version>3.2.0</maven.assembly.plugin.version>
         <maven.build-helper.plugin.version>3.2.0</maven.build-helper.plugin.version>
@@ -593,6 +594,13 @@
                 <version>${jmh.framework.version}</version>
             </dependency>
 
+            <!-- We currently only use Kryo for benchmarking our User Object Serialization -->
+            <dependency>
+                <groupId>com.esotericsoftware</groupId>
+                <artifactId>kryo</artifactId>
+                <version>${kryo.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
@@ -1025,6 +1033,12 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.io=ALL-UNNAMED
+                        --add-opens java.base/java.nio=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
                         --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
                         -Dio.netty.tryReflectionSetAccessible=true
                         -Djava.util.logging.config.file=../../config/java.util.logging.properties
@@ -1045,6 +1059,12 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.io=ALL-UNNAMED
+                        --add-opens java.base/java.nio=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
                         --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
                         -Dio.netty.tryReflectionSetAccessible=true
                         -Djava.util.logging.config.file=../../config/java.util.logging.properties
