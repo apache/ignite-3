@@ -35,7 +35,7 @@ public class SortedIndexDescriptor {
      *
      * @param name        Index name.
      * @param columns     Indexed columns (configured columns + primary key columns).
-     * @param pkColumns Pk columns.
+     * @param pkColumns   Pk columns.
      */
     public SortedIndexDescriptor(
             String name,
