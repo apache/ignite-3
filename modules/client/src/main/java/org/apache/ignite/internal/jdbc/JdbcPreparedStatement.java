@@ -39,8 +39,10 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Objects;
 import org.apache.ignite.client.proto.query.SqlStateCode;
+import org.apache.ignite.client.proto.query.event.Query;
 
 /**
  * Jdbc prepared statement implementation.
@@ -51,6 +53,9 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** Query arguments. */
     private ArrayList<Object> args;
+
+    /** Batch query. */
+    private Query batchedQuery;
 
     /**
      * Creates new prepared statement.
@@ -78,6 +83,21 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         }
 
         return rs;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int[] executeBatch() throws SQLException {
+        try {
+            assert batch == null;
+
+            batch = Collections.singletonList(batchedQuery);
+
+            return super.executeBatch();
+        } finally {
+            batchedQuery = null;
+            batch = null;
+        }
     }
 
     /** {@inheritDoc} */
@@ -175,11 +195,34 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
         args = null;
     }
 
+    /**
+     * Adds a set of parameters to batch of commands.
+     *
+     * @throws SQLException If statement is closed.
+     */
+    protected void addBatch(String sql, ArrayList<Object> args) throws SQLException {
+        ensureNotClosed();
+
+        if (batchedQuery == null) {
+            batchedQuery = new Query(sql);
+        }
+
+        batchedQuery.addBatchedArgs(args.toArray());
+    }
+
     /** {@inheritDoc} */
     @Override
     public void addBatch(String sql) throws SQLException {
         throw new SQLException("The method 'addBatch(String)' is called on PreparedStatement instance.",
                 SqlStateCode.UNSUPPORTED_OPERATION);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void clearBatch() throws SQLException {
+        ensureNotClosed();
+
+        batchedQuery = null;
     }
 
     /** {@inheritDoc} */

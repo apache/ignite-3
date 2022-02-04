@@ -23,8 +23,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.BatchUpdateException;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.raft.jraft.core.State;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,6 +61,46 @@ public class ItJdbcStatementBatchingSelfTest extends AbstractJdbcSelfTest {
         assertTrue(meta.supportsBatchUpdates());
     }
 
+    @Test
+    public void testBatch3() throws SQLException {
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate("CREATE TABLE Person(id1 INT PRIMARY KEY, id2 INT);");
+
+            Statement statement1 = conn.createStatement();
+
+            statement1.addBatch("INSERT INTO Person VALUES (1,1)");
+            statement1.addBatch("INSERT INTO Person VALUES (2,2)");
+            statement1.addBatch("INSERT INTO Person VALUES (3,3)");
+            System.out.println(Arrays.toString(statement1.executeBatch()));
+        }
+    }
+
+    /**
+     * Test batch execution.
+     *
+     * @throws SQLException If failed.
+     */
+    @Test
+    public void testBatch2() throws SQLException {
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate("CREATE TABLE Person(id1 INT PRIMARY KEY, id2 int);");
+        }
+        try (PreparedStatement stmt = conn.prepareStatement("INSERT INTO Person(id1, id2) VALUES(?,?)")) {
+            stmt.setInt(1, 1);
+            stmt.setInt(2, 1);
+            stmt.addBatch();
+            stmt.setInt(1, 2);
+            stmt.setInt(2, 2);
+            stmt.addBatch();
+            stmt.setInt(1, 3);
+            stmt.setInt(2, 3);
+            stmt.addBatch();
+
+            int[] execute = stmt.executeBatch();
+            System.out.println(Arrays.toString(execute));
+        }
+    }
+
     /**
      * Test batch execution.
      *
@@ -60,21 +109,19 @@ public class ItJdbcStatementBatchingSelfTest extends AbstractJdbcSelfTest {
     @Test
     public void testBatch() throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            stmt.addBatch("INSERT INTO Person(_key, id, firstName, lastName, age, data) "
-                    + "VALUES ('p1', 0, 'J', 'W', 250, RAWTOHEX('W'))");
+            stmt.executeUpdate("CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT);");
 
-            stmt.addBatch("INSERT INTO Person(_key, id, firstName, lastName, age, data) VALUES "
-                    + "('p1', 1, 'John', 'White', 25, RAWTOHEX('White')), "
-                    + "('p2', 2, 'Joe', 'Black', 35, RAWTOHEX('Black')), "
-                    + "('p3', 0, 'M', 'G', 4, RAWTOHEX('G'))");
+            stmt.addBatch("INSERT INTO Person(id, firstName, lastName, age) VALUES "
+                    + "(1, 'John', 'White', 25), "
+                    + "(2, 'Joe', 'Black', 35), "
+                    + "(0, 'M', 'G', 4)");
 
-            stmt.addBatch("UPDATE Person SET id = 3, firstName = 'Mike', lastName = 'Green', "
-                    + "age = 40, data = RAWTOHEX('Green') WHERE _key = 'p3'");
+            stmt.addBatch("UPDATE Person SET firstName = 'Mike', lastName = 'Green', "
+                    + "age = 40 WHERE id = 2");
 
-            stmt.addBatch("DELETE FROM Person WHERE _key = 'p1'");
+            stmt.addBatch("DELETE FROM Person WHERE id = 1");
 
-            assertThrows(BatchUpdateException.class, stmt::executeBatch,
-                    "ExecuteBatch operation is not implemented yet.");
+            System.out.println(Arrays.toString(stmt.executeBatch()));
         }
     }
 }

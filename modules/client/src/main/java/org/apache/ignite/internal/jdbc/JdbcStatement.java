@@ -74,7 +74,7 @@ public class JdbcStatement implements Statement {
     private volatile List<JdbcResultSet> resSets;
 
     /** Batch. */
-    private List<Query> batch;
+    protected List<Query> batch;
 
     /** Close on completion. */
     private boolean closeOnCompletion;
@@ -505,24 +505,7 @@ public class JdbcStatement implements Statement {
             batch = new ArrayList<>();
         }
 
-        batch.add(new Query(sql, null));
-    }
-
-    /**
-     * Adds a set of parameters to batch of commands.
-     *
-     * @throws SQLException If statement is closed.
-     */
-    protected void addBatch(String sql, ArrayList<Object> args) throws SQLException {
-        ensureNotClosed();
-
-        if (batch == null) {
-            batch = new ArrayList<>();
-
-            batch.add(new Query(sql, args.toArray()));
-        } else {
-            batch.add(new Query(null, args.toArray()));
-        }
+        batch.add(new Query(sql));
     }
 
     /** {@inheritDoc} */

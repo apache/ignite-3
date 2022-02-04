@@ -20,6 +20,8 @@ package org.apache.ignite.client.handler;
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -43,6 +45,7 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.client.proto.query.event.Query;
 import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.QueryCloseResult;
 import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
@@ -164,8 +167,35 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        return CompletableFuture.completedFuture(new BatchExecuteResult(UNSUPPORTED_OPERATION,
-                "ExecuteBatch operation is not implemented yet."));
+        IntList res = new IntArrayList();
+
+        for (Query query : req.queries()) {
+            try {
+                if (query.args() == null) {
+                    executeAndCollectUpdateResult(req, res, query, OBJECT_EMPTY_ARRAY);
+                } else {
+                    for (Object[] arg : query.args()) {
+                        executeAndCollectUpdateResult(req, res, query, arg);
+                    }
+                }
+            } catch (Exception e) {
+                StringWriter sw = getWriterWithStackTrace(e);
+
+                return CompletableFuture.completedFuture(new BatchExecuteResult(Response.STATUS_FAILED,
+                        "Exception while executing query " + query.sql() + ". Error message: " + sw));
+            }
+        }
+
+        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+    }
+
+    private void executeAndCollectUpdateResult(BatchExecuteRequest req, IntList res, Query query,
+            Object[] arg) {
+        List<SqlCursor<List<?>>> cursors = processor.query(req.schemaName(), query.sql(), arg);
+        for (SqlCursor<List<?>> cursor : cursors) {
+            long l = (long) cursor.next().get(0);
+            res.add((int) l);
+        }
     }
 
     /** {@inheritDoc} */

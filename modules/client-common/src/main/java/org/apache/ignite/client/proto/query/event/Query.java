@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -30,7 +32,7 @@ public class Query implements ClientMessage {
     private String sql;
 
     /** Arguments. */
-    private Object[] args;
+    private List<Object[]> args;
 
     /**
      * Default constructor is used for serialization.
@@ -43,11 +45,9 @@ public class Query implements ClientMessage {
      * Constructor.
      *
      * @param sql  Query SQL.
-     * @param args Arguments.
      */
-    public Query(String sql, Object[] args) {
+    public Query(String sql) {
         this.sql = sql;
-        this.args = args;
     }
 
     /**
@@ -64,8 +64,20 @@ public class Query implements ClientMessage {
      *
      * @return Query arguments.
      */
-    public Object[] args() {
+    public List<Object[]> args() {
         return args;
+    }
+
+    /**
+     * Adds batched arguments.
+     *
+     * @param args Batched arguments.
+     */
+    public void addBatchedArgs(Object[] args) {
+        if (this.args == null)
+            this.args = new ArrayList<>();
+
+        this.args.add(args);
     }
 
     /** {@inheritDoc} */
@@ -75,7 +87,10 @@ public class Query implements ClientMessage {
         if (args == null) {
             packer.packNil();
         } else {
-            packer.packObjectArray(args);
+            packer.packArrayHeader(args.size());
+            for (Object[] arg : args) {
+                packer.packObjectArray(arg);
+            }
         }
     }
 
@@ -86,7 +101,13 @@ public class Query implements ClientMessage {
         if (unpacker.tryUnpackNil()) {
             args = null;
         } else {
-            args = unpacker.unpackObjectArray();
+            int size = unpacker.unpackArrayHeader();
+
+            args = new ArrayList<>(size);
+
+            for (int i = 0; i < size; i++) {
+                args.add(unpacker.unpackObjectArray());
+            }
         }
     }
 
