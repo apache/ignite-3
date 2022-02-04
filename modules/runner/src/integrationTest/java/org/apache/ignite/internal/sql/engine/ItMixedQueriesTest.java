@@ -41,7 +41,6 @@ import org.junit.jupiter.api.Test;
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ItMixedQueriesTest.class);
     /**
      * Before all.
      */
