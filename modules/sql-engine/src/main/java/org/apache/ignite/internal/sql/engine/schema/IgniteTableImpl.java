@@ -22,11 +22,9 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
@@ -314,10 +312,26 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             columnToIndex.put(updateColList.get(i), i + desc.columnsCount());
         }
 
-        int keyOffset = Math.max(schemaDescriptor.keyColumns().firstVarlengthColumn(), 0);
-        int valOffset = Math.max(keyOffset + schemaDescriptor.valueColumns().firstVarlengthColumn(), 0);
-        int nonNullVarlenKeyCols = countNotNullColumns(keyOffset, true, columnToIndex, hnd, row);
-        int nonNullVarlenValCols = countNotNullColumns(valOffset, false, columnToIndex, hnd, row);
+        int nonNullVarlenKeyCols;
+        int nonNullVarlenValCols;
+
+        int keyOffset = schemaDescriptor.keyColumns().firstVarlengthColumn();
+
+        if (keyOffset == -1) {
+            nonNullVarlenKeyCols = 0;
+        } else {
+            nonNullVarlenKeyCols = countNotNullColumns(keyOffset, true, columnToIndex, hnd, row);
+        }
+
+        int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
+
+        if (valOffset == -1) {
+            nonNullVarlenValCols = 0;
+        } else {
+            nonNullVarlenValCols = countNotNullColumns(
+                    schemaDescriptor.keyColumns().length() + valOffset,
+                    false, columnToIndex, hnd, row);
+        }
 
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
@@ -332,7 +346,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return rowAssembler.build();
     }
 
-    private <RowT> int countNotNullColumns(int offset, boolean isKey, Object2IntMap<String> columnToIndex, RowHandler<RowT> hnd, RowT row) {
+    private <RowT> int countNotNullColumns(int offset, boolean isKey,
+            Object2IntMap<String> columnToIndex, RowHandler<RowT> hnd, RowT row) {
         int nonNullCols = 0;
 
         for (int i = offset; i < columnsOrderedByPhysSchema.size(); i++) {
@@ -342,9 +357,9 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                 continue;
             }
 
-            int orDefault = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
+            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
 
-            Object val = hnd.get(orDefault, row);
+            Object val = hnd.get(colIdInRow, row);
 
             if (val != null) {
                 if (!isKey || colDesc.key()) {

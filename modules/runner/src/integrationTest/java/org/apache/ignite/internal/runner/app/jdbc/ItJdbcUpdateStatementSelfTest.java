@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.runner.app.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.function.Consumer;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +39,72 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
      * @throws SQLException If failed.
      */
     @Test
+    public void testExecuteUpdateMultipleColumnsUpdate() throws Exception {
+        final String q1 = "CREATE TABLE usertable (\n"
+                + "    ycsb_key1 int NOT NULL,\n"
+                + "    ycsb_key2 varchar(3) NOT NULL,\n"
+                + "    field1   varchar(100),\n"
+                + "    field2   varchar(100),\n"
+                + "    field3   varchar(100),\n"
+                + "    field4   varchar(100),\n"
+                + "    field5   varchar(100),\n"
+                + "    field6   varchar(100),\n"
+                + "    field7   varchar(100),\n"
+                + "    field8   varchar(100),\n"
+                + "    field9   varchar(100),\n"
+                + "    field10  varchar(100),\n"
+                + "    PRIMARY KEY(ycsb_key1, ycsb_key2)\n"
+                + ");";
+
+        final String q2 = "INSERT INTO usertable values(1, 'key', 'a1','a2','a3','a4','a5','a6','a7','a8','a9','a10');";
+
+        final String q3 = "UPDATE usertable SET FIELD1='b1',FIELD2='b2',FIELD3='b3',FIELD4='b4',FIELD5='b5',"
+                + "FIELD6='b6',FIELD7='b7',FIELD8='b8',FIELD9='b9',FIELD10='b10' WHERE YCSB_KEY1=1";
+
+        final String q4 = "DROP TABLE usertable;";
+
+        assertEquals(0, stmt.executeUpdate(q1));
+        assertEquals(1, stmt.executeUpdate(q2));
+        assertEquals(1, stmt.executeUpdate(q3));
+
+        stmt.executeQuery("SELECT * FROM usertable WHERE YCSB_KEY1=1;");
+
+        ResultSet resultSet = stmt.getResultSet();
+
+        assertTrue(resultSet.next());
+
+        for (int i = 1; i < 11; i++) {
+            assertEquals("b" + i, resultSet.getString(i + 2));
+        }
+
+        assertEquals(0, stmt.executeUpdate(q4));
+    }
+
+    /**
+     * Execute test.
+     *
+     * @throws SQLException If failed.
+     */
+    @Test
     public void testExecuteAndExecuteUpdate() throws SQLException {
+        testExecute((String updateQuery) -> {
+            try {
+                stmt.executeUpdate(updateQuery);
+            } catch (SQLException e) {
+                fail(e);
+            }
+        });
+
+        testExecute((String updateQuery) -> {
+            try {
+                stmt.execute(updateQuery);
+            } catch (SQLException e) {
+                fail(e);
+            }
+        });
+    }
+
+    private void testExecute(Consumer<String> updateFunction) throws SQLException {
         final String createSql = "CREATE TABLE public.person(id INTEGER PRIMARY KEY, sid VARCHAR,"
                 + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL)";
 
@@ -47,128 +115,26 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
 
         final String updateSql = "update PUBLIC.PERSON set firstName = 'Jack' where substring(SID, 2, 1)::int % 2 = 0";
 
-        stmt.executeUpdate(createSql);
-        stmt.executeUpdate(insertSql);
-        stmt.execute(updateSql);
+        final String dropSql = "DROP TABLE PUBLIC.PERSON;";
 
-        KeyValueView<Tuple, Tuple> person = clusterNodes.get(0).tables()
-                .table("PUBLIC.PERSON").keyValueView();
+        updateFunction.accept(createSql);
+        updateFunction.accept(insertSql);
+        updateFunction.accept(updateSql);
 
-        assertEquals("John", person.get(null, Tuple.create().set("ID", 1)).stringValue("FIRSTNAME"));
-        assertEquals("Jack", person.get(null, Tuple.create().set("ID", 2)).stringValue("FIRSTNAME"));
-        assertEquals("Mike", person.get(null, Tuple.create().set("ID", 3)).stringValue("FIRSTNAME"));
+        KeyValueView<Integer, Person> person = clusterNodes.get(0).tables()
+                .table("PUBLIC.PERSON").keyValueView(Integer.class, Person.class);
 
-        final String updateSql2 = "update PUBLIC.PERSON set firstName = 'Merlin' where substring(SID, 2, 1)::int % 2 = 0";
+        assertEquals("John", person.get(null, 1).firstname);
+        assertEquals("Jack", person.get(null, 2).firstname);
+        assertEquals("Mike", person.get(null, 3).firstname);
 
-        stmt.executeUpdate(updateSql2);
-
-        assertEquals("Merlin", person.get(null, Tuple.create().set("ID", 2)).stringValue("FIRSTNAME"));
+        updateFunction.accept(dropSql);
     }
 
-    /**
-     * Execute test.
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void testExecute() throws SQLException {
-        final String createSql = "CREATE TABLE public.person(id INTEGER PRIMARY KEY, sid VARCHAR,"
-                + " firstname VARCHAR NOT NULL, lastname VARCHAR NOT NULL, age INTEGER NOT NULL)";
-
-        final String insertSql = "INSERT INTO public.person(sid, id, firstname, lastname, age) VALUES "
-                + "('p1', 1, 'John', 'White', 25), "
-                + "('p2', 2, 'Joe', 'Black', 35), "
-                + "('p3', 3, 'Mike', 'Green', 40)";
-
-        final String updateSql = "update PUBLIC.PERSON set firstName = 'Jack' where substring(SID, 2, 1)::int % 2 = 0";
-
-        stmt.executeUpdate(createSql);
-        stmt.executeUpdate(insertSql);
-        stmt.executeUpdate(updateSql);
-
-        KeyValueView<Tuple, Tuple> person = clusterNodes.get(0).tables()
-                .table("PUBLIC.PERSON").keyValueView();
-
-        assertEquals("John", person.get(null, Tuple.create().set("ID", 1)).stringValue("FIRSTNAME"));
-        assertEquals("Jack", person.get(null, Tuple.create().set("ID", 2)).stringValue("FIRSTNAME"));
-        assertEquals("Mike", person.get(null, Tuple.create().set("ID", 3)).stringValue("FIRSTNAME"));
-    }
-
-    /**
-     * Execute test.
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void testDifferentTableStructures() throws SQLException {
-        final String createSql = "CREATE TABLE public.tbl1(id INTEGER PRIMARY KEY, id2 INTEGER NOT NULL, id3 INTEGER NOT NULL)";
-
-        final String insertSql = "INSERT INTO public.tbl1(id, id2, id3) VALUES "
-                + "(1, 25, 99), "
-                + "(2, 35, 99), "
-                + "(3, 40, 99)";
-
-        final String updateSql = "update PUBLIC.tbl1 set id2 = 42 where id = 1;";
-
-        stmt.executeUpdate(createSql);
-        stmt.executeUpdate(insertSql);
-        stmt.executeUpdate(updateSql);
-
-        KeyValueView<Tuple, Tuple> tbl1 = clusterNodes.get(0).tables()
-                .table("PUBLIC.tbl1").keyValueView();
-
-        assertEquals(42, tbl1.get(null, Tuple.create().set("ID", 1)).intValue("id2"));
-    }
-
-    /**
-     * Execute test.
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void testDifferentTableStructures2() throws SQLException {
-        final String createSql = "CREATE TABLE public.tbl1(id VARCHAR PRIMARY KEY, id2 INTEGER NOT NULL, id3 INTEGER NOT NULL)";
-
-        final String insertSql = "INSERT INTO public.tbl1(id, id2, id3) VALUES "
-                + "('1', 25, 99), "
-                + "('2', 35, 99), "
-                + "('3', 40, 99)";
-
-        final String updateSql = "update PUBLIC.tbl1 set id2 = 42 where id = '1';";
-
-        stmt.executeUpdate(createSql);
-        stmt.executeUpdate(insertSql);
-        stmt.executeUpdate(updateSql);
-
-        KeyValueView<Tuple, Tuple> tbl1 = clusterNodes.get(0).tables()
-                .table("PUBLIC.tbl1").keyValueView();
-
-        assertEquals(42, tbl1.get(null, Tuple.create().set("ID", "1")).intValue("id2"));
-    }
-
-    /**
-     * Execute test.
-     *
-     * @throws SQLException If failed.
-     */
-    @Test
-    public void testDifferentTableStructures3() throws SQLException {
-        final String createSql = "CREATE TABLE public.tbl1(id VARCHAR PRIMARY KEY, id2 VARCHAR NOT NULL, id3 VARCHAR NOT NULL)";
-
-        final String insertSql = "INSERT INTO public.tbl1(id, id2, id3) VALUES "
-                + "('1', '25', '99'), "
-                + "('2', '35', '99'), "
-                + "('3', '40', '99')";
-
-        final String updateSql = "update PUBLIC.tbl1 set id2 = '42' where id = '1';";
-
-        stmt.executeUpdate(createSql);
-        stmt.executeUpdate(insertSql);
-        stmt.executeUpdate(updateSql);
-
-        KeyValueView<Tuple, Tuple> tbl1 = clusterNodes.get(0).tables()
-                .table("PUBLIC.tbl1").keyValueView();
-
-        assertEquals("42", tbl1.get(null, Tuple.create().set("ID", "1")).stringValue("id2"));
+    private static class Person {
+        public int age;
+        public String sid;
+        public String firstname;
+        public String lastname;
     }
 }
