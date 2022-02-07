@@ -30,10 +30,25 @@ public class BatchExecuteResult extends Response {
     /** Update counts. */
     private int[] updateCnts;
 
+    /** Error code. */
+    private int errorCode;
+
     /**
      * Constructor.
      */
     public BatchExecuteResult() {
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param status Status code.
+     */
+    public BatchExecuteResult(int status, int errorCode, String errorMessage, int[] updateCnts) {
+        super(status, errorMessage);
+
+        this.errorCode = errorCode;
+        this.updateCnts = updateCnts;
     }
 
     /**
@@ -68,14 +83,21 @@ public class BatchExecuteResult extends Response {
         return updateCnts == null ? ArrayUtils.INT_EMPTY_ARRAY : updateCnts;
     }
 
+    /**
+     * Get the error code.
+     *
+     * @return Error code.
+     */
+    public int getErrorCode() {
+        return errorCode;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
         super.writeBinary(packer);
 
-        if (!hasResults) {
-            return;
-        }
+        packer.packInt(errorCode);
 
         packer.packIntArray(updateCnts);
     }
@@ -85,11 +107,13 @@ public class BatchExecuteResult extends Response {
     public void readBinary(ClientMessageUnpacker unpacker) {
         super.readBinary(unpacker);
 
-        if (!hasResults) {
-            return;
-        }
+        errorCode = unpacker.unpackInt();
 
-        updateCnts = unpacker.unpackIntArray();
+        if (unpacker.tryUnpackNil()) {
+            updateCnts = ArrayUtils.INT_EMPTY_ARRAY;
+        } else {
+            updateCnts = unpacker.unpackIntArray();
+        }
     }
 
     /** {@inheritDoc} */

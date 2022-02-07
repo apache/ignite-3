@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
@@ -24,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -60,11 +62,17 @@ import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
+    /** The logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(JdbcQueryEventHandlerImpl.class);
+
     /** Current JDBC cursors. */
     private final ConcurrentHashMap<Long, SqlCursor<List<?>>> openCursors = new ConcurrentHashMap<>();
 
@@ -169,32 +177,55 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         IntList res = new IntArrayList();
 
-        for (Query query : req.queries()) {
-            try {
+        IgniteBiTuple<Integer, String> firstError = new IgniteBiTuple<>();
+        try {
+            for (Query query : req.queries()) {
                 if (query.args() == null) {
-                    executeAndCollectUpdateResult(req, res, query, OBJECT_EMPTY_ARRAY);
+                    executeAndCollectUpdateResult(req, res, query, OBJECT_EMPTY_ARRAY, firstError);
                 } else {
                     for (Object[] arg : query.args()) {
-                        executeAndCollectUpdateResult(req, res, query, arg);
+                        executeAndCollectUpdateResult(req, res, query, arg, firstError);
                     }
                 }
-            } catch (Exception e) {
-                StringWriter sw = getWriterWithStackTrace(e);
-
-                return CompletableFuture.completedFuture(new BatchExecuteResult(Response.STATUS_FAILED,
-                        "Exception while executing query " + query.sql() + ". Error message: " + sw));
             }
+        } catch (Exception e) {
+            StringWriter sw = getWriterWithStackTrace(e);
+
+            return CompletableFuture.completedFuture(new BatchExecuteResult(Response.STATUS_FAILED,
+                    "Exception while executing query " + req.queries().get(0).sql() + ". Error message: " + sw));
         }
 
+        if (!firstError.isEmpty()) {
+            return CompletableFuture.completedFuture(new BatchExecuteResult(
+                    Response.STATUS_FAILED,
+                    firstError.getKey(),
+                    firstError.getValue(),
+                    res.toIntArray())
+            );
+        }
         return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
     }
 
     private void executeAndCollectUpdateResult(BatchExecuteRequest req, IntList res, Query query,
-            Object[] arg) {
-        List<SqlCursor<List<?>>> cursors = processor.query(req.schemaName(), query.sql(), arg);
-        for (SqlCursor<List<?>> cursor : cursors) {
-            long l = (long) cursor.next().get(0);
-            res.add((int) l);
+            Object[] arg, IgniteBiTuple<Integer, String> firstError) {
+        try {
+            List<SqlCursor<List<?>>> cursors = processor.query(req.schemaName(), query.sql(), arg);
+            for (SqlCursor<List<?>> cursor : cursors) {
+                long l = (long) cursor.next().get(0);
+                res.add((int) l);
+            }
+        } catch (Exception e) {
+            res.add(Statement.EXECUTE_FAILED);
+
+            if (firstError.isEmpty()) {
+                if (e instanceof IgniteException) {
+                    firstError.set(UNKNOWN, e.getCause().getMessage());
+                } else {
+                    firstError.set(UNKNOWN, e.getMessage());
+                }
+            }
+
+            LOG.error("Unexpected error:", e);
         }
     }
 

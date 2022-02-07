@@ -333,7 +333,9 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             }
         }
 
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, schemaDescriptor.keyColumns().numberOfVarlengthColumns(), schemaDescriptor.valueColumns().numberOfVarlengthColumns());
+        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor,
+                schemaDescriptor.keyColumns().numberOfVarlengthColumns(),
+                schemaDescriptor.valueColumns().numberOfVarlengthColumns());
 
         Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -87,8 +89,23 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
     /** {@inheritDoc} */
     @Override
+    public ResultSet executeQuery(String sql) throws SQLException {
+        throw new SQLException("The method 'executeQuery(String)' is called on PreparedStatement instance.",
+                SqlStateCode.UNSUPPORTED_OPERATION);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public int[] executeBatch() throws SQLException {
+        ensureNotClosed();
+
+        closeResults();
+
         try {
+            if (batchedQuery == null) {
+                return INT_EMPTY_ARRAY;
+            }
+
             assert batch == null;
 
             batch = Collections.singletonList(batchedQuery);
@@ -98,13 +115,6 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             batchedQuery = null;
             batch = null;
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ResultSet executeQuery(String sql) throws SQLException {
-        throw new SQLException("The method 'executeQuery(String)' is called on PreparedStatement instance.",
-                SqlStateCode.UNSUPPORTED_OPERATION);
     }
 
     /** {@inheritDoc} */
@@ -200,7 +210,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      *
      * @throws SQLException If statement is closed.
      */
-    protected void addBatch(String sql, ArrayList<Object> args) throws SQLException {
+    private void addBatch(String sql, ArrayList<Object> args) throws SQLException {
         ensureNotClosed();
 
         if (batchedQuery == null) {

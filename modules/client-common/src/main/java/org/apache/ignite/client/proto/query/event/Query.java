@@ -74,8 +74,9 @@ public class Query implements ClientMessage {
      * @param args Batched arguments.
      */
     public void addBatchedArgs(Object[] args) {
-        if (this.args == null)
+        if (this.args == null) {
             this.args = new ArrayList<>();
+        }
 
         this.args.add(args);
     }

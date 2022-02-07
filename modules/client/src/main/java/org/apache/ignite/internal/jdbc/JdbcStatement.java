@@ -20,6 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
@@ -524,7 +525,7 @@ public class JdbcStatement implements Statement {
         closeResults();
 
         if (CollectionUtils.nullOrEmpty(batch)) {
-            return new int[0];
+            return INT_EMPTY_ARRAY;
         }
 
         BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
@@ -534,8 +535,8 @@ public class JdbcStatement implements Statement {
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),
-                        IgniteQueryErrorCode.codeToSqlState(res.status()),
-                        res.status(),
+                        IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
+                        res.getErrorCode(),
                         res.updateCounts());
             }
 
@@ -656,7 +657,7 @@ public class JdbcStatement implements Statement {
      *
      * @throws SQLException On error.
      */
-    private void closeResults() throws SQLException {
+    protected void closeResults() throws SQLException {
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
                 rs.close0();
