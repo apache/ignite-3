@@ -30,12 +30,13 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
+import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -45,16 +46,16 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
     /**
      * Values used to create the Index row.
      */
-    private final Object[] columns;
+    private final Tuple row;
 
-    private final IndexRow row;
+    private final IndexRow idxRow;
 
-    private final SortedIndexDescriptor descriptor;
+    private final SortedIndexStorageDescriptor desc;
 
-    IndexRowWrapper(SortedIndexStorage storage, IndexRow row, Object[] columns) {
-        this.descriptor = storage.indexDescriptor();
+    IndexRowWrapper(SortedIndexStorage storage, IndexRow idxRow, Tuple row) {
+        this.desc = (SortedIndexStorageDescriptor) storage.indexDescriptor();
+        this.idxRow = idxRow;
         this.row = row;
-        this.columns = columns;
     }
 
     /**
@@ -63,48 +64,49 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
     static IndexRowWrapper randomRow(SortedIndexStorage indexStorage) {
         var random = new Random();
 
-        Object[] columns = indexStorage.indexDescriptor().indexRowColumns().stream()
-                .map(ColumnDescriptor::column)
-                .map(column -> generateRandomValue(random, column.type()))
-                .toArray();
+        Tuple row = Tuple.create();
 
-        var primaryKey = new ByteArraySearchRow(randomBytes(random, 25));
+        ((SortedIndexStorageDescriptor) indexStorage.indexDescriptor()).indexColumns().stream()
+                .map(SortedIndexColumnDescriptor::column)
+                .forEach(column -> row.set(column.name(), generateRandomValue(random, column.type())));
 
-        IndexRow row = indexStorage.indexRowFactory().createIndexRow(columns, primaryKey);
+        var primaryKey = new ByteBufferRow(randomBytes(random, 25));
 
-        return new IndexRowWrapper(indexStorage, row, columns);
+        return new IndexRowWrapper(indexStorage, new TestIndexRow(row, primaryKey, 0), row);
     }
 
     /**
      * Creates an Index Key prefix of the given length.
      */
     IndexRowPrefix prefix(int length) {
-        return () -> Arrays.copyOf(columns, length);
-    }
+        return new IndexRowPrefix() {
+            @Override
+            public Object value(int idxColOrder) {
+                return idxRow.value(idxColOrder);
+            }
 
-    IndexRow row() {
-        return row;
-    }
-
-    Object[] columns() {
-        return columns;
+            @Override
+            public int length() {
+                return length;
+            }
+        };
     }
 
     @Override
     public int compareTo(@NotNull IndexRowWrapper o) {
-        int sizeCompare = Integer.compare(columns.length, o.columns.length);
+        int sizeCompare = Integer.compare(row.columnCount(), o.row.columnCount());
 
         if (sizeCompare != 0) {
             return sizeCompare;
         }
 
-        for (int i = 0; i < columns.length; ++i) {
-            Comparator<Object> comparator = comparator(columns[i].getClass());
+        for (int i = 0; i < row.columnCount(); ++i) {
+            Comparator<Object> comparator = comparator(row.value(i).getClass());
 
-            int compare = comparator.compare(columns[i], o.columns[i]);
+            int compare = comparator.compare(row.value(i), o.row.value(i));
 
             if (compare != 0) {
-                boolean asc = descriptor.indexRowColumns().get(i).asc();
+                boolean asc = desc.indexColumns().get(i).asc();
 
                 return asc ? compare : -compare;
             }
@@ -122,12 +124,12 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
             return false;
         }
         IndexRowWrapper that = (IndexRowWrapper) o;
-        return row.equals(that.row);
+        return idxRow.equals(that.idxRow);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(row);
+        return Objects.hash(idxRow);
     }
 
     /**
@@ -153,5 +155,12 @@ class IndexRowWrapper implements Comparable<IndexRowWrapper> {
                 .mapToObj(i -> Array.get(array, i))
                 .map(Comparable.class::cast)
                 .toArray(Comparable[]::new);
+    }
+
+    /**
+     * Returns index row.
+     */
+    public IndexRow row() {
+        return idxRow;
     }
 }

@@ -20,7 +20,7 @@ package org.apache.ignite.internal.manager;
 /**
  * The event cas which is produced by event producer component.
  *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
+ * @see Producer#listen(Event, EventListener)
  */
 public interface Event {
 }

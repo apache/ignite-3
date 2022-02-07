@@ -595,13 +595,14 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * @param shortTableName Table name.
      */
     protected void addIndex(Ignite node, String schemaName, String shortTableName) {
-        IndexDefinition idx = SchemaBuilders.hashIndex("testHI")
-                .withColumns("valInt", "valStr")
+        IndexDefinition idx = SchemaBuilders.sortedIndex("testHI")
+                .addIndexColumn("valInt").done()
+                .addIndexColumn("valStr").done()
                 .build();
 
         node.tables().alterTable(schemaName + "." + shortTableName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(idx.name()) != null) {
-                log.info("Index already exists [naem={}]", idx.name());
+                log.info("Index already exists [name={}]", idx.name());
 
                 throw new IndexAlreadyExistsException(idx.name());
             }

@@ -174,7 +174,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             Supplier<RowT> lowerIdxBound,
             Supplier<RowT> upperIdxBound
     ) {
-        RuntimeSortedIndex<RowT> idx = new RuntimeSortedIndex<>(ctx, collation, comp);
+        RuntimeSortedIndex<RowT> idx = new RuntimeSortedIndex<>(ctx, rowType, collation, comp);
 
         ScanNode<RowT> scan = new ScanNode<>(
                 ctx,

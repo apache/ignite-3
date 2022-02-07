@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.function.Predicate;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -35,16 +37,6 @@ public interface SortedIndexStorage extends AutoCloseable {
     SortedIndexDescriptor indexDescriptor();
 
     /**
-     * Returns a factory for creating index rows for this storage.
-     */
-    IndexRowFactory indexRowFactory();
-
-    /**
-     * Returns a class deserializing index columns.
-     */
-    IndexRowDeserializer indexRowDeserializer();
-
-    /**
      * Adds the given index key and {@link SearchRow} to the index.
      *
      * <p>Putting a new value under the same key will overwrite the previous associated value.
@@ -60,9 +52,12 @@ public interface SortedIndexStorage extends AutoCloseable {
 
     /**
      * Returns a range of index values between the lower bound (inclusive) and the upper bound (inclusive).
+     *
+     * @param low Lower bound of the range to scan.
+     * @param up Upper bound of the range to scan.
+     * @param filter Row filter. Basically it is used to filter by partition number.
      */
-    // TODO: add options https://issues.apache.org/jira/browse/IGNITE-16059
-    Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound);
+    Cursor<IndexRow> range(IndexRowPrefix low, IndexRowPrefix up, Predicate<IndexRow> filter);
 
     /**
      * Removes all data in this index and frees the associated resources.

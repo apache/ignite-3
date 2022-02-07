@@ -837,6 +837,12 @@ public class Row implements BinaryRow, SchemaAware {
 
     /** {@inheritDoc} */
     @Override
+    public BinaryRow keyRow() {
+        return row.keyRow();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void writeTo(OutputStream stream) throws IOException {
         row.writeTo(stream);
     }

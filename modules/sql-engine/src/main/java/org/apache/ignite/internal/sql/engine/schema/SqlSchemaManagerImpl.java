@@ -24,11 +24,16 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
@@ -154,8 +159,17 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String schemaName,
             TableImpl table
     ) {
+        IgniteTableImpl igniteTable = createTable(schemaName, table);
+
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
+        schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
+        tablesById.put(igniteTable.id(), igniteTable);
+
+        rebuild();
+    }
+
+    private IgniteTableImpl createTable(String schemaName, TableImpl table) {
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -171,16 +185,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 ))
                 .collect(Collectors.toList());
 
-        IgniteTableImpl igniteTable = new IgniteTableImpl(
+        return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors),
                 table.internalTable(),
                 table.schemaView()
         );
-
-        schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
-        tablesById.put(igniteTable.id(), igniteTable);
-
-        rebuild();
     }
 
     /**
@@ -191,7 +200,22 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String schemaName,
             TableImpl table
     ) {
-        onTableCreated(schemaName, table);
+        IgniteTableImpl igniteTable = createTable(schemaName, table);
+
+        IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
+
+        String tblName = removeSchema(schemaName, table.name());
+
+        // Rebuild indexes collation.
+        igniteTable.addIndexes(schema.internalTable(tblName).indexes().values().stream()
+                .map(idx -> createIndex(idx.index(), igniteTable))
+                .collect(Collectors.toList())
+        );
+
+        schema.addTable(tblName, igniteTable);
+        tablesById.put(igniteTable.id(), igniteTable);
+
+        rebuild();
     }
 
     /**
@@ -209,6 +233,49 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             tablesById.remove(table.id());
             schema.removeTable(tableName);
         }
+
+        rebuild();
+    }
+
+    /**
+     * Build new SQL schema when new index is created.
+     */
+    public void onIndexCreated(String schema, String tblName, InternalSortedIndex idx) {
+        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(removeSchema(schema, tblName));
+
+        tbl.addIndex(createIndex(idx, tbl));
+
+        rebuild();
+    }
+
+    /**
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-15480
+     * columns mapping should be masted on column ID instead of column name.
+     */
+    private IgniteIndex createIndex(InternalSortedIndex idx, InternalIgniteTable tbl) {
+        List<RelFieldCollation> idxFieldsCollation = idx.descriptor().columns().stream()
+                .map(c ->
+                        new RelFieldCollation(
+                                tbl.descriptor().columnDescriptor(c.column().name()).logicalIndex(),
+                                c.asc() ? Direction.ASCENDING : Direction.DESCENDING,
+                                NullDirection.FIRST
+                        )
+                ).collect(Collectors.toList());
+
+        return new IgniteIndex(
+                RelCollations.of(idxFieldsCollation),
+                idx,
+                tbl
+        );
+    }
+
+    /**
+     * Build new SQL schema when existed index is dropped.
+     */
+    public void onIndexDropped(String schema, String tblName, String idxName) {
+        InternalIgniteTable tbl = igniteSchemas.get(schema).internalTable(removeSchema(schema, tblName));
+
+        tbl.removeIndex(idxName);
 
         rebuild();
     }

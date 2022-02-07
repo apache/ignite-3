@@ -97,6 +97,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.Destination;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -284,30 +285,36 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteIndexScan rel) {
-        // TODO: fix this
-        //        RexNode condition = rel.condition();
-        //        List<RexNode> projects = rel.projects();
+        RexNode condition = rel.condition();
+        List<RexNode> projects = rel.projects();
 
         InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
         IgniteTypeFactory typeFactory = ctx.getTypeFactory();
 
         ImmutableBitSet requiredColumns = rel.requiredColumns();
-        //        List<RexNode> lowerCond = rel.lowerBound();
-        //        List<RexNode> upperCond = rel.upperBound();
+        List<RexNode> lowerCond = rel.lowerBound();
+        List<RexNode> upperCond = rel.upperBound();
 
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
 
-        //        Predicate<Row> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
-        //        Supplier<Row> lower = lowerCond == null ? null : expressionFactory.rowSource(lowerCond);
-        //        Supplier<Row> upper = upperCond == null ? null : expressionFactory.rowSource(upperCond);
-        //        Function<Row, Row> prj = projects == null ? null : expressionFactory.project(projects, rowType);
-        //
-        //        IgniteIndex idx = tbl.getIndex(rel.indexName());
-        //
-        //        ColocationGroup group = ctx.group(rel.sourceId());
+        Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
+        Supplier<RowT> lower = lowerCond == null ? null : expressionFactory.rowSource(lowerCond);
+        Supplier<RowT> upper = upperCond == null ? null : expressionFactory.rowSource(upperCond);
+        Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
-        Iterable<RowT> rowsIter = (Iterable<RowT>) List.of(new Object[]{0, 0},
-                new Object[]{1, 1}); //idx.scan(ctx, group, filters, lower, upper, prj, requiredColumns);
+        IgniteIndex idx = tbl.getIndex(rel.indexName());
+
+        ColocationGroup group = ctx.group(rel.sourceId());
+
+        Iterable<RowT> rowsIter = idx.scan(
+                ctx,
+                group,
+                filters,
+                lower,
+                upper,
+                prj,
+                requiredColumns != null ? requiredColumns : ImmutableBitSet.range(rowType.getFieldCount())
+        );
 
         return new ScanNode<>(ctx, rowType, rowsIter);
     }

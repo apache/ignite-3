@@ -49,6 +49,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -147,8 +148,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private final Map<String, SqlExtension> extensions;
 
-    private final TableManager tableManager;
-
     private final DdlCommandHandler ddlCmdHnd;
 
     /**
@@ -161,6 +160,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             QueryPlanCache planCache,
             SqlSchemaManager sqlSchemaManager,
             TableManager tblManager,
+            IndexManager idxManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             Map<String, SqlExtension> extensions
@@ -171,9 +171,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.extensions = extensions;
-        tableManager = tblManager;
 
-        ddlCmdHnd = new DdlCommandHandler(tableManager);
+        ddlCmdHnd = new DdlCommandHandler(tblManager, idxManager);
 
         locNodeId = topSrvc.localMember().id();
         qryPlanCache = planCache;

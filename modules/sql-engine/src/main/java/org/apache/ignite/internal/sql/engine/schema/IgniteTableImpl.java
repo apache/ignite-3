@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -190,6 +191,15 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     @Override
     public void addIndex(IgniteIndex idxTbl) {
         indexes.put(idxTbl.name(), idxTbl);
+    }
+
+    /**
+     * Add indexes.
+     *
+     * @param idxs Indexes collection.
+     */
+    public void addIndexes(Collection<IgniteIndex> idxs) {
+        idxs.forEach(idx -> indexes.put(idx.name(), idx));
     }
 
     /** {@inheritDoc} */

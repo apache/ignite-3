@@ -28,7 +28,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -466,7 +466,7 @@ public class TraitUtils {
      * @param keys The keys to create collation from.
      * @return New collation.
      */
-    public static RelCollation createCollation(IntSet keys) {
+    public static RelCollation createCollation(IntList keys) {
         return RelCollations.of(
                 keys.intStream().mapToObj(RelFieldCollation::new).collect(Collectors.toList())
         );
