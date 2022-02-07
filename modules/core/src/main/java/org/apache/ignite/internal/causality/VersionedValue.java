@@ -97,8 +97,8 @@ public class VersionedValue<T> {
 
     /**
      * Creates a future for this value and causality token, or returns it if it already exists.
-     * <p>
-     * The returned future is associated with an update having the given causality token and completes when this update is finished
+     *
+     * <p>The returned future is associated with an update having the given causality token and completes when this update is finished
      * applying.
      *
      * @param causalityToken Causality token. Let's assume that the update associated with token N is already applied to this value. Then,
@@ -140,7 +140,7 @@ public class VersionedValue<T> {
                 causalityToken, actualToken);
 
         assert actualToken + 1 == causalityToken : IgniteStringFormatter.format(
-                "Previous token did not complete [token={}, previous={}]", causalityToken, causalityToken -1);
+                "Previous token did not complete [token={}, previous={}]", causalityToken, causalityToken - 1);
 
         CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(value));
 

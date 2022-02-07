@@ -32,7 +32,9 @@ public class OutdatedTokenException extends IgniteInternalCheckedException {
     /**
      * Constructor.
      *
-     * @param token The tokent which is expired.
+     * @param outdatedToken The tokent which is expired.
+     * @param actualToken Token for the actual stored value.
+     * @param historySize Size of stored history.
      */
     public OutdatedTokenException(long outdatedToken, long actualToken, int historySize) {
         super(IgniteStringFormatter.format("Token expired [token={}, actualToken={}, historySize={}]", outdatedToken,
