@@ -211,8 +211,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         try {
             List<SqlCursor<List<?>>> cursors = processor.query(req.schemaName(), query.sql(), arg);
             for (SqlCursor<List<?>> cursor : cursors) {
-                long l = (long) cursor.next().get(0);
-                res.add((int) l);
+                long updatedRows = (long) cursor.next().get(0);
+                res.add((int) updatedRows);
             }
         } catch (Exception e) {
             res.add(Statement.EXECUTE_FAILED);

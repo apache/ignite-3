@@ -43,6 +43,9 @@ public class BatchExecuteResult extends Response {
      * Constructor.
      *
      * @param status Status code.
+     * @param errorCode Product error code.
+     * @param errorMessage Error message.
+     * @param updateCnts Array with success and error markers.
      */
     public BatchExecuteResult(int status, int errorCode, String errorMessage, int[] updateCnts) {
         super(status, errorMessage);
