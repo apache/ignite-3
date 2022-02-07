@@ -18,19 +18,16 @@
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import static java.util.Arrays.asList;
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
@@ -49,51 +46,18 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.immutables.value.Value;
 
 /**
  * Rule that pushes filter into the scan. This might be useful for index range scans.
  */
+@Value.Enclosing
 public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableScan>
         extends RelRule<FilterScanMergeRule.Config> {
-    /** Instance. */
-    public static final FilterScanMergeRule<IgniteLogicalIndexScan> INDEX_SCAN =
-            new FilterScanMergeRule<IgniteLogicalIndexScan>(Config.INDEX_SCAN) {
-                /** {@inheritDoc} */
-                @Override protected IgniteLogicalIndexScan createNode(
-                        RelOptCluster cluster,
-                        IgniteLogicalIndexScan scan,
-                        RelTraitSet traits,
-                        RexNode cond) {
-                    Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(cond);
 
-                        if (!nullOrEmpty(corrIds)) {
-                            traits = traits.replace(CorrelationTrait.correlations(corrIds));
-                        }
+    public static final RelOptRule INDEX_SCAN = Config.INDEX_SCAN.toRule();
 
-                        return IgniteLogicalIndexScan.create(cluster, traits, scan.getTable(), scan.indexName(),
-                                scan.projects(), cond, scan.requiredColumns());
-                    }
-                };
-
-    /** Instance. */
-    public static final FilterScanMergeRule<IgniteLogicalTableScan> TABLE_SCAN =
-            new FilterScanMergeRule<IgniteLogicalTableScan>(Config.TABLE_SCAN) {
-                /** {@inheritDoc} */
-                @Override protected IgniteLogicalTableScan createNode(
-                        RelOptCluster cluster,
-                        IgniteLogicalTableScan scan,
-                        RelTraitSet traits,
-                        RexNode cond) {
-                        Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(cond);
-
-                        if (!nullOrEmpty(corrIds)) {
-                            traits = traits.replace(CorrelationTrait.correlations(corrIds));
-                        }
-
-                        return IgniteLogicalTableScan.create(cluster, traits, scan.getTable(), scan.projects(),
-                                cond, scan.requiredColumns());
-                    }
-                };
+    public static final RelOptRule TABLE_SCAN = Config.TABLE_SCAN.toRule();
 
     /**
      * Constructor.
@@ -182,16 +146,55 @@ public abstract class FilterScanMergeRule<T extends ProjectableFilterableTableSc
 
     protected abstract T createNode(RelOptCluster cluster, T scan, RelTraitSet traits, RexNode cond);
 
+    private static class FilterIndexScanMergeRule extends FilterScanMergeRule<IgniteLogicalIndexScan> {
+        private FilterIndexScanMergeRule(FilterScanMergeRule.Config cfg) {
+            super(cfg);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected IgniteLogicalIndexScan createNode(
+                RelOptCluster cluster,
+                IgniteLogicalIndexScan scan,
+                RelTraitSet traits,
+                RexNode cond
+        ) {
+            return IgniteLogicalIndexScan.create(cluster, traits, scan.getTable(), scan.indexName(),
+                    scan.projects(), cond, scan.requiredColumns());
+        }
+    }
+
+    private static class FilterTableScanMergeRule extends FilterScanMergeRule<IgniteLogicalTableScan> {
+        private FilterTableScanMergeRule(FilterScanMergeRule.Config cfg) {
+            super(cfg);
+        }
+
+        /** {@inheritDoc} */
+        @Override protected IgniteLogicalTableScan createNode(
+                RelOptCluster cluster,
+                IgniteLogicalTableScan scan,
+                RelTraitSet traits,
+                RexNode cond
+        ) {
+            return IgniteLogicalTableScan.create(cluster, traits, scan.getTable(), scan.projects(),
+                    cond, scan.requiredColumns());
+        }
+    }
+
     /**
      * Rule's configuration.
      */
     @SuppressWarnings("ClassNameSameAsAncestorName")
-    public interface Config extends RelRule.Config {
-        Config DEFAULT = EMPTY.withRelBuilderFactory(RelFactories.LOGICAL_BUILDER).as(Config.class);
+    @Value.Immutable(singleton = false)
+    public interface Config extends RuleFactoryConfig<Config> {
+        Config DEFAULT = ImmutableFilterScanMergeRule.Config.builder()
+                .withRuleFactory(FilterTableScanMergeRule::new)
+                .build();
 
         Config TABLE_SCAN = DEFAULT.withScanRuleConfig(IgniteLogicalTableScan.class, "FilterTableScanMergeRule");
 
-        Config INDEX_SCAN = DEFAULT.withScanRuleConfig(IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule");
+        Config INDEX_SCAN = DEFAULT
+                .withRuleFactory(FilterIndexScanMergeRule::new)
+                .withScanRuleConfig(IgniteLogicalIndexScan.class, "FilterIndexScanMergeRule");
 
         /**
          * Create configuration for specified scan.
