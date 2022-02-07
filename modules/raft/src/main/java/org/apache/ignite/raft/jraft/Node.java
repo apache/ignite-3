@@ -190,8 +190,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void changePeers(final Configuration newPeers, final Closure done);
 
     /**
+     * Asynchronously change the configuration of the raft group to |newPeers|.
      *
      * @param newPeers new peers to change
+     * @param term term on which this method was called.
+     * @return the status of the call.
      */
     ChangePeersAsyncStatus changePeersAsync(final Configuration newPeers, long term);
 

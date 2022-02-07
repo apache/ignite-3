@@ -17,12 +17,28 @@
 
 package org.apache.ignite.raft.jraft;
 
+/**
+ * Returning status of the {@link Node#changePeersAsync(org.apache.ignite.raft.jraft.conf.Configuration, long)} method invocation.
+ */
 public enum ChangePeersAsyncStatus {
-    DONE(),
+    /**
+     * Returned when the new peers passed to {@link Node#changePeersAsync} equal to current configuration.
+     */
+    DONE,
 
-    WRONG_TERM(),
+    /**
+     * Returned when the current term does not match with
+     * the provided term in {@link Node#changePeersAsync(org.apache.ignite.raft.jraft.conf.Configuration, long)}
+     */
+    WRONG_TERM,
 
-    RECEIVED(),
+    /**
+     * Returned when an asynchronous process of changing peers has been started.
+     */
+    RECEIVED,
 
-    BUSY();
+    /**
+     * Returned when there is a concurrent change peers process.
+     */
+    BUSY
 }

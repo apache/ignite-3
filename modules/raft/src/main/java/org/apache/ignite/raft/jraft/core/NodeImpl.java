@@ -3226,13 +3226,27 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
         this.writeLock.lock();
         try {
-            // Return immediately when the new peers equals to current configuration
+            // Return immediately when the new peers equal to current configuration
             if (this.conf.getConf().equals(newPeers)) {
+                LOG.warn("Node {} has already had the provided conf {}.", getNodeId(), newPeers);
+
                 return ChangePeersAsyncStatus.DONE;
             }
 
-            if (getCurrentTerm() != term) {
+            long currentTerm = getCurrentTerm();
+
+            if (currentTerm != term) {
+                LOG.warn("Node {} refused configuration because of mismatching terms. Current term is {}, but provided is {}.",
+                        getNodeId(), currentTerm, term);
+
                 return ChangePeersAsyncStatus.WRONG_TERM;
+            }
+
+            // check concurrent conf change
+            if (this.confCtx.isBusy()) {
+                LOG.warn("Node {} refused configuration concurrent changing.", getNodeId());
+
+                return ChangePeersAsyncStatus.BUSY;
             }
 
             LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
