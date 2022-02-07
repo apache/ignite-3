@@ -17,28 +17,40 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import com.google.common.collect.ImmutableMap;
+import java.util.BitSet;
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelRule;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.RelFactories;
-import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.tools.RelBuilder;
+import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Converts OR to UNION ALL.
  */
 public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     /** Instance. */
-    public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
+    public static final RelOptRule INSTANCE = new LogicalOrToUnionRule(Config.SCAN);
 
     /**
      * Constructor.
@@ -49,30 +61,35 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
         super(config);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onMatch(RelOptRuleCall call) {
-        final LogicalFilter rel = call.rel(0);
-        final RelOptCluster cluster = rel.getCluster();
-
-        RexNode dnf = RexUtil.toDnf(cluster.getRexBuilder(), rel.getCondition());
+    private static @Nullable List<RexNode> getOrOperands(RexBuilder rexBuilder, RexNode condition) {
+        RexNode dnf = RexUtil.toDnf(rexBuilder, condition);
 
         if (!dnf.isA(SqlKind.OR)) {
-            return;
+            return null;
         }
 
         List<RexNode> operands = RelOptUtil.disjunctions(dnf);
 
         if (operands.size() != 2 || RexUtil.find(SqlKind.IS_NULL).anyContain(operands)) {
-            return;
+            return null;
         }
 
-        RelNode input = rel.getInput(0);
+        return operands;
+    }
 
-        RelNode rel0 = createUnionAll(cluster, input, operands.get(0), operands.get(1));
+    private void buildInput(RelBuilder relBldr, RelNode input, RexNode condition) {
+        IgniteLogicalTableScan scan = (IgniteLogicalTableScan) input;
 
-        call.transformTo(rel0, Map.of(
-                createUnionAll(cluster, input, operands.get(1), operands.get(0)), rel0
+        // Set default traits, real traits will be calculated for physical node.
+        RelTraitSet trait = scan.getCluster().traitSet();
+
+        relBldr.push(IgniteLogicalTableScan.create(
+                scan.getCluster(),
+                trait,
+                scan.getTable(),
+                scan.projects(),
+                condition,
+                scan.requiredColumns()
         ));
     }
 
@@ -88,37 +105,103 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     private RelNode createUnionAll(RelOptCluster cluster, RelNode input, RexNode op1, RexNode op2) {
         RelBuilder relBldr = relBuilderFactory.create(cluster, null);
 
+        buildInput(relBldr, input, op1);
+        buildInput(relBldr, input, relBldr.and(op2, relBldr.or(relBldr.isNull(op1), relBldr.not(op1))));
+
         return relBldr
-                .push(input).filter(op1)
-                .push(input).filter(
-                        relBldr.and(op2,
-                                relBldr.or(relBldr.isNull(op1), relBldr.not(op1))))
                 .union(true)
                 .build();
+    }
+
+    private RexNode getCondition(RelOptRuleCall call) {
+        final IgniteLogicalTableScan rel = call.rel(0);
+
+        return rel.condition();
+    }
+
+    /**
+     * Compares intersection (currently beginning position) of condition and index fields.
+     * This rule need to be triggered only if appropriate indexes will be found otherwise it`s not applicable.
+     *
+     * @param call Set of appropriate RelNode.
+     * @param operands Operands from OR expression.
+     */
+    private boolean idxCollationCheck(RelOptRuleCall call, List<RexNode> operands) {
+        final IgniteLogicalTableScan scan = call.rel(0);
+
+        InternalIgniteTable tbl = scan.getTable().unwrap(InternalIgniteTable.class);
+        IgniteTypeFactory typeFactory = Commons.typeFactory(scan.getCluster());
+        int fieldCnt = tbl.getRowType(typeFactory).getFieldCount();
+
+        BitSet idxsFirstFields = new BitSet(fieldCnt);
+
+        for (IgniteIndex idx : tbl.indexes().values()) {
+            List<RelFieldCollation> fieldCollations = idx.collation().getFieldCollations();
+
+            if (!CollectionUtils.nullOrEmpty(fieldCollations)) {
+                idxsFirstFields.set(fieldCollations.get(0).getFieldIndex());
+            }
+        }
+
+        Mappings.TargetMapping mapping = scan.requiredColumns() == null ? null :
+                Commons.inverseMapping(scan.requiredColumns(), fieldCnt);
+
+        for (RexNode op : operands) {
+            BitSet conditionFields = new BitSet(fieldCnt);
+
+            new RexShuttle() {
+                @Override public RexNode visitLocalRef(RexLocalRef inputRef) {
+                    conditionFields.set(mapping == null ? inputRef.getIndex() :
+                            mapping.getSourceOpt(inputRef.getIndex()));
+                    return inputRef;
+                }
+            }.apply(op);
+
+            if (!conditionFields.intersects(idxsFirstFields)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override public void onMatch(RelOptRuleCall call) {
+        final RelOptCluster cluster = call.rel(0).getCluster();
+
+        List<RexNode> operands = getOrOperands(cluster.getRexBuilder(), getCondition(call));
+
+        if (operands == null) {
+            return;
+        }
+
+        if (!idxCollationCheck(call, operands)) {
+            return;
+        }
+
+        RelNode input = call.rel(0);
+
+        RelNode rel0 = createUnionAll(cluster, input, operands.get(0), operands.get(1));
+        RelNode rel1 = createUnionAll(cluster, input, operands.get(1), operands.get(0));
+
+        call.transformTo(rel0, ImmutableMap.of(rel1, rel0));
     }
 
     /**
      * Config interface.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @SuppressWarnings("ClassNameSameAsAncestorName")
     public interface Config extends RelRule.Config {
         Config DEFAULT = RelRule.Config.EMPTY
                 .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
-                .withDescription("LogicalOrToUnionRule")
-                .as(Config.class)
-                .withOperandFor(LogicalFilter.class);
+                .as(Config.class);
 
-        /** Defines an operand tree for the given classes. */
-        default Config withOperandFor(Class<? extends Filter> filterClass) {
-            return withOperandSupplier(o -> o.operand(filterClass).anyInputs())
-                    .as(Config.class);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        default LogicalOrToUnionRule toRule() {
-            return new LogicalOrToUnionRule(this);
-        }
+        Config SCAN = DEFAULT
+                .withDescription("ScanLogicalOrToUnionRule")
+                .withOperandSupplier(o -> o.operand(IgniteLogicalTableScan.class)
+                        .predicate(scan -> scan.condition() != null)
+                        .noInputs()
+                )
+                .as(Config.class);
     }
 }

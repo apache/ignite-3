@@ -754,7 +754,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     }
 
     /**
-     * TODO  IGNITE-15188.
+     * Get-set holdability test.
      *
      * @throws Exception If failed.
      */
@@ -974,8 +974,6 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testGetSetClientInfoPair() throws Exception {
-        //        fail("https://issues.apache.org/jira/browse/IGNITE-5425");
-
         try (Connection conn = DriverManager.getConnection(URL)) {
             final String name = "ApplicationName";
             final String val = "SelfTest";

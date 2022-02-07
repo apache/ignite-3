@@ -285,6 +285,27 @@ public class IgniteUtils {
     }
 
     /**
+     * Returns size in human-readable format.
+     *
+     * @param bytes Number of bytes to display.
+     * @param si If {@code true}, then unit base is 1000, otherwise unit base is 1024.
+     * @return Formatted size.
+     */
+    public static String readableSize(long bytes, boolean si) {
+        int unit = si ? 1000 : 1024;
+
+        if (bytes < unit) {
+            return bytes + " B";
+        }
+
+        int exp = (int) (Math.log(bytes) / Math.log(unit));
+
+        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp - 1) + (si ? "" : "i");
+
+        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
+    }
+
+    /**
      * Gets absolute value for integer. If integer is {@link Integer#MIN_VALUE}, then {@code 0} is returned.
      *
      * @param i Integer.
@@ -630,5 +651,14 @@ public class IgniteUtils {
      */
     public static boolean nullOrEmpty(@Nullable String s) {
         return s == null || s.isEmpty();
+    }
+
+    /**
+     * Returns {@code true} If the given value is power of 2 (0 is not power of 2).
+     *
+     * @param i Value.
+     */
+    public static boolean isPow2(int i) {
+        return i > 0 && (i & (i - 1)) == 0;
     }
 }

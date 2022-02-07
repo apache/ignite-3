@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.readLength;
 import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.writeLength;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -32,9 +31,15 @@ import java.math.BigDecimal;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.UUID;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.util.StringIntrospection;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataInput.Materializer;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.NotNull;
 
@@ -42,20 +47,11 @@ import org.jetbrains.annotations.NotNull;
  * Built-in types marshalling.
  */
 class BuiltInMarshalling {
-    private static final ValueWriter<String> stringWriter = (obj, out, ctx) -> writeString(obj, out);
-    private static final IntFunction<String[]> stringArrayFactory = String[]::new;
-    private static final ValueReader<String> stringReader = (in, ctx) -> readString(in);
-
-    private static final ValueWriter<BigDecimal> bigDecimalWriter = (obj, out, ctx) -> writeBigDecimal(obj, out);
-    private static final IntFunction<BigDecimal[]> bigDecimalArrayFactory = BigDecimal[]::new;
-    private static final ValueReader<BigDecimal> bigDecimalReader = (in, ctx) -> readBigDecimal(in);
-
-    private static final ValueWriter<Enum<?>> enumWriter = (obj, out, ctx) -> writeEnum(obj, out);
-    private static final ValueReader<Enum<?>> enumReader = BuiltInMarshalling::readEnum;
-
     private static final ValueWriter<Class<?>> classWriter = (obj, out, ctx) -> writeClass(obj, out);
     private static final IntFunction<Class<?>[]> classArrayFactory = Class[]::new;
     private static final ValueReader<Class<?>> classReader = BuiltInMarshalling::readClass;
+
+    private static final Materializer<String> LATIN1_MATERIALIZER = (bytes, offset, len) -> new String(bytes, offset, len, ISO_8859_1);
 
     private static final Field singletonListElementField;
 
@@ -74,6 +70,16 @@ class BuiltInMarshalling {
 
     static String readString(DataInput input) throws IOException {
         return input.readUTF();
+    }
+
+    static void writeLatin1String(String string, IgniteDataOutput output) throws IOException {
+        byte[] bytes = StringIntrospection.fastLatin1Bytes(string);
+        writeByteArray(bytes, output);
+    }
+
+    static String readLatin1String(IgniteDataInput input) throws IOException {
+        int length = readLength(input);
+        return input.materializeFromNextBytes(length, LATIN1_MATERIALIZER);
     }
 
     static Object readBareObject(@SuppressWarnings("unused") DataInput input) {
@@ -108,128 +114,128 @@ class BuiltInMarshalling {
         return new Date(input.readLong());
     }
 
-    static void writeByteArray(byte[] array, DataOutput output) throws IOException {
+    static void writeByteArray(byte[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        output.write(array);
+        output.writeByteArray(array);
     }
 
-    static byte[] readByteArray(DataInput input) throws IOException {
+    static byte[] readByteArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        byte[] array = new byte[length];
-        input.readFully(array);
-        return array;
+        return input.readByteArray(length);
     }
 
-    static void writeShortArray(short[] array, DataOutput output) throws IOException {
+    static void writeShortArray(short[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (short sh : array) {
-            output.writeShort(sh);
-        }
+        output.writeShortArray(array);
     }
 
-    static short[] readShortArray(DataInput input) throws IOException {
+    static short[] readShortArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        short[] array = new short[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readShort();
-        }
-        return array;
+        return input.readShortArray(length);
     }
 
-    static void writeIntArray(int[] array, DataOutput output) throws IOException {
+    static void writeIntArray(int[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (int sh : array) {
-            output.writeInt(sh);
-        }
+        output.writeIntArray(array);
     }
 
-    static int[] readIntArray(DataInput input) throws IOException {
+    static int[] readIntArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        int[] array = new int[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readInt();
-        }
-        return array;
+        return input.readIntArray(length);
     }
 
-    static void writeFloatArray(float[] array, DataOutput output) throws IOException {
+    static void writeFloatArray(float[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (float sh : array) {
-            output.writeFloat(sh);
-        }
+        output.writeFloatArray(array);
     }
 
-    static float[] readFloatArray(DataInput input) throws IOException {
+    static float[] readFloatArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        float[] array = new float[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readFloat();
-        }
-        return array;
+        return input.readFloatArray(length);
     }
 
-    static void writeLongArray(long[] array, DataOutput output) throws IOException {
+    static void writeLongArray(long[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (long sh : array) {
-            output.writeLong(sh);
-        }
+        output.writeLongArray(array);
     }
 
-    static long[] readLongArray(DataInput input) throws IOException {
+    static long[] readLongArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        long[] array = new long[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readLong();
-        }
-        return array;
+        return input.readLongArray(length);
     }
 
-    static void writeDoubleArray(double[] array, DataOutput output) throws IOException {
+    static void writeDoubleArray(double[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (double sh : array) {
-            output.writeDouble(sh);
-        }
+        output.writeDoubleArray(array);
     }
 
-    static double[] readDoubleArray(DataInput input) throws IOException {
+    static double[] readDoubleArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        double[] array = new double[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readDouble();
-        }
-        return array;
+        return input.readDoubleArray(length);
     }
 
-    static void writeBooleanArray(boolean[] array, DataOutput output) throws IOException {
+    static void writeBooleanArray(boolean[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (boolean sh : array) {
-            output.writeBoolean(sh);
+
+        byte bits = 0;
+        int writtenBytes = 0;
+        for (int i = 0; i < array.length; i++) {
+            boolean bit = array[i];
+            int bitIndex = i % 8;
+            if (bit) {
+                bits |= (1 << bitIndex);
+            }
+            if (bitIndex == 7) {
+                output.writeByte(bits);
+                writtenBytes++;
+                bits = 0;
+            }
+        }
+
+        int totalBytesToWrite = numberOfBytesToPackBits(array.length);
+        if (writtenBytes < totalBytesToWrite) {
+            output.writeByte(bits);
         }
     }
 
-    static boolean[] readBooleanArray(DataInput input) throws IOException {
+    private static int numberOfBytesToPackBits(int length) {
+        return length / 8 + (length % 8 == 0 ? 0 : 1);
+    }
+
+    static boolean[] readBooleanArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
+
         boolean[] array = new boolean[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readBoolean();
+
+        int totalBytesToRead = numberOfBytesToPackBits(length);
+
+        for (int byteIndex = 0; byteIndex < totalBytesToRead; byteIndex++) {
+            byte bits = input.readByte();
+
+            int bitsToReadInThisByte;
+            if (byteIndex < totalBytesToRead - 1) {
+                bitsToReadInThisByte = 8;
+            } else {
+                bitsToReadInThisByte = length - (totalBytesToRead - 1) * 8;
+            }
+            for (int bitIndex = 0; bitIndex < bitsToReadInThisByte; bitIndex++) {
+                if ((bits & (1 << bitIndex)) != 0) {
+                    array[byteIndex * 8 + bitIndex] = true;
+                }
+            }
         }
+
         return array;
     }
 
-    static void writeCharArray(char[] array, DataOutput output) throws IOException {
+    static void writeCharArray(char[] array, IgniteDataOutput output) throws IOException {
         writeLength(array.length, output);
-        for (char sh : array) {
-            output.writeChar(sh);
-        }
+        output.writeCharArray(array);
     }
 
-    static char[] readCharArray(DataInput input) throws IOException {
+    static char[] readCharArray(IgniteDataInput input) throws IOException {
         int length = readLength(input);
-        char[] array = new char[length];
-        for (int i = 0; i < length; i++) {
-            array[i] = input.readChar();
-        }
-        return array;
+        return input.readCharArray(length);
     }
 
     static void writeBigDecimal(BigDecimal object, DataOutput output) throws IOException {
@@ -241,28 +247,16 @@ class BuiltInMarshalling {
     }
 
     static void writeEnum(Enum<?> object, DataOutput output) throws IOException {
-        Class<?> enumClass = object.getClass();
-        if (!enumClass.isEnum()) {
-            // this is needed for enums where members are represented with anonymous classes
-            enumClass = enumClass.getSuperclass();
-        }
-
-        assert enumClass.getSuperclass() == Enum.class;
-
-        writeClass(enumClass, output);
         writeString(object.name(), output);
     }
 
-    @SuppressWarnings("unchecked")
-    static <T extends Enum<T>> Enum<?> readEnum(DataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
-        Class<T> enumClass = (Class<T>) readClass(input, context);
-        return Enum.valueOf(enumClass, input.readUTF());
+    static <T extends Enum<T>> Enum<T> readEnum(DataInput input, Class<T> enumClass) throws IOException {
+        return Enum.valueOf(enumClass, readString(input));
     }
 
     @NotNull
     private static <T> Class<T> classByName(String className, ClassLoader classLoader) throws UnmarshalException {
         try {
-            // TODO: what classloader to use?
             @SuppressWarnings("unchecked") Class<T> castedClass = (Class<T>) Class.forName(className, true, classLoader);
             return castedClass;
         } catch (ClassNotFoundException e) {
@@ -279,16 +273,16 @@ class BuiltInMarshalling {
         return classByName(className, context.classLoader());
     }
 
-    static void writeClassArray(Class<?>[] classes, DataOutputStream output, MarshallingContext context)
+    static void writeClassArray(Class<?>[] classes, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         writeRefArray(classes, output, classWriter, context);
     }
 
-    static Class<?>[] readClassArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+    static Class<?>[] readClassArray(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
         return readRefArray(input, classArrayFactory, classReader, context);
     }
 
-    private static <T> void writeRefArray(T[] array, DataOutputStream output, ValueWriter<T> valueWriter, MarshallingContext context)
+    private static <T> void writeRefArray(T[] array, IgniteDataOutput output, ValueWriter<T> valueWriter, MarshallingContext context)
             throws IOException, MarshalException {
         writeLength(array.length, output);
         for (T object : array) {
@@ -297,7 +291,7 @@ class BuiltInMarshalling {
     }
 
     private static <T> T[] readRefArray(
-            DataInputStream input,
+            IgniteDataInput input,
             IntFunction<T[]> arrayFactory,
             ValueReader<T> valueReader,
             UnmarshallingContext context
@@ -310,7 +304,7 @@ class BuiltInMarshalling {
         return array;
     }
 
-    private static <T> void fillRefArrayFrom(DataInputStream input, T[] array, ValueReader<T> valueReader, UnmarshallingContext context)
+    private static <T> void fillRefArrayFrom(IgniteDataInput input, T[] array, ValueReader<T> valueReader, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         for (int i = 0; i < array.length; i++) {
             array[i] = valueReader.read(input, context);
@@ -330,54 +324,37 @@ class BuiltInMarshalling {
         return arrayFactory.apply(length);
     }
 
-    static <T> void fillGenericRefArrayFrom(DataInputStream input, T[] array, ValueReader<T> elementReader, UnmarshallingContext context)
-            throws IOException, UnmarshalException {
-        fillRefArrayFrom(input, array, elementReader, context);
-    }
-
-    static void writeStringArray(String[] array, DataOutputStream output, MarshallingContext context) throws IOException, MarshalException {
-        writeRefArray(array, output, stringWriter, context);
-    }
-
-    static String[] readStringArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
-        return readRefArray(input, stringArrayFactory, stringReader, context);
-    }
-
-    static void writeBigDecimalArray(BigDecimal[] array, DataOutputStream output, MarshallingContext context)
-            throws IOException, MarshalException {
-        writeRefArray(array, output, bigDecimalWriter, context);
-    }
-
-    static BigDecimal[] readBigDecimalArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
-        return readRefArray(input, bigDecimalArrayFactory, bigDecimalReader, context);
-    }
-
-    static void writeEnumArray(Enum<?>[] array, DataOutputStream output, MarshallingContext context) throws IOException, MarshalException {
-        writeClass(array.getClass().getComponentType(), output);
-        writeRefArray(array, output, enumWriter, context);
-    }
-
-    @SuppressWarnings("unchecked")
-    static Enum<?>[] readEnumArray(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
-        Class<? extends Enum<?>> enumClass = (Class<? extends Enum<?>>) readClass(input, context);
-        return readRefArray(input, len -> (Enum<?>[]) Array.newInstance(enumClass, len), enumReader, context);
-    }
-
     static <T> void writeCollection(
             Collection<T> collection,
-            DataOutputStream output,
+            IgniteDataOutput output,
             ValueWriter<T> valueWriter,
             MarshallingContext context
     ) throws IOException, MarshalException {
         writeLength(collection.size(), output);
 
-        for (T object : collection) {
-            valueWriter.write(object, output, context);
+        if (collection instanceof List && collection instanceof RandomAccess) {
+            writeRandomAccessListElements(output, valueWriter, context, (List<T>) collection);
+        } else {
+            for (T object : collection) {
+                valueWriter.write(object, output, context);
+            }
+        }
+    }
+
+    private static <T> void writeRandomAccessListElements(
+            IgniteDataOutput output,
+            ValueWriter<T> valueWriter,
+            MarshallingContext context,
+            List<T> list
+    ) throws IOException, MarshalException {
+        //noinspection ForLoopReplaceableByForEach
+        for (int i = 0; i < list.size(); i++) {
+            valueWriter.write(list.get(i), output, context);
         }
     }
 
     static <T, C extends Collection<T>> void fillCollectionFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             C collection,
             ValueReader<T> valueReader,
             UnmarshallingContext context
@@ -395,7 +372,7 @@ class BuiltInMarshalling {
     }
 
     static <T, C extends Collection<T>> void fillSingletonCollectionFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             C collection,
             ValueReader<T> elementReader,
             UnmarshallingContext context
@@ -411,7 +388,7 @@ class BuiltInMarshalling {
 
     static <K, V> void writeMap(
             Map<K, V> map,
-            DataOutputStream output,
+            IgniteDataOutput output,
             ValueWriter<K> keyWriter,
             ValueWriter<V> valueWriter,
             MarshallingContext context
@@ -425,7 +402,7 @@ class BuiltInMarshalling {
     }
 
     static <K, V, M extends Map<K, V>> void fillMapFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,
@@ -443,11 +420,11 @@ class BuiltInMarshalling {
         return mapFactory.apply(length);
     }
 
-    static void writeBitSet(BitSet object, DataOutput output) throws IOException {
+    static void writeBitSet(BitSet object, IgniteDataOutput output) throws IOException {
         writeByteArray(object.toByteArray(), output);
     }
 
-    static BitSet readBitSet(DataInput input) throws IOException {
+    static BitSet readBitSet(IgniteDataInput input) throws IOException {
         return BitSet.valueOf(readByteArray(input));
     }
 

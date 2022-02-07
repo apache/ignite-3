@@ -71,15 +71,23 @@ public class Query implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packString(sql);
-        packer.packObjectArray(args);
+        ClientMessageUtils.writeStringNullable(packer, sql);
+        if (args == null) {
+            packer.packNil();
+        } else {
+            packer.packObjectArray(args);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        sql = unpacker.unpackString();
-        args = unpacker.unpackObjectArray();
+        sql = ClientMessageUtils.readStringNullable(unpacker);
+        if (unpacker.tryUnpackNil()) {
+            args = null;
+        } else {
+            args = unpacker.unpackObjectArray();
+        }
     }
 
     /** {@inheritDoc} */

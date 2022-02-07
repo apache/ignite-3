@@ -166,7 +166,7 @@ public class ClientKeyValueView<K, V> implements KeyValueView<K, V> {
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT_ALL,
                 (s, w) -> {
-                    w.out().packIgniteUuid(tbl.tableId());
+                    w.out().packUuid(tbl.tableId());
                     writeTx(tx, w);
                     w.out().packInt(s.version());
                     w.out().packInt(pairs.size());

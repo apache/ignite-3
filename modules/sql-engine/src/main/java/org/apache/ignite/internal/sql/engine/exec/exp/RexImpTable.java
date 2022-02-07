@@ -195,6 +195,7 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.LENGTH;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SYSTEM_RANGE;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -413,17 +414,18 @@ public class RexImpTable {
         map.put(NOT_SIMILAR_TO, NotImplementor.of(similarImplementor));
 
         // POSIX REGEX
-        final MethodImplementor posixRegexImplementor =
-                new MethodImplementor(BuiltInMethod.POSIX_REGEX.method,
-                        NullPolicy.STRICT, false);
+        final MethodImplementor posixRegexImplementorCaseSensitive =
+                new PosixRegexMethodImplementor(true);
+        final MethodImplementor posixRegexImplementorCaseInsensitive =
+                new PosixRegexMethodImplementor(false);
         map.put(SqlStdOperatorTable.POSIX_REGEX_CASE_INSENSITIVE,
-                posixRegexImplementor);
+                posixRegexImplementorCaseInsensitive);
         map.put(SqlStdOperatorTable.POSIX_REGEX_CASE_SENSITIVE,
-                posixRegexImplementor);
+                posixRegexImplementorCaseSensitive);
         map.put(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_INSENSITIVE,
-                NotImplementor.of(posixRegexImplementor));
+                NotImplementor.of(posixRegexImplementorCaseInsensitive));
         map.put(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_SENSITIVE,
-                NotImplementor.of(posixRegexImplementor));
+                NotImplementor.of(posixRegexImplementorCaseSensitive));
         map.put(REGEXP_REPLACE, new RegexpReplaceImplementor());
 
         // Multisets & arrays
@@ -548,6 +550,8 @@ public class RexImpTable {
         map.put(CURRENT_DATE, systemFunctionImplementor);
         map.put(LOCALTIME, systemFunctionImplementor);
         map.put(LOCALTIMESTAMP, systemFunctionImplementor);
+
+        map.put(TYPEOF, systemFunctionImplementor);
     }
 
     private <T> Supplier<T> constructorSupplier(Class<T> klass) {
@@ -990,6 +994,28 @@ public class RexImpTable {
                         Util.skip(argValueList, 1));
             }
             return expression;
+        }
+    }
+
+    /**
+     * Implementor for {@link org.apache.calcite.sql.fun.SqlPosixRegexOperator}s.
+     */
+    private static class PosixRegexMethodImplementor extends MethodImplementor {
+        protected final boolean caseSensitive;
+
+        PosixRegexMethodImplementor(boolean caseSensitive) {
+            super(BuiltInMethod.POSIX_REGEX.method, NullPolicy.STRICT, false);
+            this.caseSensitive = caseSensitive;
+        }
+
+        /** {@inheritDoc} */
+        @Override Expression implementSafe(RexToLixTranslator translator,
+                RexCall call, List<Expression> argValueList) {
+            assert argValueList.size() == 2;
+            // Add extra parameter (caseSensitive boolean flag), required by SqlFunctions#posixRegex.
+            final List<Expression> newOperands = new ArrayList<>(argValueList);
+            newOperands.add(Expressions.constant(caseSensitive));
+            return super.implementSafe(translator, call, newOperands);
         }
     }
 
@@ -1698,6 +1724,10 @@ public class RexImpTable {
                     return createTableFunctionImplementor(IgniteMethod.SYSTEM_RANGE3.method())
                             .implement(translator, call, NullAs.NULL);
                 }
+            } else if (op == TYPEOF) {
+                assert call.getOperands().size() == 1 : call.getOperands();
+
+                return Expressions.constant(call.getOperands().get(0).getType().toString());
             }
 
             throw new AssertionError("unknown function " + op);
@@ -1708,13 +1738,13 @@ public class RexImpTable {
     private static class NotImplementor extends AbstractRexCallImplementor {
         private AbstractRexCallImplementor implementor;
 
-        private NotImplementor(AbstractRexCallImplementor implementor) {
-            super(null, false);
+        private NotImplementor(NullPolicy nullPolicy, AbstractRexCallImplementor implementor) {
+            super(nullPolicy, false);
             this.implementor = implementor;
         }
 
         static AbstractRexCallImplementor of(AbstractRexCallImplementor implementor) {
-            return new NotImplementor(implementor);
+            return new NotImplementor(implementor.nullPolicy, implementor);
         }
 
         /** {@inheritDoc} */

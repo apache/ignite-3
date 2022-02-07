@@ -48,7 +48,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
 import org.msgpack.core.MessageFormatException;
@@ -740,26 +739,6 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         return new UUID(buf.readLong(), buf.readLong());
-    }
-
-    /**
-     * Reads an {@link IgniteUuid}.
-     *
-     * @return {@link IgniteUuid} value.
-     * @throws MessageTypeException when type is not {@link IgniteUuid}.
-     * @throws MessageSizeException when size is not correct.
-     */
-    public IgniteUuid unpackIgniteUuid() {
-        assert refCnt > 0 : "Unpacker is closed";
-
-        var hdr = unpackExtensionTypeHeader();
-        var type = hdr.getType();
-
-        if (type != ClientMsgPackType.IGNITE_UUID) {
-            throw new MessageTypeException("Expected Ignite UUID extension (1), but got " + type);
-        }
-
-        return new IgniteUuid(new UUID(buf.readLong(), buf.readLong()), unpackLong());
     }
 
     /**

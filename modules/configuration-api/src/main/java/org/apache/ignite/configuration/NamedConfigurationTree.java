@@ -23,8 +23,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Configuration tree representing arbitrary set of named underlying configuration tree of the same type.
  *
- * @param <T>      Type of the underlying configuration tree.
- * @param <VIEWT>   Value type of the underlying node.
+ * @param <T> Type of the underlying configuration tree.
+ * @param <VIEWT> Value type of the underlying node.
  * @param <CHANGET> Type of the object that changes underlying nodes values.
  */
 public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, VIEWT, CHANGET extends VIEWT>
@@ -33,12 +33,14 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * Get named configuration by name.
      *
      * @param name Name.
-     * @return Configuration.
      */
     @Nullable T get(String name);
 
     /**
      * Add named-list-specific configuration values listener.
+     *
+     * <p>NOTE: If this method is called from another listener, then it is guaranteed to be called starting from the next configuration
+     * update only.
      *
      * @param listener Listener.
      */
@@ -46,6 +48,8 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
 
     /**
      * Removes named-list-specific configuration values listener.
+     *
+     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
      *
      * @param listener Listener.
      */
@@ -56,8 +60,6 @@ public interface NamedConfigurationTree<T extends ConfigurationProperty<VIEWT>, 
      * its nested configurations.
      *
      * <p>NOTE: {@link ConfigurationListenOnlyException} will be thrown when trying to get/update the configuration values.
-     *
-     * @return Placeholder to add listeners for any configuration.
      */
     T any();
 }

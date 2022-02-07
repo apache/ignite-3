@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -50,7 +51,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteUuid;
 
 /**
  * RelJsonReader.
@@ -155,7 +155,7 @@ public class RelJsonReader {
         @Override
         public RelOptTable getTableById(String tag) {
             String tableId = getString(tag);
-            IgniteTable table = schemaManager.tableById(IgniteUuid.fromString(tableId));
+            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId));
 
             return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), List.of(tableId),
                     table, null);

@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
+import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -62,8 +63,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -140,7 +139,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TablesConfiguration tblsCfg;
 
     /** Data storage configuration. */
-    @InjectConfiguration
+    @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class)
     private DataStorageConfiguration dataStorageCfg;
 
     /** Test node. */
@@ -171,7 +170,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Tests a table which was defined before start through bootstrap configuration.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15255")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16433")
     @Test
     public void testStaticTableConfigured() {
         TableManager tableManager = new TableManager(
@@ -294,7 +293,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.beforeNodeStop();
         tableManager.stop();
 
-        IgniteUuid fakeTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
+        UUID fakeTblId = UUID.randomUUID();
 
         assertThrows(NodeStoppingException.class, () -> tableManager.table(fakeTblId));
         assertThrows(NodeStoppingException.class, () -> tableManager.tableAsync(fakeTblId));

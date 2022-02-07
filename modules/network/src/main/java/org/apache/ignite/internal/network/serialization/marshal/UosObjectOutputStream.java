@@ -17,22 +17,22 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import static org.apache.ignite.internal.network.serialization.marshal.ObjectClass.objectClass;
-
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.NotActiveException;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.Primitives;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ObjectOutputStream} specialization used by User Object Serialization.
  */
 class UosObjectOutputStream extends ObjectOutputStream {
-    private final DataOutputStream output;
+    private final IgniteDataOutput output;
     private final TypedValueWriter valueWriter;
     private final TypedValueWriter unsharedWriter;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
@@ -41,7 +41,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
     private UosPutField currentPut;
 
     UosObjectOutputStream(
-            DataOutputStream output,
+            IgniteDataOutput output,
             TypedValueWriter valueWriter,
             TypedValueWriter unsharedWriter, DefaultFieldsReaderWriter defaultFieldsReaderWriter,
             MarshallingContext context
@@ -140,12 +140,16 @@ class UosObjectOutputStream extends ObjectOutputStream {
     /** {@inheritDoc} */
     @Override
     protected void writeObjectOverride(Object obj) throws IOException {
-        doWriteObject(obj);
+        doWriteObjectOfAnyType(obj);
     }
 
-    private void doWriteObject(Object obj) throws IOException {
+    private void doWriteObjectOfAnyType(Object obj) throws IOException {
+        doWriteObject(obj, null);
+    }
+
+    private void doWriteObject(Object obj, Class<?> declaredClass) throws IOException {
         try {
-            valueWriter.write(obj, objectClass(obj), output, context);
+            valueWriter.write(obj, declaredClass, output, context);
         } catch (MarshalException e) {
             throw new UncheckedMarshalException("Cannot write an object", e);
         }
@@ -159,7 +163,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
 
     private void doWriteUnshared(Object obj) throws IOException {
         try {
-            unsharedWriter.write(obj, objectClass(obj), output, context);
+            unsharedWriter.write(obj, null, output, context);
         } catch (MarshalException e) {
             throw new UncheckedMarshalException("Cannot write an unshared object", e);
         }
@@ -249,7 +253,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
         /** {@inheritDoc} */
         @Override
         public void put(String name, boolean val) {
-            Bits.putBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class), val);
+            LittleEndianBits.putBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class), val);
         }
 
         /** {@inheritDoc} */
@@ -261,37 +265,37 @@ class UosObjectOutputStream extends ObjectOutputStream {
         /** {@inheritDoc} */
         @Override
         public void put(String name, char val) {
-            Bits.putChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class), val);
+            LittleEndianBits.putChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, short val) {
-            Bits.putShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class), val);
+            LittleEndianBits.putShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, int val) {
-            Bits.putInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class), val);
+            LittleEndianBits.putInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, long val) {
-            Bits.putLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class), val);
+            LittleEndianBits.putLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, float val) {
-            Bits.putFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class), val);
+            LittleEndianBits.putFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class), val);
         }
 
         /** {@inheritDoc} */
         @Override
         public void put(String name, double val) {
-            Bits.putDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class), val);
+            LittleEndianBits.putDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class), val);
         }
 
         /** {@inheritDoc} */
@@ -315,25 +319,46 @@ class UosObjectOutputStream extends ObjectOutputStream {
                 throw new IllegalArgumentException("This is not my output: " + out);
             }
 
+            @Nullable BitSet nullsBitSet = defaultFieldsReaderWriter.writeNullsBitSet(
+                    context.objectCurrentlyWrittenWithWriteObject(),
+                    descriptor,
+                    output
+            );
+
             int objectFieldIndex = 0;
-
             for (FieldDescriptor fieldDesc : descriptor.fields()) {
-                if (fieldDesc.isPrimitive()) {
-                    int offset = primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
-                    int length = Primitives.widthInBytes(fieldDesc.clazz());
-                    out.write(primitiveFieldsData, offset, length);
+                objectFieldIndex = writeNext(fieldDesc, objectFieldIndex, out, nullsBitSet);
+            }
+        }
+
+        private int writeNext(FieldDescriptor fieldDesc, int objectFieldIndex, ObjectOutput out, @Nullable BitSet nullsBitSet)
+                throws IOException {
+            if (fieldDesc.isPrimitive()) {
+                writePrimitive(out, fieldDesc);
+                return objectFieldIndex;
+            } else {
+                return writeObject(fieldDesc, objectFieldIndex, nullsBitSet);
+            }
+        }
+
+        private void writePrimitive(ObjectOutput out, FieldDescriptor fieldDesc) throws IOException {
+            int offset = primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
+            int length = Primitives.widthInBytes(fieldDesc.clazz());
+            out.write(primitiveFieldsData, offset, length);
+        }
+
+        private int writeObject(FieldDescriptor fieldDesc, int objectFieldIndex, @Nullable BitSet nullsBitSet) throws IOException {
+            Object objectToWrite = objectFieldVals[objectFieldIndex];
+
+            if (StructuredObjectMarshaller.cannotAvoidWritingNull(fieldDesc, descriptor, nullsBitSet)) {
+                if (fieldDesc.isUnshared()) {
+                    doWriteUnshared(objectToWrite);
                 } else {
-                    Object objectToWrite = objectFieldVals[objectFieldIndex];
-
-                    if (fieldDesc.isUnshared()) {
-                        doWriteUnshared(objectToWrite);
-                    } else {
-                        doWriteObject(objectToWrite);
-                    }
-
-                    objectFieldIndex++;
+                    doWriteObject(objectToWrite, fieldDesc.clazz());
                 }
             }
+
+            return objectFieldIndex + 1;
         }
     }
 }

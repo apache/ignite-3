@@ -28,7 +28,7 @@ public class PageIoRegistry {
     /**
      * Arrays of {@link IoVersions} for fast access. Element 0 is reserved.
      */
-    private final IoVersions<?>[] ioVersions = new IoVersions[PageIo.MAX_IO_TYPE + 1];
+    protected final IoVersions<?>[] ioVersions = new IoVersions[PageIo.MAX_IO_TYPE + 1];
 
     /**
      * Loads all {@link IoVersions} from a {@link PageIoModule} using the {@link ServiceLoader} mechanism.
@@ -60,10 +60,9 @@ public class PageIoRegistry {
      * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public PageIo resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
+    public <V extends PageIo> V resolve(ByteBuffer pageBuf) throws IgniteInternalCheckedException {
         return resolve(PageIo.getType(pageBuf), PageIo.getVersion(pageBuf));
     }
-
 
     /**
      * Returns resolved {@link PageIo} by the page address.
@@ -72,7 +71,7 @@ public class PageIoRegistry {
      * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public final PageIo resolve(long pageAddr) throws IgniteInternalCheckedException {
+    public final <V extends PageIo> V resolve(long pageAddr) throws IgniteInternalCheckedException {
         return resolve(PageIo.getType(pageAddr), PageIo.getVersion(pageAddr));
     }
 
@@ -84,7 +83,7 @@ public class PageIoRegistry {
      * @return Resolved page IO instance.
      * @throws IgniteInternalCheckedException If page type or version are invalid or not registered.
      */
-    public PageIo resolve(int type, int ver) throws IgniteInternalCheckedException {
+    public <V extends PageIo> V resolve(int type, int ver) throws IgniteInternalCheckedException {
         if (type <= 0 || type > PageIo.MAX_IO_TYPE) {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);
         }
@@ -95,6 +94,6 @@ public class PageIoRegistry {
             throw new IgniteInternalCheckedException("Unknown page IO type: " + type);
         }
 
-        return ios.forVersion(ver);
+        return (V) ios.forVersion(ver);
     }
 }

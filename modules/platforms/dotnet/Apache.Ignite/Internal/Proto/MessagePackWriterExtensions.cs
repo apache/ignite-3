@@ -73,19 +73,6 @@ namespace Apache.Ignite.Internal.Proto
         /// Writes Ignite UUID.
         /// </summary>
         /// <param name="writer">Writer.</param>
-        /// <param name="igniteUuid">Ignite UUID.</param>
-        public static unsafe void Write(this ref MessagePackWriter writer, IgniteUuid igniteUuid)
-        {
-            writer.WriteExtensionFormatHeader(
-                new ExtensionHeader((sbyte)ClientMessagePackType.IgniteUuid, igniteUuid.Size));
-
-            writer.WriteRaw(new Span<byte>(igniteUuid.Bytes, igniteUuid.Size));
-        }
-
-        /// <summary>
-        /// Writes Ignite UUID.
-        /// </summary>
-        /// <param name="writer">Writer.</param>
         public static void WriteNoValue(this ref MessagePackWriter writer)
         {
             writer.WriteExtensionFormatHeader(

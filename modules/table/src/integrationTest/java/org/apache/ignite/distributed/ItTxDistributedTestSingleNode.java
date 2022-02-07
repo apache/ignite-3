@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +51,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -85,9 +84,9 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     protected Map<ClusterNode, TxManager> txManagers;
 
-    protected Map<Integer, RaftGroupService> accRaftClients;
+    protected Int2ObjectOpenHashMap<RaftGroupService> accRaftClients;
 
-    protected Map<Integer, RaftGroupService> custRaftClients;
+    protected Int2ObjectOpenHashMap<RaftGroupService> custRaftClients;
 
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
@@ -194,8 +193,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
         final String accountsName = "accounts";
         final String customersName = "customers";
 
-        IgniteUuid accTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
-        IgniteUuid custTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
+        UUID accTblId = UUID.randomUUID();
+        UUID custTblId = UUID.randomUUID();
 
         accRaftClients = startTable(accountsName, accTblId);
         custRaftClients = startTable(customersName, custTblId);
@@ -245,7 +244,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      * @param tblId Table id.
      * @return Groups map.
      */
-    protected Map<Integer, RaftGroupService> startTable(String name, IgniteUuid tblId)
+    protected Int2ObjectOpenHashMap<RaftGroupService> startTable(String name, UUID tblId)
             throws Exception {
         List<List<ClusterNode>> assignment = RendezvousAffinityFunction.assignPartitions(
                 cluster.stream().map(node -> node.topologyService().localMember())
@@ -256,7 +255,8 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 null
         );
 
-        Map<Integer, RaftGroupService> clients = new HashMap<>();
+
+        Int2ObjectOpenHashMap<RaftGroupService> clients = new Int2ObjectOpenHashMap<>();
 
         for (int p = 0; p < assignment.size(); p++) {
             List<ClusterNode> partNodes = assignment.get(p);
@@ -388,7 +388,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     /** {@inheritDoc} */
     @Override
     protected TxManager txManager(Table t) {
-        Map<Integer, RaftGroupService> clients = null;
+        Int2ObjectOpenHashMap<RaftGroupService> clients = null;
 
         if (t == accounts) {
             clients = accRaftClients;

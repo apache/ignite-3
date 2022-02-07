@@ -42,7 +42,6 @@ import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -51,7 +50,6 @@ import org.junit.jupiter.api.Test;
 class DefaultUserObjectMarshallerWithExternalizableTest {
     private final ClassDescriptorRegistry descriptorRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory descriptorFactory = new ClassDescriptorFactory(descriptorRegistry);
-    private final IdIndexedDescriptors descriptors = new ContextBasedIdIndexedDescriptors(descriptorRegistry);
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
@@ -64,9 +62,8 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
     void usesExactlyOneDescriptorWhenMarshallingExternalizable() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new SimpleExternalizable(42));
 
-        ClassDescriptor expectedDescriptor = descriptorRegistry.getDescriptor(SimpleExternalizable.class);
-        assertThat(expectedDescriptor, is(notNullValue()));
-        assertThat(marshalled.usedDescriptors(), is(equalTo(Set.of(expectedDescriptor))));
+        ClassDescriptor expectedDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleExternalizable.class);
+        assertThat(marshalled.usedDescriptorIds(), is(equalTo(Set.of(expectedDescriptor.descriptorId()))));
     }
 
     @Test
@@ -82,7 +79,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
     }
 
     private <T> T unmarshalNonNull(MarshalledObject marshalled) throws UnmarshalException {
-        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptors);
+        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
 
         assertThat(unmarshalled, is(notNullValue()));
 
@@ -115,14 +112,14 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithSimple(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getRequiredDescriptor(SimpleExternalizable.class);
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(replacementDescriptor.descriptorId())));
     }
 
     @Test
     void marshalsExternalizableWithReplaceWithNull() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithNull(42));
 
-        SimpleExternalizable unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptors);
+        SimpleExternalizable unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
 
         assertThat(unmarshalled, is(nullValue()));
     }
@@ -132,14 +129,14 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithReplaceWithNull(42));
 
         ClassDescriptor replacementDescriptor = descriptorRegistry.getNullDescriptor();
-        assertThat(marshalled.usedDescriptors(), equalTo(Set.of(replacementDescriptor)));
+        assertThat(marshalled.usedDescriptorIds(), equalTo(Set.of(replacementDescriptor.descriptorId())));
     }
 
     @Test
     void unmarshalsExternalizableWithResolveWithNull() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWithResolveWithNull(42));
 
-        SimpleExternalizable unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptors);
+        SimpleExternalizable unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
 
         assertThat(unmarshalled, is(nullValue()));
     }
@@ -223,7 +220,7 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
 
         byte[] externalBytes = dis.readAllBytes();
 
-        IntHolder nested = marshaller.unmarshal(externalBytes, descriptors);
+        IntHolder nested = marshaller.unmarshal(externalBytes, descriptorRegistry);
         assertThat(nested, is(notNullValue()));
         assertThat(nested.value, is(42));
     }

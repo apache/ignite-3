@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Conditions;
@@ -137,7 +138,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                 String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
 
-                data.put(dataKey, (Serializable) ByteUtils.fromBytes(value));
+                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
             }
         } catch (Exception e) {
             throw new StorageException("Exception when closing a Meta Storage cursor", e);
@@ -150,9 +151,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public Serializable readLatest(String key) throws StorageException {
         try {
-            Entry entry = metaStorageMgr.get(new ByteArray(key)).join();
+            Entry entry = metaStorageMgr.get(new ByteArray(DISTRIBUTED_PREFIX + key)).join();
 
-            return entry.value() == null ? null : (Serializable) ByteUtils.fromBytes(entry.value());
+            return entry.value() == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value());
         } catch (Exception e) {
             throw new StorageException("Exception while reading data from Meta Storage", e);
         }
@@ -181,7 +182,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
 
                 String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
 
-                data.put(dataKey, (Serializable) ByteUtils.fromBytes(value));
+                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
             }
         } catch (Exception e) {
             throw new StorageException("Exception when closing a Vault cursor", e);
@@ -213,9 +214,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             ByteArray key = new ByteArray(DISTRIBUTED_PREFIX + entry.getKey());
 
             if (entry.getValue() != null) {
-                // TODO: investigate overhead when serialize int, long, double, boolean, string, arrays of above
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-14698
-                operations.add(Operations.put(key, ByteUtils.toBytes(entry.getValue())));
+                operations.add(Operations.put(key, ConfigurationSerializationUtil.toBytes(entry.getValue())));
             } else {
                 operations.add(Operations.remove(key));
             }
@@ -270,7 +269,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                         } else {
                             String key = e.key().toString().substring(DISTRIBUTED_PREFIX.length());
 
-                            Serializable value = e.value() == null ? null : (Serializable) ByteUtils.fromBytes(e.value());
+                            Serializable value = e.value() == null ? null : ConfigurationSerializationUtil.fromBytes(e.value());
 
                             data.put(key, value);
                         }

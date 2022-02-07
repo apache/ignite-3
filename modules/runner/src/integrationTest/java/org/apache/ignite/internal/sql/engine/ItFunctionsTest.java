@@ -26,7 +26,9 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.function.LongFunction;
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -42,10 +44,12 @@ import org.junit.jupiter.api.Test;
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItFunctionsTest extends AbstractBasicIntegrationTest {
+    private static final Object[] NULL_RESULT = new Object[] { null };
+
     @Test
     public void testLength() {
         assertQuery("SELECT LENGTH('TEST')").returns(4).check();
-        assertQuery("SELECT LENGTH(NULL)").returns(new Object[]{null}).check();
+        assertQuery("SELECT LENGTH(NULL)").returns(NULL_RESULT).check();
     }
 
     @Test
@@ -119,7 +123,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         assertEquals(0, sql("SELECT * FROM table(system_range(null, 1))").size());
 
         IgniteException ex = assertThrows(IgniteException.class,
-                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"));
+                () -> sql("SELECT * FROM table(system_range(1, 1, 0))"), "Increment can't be 0");
 
         assertTrue(
                 ex.getCause() instanceof IllegalArgumentException,
@@ -203,21 +207,21 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     public void testPercentRemainder() {
         assertQuery("SELECT 3 % 2").returns(1).check();
         assertQuery("SELECT 4 % 2").returns(0).check();
-        assertQuery("SELECT NULL % 2").returns(new Object[]{null}).check();
-        assertQuery("SELECT 3 % NULL::int").returns(new Object[]{null}).check();
-        assertQuery("SELECT 3 % NULL").returns(new Object[] { null }).check();
+        assertQuery("SELECT NULL % 2").returns(NULL_RESULT).check();
+        assertQuery("SELECT 3 % NULL::int").returns(NULL_RESULT).check();
+        assertQuery("SELECT 3 % NULL").returns(NULL_RESULT).check();
     }
 
     @Test
     public void testNullFunctionArguments() {
         // Don't infer result data type from arguments (result is always INTEGER_NULLABLE).
-        assertQuery("SELECT ASCII(NULL)").returns(new Object[] { null }).check();
+        assertQuery("SELECT ASCII(NULL)").returns(NULL_RESULT).check();
         // Inferring result data type from first STRING argument.
-        assertQuery("SELECT REPLACE(NULL, '1', '2')").returns(new Object[] { null }).check();
+        assertQuery("SELECT REPLACE(NULL, '1', '2')").returns(NULL_RESULT).check();
         // Inferring result data type from both arguments.
-        assertQuery("SELECT MOD(1, null)").returns(new Object[] { null }).check();
+        assertQuery("SELECT MOD(1, null)").returns(NULL_RESULT).check();
         // Inferring result data type from first NUMERIC argument.
-        assertQuery("SELECT TRUNCATE(NULL, 0)").returns(new Object[] { null }).check();
+        assertQuery("SELECT TRUNCATE(NULL, 0)").returns(NULL_RESULT).check();
         // Inferring arguments data types and then inferring result data type from all arguments.
         assertQuery("SELECT FALSE AND NULL").returns(false).check();
     }
@@ -225,9 +229,9 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     @Test
     public void testReplace() {
         assertQuery("SELECT REPLACE('12341234', '1', '55')").returns("5523455234").check();
-        assertQuery("SELECT REPLACE(NULL, '1', '5')").returns(new Object[] { null }).check();
-        assertQuery("SELECT REPLACE('1', NULL, '5')").returns(new Object[] { null }).check();
-        assertQuery("SELECT REPLACE('11', '1', NULL)").returns(new Object[] { null }).check();
+        assertQuery("SELECT REPLACE(NULL, '1', '5')").returns(NULL_RESULT).check();
+        assertQuery("SELECT REPLACE('1', NULL, '5')").returns(NULL_RESULT).check();
+        assertQuery("SELECT REPLACE('11', '1', NULL)").returns(NULL_RESULT).check();
         assertQuery("SELECT REPLACE('11', '1', '')").returns("").check();
     }
 
@@ -235,5 +239,56 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     public void testMonthnameDayname() {
         assertQuery("SELECT MONTHNAME(DATE '2021-01-01')").returns("January").check();
         assertQuery("SELECT DAYNAME(DATE '2021-01-01')").returns("Friday").check();
+    }
+
+    @Test
+    public void testRegex() {
+        assertQuery("SELECT 'abcd' ~ 'ab[cd]'").returns(true).check();
+        assertQuery("SELECT 'abcd' ~ 'ab[cd]$'").returns(false).check();
+        assertQuery("SELECT 'abcd' ~ 'ab[CD]'").returns(false).check();
+        assertQuery("SELECT 'abcd' ~* 'ab[cd]'").returns(true).check();
+        assertQuery("SELECT 'abcd' ~* 'ab[cd]$'").returns(false).check();
+        assertQuery("SELECT 'abcd' ~* 'ab[CD]'").returns(true).check();
+        assertQuery("SELECT 'abcd' !~ 'ab[cd]'").returns(false).check();
+        assertQuery("SELECT 'abcd' !~ 'ab[cd]$'").returns(true).check();
+        assertQuery("SELECT 'abcd' !~ 'ab[CD]'").returns(true).check();
+        assertQuery("SELECT 'abcd' !~* 'ab[cd]'").returns(false).check();
+        assertQuery("SELECT 'abcd' !~* 'ab[cd]$'").returns(true).check();
+        assertQuery("SELECT 'abcd' !~* 'ab[CD]'").returns(false).check();
+        assertQuery("SELECT null ~ 'ab[cd]'").returns(NULL_RESULT).check();
+        assertQuery("SELECT 'abcd' ~ null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null ~ null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null ~* 'ab[cd]'").returns(NULL_RESULT).check();
+        assertQuery("SELECT 'abcd' ~* null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null ~* null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null !~ 'ab[cd]'").returns(NULL_RESULT).check();
+        assertQuery("SELECT 'abcd' !~ null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null !~ null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null !~* 'ab[cd]'").returns(NULL_RESULT).check();
+        assertQuery("SELECT 'abcd' !~* null").returns(NULL_RESULT).check();
+        assertQuery("SELECT null !~* null").returns(NULL_RESULT).check();
+        assertThrows(IgniteException.class, () -> sql("SELECT 'abcd' ~ '[a-z'"));
+    }
+
+    @Test
+    public void testTypeOf() {
+        assertQuery("SELECT TYPEOF(1)").returns("INTEGER").check();
+        assertQuery("SELECT TYPEOF(1.1::DOUBLE)").returns("DOUBLE").check();
+        assertQuery("SELECT TYPEOF(1.1::DECIMAL(3, 2))").returns("DECIMAL(3, 2)").check();
+        assertQuery("SELECT TYPEOF('a')").returns("CHAR(1)").check();
+        assertQuery("SELECT TYPEOF('a'::varchar(1))").returns("VARCHAR(1)").check();
+        assertQuery("SELECT TYPEOF(NULL)").returns("NULL").check();
+        assertQuery("SELECT TYPEOF(NULL::VARCHAR(100))").returns("VARCHAR(100)").check();
+        try {
+            sql("SELECT TYPEOF()");
+        } catch (Throwable e) {
+            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
+        }
+
+        try {
+            sql("SELECT TYPEOF(1, 2)");
+        } catch (Throwable e) {
+            assertTrue(IgniteTestUtils.hasCause(e, SqlValidatorException.class, "Invalid number of arguments"));
+        }
     }
 }

@@ -112,6 +112,16 @@ public class NodeManager {
 
             cmdArgs.add("java");
 
+            addAddOpens(cmdArgs, "java.base/java.lang=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.lang.invoke=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.lang.reflect=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.io=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.nio=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.util=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/jdk.internal.misc=ALL-UNNAMED");
+
+            cmdArgs.add("-Dio.netty.tryReflectionSetAccessible=true");
+
             if (javaLogProps != null) {
                 cmdArgs.add("-Djava.util.logging.config.file=" + javaLogProps.toAbsolutePath());
             }
@@ -153,6 +163,11 @@ public class NodeManager {
         } catch (IOException e) {
             throw new IgniteCliException("Can't load classpath", e);
         }
+    }
+
+    private void addAddOpens(ArrayList<String> cmdArgs, String addOpens) {
+        cmdArgs.add("--add-opens");
+        cmdArgs.add(addOpens);
     }
 
     /**
