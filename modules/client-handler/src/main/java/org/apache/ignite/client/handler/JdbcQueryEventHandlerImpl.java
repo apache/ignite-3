@@ -96,22 +96,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            List<SqlCursor<List<?>>> queryCursors = processor.query(req.schemaName(), req.sqlQuery(),
+            Boolean isQuery = getExpectedQueryFlag(req.getStmtType());
+
+            List<SqlCursor<List<?>>> queryCursors = processor.query(isQuery, req.schemaName(), req.sqlQuery(),
                     req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
 
             cursors = queryCursors.stream()
                     .map(cursor -> new JdbcQueryCursor<>(req.maxRows(), cursor))
                     .collect(Collectors.toList());
-
-            /*
-            * Boolean isQuery = getExpectedQueryFlag(req.getStmtType());
-
-            cursors = processor.query(
-                    isQuery,
-                    req.schemaName(), req.sqlQuery(),
-                    req.arguments() == null ? new Object[0] : req.arguments());
-
-            * */
         } catch (Exception e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
