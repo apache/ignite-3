@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataInputStream;
 import java.io.IOException;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Knows how to read a value from a {@link DataInputStream} and, optionally, knows the expected type (might be taken from
+ * Knows how to read a value from an input and, optionally, knows the expected type (might be taken from
  * a field or be an array component type).
  */
 interface TypedValueReader {
     /**
-     * Reads the next value from a {@link DataInputStream}.
+     * Reads the next value from an input.
      *
      * @param input     from where to read
      * @param declaredClass the original class of the object (i.e. {@code byte.class} for {@code byte}); might be {@code null}
@@ -37,6 +37,6 @@ interface TypedValueReader {
      * @throws IOException          if an I/O problem occurs
      * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
      */
-    Object read(DataInputStream input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
+    Object read(IgniteDataInput input, @Nullable Class<?> declaredClass, UnmarshallingContext context)
             throws IOException, UnmarshalException;
 }

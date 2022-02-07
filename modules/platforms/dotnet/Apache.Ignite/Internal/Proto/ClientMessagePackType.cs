@@ -63,11 +63,6 @@ namespace Apache.Ignite.Internal.Proto
         Bitmask = 8,
 
         /// <summary>
-        /// Ignite UUID.
-        /// </summary>
-        IgniteUuid = 9,
-
-        /// <summary>
         /// Absent value for a column.
         /// </summary>
         NoValue = 10

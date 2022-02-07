@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -126,14 +127,18 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(1.5f, res.zfloat);
         assertEquals(1.6, res.zdouble);
         assertEquals(localDate, res.zdate);
-        assertEquals(localTime, res.ztime);
-        assertEquals(instant, res.ztimestamp);
+        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.ztime);
+        assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
         assertEquals(BitSet.valueOf(new byte[]{32}), res.zbitmask);
         assertEquals(21, res.zdecimal.longValue());
         assertEquals(22, res.znumber.longValue());
         assertEquals(uuid, res.zuuid);
+    }
+
+    private int truncateNanosToMicros(int nanos) {
+        return nanos / 1000 * 1000;
     }
 
     @Test
@@ -177,8 +182,8 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(1.17f, res.floatValue("zfloat"));
         assertEquals(1.18, res.doubleValue("zdouble"));
         assertEquals(localDate, res.dateValue("zdate"));
-        assertEquals(localTime, res.timeValue("ztime"));
-        assertEquals(instant, res.timestampValue("ztimestamp"));
+        assertEquals(localTime.withNano(truncateNanosToMicros(localTime.getNano())), res.timeValue("ztime"));
+        assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
         assertEquals(BitSet.valueOf(new byte[]{121}), res.bitmaskValue("zbitmask"));
@@ -448,5 +453,49 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         assertTrue(pojoView.contains(null, DEFAULT_ID));
         assertFalse(pojoView.contains(null, -1L));
+    }
+
+    @Test
+    public void testColumnWithDefaultValueNotSetReturnsDefault() {
+        Table table = tableWithDefaultValues();
+        RecordView<Tuple> recordView = table.recordView();
+        KeyValueView<Integer, NamePojo> pojoView = table.keyValueView(Integer.class, NamePojo.class);
+
+        pojoView.put(null, 1, new NamePojo());
+
+        var res = recordView.get(null, tupleKey(1));
+
+        assertEquals("def_str", res.stringValue("str"));
+        assertEquals("def_str2", res.stringValue("strNonNull"));
+    }
+
+    @Test
+    public void testNullableColumnWithDefaultValueSetNullReturnsNull() {
+        Table table = tableWithDefaultValues();
+        RecordView<Tuple> recordView = table.recordView();
+        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+
+        var pojo = new DefaultValuesPojo();
+        pojo.str = null;
+        pojo.strNonNull = "s";
+
+        pojoView.put(null, 1, pojo);
+
+        var res = recordView.get(null, tupleKey(1));
+
+        assertNull(res.stringValue("str"));
+    }
+
+    @Test
+    public void testNonNullableColumnWithDefaultValueSetNullThrowsException() {
+        Table table = tableWithDefaultValues();
+        KeyValueView<Integer, DefaultValuesPojo> pojoView = table.keyValueView(Integer.class, DefaultValuesPojo.class);
+
+        var pojo = new DefaultValuesPojo();
+        pojo.strNonNull = null;
+
+        var ex = assertThrows(IgniteClientException.class, () -> pojoView.put(null, 1, pojo));
+
+        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
     }
 }

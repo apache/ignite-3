@@ -652,4 +652,13 @@ public class IgniteUtils {
     public static boolean nullOrEmpty(@Nullable String s) {
         return s == null || s.isEmpty();
     }
+
+    /**
+     * Returns {@code true} If the given value is power of 2 (0 is not power of 2).
+     *
+     * @param i Value.
+     */
+    public static boolean isPow2(int i) {
+        return i > 0 && (i & (i - 1)) == 0;
+    }
 }

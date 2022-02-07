@@ -226,16 +226,12 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private class Group {
         private final List<AccumulatorWrapper<RowT>> accumWrps;
 
-        private final RowHandler<RowT> handler;
-
         private final Object[] grpKeys;
 
         private Group(Object[] grpKeys) {
             this.grpKeys = grpKeys;
 
             accumWrps = hasAccumulators() ? accFactory.get() : Collections.emptyList();
-
-            handler = context().rowHandler();
         }
 
         private void add(RowT row) {
@@ -261,6 +257,8 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         }
 
         private void addOnReducer(RowT row) {
+            RowHandler<RowT> handler = context().rowHandler();
+
             List<Accumulator> accums = hasAccumulators()
                     ? (List<Accumulator>) handler.get(handler.columnCount(row) - 1, row) : Collections.emptyList();
 

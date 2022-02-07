@@ -40,12 +40,14 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorag
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -356,15 +358,6 @@ public class KeyValueViewOperationsSimpleSchemaTest {
      * @param valueClass Value class.
      */
     private <T> KeyValueViewImpl<Long, T> kvViewForValueType(NativeType type, Class<T> valueClass) {
-        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().address())
-                .thenReturn(DummyInternalTableImpl.ADDR);
-
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
-
-        DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
-
         Mapper<Long> keyMapper = Mapper.of(Long.class, "id");
         Mapper<T> valMapper = Mapper.of(valueClass, "val");
 
@@ -374,11 +367,29 @@ public class KeyValueViewOperationsSimpleSchemaTest {
                 new Column[]{new Column("VAL", type, true)}
         );
 
+        TableImpl table = createTable(schema);
+
         return new KeyValueViewImpl<>(
-                table,
+                table.internalTable(),
                 new DummySchemaManagerImpl(schema),
                 keyMapper,
                 valMapper
         );
+    }
+
+    @NotNull
+    private TableImpl createTable(SchemaDescriptor schema) {
+        ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+
+        LockManager lockManager = new HeapLockManager();
+
+        TxManager txManager = new TxManagerImpl(clusterService, lockManager);
+
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                txManager);
+
+        return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }
 }

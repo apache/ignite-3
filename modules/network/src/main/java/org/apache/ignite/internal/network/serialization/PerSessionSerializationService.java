@@ -27,7 +27,6 @@ import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
@@ -115,8 +114,7 @@ public class PerSessionSerializationService {
      * @throws UserObjectSerializationException If failed to serialize an object.
      * @see SerializationService#writeMarshallable(Object)
      */
-    public <T> MarshalledObject writeMarshallable(T marshallable)
-            throws UserObjectSerializationException {
+    public <T> MarshalledObject writeMarshallable(T marshallable) throws UserObjectSerializationException {
         return serializationService.writeMarshallable(marshallable);
     }
 
@@ -139,12 +137,13 @@ public class PerSessionSerializationService {
     /**
      * Creates a list of messages holding class descriptors.
      *
-     * @param descriptors Class descriptors.
+     * @param descriptorIds Class descriptors.
      * @return List of class descriptor network messages.
      */
     @Nullable
-    public List<ClassDescriptorMessage> createClassDescriptorsMessages(Set<ClassDescriptor> descriptors) {
-        List<ClassDescriptorMessage> messages = descriptors.stream()
+    public List<ClassDescriptorMessage> createClassDescriptorsMessages(IntSet descriptorIds) {
+        List<ClassDescriptorMessage> messages = descriptorIds.intStream()
+                .mapToObj(serializationService::getDescriptor)
                 .filter(descriptor -> {
                     int descriptorId = descriptor.descriptorId();
                     return !sentDescriptors.contains(descriptorId) && !shouldBeBuiltIn(descriptorId);

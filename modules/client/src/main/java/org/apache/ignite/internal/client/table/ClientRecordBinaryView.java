@@ -101,8 +101,7 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     @Override
     public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull Tuple rec) {
         Objects.requireNonNull(rec);
-        // TODO IGNITE-15194: Convert Tuple to a schema-order Array as a first step.
-        // If it does not match the latest schema, then request latest and convert again.
+
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_UPSERT,
                 (s, w) -> ser.writeTuple(tx, rec, s, w),

@@ -450,11 +450,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         assertEquals(1, cnt);
     }
 
-    /**
-     * TODO: IGNITE-15163.
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testBigDecimalScale() throws Exception {
         assertEquals(convertStringToBigDecimalViaJdbc("0.1234", 2).toString(), "0.12");
@@ -575,11 +570,6 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
         assertEquals(1, cnt);
     }
 
-    /**
-     * TODO: IGNITE-15163.
-     *
-     * @throws Exception If failed.
-     */
     @Test
     public void testTimestamp() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);

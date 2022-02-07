@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -86,8 +88,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -109,8 +109,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
     private static final int INITIAL_SCHEMA_VERSION = 1;
-
-    private static final IgniteUuidGenerator TABLE_ID_GENERATOR = new IgniteUuidGenerator(UUID.randomUUID(), 0);
 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
@@ -137,7 +135,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private final Map<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     /** Tables. */
-    private final Map<IgniteUuid, TableImpl> tablesById = new ConcurrentHashMap<>();
+    private final Map<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
 
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
@@ -199,7 +197,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.newValue().name();
-                            IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
+                            UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
 
                             fireEvent(TableEvent.CREATE,
                                     new TableEventParameters(tblId, tblName),
@@ -225,14 +223,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                      */
                     private void onTableCreateInternal(ConfigurationNotificationEvent<TableView> ctx) {
                         String tblName = ctx.newValue().name();
-                        IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.newValue()).id());
+                        UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
 
                         // Empty assignments might be a valid case if tables are created from within cluster init HOCON
                         // configuration, which is not supported now.
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
                                 IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
-                        // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
+                        // TODO: IGNITE-16369 Listener with any placeholder should be used instead.
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
                                 .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
@@ -249,7 +247,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         try {
                                             // Avoid calling listener immediately after the listener completes to create the current table.
-                                            // FIXME: https://issues.apache.org/jira/browse/IGNITE-16231
+                                            // FIXME: https://issues.apache.org/jira/browse/IGNITE-16369
                                             if (ctx.storageRevision() != schemasCtx.storageRevision()) {
                                                 ((SchemaRegistryImpl) tables.get(tblName).schemaView())
                                                         .onSchemaRegistered(
@@ -276,7 +274,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     try {
                                         // Avoid calling listener immediately after the listener completes to create the current table.
-                                        // FIXME: https://issues.apache.org/jira/browse/IGNITE-16231
+                                        // FIXME: https://issues.apache.org/jira/browse/IGNITE-16369
                                         if (ctx.storageRevision() == assignmentsCtx.storageRevision()) {
                                             return CompletableFuture.completedFuture(null);
                                         } else {
@@ -297,7 +295,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     private CompletableFuture<?> updateAssignmentInternal(
-                            IgniteUuid tblId,
+                            UUID tblId,
                             ConfigurationNotificationEvent<byte[]> assignmentsCtx
                     ) {
                         List<List<ClusterNode>> oldAssignments =
@@ -359,7 +357,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
                         if (!busyLock.enterBusy()) {
                             String tblName = ctx.oldValue().name();
-                            IgniteUuid tblId = IgniteUuid.fromString(((ExtendedTableView) ctx.oldValue()).id());
+                            UUID tblId = ((ExtendedTableView) ctx.oldValue()).id();
 
                             fireEvent(
                                     TableEvent.DROP,
@@ -373,7 +371,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         try {
                             dropTableLocally(
                                     ctx.oldValue().name(),
-                                    IgniteUuid.fromString(((ExtendedTableView) ctx.oldValue()).id()),
+                                    ((ExtendedTableView) ctx.oldValue()).id(),
                                     (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
                             );
                         } finally {
@@ -436,7 +434,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private void createTableLocally(
             String name,
-            IgniteUuid tblId,
+            UUID tblId,
             List<List<ClusterNode>> assignment,
             SchemaDescriptor schemaDesc
     ) {
@@ -559,7 +557,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaVer Schema version.
      * @return Schema descriptor.
      */
-    private SchemaDescriptor tableSchema(IgniteUuid tblId, int schemaVer) {
+    private SchemaDescriptor tableSchema(UUID tblId, int schemaVer) {
         try {
             TableImpl table = tablesById.get(tblId);
 
@@ -630,7 +628,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @param assignment Affinity assignment.
      */
-    private void dropTableLocally(String name, IgniteUuid tblId, List<List<ClusterNode>> assignment) {
+    private void dropTableLocally(String name, UUID tblId, List<List<ClusterNode>> assignment) {
         try {
             int partitions = assignment.size();
 
@@ -661,7 +659,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A RAFT group name.
      */
     @NotNull
-    private String raftGroupName(IgniteUuid tblId, int partition) {
+    private String raftGroupName(UUID tblId, int partition) {
         return tblId + "_part_" + partition;
     }
 
@@ -704,8 +702,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl != null) {
                 tblFut.completeExceptionally(new TableAlreadyExistsException(name));
             } else {
-                IgniteUuid tblId = TABLE_ID_GENERATOR.randomUuid();
-
                 tablesCfg.tables().change(change -> {
                     if (change.get(name) != null) {
                         throw new TableAlreadyExistsException(name);
@@ -715,8 +711,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 tableInitChange.accept(ch);
 
                                 ((ExtendedTableChange) ch)
-                                        // Table id specification.
-                                        .changeId(tblId.toString())
                                         // Affinity assignments calculation.
                                         .changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
                                                 baselineMgr.nodes(),
@@ -805,7 +799,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl == null) {
                 tblFut.completeExceptionally(new TableNotFoundException(name));
             } else {
-                IgniteUuid tblId = ((TableImpl) tbl).tableId();
+                UUID tblId = ((TableImpl) tbl).tableId();
 
                 tablesCfg.tables().change(ch -> {
                     if (ch.get(name) == null) {
@@ -996,7 +990,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     var i = 0;
 
-                    for (IgniteUuid tblId : tableIds) {
+                    for (UUID tblId : tableIds) {
                         tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
 
@@ -1026,15 +1020,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A list of direct table ids.
      * @see DirectConfigurationProperty
      */
-    private List<IgniteUuid> directTableIds() {
+    private List<UUID> directTableIds() {
         NamedListView<TableView> views = directProxy(tablesCfg.tables()).value();
 
-        List<IgniteUuid> tableUuids = new ArrayList<>();
+        List<UUID> tableUuids = new ArrayList<>();
 
         for (int i = 0; i < views.size(); i++) {
             ExtendedTableView extView = (ExtendedTableView) views.get(i);
 
-            tableUuids.add(IgniteUuid.fromString(extView.id()));
+            tableUuids.add(extView.id());
         }
 
         return tableUuids;
@@ -1047,10 +1041,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
      * @see DirectConfigurationProperty
      */
-    private IgniteUuid directTableId(String tblName) {
-        ExtendedTableView view = (ExtendedTableView) directProxy(tablesCfg.tables()).value().get(tblName);
-
-        return view == null ? null : IgniteUuid.fromString(view.id());
+    @Nullable
+    private UUID directTableId(String tblName) {
+        try {
+            return ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName)).id().value();
+        } catch (NoSuchElementException e) {
+            return null;
+        }
     }
 
     /**
@@ -1060,7 +1057,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaVer Schema version.
      * @return True when the schema configured, false otherwise.
      */
-    private boolean isSchemaExists(IgniteUuid tblId, int schemaVer) {
+    private boolean isSchemaExists(UUID tblId, int schemaVer) {
         return latestSchemaVersion(tblId) >= schemaVer;
     }
 
@@ -1070,34 +1067,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param tblId Table id.
      * @return The latest schema version.
      */
-    private int latestSchemaVersion(IgniteUuid tblId) {
-        NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
+    private int latestSchemaVersion(UUID tblId) {
+        try {
+            NamedListView<SchemaView> tblSchemas = ((ExtendedTableConfiguration) getByInternalId(directProxy(tablesCfg.tables()), tblId))
+                    .schemas().value();
 
-        ExtendedTableView viewForId = null;
+            int lastVer = INITIAL_SCHEMA_VERSION;
 
-        // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
-        // Probably, it won't be required getting configuration of all tables from Metastor.
-        for (String name : directTablesCfg.namedListKeys()) {
-            ExtendedTableView tblView = (ExtendedTableView) directTablesCfg.get(name);
+            for (String schemaVerAsStr : tblSchemas.namedListKeys()) {
+                int ver = Integer.parseInt(schemaVerAsStr);
 
-            if (tblView != null && tblId.equals(IgniteUuid.fromString(tblView.id()))) {
-                viewForId = tblView;
-
-                break;
+                if (ver > lastVer) {
+                    lastVer = ver;
+                }
             }
+
+            return lastVer;
+        } catch (NoSuchElementException e) {
+            assert false : "Table must exist. [tableId=" + tblId + ']';
+
+            return INITIAL_SCHEMA_VERSION;
         }
-
-        int lastVer = INITIAL_SCHEMA_VERSION;
-
-        for (String schemaVerAsStr : viewForId.schemas().namedListKeys()) {
-            int ver = Integer.parseInt(schemaVerAsStr);
-
-            if (ver > lastVer) {
-                lastVer = ver;
-            }
-        }
-
-        return lastVer;
     }
 
     /** {@inheritDoc} */
@@ -1108,7 +1098,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public TableImpl table(IgniteUuid id) throws NodeStoppingException {
+    public TableImpl table(UUID id) throws NodeStoppingException {
         return join(tableAsync(id));
     }
 
@@ -1119,7 +1109,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            IgniteUuid tableId = directTableId(IgniteObjectName.parseCanonicalName(name));
+            UUID tableId = directTableId(IgniteObjectName.parseCanonicalName(name));
 
             if (tableId == null) {
                 return CompletableFuture.completedFuture(null);
@@ -1133,7 +1123,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(IgniteUuid id) throws NodeStoppingException {
+    public CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
@@ -1152,7 +1142,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Future representing pending completion of the operation.
      */
     @NotNull
-    private CompletableFuture<TableImpl> tableAsyncInternal(IgniteUuid id, boolean checkConfiguration) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);
         }
@@ -1204,20 +1194,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param id Table id.
      * @return True when the table is configured into cluster, false otherwise.
      */
-    private boolean isTableConfigured(IgniteUuid id) {
-        NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
+    private boolean isTableConfigured(UUID id) {
+        try {
+            ((ExtendedTableConfiguration) getByInternalId(directProxy(tablesCfg.tables()), id)).id().value();
 
-        // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
-        // Probably, it won't be required getting configuration of all tables from Metastor.
-        for (String name : directTablesCfg.namedListKeys()) {
-            ExtendedTableView tableView = (ExtendedTableView) directTablesCfg.get(name);
-
-            if (tableView != null && id.equals(IgniteUuid.fromString(tableView.id()))) {
-                return true;
-            }
+            return true;
+        } catch (NoSuchElementException e) {
+            return false;
         }
-
-        return false;
     }
 
     /**
@@ -1335,7 +1319,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         updateRaftTopology(
                                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(currAssignments),
                                                 recalculatedAssignments,
-                                                IgniteUuid.fromString(change.id())));
+                                                change.id()));
                             }
                         });
                     }
@@ -1373,7 +1357,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> updateRaftTopology(
             List<List<ClusterNode>> oldAssignments,
             List<List<ClusterNode>> newAssignments,
-            IgniteUuid tblId) {
+            UUID tblId) {
         CompletableFuture<?>[] futures = new CompletableFuture<?>[oldAssignments.size()];
 
         // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes

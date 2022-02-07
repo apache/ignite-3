@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.util;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -57,146 +58,122 @@ public final class ArrayUtils {
     public static final Object[] OBJECT_EMPTY_ARRAY = new Object[0];
 
     /** {@code byte} array factory. */
-    public static final ArrayFactory<byte[]> BYTE_ARRAY = new ArrayFactory<>() {
-        @Override
-        public byte[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid byte array length: " + len);
-            }
+    public static final ArrayFactory<byte[]> BYTE_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid byte array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return BYTE_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return BYTE_EMPTY_ARRAY;
 
-                default:
-                    return new byte[len];
-            }
+            default:
+                return new byte[len];
         }
     };
 
     /** {@code short} array factory. */
-    public static final ArrayFactory<short[]> SHORT_ARRAY = new ArrayFactory<>() {
-        @Override
-        public short[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid short array length: " + len);
-            }
+    public static final ArrayFactory<short[]> SHORT_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid short array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return SHORT_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return SHORT_EMPTY_ARRAY;
 
-                default:
-                    return new short[len];
-            }
+            default:
+                return new short[len];
         }
     };
 
     /** {@code int} array factory. */
-    public static final ArrayFactory<int[]> INT_ARRAY = new ArrayFactory<>() {
-        @Override
-        public int[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid int array length: " + len);
-            }
+    public static final ArrayFactory<int[]> INT_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid int array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return INT_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return INT_EMPTY_ARRAY;
 
-                default:
-                    return new int[len];
-            }
+            default:
+                return new int[len];
         }
     };
 
     /** {@code long} array factory. */
-    public static final ArrayFactory<long[]> LONG_ARRAY = new ArrayFactory<>() {
-        @Override
-        public long[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid long array length: " + len);
-            }
+    public static final ArrayFactory<long[]> LONG_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid long array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return LONG_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return LONG_EMPTY_ARRAY;
 
-                default:
-                    return new long[len];
-            }
+            default:
+                return new long[len];
         }
     };
 
     /** {@code float} array factory. */
-    public static final ArrayFactory<float[]> FLOAT_ARRAY = new ArrayFactory<>() {
-        @Override
-        public float[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid float array length: " + len);
-            }
+    public static final ArrayFactory<float[]> FLOAT_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid float array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return FLOAT_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return FLOAT_EMPTY_ARRAY;
 
-                default:
-                    return new float[len];
-            }
+            default:
+                return new float[len];
         }
     };
 
     /** {@code double} array factory. */
-    public static final ArrayFactory<double[]> DOUBLE_ARRAY = new ArrayFactory<>() {
-        @Override
-        public double[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid double array length: " + len);
-            }
+    public static final ArrayFactory<double[]> DOUBLE_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid double array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return DOUBLE_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return DOUBLE_EMPTY_ARRAY;
 
-                default:
-                    return new double[len];
-            }
+            default:
+                return new double[len];
         }
     };
 
     /** {@code char} array factory. */
-    public static final ArrayFactory<char[]> CHAR_ARRAY = new ArrayFactory<>() {
-        @Override
-        public char[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid char array length: " + len);
-            }
+    public static final ArrayFactory<char[]> CHAR_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid char array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return CHAR_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return CHAR_EMPTY_ARRAY;
 
-                default:
-                    return new char[len];
-            }
+            default:
+                return new char[len];
         }
     };
 
     /** {@code boolean} array factory. */
-    public static final ArrayFactory<boolean[]> BOOLEAN_ARRAY = new ArrayFactory<>() {
-        @Override
-        public boolean[] of(int len) {
-            if (len < 0) {
-                throw new IgniteInternalException("Read invalid boolean array length: " + len);
-            }
+    public static final ArrayFactory<boolean[]> BOOLEAN_ARRAY = len -> {
+        if (len < 0) {
+            throw new IgniteInternalException("Read invalid boolean array length: " + len);
+        }
 
-            switch (len) {
-                case 0:
-                    return BOOLEAN_EMPTY_ARRAY;
+        switch (len) {
+            case 0:
+                return BOOLEAN_EMPTY_ARRAY;
 
-                default:
-                    return new boolean[len];
-            }
+            default:
+                return new boolean[len];
         }
     };
 
@@ -340,9 +317,60 @@ public final class ArrayUtils {
     }
 
     /**
-     * Stub.
+     * Removes an element from an array with decrementing the array itself.
+     *
+     * @param arr Array.
+     * @param idx Index to remove.
+     * @return New array.
      */
-    private ArrayUtils() {
-        // No op.
+    public static <T> T[] remove(T[] arr, int idx) {
+        int len = arr.length;
+
+        assert idx >= 0 && idx < len : idx + " < " + len;
+
+        if (idx == len - 1) {
+            return Arrays.copyOfRange(arr, 0, len - 1);
+        }
+
+        if (idx == 0) {
+            return Arrays.copyOfRange(arr, 1, len);
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
+        T[] res = (T[]) Array.newInstance(arr.getClass().getComponentType(), len - 1);
+
+        System.arraycopy(arr, 0, res, 0, idx);
+        System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
+
+        return res;
+    }
+
+    /**
+     * Removes an element from an array with decrementing the array itself.
+     *
+     * @param arr Array.
+     * @param idx Index to remove.
+     * @return New array.
+     */
+    public static long[] remove(long[] arr, int idx) {
+        int len = arr.length;
+
+        assert idx >= 0 && idx < len : idx + " < " + len;
+
+        if (idx == len - 1) {
+            return Arrays.copyOfRange(arr, 0, len - 1);
+        }
+
+        if (idx == 0) {
+            return Arrays.copyOfRange(arr, 1, len);
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
+        long[] res = new long[len - 1];
+
+        System.arraycopy(arr, 0, res, 0, idx);
+        System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
+
+        return res;
     }
 }

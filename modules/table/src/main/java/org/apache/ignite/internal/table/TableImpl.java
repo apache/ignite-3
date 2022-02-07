@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.table;
 
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -58,7 +58,7 @@ public class TableImpl implements Table {
      *
      * @return Table id as UUID.
      */
-    public @NotNull IgniteUuid tableId() {
+    public @NotNull UUID tableId() {
         return tbl.tableId();
     }
 

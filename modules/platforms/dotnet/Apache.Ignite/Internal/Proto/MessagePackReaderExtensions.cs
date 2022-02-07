@@ -128,23 +128,6 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
-        /// Reads and <see cref="IgniteUuid"/>.
-        /// </summary>
-        /// <param name="reader">Reader.</param>
-        /// <returns>Ignite UUID.</returns>
-        public static unsafe IgniteUuid ReadIgniteUuid(this ref MessagePackReader reader)
-        {
-            var size = ValidateExtensionType(ref reader, ClientMessagePackType.IgniteUuid);
-            var bytes = reader.ReadRaw(size);
-
-            var res = default(IgniteUuid);
-            bytes.CopyTo(new Span<byte>(res.Bytes, size));
-            res.Size = (byte)size;
-
-            return res;
-        }
-
-        /// <summary>
         /// Reads <see cref="ClientMessagePackType.NoValue"/> if it is the next token.
         /// </summary>
         /// <param name="reader">Reader.</param>
@@ -169,7 +152,7 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int ValidateExtensionType(
+        private static void ValidateExtensionType(
             ref MessagePackReader reader,
             ClientMessagePackType expectedType,
             int? expectedLength = null)
@@ -187,8 +170,6 @@ namespace Apache.Ignite.Internal.Proto
                 throw new IgniteClientException(
                     $"Expected {expectedLength} bytes for {expectedType} extension, but got {hdr.Length}.");
             }
-
-            return (int)hdr.Length;
         }
     }
 }

@@ -21,6 +21,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
+import org.apache.ignite.internal.util.io.VarInts;
 
 /**
  * Protocol-wide elements marshalling.

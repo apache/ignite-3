@@ -30,4 +30,13 @@ public class BuiltInTypeIds {
     public static final int DOUBLE = 10;
     public static final int BOOLEAN = 12;
     public static final int CHAR = 14;
+
+    public static final int BYTE_ARRAY = 21;
+    public static final int SHORT_ARRAY = 22;
+    public static final int INT_ARRAY = 23;
+    public static final int FLOAT_ARRAY = 24;
+    public static final int LONG_ARRAY = 25;
+    public static final int DOUBLE_ARRAY = 26;
+    public static final int BOOLEAN_ARRAY = 27;
+    public static final int CHAR_ARRAY = 28;
 }

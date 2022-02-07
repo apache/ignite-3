@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -92,11 +93,11 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * The constructor.
      *
-     * @param lockId Lock id.
+     * @param tableId Table id.
      * @param store  The storage.
      */
-    public PartitionListener(IgniteUuid lockId, VersionedRowStore store) {
-        this.lockId = lockId;
+    public PartitionListener(UUID tableId, VersionedRowStore store) {
+        this.lockId = new IgniteUuid(tableId, 0);
         this.storage = store;
         this.txManager = store.txManager();
         this.cursors = new ConcurrentHashMap<>();

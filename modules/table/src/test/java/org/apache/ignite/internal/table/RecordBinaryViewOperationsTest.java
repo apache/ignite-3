@@ -53,10 +53,10 @@ import org.mockito.Mockito;
 
 /**
  * Basic table operations test.
- *
- * <p>TODO: IGNITE-14486 Add tests for invoke operations. Add tests for bulk operations. Add tests for async operations.
  */
 public class RecordBinaryViewOperationsTest {
+    //TODO: IGNITE-16468 Extend test coverage.
+
     @Test
     public void insert() {
         SchemaDescriptor schema = new SchemaDescriptor(

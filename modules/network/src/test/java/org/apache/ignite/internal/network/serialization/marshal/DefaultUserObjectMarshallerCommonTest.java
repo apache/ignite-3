@@ -18,12 +18,20 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -35,6 +43,9 @@ class DefaultUserObjectMarshallerCommonTest {
 
     private final DefaultUserObjectMarshaller marshaller = new DefaultUserObjectMarshaller(descriptorRegistry, descriptorFactory);
 
+    static DefaultUserObjectMarshaller staticMarshaller;
+    static DescriptorRegistry staticRegistry;
+
     @Test
     void throwsOnExcessiveInputWhenUnmarshalling() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(null);
@@ -45,4 +56,67 @@ class DefaultUserObjectMarshallerCommonTest {
         assertThat(ex.getMessage(), is("After reading a value, 1 excessive byte(s) still remain"));
     }
 
+    @Test
+    void previousInvocationsOfMarshallingInSameThreadDoNotHaveVisibleEffectsOnFollowingInvocations() throws Exception {
+        List<Integer> list = List.of(1, 2, 3);
+
+        MarshalledObject firstResult = marshaller.marshal(list);
+
+        MarshalledObject secondResult = marshaller.marshal(list);
+
+        assertThat(marshaller.unmarshal(secondResult.bytes(), descriptorRegistry), is(equalTo(list)));
+        assertThat(secondResult.bytes(), is(equalTo(firstResult.bytes())));
+    }
+
+    @Test
+    void nestedMarshallingUnmarshallingInsideWriteReadObjectDoNotInterfereWithOutsideMarshallingUnmarshalling() throws Exception {
+        staticMarshaller = marshaller;
+        staticRegistry = descriptorRegistry;
+
+        WithNestedMarshalling unmarshalled = marshalAndUnmarshalNotNull(new WithNestedMarshalling(42));
+
+        assertThat(unmarshalled.value, is(42));
+    }
+
+    private <T> T marshalAndUnmarshalNotNull(Object object) throws MarshalException, UnmarshalException {
+        MarshalledObject marshalled = marshaller.marshal(object);
+        T unmarshalled = marshaller.unmarshal(marshalled.bytes(), descriptorRegistry);
+
+        assertThat(unmarshalled, is(notNullValue()));
+
+        return unmarshalled;
+    }
+
+    private static class WithNestedMarshalling implements Serializable {
+        private final int value;
+
+        private WithNestedMarshalling(int value) {
+            this.value = value;
+        }
+
+        private void writeObject(ObjectOutputStream stream) throws IOException {
+            marshalSomethingElse();
+
+            stream.defaultWriteObject();
+        }
+
+        private byte[] marshalSomethingElse() {
+            try {
+                return staticMarshaller.marshal(List.of(1, 2, 3)).bytes();
+            } catch (MarshalException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+            byte[] marshalledBytes = marshalSomethingElse();
+            try {
+                staticMarshaller.unmarshal(marshalledBytes, staticRegistry);
+            } catch (UnmarshalException e) {
+                throw new RuntimeException(e);
+            }
+
+            stream.defaultReadObject();;
+        }
+    }
 }
