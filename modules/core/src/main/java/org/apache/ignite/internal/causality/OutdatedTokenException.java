@@ -21,10 +21,10 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
- * This exception is thrown when getting a value from {@link VersionedValue#get(long)} with a token outnound of stored history
- * {@link VersionedValue#historySize}.
- * <p>
- * {@link VersionedValue} stores a value per the causality token.
+ * This exception is thrown when {@link VersionedValue#get(long)} is called with an outdated token
+ * (this means that the history size of VersionedValue is not enough in order to get a value related to the token).
+ *
+ * <p>{@link VersionedValue} stores a value per the causality token.
  * See {@link VersionedValue#get(long)}.
  */
 public class OutdatedTokenException extends IgniteInternalCheckedException {
@@ -34,7 +34,8 @@ public class OutdatedTokenException extends IgniteInternalCheckedException {
      *
      * @param token The tokent which is expired.
      */
-    public OutdatedTokenException(long token) {
-        super(IgniteStringFormatter.format("Token expired [token={}]", token));
+    public OutdatedTokenException(long outdatedToken, long actualToken, int historySize) {
+        super(IgniteStringFormatter.format("Token expired [token={}, actualToken={}, historySize={}]", outdatedToken,
+                actualToken, historySize));
     }
 }

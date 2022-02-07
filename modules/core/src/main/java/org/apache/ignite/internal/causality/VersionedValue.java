@@ -27,7 +27,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Parametrized type to store several versions of responses.
+ * Parametrized type to store several versions of the value.
  * A value can be available through the causality token, which is represented by long.
  *
  * @param <T> Type of real value.
@@ -37,13 +37,13 @@ public class VersionedValue<T> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(VersionedValue.class);
 
     /** Last applied casualty token. */
-    private long actualToken;
+    private volatile long actualToken;
 
     /** Size of stored history. */
-    private int historySize;
+    private final int historySize;
 
     /** Closure applied on storage revision update. */
-    private BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate;
+    private final BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate;
 
     /** Bersoned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
@@ -115,7 +115,7 @@ public class VersionedValue<T> {
             Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
 
             if (histEntry == null) {
-                throw new OutdatedTokenException(causalityToken);
+                throw new OutdatedTokenException(causalityToken, actualToken, historySize);
             }
 
             return histEntry.getValue();

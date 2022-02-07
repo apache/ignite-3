@@ -35,6 +35,8 @@ public class VersionValueTest {
     public static final int TEST_VALUE = 1;
 
     /**
+     * The test gets a value for {@link VersionedValue} before the value is calculated.
+     *
      * @throws OutdatedTokenException If failed.
      */
     @Test
@@ -57,6 +59,8 @@ public class VersionValueTest {
     }
 
     /**
+     * The test explicitly sets a value to {@link VersionedValue} without waiting for the revision updaste.
+     *
      * @throws OutdatedTokenException If failed.
      */
     @Test
@@ -77,6 +81,9 @@ public class VersionValueTest {
     }
 
     /**
+     * The test reads a value with the specific token in which the value should not be updated.
+     * The read happenes before the revision updated.
+     *
      * @throws OutdatedTokenException If failed.
      */
     @Test
@@ -101,7 +108,8 @@ public class VersionValueTest {
     }
 
     /**
-     * Checks that the value
+     * The test reads a value with the specific token in which the value should not be updated.
+     * The read happenes after the revision updated.
      *
      * @throws OutdatedTokenException If failed.
      */
