@@ -320,7 +320,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         if (keyOffset == -1) {
             nonNullVarlenKeyCols = 0;
         } else {
-            nonNullVarlenKeyCols = countNotNullColumns(keyOffset, true, columnToIndex, hnd, row);
+            nonNullVarlenKeyCols = countNotNullColumns(
+                    keyOffset,
+                    schemaDescriptor.keyColumns().length(),
+                    columnToIndex, hnd, row);
         }
 
         int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
@@ -330,7 +333,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         } else {
             nonNullVarlenValCols = countNotNullColumns(
                     schemaDescriptor.keyColumns().length() + valOffset,
-                    false, columnToIndex, hnd, row);
+                    schemaDescriptor.length(),
+                    columnToIndex, hnd, row);
         }
 
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
@@ -346,11 +350,11 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return rowAssembler.build();
     }
 
-    private <RowT> int countNotNullColumns(int offset, boolean isKey,
-            Object2IntMap<String> columnToIndex, RowHandler<RowT> hnd, RowT row) {
+    private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex,
+            RowHandler<RowT> hnd, RowT row) {
         int nonNullCols = 0;
 
-        for (int i = offset; i < columnsOrderedByPhysSchema.size(); i++) {
+        for (int i = start; i < end; i++) {
             ColumnDescriptor colDesc = Objects.requireNonNull(columnsOrderedByPhysSchema.get(i));
 
             if (colDesc.physicalType().spec().fixedLength()) {
@@ -362,9 +366,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             Object val = hnd.get(colIdInRow, row);
 
             if (val != null) {
-                if (!isKey || colDesc.key()) {
-                    nonNullCols++;
-                }
+                nonNullCols++;
             }
         }
 
