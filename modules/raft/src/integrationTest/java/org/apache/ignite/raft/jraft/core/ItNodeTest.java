@@ -216,7 +216,7 @@ public class ItNodeTest {
             + (Utils.monotonicMs() - testStartMs) + " ms.");
     }
 
-    @Test
+    @Disabled
     public void testInitShutdown() {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         NodeOptions nodeOptions = createNodeOptions();
@@ -231,7 +231,7 @@ public class ItNodeTest {
         service.start();
     }
 
-    @Test
+    @Disabled
     public void testNodeTaskOverload() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
@@ -281,7 +281,7 @@ public class ItNodeTest {
     /**
      * Test rollback stateMachine with readIndex for issue 317: https://github.com/sofastack/sofa-jraft/issues/317
      */
-    @Test
+    @Disabled
     public void testRollbackStateMachineWithReadIndex_Issue317() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
@@ -385,7 +385,7 @@ public class ItNodeTest {
         assertTrue(n - 1 >= currentValue.get());
     }
 
-    @Test
+    @Disabled
     public void testSingleNode() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
@@ -414,7 +414,7 @@ public class ItNodeTest {
             assertEquals("hello" + i++, new String(data.array()));
     }
 
-    @Test
+    @Disabled
     public void testNoLeader() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -441,7 +441,7 @@ public class ItNodeTest {
         waitLatch(latch);
     }
 
-    @Test
+    @Disabled
     public void testTripleNodesWithReplicatorStateListener() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
         //final TestCluster cluster = new TestCluster("unittest", this.dataPath, peers);
@@ -475,7 +475,6 @@ public class ItNodeTest {
     }
 
     // TODO asch Broken then using volatile log. A follower with empty log can become a leader IGNITE-14832.
-    @Test
     @Disabled
     public void testVoteTimedoutStepDown() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -543,7 +542,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testLeaderTransferWithReplicatorStateListener() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -578,7 +577,7 @@ public class ItNodeTest {
         assertEquals(0, cluster.getFollowers().get(1).getReplicatorStateListeners().size());
     }
 
-    @Test
+    @Disabled
     public void testTripleNodes() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -634,7 +633,7 @@ public class ItNodeTest {
         assertEquals(2, cluster.getFollowers().size());
     }
 
-    @Test
+    @Disabled
     public void testSingleNodeWithLearner() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
@@ -696,7 +695,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testResetLearners() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -769,7 +768,7 @@ public class ItNodeTest {
         assertEquals(1, leader.listLearners().size());
     }
 
-    @Test
+    @Disabled
     public void testTripleNodesWithStaticLearners() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -808,7 +807,7 @@ public class ItNodeTest {
         assertEquals(4, cluster.getFsms().size());
     }
 
-    @Test
+    @Disabled
     public void testTripleNodesWithLearners() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -908,7 +907,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testNodesWithPriorityElection() throws Exception {
         List<Integer> priorities = new ArrayList<>();
         priorities.add(100);
@@ -935,7 +934,7 @@ public class ItNodeTest {
         assertEquals(2, cluster.getFollowers().size());
     }
 
-    @Test
+    @Disabled
     public void testNodesWithPartPriorityElection() throws Exception {
         List<Integer> priorities = new ArrayList<>();
         priorities.add(100);
@@ -960,7 +959,7 @@ public class ItNodeTest {
         assertEquals(2, cluster.getFollowers().size());
     }
 
-    @Test
+    @Disabled
     public void testNodesWithSpecialPriorityElection() throws Exception {
 
         List<Integer> priorities = new ArrayList<>();
@@ -986,7 +985,7 @@ public class ItNodeTest {
         assertEquals(2, cluster.getFollowers().size());
     }
 
-    @Test
+    @Disabled
     public void testNodesWithZeroValPriorityElection() throws Exception {
 
         List<Integer> priorities = new ArrayList<>();
@@ -1014,7 +1013,7 @@ public class ItNodeTest {
         assertEquals(50, leader.getLeaderId().getPriority());
     }
 
-    @Test
+    @Disabled
     public void testNoLeaderWithZeroValPriorityElection() throws Exception {
         List<Integer> priorities = new ArrayList<>();
         priorities.add(0);
@@ -1036,7 +1035,7 @@ public class ItNodeTest {
             assertEquals(0, follower.getNodeId().getPeerId().getPriority());
     }
 
-    @Test
+    @Disabled
     public void testLeaderStopAndReElectWithPriority() throws Exception {
         List<Integer> priorities = new ArrayList<>();
         priorities.add(100);
@@ -1077,7 +1076,7 @@ public class ItNodeTest {
         assertEquals(100, leader.getNodeTargetPriority());
     }
 
-    @Test
+    @Disabled
     public void testRemoveLeaderWithPriority() throws Exception {
         List<Integer> priorities = new ArrayList<>();
         priorities.add(100);
@@ -1127,7 +1126,7 @@ public class ItNodeTest {
         assertNotSame(leader, oldLeader);
     }
 
-    @Test
+    @Disabled
     public void testChecksum() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1222,7 +1221,7 @@ public class ItNodeTest {
 
     }
 
-    @Test
+    @Disabled
     public void testReadIndex() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1268,7 +1267,7 @@ public class ItNodeTest {
         latch.await();
     }
 
-    @Test // TODO asch do we need read index timeout ? https://issues.apache.org/jira/browse/IGNITE-14832
+    @Disabled // TODO asch do we need read index timeout ? https://issues.apache.org/jira/browse/IGNITE-14832
     public void testReadIndexTimeout() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1320,7 +1319,7 @@ public class ItNodeTest {
         latch.await();
     }
 
-    @Test
+    @Disabled
     public void testReadIndexFromLearner() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1358,7 +1357,7 @@ public class ItNodeTest {
         assertReadIndex(learner, 12);
     }
 
-    @Test
+    @Disabled
     public void testReadIndexChaos() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1434,7 +1433,7 @@ public class ItNodeTest {
             assertEquals(10000, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testNodeMetrics() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1471,7 +1470,7 @@ public class ItNodeTest {
         assertEquals(2, cluster.getFollowers().size());
     }
 
-    @Test
+    @Disabled
     public void testLeaderFail() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1549,7 +1548,7 @@ public class ItNodeTest {
             assertEquals(30, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testJoinNodes() throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer1 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1);
@@ -1618,7 +1617,7 @@ public class ItNodeTest {
             assertEquals(10, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testRemoveFollower() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1680,7 +1679,7 @@ public class ItNodeTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testRemoveLeader() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1744,7 +1743,7 @@ public class ItNodeTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testPreVote() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1792,7 +1791,7 @@ public class ItNodeTest {
         assertEquals(savedTerm, ((NodeImpl) leader).getCurrentTerm());
     }
 
-    @Test
+    @Disabled
     public void testSetPeer1() throws Exception {
         cluster = new TestCluster("testSetPeer1", dataPath, new ArrayList<>(), testInfo);
 
@@ -1809,7 +1808,7 @@ public class ItNodeTest {
         assertNotNull(cluster.getLeader());
     }
 
-    @Test
+    @Disabled
     public void testSetPeer2() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1894,7 +1893,7 @@ public class ItNodeTest {
     /**
      * @throws Exception
      */
-    @Test
+    @Disabled
     public void testRestoreSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1931,7 +1930,7 @@ public class ItNodeTest {
     /**
      * @throws Exception
      */
-    @Test
+    @Disabled
     public void testRestoreSnapshotWithDelta() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -1974,7 +1973,7 @@ public class ItNodeTest {
         assertEquals(1, fsm.getLoadSnapshotTimes());
     }
 
-    @Test
+    @Disabled
     public void testInstallSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2031,7 +2030,7 @@ public class ItNodeTest {
     }
 
     @Test // TODO add test for timeout on snapshot install https://issues.apache.org/jira/browse/IGNITE-14832
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16467")
+//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16467")
     public void testInstallLargeSnapshotWithThrottle() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3), testInfo);
@@ -2089,7 +2088,7 @@ public class ItNodeTest {
             assertEquals(2000, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testInstallLargeSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(4);
         cluster = new TestCluster("unitest", dataPath, peers.subList(0, 3), testInfo);
@@ -2148,7 +2147,7 @@ public class ItNodeTest {
             assertEquals(2000, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testInstallSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2198,7 +2197,7 @@ public class ItNodeTest {
             assertEquals(30, fsm.getLogs().size(), fsm.getAddress().toString());
     }
 
-    @Test
+    @Disabled
     public void testNoSnapshot() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         NodeOptions nodeOptions = createNodeOptions();
@@ -2224,7 +2223,7 @@ public class ItNodeTest {
         assertEquals(0, fsm.getSaveSnapshotTimes());
     }
 
-    @Test
+    @Disabled
     public void testAutoSnapshot() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         NodeOptions nodeOptions = createNodeOptions();
@@ -2251,7 +2250,7 @@ public class ItNodeTest {
         assertTrue(fsm.getSnapshotIndex() > 0);
     }
 
-    @Test
+    @Disabled
     public void testLeaderShouldNotChange() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2274,7 +2273,7 @@ public class ItNodeTest {
         assertEquals(savedTerm, ((NodeImpl) leader1).getCurrentTerm());
     }
 
-    @Test
+    @Disabled
     public void testRecoverFollower() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2312,7 +2311,7 @@ public class ItNodeTest {
             assertEquals(30, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testLeaderTransfer() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2340,7 +2339,7 @@ public class ItNodeTest {
         assertEquals(leader.getNodeId().getPeerId(), targetPeer);
     }
 
-    @Test
+    @Disabled
     public void testLeaderTransferBeforeLogIsCompleted() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2380,7 +2379,7 @@ public class ItNodeTest {
         cluster.ensureSame();
     }
 
-    @Test
+    @Disabled
     public void testLeaderTransferResumeOnFailure() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2448,7 +2447,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testShutdownAndJoinWorkAfterInitFails() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         {
@@ -2500,7 +2499,7 @@ public class ItNodeTest {
      *
      * @throws Exception If failed.
      */
-    @Test
+    @Disabled
     public void testShuttingDownLeaderTriggerTimeoutNow() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2526,7 +2525,7 @@ public class ItNodeTest {
         assertNotSame(leader, oldLeader);
     }
 
-    @Test
+    @Disabled
     public void testRemovingLeaderTriggerTimeoutNow() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2555,7 +2554,7 @@ public class ItNodeTest {
         assertNotSame(leader, oldLeader);
     }
 
-    @Test
+    @Disabled
     public void testTransferShouldWorkAfterInstallSnapshot() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
 
@@ -2600,7 +2599,7 @@ public class ItNodeTest {
             assertEquals(10, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testAppendEntriesWhenFollowerIsInErrorState() throws Exception {
         // start five nodes
         List<PeerId> peers = TestUtils.generatePeers(5);
@@ -2651,7 +2650,7 @@ public class ItNodeTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         List<PeerId> peers = TestUtils.generatePeers(5);
@@ -2722,7 +2721,7 @@ public class ItNodeTest {
         cluster.ensureSame();
     }
 
-    @Test
+    @Disabled
     public void testLeaderPropagatedBeforeVote() throws Exception {
         // start five nodes
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -2783,7 +2782,7 @@ public class ItNodeTest {
         assertFalse(res, "The follower shouldn't stop following");
     }
 
-    @Test
+    @Disabled
     public void readCommittedUserLog() throws Exception {
         // setup cluster
         List<PeerId> peers = TestUtils.generatePeers(3);
@@ -2898,7 +2897,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testBootStrapWithSnapshot() throws Exception {
         Endpoint addr = new Endpoint("127.0.0.1", 5006);
         MockStateMachine fsm = new MockStateMachine(addr);
@@ -2940,7 +2939,7 @@ public class ItNodeTest {
         assertEquals(36, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testBootStrapWithoutSnapshot() throws Exception {
         Endpoint addr = new Endpoint("127.0.0.1", 5006);
         MockStateMachine fsm = new MockStateMachine(addr);
@@ -2972,7 +2971,7 @@ public class ItNodeTest {
         assertEquals(10, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testChangePeers() throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
@@ -3006,7 +3005,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testChangePeersAddMultiNodes() throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
@@ -3049,7 +3048,7 @@ public class ItNodeTest {
             assertEquals(10, fsm.getLogs().size());
     }
 
-    @Test
+    @Disabled
     public void testChangePeersStepsDownInJointConsensus() throws Exception {
         List<PeerId> peers = new ArrayList<>();
 
@@ -3172,7 +3171,7 @@ public class ItNodeTest {
         });
     }
 
-    @Test
+    @Disabled
     public void testChangePeersChaosWithSnapshot() throws Exception {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
@@ -3219,7 +3218,7 @@ public class ItNodeTest {
             assertTrue(fsm.getLogs().size() >= 5000);
     }
 
-    @Test
+    @Disabled
     public void testChangePeersChaosWithoutSnapshot() throws Exception {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
@@ -3268,7 +3267,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testChangePeersChaosApplyTasks() throws Exception {
         // start cluster
         List<PeerId> peers = new ArrayList<>();
@@ -3345,7 +3344,7 @@ public class ItNodeTest {
         }
     }
 
-    @Test
+    @Disabled
     public void testBlockedElection() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
         cluster = new TestCluster("unittest", dataPath, peers, testInfo);
@@ -3389,12 +3388,12 @@ public class ItNodeTest {
         LOG.info("Elect new leader is {}, curTerm={}", leader.getLeaderId(), ((NodeImpl) leader).getCurrentTerm());
     }
 
-    @Test
+    @Disabled
     public void testElectionTimeoutAutoAdjustWhenBlockedAllMessages() throws Exception {
         testElectionTimeoutAutoAdjustWhenBlockedMessages((msg, nodeId) -> true);
     }
 
-    @Test
+    @Disabled
     public void testElectionTimeoutAutoAdjustWhenBlockedRequestVoteMessages() throws Exception {
         testElectionTimeoutAutoAdjustWhenBlockedMessages((msg, nodeId) -> {
             if (msg instanceof RpcRequests.RequestVoteRequest) {
@@ -3464,7 +3463,7 @@ public class ItNodeTest {
     /**
      * Tests if a read using leader leases works correctly after previous leader segmentation.
      */
-    @Test
+    @Disabled
     public void testLeaseReadAfterSegmentation() throws Exception {
         List<PeerId> peers = TestUtils.generatePeers(3);
         cluster = new TestCluster("unittest", dataPath, peers, 3_000, testInfo);
