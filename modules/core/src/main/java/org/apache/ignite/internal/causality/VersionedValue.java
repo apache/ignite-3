@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BiConsumer;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,9 +32,6 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Type of real value.
  */
 public class VersionedValue<T> {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(VersionedValue.class);
-
     /** Last applied casualty token. */
     private volatile long actualToken;
 
