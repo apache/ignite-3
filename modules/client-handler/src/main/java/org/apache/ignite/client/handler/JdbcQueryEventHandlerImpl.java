@@ -139,7 +139,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 return null;
             case SELECT_STATEMENT_TYPE:
                 return true;
-            case UPDATE_STMT_TYPE:
+            case UPDATE_STATEMENT_TYPE:
                 return false;
             default:
                 throw new IllegalArgumentException("Unexpected JdbcStatementType: " + stmtType);

@@ -91,7 +91,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public int executeUpdate() throws SQLException {
-        executeWithArguments(JdbcStatementType.UPDATE_STMT_TYPE);
+        executeWithArguments(JdbcStatementType.UPDATE_STATEMENT_TYPE);
 
         int res = getUpdateCount();
 

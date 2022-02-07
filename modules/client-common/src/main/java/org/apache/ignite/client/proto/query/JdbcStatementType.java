@@ -28,7 +28,7 @@ public enum JdbcStatementType {
     SELECT_STATEMENT_TYPE,
 
     /** DML / DDL statement type. */
-    UPDATE_STMT_TYPE;
+    UPDATE_STATEMENT_TYPE;
 
     /** Enumerated values. */
     private static final JdbcStatementType[] VALS = values();
