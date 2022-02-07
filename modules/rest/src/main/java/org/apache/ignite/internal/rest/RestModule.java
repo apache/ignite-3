@@ -126,12 +126,12 @@ public class RestModule implements IgniteComponent {
                         CLUSTER_CFG_URL + ":" + PATH_PARAM,
                         (req, resp) -> handleRepresentByPath(req, resp, clusterCfgPresentation)
                 )
-                .put(
+                .patch(
                         NODE_CFG_URL,
                         APPLICATION_JSON,
                         (req, resp) -> handleUpdate(req, resp, nodeCfgPresentation)
                 )
-                .put(
+                .patch(
                         CLUSTER_CFG_URL,
                         APPLICATION_JSON,
                         (req, resp) -> handleUpdate(req, resp, clusterCfgPresentation)

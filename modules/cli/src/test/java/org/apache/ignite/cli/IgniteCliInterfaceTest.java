@@ -553,7 +553,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
-                            && "PUT".equals(r.method())
+                            && "PATCH".equals(r.method())
                             && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
                             && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
@@ -583,7 +583,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             Assertions.assertEquals(0, exitCode);
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
-                            && "PUT".equals(r.method())
+                            && "PATCH".equals(r.method())
                             && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
                             && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());

@@ -107,6 +107,23 @@ public class Router {
     }
 
     /**
+     * Defines a PATCH route.
+     *
+     * @param route      Route.
+     * @param acceptType Accept type.
+     * @param hnd        Actual handler of the request.
+     * @return Router
+     */
+    public Router patch(
+            String route,
+            AsciiString acceptType,
+            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
+    ) {
+        addRoute(new Route(route, HttpMethod.PATCH, acceptType.toString(), hnd));
+        return this;
+    }
+
+    /**
      * Adds the route to router chain.
      *
      * @param route Route
