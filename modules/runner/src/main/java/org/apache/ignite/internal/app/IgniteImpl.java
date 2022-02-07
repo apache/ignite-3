@@ -376,7 +376,7 @@ public class IgniteImpl implements Ignite {
      */
     private CompletableFuture<Void> listenMetastorageRevision() {
         //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
-        if (metaStorageMgr.isMetaStorageInitializedOnStart()) {
+        if (!metaStorageMgr.isMetaStorageInitializedOnStart()) {
             return CompletableFuture.completedFuture(null);
         }
 
