@@ -98,7 +98,7 @@ public class PlannerTest extends AbstractPlannerTest {
                         .build()) {
             @Override
             public IgniteIndex getIndex(String idxName) {
-                return new IgniteIndex(null, null, null);
+                return new IgniteIndex(null, (String) null, null);
             }
 
             @Override

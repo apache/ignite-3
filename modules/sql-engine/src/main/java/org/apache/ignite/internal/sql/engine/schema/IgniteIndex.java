@@ -17,7 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.IndexScan;
+import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 
 /**
  * Ignite scannable index.
@@ -27,7 +35,8 @@ public class IgniteIndex {
 
     private final String idxName;
 
-    //    private final GridIndex<H2Row> idx;
+    private final InternalSortedIndex idx;
+
     private final InternalIgniteTable tbl;
 
     /**
@@ -35,8 +44,25 @@ public class IgniteIndex {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteIndex(RelCollation collation, String name, InternalIgniteTable tbl) {
+        this(collation, name, null, tbl);
+    }
+
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public IgniteIndex(RelCollation collation, InternalSortedIndex idx, InternalIgniteTable tbl) {
+        this(collation, idx.name(), idx, tbl);
+    }
+
+    /**
+     * Constructor.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    private IgniteIndex(RelCollation collation, String name, InternalSortedIndex idx, InternalIgniteTable tbl) {
         this.collation = collation;
         idxName = name;
+        this.idx = idx;
         this.tbl = tbl;
     }
 
@@ -50,5 +76,33 @@ public class IgniteIndex {
 
     public InternalIgniteTable table() {
         return tbl;
+    }
+
+    public InternalSortedIndex index() {
+        return idx;
+    }
+
+    /**
+     * Scan index.
+     */
+    public <RowT> Iterable<RowT> scan(
+            ExecutionContext<RowT> ectx,
+            ColocationGroup colocationGrp,
+            Predicate<RowT> filters,
+            Supplier<RowT> lower,
+            Supplier<RowT> upper,
+            Function<RowT, RowT> rowTransformer,
+            ImmutableBitSet requiredColumns
+    ) {
+        return new IndexScan<>(
+                this,
+                ectx,
+                colocationGrp,
+                filters,
+                lower,
+                upper,
+                rowTransformer,
+                requiredColumns
+        );
     }
 }

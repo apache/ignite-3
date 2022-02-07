@@ -29,6 +29,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,6 +42,8 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
     protected final ExecutionContext<RowT> ectx;
 
     protected final Comparator<RowT> comp;
+
+    protected final RelDataType rowType;
 
     private final RelCollation collation;
 
@@ -54,11 +58,13 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
      */
     public RuntimeSortedIndex(
             ExecutionContext<RowT> ectx,
+            RelDataType rowType,
             RelCollation collation,
             Comparator<RowT> comp
     ) {
         this.ectx = ectx;
         this.comp = comp;
+        this.rowType = rowType;
 
         assert Objects.nonNull(collation);
 
@@ -207,7 +213,15 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         /** {@inheritDoc} */
         @Override
         protected RowT row2indexRow(RowT bound) {
-            return bound;
+            RowHandler<RowT> hndl = ectx.rowHandler();
+            RowT rowBound  = hndl.factory(Commons.typeFactory(), rowType).create();
+
+            ImmutableIntList keys = collation.getKeys();
+            for (int i = 0; i < keys.size(); ++i) {
+                hndl.set(keys.get(i), rowBound, hndl.get(i, bound));
+            }
+
+            return rowBound;
         }
 
         /** {@inheritDoc} */

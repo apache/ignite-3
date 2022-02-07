@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.columnFamilyType;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexName;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -35,15 +34,16 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.idx.SortedIndexDescriptor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.BinaryRowComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.index.SortedIndexStorageDescriptor;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.NotNull;
@@ -172,11 +172,10 @@ class RocksDbTableStorage implements TableStorage {
                     break;
 
                 case SORTED_INDEX:
-                    String indexName = sortedIndexName(handleName);
-
-                    var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
-
-                    sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
+                    // TODO: restore index on restart.
+                    //String indexName = sortedIndexName(handleName);
+                    //var indexDescriptor = new MySortedIndexDescriptor(indexName, tableCfg.value());
+                    //sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
 
                     break;
 
@@ -289,17 +288,16 @@ class RocksDbTableStorage implements TableStorage {
     }
 
     @Override
-    public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
+    public SortedIndexStorage createSortedIndex(SortedIndexDescriptor desc) {
         assert !stopped : "Storage has been stopped";
 
-        return sortedIndices.computeIfAbsent(indexName, name -> {
-            var indexDescriptor = new SortedIndexDescriptor(name, tableCfg.value());
-
-            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(indexDescriptor);
+        SortedIndexStorageDescriptor idxStoreDesc = new SortedIndexStorageDescriptor(desc);
+        return sortedIndices.computeIfAbsent(desc.name(), name -> {
+            ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(idxStoreDesc);
 
             ColumnFamily cf = createColumnFamily(sortedIndexCfName(name), cfDescriptor);
 
-            return new RocksDbSortedIndexStorage(cf, indexDescriptor);
+            return new RocksDbSortedIndexStorage(cf, idxStoreDesc);
         });
     }
 
@@ -392,9 +390,13 @@ class RocksDbTableStorage implements TableStorage {
                 return new ColumnFamilyDescriptor(cfName.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions());
 
             case SORTED_INDEX:
-                var indexDescriptor = new SortedIndexDescriptor(sortedIndexName(cfName), tableCfg.value());
+                // TODO: resore index on restart
+                // var indexDescriptor = new SortedIndexDescriptor(sortedIndexName(cfName), tableCfg.value());
+                // return sortedIndexCfDescriptor(indexDescriptor);
 
-                return sortedIndexCfDescriptor(indexDescriptor);
+                assert false : "Restore index not supported";
+
+                return null;
 
             default:
                 throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
@@ -411,7 +413,7 @@ class RocksDbTableStorage implements TableStorage {
     /**
      * Creates a Column Family descriptor for a Sorted Index.
      */
-    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
+    private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexStorageDescriptor descriptor) {
         String cfName = sortedIndexCfName(descriptor.name());
 
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(new BinaryRowComparator(descriptor));

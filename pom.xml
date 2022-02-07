@@ -52,6 +52,8 @@
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
         <module>modules/core</module>
+        <module>modules/index</module>
+        <module>modules/index-api</module>
         <module>modules/marshaller-common</module>
         <module>modules/metastorage</module>
         <module>modules/metastorage-client</module>

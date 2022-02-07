@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.storage.rocksdb.index;
 
+import java.util.function.Predicate;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexRow;
-import org.apache.ignite.internal.storage.index.IndexRowDeserializer;
-import org.apache.ignite.internal.storage.index.IndexRowFactory;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -38,11 +36,11 @@ import org.rocksdb.RocksIterator;
 public class RocksDbSortedIndexStorage implements SortedIndexStorage {
     private final ColumnFamily indexCf;
 
-    private final SortedIndexDescriptor descriptor;
-
-    private final IndexRowFactory indexRowFactory;
+    private final SortedIndexStorageDescriptor descriptor;
 
     private final IndexRowDeserializer indexRowDeserializer;
+
+    private final IndexRowSerializer indexRowSerializer;
 
     /**
      * Creates a new Index storage.
@@ -50,60 +48,55 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
      * @param indexCf Column Family for storing the data.
      * @param descriptor Index descriptor.
      */
-    public RocksDbSortedIndexStorage(ColumnFamily indexCf, SortedIndexDescriptor descriptor) {
+    public RocksDbSortedIndexStorage(ColumnFamily indexCf, SortedIndexStorageDescriptor descriptor) {
         this.indexCf = indexCf;
         this.descriptor = descriptor;
-        this.indexRowFactory = new BinaryIndexRowFactory(descriptor);
-        this.indexRowDeserializer = new BinaryIndexRowDeserializer(descriptor);
+
+        BinaryIndexRowSerializer serializer = new BinaryIndexRowSerializer(descriptor);
+        this.indexRowSerializer = serializer;
+        this.indexRowDeserializer = serializer;
     }
 
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
+    public SortedIndexStorageDescriptor indexDescriptor() {
         return descriptor;
     }
 
     @Override
-    public IndexRowFactory indexRowFactory() {
-        return indexRowFactory;
-    }
-
-    @Override
-    public IndexRowDeserializer indexRowDeserializer() {
-        return indexRowDeserializer;
-    }
-
-    @Override
     public void put(IndexRow row) {
-        assert row.rowBytes().length > 0;
-        assert row.primaryKey().keyBytes().length > 0;
+        assert row.primaryKey().bytes().length > 0;
 
         try {
-            indexCf.put(row.rowBytes(), row.primaryKey().keyBytes());
+            IndexBinaryRow binRow = indexRowSerializer.serialize(row);
+
+            indexCf.put(binRow.keySlice(), binRow.valueSlice());
         } catch (RocksDBException e) {
             throw new StorageException("Error while adding data to Rocks DB", e);
         }
     }
 
     @Override
-    public void remove(IndexRow key) {
+    public void remove(IndexRow row) {
         try {
-            indexCf.delete(key.rowBytes());
+            IndexBinaryRow binRow = indexRowSerializer.serialize(row);
+
+            indexCf.delete(binRow.keySlice());
         } catch (RocksDBException e) {
             throw new StorageException("Error while removing data from Rocks DB", e);
         }
     }
 
     @Override
-    public Cursor<IndexRow> range(IndexRowPrefix lowerBound, IndexRowPrefix upperBound) {
+    public Cursor<IndexRow> range(IndexRowPrefix low, IndexRowPrefix up, Predicate<IndexRow> filter) {
         RocksIterator iter = indexCf.newIterator();
 
         iter.seekToFirst();
 
         return new RocksIteratorAdapter<>(iter) {
             @Nullable
-            private PrefixComparator lowerBoundComparator = new PrefixComparator(descriptor, lowerBound);
+            private PrefixComparator lowerBoundComparator = low != null ? new PrefixComparator(descriptor, low) : null;
 
-            private final PrefixComparator upperBoundComparator = new PrefixComparator(descriptor, upperBound);
+            private final PrefixComparator upperBoundComparator = up != null ? new PrefixComparator(descriptor, up) : null;
 
             @Override
             public boolean hasNext() {
@@ -122,7 +115,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
                         }
                     }
 
-                    return upperBoundComparator.compare(row) <= 0;
+                    return upperBoundComparator == null || upperBoundComparator.compare(row) <= 0;
                 }
 
                 return false;
@@ -130,7 +123,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
             @Override
             protected IndexRow decodeEntry(byte[] key, byte[] value) {
-                return new BinaryIndexRow(key, value);
+                return indexRowDeserializer.deserialize(new IndexBinaryRowImpl(key, value));
             }
         };
     }

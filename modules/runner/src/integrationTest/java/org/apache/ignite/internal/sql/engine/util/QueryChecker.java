@@ -83,7 +83,8 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
-        return containsSubPlan("IgniteIndexScan(table=[[" + schema + ", " + tblName + "]], index=[" + idxName + ']');
+        return matchesOnce(".*IgniteIndexScan\\(tableId=\\[.*\\], index=\\[" + idxName
+                + "\\].*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
     }
 
     /**

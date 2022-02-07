@@ -42,6 +42,8 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.idx.IndexManager;
+import org.apache.ignite.internal.idx.IndexManagerImpl;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -57,7 +59,6 @@ import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -72,7 +73,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -125,6 +125,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     TableManager tblManager;
 
+    IndexManager idxManager;
+
     SqlQueryProcessor queryProc;
 
     /** Test node. */
@@ -159,7 +161,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor(cs, tblManager, idxManager);
 
         queryProc.start();
     }
@@ -378,48 +380,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
     }
 
-    /**
-     * Tests create a table through public API.
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16032")
-    @Test
-    public void testCreateDropIndex() {
-        SqlQueryProcessor finalQueryProc = queryProc;
-
-        String curMethodName = getCurrentMethodName();
-
-        String newTblSql = String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with partitions=1", curMethodName);
-
-        queryProc.query("PUBLIC", newTblSql);
-
-        assertTrue(tblManager.tables().stream().anyMatch(t -> t.name()
-                .equalsIgnoreCase("PUBLIC." + curMethodName)));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index1 ON %s (c1)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX IF NOT EXISTS index1 ON %s (c1)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index2 ON %s (c1)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index3 ON %s (c2)", curMethodName));
-
-        assertThrows(IndexAlreadyExistsException.class, () ->
-                finalQueryProc.query("PUBLIC", String.format("CREATE INDEX index3 ON %s (c1)", curMethodName)));
-
-        assertThrows(IgniteException.class, () ->
-                finalQueryProc.query("PUBLIC", String.format("CREATE INDEX index_3 ON %s (c1)", curMethodName + "_nonExist")));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("CREATE INDEX index4 ON %s (c2 desc, c1 asc)", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("DROP INDEX index4 ON %s", curMethodName));
-
-        queryProc.query("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName));
-    }
-
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
     /**
      * Instantiates a table and prepares Table manager.
@@ -489,6 +449,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 workDir,
                 tm
         );
+
+        idxManager = new IndexManagerImpl(tableManager, mock(TablesConfiguration.class));
 
         tableManager.start();
 

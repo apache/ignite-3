@@ -83,6 +83,12 @@ public interface BinaryRow {
     ByteBuffer valueSlice();
 
     /**
+     * Get Binary row contains slice representing the key-only fields.
+     * Is used to lookup full row at a table by the key.
+     */
+    BinaryRow keyRow();
+
+    /**
      * Writes binary row to given stream.
      *
      * @param stream Stream to write to.

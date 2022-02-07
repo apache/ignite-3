@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,22 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.idx.event;
 
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.manager.Event;
 
 /**
- * Temporary API for creating Index rows from a list of column values. All columns must be sorted according to the index columns order,
- * specified by the {@link SortedIndexDescriptor#indexRowColumns()}.
+ * Index management events.
  */
-public interface IndexRowFactory {
-    /**
-     * Creates an Index row from a list of column values.
-     */
-    IndexRow createIndexRow(Object[] columnValues, SearchRow primaryKey);
+public enum IndexEvent implements Event {
+    /** This event is fired when an index was created. */
+    CREATE,
 
-    /**
-     * Creates an Prefix row from a list of column values.
-     */
-    IndexRowPrefix createIndexRowPrefix(Object[] prefixColumnValues);
+    /** This event is fired when an index was dropped. */
+    DROP
 }

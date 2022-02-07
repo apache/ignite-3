@@ -173,6 +173,29 @@ public class ByteBufferRow implements BinaryRow {
     }
 
     /** {@inheritDoc} */
+    @Override
+    public BinaryRow keyRow() {
+        final int off = KEY_CHUNK_OFFSET;
+        final int len = readInteger(off);
+
+        try {
+            byte[] tmp = new byte[off + len];
+
+            buf.get(tmp);
+
+            ByteBuffer res = ByteBuffer.wrap(tmp);
+
+            res.putShort(SCHEMA_VERSION_OFFSET, (short) 0);
+            res.order(ByteOrder.LITTLE_ENDIAN);
+
+            return new ByteBufferRow(res);
+        } finally {
+            buf.position(0); // Reset bounds.
+            buf.limit(buf.capacity());
+        }
+    }
+
+    /** {@inheritDoc} */
     @Override public byte[] bytes() {
         // TODO IGNITE-15934 avoid copy.
         byte[] tmp = new byte[buf.limit()];

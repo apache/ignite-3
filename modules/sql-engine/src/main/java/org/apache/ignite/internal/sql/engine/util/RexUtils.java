@@ -310,19 +310,25 @@ public class RexUtils {
         List<RexNode> lowerBound = null;
         List<RexNode> upperBound = null;
 
+        List<RexNode> allIdxCondition = new ArrayList<>();
+
         if (!nullOrEmpty(lower)) {
             lowerBound = asBound(cluster, lower, rowType, mapping);
+            allIdxCondition.addAll(lower);
         } else {
             lower = null;
         }
 
         if (!nullOrEmpty(upper)) {
             upperBound = asBound(cluster, upper, rowType, mapping);
+            allIdxCondition.addAll(upper);
         } else {
             upper = null;
         }
 
-        return new IndexConditions(lower, upper, lowerBound, upperBound);
+        IntSet keys = indexKeys(allIdxCondition, mapping);
+
+        return new IndexConditions(lower, upper, lowerBound, upperBound, keys);
     }
 
     /**
@@ -470,7 +476,8 @@ public class RexUtils {
 
         RexBuilder builder = builder(cluster);
         List<RelDataType> types = RelOptUtil.getFieldTypeList(rowType);
-        List<RexNode> res = makeListOfNullLiterals(builder, types);
+
+        List<RexNode> res = new ArrayList<>();
 
         for (RexNode pred : idxCond) {
             assert pred instanceof RexCall;
@@ -485,10 +492,37 @@ public class RexUtils {
 
             assert index != -1;
 
-            res.set(index, makeCast(builder, cond, types.get(index)));
+            res.add(makeCast(builder, cond, types.get(index)));
         }
 
         return res;
+    }
+
+    /**
+     * Index keys used by condition.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public static IntSet indexKeys(Iterable<RexNode> idxCond, @Nullable Mappings.TargetMapping mapping) {
+        if (nullOrEmpty(idxCond)) {
+            return null;
+        }
+
+        IntSet keys = new IntOpenHashSet();
+
+        for (RexNode pred : idxCond) {
+            assert pred instanceof RexCall;
+
+            RexCall call = (RexCall) pred;
+            RexSlot ref = (RexSlot) RexUtil.removeCast(call.operands.get(0));
+
+            int index = mapping == null ? ref.getIndex() : mapping.getSourceOpt(ref.getIndex());
+
+            assert index != -1;
+
+            keys.add(index);
+        }
+
+        return keys;
     }
 
     /**

@@ -31,6 +31,7 @@ import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.sql.engine.Query;
 import org.apache.ignite.internal.sql.engine.QueryRegistry;
 import org.apache.ignite.internal.sql.engine.QueryState;
@@ -129,6 +130,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
             QueryPlanCache planCache,
             SqlSchemaManager sqlSchemaManager,
             TableManager tblManager,
+            IndexManager idxManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
@@ -146,7 +148,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
         this.exchangeSrvc = exchangeSrvc;
         this.queryRegistry = queryRegistry;
 
-        ddlCmdHnd = new DdlCommandHandler(tblManager);
+        ddlCmdHnd = new DdlCommandHandler(tblManager, idxManager);
 
         locNodeId = topSrvc.localMember().id();
         qryPlanCache = planCache;

@@ -59,9 +59,9 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
+import org.apache.ignite.internal.manager.AbstractProducer;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaException;
@@ -75,6 +75,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableStorageRowListener;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -103,7 +104,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Table manager.
  */
-public class TableManager extends Producer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
+public class TableManager extends AbstractProducer<TableEvent, TableEventParameters> implements IgniteTables, IgniteTablesInternal,
         IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
@@ -319,7 +320,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             toAdd.removeAll(oldPartitionAssignment);
 
-                            InternalTable internalTable = tablesById.get(tblId).internalTable();
+                            TableImpl tbl = tablesById.get(tblId);
+                            InternalTable internalTable = tbl.internalTable();
 
                             // Create new raft nodes according to new assignments.
 
@@ -329,7 +331,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         newPartitionAssignment,
                                         toAdd,
                                         () -> new PartitionListener(tblId,
-                                                new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager))
+                                                new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager, tbl))
                                 ).thenAccept(
                                         updatedRaftGroupService -> ((InternalTableImpl) internalTable).updateInternalTableRaftGroupService(
                                                 partId, updatedRaftGroupService)
@@ -477,6 +479,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorage.start();
 
+        TableStorageRowListener storageUpdLsnr = new TableStorageRowListener();
+
         for (int p = 0; p < partitions; p++) {
             int partId = p;
 
@@ -486,7 +490,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 raftGroupName(tblId, p),
                                 assignment.get(p),
                                 () -> new PartitionListener(tblId,
-                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager))
+                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager, storageUpdLsnr))
                         )
                 );
             } catch (NodeStoppingException e) {
@@ -539,6 +543,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         internalTable,
                         schemaRegistry
                 );
+
+                storageUpdLsnr.listen(table);
 
                 tables.put(name, table);
                 tablesById.put(tblId, table);

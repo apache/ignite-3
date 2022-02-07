@@ -31,6 +31,9 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.idx.IndexManager;
+import org.apache.ignite.internal.idx.event.IndexEvent;
+import org.apache.ignite.internal.idx.event.IndexEventParameters;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -79,13 +82,18 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ClusterService clusterSrvc;
 
-    private final TableManager tableManager;
+    private final TableManager tblManager;
+
+    private final IndexManager idxManager;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Event listeners to close. */
-    private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+    /** Table event listeners to close. */
+    private final List<Pair<TableEvent, EventListener<TableEventParameters>>> tblEvtLsnrs = new ArrayList<>();
+
+    /** Index event listeners to close. */
+    private final List<Pair<IndexEvent, EventListener<IndexEventParameters>>> idxEvtLsnrs = new ArrayList<>();
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
@@ -110,12 +118,21 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager schemaManager;
 
+    /**
+     * Constructor.
+     *
+     * @param clusterSrvc Cluster service.
+     * @param tblManager Table manager.
+     * @param idxManager Index manager.
+     */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
-            TableManager tableManager
+            TableManager tblManager,
+            IndexManager idxManager
     ) {
         this.clusterSrvc = clusterSrvc;
-        this.tableManager = tableManager;
+        this.tblManager = tblManager;
+        this.idxManager = idxManager;
     }
 
     /** {@inheritDoc} */
@@ -151,14 +168,15 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, planCache::clear);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tblManager, planCache::clear);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
                 msgSrvc,
                 planCache,
                 schemaManager,
-                tableManager,
+                tblManager,
+                idxManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
@@ -170,6 +188,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));
         registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaManager));
+
+        registerIndexListener(IndexEvent.CREATE, new IndexCreatedListener(schemaManager));
+        registerIndexListener(IndexEvent.DROP, new IndexDroppedListener(schemaManager));
 
         this.schemaManager = schemaManager;
 
@@ -185,9 +206,15 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
-        evtLsnrs.add(Pair.of(evt, lsnr));
+        tblEvtLsnrs.add(Pair.of(evt, lsnr));
 
-        tableManager.listen(evt, lsnr);
+        tblManager.listen(evt, lsnr);
+    }
+
+    private void registerIndexListener(IndexEvent evt, AbstractIndexEventListener lsnr) {
+        idxEvtLsnrs.add(Pair.of(evt, lsnr));
+
+        idxManager.listen(evt, lsnr);
     }
 
     /** {@inheritDoc} */
@@ -214,8 +241,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
 
-        Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
-                .map((p) -> () -> tableManager.removeListener(p.left, p.right));
+        Stream<AutoCloseable> closableListeners = Stream.concat(
+                tblEvtLsnrs.stream()
+                    .map((p) -> () -> tblManager.removeListener(p.left, p.right)),
+                idxEvtLsnrs.stream()
+                        .map((p) -> () -> idxManager.removeListener(p.left, p.right))
+        );
 
         toClose.addAll(
                 Stream.concat(closableComponents, closableListeners).collect(Collectors.toList())
@@ -331,9 +362,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
 
-        private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private AbstractTableEventListener(SqlSchemaManagerImpl schemaHolder) {
             this.schemaHolder = schemaHolder;
         }
 
@@ -345,15 +374,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableCreatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onTableCreated(
                     "PUBLIC",
                     parameters.table()
@@ -364,15 +395,17 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableUpdatedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onTableUpdated(
                     "PUBLIC",
                     parameters.table()
@@ -383,18 +416,78 @@ public class SqlQueryProcessor implements QueryProcessor {
     }
 
     private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
+        private TableDroppedListener(SqlSchemaManagerImpl schemaHolder) {
             super(schemaHolder);
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
             schemaHolder.onTableDropped(
                     "PUBLIC",
                     parameters.tableName()
+            );
+
+            return false;
+        }
+    }
+
+    private abstract static class AbstractIndexEventListener implements EventListener<IndexEventParameters> {
+        protected final SqlSchemaManagerImpl schemaHolder;
+
+        private AbstractIndexEventListener(SqlSchemaManagerImpl schemaHolder) {
+            this.schemaHolder = schemaHolder;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void remove(@NotNull Throwable exception) {
+            // No-op.
+        }
+    }
+
+    private static class IndexCreatedListener extends AbstractIndexEventListener {
+        private IndexCreatedListener(SqlSchemaManagerImpl schemaHolder) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
+            schemaHolder.onIndexCreated(
+                    "PUBLIC",
+                    parameters.tableName(),
+                    parameters.index()
+            );
+
+            return false;
+        }
+    }
+
+    private static class IndexDroppedListener extends AbstractIndexEventListener {
+        private IndexDroppedListener(SqlSchemaManagerImpl schemaHolder) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable exception) {
+            if (exception != null) {
+                return false;
+            }
+
+            schemaHolder.onIndexDropped(
+                    "PUBLIC",
+                    parameters.tableName(),
+                    parameters.indexName()
             );
 
             return false;

@@ -118,6 +118,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         ArrayRowHandler.INSTANCE,
                         ImmutableMap.of()
                 ),
+                rowType,
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {
                     for (int colIdx : idxCols) {

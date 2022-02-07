@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
+import org.apache.ignite.internal.table.StorageRowListener;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -51,6 +52,9 @@ public class VersionedRowStore {
     /** Storage delegate. */
     private final PartitionStorage storage;
 
+    /** Update listener. */
+    private final StorageRowListener lsnr;
+
     /** Transaction manager. */
     private TxManager txManager;
 
@@ -61,8 +65,19 @@ public class VersionedRowStore {
      * @param txManager The TX manager.
      */
     public VersionedRowStore(@NotNull PartitionStorage storage, @NotNull TxManager txManager) {
+        this(storage, txManager, StorageRowListener.NO_OP);
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param storage The storage.
+     * @param txManager The TX manager.
+     */
+    public VersionedRowStore(@NotNull PartitionStorage storage, @NotNull TxManager txManager, StorageRowListener lsnr) {
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
+        this.lsnr = lsnr;
     }
 
     /**
@@ -127,6 +142,8 @@ public class VersionedRowStore {
         Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
         storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
+
+        lsnr.onUpdate(pair.getSecond(), row, storage.partitionId());
     }
 
     /**
@@ -168,6 +185,8 @@ public class VersionedRowStore {
         // Write a tombstone.
         storage.write(pack(key, new Value(null, pair.getSecond(), ts)));
 
+        lsnr.onRemove(pair.getSecond(), storage.partitionId());
+
         return true;
     }
 
@@ -204,6 +223,8 @@ public class VersionedRowStore {
         }
 
         storage.write(pack(key, new Value(row, null, ts)));
+
+        lsnr.onUpdate(null, row, storage.partitionId());
 
         return true;
     }

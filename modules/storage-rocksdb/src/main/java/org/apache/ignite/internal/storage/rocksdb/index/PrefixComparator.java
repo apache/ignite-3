@@ -19,21 +19,20 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.util.Arrays;
 import java.util.BitSet;
+import org.apache.ignite.internal.idx.SortedIndexColumnDescriptor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for comparing a {@link BinaryRow} representing an Index Key with a given prefix of index columns.
  */
 class PrefixComparator {
-    private final SortedIndexDescriptor descriptor;
-    private final @Nullable Object[] prefix;
+    private final SortedIndexStorageDescriptor descriptor;
+    private final @Nullable IndexRowPrefix prefix;
 
     /**
      * Creates a new prefix comparator.
@@ -41,11 +40,11 @@ class PrefixComparator {
      * @param descriptor Index Descriptor of the enclosing index.
      * @param prefix Prefix to compare the incoming rows against.
      */
-    PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
-        assert descriptor.indexRowColumns().size() >= prefix.prefixColumnValues().length;
+    PrefixComparator(SortedIndexStorageDescriptor descriptor, IndexRowPrefix prefix) {
+        assert descriptor.columns().size() >= prefix.length();
 
         this.descriptor = descriptor;
-        this.prefix = prefix.prefixColumnValues();
+        this.prefix = prefix;
     }
 
     /**
@@ -57,12 +56,12 @@ class PrefixComparator {
      *         a value greater than {@code 0} if the row's prefix is larger than the prefix.
      */
     int compare(BinaryRow binaryRow) {
-        var row = new Row(descriptor.asSchemaDescriptor(), binaryRow);
+        var row = new Row(descriptor.schema(), binaryRow);
 
-        for (int i = 0; i < prefix.length; ++i) {
-            ColumnDescriptor columnDescriptor = descriptor.indexRowColumns().get(i);
+        for (int i = 0; i < prefix.length(); ++i) {
+            SortedIndexColumnDescriptor columnDescriptor = descriptor.indexColumns().get(i);
 
-            int compare = compare(columnDescriptor.column(), row, prefix[i]);
+            int compare = compare(columnDescriptor.column(), row, prefix.value(i));
 
             if (compare != 0) {
                 return columnDescriptor.asc() ? compare : -compare;

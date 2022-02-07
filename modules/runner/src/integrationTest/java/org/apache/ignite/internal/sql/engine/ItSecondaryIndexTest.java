@@ -114,8 +114,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
         TableDefinition schema1 = SchemaBuilders.tableBuilder("PUBLIC", "UNWRAP_PK")
                 .columns(
-                        SchemaBuilders.column("F1", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("F2", ColumnType.INT64).asNullable(true).build(),
+                        SchemaBuilders.column("F1", ColumnType.string()).build(),
+                        SchemaBuilders.column("F2", ColumnType.INT64).build(),
                         SchemaBuilders.column("F3", ColumnType.INT64).asNullable(true).build(),
                         SchemaBuilders.column("F4", ColumnType.INT64).asNullable(true).build()
                 )
