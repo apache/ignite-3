@@ -99,6 +99,12 @@ public class IgniteImpl implements Ignite {
      */
     private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
 
+    /**
+     * Difference between the local node applied revision and distributed data storage revision on start.
+     * TODO: IGNITE-16488 Move the property to configuration.
+     */
+    public static final int METADATA_DIFFERENCE = 100;
+
     /** Ignite node name. */
     private final String name;
 
@@ -331,54 +337,23 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
-            CompletableFuture<Void> upToDateMetastorageRevisionFut = new CompletableFuture<>();
-
-            metaStorageMgr.listen(MetastorageEvent.REVISION_APPLIED, new EventListener<MetastorageEventParameters>() {
-                @Override
-                public boolean notify(@NotNull MetastorageEventParameters parameters, @Nullable Throwable exception) {
-                    if (exception != null) {
-                        upToDateMetastorageRevisionFut.completeExceptionally(exception);
-
-                        return true;
-                    }
-
-                    long metastorageRevision = metaStorageMgr.revision().join();
-
-                    assert metastorageRevision >= parameters.getRevision() : IgniteStringFormatter.format(
-                            "Metastorage revision must greater than the node applied revision [msRev={}, appliedRev={}",
-                            metastorageRevision, parameters.getRevision());
-
-                    if (isMetadataUpToDate(metastorageRevision, parameters.getRevision())) {
-                        upToDateMetastorageRevisionFut.complete(null);
-
-                        return true;
-                    }
-
-                    return false;
-                }
-
-                @Override
-                public void remove(@NotNull Throwable exception) {
-                    upToDateMetastorageRevisionFut.completeExceptionally(exception);
-                }
-            });
+            CompletableFuture<Void> upToDateMetastorageRevisionFut = listenMetastorageRevision();
 
             notifyConfigurationListeners();
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
-            //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
-            if (metaStorageMgr.isMetaStorageInitializedOnStart()) {
+            if (!upToDateMetastorageRevisionFut.isDone()) {
                 long metastorageRevision = metaStorageMgr.revision().join();
                 long appliedRevision = vaultMgr.getRevision().join();
 
                 if (appliedRevision == 0 && isMetadataUpToDate(metastorageRevision, 0)) {
                     upToDateMetastorageRevisionFut.complete(null);
                 }
-
-                upToDateMetastorageRevisionFut.join();
             }
+
+            upToDateMetastorageRevisionFut.join();
 
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
@@ -395,6 +370,52 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
+     * Listens Metastorage revision updates.
+     *
+     * @return Future, which completes when the local metadata enough closer to distributed.
+     */
+    private CompletableFuture<Void> listenMetastorageRevision() {
+        //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
+        if (metaStorageMgr.isMetaStorageInitializedOnStart()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> upToDateMetastorageRevisionFut = new CompletableFuture<>();
+
+        metaStorageMgr.listen(MetastorageEvent.REVISION_APPLIED, new EventListener<MetastorageEventParameters>() {
+            @Override
+            public boolean notify(@NotNull MetastorageEventParameters parameters, @Nullable Throwable exception) {
+                if (exception != null) {
+                    upToDateMetastorageRevisionFut.completeExceptionally(exception);
+
+                    return true;
+                }
+
+                long metastorageRevision = metaStorageMgr.revision().join();
+
+                assert metastorageRevision >= parameters.getRevision() : IgniteStringFormatter.format(
+                        "Metastorage revision must be greater than local node applied revision [msRev={}, appliedRev={}",
+                        metastorageRevision, parameters.getRevision());
+
+                if (isMetadataUpToDate(metastorageRevision, parameters.getRevision())) {
+                    upToDateMetastorageRevisionFut.complete(null);
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            @Override
+            public void remove(@NotNull Throwable exception) {
+                upToDateMetastorageRevisionFut.completeExceptionally(exception);
+            }
+        });
+
+        return upToDateMetastorageRevisionFut;
+    }
+
+    /**
      * Checks the node up to date by metadata.
      *
      * @param metastorageRevision Metastorage revision.
@@ -402,7 +423,7 @@ public class IgniteImpl implements Ignite {
      * @return True when the applied revision is greater enough to node recovery complete, false otherwise.
      */
     private boolean isMetadataUpToDate(long metastorageRevision, long appliedRevision) {
-        return metastorageRevision - 100 < appliedRevision;
+        return metastorageRevision - METADATA_DIFFERENCE < appliedRevision;
     }
 
     /**
