@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -313,15 +310,13 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         int offset = desc.columnsCount();
         Set<String> toUpdate = new HashSet<>(updateColList);
 
-        for (int i = 0; i < updateColList.size(); i++) {
-            ColumnDescriptor colDesc = Objects.requireNonNull(desc.columnDescriptor(updateColList.get(i)));
-
+        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             if (colDesc.physicalType().spec().fixedLength()) {
                 continue;
             }
 
             Object val = toUpdate.contains(colDesc.name())
-                    ? hnd.get(i + offset, row)
+                    ? hnd.get(colDesc.logicalIndex() + offset, row)
                     : hnd.get(colDesc.logicalIndex(), row);
 
             if (val != null) {
@@ -333,22 +328,14 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             }
         }
 
-        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor,
-                schemaDescriptor.keyColumns().numberOfVarlengthColumns(),
-                schemaDescriptor.valueColumns().numberOfVarlengthColumns());
-
-        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
-
-        for (int i = 0; i < updateColList.size(); i++) {
-            columnToIndex.put(updateColList.get(i), i);
-        }
+        RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
             RowAssembler.writeValue(
                     rowAssembler,
                     colDesc.physicalType(),
                     toUpdate.contains(colDesc.name())
-                            ? hnd.get(columnToIndex.getInt(colDesc.name()) + offset, row)
+                            ? hnd.get(colDesc.logicalIndex() + offset, row)
                             : hnd.get(colDesc.logicalIndex(), row)
             );
         }
