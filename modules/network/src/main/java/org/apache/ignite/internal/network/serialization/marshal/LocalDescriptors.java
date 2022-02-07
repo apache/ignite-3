@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.util.StringIntrospection;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,6 +39,9 @@ class LocalDescriptors {
     ClassDescriptor getOrCreateDescriptor(@Nullable Object object, @Nullable Class<?> declaredClass) {
         if (object == null) {
             return localRegistry.getNullDescriptor();
+        }
+        if (object instanceof String && StringIntrospection.supportsFastGetLatin1Bytes((String) object)) {
+            return localRegistry.getBuiltInDescriptor(BuiltInType.STRING_LATIN1);
         }
 
         // For primitives, we need to keep the declaredClass (it differs from object.getClass()).

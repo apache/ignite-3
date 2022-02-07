@@ -68,7 +68,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -157,7 +156,7 @@ public class ItInternalTableScanTest {
 
         txManager.start();
 
-        IgniteUuid tblId = new IgniteUuid(UUID.randomUUID(), 0);
+        UUID tblId = UUID.randomUUID();
 
         raftSrv.startRaftGroup(
                 grpName,

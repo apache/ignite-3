@@ -21,28 +21,24 @@ import org.apache.ignite.internal.tostring.S;
 
 /**
  * Registry for IO versions of the same type.
+ *
+ * @param <V> Type of {@link PageIo}.
  */
 public final class IoVersions<V extends PageIo> {
-    /**
-     * Sorted array of IO objects.
-     */
+    /** Sorted array of IO objects. */
     private final V[] vers;
 
-    /**
-     * Page type.
-     */
+    /** Page type. */
     private final int type;
 
-    /**
-     * Last element of {@link #vers} for faster access.
-     */
+    /** Last element of {@link #vers} for faster access. */
     private final V latest;
 
     /**
      * Constructor.
      *
      * @param vers Array of IOs. All {@link PageIo#getType()} must match and all {@link PageIo#getVersion()} must continuously increase,
-     *            starting with {@code 1}.
+     *      starting with {@code 1}.
      */
     @SafeVarargs
     public IoVersions(V... vers) {
@@ -70,10 +66,12 @@ public final class IoVersions<V extends PageIo> {
      * @return {@code true} If versions are correct.
      */
     private boolean checkVersions() {
+        final byte flag = vers[0].getFlag();
+
         for (int i = 0; i < vers.length; i++) {
             V v = vers[i];
 
-            if (v.getType() != type || v.getVersion() != i + 1) {
+            if (v.getType() != type || v.getVersion() != i + 1 || v.getFlag() != flag) {
                 return false;
             }
         }

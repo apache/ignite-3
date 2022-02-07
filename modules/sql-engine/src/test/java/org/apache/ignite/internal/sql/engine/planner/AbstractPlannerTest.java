@@ -103,7 +103,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteUuid;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -520,7 +519,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        Map<IgniteUuid, IgniteTable> tableMap = publicSchema.getTableNames().stream()
+        Map<UUID, IgniteTable> tableMap = publicSchema.getTableNames().stream()
                 .map(publicSchema::getTable)
                 .map(IgniteTable.class::cast)
                 .collect(Collectors.toMap(IgniteTable::id, Function.identity()));
@@ -570,7 +569,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final TableDescriptor desc;
 
-        private final IgniteUuid id = new IgniteUuid(UUID.randomUUID(), 0L);
+        private final UUID id = UUID.randomUUID();
 
         TestTable(RelDataType type) {
             this(type, 100.0);
@@ -590,7 +589,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public IgniteUuid id() {
+        public UUID id() {
             return id;
         }
 
@@ -928,9 +927,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     static class SqlSchemaManagerImpl implements SqlSchemaManager {
-        private final Map<IgniteUuid, IgniteTable> tablesById;
+        private final Map<UUID, IgniteTable> tablesById;
 
-        public SqlSchemaManagerImpl(Map<IgniteUuid, IgniteTable> tablesById) {
+        public SqlSchemaManagerImpl(Map<UUID, IgniteTable> tablesById) {
             this.tablesById = tablesById;
         }
 
@@ -940,7 +939,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         @Override
-        public IgniteTable tableById(IgniteUuid id) {
+        public IgniteTable tableById(UUID id) {
             return tablesById.get(id);
         }
     }

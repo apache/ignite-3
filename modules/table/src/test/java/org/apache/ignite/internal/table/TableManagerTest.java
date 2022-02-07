@@ -63,8 +63,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.lang.IgniteUuidGenerator;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -295,7 +293,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         tableManager.beforeNodeStop();
         tableManager.stop();
 
-        IgniteUuid fakeTblId = new IgniteUuidGenerator(UUID.randomUUID(), 0).randomUuid();
+        UUID fakeTblId = UUID.randomUUID();
 
         assertThrows(NodeStoppingException.class, () -> tableManager.table(fakeTblId));
         assertThrows(NodeStoppingException.class, () -> tableManager.tableAsync(fakeTblId));

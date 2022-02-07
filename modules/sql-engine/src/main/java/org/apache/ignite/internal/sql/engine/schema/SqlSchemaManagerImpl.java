@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.Schema;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -47,7 +47,7 @@ import org.jetbrains.annotations.Nullable;
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
-    private final Map<IgniteUuid, IgniteTable> tablesById = new ConcurrentHashMap<>();
+    private final Map<UUID, IgniteTable> tablesById = new ConcurrentHashMap<>();
 
     private final Map<String, Schema> externalCatalogs = new HashMap<>();
 
@@ -79,7 +79,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     @NotNull
-    public IgniteTable tableById(IgniteUuid id) {
+    public IgniteTable tableById(UUID id) {
         IgniteTable table = tablesById.get(id);
 
         // there is a chance that someone tries to resolve table before
@@ -101,7 +101,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return table;
     }
 
-    private void ensureTableStructuresCreated(IgniteUuid id) {
+    private void ensureTableStructuresCreated(UUID id) {
         try {
             tableManager.table(id);
         } catch (NodeStoppingException e) {

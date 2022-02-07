@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import java.io.Serializable;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Map;
@@ -30,7 +31,7 @@ import org.apache.ignite.network.annotations.Transferable;
  * {@link NetworkMessage} implementation.
  */
 @Transferable(TestMessageTypes.ALL_TYPES)
-public interface AllTypesMessage extends NetworkMessage {
+public interface AllTypesMessage extends NetworkMessage, Serializable {
     byte byteA();
 
     short shortB();

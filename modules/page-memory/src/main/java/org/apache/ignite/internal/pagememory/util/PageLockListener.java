@@ -26,59 +26,59 @@ public interface PageLockListener extends AutoCloseable {
      * Callback that's called before write lock acquiring.
      *
      * @param groupId Group ID.
-     * @param pageId  Page ID.
-     * @param page    Page pointer.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      */
-    public void onBeforeWriteLock(int groupId, long pageId, long page);
+    void onBeforeWriteLock(int groupId, long pageId, long page);
 
     /**
      * Callback that's called after lock acquiring.
      *
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
      */
-    public void onWriteLock(int groupId, long pageId, long page, long pageAddr);
+    void onWriteLock(int groupId, long pageId, long page, long pageAddr);
 
     /**
      * Callback that's called before write lock releasing.
      *
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
      */
-    public void onWriteUnlock(int groupId, long pageId, long page, long pageAddr);
+    void onWriteUnlock(int groupId, long pageId, long page, long pageAddr);
 
     /**
      * Callback that's called before read lock acquiring.
      *
      * @param groupId Group ID.
-     * @param pageId  Page ID.
-     * @param page    Page pointer.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      */
-    public void onBeforeReadLock(int groupId, long pageId, long page);
+    void onBeforeReadLock(int groupId, long pageId, long page);
 
     /**
      * Callback that's called after read lock acquiring.
      *
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
      */
-    public void onReadLock(int groupId, long pageId, long page, long pageAddr);
+    void onReadLock(int groupId, long pageId, long page, long pageAddr);
 
     /**
      * Callback that's called before read lock releasing.
      *
-     * @param groupId  Group ID.
-     * @param pageId   Page ID.
-     * @param page     Page pointer.
+     * @param groupId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
      * @param pageAddr Page address.
      */
-    public void onReadUnlock(int groupId, long pageId, long page, long pageAddr);
+    void onReadUnlock(int groupId, long pageId, long page, long pageAddr);
 
     /** {@inheritDoc} */
     @Override

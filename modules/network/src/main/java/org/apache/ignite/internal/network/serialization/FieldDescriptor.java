@@ -125,8 +125,8 @@ public class FieldDescriptor {
 
     /**
      * Returns {@code true} if the field can only host (at runtime) instances of its declared type (and not subtypes),
-     * so the runtime type is known upfront. This is also true for enums, even though technically their values might have subtypes;
-     * but we serialize them using their names, so we still treat the type as known upfront.
+     * so the runtime marshalling type is known upfront. This is also true for enums, even though technically their values might
+     * have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
      *
      * @return {@code true} if the field can only host (at runtime) instances of the declared type that is known upfront
      */
