@@ -450,9 +450,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
-                if (row != null) {
-                    recs.add(marsh.unmarshal(row));
-                }
+                recs.add(marsh.unmarshal(row));
             }
 
             return recs;

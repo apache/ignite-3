@@ -158,9 +158,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
         List<Row> rows = new ArrayList<>(binaryRows.size());
 
         for (BinaryRow r : binaryRows) {
-            if (r != null) {
-                rows.add(resolveInternal(r, curSchema));
-            }
+            rows.add(resolveInternal(r, curSchema));
         }
 
         return rows;
@@ -171,15 +169,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param row Binary row.
      * @param curSchema The latest available local schema.
-     * @return Schema-aware row or {@code null} if the given row is null.
+     * @return Schema-aware row.
      * @throws SchemaRegistryException if no schema exists for the given row.
      */
-    @Contract("null, _ -> null")
-    @Nullable
-    private Row resolveInternal(@Nullable BinaryRow row, SchemaDescriptor curSchema) {
-        if (row == null) {
-            return null;
-        } else if (curSchema == null) {
+    private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
+        if (curSchema == null) {
             throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + row.schemaVersion());
         } else if (curSchema.version() == row.schemaVersion()) {
             return new Row(curSchema, row);

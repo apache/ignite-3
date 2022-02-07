@@ -46,8 +46,8 @@ public class TableRow extends MutableRowTupleAdapter {
      * @param row Row.
      * @return Tuple.
      */
-    public static @Nullable Tuple valueTuple(@Nullable Row row) {
-        return row != null && row.hasValue() ? new ValueRowChunk(row) : null;
+    public static Tuple valueTuple(Row row) {
+        return row.hasValue() ? new ValueRowChunk(row) : null;
     }
 
     /**
@@ -56,8 +56,8 @@ public class TableRow extends MutableRowTupleAdapter {
      * @param row Row.
      * @return Tuple.
      */
-    public static @Nullable Tuple tuple(@Nullable Row row) {
-        return row == null ? null : new TableRow(row);
+    public static Tuple tuple(Row row) {
+        return new TableRow(row);
     }
 
     /**

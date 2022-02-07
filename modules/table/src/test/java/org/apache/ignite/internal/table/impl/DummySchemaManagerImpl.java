@@ -74,15 +74,15 @@ public class DummySchemaManagerImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return row == null ? null : new Row(desc, row);
+        return new Row(desc, row);
     }
 
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
-        assert row == null || row.schemaVersion() == schema.version();
+        assert row.schemaVersion() == schema.version();
 
-        return row == null ? null : new Row(schema, row);
+        return new Row(schema, row);
     }
 
     /** {@inheritDoc} */
