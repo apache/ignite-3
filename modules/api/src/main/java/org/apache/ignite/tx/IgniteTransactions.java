@@ -24,7 +24,6 @@ import org.apache.ignite.table.Table;
 
 /**
  * Ignite Transactions facade that allows to perform distributed transactions when working with tables.
- *
  * This interface provides the ability to perform transactions in both synchronous and asynchronous ways.
  * <pre><code>
  *     // Synchronous transactional API to update the balance.
