@@ -42,7 +42,7 @@ public class VersionedValue<T> {
     /** Closure applied on storage revision update. */
     private final BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate;
 
-    /** Bersoned value storage. */
+    /** Versioned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
 
     /**

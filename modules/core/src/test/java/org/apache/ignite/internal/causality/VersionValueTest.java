@@ -117,7 +117,7 @@ public class VersionValueTest {
 
     /**
      * The test reads a value with the specific token in which the value should not be updated.
-     * The read happenes after the revision updated.
+     * The read happens after the revision updated.
      *
      * @throws OutdatedTokenException If failed.
      */
@@ -143,7 +143,7 @@ public class VersionValueTest {
      * Test checks token history size.
      */
     @Test()
-    public void testAbsoleteToken() {
+    public void testObsoleteToken() {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         longVersionedValue.set(1, TEST_VALUE);
