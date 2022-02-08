@@ -363,9 +363,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
             int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
 
-            Object val = hnd.get(colIdInRow, row);
-
-            if (val != null) {
+            if (hnd.get(colIdInRow, row) != null) {
                 nonNullCols++;
             }
         }
