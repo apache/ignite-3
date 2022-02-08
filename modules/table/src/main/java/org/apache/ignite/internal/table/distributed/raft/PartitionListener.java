@@ -469,7 +469,8 @@ public class PartitionListener implements RaftGroupListener {
         AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
 
         if (internalBatchCounter.getAndSet(clo.command().batchCounter()) != clo.command().batchCounter() - 1) {
-            throw new IllegalStateException("Counters not match");
+            throw new IllegalStateException(
+                    "Counters from received scan command and handled scan command in partition listener are inconsistent");
         }
 
         List<BinaryRow> res = new ArrayList<>();
