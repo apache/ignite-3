@@ -35,7 +35,6 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.EmptyHttpHeaders;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
@@ -46,7 +45,7 @@ import org.apache.ignite.lang.IgniteLogger;
 /**
  * Main handler of REST HTTP chain. It receives http request, process it by {@link Router} and produce http response.
  */
-public class RestApiHandler extends SimpleChannelInboundHandler<HttpObject> {
+public class RestApiHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     /** Ignite logger. */
     private final IgniteLogger log = IgniteLogger.forClass(getClass());
 
@@ -64,13 +63,7 @@ public class RestApiHandler extends SimpleChannelInboundHandler<HttpObject> {
 
     /** {@inheritDoc} */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) {
-        if (!(msg instanceof FullHttpRequest)) {
-            return;
-        }
-
-        var request = (FullHttpRequest) msg;
-
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
         CompletableFuture<DefaultFullHttpResponse> responseFuture = router.route(request)
                 .map(route -> {
                     var response = new RestApiHttpResponse(new DefaultHttpResponse(HttpVersion.HTTP_1_1, OK));
