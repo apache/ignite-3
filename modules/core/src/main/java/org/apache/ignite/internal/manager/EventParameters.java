@@ -22,5 +22,27 @@ package org.apache.ignite.internal.manager;
  *
  * @see Producer#fireEvent(Event, EventParameters, Throwable)
  */
-public interface EventParameters {
+public abstract class EventParameters {
+    /** Causality token. */
+    private final long causalityToken;
+
+    /**
+     * Constructor.
+     *
+     * @param causalityToken Causality token.
+     */
+    public EventParameters(long causalityToken) {
+        this.causalityToken = causalityToken;
+    }
+
+    /**
+     * Returns a causality token.
+     * The token is required for represent a causality dependency between several events.
+     * The earlier the event occurred, the lower the value of the token.
+     *
+     * @return Causality token.
+     */
+    public long causalityToken() {
+        return causalityToken;
+    }
 }

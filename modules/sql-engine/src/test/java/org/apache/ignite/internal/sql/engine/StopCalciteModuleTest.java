@@ -123,7 +123,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
+            clo.notify(new TableEventParameters(1, UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
                     null);
 
             return null;
