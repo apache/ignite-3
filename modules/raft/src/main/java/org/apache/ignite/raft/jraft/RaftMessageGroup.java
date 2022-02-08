@@ -83,6 +83,12 @@ public class RaftMessageGroup {
 
         /** */
         public static final short LEARNERS_OP_RESPONSE = 1016;
+
+        /** */
+        public static final short CHANGE_PEERS_ASYNC_REQUEST = 1017;
+
+        /** */
+        public static final short CHANGE_PEERS_ASYNC_RESPONSE = 1018;
     }
 
     /**
