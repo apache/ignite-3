@@ -614,7 +614,8 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId, scanCounter.getAndIncrement())))
+                scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(
+                                new ScanRetrieveBatchCommand(n, scanId, scanCounter.getAndIncrement())))
                         .thenAccept(
                                 res -> {
                                     if (res.getValues() == null) {
