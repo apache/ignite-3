@@ -7,7 +7,7 @@ public class OrCondition extends AbstractBinaryCondition {
     }
     
     @Override
-    public boolean combine(boolean left, boolean right) {
+    protected boolean combine(boolean left, boolean right) {
         return left || right;
     }
 }

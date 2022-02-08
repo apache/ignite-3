@@ -30,7 +30,7 @@ public abstract class AbstractBinaryCondition implements Condition {
                 rightCondition.test(Arrays.copyOfRange(e, leftCondition.keys().length, leftCondition.keys().length + rightCondition.keys().length)));
     }
     
-    public abstract boolean combine(boolean left, boolean right);
+    protected abstract boolean combine(boolean left, boolean right);
     
     
     public Condition leftCondition() {
