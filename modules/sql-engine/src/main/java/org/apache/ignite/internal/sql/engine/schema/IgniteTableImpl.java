@@ -312,8 +312,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             columnToIndex.put(updateColList.get(i), i + desc.columnsCount());
         }
 
-        int nonNullVarlenKeyCols;
-        int nonNullVarlenValCols;
+        int nonNullVarlenKeyCols = 0;
+        int nonNullVarlenValCols = 0;
 
         int keyOffset = schemaDescriptor.keyColumns().firstVarlengthColumn();
 
