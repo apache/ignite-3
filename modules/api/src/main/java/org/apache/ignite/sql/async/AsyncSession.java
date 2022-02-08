@@ -27,6 +27,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Async Session provides methods for asynchronous query execution.
+ *
+ * @see org.apache.ignite.sql.Session
  */
 public interface AsyncSession {
     /** Default maximal number of rows in a single page. */

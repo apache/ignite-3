@@ -17,38 +17,40 @@
 
 package org.apache.ignite.sql;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Interface that provides methods for accessing column metadata.
+ * Represents query arguments for batch query execution.
+ *
+ * <p>TODO: replace inheritance with delegation.
+ * <p>TODO: add arguments length validation.
+ * <p>TODO: add named arguments support.
  */
-public interface ColumnMetadata {
+public class Arguments extends ArrayList<List<Object>> implements List<List<Object>> {
     /**
-     * Return column name in the result set.
+     * Creates batched arguments.
      *
-     * <p>Note: If row column does not represent any table column, then generated name will be
-     * used.
-     *
-     * @return Column name.
+     * @param args Arguments.
+     * @return Batch query arguments.
      */
-    String name();
+    public static Arguments batch(Object... args) {
+        Arguments arguments = new Arguments();
+
+        arguments.add(List.of(args));
+
+        return arguments;
+    }
 
     /**
-     * Returns a class of column values.
+     * Appends arguments to the batch.
      *
-     * @return Value class.
+     * @param args Arguments.
+     * @return {@code this} for chaining.
      */
-    Class<?> valueClass();
+    public Arguments add(Object... args) {
+        add(List.of(args));
 
-    /**
-     * Returns SQL column type.
-     *
-     * @return Value type.  TODO: fix return type.
-     */
-    Object type();
-
-    /**
-     * Returns row column nullability flag.
-     *
-     * @return {@code true} if column is nullable, {@code false} otherwise.
-     */
-    boolean nullable();
+        return this;
+    }
 }

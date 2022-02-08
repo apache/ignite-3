@@ -17,7 +17,6 @@
 
 package org.apache.ignite.sql;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.async.AsyncSession;
 import org.apache.ignite.sql.reactive.ReactiveSession;
@@ -28,48 +27,48 @@ import org.jetbrains.annotations.Nullable;
 /**
  * SQL Session provides methods for query execution.
  *
- * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Session "execute*" methods
- * are thread-safe and can be called from different threads. Calling other methods, which modify the session state, from concurrent threads
- * may lead to unexpected behaviour.
+ * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Modifying the session state
+ * may affect the queries that are already started within this session. Thus, modifying session state from concurrent threads may lead to
+ * unexpected behaviour.
+ *
+ * <p>Session "execute*" methods are thread-safe and can be called from different threads.
+ *
+ * <p>Statement created via a current session can't be used in different sessions. Prepared statement forces performance optimizations,
+ * such as query plan caching on the server side, which is useful for frequently executed queries or for queries when low-latency is
+ * critical. However, prepared statement execution flow may switch to a normal flow for short time automatically, when the server side state
+ * is lost and has to be recovered (e.g. due to client reconnect, cluster reconfiguration, or any other).
  */
-public interface Session extends AsyncSession, ReactiveSession {
+public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     /** Default schema name. */
     String DEFAULT_SCHEMA = "PUBLIC";
 
     /**
-     * Sets default query timeout.
+     * Creates an SQL statement abject, which represents a query and holds a query-specific settings that overrides the session default
+     * settings.
      *
-     * @param timeout Query timeout value.
-     * @param timeUnit Timeunit.
+     * @param query SQL query template.
+     * @return A new statement.
      */
-    void defaultTimeout(long timeout, @NotNull TimeUnit timeUnit);
+    Statement createStatement(@NotNull String query);
 
     /**
-     * Return default query timeout.
+     * Creates an SQL statement abject, which represents a prepared query and holds a query-specific settings that overrides the session
+     * default settings.
      *
-     * @param timeUnit Timeunit to convert timeout to.
-     * @return Default query timeout in the given timeunit.
+     * @param query SQL query template.
+     * @return A new statement.
+     * @throws SqlException If parsing failed.
      */
-    long defaultTimeout(@NotNull TimeUnit timeUnit);
+    Statement createPreparedStatement(String query);
 
     /**
-     * Sets default schema for the session, which the queries will be executed with.
+     * Create a prepared copy of given statement.
      *
-     * <p>Default schema is used to resolve table names, for which schema was not specified in the query text, to their canonical names.
-     *
-     * @param schema Default schema.
+     * @param statement SQL query statement.
+     * @return A new statement.
+     * @throws SqlException If parsing failed.
      */
-    void defaultSchema(@NotNull String schema);
-
-    /**
-     * Returns session default schema.
-     *
-     * <p>Default value is {@link #DEFAULT_SCHEMA}.
-     *
-     * @return Session default schema.
-     * @see #defaultSchema(String)
-     */
-    @NotNull String defaultSchema();
+    Statement prepare(Statement statement);
 
     /**
      * Executes single SQL query.
@@ -97,23 +96,23 @@ public interface Session extends AsyncSession, ReactiveSession {
      *
      * @param transaction Transaction to execute the query within or {@code null}.
      * @param query SQL query template.
-     * @param batch List of batch rows, where each row is a list of query arguments.
+     * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
      */
-    @NotNull int[] executeBatch(@Nullable Transaction transaction, @NotNull String query, @NotNull List<List<@Nullable Object>> batch);
+    @NotNull int[] executeBatch(@Nullable Transaction transaction, @NotNull String query, @NotNull Arguments batch);
 
     /**
      * Executes batched SQL query.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
-     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
      */
     @NotNull int[] executeBatch(
             @Nullable Transaction transaction,
             @NotNull Statement statement,
-            @NotNull List<List<@Nullable Object>> batch
+            @NotNull Arguments batch
     );
 
     /**
@@ -124,6 +123,48 @@ public interface Session extends AsyncSession, ReactiveSession {
      * @throws SqlException If failed.
      */
     void executeScript(@NotNull String query, @Nullable Object... arguments);
+
+    /**
+     * Closes session, cleanup remote session resources, and stops all queries that are running within the current session.
+     */
+    @Override
+    void close();
+
+    /**
+     * Sets default query timeout.
+     *
+     * @param timeout Query timeout value.
+     * @param timeUnit Timeunit.
+     */
+    void defaultTimeout(long timeout, @NotNull TimeUnit timeUnit);
+
+    /**
+     * Return default query timeout.
+     *
+     * @param timeUnit Timeunit to convert timeout to.
+     * @return Default query timeout in the given timeunit.
+     */
+    long defaultTimeout(@NotNull TimeUnit timeUnit);
+
+    /**
+     * Sets default schema for the session, which the queries will be executed with.
+     *
+     * <p>Default schema is used to resolve schema objects by their simple names, those for which schema is not specified in the query
+     * text, to their canonical names.
+     *
+     * @param schema Default schema.
+     */
+    void defaultSchema(@NotNull String schema);
+
+    /**
+     * Returns session default schema.
+     *
+     * <p>Default value is {@link #DEFAULT_SCHEMA}.
+     *
+     * @return Session default schema.
+     * @see #defaultSchema(String)
+     */
+    @NotNull String defaultSchema();
 
     /**
      * Sets session property.

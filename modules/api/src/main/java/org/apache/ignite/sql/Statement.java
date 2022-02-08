@@ -23,13 +23,20 @@ import org.jetbrains.annotations.NotNull;
 /**
  * The object represents SQL statement.
  */
-public interface Statement {
+public interface Statement extends AutoCloseable {
     /**
      * Returns SQL statement string representation.
      *
      * @return SQL statement string.
      */
     @NotNull String query();
+
+    /**
+     * Returns a flag indicating whether it is prepared statement or not.
+     *
+     * @return {@code true} if this is prepared statement, {@code false} otherwise.
+     */
+    boolean prepared();
 
     /**
      * Sets query timeout.
@@ -46,4 +53,25 @@ public interface Statement {
      * @return Query timeout in the given timeunit.
      */
     long queryTimeout(@NotNull TimeUnit timeUnit);
+
+    /**
+     * Sets default schema for the statement, which the queries will be executed with.
+     *
+     * @param schema Default schema.
+     */
+    void defaultSchema(@NotNull String schema);
+
+    /**
+     * Returns statement default schema.
+     *
+     * @return Session default schema.
+     * @see Session#defaultSchema()
+     */
+    @NotNull String defaultSchema();
+
+    /**
+     * Closes statement and releases remote resources.
+     */
+    @Override
+    void close();
 }

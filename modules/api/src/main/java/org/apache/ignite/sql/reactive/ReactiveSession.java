@@ -27,6 +27,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Reactive Session provides methods for reactive query execution.
+ *
+ * @see org.apache.ignite.sql.Session
  */
 public interface ReactiveSession {
     /**

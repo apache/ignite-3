@@ -17,25 +17,14 @@
 
 package org.apache.ignite.sql;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
  * Ignite SQL query facade.
  */
 public interface IgniteSql {
     /**
-     * Creates an SQL session object that provides methods for SQL queries execution.
+     * Creates an SQL session object that provides methods for executing SQL queries and holds settings with which queries will be executed.
      *
      * @return A new session.
      */
     Session createSession();
-
-    /**
-     * Creates an SQL statement abject, which holds the query with query-specific settings that overrides the session default settings.
-     *
-     * @param sql SQL query template.
-     * @return A new statement.
-     * @throws SqlException If parsing failed.
-     */
-    Statement createStatement(@NotNull String sql);
 }

@@ -21,7 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.Streams;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -34,18 +38,19 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.Constants;
+import org.apache.ignite.sql.Arguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
-import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -64,13 +69,16 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class IgniteSqlApiTest {
     @Mock
-    IgniteSql queryMgr;
+    IgniteSql igniteSql;
 
     @Mock
     private IgniteTransactions igniteTx;
 
-    @Mock
     private Transaction transaction;
+
+    private Map<Integer, String> txState;
+
+    private Map<Integer, String> globalState;
 
     @BeforeEach
     void setUp() {
@@ -78,90 +86,152 @@ public class IgniteSqlApiTest {
     }
 
     @Test
-    public void testSyncSql() {
+    public void syncSqlApi() {
+        // Create session with params.
+        Session sess = igniteSql.createSession();
+
+        sess.defaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
+        sess.property("memoryQuota", 10 * Constants.MiB); // Set default quota.
+
+        // Execute DDL.
+        ResultSet rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
+
+        assertTrue(rs.wasApplied());
+        assertFalse(rs.hasRowSet());
+        assertEquals(-1, rs.affectedRows());
+
+        // Execute DML.
+        rs = sess.execute(null, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
+
+        assertEquals(1, rs.affectedRows());
+        assertFalse(rs.wasApplied());
+        assertFalse(rs.hasRowSet());
+
+        // Execute batched DML query.
+        int[] res = sess.executeBatch(null, "INSERT INTO tbl VALUES (?, ?)",
+                Arguments.batch(2, "str2").add(3, "str3").add(4, "str4"));
+
+        assertEquals(3, res.length);
+        assertTrue(Arrays.stream(res).allMatch(i -> i == 1));
+
+        // Execute query.
+        rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 0);
+
+        assertTrue(rs.hasRowSet());
+        assertFalse(rs.wasApplied());
+        assertEquals(-1, rs.affectedRows());
+
+        assertTrue(rs.iterator().hasNext());
+        for (SqlRow r : rs) {
+            assertEquals("str" + r.longValue("id"), r.stringValue("val"));
+        }
+
+        // Execute DML.
+        rs = sess.execute(null, "DELETE FROM tbl");
+
+        assertEquals(4, rs.affectedRows());
+        assertFalse(rs.wasApplied());
+        assertFalse(rs.hasRowSet());
+    }
+
+    @Test
+    public void syncApiWithTx() {
+        final Session sess = igniteSql.createSession();
+
+        // Create table.
+        sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
+
         igniteTx.runInTransaction(tx -> {
-            Session sess = queryMgr.createSession();
-
-            sess.defaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
-            sess.property("memoryQuota", 10 * Constants.MiB); // Set default quota.
-
-            // Execute in TX.
-            ResultSet rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 10, "str");
+            // Execute DML in tx.
+            ResultSet rs = sess.execute(tx, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
 
             assertEquals(1, rs.affectedRows());
 
-            // Execute outside TX.
-            rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id < {};", 10);
+            // Execute batched DML query.
+            int[] res = sess.executeBatch(tx, "INSERT INTO tbl VALUES (?, ?)",
+                    Arguments.batch(2, "str2").add(3, "str3").add(4, "str4"));
 
+            assertTrue(Arrays.stream(res).allMatch(i -> i == 1));
+
+            // Execute query in TX.
+            rs = sess.execute(tx, "SELECT id, val FROM tbl WHERE id > ?", 0);
+
+            assertTrue(rs.iterator().hasNext());
             for (SqlRow r : rs) {
-                assertTrue(10 > r.longValue("id"));
-                assertTrue((r.stringValue("val")).startsWith("str"));
+                assertEquals("str" + r.intValue("id"), r.stringValue("val"));
             }
 
+            // Execute query outside TX in the same session.
+            rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
+
+            assertFalse(rs.iterator().hasNext()); // No data found before TX is commited.
+
             tx.commit();
+
+            // Execute DML outside tx in same session after tx commit.
+            rs = sess.execute(null, "DELETE FROM tbl");
+
+            assertEquals(4, rs.affectedRows());
         });
 
         Mockito.verify(transaction).commit();
     }
 
     @Test
-    public void testSyncSql2() {
-        RecordView<Tuple> tbl = getTable();
+    public void mixSqlAndTableAPIInTx() {
+        // Create table.
+        Session sess = igniteSql.createSession();
+        sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
+        sess.execute(null, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
 
-        Session sess = queryMgr.createSession();
-
-        // Execute outside TX.
-        ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id < {};", 10);
-        SqlRow row = rs.iterator().next();
+        KeyValueView<Tuple, Tuple> tbl = getTable();
 
         igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
-            tbl.insertAsync(tx, Tuple.create().set("val", "NewValue"))
+            tbl.putAsync(tx, Tuple.create().set("id", 2), Tuple.create().set("val", "str2"))
+                    .thenAccept(r -> tx.commit());
+        }).join();
+
+        ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
+        assertTrue(rs.iterator().hasNext());
+
+        igniteTx.beginAsync().thenAccept(tx -> {
+            // Execute in TX.
+            tbl.putAsync(tx, Tuple.create().set("id", 3), Tuple.create().set("val", "NewValue"))
+                    .thenApply(f -> {
+                        ResultSet rs0 = sess.execute(tx, "SELECT id, val FROM tbl WHERE id > ?", 2);
+                        assertTrue(rs0.iterator().hasNext());
+
+                        return f;
+                    })
                     .thenAccept(r -> tx.rollback());
 
             Mockito.verify(tx, Mockito.times(1)).rollback();
         }).join();
+
+        rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 2);
+        assertFalse(rs.iterator().hasNext());
     }
 
     @Test
-    public void testSyncMultiStatementSql() {
-        Session sess = queryMgr.createSession();
+    public void multiStatementQuery() {
+        Session sess = igniteSql.createSession();
 
         sess.executeScript(
                 "CREATE TABLE tbl(id INTEGER PRIMARY KEY, val VARCHAR);"
-                        + "INSERT INTO tbl VALUES (1, 2);"
-                        + "INSERT INTO tbl2 (SELECT id, val FROM tbl WHERE id == {});"
-                        + "DROP TABLE tbl", 10);
+                        + "CREATE TABLE tbl2(id INTEGER PRIMARY KEY, val VARCHAR);"
+                        + "INSERT INTO tbl VALUES (1, \"str1\"), (2, \"str2\"), (3, \"str3\");"
+                        + "INSERT INTO tbl2 (SELECT id, val FROM tbl WHERE id > ?);"
+                        + "DROP TABLE tbl", 1);
+
+        ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl2");
+
+        assertEquals(2, Streams.stream(rs.iterator()).count());
     }
-
-    @Disabled
-    @Test
-    public void testStatement() {
-        igniteTx.runInTransaction(tx -> {
-            // Do the same as query "INSERT INTO tbl VALUES (1, "string 1") (2, "string 2) ... (5, "string 5");"
-            final Statement stmt = queryMgr.createStatement("INSERT INTO tbl VALUES (?, ?)");
-
-            final int[] rs = queryMgr.createSession().executeBatch(tx, stmt,
-                   List.of(
-                            List.of(1, "string 1"),
-                            List.of(2, "string 2"),
-                            List.of(3, "string 3"),
-                            List.of(4, "string 4"),
-                            List.of(5, "string 5")
-                   ));
-
-            assertEquals(5, rs.length);
-
-            tx.commit();
-        });
-
-        Mockito.verify(transaction).commitAsync();
-    }
-
 
     @Test
     public void testAsyncSql() throws ExecutionException, InterruptedException {
-        RecordView<Tuple> table = getTable();
+        KeyValueView<Tuple, Tuple> table = getTable();
 
         class AsyncPageProcessor implements
                 Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
@@ -186,7 +256,7 @@ public class IgniteSqlApiTest {
         }
 
         igniteTx.beginAsync()
-                .thenCompose(tx0 -> queryMgr.createSession()
+                .thenCompose(tx0 -> igniteSql.createSession()
                                             .executeAsync(tx0, "SELECT val FROM tbl where val LIKE {};", "val%")
                                             .thenCompose(new AsyncPageProcessor(tx0))
                                             .thenApply(ignore -> tx0.commitAsync())
@@ -205,7 +275,7 @@ public class IgniteSqlApiTest {
         });
 
         igniteTx.beginAsync().thenApply(tx -> {
-            final Session session = queryMgr.createSession();
+            final Session session = igniteSql.createSession();
 
             session.executeReactive(
                     tx, "SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};", 10,
@@ -225,9 +295,8 @@ public class IgniteSqlApiTest {
     @Disabled
     @Test
     public void testMetadata() {
-        ResultSet rs = queryMgr.createSession()
-                               .execute(null, "SELECT id, val FROM tbl WHERE id < {} AND val LIKE {}; ", 10,
-                                       "str%");
+        ResultSet rs = igniteSql.createSession()
+                               .execute(null, "SELECT id, val FROM tbl");
 
         SqlRow row = rs.iterator().next();
 
@@ -249,7 +318,7 @@ public class IgniteSqlApiTest {
     }
 
     @NotNull
-    private RecordView<Tuple> getTable() {
+    private KeyValueView<Tuple, Tuple> getTable() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{new Column("id", NativeTypes.INT64, false)},
                 new Column[]{new Column("val", NativeTypes.STRING, true)}
@@ -258,49 +327,134 @@ public class IgniteSqlApiTest {
         SchemaRegistry schemaReg = Mockito.mock(SchemaRegistry.class);
         Mockito.when(schemaReg.schema()).thenReturn(schema);
 
-        RecordView<Tuple> tbl = (RecordView<Tuple>) Mockito.mock(RecordView.class);
-        Mockito.when(tbl.insertAsync(Mockito.any(), Mockito.any()))
-                .thenReturn(CompletableFuture.completedFuture(null));
-        Mockito.when(tbl.getAsync(Mockito.any(), Mockito.any()))
-                .thenAnswer(ans -> CompletableFuture.completedFuture(ans.getArgument(0)));
+        KeyValueView<Tuple, Tuple> tbl = (KeyValueView<Tuple, Tuple>) Mockito.mock(KeyValueView.class);
+        Mockito.when(tbl.putAsync(Mockito.nullable(Transaction.class), Mockito.any(Tuple.class), Mockito.any(Tuple.class)))
+                .then(ans -> {
+                    state(ans.getArgument(0)).put(
+                            ((Tuple) ans.getArgument(1)).intValue("id"),
+                            ((Tuple) ans.getArgument(2)).stringValue("val"));
+                    return CompletableFuture.completedFuture(null);
+                });
+
+        Mockito.when(tbl.getAsync(Mockito.any(Transaction.class), Mockito.any(Tuple.class)))
+                .thenAnswer(ans -> CompletableFuture.completedFuture(
+                        state(ans.getArgument(0))
+                                .get(((Tuple) ans.getArgument(1)).intValue("id"))));
 
         return tbl;
     }
 
     private void initMock() {
+        globalState = new HashMap<>();
+        txState = new HashMap<>();
+
         Session session = Mockito.mock(Session.class);
+        Mockito.when(igniteSql.createSession()).thenReturn(session);
 
-        Mockito.when(queryMgr.createSession()).thenReturn(session);
+        transaction = new DummyTx();
+        transaction = Mockito.spy(transaction);
 
-        List<SqlRow> query1Resuls = List.of(
-                new TestRow().set("id", 1L).set("val", "string 1").build(),
-                new TestRow().set("id", 2L).set("val", "string 2").build(),
-                new TestRow().set("id", 5L).set("val", "string 3").build()
+        Mockito.when(igniteTx.beginAsync()).then(ans -> {
+                    txState.clear();
+                    txState.putAll(globalState);
+                    return CompletableFuture.completedFuture(transaction);
+                }
         );
 
         Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("INSERT INTO tbl VALUES (?, ?)"),
                 Mockito.any(),
                 Mockito.any()))
-                .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).affectedRows())
-                                           .thenReturn(1).getMock());
+                .thenAnswer(ans -> {
+                    state(ans.getArgument(0)).put(ans.getArgument(2), ans.getArgument(3));
 
-        Mockito.when(session.executeBatch(Mockito.nullable(Transaction.class), Mockito.any(String.class), Mockito.any()))
-                .thenReturn(new int[]{1, 1, 1, 1, 1});
+                    ResultSet res = Mockito.mock(ResultSet.class);
+                    Mockito.when(res.iterator()).thenThrow(AssertionError.class);
+                    Mockito.when(res.wasApplied()).thenReturn(false);
+                    Mockito.when(res.hasRowSet()).thenReturn(false);
+                    Mockito.when(res.affectedRows()).thenReturn(1);
 
-        Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("SELECT id, val FROM tbl WHERE id < {};"),
+                    return res;
+                });
+
+        Mockito.when(session.executeBatch(Mockito.nullable(Transaction.class), Mockito.eq("INSERT INTO tbl VALUES (?, ?)"),
+                Mockito.any(Arguments.class)))
+                .then(ans -> {
+                    Arguments args = ans.getArgument(2);
+
+                    args.forEach(a -> state(ans.getArgument(0)).put((Integer) a.get(0), (String) a.get(1)));
+
+                    int[] res = new int[args.size()];
+                    Arrays.fill(res, 1);
+                    return res;
+                });
+
+        Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("SELECT id, val FROM tbl WHERE id > ?"),
                 Mockito.any()))
-                .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).iterator())
-                                           .thenReturn(query1Resuls.iterator()).getMock());
+                .thenAnswer(ans -> {
+                    ResultSet res = Mockito.mock(ResultSet.class);
+                    Mockito.when(res.wasApplied()).thenReturn(false);
+                    Mockito.when(res.hasRowSet()).thenReturn(true);
+                    Mockito.when(res.affectedRows()).thenReturn(-1);
 
-        Mockito.when(session.executeAsync(Mockito.nullable(Transaction.class), Mockito.eq("SELECT id, val FROM tbl WHERE id == {};"),
+                    Mockito.when(res.iterator())
+                            .thenReturn(state(ans.getArgument(0)).entrySet()
+                                                .stream().filter(e -> e.getKey() > (Integer) ans.getArgument(2))
+                                                .map(e -> createRow(e.getKey(), e.getValue())
+                                                                  .build()).iterator());
+                    return res;
+                });
+
+        Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("DELETE FROM tbl"), Mockito.any()))
+                .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).affectedRows())
+                                           .then(ans0 -> {
+                                               Map<Integer, String> state = state(ans.getArgument(0));
+                                               HashMap<Integer, String> oldState = new HashMap<>(state);
+
+                                               oldState.forEach((k, v) -> state.put(k, null));
+
+                                               return oldState.size();
+                                           })
+                                           .getMock());
+
+        Mockito.when(session.execute(Mockito.isNull(), Mockito.eq("SELECT id, val FROM tbl2")))
+                .thenAnswer(ans -> {
+                    ResultSet res = Mockito.mock(ResultSet.class);
+                    Mockito.when(res.wasApplied()).thenReturn(false);
+                    Mockito.when(res.hasRowSet()).thenReturn(true);
+                    Mockito.when(res.affectedRows()).thenReturn(-1);
+                    Mockito.when(res.iterator())
+                            .thenReturn(List.of(
+                                    createRow(2, "str2").build(),
+                                    createRow(3, "str3").build()
+                            ).iterator());
+                    return res;
+                });
+
+        Mockito.when(session.execute(Mockito.isNull(), Mockito.eq("CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)")))
+                .thenAnswer(ans -> {
+                    ResultSet res = Mockito.mock(ResultSet.class);
+                    Mockito.when(res.iterator()).thenThrow(AssertionError.class);
+                    Mockito.when(res.wasApplied()).thenReturn(true);
+                    Mockito.when(res.hasRowSet()).thenReturn(false);
+                    Mockito.when(res.affectedRows()).thenReturn(-1);
+                    return res;
+                });
+
+        // Async API.
+        Mockito.when(session.executeAsync(Mockito.nullable(Transaction.class),
+                Mockito.eq("SELECT id, val FROM tbl WHERE id == ?;"),
                 Mockito.any()))
                 .thenAnswer(ans -> CompletableFuture.completedFuture(
                         Mockito.when(Mockito.mock(AsyncResultSet.class).currentPage())
-                                .thenReturn(
-                                        List.of(new TestRow().set("id", 1L).set("val", "string 1")
-                                                        .build()))
+                                .thenReturn(List.of(createRow(1, "string 1").build()))
                                 .getMock())
                 );
+
+        List<SqlRow> query1Resuls = List.of(
+                createRow(1, "string 1").build(),
+                createRow(2, "string 2").build(),
+                createRow(5, "string 3").build()
+        );
 
         Mockito.when(session.executeAsync(Mockito.nullable(Transaction.class), Mockito.eq("SELECT val FROM tbl where val LIKE {};"),
                 Mockito.any()))
@@ -318,6 +472,7 @@ public class IgniteSqlApiTest {
                     return CompletableFuture.completedFuture(page1);
                 });
 
+        // Reactive API.
         Mockito.when(session.executeReactive(
                 Mockito.nullable(Transaction.class), Mockito.startsWith("SELECT id, val FROM tbl WHERE id < {} AND val LIKE {};"),
                 Mockito.any(), Mockito.any()))
@@ -347,9 +502,16 @@ public class IgniteSqlApiTest {
             return null;
         }).when(igniteTx).runInTransaction(Mockito.any(Consumer.class));
 
-        Mockito.when(igniteTx.beginAsync()).thenReturn(CompletableFuture.completedFuture(transaction));
     }
 
+    private TestRow createRow(Integer key, String value) {
+        return new TestRow().set("id", key)
+                       .set("val", value);
+    }
+
+    private Map<Integer, String> state(Object tx) {
+        return tx == null ? globalState : txState;
+    }
 
     static class SqlRowSubscriber extends CompletableFuture<Void> implements
             Flow.Subscriber<SqlRow> {
@@ -383,6 +545,31 @@ public class IgniteSqlApiTest {
         @Override
         public void onComplete() {
             complete(null);
+        }
+    }
+
+    class DummyTx implements Transaction {
+        @Override
+        public void commit() throws TransactionException {
+            txState.forEach((k, v) -> globalState.put(k, v));
+            txState.clear();
+        }
+
+        @Override
+        public CompletableFuture<Void> commitAsync() {
+            commit();
+            return CompletableFuture.completedFuture(null);
+        }
+
+        @Override
+        public void rollback() throws TransactionException {
+            txState.clear();
+        }
+
+        @Override
+        public CompletableFuture<Void> rollbackAsync() {
+            rollback();
+            return CompletableFuture.completedFuture(null);
         }
     }
 }
