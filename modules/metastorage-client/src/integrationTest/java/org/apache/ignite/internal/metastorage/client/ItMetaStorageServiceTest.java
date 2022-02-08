@@ -18,15 +18,17 @@
 package org.apache.ignite.internal.metastorage.client;
 
 import static org.apache.ignite.internal.metastorage.client.Conditions.*;
+import static org.apache.ignite.internal.metastorage.client.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
+import static org.apache.ignite.internal.metastorage.client.ItMetaStorageServiceTest.ServerUpdateMatcher.upd;
 import static org.apache.ignite.internal.metastorage.client.Operations.*;
 import static org.apache.ignite.internal.metastorage.client.BinaryCondition.*;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.client.If._if;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -41,6 +43,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -55,12 +58,16 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.AbstractBinaryCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractUnaryCondition;
+import org.apache.ignite.internal.metastorage.server.BranchResult;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
+import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -82,6 +89,8 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
+import org.hamcrest.Description;
+import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -769,7 +778,7 @@ public class ItMetaStorageServiceTest {
                 return true
             else
                 put(key1, rval1)
-                put(key2, rval2)
+                remove(key2, rval2)
                 return false
         else
             put(key2, rval2)
@@ -779,7 +788,7 @@ public class ItMetaStorageServiceTest {
         var _if = _if(or(value(key1).eq(val1), value(key2).ne(val2)),
             _if(revision(key3).eq(3),
                 ops(put(key1, rval1)).yield(true),
-                ops(put(key1, rval1), put(key2, rval2)).yield(false)),
+                ops(put(key1, rval1), remove(key2)).yield(false)),
             ops(put(key2, rval2)).yield(false));
         
         var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
@@ -791,37 +800,15 @@ public class ItMetaStorageServiceTest {
         verify(mockStorage).invoke(ifCaptor.capture());
         
         var resultIf = ifCaptor.getValue();
-        assertEquals(OrCondition.class, resultIf.condition().getClass());
-        assertArrayEquals(new byte[][]{key1.bytes(), key2.bytes()}, ((OrCondition) resultIf.condition()).keys());
-        assertArrayEquals(new byte[][]{key1.bytes()}, ((OrCondition) resultIf.condition()).leftCondition().keys());
-        assertArrayEquals(new byte[][]{key2.bytes()}, ((OrCondition) resultIf.condition()).rightCondition().keys());
-        assertEquals(ValueCondition.class, ((OrCondition) resultIf.condition()).leftCondition().getClass());
-        assertArrayEquals(new byte[][]{key1.bytes(), key2.bytes()}, ((OrCondition) resultIf.condition()).keys());
+        assertThat(resultIf.condition(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1), new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
     
+        assertThat(resultIf.andThen()._if().condition(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
+        
+        assertThat(resultIf.andThen()._if().andThen().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)), new BranchResult(true))));
+        
+        assertThat(resultIf.andThen()._if().orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1), new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)), new BranchResult(false))));
     
-        assertEquals(RevisionCondition.class, resultIf.andThen()._if().condition().getClass());
-        assertArrayEquals(new byte[][]{key3.bytes()}, ((RevisionCondition) resultIf.andThen()._if().condition()).keys());
-        assertEquals(1, resultIf.andThen()._if().andThen().update().operations().size());
-        assertArrayEquals(key1.bytes(), resultIf.andThen()._if().andThen().update().operations().iterator().next().key());
-        assertArrayEquals(rval1, resultIf.andThen()._if().andThen().update().operations().iterator().next().value());
-    
-        {
-            var it = resultIf.andThen()._if().orElse().update().operations().iterator();
-            var op1 = it.next();
-            var op2 = it.next();
-            assertEquals(2, resultIf.andThen()._if().orElse().update().operations().size());
-            assertArrayEquals(key1.bytes(), op1.key());
-            assertArrayEquals(rval1, op1.value());
-            assertArrayEquals(key2.bytes(), op2.key());
-            assertArrayEquals(rval2, op2.value());
-            
-            assertFalse(resultIf.andThen()._if().orElse().update().result().getAsBoolean());
-        }
-    
-        assertEquals(1, resultIf.orElse().update().operations().size());
-        assertArrayEquals(key2.bytes(), resultIf.orElse().update().operations().iterator().next().key());
-        assertArrayEquals(rval2, resultIf.orElse().update().operations().iterator().next().value());
-        assertFalse(resultIf.orElse().update().result().getAsBoolean());
+        assertThat(resultIf.orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)), new BranchResult(false))));
     }
     
     @Test
@@ -931,6 +918,103 @@ public class ItMetaStorageServiceTest {
             assertEquals(EXPECTED_RESULT_ENTRY, (cursorNode1.iterator().next()));
         } finally {
             metaStorageRaftGrpSvc.shutdown();
+        }
+    }
+    
+    protected static class ServerUpdateMatcher extends TypeSafeMatcher<Update> {
+        
+        private final Update update;
+        
+        public ServerUpdateMatcher(Update update) {
+            this.update = update;
+        }
+    
+        @Override
+        protected boolean matchesSafely(Update item) {
+            return item.operations().size() == update.operations().size() &&
+                    Arrays.equals(item.result().getAsBytes(), update.result().getAsBytes()) &&
+                    opsEqual(item.operations().iterator(), update.operations().iterator());
+                    
+        }
+        
+        @Override
+        public void describeTo(Description description) {
+            description.appendText(toString(update));
+        }
+    
+        @Override
+        protected void describeMismatchSafely(Update item, Description mismatchDescription) {
+            mismatchDescription.appendText(toString(item));
+        }
+        
+        public static ServerUpdateMatcher upd(Update update) {
+            return new ServerUpdateMatcher(update);
+        }
+    
+        private String toString(Update upd) {
+            return "Update([" + upd.operations().stream().map(o -> o.type() + "(" + Arrays.toString(o.key()) + ", " + Arrays.toString(o.value()) + ")").collect(Collectors.joining(",")) + "])";
+        }
+        
+        private boolean opsEqual(Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops1, Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops2) {
+            if (!ops1.hasNext()) {
+                return true;
+            } else {
+                return opEqual(ops1.next(), ops2.next()) && opsEqual(ops1, ops2);
+            }
+        }
+        private boolean opEqual(org.apache.ignite.internal.metastorage.server.Operation op1, org.apache.ignite.internal.metastorage.server.Operation op2) {
+            return Arrays.equals(op1.key(), op2.key()) && Arrays.equals(op1.value(), op2.value()) && op1.type() == op2.type();
+        }
+    }
+    
+    protected static class ServerConditionMatcher extends TypeSafeMatcher<org.apache.ignite.internal.metastorage.server.Condition> {
+        
+        private org.apache.ignite.internal.metastorage.server.Condition condition;
+        
+        public ServerConditionMatcher(org.apache.ignite.internal.metastorage.server.Condition condition) {
+            this.condition = condition;
+        }
+        
+        @Override
+        protected boolean matchesSafely(org.apache.ignite.internal.metastorage.server.Condition item) {
+            if (condition.getClass() == item.getClass() && Arrays.deepEquals(condition.keys(), item.keys())) {
+                if (condition.getClass().isInstance(AbstractBinaryCondition.class)) {
+                    return new ServerConditionMatcher(((AbstractBinaryCondition) condition).leftCondition()).matchesSafely(((AbstractBinaryCondition) item).leftCondition()) &&
+                            new ServerConditionMatcher(((AbstractBinaryCondition) condition).rightCondition()).matchesSafely(((AbstractBinaryCondition) item).rightCondition());
+                }
+                else {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        @Override
+        public void describeTo(Description description) {
+            description.appendText(toString(condition));
+        }
+    
+        @Override
+        protected void describeMismatchSafely(org.apache.ignite.internal.metastorage.server.Condition item,
+                Description mismatchDescription) {
+            mismatchDescription.appendText(toString(item));
+        }
+        
+        private String toString(org.apache.ignite.internal.metastorage.server.Condition cond) {
+            if (cond instanceof AbstractUnaryCondition) {
+                return cond.getClass().getSimpleName() + "(" + Arrays.deepToString(cond.keys()) + ")";
+            } else if (cond instanceof AbstractBinaryCondition) {
+                return cond.getClass() + "(" + toString(((AbstractBinaryCondition) cond).leftCondition()) + ", " + toString(
+                        ((AbstractBinaryCondition) cond).rightCondition()) + ")";
+            } else {
+                throw new IllegalArgumentException("Unknown condition type " + cond.getClass().getSimpleName());
+            }
+            
+        }
+        
+        public static ServerConditionMatcher cond(org.apache.ignite.internal.metastorage.server.Condition condition) {
+            return new ServerConditionMatcher(condition);
         }
     }
 

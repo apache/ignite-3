@@ -22,6 +22,10 @@ public class BranchResult {
         return ByteBuffer.wrap(result).getInt();
     }
     
+    public byte[] getAsBytes() {
+        return result;
+    }
+    
     public static BranchResult res(boolean r) {
         return new BranchResult(r);
     }
