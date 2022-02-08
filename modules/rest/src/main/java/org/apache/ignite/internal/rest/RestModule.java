@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -27,6 +26,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.net.BindException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -249,11 +249,7 @@ public class RestModule implements IgniteComponent {
             RestApiHttpResponse res,
             ConfigurationPresentation<String> presentation
     ) {
-        String updateReq = req
-                .request()
-                .content()
-                .readCharSequence(req.request().content().readableBytes(), UTF_8)
-                .toString();
+        String updateReq = req.request().content().toString(StandardCharsets.UTF_8);
 
         return presentation.update(updateReq)
                 .thenApply(v -> res)
