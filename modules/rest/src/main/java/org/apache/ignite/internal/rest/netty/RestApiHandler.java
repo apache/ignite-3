@@ -23,6 +23,7 @@ import static io.netty.handler.codec.http.HttpHeaderValues.CLOSE;
 import static io.netty.handler.codec.http.HttpHeaderValues.KEEP_ALIVE;
 import static io.netty.handler.codec.http.HttpResponseStatus.OK;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.EmptyByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledByteBufAllocator;
@@ -34,18 +35,17 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.DefaultHttpResponse;
 import io.netty.handler.codec.http.EmptyHttpHeaders;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Main handler of REST HTTP chain. It receives http request, process it by {@link Router} and produce http response.
  */
-public class RestApiHandler extends SimpleChannelInboundHandler<HttpObject> {
+public class RestApiHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     /** Ignite logger. */
     private final IgniteLogger log = IgniteLogger.forClass(getClass());
 
@@ -63,55 +63,63 @@ public class RestApiHandler extends SimpleChannelInboundHandler<HttpObject> {
 
     /** {@inheritDoc} */
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
+        CompletableFuture<DefaultFullHttpResponse> responseFuture = router.route(request)
+                .map(route -> {
+                    var response = new RestApiHttpResponse(new DefaultHttpResponse(HttpVersion.HTTP_1_1, OK));
+
+                    return route.handle(request, response)
+                            .thenApply(resp -> {
+                                ByteBuf content = resp.content() != null
+                                        ? Unpooled.wrappedBuffer(resp.content())
+                                        : new EmptyByteBuf(UnpooledByteBufAllocator.DEFAULT);
+
+                                return new DefaultFullHttpResponse(
+                                        resp.protocolVersion(),
+                                        resp.status(),
+                                        content,
+                                        resp.headers(),
+                                        EmptyHttpHeaders.INSTANCE
+                                );
+                            });
+                })
+                .orElseGet(() -> CompletableFuture.completedFuture(
+                        new DefaultFullHttpResponse(request.protocolVersion(), HttpResponseStatus.NOT_FOUND)
+                ));
+
+        responseFuture
+                .whenCompleteAsync((response, e) -> {
+                    if (e != null) {
+                        exceptionCaught(ctx, e);
+
+                        return;
+                    }
+
+                    response.headers().setInt(CONTENT_LENGTH, response.content().readableBytes());
+
+                    boolean keepAlive = HttpUtil.isKeepAlive(request);
+
+                    if (keepAlive) {
+                        if (!request.protocolVersion().isKeepAliveDefault()) {
+                            response.headers().set(CONNECTION, KEEP_ALIVE);
+                        }
+                    } else {
+                        response.headers().set(CONNECTION, CLOSE);
+                    }
+
+                    ChannelFuture f = ctx.writeAndFlush(response);
+
+                    if (!keepAlive) {
+                        f.addListener(ChannelFutureListener.CLOSE);
+                    }
+                }, ctx.executor());
     }
 
     /** {@inheritDoc} */
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) throws Exception {
-        if (msg instanceof FullHttpRequest) {
-            FullHttpRequest req = (FullHttpRequest) msg;
-            FullHttpResponse res;
-
-            var maybeRoute = router.route(req);
-            if (maybeRoute.isPresent()) {
-                var resp = new RestApiHttpResponse(new DefaultHttpResponse(HttpVersion.HTTP_1_1, OK));
-                maybeRoute.get().handle(req, resp);
-                var content = resp.content() != null
-                        ? Unpooled.wrappedBuffer(resp.content()) : new EmptyByteBuf(UnpooledByteBufAllocator.DEFAULT);
-                res = new DefaultFullHttpResponse(resp.protocolVersion(), resp.status(),
-                        content, resp.headers(), EmptyHttpHeaders.INSTANCE);
-            } else {
-                res = new DefaultFullHttpResponse(req.protocolVersion(), HttpResponseStatus.NOT_FOUND);
-            }
-
-            res.headers()
-                    .setInt(CONTENT_LENGTH, res.content().readableBytes());
-
-            boolean keepAlive = HttpUtil.isKeepAlive(req);
-            if (keepAlive) {
-                if (!req.protocolVersion().isKeepAliveDefault()) {
-                    res.headers().set(CONNECTION, KEEP_ALIVE);
-                }
-            } else {
-                res.headers().set(CONNECTION, CLOSE);
-            }
-
-            ChannelFuture f = ctx.write(res);
-
-            if (!keepAlive) {
-                f.addListener(ChannelFutureListener.CLOSE);
-            }
-        }
-
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("Failed to process http request:", cause);
         var res = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR);
-        ctx.write(res).addListener(ChannelFutureListener.CLOSE);
+        ctx.writeAndFlush(res).addListener(ChannelFutureListener.CLOSE);
     }
 }
