@@ -357,9 +357,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         for (int i = start; i < end; i++) {
             ColumnDescriptor colDesc = Objects.requireNonNull(columnsOrderedByPhysSchema.get(i));
 
-            if (colDesc.physicalType().spec().fixedLength()) {
-                continue;
-            }
+            assert !colDesc.physicalType().spec().fixedLength();
 
             int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
 
