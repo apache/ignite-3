@@ -59,7 +59,7 @@ public class VersionedValue<T> {
      * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@link Consumer&lt;Long>} that should be called
+     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
      *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                  concurrently with {@link #set(long, T)} operations.
      * @param historySize               Size of the history of changes to store, including last applied token.
@@ -82,7 +82,7 @@ public class VersionedValue<T> {
      * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@link Consumer&lt;Long>} that should be called
+     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
      *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                  concurrently with {@link #set(long, T)} operations.
      */
@@ -98,7 +98,7 @@ public class VersionedValue<T> {
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@link Consumer&lt;Long>} that should be called
+     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
      *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                  concurrently with {@link #set(long, T)} operations.
      */
