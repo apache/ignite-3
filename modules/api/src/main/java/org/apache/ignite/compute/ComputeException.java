@@ -17,10 +17,12 @@
 
 package org.apache.ignite.compute;
 
+import org.apache.ignite.lang.IgniteException;
+
 /**
  * Compute exception.
  */
-public class ComputeException extends RuntimeException {
+public class ComputeException extends IgniteException {
     /**
      * Constructor.
      *

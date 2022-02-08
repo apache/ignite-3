@@ -21,9 +21,8 @@ import java.util.Collection;
 
 /**
  * Compute task interface defines a task that can be executed on the cluster. Compute task
- * handles splitting business logic into multiple jobs, receiving
- * results from individual jobs executing on remote nodes, and reducing
- * (aggregating) received jobs' results into final compute task result.
+ * handles executing individual tasks on remote nodes  and reducing
+ * (aggregating) received tasks' results into final compute task result.
  *
  * @param <T> Argument type.
  * @param <I> Intermediate result's type.
