@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.netty;
 import static io.netty.handler.codec.http.HttpHeaderNames.CONTENT_TYPE;
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static io.netty.handler.codec.http.HttpResponseStatus.OK;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.netty.handler.codec.http.DefaultHttpResponse;
@@ -44,7 +45,7 @@ public class RestApiHttpResponseTest {
         for (Map.Entry<?, String> e : value.entrySet()) {
             res.headers().clear();
 
-            String act = new String(res.json(e.getKey()).content());
+            String act = new String(res.json(e.getKey()).content(), UTF_8);
 
             assertEquals(e.getValue(), act);
             assertEquals(res.headers().get(CONTENT_TYPE), APPLICATION_JSON.toString());

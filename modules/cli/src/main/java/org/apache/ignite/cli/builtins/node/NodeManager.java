@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.builtins.node;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -250,7 +252,7 @@ public class NodeManager {
 
         Path pidPath = pidsDir.resolve(nodeName + "_" + System.currentTimeMillis() + ".pid");
 
-        try (FileWriter fileWriter = new FileWriter(pidPath.toFile())) {
+        try (FileWriter fileWriter = new FileWriter(pidPath.toFile(), UTF_8)) {
             fileWriter.write(String.valueOf(pid));
         } catch (IOException e) {
             throw new IgniteCliException("Can't write pid file " + pidPath);

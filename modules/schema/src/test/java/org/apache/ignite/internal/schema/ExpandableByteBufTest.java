@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -171,6 +172,6 @@ public class ExpandableByteBufTest {
         byte[] arr = buf.toArray();
 
         assertEquals(str.length(), arr.length);
-        assertEquals(str, new String(arr));
+        assertEquals(str, new String(arr, UTF_8));
     }
 }

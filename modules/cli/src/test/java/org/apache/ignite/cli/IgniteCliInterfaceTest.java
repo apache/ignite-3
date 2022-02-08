@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doNothing;
@@ -554,7 +555,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
                             && "PATCH".equals(r.method())
-                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
+                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes(UTF_8).length
                             && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
             assertEquals("Configuration was updated successfully.\n\n"
@@ -584,7 +585,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             verify(httpClient).send(
                     argThat(r -> "http://localhost:8081/management/v1/configuration/node/".equals(r.uri().toString())
                             && "PATCH".equals(r.method())
-                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes().length
+                            && r.bodyPublisher().get().contentLength() == expSentContent.getBytes(UTF_8).length
                             && "application/json".equals(r.headers().firstValue("Content-Type").get())),
                     any());
             assertEquals("Configuration was updated successfully.\n\n"
