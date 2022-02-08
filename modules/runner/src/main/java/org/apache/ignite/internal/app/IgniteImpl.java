@@ -318,6 +318,10 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().initializeDefaults();
             }
 
+            if (!standaloneMode()) {
+                waitForJoinPermission();
+            }
+
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
                     nettyBootstrapFactory,
@@ -367,6 +371,23 @@ public class IgniteImpl implements Ignite {
 
             throw new IgniteException(errMsg, e);
         }
+    }
+
+    /**
+     * Whether the node had started in standalone mode (for example, maintenance mode).
+     *
+     * @return Whether the node had started in standalone mode.
+     */
+    private boolean standaloneMode() {
+        return false;
+    }
+
+    /**
+     * Awaits for a permission to join the cluster, i.e. node join response from Cluster Management group.
+     * After the completion of this method, the node is considered as validated.
+     */
+    private void waitForJoinPermission() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-15114
     }
 
     /**
