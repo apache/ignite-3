@@ -23,9 +23,6 @@ import io.netty.util.AsciiString;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.BiConsumer;
-import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
-import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
 
 /**
  * Dispatcher of http requests.
@@ -68,11 +65,7 @@ public class Router {
      * @param hnd        Actual handler of the request.
      * @return Router
      */
-    public Router get(
-            String route,
-            AsciiString acceptType,
-            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
-    ) {
+    public Router get(String route, AsciiString acceptType, RequestHandler hnd) {
         addRoute(new Route(route, HttpMethod.GET, acceptType.toString(), hnd));
         return this;
     }
@@ -84,7 +77,7 @@ public class Router {
      * @param hnd   Actual handler of the request.
      * @return Router
      */
-    public Router get(String route, BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd) {
+    public Router get(String route, RequestHandler hnd) {
         addRoute(new Route(route, HttpMethod.GET, null, hnd));
         return this;
     }
@@ -97,11 +90,7 @@ public class Router {
      * @param hnd        Actual handler of the request.
      * @return Router
      */
-    public Router put(
-            String route,
-            AsciiString acceptType,
-            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
-    ) {
+    public Router put(String route, AsciiString acceptType, RequestHandler hnd) {
         addRoute(new Route(route, HttpMethod.PUT, acceptType.toString(), hnd));
         return this;
     }
@@ -114,11 +103,7 @@ public class Router {
      * @param hnd        Actual handler of the request.
      * @return Router
      */
-    public Router patch(
-            String route,
-            AsciiString acceptType,
-            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
-    ) {
+    public Router patch(String route, AsciiString acceptType, RequestHandler hnd) {
         addRoute(new Route(route, HttpMethod.PATCH, acceptType.toString(), hnd));
         return this;
     }
