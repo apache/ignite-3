@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.jraft.ChangePeersAsyncStatus;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -330,7 +331,7 @@ public class NodeImpl implements Node, RaftServerService {
         /**
          * Start change configuration.
          */
-        void start(final Configuration oldConf, final Configuration newConf, final Closure done) {
+        void start(final Configuration oldConf, final Configuration newConf, final Closure done, boolean async) {
             if (isBusy()) {
                 if (done != null) {
                     Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EBUSY, "Already in busy stage."));
@@ -345,6 +346,9 @@ public class NodeImpl implements Node, RaftServerService {
             }
             this.done = done;
             this.stage = Stage.STAGE_CATCHING_UP;
+            if (async) {
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, Status.OK());
+            }
             this.oldPeers = oldConf.listPeers();
             this.newPeers = newConf.listPeers();
             this.oldLearners = oldConf.listLearners();
@@ -385,7 +389,7 @@ public class NodeImpl implements Node, RaftServerService {
         private void addNewLearners() {
             final Set<PeerId> addingLearners = new HashSet<>(this.newLearners);
             addingLearners.removeAll(this.oldLearners);
-            LOG.info("Adding learners: {}.", this.addingPeers);
+            LOG.info("Adding learners: {}.", addingLearners);
             for (final PeerId newLearner : addingLearners) {
                 if (!this.node.replicatorGroup.addReplicator(newLearner, ReplicatorType.Learner)) {
                     LOG.error("Node {} start the learner replicator failed, peer={}.", this.node.getNodeId(),
@@ -2478,8 +2482,12 @@ public class NodeImpl implements Node, RaftServerService {
         checkAndSetConfiguration(false);
     }
 
+    private void unsafeRegisterConfChange(final Configuration oldConf, final Configuration newConf, final Closure done) {
+        unsafeRegisterConfChange(oldConf, newConf, done, false);
+    }
+
     private void unsafeRegisterConfChange(final Configuration oldConf, final Configuration newConf,
-        final Closure done) {
+        final Closure done, boolean async) {
 
         Requires.requireTrue(newConf.isValid(), "Invalid new conf: %s", newConf);
         // The new conf entry(will be stored in log manager) should be valid
@@ -2513,7 +2521,7 @@ public class NodeImpl implements Node, RaftServerService {
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done);
             return;
         }
-        this.confCtx.start(oldConf, newConf, done);
+        this.confCtx.start(oldConf, newConf, done, async);
     }
 
     private void afterShutdown() {
@@ -3213,6 +3221,65 @@ public class NodeImpl implements Node, RaftServerService {
         try {
             LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
             unsafeRegisterConfChange(this.conf.getConf(), newPeers, done);
+        }
+        finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    @Override
+    public ChangePeersAsyncStatus changePeersAsync(final Configuration newPeers, long term) {
+        Requires.requireNonNull(newPeers, "Null new peers");
+        Requires.requireTrue(!newPeers.isEmpty(), "Empty new peers");
+        this.writeLock.lock();
+        try {
+            // Return immediately when the new peers equal to current configuration
+            if (this.conf.getConf().equals(newPeers)) {
+                LOG.warn("Node {} has already had the provided conf {}.", getNodeId(), newPeers);
+
+                return ChangePeersAsyncStatus.DONE;
+            }
+
+            long currentTerm = getCurrentTerm();
+
+            if (currentTerm != term) {
+                LOG.warn("Node {} refused configuration because of mismatching terms. Current term is {}, but provided is {}.",
+                        getNodeId(), currentTerm, term);
+
+                return ChangePeersAsyncStatus.WRONG_TERM;
+            }
+
+            // check concurrent conf change
+            if (this.confCtx.isBusy()) {
+                LOG.warn("Node {} refused configuration concurrent changing.", getNodeId());
+
+                return ChangePeersAsyncStatus.BUSY;
+            }
+
+            LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
+
+            CountDownLatch latch = new CountDownLatch(1);
+
+            final Status[] changePeersStatus = {new Status()};
+
+            Closure asyncDone = status -> {
+                changePeersStatus[0] = status;
+                latch.countDown();
+            };
+
+            unsafeRegisterConfChange(this.conf.getConf(), newPeers, asyncDone, true);
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                return ChangePeersAsyncStatus.FAILED;
+            }
+
+            if (changePeersStatus[0].isOk()) {
+                return ChangePeersAsyncStatus.RECEIVED;
+            } else {
+                return ChangePeersAsyncStatus.FAILED;
+            }
         }
         finally {
             this.writeLock.unlock();
