@@ -130,11 +130,13 @@ public class VersionedValue<T> {
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
     public CompletableFuture<T> get(long causalityToken) throws OutdatedTokenException {
-        if (causalityToken <= actualToken) {
+        long actualToken0 = actualToken;
+
+        if (causalityToken <= actualToken0) {
             Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
 
             if (histEntry == null) {
-                throw new OutdatedTokenException(causalityToken, actualToken, historySize);
+                throw new OutdatedTokenException(causalityToken, actualToken0, historySize);
             }
 
             return histEntry.getValue();
@@ -155,10 +157,12 @@ public class VersionedValue<T> {
      * @param value          Current value.
      */
     public void set(long causalityToken, T value) {
-        assert causalityToken > actualToken : IgniteStringFormatter.format("Token earlier than actual [token={}, actual={}]",
-                causalityToken, actualToken);
+        long actualToken0 = actualToken;
 
-        assert actualToken + 1 == causalityToken : IgniteStringFormatter.format(
+        assert causalityToken > actualToken0 : IgniteStringFormatter.format("Token earlier than actual [token={}, actual={}]",
+                causalityToken, actualToken0);
+
+        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
                 "Previous token did not complete [token={}, previous={}]", causalityToken, causalityToken - 1);
 
         CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(value));
@@ -180,8 +184,10 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      */
     private void onStorageRevisionUpdate(long causalityToken) {
-        assert causalityToken > actualToken : IgniteStringFormatter.format(
-                "New token shoul be more than current [current={}, new={}]", actualToken, causalityToken);
+        long actualToken0 = actualToken;
+
+        assert causalityToken > actualToken0 : IgniteStringFormatter.format(
+                "New token shoul be more than current [current={}, new={}]", actualToken0, causalityToken);
 
         onStorageRevisionUpdate.accept(this, causalityToken);
 
