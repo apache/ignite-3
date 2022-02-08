@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -303,44 +304,65 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     }
 
     private <RowT> BinaryRow updateTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
+
+        for (int i = 0; i < updateColList.size(); i++) {
+            columnToIndex.put(updateColList.get(i), i + desc.columnsCount());
+        }
+
         int nonNullVarlenKeyCols = 0;
         int nonNullVarlenValCols = 0;
 
-        RowHandler<RowT> hnd = ectx.rowHandler();
-        int offset = desc.columnsCount();
-        Set<String> toUpdate = new HashSet<>(updateColList);
+        int keyOffset = schemaDescriptor.keyColumns().firstVarlengthColumn();
 
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (colDesc.physicalType().spec().fixedLength()) {
-                continue;
-            }
+        if (keyOffset > -1) {
+            nonNullVarlenKeyCols = countNotNullColumns(
+                    keyOffset,
+                    schemaDescriptor.keyColumns().length(),
+                    columnToIndex, hnd, row);
+        }
 
-            Object val = toUpdate.contains(colDesc.name())
-                    ? hnd.get(colDesc.logicalIndex() + offset, row)
-                    : hnd.get(colDesc.logicalIndex(), row);
+        int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
 
-            if (val != null) {
-                if (colDesc.key()) {
-                    nonNullVarlenKeyCols++;
-                } else {
-                    nonNullVarlenValCols++;
-                }
-            }
+        if (valOffset > -1) {
+            nonNullVarlenValCols = countNotNullColumns(
+                    schemaDescriptor.keyColumns().length() + valOffset,
+                    schemaDescriptor.length(),
+                    columnToIndex, hnd, row);
         }
 
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            RowAssembler.writeValue(
-                    rowAssembler,
-                    colDesc.physicalType(),
-                    toUpdate.contains(colDesc.name())
-                            ? hnd.get(colDesc.logicalIndex() + offset, row)
-                            : hnd.get(colDesc.logicalIndex(), row)
-            );
+            int orDefault = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
+
+            Object val = hnd.get(orDefault, row);
+
+            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
         return rowAssembler.build();
+    }
+
+    private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex,
+            RowHandler<RowT> hnd, RowT row) {
+        int nonNullCols = 0;
+
+        for (int i = start; i < end; i++) {
+            ColumnDescriptor colDesc = Objects.requireNonNull(columnsOrderedByPhysSchema.get(i));
+
+            assert !colDesc.physicalType().spec().fixedLength();
+
+            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
+
+            if (hnd.get(colIdInRow, row) != null) {
+                nonNullCols++;
+            }
+        }
+
+        return nonNullCols;
     }
 
     private <RowT> BinaryRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
