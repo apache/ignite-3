@@ -328,9 +328,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
         int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
 
-        if (valOffset == -1) {
-            nonNullVarlenValCols = 0;
-        } else {
+        if (valOffset > -1) {
             nonNullVarlenValCols = countNotNullColumns(
                     schemaDescriptor.keyColumns().length() + valOffset,
                     schemaDescriptor.length(),
