@@ -27,7 +27,7 @@ import org.apache.ignite.table.Table;
  * This interface provides the ability to perform transactions in both synchronous and asynchronous ways.
  * <pre><code>
  *     // Synchronous transactional API to update the balance.
- *     client.transactions().runInTransaction(tx -> {
+ *     client.transactions().runInTransaction(tx -&gt; {
  *          Account account = accounts.get(tx, key);
  *
  *          account.balance += 200.0d;
@@ -40,15 +40,15 @@ import org.apache.ignite.table.Table;
  *
  * <pre><code>
  *     // Using asynchronous transactional API to update the balance.
- *     CompletableFuture&lt;Void&gt; fut = client.transactions().beginAsync().thenCompose(tx ->
+ *     CompletableFuture&lt;Void&gt; fut = client.transactions().beginAsync().thenCompose(tx -&gt;
  *             accounts
  *                 .getAsync(tx, key)
- *                 .thenCompose(account -> {
+ *                 .thenCompose(account -&gt; {
  *                     account.balance += 200.0d;
  *
  *                     return accounts.putAsync(tx, key, account);
  *                 })
- *                 .thenCompose(ignored -> tx.commitAsync())
+ *                 .thenCompose(ignored -&gt; tx.commitAsync())
  *     );
  *
  *     // Wait for completion.
