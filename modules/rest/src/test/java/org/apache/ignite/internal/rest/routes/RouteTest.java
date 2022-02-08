@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.routes;
 
 import static io.netty.handler.codec.http.HttpMethod.GET;
+import static io.netty.handler.codec.http.HttpMethod.PATCH;
 import static io.netty.handler.codec.http.HttpMethod.PUT;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -80,6 +81,15 @@ public class RouteTest {
         var route = new Route("/user/:user", GET, null, (request, response) -> {
         });
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/John");
+        assertTrue(route.match(req));
+    }
+
+    @Test
+    void testPatchVerbMatch() {
+        var route = new Route("/user", PATCH, null, (request, response) -> {
+        });
+        var req = new DefaultHttpRequest(HTTP_1_1, PATCH, "/user");
+
         assertTrue(route.match(req));
     }
 }
