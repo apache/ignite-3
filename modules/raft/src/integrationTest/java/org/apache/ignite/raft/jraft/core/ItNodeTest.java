@@ -3056,6 +3056,7 @@ public class ItNodeTest {
                 leader.getCurrentTerm());
         assertEquals(status, ChangePeersAsyncStatus.DONE);
 
+        // change peer to new conf containing only new node
         status = leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
                 leader.getCurrentTerm());
         assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
@@ -3066,12 +3067,40 @@ public class ItNodeTest {
             return false;
         }, 10_000));
 
-        cluster.waitLeader();
-
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());
         }
 
+        // check concurrent start of two async change peers.
+        Node newLeader = cluster.getLeader();
+
+        sendTestTaskAndWait(newLeader);
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        List<ChangePeersAsyncStatus> res = new ArrayList<>();
+        List<Future> futs = new ArrayList<>();
+
+        for (int i = 0; i < 2; i++) {
+            futs.add(executor.submit(() -> {
+                res.add(newLeader.changePeersAsync(new Configuration(Collections.singletonList(peer0)), 2));
+            }));
+        }
+        futs.get(0).get();
+        futs.get(1).get();
+
+        assertEquals(res.get(0), ChangePeersAsyncStatus.RECEIVED);
+        assertEquals(res.get(1), ChangePeersAsyncStatus.BUSY);
+
+        assertTrue(waitForCondition(() -> {
+            if (cluster.getLeader() != null)
+                return peer0.equals(cluster.getLeader().getLeaderId());
+            return false;
+        }, 10_000));
+
+        for (MockStateMachine fsm : cluster.getFsms()) {
+            assertEquals(20, fsm.getLogs().size());
+        }
     }
 
     @Test

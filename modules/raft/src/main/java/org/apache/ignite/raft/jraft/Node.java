@@ -190,11 +190,14 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
     void changePeers(final Configuration newPeers, final Closure done);
 
     /**
-     * Asynchronously change the configuration of the raft group to |newPeers|.
+     * Asynchronously change the configuration of the raft group to |newPeers|. If {@link ChangePeersAsyncStatus#RECEIVED} was returned,
+     * then it is guaranteed that state of {@link org.apache.ignite.raft.jraft.core.NodeImpl.ConfigurationCtx} was switched to
+     * {@code STAGE_CATCHING_UP}
      *
      * @param newPeers new peers to change
      * @param term term on which this method was called.
      * @return the status of the call.
+     * @see ChangePeersAsyncStatus
      */
     ChangePeersAsyncStatus changePeersAsync(final Configuration newPeers, long term);
 

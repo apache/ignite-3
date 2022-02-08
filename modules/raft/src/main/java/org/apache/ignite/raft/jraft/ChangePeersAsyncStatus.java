@@ -22,7 +22,7 @@ package org.apache.ignite.raft.jraft;
  */
 public enum ChangePeersAsyncStatus {
     /**
-     * Returned when the new peers passed to {@link Node#changePeersAsync} equal to current configuration.
+     * Returned when the new peers passed to {@link Node#changePeersAsync} equal to the current configuration.
      */
     DONE,
 
@@ -34,11 +34,18 @@ public enum ChangePeersAsyncStatus {
 
     /**
      * Returned when an asynchronous process of changing peers has been started.
+     * That means that state of {@link org.apache.ignite.raft.jraft.core.NodeImpl.ConfigurationCtx} was switched to
+     * {@code STAGE_CATCHING_UP}
      */
     RECEIVED,
 
     /**
      * Returned when there is a concurrent change peers process.
      */
-    BUSY
+    BUSY,
+
+    /**
+     * Returned when change peers async invocation failed.
+     */
+    FAILED
 }

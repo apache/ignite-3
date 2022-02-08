@@ -331,7 +331,7 @@ public class NodeImpl implements Node, RaftServerService {
         /**
          * Start change configuration.
          */
-        void start(final Configuration oldConf, final Configuration newConf, final Closure done) {
+        void start(final Configuration oldConf, final Configuration newConf, final Closure done, boolean async) {
             if (isBusy()) {
                 if (done != null) {
                     Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, new Status(RaftError.EBUSY, "Already in busy stage."));
@@ -346,6 +346,9 @@ public class NodeImpl implements Node, RaftServerService {
             }
             this.done = done;
             this.stage = Stage.STAGE_CATCHING_UP;
+            if (async) {
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, Status.OK());
+            }
             this.oldPeers = oldConf.listPeers();
             this.newPeers = newConf.listPeers();
             this.oldLearners = oldConf.listLearners();
@@ -2479,8 +2482,12 @@ public class NodeImpl implements Node, RaftServerService {
         checkAndSetConfiguration(false);
     }
 
+    private void unsafeRegisterConfChange(final Configuration oldConf, final Configuration newConf, final Closure done) {
+        unsafeRegisterConfChange(oldConf, newConf, done, false);
+    }
+
     private void unsafeRegisterConfChange(final Configuration oldConf, final Configuration newConf,
-        final Closure done) {
+        final Closure done, boolean async) {
 
         Requires.requireTrue(newConf.isValid(), "Invalid new conf: %s", newConf);
         // The new conf entry(will be stored in log manager) should be valid
@@ -2514,7 +2521,7 @@ public class NodeImpl implements Node, RaftServerService {
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done);
             return;
         }
-        this.confCtx.start(oldConf, newConf, done);
+        this.confCtx.start(oldConf, newConf, done, async);
     }
 
     private void afterShutdown() {
@@ -3250,12 +3257,33 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             LOG.info("Node {} change peers from {} to {}.", getNodeId(), this.conf.getConf(), newPeers);
-            unsafeRegisterConfChange(this.conf.getConf(), newPeers, null);
+
+            CountDownLatch latch = new CountDownLatch(1);
+
+            final Status[] changePeersStatus = {new Status()};
+
+            Closure asyncDone = status -> {
+                changePeersStatus[0] = status;
+                latch.countDown();
+            };
+
+            unsafeRegisterConfChange(this.conf.getConf(), newPeers, asyncDone, true);
+
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                return ChangePeersAsyncStatus.FAILED;
+            }
+
+            if (changePeersStatus[0].isOk()) {
+                return ChangePeersAsyncStatus.RECEIVED;
+            } else {
+                return ChangePeersAsyncStatus.FAILED;
+            }
         }
         finally {
             this.writeLock.unlock();
         }
-        return ChangePeersAsyncStatus.RECEIVED;
     }
 
     @Override
