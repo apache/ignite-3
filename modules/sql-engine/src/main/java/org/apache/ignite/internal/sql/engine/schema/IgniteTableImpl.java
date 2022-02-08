@@ -317,9 +317,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
         int keyOffset = schemaDescriptor.keyColumns().firstVarlengthColumn();
 
-        if (keyOffset == -1) {
-            nonNullVarlenKeyCols = 0;
-        } else {
+        if (keyOffset > -1) {
             nonNullVarlenKeyCols = countNotNullColumns(
                     keyOffset,
                     schemaDescriptor.keyColumns().length(),
