@@ -26,7 +26,7 @@ public interface Transaction {
     /**
      * Synchronously commits a transaction.
      *
-     * @throws TransactionException If a transaction can't be commited.
+     * @throws TransactionException If a transaction can't be committed.
      */
     void commit() throws TransactionException;
 
