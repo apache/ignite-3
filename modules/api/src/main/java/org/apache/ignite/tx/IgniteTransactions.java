@@ -41,7 +41,7 @@ import org.apache.ignite.table.Table;
  *
  * <pre><code>
  *     // Using asynchronous transactional API to update the balance.
- *     CompletableFuture<Void> fut = client.transactions().beginAsync().thenCompose(tx ->
+ *     CompletableFuture&lt;Void&gt; fut = client.transactions().beginAsync().thenCompose(tx ->
  *             accounts
  *                 .getAsync(tx, key)
  *                 .thenCompose(account -> {
