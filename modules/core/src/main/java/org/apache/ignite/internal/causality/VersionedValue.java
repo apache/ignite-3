@@ -51,7 +51,7 @@ public class VersionedValue<T> {
      * @param onStorageRevisionUpdate   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@link Consumer<Long>} that should be called on
+     *                                  a construction of this VersionedValue and accepts a {@link Consumer&lt;Long>} that should be called on
      *                                  every update of storage revision as a listener.
      * @param historySize               Size of the history of changes to store, including last applied token.
      */
@@ -92,7 +92,7 @@ public class VersionedValue<T> {
      * @param onStorageRevisionUpdate   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@link Consumer<Long>} that should be called on
+     *                                  a construction of this VersionedValue and accepts a {@link Consumer&lt;Long>} that should be called on
      *                                  every update of storage revision as a listener.
      */
     public VersionedValue(
@@ -107,7 +107,7 @@ public class VersionedValue<T> {
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@link Consumer<Long>} that should be called on
+     *                                  a construction of this VersionedValue and accepts a {@link Consumer&lt;Long>} that should be called on
      *                                  every update of storage revision as a listener.
      */
     public VersionedValue(Consumer<Consumer<Long>> observableRevisionUpdater) {
@@ -171,7 +171,7 @@ public class VersionedValue<T> {
             return;
         }
 
-        assert !res.isDone() : IgniteStringFormatter.format("Different values asosiated with the token "
+        assert !res.isDone() : IgniteStringFormatter.format("Different values associated with the token "
                 + "[token={}, value={}, prevValeu={}]", causalityToken, value, res.join());
 
         res.complete(value);
