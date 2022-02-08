@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,6 +35,9 @@ public class VersionValueTest {
     /** Test value. */
     public static final int TEST_VALUE = 1;
 
+    /** The test revision register is used to move the revision forward. */
+    public static final TestRevisionRegister REGISTER = new TestRevisionRegister();
+
     /**
      * The test gets a value for {@link VersionedValue} before the value is calculated.
      *
@@ -41,15 +45,19 @@ public class VersionValueTest {
      */
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((integerVersionedValue, token) -> {
-            integerVersionedValue.set(token, TEST_VALUE);
-        }, 2);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(
+                (integerVersionedValue, token) -> {
+                    integerVersionedValue.set(token, TEST_VALUE);
+                },
+                REGISTER,
+                2
+        );
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        longVersionedValue.onStorageRevisionUpdate(1);
+        REGISTER.moveRevision.accept(1L);
 
         assertTrue(fut.isDone());
 
@@ -65,7 +73,7 @@ public class VersionValueTest {
      */
     @Test
     public void testExplicitlySetValue() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
@@ -88,17 +96,17 @@ public class VersionValueTest {
      */
     @Test
     public void testMissValueUpdateBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         longVersionedValue.set(1, TEST_VALUE);
 
-        longVersionedValue.onStorageRevisionUpdate(1);
+        REGISTER.moveRevision.accept(1L);
 
         CompletableFuture<Integer> fut = longVersionedValue.get(2);
 
         assertFalse(fut.isDone());
 
-        longVersionedValue.onStorageRevisionUpdate(2);
+        REGISTER.moveRevision.accept(2L);
 
         assertTrue(fut.isDone());
 
@@ -115,12 +123,12 @@ public class VersionValueTest {
      */
     @Test
     public void testMissValueUpdate() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         longVersionedValue.set(1, TEST_VALUE);
 
-        longVersionedValue.onStorageRevisionUpdate(1);
-        longVersionedValue.onStorageRevisionUpdate(2);
+        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.accept(2L);
 
         CompletableFuture<Integer> fut = longVersionedValue.get(2);
 
@@ -136,17 +144,32 @@ public class VersionValueTest {
      */
     @Test()
     public void testAbsoleteToken() {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>();
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         longVersionedValue.set(1, TEST_VALUE);
 
-        longVersionedValue.onStorageRevisionUpdate(1);
+        REGISTER.moveRevision.accept(1L);
 
         longVersionedValue.set(2, TEST_VALUE);
 
-        longVersionedValue.onStorageRevisionUpdate(2);
-        longVersionedValue.onStorageRevisionUpdate(3);
+        REGISTER.moveRevision.accept(2L);
+        REGISTER.moveRevision.accept(3L);
 
         assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(1));
+    }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+
+        /** Revision consumer. */
+        Consumer<Long> moveRevision;
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            moveRevision = consumer;
+        }
     }
 }

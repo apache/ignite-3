@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,10 +48,18 @@ public class VersionedValue<T> {
     /**
      * Constructor.
      *
-     * @param onStorageRevisionUpdate Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
-     * @param historySize             Size of the history of changes to store, including last applied token.
+     * @param onStorageRevisionUpdate   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
+     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
+     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
+     *                                  a construction of this VersionedValue and accepts a {@link Consumer<Long>} that should be called on
+     *                                  every update of storage revision as a listener.
+     * @param historySize               Size of the history of changes to store, including last applied token.
      */
-    public VersionedValue(@Nullable BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate, int historySize) {
+    public VersionedValue(
+            @Nullable BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate,
+            Consumer<Consumer<Long>> observableRevisionUpdater,
+            int historySize
+    ) {
         this.onStorageRevisionUpdate = onStorageRevisionUpdate == null ? (versionedValue, token) -> {
             Entry<Long, CompletableFuture<T>> entry = history.floorEntry(token);
 
@@ -72,23 +81,37 @@ public class VersionedValue<T> {
             }
         } : onStorageRevisionUpdate;
 
+        observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
+
         this.historySize = historySize;
     }
 
     /**
      * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, int)}.
      *
-     * @param onStorageRevisionUpdate Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
+     * @param onStorageRevisionUpdate   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
+     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
+     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
+     *                                  a construction of this VersionedValue and accepts a {@link Consumer<Long>} that should be called on
+     *                                  every update of storage revision as a listener.
      */
-    public VersionedValue(@Nullable BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate) {
-        this(null, 2);
+    public VersionedValue(
+            @Nullable BiConsumer<VersionedValue<T>, Long> onStorageRevisionUpdate,
+            Consumer<Consumer<Long>> observableRevisionUpdater
+    ) {
+        this(null, observableRevisionUpdater, 2);
     }
 
     /**
      * Constructor with default history size that equals 2 and no closure.
+     *
+     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
+     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
+     *                                  a construction of this VersionedValue and accepts a {@link Consumer<Long>} that should be called on
+     *                                  every update of storage revision as a listener.
      */
-    public VersionedValue() {
-        this(null);
+    public VersionedValue(Consumer<Consumer<Long>> observableRevisionUpdater) {
+        this(null, observableRevisionUpdater);
     }
 
     /**
@@ -156,7 +179,7 @@ public class VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      */
-    public void onStorageRevisionUpdate(long causalityToken) {
+    private void onStorageRevisionUpdate(long causalityToken) {
         assert causalityToken > actualToken : IgniteStringFormatter.format(
                 "New token shoul be more than current [current={}, new={}]", actualToken, causalityToken);
 
