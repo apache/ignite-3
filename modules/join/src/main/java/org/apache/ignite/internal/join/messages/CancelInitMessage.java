@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-/**
- * Configuration schemas for Cluster node.
- */
+package org.apache.ignite.internal.join.messages;
 
-package org.apache.ignite.configuration.schemas.runner;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
+
+/**
+ * Message signaling that the init process has failed and needs to be aborted.
+ */
+@Transferable(InitMessageGroup.CANCEL_INIT)
+public interface CancelInitMessage extends NetworkMessage {
+    /**
+     * Textual representation of the cause of init failure.
+     */
+    String reason();
+}

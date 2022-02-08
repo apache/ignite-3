@@ -20,7 +20,6 @@ package org.apache.ignite.configuration;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
@@ -45,7 +44,6 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(
-                ClusterConfiguration.KEY,
                 TablesConfiguration.KEY,
                 DataStorageConfiguration.KEY
         );

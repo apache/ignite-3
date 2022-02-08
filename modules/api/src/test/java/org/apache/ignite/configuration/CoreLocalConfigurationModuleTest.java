@@ -31,7 +31,6 @@ import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.junit.jupiter.api.Test;
 
@@ -49,11 +48,6 @@ class CoreLocalConfigurationModuleTest {
     @Test
     void hasNetworkConfigurationRoot() {
         assertThat(module.rootKeys(), hasItem(NetworkConfiguration.KEY));
-    }
-
-    @Test
-    void hasNodeConfigurationRoot() {
-        assertThat(module.rootKeys(), hasItem(NodeConfiguration.KEY));
     }
 
     @Test

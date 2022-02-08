@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -41,6 +42,9 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.join.ClusterManagementGroupManager;
+import org.apache.ignite.internal.join.Leaders;
+import org.apache.ignite.internal.join.messages.InitMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -66,10 +70,12 @@ import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -134,6 +140,8 @@ public class IgniteImpl implements Ignite {
     /** Rest module. */
     private final RestModule restModule;
 
+    private final ClusterManagementGroupManager cmgMgr;
+
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
 
@@ -143,11 +151,10 @@ public class IgniteImpl implements Ignite {
     /**
      * The Constructor.
      *
-     * @param name                       Ignite node name.
-     * @param workDir                    Work directory for the started node. Must not be {@code null}.
-     * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider
-     *                                   classes, or {@code null} if the system class loader (or, failing that
-     *                                   the bootstrap class loader) is to be used
+     * @param name Ignite node name.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
+     * null} if the system class loader (or, failing that the bootstrap class loader) is to be used
      */
     IgniteImpl(
             String name,
@@ -171,6 +178,8 @@ public class IgniteImpl implements Ignite {
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
         MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
+
+        InitMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
@@ -191,7 +200,6 @@ public class IgniteImpl implements Ignite {
 
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,
-                nodeCfgMgr,
                 clusterSvc,
                 raftMgr,
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
@@ -228,6 +236,8 @@ public class IgniteImpl implements Ignite {
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);
 
+        cmgMgr = new ClusterManagementGroupManager(clusterSvc, raftMgr, restModule);
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
@@ -237,7 +247,7 @@ public class IgniteImpl implements Ignite {
         );
     }
 
-    private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
+    private static ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
@@ -264,21 +274,21 @@ public class IgniteImpl implements Ignite {
      * Starts ignite node.
      *
      * @param cfg Optional node configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema} and
-     *            {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for applying
-     *            the configuration properties:
-     *            <ol>
-     *            <li>Specified property overrides existing one or just applies itself if it wasn't
-     *            previously specified.</li>
-     *            <li>All non-specified properties either use previous value or use default one from
-     *            corresponding configuration schema.</li>
-     *            </ol>
-     *            So that, in case of initial node start (first start ever) specified configuration, supplemented with defaults, is
-     *            used. If no configuration was provided defaults are used for all configuration properties. In case of node
-     *            restart, specified properties override existing ones, non specified properties that also weren't specified
-     *            previously use default values. Please pay attention that previously specified properties are searched in the
-     *            {@code workDir} specified by the user.
+     *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for applying the
+     *      configuration properties:
+     *      <ol>
+     *      <li>Specified property overrides existing one or just applies itself if it wasn't
+     *      previously specified.</li>
+     *      <li>All non-specified properties either use previous value or use default one from
+     *      corresponding configuration schema.</li>
+     *      </ol>
+     *      So that, in case of initial node start (first start ever) specified configuration, supplemented with defaults, is
+     *      used. If no configuration was provided defaults are used for all configuration properties. In case of node
+     *      restart, specified properties override existing ones, non specified properties that also weren't specified
+     *      previously use default values. Please pay attention that previously specified properties are searched in the
+     *      {@code workDir} specified by the user.
      */
-    public void start(@Nullable String cfg) {
+    public void start(@Language("HOCON") @Nullable String cfg) {
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
@@ -292,10 +302,7 @@ public class IgniteImpl implements Ignite {
             vaultMgr.putName(name).join();
 
             // Node configuration manager startup.
-            doStartComponent(
-                    name,
-                    startedComponents,
-                    nodeCfgMgr);
+            doStartComponent(name, startedComponents, nodeCfgMgr);
 
             // Node configuration manager bootstrap.
             if (cfg != null) {
@@ -320,6 +327,7 @@ public class IgniteImpl implements Ignite {
                     distributedTblMgr,
                     qryEngine,
                     restModule,
+                    cmgMgr,
                     clientHandlerModule
             );
 
@@ -351,8 +359,8 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
-            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restModule, clientHandlerModule, nettyBootstrapFactory));
+            doStopNode(List.of(nettyBootstrapFactory, vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr,
+                    baselineMgr, distributedTblMgr, qryEngine, restModule, cmgMgr, clientHandlerModule));
         }
     }
 
@@ -409,13 +417,6 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Returns client handler module.
-     */
-    public ClientHandlerModule clientHandlerModule() {
-        return clientHandlerModule;
-    }
-
-    /**
      * Returns the id of the current node.
      */
     public String id() {
@@ -423,13 +424,48 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
+     * Returns the local address of REST endpoints.
+     */
+    public NetworkAddress restAddress() {
+        return NetworkAddress.from(restModule.localAddress());
+    }
+
+    /**
+     * Returns the local address of the Thin Client.
+     */
+    public NetworkAddress clientAddress() {
+        return NetworkAddress.from(clientHandlerModule.localAddress());
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public Leaders init(Collection<String> metaStorageNodeNames) throws NodeStoppingException {
+        return init(metaStorageNodeNames, List.of());
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames names of nodes that will host the CMG.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public Leaders init(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
+        return cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames);
+    }
+
+    /**
      * Checks node status. If it's {@link Status#STOPPING} then prevents further starting and throws NodeStoppingException that will lead to
      * stopping already started components later on, otherwise starts component and add it to started components list.
      *
-     * @param nodeName          Node name.
+     * @param nodeName Node name.
      * @param startedComponents List of already started components for given node.
-     * @param component         Ignite component to start.
-     * @param <T>               Ignite component type.
+     * @param component Ignite component to start.
+     * @param <T> Ignite component type.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     private <T extends IgniteComponent> void doStartComponent(

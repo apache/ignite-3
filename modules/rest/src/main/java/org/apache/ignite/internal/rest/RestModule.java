@@ -26,6 +26,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.net.BindException;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -41,10 +42,13 @@ import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
 import org.apache.ignite.internal.rest.netty.RestApiInitializer;
 import org.apache.ignite.internal.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.presentation.hocon.HoconPresentation;
+import org.apache.ignite.internal.rest.routes.Route;
 import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
@@ -81,7 +85,10 @@ public class RestModule implements IgniteComponent {
     private final NettyBootstrapFactory bootstrapFactory;
 
     /** Netty channel. */
+    @Nullable
     private volatile Channel channel;
+
+    private final Router router = new Router();
 
     /**
      * Creates a new instance of REST module.
@@ -108,8 +115,6 @@ public class RestModule implements IgniteComponent {
         if (channel != null) {
             throw new IgniteException("RestModule is already started.");
         }
-
-        var router = new Router();
 
         router
                 .get(
@@ -148,6 +153,29 @@ public class RestModule implements IgniteComponent {
                 );
 
         channel = startRestEndpoint(router).channel();
+    }
+
+    /**
+     * Adds a given {@link Route} to the list of REST endpoints.
+     */
+    public void addRoute(Route route) {
+        router.addRoute(route);
+    }
+
+    /**
+     * Returns the local address that the REST endpoint is bound to.
+     *
+     * @return local REST address.
+     * @throws IgniteInternalException if the component has not been started yet.
+     */
+    public InetSocketAddress localAddress() {
+        Channel channel = this.channel;
+
+        if (channel == null) {
+            throw new IgniteInternalException("RestModule has not been started");
+        }
+
+        return (InetSocketAddress) channel.localAddress();
     }
 
     /**

@@ -25,11 +25,9 @@ import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
@@ -62,7 +60,7 @@ public class ItClientHandlerTest {
     @BeforeEach
     public void setUp(TestInfo testInfo) {
         serverModule = startServer(testInfo);
-        serverPort = ((InetSocketAddress) Objects.requireNonNull(serverModule.localAddress())).getPort();
+        serverPort = serverModule.localAddress().getPort();
     }
 
     @AfterEach

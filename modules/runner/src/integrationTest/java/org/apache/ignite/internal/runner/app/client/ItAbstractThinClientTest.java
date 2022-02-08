@@ -19,8 +19,6 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -70,7 +68,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeAll
-    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) {
+    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         this.workDir = workDir;
 
         String node0Name = testNodeName(testInfo, 3344);
@@ -79,32 +77,26 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + 3344 + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "    }\n"
-                        + "  }\n"
+                        + "  network.port: 3344,\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "}"
         );
 
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + 3345 + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "    }\n"
-                        + "  }\n"
+                        + "  network.port: 3345,\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "}"
         );
 
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
+
+        IgniteImpl metastorageNode = (IgniteImpl) startedNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(COLUMN_KEY, ColumnType.INT32).build(),
@@ -142,8 +134,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         List<String> res = new ArrayList<>(startedNodes.size());
 
         for (Ignite ignite : startedNodes) {
-            SocketAddress addr = ((IgniteImpl) ignite).clientHandlerModule().localAddress();
-            int port = ((InetSocketAddress) addr).getPort();
+            int port = ((IgniteImpl) ignite).clientAddress().port();
 
             res.add("127.0.0.1:" + port);
         }

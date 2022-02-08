@@ -23,18 +23,18 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import java.net.BindException;
-import java.net.SocketAddress;
+import java.net.InetSocketAddress;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
@@ -115,11 +115,15 @@ public class ClientHandlerModule implements IgniteComponent {
     /**
      * Returns the local address where this handler is bound to.
      *
-     * @return the local address of this module, or {@code null} if this module is not started.
+     * @return the local address of this module.
+     * @throws IgniteInternalException if the module is not started.
      */
-    @Nullable
-    public SocketAddress localAddress() {
-        return channel == null ? null : channel.localAddress();
+    public InetSocketAddress localAddress() {
+        if (channel == null) {
+            throw new IgniteInternalException("ClientHandlerModule has not been started");
+        }
+
+        return (InetSocketAddress) channel.localAddress();
     }
 
     /**

@@ -21,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.netty.util.ResourceLeakDetector;
-import java.net.InetSocketAddress;
-import java.util.Objects;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -139,6 +137,6 @@ public abstract class AbstractClientTest {
     }
 
     public static int getPort(ClientHandlerModule hnd) {
-        return ((InetSocketAddress) Objects.requireNonNull(hnd.localAddress())).getPort();
+        return hnd.localAddress().getPort();
     }
 }

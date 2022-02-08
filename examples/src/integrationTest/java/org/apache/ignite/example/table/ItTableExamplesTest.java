@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -17,27 +17,14 @@
 
 package org.apache.ignite.example.table;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.example.ExampleTestUtils;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * These tests check that all table examples pass correctly.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class TableExamplesTest {
-    /** Empty argument to invoke an example. */
-    protected static final String[] EMPTY_ARGS = new String[0];
-
+public class ItTableExamplesTest extends AbstractExamplesTest {
     /**
      * Runs RecordViewExample.
      *
@@ -45,7 +32,7 @@ public class TableExamplesTest {
      */
     @Test
     public void testRecordViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
+        ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, new String[0],
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -59,7 +46,7 @@ public class TableExamplesTest {
      */
     @Test
     public void testRecordViewPojoExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(RecordViewPojoExample::main, EMPTY_ARGS,
+        ExampleTestUtils.assertConsoleOutputContains(RecordViewPojoExample::main, new String[0],
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -73,7 +60,7 @@ public class TableExamplesTest {
      */
     @Test
     public void testKeyValueViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
+        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, new String[0],
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -87,45 +74,10 @@ public class TableExamplesTest {
      */
     @Test
     public void testKeyValueViewPojoExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewPojoExample::main, EMPTY_ARGS,
+        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewPojoExample::main, new String[0],
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
                         + "    Balance: $100.0\n");
-    }
-
-    /**
-     * Start node.
-     *
-     * @param workDir Work directory for the started node. Must not be {@code null}.
-     */
-    @BeforeEach
-    public void startNode(@WorkDirectory Path workDir) throws IOException {
-        IgnitionManager.start(
-                "my-first-node",
-                Files.readString(Path.of("config", "ignite-config.json")),
-                workDir
-        );
-    }
-
-    /**
-     * Stop node.
-     */
-    @AfterEach
-    public void stopNode() {
-        IgnitionManager.stop("my-first-node");
-    }
-
-    /**
-     * Removes a previously created work directory.
-     */
-    @BeforeEach
-    @AfterEach
-    public void removeWorkDir() {
-        Path workDir = Path.of("work");
-
-        if (Files.exists(workDir)) {
-            IgniteUtils.deleteIfExists(workDir);
-        }
     }
 }

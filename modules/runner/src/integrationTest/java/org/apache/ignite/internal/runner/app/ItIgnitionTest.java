@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -80,7 +79,6 @@ class ItIgnitionTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -93,7 +91,6 @@ class ItIgnitionTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -106,7 +103,6 @@ class ItIgnitionTest {
         nodesBootstrapCfg.put(
                 node2Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"
@@ -150,99 +146,6 @@ class ItIgnitionTest {
     }
 
     /**
-     * Tests scenario when we try to start cluster with single node, but without any node, that hosts metastorage.
-     */
-    @Test
-    void testErrorWhenStartSingleNodeClusterWithoutMetastorage() {
-        try {
-            startedNodes.add(IgnitionManager.start("other-name", "{\n"
-                    + "    \"node\": {\n"
-                    + "        \"metastorageNodes\": [\n"
-                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                    + "        ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "        \"port\": 3344,\n"
-                    + "        \"nodeFinder\": {\n"
-                    + "          \"netClusterNodes\": [ \"localhost:3344\"] \n"
-                    + "        }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("other-name")));
-        } catch (Throwable th) {
-            assertTrue(IgniteTestUtils.hasCause(th,
-                    IgniteException.class,
-                    "Cannot start meta storage manager because there is no node in the cluster that hosts meta storage."
-            ));
-        }
-    }
-
-    /**
-     * Tests scenario when we try to start node that doesn't host metastorage in cluster with node, that hosts metastorage.
-     */
-    @Test
-    void testStartNodeClusterWithoutMetastorage() throws Exception {
-        Ignite ig1 = null;
-
-        Ignite ig2 = null;
-
-        try {
-            ig1 = IgnitionManager.start("node-0", "{\n"
-                    + "    \"node\": {\n"
-                    + "       \"metastorageNodes\":[ \"node-0\" ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "      \"port\": 3344,\n"
-                    + "      \"nodeFinder\": {\n"
-                    + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("node-0"));
-
-            ig2 = IgnitionManager.start("other-name", "{\n"
-                    + "    \"node\": {\n"
-                    + "        \"metastorageNodes\":[ \"node-0\" ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "      \"port\": 3345,\n"
-                    + "      \"nodeFinder\": {\n"
-                    + "        \"netClusterNodes\": [ \"localhost:3344\"]\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("other-name"));
-
-            assertEquals(ig2.name(), "other-name");
-        } finally {
-            IgniteUtils.closeAll(ig2, ig1);
-        }
-    }
-
-    /**
-     * Tests scenario when we try to start single-node cluster with several metastorage nodes in config.
-     * TODO: test should be rewritten after init phase will be developed https://issues.apache.org/jira/browse/IGNITE-15114
-     */
-    @Test
-    void testStartNodeClusterWithTwoMetastorageInConfig() throws Exception {
-        try {
-            IgnitionManager.start("node-0", "{\n"
-                    + "    \"node\": {\n"
-                    + "        \"metastorageNodes\": [\n"
-                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                    + "        ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "      \"port\": 3344,\n"
-                    + "      \"nodeFinder\": {\n"
-                    + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("node-0"));
-        } catch (IgniteException e) {
-            assertEquals(e.getCause().getMessage(), "Cannot start meta storage manager "
-                    + "because it is not allowed to start several metastorage nodes.");
-        }
-    }
-
-    /**
      * Tests scenario when we try to start node with invalid configuration.
      */
     @Test
@@ -272,7 +175,6 @@ class ItIgnitionTest {
         String nodeName = "node-url-config";
 
         String cfg = "{\n"
-                + "  node.metastorageNodes: [ \"" + nodeName + "\" ],\n"
                 + "  network: {\n"
                 + "    port: " + PORTS[0] + "\n"
                 + "  }\n"
@@ -293,7 +195,7 @@ class ItIgnitionTest {
      */
     private URL buildUrl(String path, String data) throws Exception {
         URLStreamHandler handler = new URLStreamHandler() {
-            private byte[] content = data.getBytes(StandardCharsets.UTF_8);
+            private final byte[] content = data.getBytes(StandardCharsets.UTF_8);
 
             @Override
             protected URLConnection openConnection(URL url) {

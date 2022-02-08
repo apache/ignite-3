@@ -31,6 +31,9 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.AfterAll;
@@ -38,12 +41,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Abstract jdbc self test.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class AbstractJdbcSelfTest {
     /** URL. */
     protected static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
@@ -63,15 +67,17 @@ public class AbstractJdbcSelfTest {
     /**
      * Creates a cluster of three nodes.
      *
-     * @param temp Temporal directory.
+     * @param temp Temporary directory.
      */
     @BeforeAll
-    public static void beforeAll(@TempDir Path temp, TestInfo testInfo) throws SQLException {
+    public static void beforeAll(@WorkDirectory Path temp, TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, 47500);
 
-        String configStr = "node.metastorageNodes: [ \"" + nodeName + "\" ]";
+        clusterNodes.add(IgnitionManager.start(nodeName, null, temp.resolve(nodeName)));
 
-        clusterNodes.add(IgnitionManager.start(nodeName, configStr, temp.resolve(nodeName)));
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
 
         conn = DriverManager.getConnection(URL);
 

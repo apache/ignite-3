@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -49,12 +47,8 @@ public class PlatformTestNodeRunner {
     private static final int RUN_TIME_MINUTES = 30;
 
     /** Nodes bootstrap configuration. */
-    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
-        {
-            put(NODE_NAME, "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
-                    + "  },\n"
+    private static final Map<String, String> nodesBootstrapCfg = Map.of(
+            NODE_NAME, "{\n"
                     + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -62,9 +56,8 @@ public class PlatformTestNodeRunner {
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
-        }
-    };
+                    + "}"
+    );
 
     /** Base path for all temporary folders. */
     private static final Path BASE_PATH = Path.of("target", "work", "PlatformTestNodeRunner");
@@ -95,6 +88,10 @@ public class PlatformTestNodeRunner {
                 startedNodes.add(IgnitionManager.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
         );
 
+        IgniteImpl metastorageNode = (IgniteImpl) startedNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
+
         var keyCol = "key";
         var valCol = "val";
 
@@ -103,7 +100,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
+        metastorageNode.tables().createTable(schTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)
@@ -127,6 +124,6 @@ public class PlatformTestNodeRunner {
      * @return Port number.
      */
     private static int getPort(IgniteImpl node) {
-        return ((InetSocketAddress) node.clientHandlerModule().localAddress()).getPort();
+        return node.clientAddress().port();
     }
 }

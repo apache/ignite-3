@@ -22,15 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.google.common.collect.Lists;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -72,45 +71,34 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Nodes bootstrap configuration.
      */
-    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
-        {
-            put("node0", "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                    + "  },\n"
+    private static final Map<String, String> nodesBootstrapCfg = Map.of(
+            "node0", "{\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
+                    + "}",
 
-            put("node1", "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                    + "  },\n"
+            "node1", "{\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
+                    + "}",
 
-            put("node2", "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                    + "  },\n"
+            "node2", "{\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3346,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
-        }
-    };
+                    + "}"
+    );
 
     /**
      * Cluster nodes.
@@ -125,6 +113,10 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
+
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
     }
 
     /**
@@ -132,7 +124,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(Lists.reverse(clusterNodes));
+        IgniteUtils.closeAll(ItUtils.reverse(clusterNodes));
     }
 
     /**
@@ -142,7 +134,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     @Test
     public void test() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
-        final IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
 
         createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
@@ -197,7 +189,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             );
         }
 
-        final CompletableFuture insertFut = IgniteTestUtils.runAsync(() ->
+        CompletableFuture insertFut = IgniteTestUtils.runAsync(() ->
                 table1.recordView().insert(
                         null,
                         Tuple.create()
@@ -207,11 +199,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                                 .set("valStr2", "str2_" + 0)
                 ));
 
-        final CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
             table1.recordView().get(null, Tuple.create().set("key", 10L));
         });
 
-        final CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
             assertEquals("default",
                     table1.recordView().get(null, Tuple.create().set("key", 0L))
                             .value("valStr2"));
