@@ -200,7 +200,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
 
                             fireEvent(TableEvent.CREATE,
-                                    new TableEventParameters(tblId, tblName),
+                                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
                                     new NodeStoppingException()
                             );
 
@@ -238,7 +238,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         if (!busyLock.enterBusy()) {
                                             fireEvent(
                                                     TableEvent.ALTER,
-                                                    new TableEventParameters(tblId, tblName),
+                                                    new TableEventParameters(schemasCtx.storageRevision(), tblId, tblName),
                                                     new NodeStoppingException()
                                             );
 
@@ -254,10 +254,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                 SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()))
                                                         );
 
-                                                fireEvent(TableEvent.ALTER, new TableEventParameters(tablesById.get(tblId)), null);
+                                                fireEvent(TableEvent.ALTER, new TableEventParameters(schemasCtx.storageRevision(),
+                                                        tablesById.get(tblId)), null);
                                             }
                                         } catch (Exception e) {
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(tblId, tblName), e);
+                                            fireEvent(TableEvent.ALTER, new TableEventParameters(schemasCtx.storageRevision(), tblId,
+                                                    tblName), e);
                                         } finally {
                                             busyLock.leaveBusy();
                                         }
@@ -286,6 +288,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                 });
 
                         createTableLocally(
+                                ctx.storageRevision(),
                                 tblName,
                                 tblId,
                                 (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.newValue()).assignments()),
@@ -361,7 +364,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                             fireEvent(
                                     TableEvent.DROP,
-                                    new TableEventParameters(tblId, tblName),
+                                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
                                     new NodeStoppingException()
                             );
 
@@ -370,6 +373,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         try {
                             dropTableLocally(
+                                    ctx.storageRevision(),
                                     ctx.oldValue().name(),
                                     ((ExtendedTableView) ctx.oldValue()).id(),
                                     (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
@@ -428,11 +432,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates local structures for a table.
      *
+     * @param causalityToken Causality token.
      * @param name  Table name.
      * @param tblId Table id.
      * @param assignment Affinity assignment.
      */
     private void createTableLocally(
+            long causalityToken,
             String name,
             UUID tblId,
             List<List<ClusterNode>> assignment,
@@ -543,9 +549,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 tables.put(name, table);
                 tablesById.put(tblId, table);
 
-                fireEvent(TableEvent.CREATE, new TableEventParameters(table), null);
+                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
             } catch (Exception e) {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(tblId, name), e);
+                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId, name), e);
             }
         }).join();
     }
@@ -624,11 +630,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Drops local structures for a table.
      *
-     * @param name  Table name.
-     * @param tblId Table id.
-     * @param assignment Affinity assignment.
+     * @param causalityToken Causality token.
+     * @param name           Table name.
+     * @param tblId          Table id.
+     * @param assignment     Affinity assignment.
      */
-    private void dropTableLocally(String name, UUID tblId, List<List<ClusterNode>> assignment) {
+    private void dropTableLocally(long causalityToken, String name, UUID tblId, List<List<ClusterNode>> assignment) {
         try {
             int partitions = assignment.size();
 
@@ -645,9 +652,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             table.internalTable().storage().destroy();
 
-            fireEvent(TableEvent.DROP, new TableEventParameters(table), null);
+            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null);
         } catch (Exception e) {
-            fireEvent(TableEvent.DROP, new TableEventParameters(tblId, name), e);
+            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
     }
 
