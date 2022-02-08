@@ -351,7 +351,9 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * @return Whether the node had started in standalone mode (for example, maintenance mode).
+     * Whether the node had started in standalone mode (for example, maintenance mode).
+     *
+     * @return Whether the node had started in standalone mode.
      */
     private boolean standaloneMode() {
         return false;
