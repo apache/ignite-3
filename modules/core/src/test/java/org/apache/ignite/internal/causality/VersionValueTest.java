@@ -142,7 +142,7 @@ public class VersionValueTest {
     /**
      * Test checks token history size.
      */
-    @Test()
+    @Test
     public void testObsoleteToken() {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
@@ -156,6 +156,29 @@ public class VersionValueTest {
         REGISTER.moveRevision.accept(3L);
 
         assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(1));
+    }
+
+    /**
+     * Checks that future will be completed automatically when the related token becomes actual.
+     */
+    @Test
+    public void testAutocompleteFuture() throws OutdatedTokenException {
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
+        }, REGISTER);
+
+        longVersionedValue.set(1, TEST_VALUE);
+
+        REGISTER.moveRevision.accept(1L);
+
+        CompletableFuture<Integer> fut = longVersionedValue.get(2);
+
+        assertFalse(fut.isDone());
+
+        REGISTER.moveRevision.accept(2L);
+        REGISTER.moveRevision.accept(3L);
+
+        assertTrue(fut.isDone());
+        assertTrue(longVersionedValue.get(3).isDone());
     }
 
     /**
