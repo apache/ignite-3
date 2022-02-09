@@ -41,16 +41,16 @@ public abstract class AbstractSimpleCondition implements Condition {
     public byte[] key() {
         return keys[0];
     }
-    
+
     @Override
     public @NotNull byte[][] keys() {
         return keys;
     }
-    
+
     @Override
     public boolean test(Entry... e) {
         return test(e[0]);
     }
-    
+
     protected abstract boolean test(Entry entry);
 }

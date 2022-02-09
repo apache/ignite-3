@@ -236,11 +236,11 @@ public class MetaStorageListener implements RaftGroupListener {
                 clo.result(res);
             } else if (clo.command() instanceof MultiInvokeCommand) {
                 MultiInvokeCommand cmd = (MultiInvokeCommand) clo.command();
-    
+
                 StatementResult res = storage.invoke(
                         toIf(cmd._if())
                 );
-    
+
                 clo.result(new StatementResultInfo(res.bytes()));
             } else if (clo.command() instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) clo.command();
@@ -414,15 +414,15 @@ public class MetaStorageListener implements RaftGroupListener {
     public KeyValueStorage getStorage() {
         return storage;
     }
-    
+
     private static If toIf(IfInfo _if) {
         return new If(toCondition(_if.cond()), toConditionBranch(_if.andThen()), toConditionBranch(_if.orElse()));
     }
-    
+
     private static Update toUpdate(UpdateInfo updateInfo) {
         return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new StatementResult(updateInfo.result().result()));
     }
-    
+
     private static Statement toConditionBranch(StatementInfo statementInfo) {
         if (statementInfo.isTerminal()) {
             return new Statement(toUpdate(statementInfo.update()));
@@ -435,9 +435,9 @@ public class MetaStorageListener implements RaftGroupListener {
         if (info instanceof SimpleConditionInfo) {
             SimpleConditionInfo inf = (SimpleConditionInfo) info;
             byte[] key = inf.key();
-    
+
             ConditionType type = inf.type();
-    
+
             if (type == ConditionType.KEY_EXISTS) {
                 return new ExistenceCondition(ExistenceCondition.Type.EXISTS, key);
             } else if (type == ConditionType.KEY_NOT_EXISTS) {
@@ -465,10 +465,10 @@ public class MetaStorageListener implements RaftGroupListener {
             }
         } else if (info instanceof CompoundConditionInfo) {
             CompoundConditionInfo inf = (CompoundConditionInfo) info;
-            
+
             if (inf.type() == CompoundConditionType.AND) {
                 return new AndCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
-            
+
             } else if (inf.type() == CompoundConditionType.OR) {
                 return new OrCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
             } else

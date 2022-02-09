@@ -198,7 +198,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return metaStorageRaftGrpSvc.run(new InvokeCommand(cond, successOps, failureOps));
     }
-    
+
     @Override
     public CompletableFuture<StatementResult> invoke(If _if) {
         return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(_if))).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
@@ -322,11 +322,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
         return res;
     }
-    
+
     private static UpdateInfo toUpdateInfo(Update update) {
         return new UpdateInfo(toOperationInfos(update.operations()), new StatementResultInfo(update.result().bytes()));
     }
-    
+
     private static StatementInfo toIfBranchInfo(Statement statement) {
         if (statement.isTerminal()) {
             return new StatementInfo(toUpdateInfo(statement.update()));
@@ -334,7 +334,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             return new StatementInfo(toIfInfo(statement._if()));
         }
     }
-    
+
     private static IfInfo toIfInfo(If _if) {
         return new IfInfo(toConditionInfo(_if.condition()), toIfBranchInfo(_if.andThen()), toIfBranchInfo(_if.orElse()));
     }
@@ -343,35 +343,35 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         ConditionInfo cnd = null;
         if (condition instanceof SimpleCondition) {
             Object obj = ((SimpleCondition) condition).inner();
-    
+
             if (obj instanceof SimpleCondition.ExistenceCondition) {
                 SimpleCondition.ExistenceCondition inner = (SimpleCondition.ExistenceCondition) obj;
-        
+
                 cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, 0);
             } else if (obj instanceof SimpleCondition.TombstoneCondition) {
                 SimpleCondition.TombstoneCondition inner = (SimpleCondition.TombstoneCondition) obj;
-        
+
                 cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, 0);
             } else if (obj instanceof SimpleCondition.RevisionCondition) {
                 SimpleCondition.RevisionCondition inner = (SimpleCondition.RevisionCondition) obj;
-        
+
                 cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, inner.revision());
             } else if (obj instanceof SimpleCondition.ValueCondition) {
                 SimpleCondition.ValueCondition inner = (SimpleCondition.ValueCondition) obj;
-        
+
                 cnd = new SimpleConditionInfo(inner.key(), inner.type(), inner.value(), 0);
             } else {
                 assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
             }
-            
+
         } else if (condition instanceof CompoundCondition) {
             CompoundCondition cond = (CompoundCondition) condition;
-            
+
             cnd = new CompoundConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()), cond.binaryConditionType());
         } else {
             assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
         }
-        
+
         return cnd;
     }
 

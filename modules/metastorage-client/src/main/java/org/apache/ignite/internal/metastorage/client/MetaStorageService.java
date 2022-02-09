@@ -223,7 +223,7 @@ public interface MetaStorageService {
     @NotNull
     CompletableFuture<Boolean> invoke(@NotNull Condition condition,
             @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure);
-    
+
     CompletableFuture<StatementResult> invoke(If _if);
 
     /**

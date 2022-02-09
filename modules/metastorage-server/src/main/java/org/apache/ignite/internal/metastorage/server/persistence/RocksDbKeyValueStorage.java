@@ -616,9 +616,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             boolean branch = condition.test(e.toArray(new Entry[]{ }));
 
             Collection<Operation> ops = branch ? success : failure;
-    
+
             extracted(ops);
-    
+
             return branch;
         } catch (RocksDBException e) {
             throw new IgniteInternalException(e);
@@ -626,7 +626,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rwLock.writeLock().unlock();
         }
     }
-    
+
     @Override
     public StatementResult invoke(If _if) {
         rwLock.writeLock().lock();
@@ -640,9 +640,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 if (branch.isTerminal()) {
                     Update update = branch.update();
-                    
+
                     extracted(update.operations());
-                    
+
                     return update.result();
                 } else
                     currIf = branch._if();
@@ -653,65 +653,65 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             rwLock.writeLock().unlock();
         }
     }
-    
+
     private void extracted(Collection<Operation> ops) throws RocksDBException {
         long curRev = rev + 1;
-        
+
         boolean modified = false;
-        
+
         long counter = updCntr;
-        
+
         List<byte[]> updatedKeys = new ArrayList<>();
-    
+
         try (WriteBatch batch = new WriteBatch()) {
             for (Operation op : ops) {
                 byte[] key = op.key();
-        
+
                 switch (op.type()) {
                     case PUT:
                         counter++;
-                
+
                         addDataToBatch(batch, key, op.value(), curRev, counter);
-                
+
                         updatedKeys.add(key);
-                
+
                         modified = true;
-                
+
                         break;
-            
+
                     case REMOVE:
                         counter++;
-                
+
                         boolean removed = addToBatchForRemoval(batch, key, curRev, counter);
-                
+
                         if (!removed) {
                             counter--;
                         } else {
                             updatedKeys.add(key);
                         }
-                
+
                         modified |= removed;
-                
+
                         break;
-            
+
                     case NO_OP:
                         break;
-            
+
                     default:
                         throw new IllegalArgumentException("Unknown operation type: " + op.type());
                 }
             }
-    
+
             if (modified) {
                 for (byte[] key : updatedKeys) {
                     updateKeysIndex(batch, key, curRev);
                 }
-        
+
                 fillAndWriteBatch(batch, curRev, counter);
             }
         }
     }
-    
+
     /** {@inheritDoc} */
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte[] keyTo) {

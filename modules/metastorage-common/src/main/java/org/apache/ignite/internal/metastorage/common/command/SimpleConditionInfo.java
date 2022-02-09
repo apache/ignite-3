@@ -35,7 +35,7 @@ public class SimpleConditionInfo implements ConditionInfo {
 
     /** Revision. */
     private final long rev;
-    
+
     /**
      * Construct condition with given parameters.
      *
