@@ -28,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
-import org.apache.ignite.internal.metastorage.common.BranchResultInfo;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
@@ -200,8 +200,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
     
     @Override
-    public CompletableFuture<BranchResult> invoke(If _if) {
-        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(_if))).thenApply(bi -> new BranchResult(((BranchResultInfo) bi).result()));
+    public CompletableFuture<StatementResult> invoke(If _if) {
+        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(_if))).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
     }
 
     /** {@inheritDoc} */
@@ -324,7 +324,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
     
     private static UpdateInfo toUpdateInfo(Update update) {
-        return new UpdateInfo(toOperationInfos(update.operations()), new BranchResultInfo(update.result().getAsBoolean()));
+        return new UpdateInfo(toOperationInfos(update.operations()), new StatementResultInfo(update.result().getAsBoolean()));
     }
     
     private static StatementInfo toIfBranchInfo(Statement statement) {

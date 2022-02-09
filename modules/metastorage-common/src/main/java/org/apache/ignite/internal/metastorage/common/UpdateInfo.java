@@ -7,9 +7,9 @@ import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 public class UpdateInfo implements Serializable {
     private final Collection<OperationInfo> ops;
     
-    private final BranchResultInfo result;
+    private final StatementResultInfo result;
     
-    public UpdateInfo(Collection<OperationInfo> ops, BranchResultInfo result) {
+    public UpdateInfo(Collection<OperationInfo> ops, StatementResultInfo result) {
         this.ops = ops;
         this.result = result;
     }
@@ -18,7 +18,7 @@ public class UpdateInfo implements Serializable {
         return ops;
     }
     
-    public BranchResultInfo result() {
+    public StatementResultInfo result() {
         return result;
     }
 }

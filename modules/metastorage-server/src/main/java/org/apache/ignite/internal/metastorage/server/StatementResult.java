@@ -2,15 +2,15 @@ package org.apache.ignite.internal.metastorage.server;
 
 import java.nio.ByteBuffer;
 
-public class BranchResult {
+public class StatementResult {
     
     private final byte[] result;
     
-    public BranchResult(boolean result) {
+    public StatementResult(boolean result) {
         this.result = new byte[] {(byte) (result ? 1 : 0)};
     }
     
-    public BranchResult(int result) {
+    public StatementResult(int result) {
         this.result = ByteBuffer.allocate(4).putInt(result).array();
     }
     
@@ -26,7 +26,7 @@ public class BranchResult {
         return result;
     }
     
-    public static BranchResult res(boolean r) {
-        return new BranchResult(r);
+    public static StatementResult res(boolean r) {
+        return new StatementResult(r);
     }
 }

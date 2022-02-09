@@ -51,7 +51,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.internal.metastorage.server.BranchResult;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.If;
@@ -628,7 +628,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
     
     @Override
-    public BranchResult invoke(If _if) {
+    public StatementResult invoke(If _if) {
         rwLock.writeLock().lock();
 
         try {

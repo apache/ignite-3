@@ -60,7 +60,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.AbstractBinaryCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractUnaryCondition;
-import org.apache.ignite.internal.metastorage.server.BranchResult;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
@@ -793,7 +793,7 @@ public class ItMetaStorageServiceTest {
         
         var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
         
-        when(mockStorage.invoke(any())).thenReturn(new org.apache.ignite.internal.metastorage.server.BranchResult(true));
+        when(mockStorage.invoke(any())).thenReturn(new StatementResult(true));
         
         assertTrue(metaStorageSvc.invoke(_if).get().getAsBoolean());
         
@@ -804,11 +804,11 @@ public class ItMetaStorageServiceTest {
     
         assertThat(resultIf.andThen()._if().condition(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
         
-        assertThat(resultIf.andThen()._if().andThen().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)), new BranchResult(true))));
+        assertThat(resultIf.andThen()._if().andThen().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)), new StatementResult(true))));
         
-        assertThat(resultIf.andThen()._if().orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1), new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)), new BranchResult(false))));
+        assertThat(resultIf.andThen()._if().orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1), new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)), new StatementResult(false))));
     
-        assertThat(resultIf.orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)), new BranchResult(false))));
+        assertThat(resultIf.orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)), new StatementResult(false))));
     }
     
     @Test

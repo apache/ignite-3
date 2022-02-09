@@ -37,11 +37,11 @@ public final class Operations {
     }
     
     public Update yield(boolean result) {
-        return new Update(Arrays.asList(operations), new BranchResult(result));
+        return new Update(Arrays.asList(operations), new StatementResult(result));
     }
     
     public Update yield(int result) {
-        return new Update(Arrays.asList(operations), new BranchResult(result));
+        return new Update(Arrays.asList(operations), new StatementResult(result));
     }
     
     public static Operations ops(Operation... operations) {

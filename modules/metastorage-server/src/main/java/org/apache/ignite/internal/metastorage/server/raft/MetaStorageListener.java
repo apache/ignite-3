@@ -27,7 +27,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.metastorage.common.BranchResultInfo;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
@@ -61,7 +61,7 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsClose
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Statement;
-import org.apache.ignite.internal.metastorage.server.BranchResult;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
@@ -237,11 +237,11 @@ public class MetaStorageListener implements RaftGroupListener {
             } else if (clo.command() instanceof MultiInvokeCommand) {
                 MultiInvokeCommand cmd = (MultiInvokeCommand) clo.command();
     
-                BranchResult res = storage.invoke(
+                StatementResult res = storage.invoke(
                         toIf(cmd._if())
                 );
     
-                clo.result(new BranchResultInfo(res.getAsBoolean()));
+                clo.result(new StatementResultInfo(res.getAsBoolean()));
             } else if (clo.command() instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) clo.command();
 
@@ -420,7 +420,7 @@ public class MetaStorageListener implements RaftGroupListener {
     }
     
     private static Update toUpdate(UpdateInfo updateInfo) {
-        return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new BranchResult(updateInfo.result().result()));
+        return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new StatementResult(updateInfo.result().result()));
     }
     
     private static Statement toConditionBranch(StatementInfo statementInfo) {

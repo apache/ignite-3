@@ -304,7 +304,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
     
     @Override
-    public BranchResult invoke(If _if) {
+    public StatementResult invoke(If _if) {
         synchronized (mux) {
             If currIf = _if;
             while (true) {
