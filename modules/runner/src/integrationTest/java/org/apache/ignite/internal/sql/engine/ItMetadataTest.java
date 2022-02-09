@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItMetadataTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.

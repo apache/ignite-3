@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test Ignite SQL functions.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 

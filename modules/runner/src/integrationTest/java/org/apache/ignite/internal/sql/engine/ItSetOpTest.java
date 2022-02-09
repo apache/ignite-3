@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItSetOpTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
@@ -124,7 +124,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
         Table tbl1 = CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
 
@@ -138,7 +138,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
         Table tbl2 = CLUSTER_NODES.get(0).tables().createTable(schTbl2.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl2, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
 
@@ -276,7 +276,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
     }

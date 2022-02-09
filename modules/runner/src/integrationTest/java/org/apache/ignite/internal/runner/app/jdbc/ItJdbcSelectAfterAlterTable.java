@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Base class for complex SQL tests based on JDBC driver.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @BeforeEach

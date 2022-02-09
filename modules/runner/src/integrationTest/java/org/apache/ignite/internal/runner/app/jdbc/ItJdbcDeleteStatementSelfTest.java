@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Delete functional statement self test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /**
      * Execute delete query test.

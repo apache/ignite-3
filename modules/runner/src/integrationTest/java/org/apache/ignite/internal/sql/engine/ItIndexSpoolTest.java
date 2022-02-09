@@ -38,7 +38,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Index spool test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
 
@@ -99,7 +99,7 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
 
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
     }
