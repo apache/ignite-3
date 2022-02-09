@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Statement test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL SELECT query for verification. */
     private static final String SQL_SELECT = "select sid, id, firstName, lastName, age from PUBLIC.PERSON";

@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test cases for SQL Extension API.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItSqlExtensionTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.

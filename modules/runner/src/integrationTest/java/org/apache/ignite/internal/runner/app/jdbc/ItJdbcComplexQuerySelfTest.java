@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for complex queries (joins, etc.).
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
     @BeforeAll
     public static void createTable() throws Exception {

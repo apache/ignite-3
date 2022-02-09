@@ -57,7 +57,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Metadata tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /** Creates tables. */
     @BeforeAll

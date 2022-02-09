@@ -62,7 +62,7 @@ import org.junit.jupiter.api.Test;
  * Connection test.
  */
 @SuppressWarnings("ThrowableNotThrown")
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     /**
      * Test JDBC loading via ServiceLoader.

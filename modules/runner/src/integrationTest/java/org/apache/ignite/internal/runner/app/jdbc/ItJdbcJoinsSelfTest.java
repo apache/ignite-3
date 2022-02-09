@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for complex queries with joins.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+
 public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
     /**
      * Check distributed OUTER join of 3 tables (T1 -> T2 -> T3) returns correct result for non-collocated data.
