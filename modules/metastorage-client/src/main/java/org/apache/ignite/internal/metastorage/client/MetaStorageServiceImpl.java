@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.metastorage.common.BranchResultInfo;
-import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.BinaryConditionInfo;
@@ -327,11 +327,11 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return new UpdateInfo(toOperationInfos(update.operations()), new BranchResultInfo(update.result().getAsBoolean()));
     }
     
-    private static IfBranchInfo toIfBranchInfo(IfBranch ifBranch) {
-        if (ifBranch.isTerminal()) {
-            return new IfBranchInfo(toUpdateInfo(ifBranch.update()));
+    private static StatementInfo toIfBranchInfo(Statement statement) {
+        if (statement.isTerminal()) {
+            return new StatementInfo(toUpdateInfo(statement.update()));
         } else {
-            return new IfBranchInfo(toIfInfo(ifBranch._if()));
+            return new StatementInfo(toIfInfo(statement._if()));
         }
     }
     

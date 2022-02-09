@@ -55,7 +55,7 @@ import org.apache.ignite.internal.metastorage.server.BranchResult;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.internal.metastorage.server.IfBranch;
+import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Operation;
 import org.apache.ignite.internal.metastorage.server.Update;
@@ -636,7 +636,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
             while (true) {
                 Collection<Entry> e = getAll(Arrays.asList(currIf.condition().keys()));
 
-                IfBranch branch = (currIf.condition().test(e.toArray(new Entry[e.size()]))) ? currIf.andThen() : currIf.orElse();
+                Statement branch = (currIf.condition().test(e.toArray(new Entry[e.size()]))) ? currIf.andThen() : currIf.orElse();
 
                 if (branch.isTerminal()) {
                     Update update = branch.update();

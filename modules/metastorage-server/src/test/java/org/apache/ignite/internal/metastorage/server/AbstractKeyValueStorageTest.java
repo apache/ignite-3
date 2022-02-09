@@ -1667,10 +1667,10 @@ public abstract class AbstractKeyValueStorageTest {
         
         If _if = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-            new IfBranch(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(1))),
-                new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(2))))),
-            new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(3))));
+            new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(1))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(2))))),
+            new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(3))));
                 
         
         BranchResult branch = storage.invoke(_if);
@@ -1745,10 +1745,10 @@ public abstract class AbstractKeyValueStorageTest {
         
         If _if = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-                new IfBranch(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                        new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(1))),
-                        new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(2))))),
-                new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(3))));
+                new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(1))),
+                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(3))));
         
         BranchResult branch = storage.invoke(_if);
     
@@ -1813,10 +1813,10 @@ public abstract class AbstractKeyValueStorageTest {
         
         If _if = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-                new IfBranch(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                        new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(1))),
-                        new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(2))))),
-                new IfBranch(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(3))));
+                new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new BranchResult(1))),
+                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new BranchResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new BranchResult(3))));
         
         BranchResult branch = storage.invoke(_if);
         

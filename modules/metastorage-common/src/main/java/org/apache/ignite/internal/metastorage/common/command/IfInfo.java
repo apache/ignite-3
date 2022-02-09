@@ -1,15 +1,15 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
 
 public class IfInfo implements Serializable {
     private final ConditionInfo cond;
-    private final IfBranchInfo andThen;
-    private final IfBranchInfo orElse;
+    private final StatementInfo andThen;
+    private final StatementInfo orElse;
     
-    public IfInfo(ConditionInfo cond, IfBranchInfo andThen,
-            IfBranchInfo orElse) {
+    public IfInfo(ConditionInfo cond, StatementInfo andThen,
+            StatementInfo orElse) {
         this.cond = cond;
         this.andThen = andThen;
         this.orElse = orElse;
@@ -19,11 +19,11 @@ public class IfInfo implements Serializable {
         return cond;
     }
     
-    public IfBranchInfo andThen() {
+    public StatementInfo andThen() {
         return andThen;
     }
     
-    public IfBranchInfo orElse() {
+    public StatementInfo orElse() {
         return orElse;
     }
 }

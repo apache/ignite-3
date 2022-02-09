@@ -1,15 +1,15 @@
-package org.apache.ignite.internal.metastorage.client;
+package org.apache.ignite.internal.metastorage.server;
 
-public class IfBranch {
+public class Statement {
     private final If _if;
     private final Update update;
     
-    public IfBranch(If _if) {
+    public Statement(If _if) {
         this._if = _if;
         this.update = null;
     }
     
-    public IfBranch(Update update) {
+    public Statement(Update update) {
         this.update = update;
         this._if = null;
     }

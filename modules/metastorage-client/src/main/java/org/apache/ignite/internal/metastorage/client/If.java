@@ -3,10 +3,10 @@ package org.apache.ignite.internal.metastorage.client;
 public class If {
     
     private final Condition condition;
-    private final IfBranch andThen;
-    private final IfBranch orElse;
+    private final Statement andThen;
+    private final Statement orElse;
     
-    public If(Condition condition, IfBranch andThen, IfBranch orElse) {
+    public If(Condition condition, Statement andThen, Statement orElse) {
         this.condition = condition;
         this.andThen = andThen;
         this.orElse = orElse;
@@ -16,28 +16,28 @@ public class If {
         return condition;
     }
     
-    public IfBranch andThen() {
+    public Statement andThen() {
         return andThen;
     }
     
-    public IfBranch orElse() {
+    public Statement orElse() {
         return orElse;
     }
     
     public static If _if(Condition condition, If andThen, If orElse) {
-        return new If(condition, new IfBranch(andThen), new IfBranch(orElse));
+        return new If(condition, new Statement(andThen), new Statement(orElse));
     }
     
     public static If _if(Condition condition, If andThen, Update orElse) {
-        return new If(condition, new IfBranch(andThen), new IfBranch(orElse));
+        return new If(condition, new Statement(andThen), new Statement(orElse));
     }
     
     public static If _if(Condition condition, Update andThen, If orElse) {
-        return new If(condition, new IfBranch(andThen), new IfBranch(orElse));
+        return new If(condition, new Statement(andThen), new Statement(orElse));
     }
     
     public static If _if(Condition condition, Update andThen, Update orElse) {
-        return new If(condition, new IfBranch(andThen), new IfBranch(orElse));
+        return new If(condition, new Statement(andThen), new Statement(orElse));
     }
     
 }

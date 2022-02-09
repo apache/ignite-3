@@ -310,7 +310,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             while (true) {
                 Collection<Entry> e = getAll(Arrays.asList(currIf.condition().keys()));
     
-                IfBranch branch = (currIf.condition().test(e.toArray(new Entry[]{}))) ? currIf.andThen() : currIf.orElse();
+                Statement branch = (currIf.condition().test(e.toArray(new Entry[]{}))) ? currIf.andThen() : currIf.orElse();
     
                 if (branch.isTerminal()) {
                     long curRev = rev + 1;

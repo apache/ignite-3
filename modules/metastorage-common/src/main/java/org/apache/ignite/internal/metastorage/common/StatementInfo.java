@@ -3,16 +3,16 @@ package org.apache.ignite.internal.metastorage.common;
 import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 
-public class IfBranchInfo implements Serializable {
+public class StatementInfo implements Serializable {
     private final IfInfo _if;
     private final UpdateInfo update;
     
-    public IfBranchInfo(IfInfo _if) {
+    public StatementInfo(IfInfo _if) {
         this._if = _if;
         this.update = null;
     }
     
-    public IfBranchInfo(UpdateInfo update) {
+    public StatementInfo(UpdateInfo update) {
         this.update = update;
         this._if = null;
     }

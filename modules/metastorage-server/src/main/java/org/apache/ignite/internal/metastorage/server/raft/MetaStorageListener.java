@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.common.BranchResultInfo;
-import org.apache.ignite.internal.metastorage.common.IfBranchInfo;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.BinaryConditionType;
@@ -60,7 +60,7 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCo
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
-import org.apache.ignite.internal.metastorage.server.IfBranch;
+import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.BranchResult;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
@@ -423,11 +423,11 @@ public class MetaStorageListener implements RaftGroupListener {
         return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new BranchResult(updateInfo.result().result()));
     }
     
-    private static IfBranch toConditionBranch(IfBranchInfo ifBranchInfo) {
-        if (ifBranchInfo.isTerminal()) {
-            return new IfBranch(toUpdate(ifBranchInfo.update()));
+    private static Statement toConditionBranch(StatementInfo statementInfo) {
+        if (statementInfo.isTerminal()) {
+            return new Statement(toUpdate(statementInfo.update()));
         } else {
-            return new IfBranch(toIf(ifBranchInfo._if()));
+            return new Statement(toIf(statementInfo._if()));
         }
     }
 
