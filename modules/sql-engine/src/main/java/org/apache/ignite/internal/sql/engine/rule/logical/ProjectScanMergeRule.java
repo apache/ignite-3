@@ -227,7 +227,7 @@ public abstract class ProjectScanMergeRule<T extends ProjectableFilterableTableS
         Config INDEX_SCAN = DEFAULT
                 .withRuleFactory(ProjectIndexScanMergeRule::new)
                 .withScanRuleConfig(IgniteLogicalIndexScan.class, "ProjectIndexScanMergeRule", false);
-        
+
         /**
          * Create rule's configuration.
          */

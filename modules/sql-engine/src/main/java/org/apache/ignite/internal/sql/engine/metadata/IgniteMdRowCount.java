@@ -38,7 +38,6 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.jetbrains.annotations.Nullable;
 
 /**
