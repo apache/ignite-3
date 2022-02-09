@@ -932,7 +932,7 @@ public class ItMetaStorageServiceTest {
         @Override
         protected boolean matchesSafely(Update item) {
             return item.operations().size() == update.operations().size() &&
-                    Arrays.equals(item.result().getAsBytes(), update.result().getAsBytes()) &&
+                    Arrays.equals(item.result().bytes(), update.result().bytes()) &&
                     opsEqual(item.operations().iterator(), update.operations().iterator());
                     
         }

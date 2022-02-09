@@ -3,13 +3,13 @@ package org.apache.ignite.internal.metastorage.common;
 import java.io.Serializable;
 
 public class StatementResultInfo implements Serializable {
-    private final boolean res;
+    private final byte[] res;
     
-    public StatementResultInfo(boolean res) {
+    public StatementResultInfo(byte[] res) {
         this.res = res;
     }
     
-    public boolean result() {
+    public byte[] result() {
         return res;
     }
     

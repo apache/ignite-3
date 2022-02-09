@@ -14,6 +14,10 @@ public class StatementResult {
         this.result = ByteBuffer.allocate(4).putInt(result).array();
     }
     
+    public StatementResult(byte[] result) {
+        this.result = result;
+    }
+    
     public boolean getAsBoolean() {
         return result[0] != 0;
     }
@@ -22,7 +26,7 @@ public class StatementResult {
         return ByteBuffer.wrap(result).getInt();
     }
     
-    public byte[] getAsBytes() {
+    public byte[] bytes() {
         return result;
     }
     

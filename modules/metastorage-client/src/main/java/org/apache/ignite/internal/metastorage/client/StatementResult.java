@@ -6,6 +6,10 @@ public class StatementResult {
     
     private final byte[] result;
     
+    public StatementResult(byte[] result) {
+        this.result = result;
+    }
+    
     public StatementResult(boolean result) {
         this.result = new byte[] {(byte) (result ? 1 : 0)};
     }
@@ -20,6 +24,10 @@ public class StatementResult {
     
     public Integer getAsInt() {
         return ByteBuffer.wrap(result).getInt();
+    }
+    
+    public byte[] bytes() {
+        return result;
     }
     
     public static StatementResult res(boolean r) {

@@ -324,7 +324,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
     
     private static UpdateInfo toUpdateInfo(Update update) {
-        return new UpdateInfo(toOperationInfos(update.operations()), new StatementResultInfo(update.result().getAsBoolean()));
+        return new UpdateInfo(toOperationInfos(update.operations()), new StatementResultInfo(update.result().bytes()));
     }
     
     private static StatementInfo toIfBranchInfo(Statement statement) {
