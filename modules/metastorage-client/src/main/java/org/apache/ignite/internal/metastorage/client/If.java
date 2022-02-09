@@ -24,19 +24,19 @@ public class If {
         return orElse;
     }
 
-    public static If _if(Condition condition, If andThen, If orElse) {
+    public static If iif(Condition condition, If andThen, If orElse) {
         return new If(condition, new Statement(andThen), new Statement(orElse));
     }
 
-    public static If _if(Condition condition, If andThen, Update orElse) {
+    public static If iif(Condition condition, If andThen, Update orElse) {
         return new If(condition, new Statement(andThen), new Statement(orElse));
     }
 
-    public static If _if(Condition condition, Update andThen, If orElse) {
+    public static If iif(Condition condition, Update andThen, If orElse) {
         return new If(condition, new Statement(andThen), new Statement(orElse));
     }
 
-    public static If _if(Condition condition, Update andThen, Update orElse) {
+    public static If iif(Condition condition, Update andThen, Update orElse) {
         return new If(condition, new Statement(andThen), new Statement(orElse));
     }
 

@@ -628,11 +628,11 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If _if) {
+    public StatementResult invoke(If iif) {
         rwLock.writeLock().lock();
 
         try {
-            If currIf = _if;
+            If currIf = iif;
             while (true) {
                 Collection<Entry> e = getAll(Arrays.asList(currIf.condition().keys()));
 
@@ -645,7 +645,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                     return update.result();
                 } else
-                    currIf = branch._if();
+                    currIf = branch.iif();
             }
         } catch (RocksDBException e) {
             throw new IgniteInternalException(e);

@@ -200,8 +200,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     @Override
-    public CompletableFuture<StatementResult> invoke(If _if) {
-        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(_if))).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+    public CompletableFuture<StatementResult> invoke(If iif) {
+        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(iif))).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
     }
 
     /** {@inheritDoc} */
@@ -331,12 +331,12 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         if (statement.isTerminal()) {
             return new StatementInfo(toUpdateInfo(statement.update()));
         } else {
-            return new StatementInfo(toIfInfo(statement._if()));
+            return new StatementInfo(toIfInfo(statement.iif()));
         }
     }
 
-    private static IfInfo toIfInfo(If _if) {
-        return new IfInfo(toConditionInfo(_if.condition()), toIfBranchInfo(_if.andThen()), toIfBranchInfo(_if.orElse()));
+    private static IfInfo toIfInfo(If iif) {
+        return new IfInfo(toConditionInfo(iif.condition()), toIfBranchInfo(iif.andThen()), toIfBranchInfo(iif.orElse()));
     }
 
     private static ConditionInfo toConditionInfo(@NotNull Condition condition) {

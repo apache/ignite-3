@@ -238,7 +238,7 @@ public class MetaStorageListener implements RaftGroupListener {
                 MultiInvokeCommand cmd = (MultiInvokeCommand) clo.command();
 
                 StatementResult res = storage.invoke(
-                        toIf(cmd._if())
+                        toIf(cmd.iif())
                 );
 
                 clo.result(new StatementResultInfo(res.bytes()));
@@ -415,8 +415,8 @@ public class MetaStorageListener implements RaftGroupListener {
         return storage;
     }
 
-    private static If toIf(IfInfo _if) {
-        return new If(toCondition(_if.cond()), toConditionBranch(_if.andThen()), toConditionBranch(_if.orElse()));
+    private static If toIf(IfInfo iif) {
+        return new If(toCondition(iif.cond()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
     }
 
     private static Update toUpdate(UpdateInfo updateInfo) {
@@ -427,7 +427,7 @@ public class MetaStorageListener implements RaftGroupListener {
         if (statementInfo.isTerminal()) {
             return new Statement(toUpdate(statementInfo.update()));
         } else {
-            return new Statement(toIf(statementInfo._if()));
+            return new Statement(toIf(statementInfo.iif()));
         }
     }
 

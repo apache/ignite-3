@@ -304,9 +304,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     }
 
     @Override
-    public StatementResult invoke(If _if) {
+    public StatementResult invoke(If iif) {
         synchronized (mux) {
-            If currIf = _if;
+            If currIf = iif;
             while (true) {
                 Collection<Entry> e = getAll(Arrays.asList(currIf.condition().keys()));
 
@@ -345,7 +345,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                     return branch.update().result();
                 } else
-                    currIf = branch._if();
+                    currIf = branch.iif();
             }
         }
     }

@@ -4,25 +4,27 @@ import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 
 public class StatementInfo implements Serializable {
-    private final IfInfo _if;
+
+    @SuppressWarnings("MemberName")
+    private final IfInfo iif;
     private final UpdateInfo update;
 
-    public StatementInfo(IfInfo _if) {
-        this._if = _if;
+    public StatementInfo(IfInfo iif) {
+        this.iif = iif;
         this.update = null;
     }
 
     public StatementInfo(UpdateInfo update) {
         this.update = update;
-        this._if = null;
+        this.iif = null;
     }
 
     public boolean isTerminal() {
         return update != null;
     }
 
-    public IfInfo _if() {
-        return _if;
+    public IfInfo iif() {
+        return iif;
     }
 
     public UpdateInfo update() {
