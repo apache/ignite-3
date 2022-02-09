@@ -932,6 +932,9 @@ public class ItMetaStorageServiceTest {
         }
     }
 
+    /**
+     * Matcher for {@link Update}.
+     */
     protected static class ServerUpdateMatcher extends TypeSafeMatcher<Update> {
 
         private final Update update;
@@ -983,6 +986,9 @@ public class ItMetaStorageServiceTest {
         }
     }
 
+    /**
+     * Matcher for {@link org.apache.ignite.internal.metastorage.server.Condition}.
+     */
     protected static class ServerConditionMatcher extends TypeSafeMatcher<org.apache.ignite.internal.metastorage.server.Condition> {
 
         private org.apache.ignite.internal.metastorage.server.Condition condition;

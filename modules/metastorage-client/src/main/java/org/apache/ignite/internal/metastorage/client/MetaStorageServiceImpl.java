@@ -199,8 +199,9 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return metaStorageRaftGrpSvc.run(new InvokeCommand(cond, successOps, failureOps));
     }
 
+    /** {@inheritDoc} */
     @Override
-    public CompletableFuture<StatementResult> invoke(If iif) {
+    public @NotNull CompletableFuture<StatementResult> invoke(@NotNull If iif) {
         return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(iif)))
                 .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
     }
@@ -369,7 +370,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             CompoundCondition cond = (CompoundCondition) condition;
 
             cnd = new CompoundConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()),
-                    cond.binaryConditionType());
+                    cond.compoundConditionType());
         } else {
             assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
         }
