@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Update statement self test.
  */
-
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcUpdateStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /**
      * Execute test.
