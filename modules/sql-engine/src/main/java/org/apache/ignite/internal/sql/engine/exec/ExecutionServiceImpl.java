@@ -159,6 +159,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        iteratorsHolder.start();
         topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
 
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
