@@ -160,7 +160,7 @@ public class RootQuery<RowT> extends Query<RowT> {
             RootNode<RowT> rootNode = new RootNode<>(ctx, plan.metadata().rowType(), this::tryClose);
             rootNode.register(root);
 
-            addFragment(new RunningFragment<>(first(plan.fragments()).root(), rootNode, ctx));
+            addFragment(new RunningFragment<>(rootNode, ctx));
 
             this.root = rootNode;
 

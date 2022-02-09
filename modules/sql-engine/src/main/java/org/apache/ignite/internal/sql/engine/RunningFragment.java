@@ -20,26 +20,20 @@ package org.apache.ignite.internal.sql.engine;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Part of the query which is currently executing on the server.
  */
 public class RunningFragment<RowT> {
-    /** Relation tree of the fragment is used to generate fragment human-readable description. */
-    private final IgniteRel rootRel;
-
     private final AbstractNode<RowT> root;
 
     private final ExecutionContext<RowT> ectx;
 
     /** Creates the object. */
     public RunningFragment(
-            IgniteRel rootRel,
             AbstractNode<RowT> root,
             ExecutionContext<RowT> ectx) {
-        this.rootRel = rootRel;
         this.root = root;
         this.ectx = ectx;
     }

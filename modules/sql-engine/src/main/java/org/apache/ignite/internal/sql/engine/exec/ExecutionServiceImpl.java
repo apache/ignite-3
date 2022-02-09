@@ -333,7 +333,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
                 exchangeSrvc
         ).go(plan.root());
 
-        qry.addFragment(new RunningFragment<>(plan.root(), node, ectx));
+        qry.addFragment(new RunningFragment<>(node, ectx));
 
         try {
             msgSrvc.send(
