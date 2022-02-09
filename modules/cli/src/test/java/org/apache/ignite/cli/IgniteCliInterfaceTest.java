@@ -49,6 +49,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import org.apache.ignite.cli.builtins.init.InitIgniteCommand;
 import org.apache.ignite.cli.builtins.module.ModuleManager;
 import org.apache.ignite.cli.builtins.module.ModuleRegistry;
@@ -186,21 +187,21 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("add mvn:groupId:artifact:version --repo http://mvnrepo.com/repostiory")
+        @DisplayName("add mvn:groupId:artifact:version --repo http://mvnrepo.com/repostiory --repo http://anotherrepo.com/repostiory")
         void addWithCustomRepo() throws MalformedURLException {
             doNothing().when(moduleMgr).addModule(any(), any(), any());
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
-            var exitCode =
-                    cmd(ctx)
-                            .execute(
-                                    "module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory".split(" "));
+            var exitCode = cmd(ctx)
+                    .execute(
+                            ("module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory "
+                                    + "--repo http://anotherrepo.com/repostiory").split(" "));
 
             verify(moduleMgr).addModule(
                     "mvn:groupId:artifactId:version",
                     ignitePaths,
-                    Collections.singletonList(new URL("http://mvnrepo.com/repostiory")));
+                    List.of(new URL("http://mvnrepo.com/repostiory"), new URL("http://anotherrepo.com/repostiory")));
             assertThatExitCodeMeansSuccess(exitCode);
         }
 
@@ -653,8 +654,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --node-endpoint=127.0.0.1:17300 --metastorage-nodes node1ConsistentId node2ConsistentId "
-                + "--cmg-nodes node2ConsistentId node3ConsistentId")
+        @DisplayName("init --node-endpoint=127.0.0.1:17300 --metastorage-node node1ConsistentId --metastorage-node node2ConsistentId "
+                + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void initSuccess() throws Exception {
             when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(response);
@@ -665,8 +666,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-nodes", "node1ConsistentId", "node2ConsistentId",
-                            "--cmg-nodes", "node2ConsistentId", "node3ConsistentId"
+                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -692,8 +693,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-nodes", "node1ConsistentId", "node2ConsistentId",
-                            "--cmg-nodes", "node2ConsistentId", "node3ConsistentId"
+                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
             assertThatExitCodeIs(1, exitCode);
@@ -718,8 +719,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-nodes", "node1ConsistentId", "node2ConsistentId",
-                            "--cmg-nodes", "node2ConsistentId", "node3ConsistentId"
+                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
             assertThatExitCodeIs(1, exitCode);
@@ -731,14 +732,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --metastorage-nodes node1ConsistentId node2ConsistentId "
-                + "--cmg-nodes node2ConsistentId node3ConsistentId")
+        @DisplayName("init --metastorage-node node1ConsistentId --metastorage-node node2ConsistentId "
+                + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void nodeEndpointIsMandatoryForInit() {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init",
-                            "--metastorage-nodes", "node1ConsistentId", "node2ConsistentId",
-                            "--cmg-nodes", "node2ConsistentId", "node3ConsistentId"
+                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
             assertThatExitCodeIs(2, exitCode);
@@ -748,22 +749,22 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --node-endpoint=127.0.0.1:17300 --cmg-nodes node2ConsistentId node3ConsistentId")
+        @DisplayName("init --node-endpoint=127.0.0.1:17300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void metastorageNodesAreMandatoryForInit() {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--cmg-nodes", "node2ConsistentId", "node3ConsistentId"
+                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
             assertThatExitCodeIs(2, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--metastorage-nodes=<metastorageNodes>'"));
+            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--metastorage-node=<metastorageNodes>'"));
         }
 
         @Test
-        @DisplayName("init --node-endpoint=127.0.0.1:17300 --metastorage-nodes node2ConsistentId node3ConsistentId")
+        @DisplayName("init --node-endpoint=127.0.0.1:17300 --metastorage-node node2ConsistentId --metastorage-node node3ConsistentId")
         void cmgNodesAreNotMandatoryForInit() throws Exception {
             when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(response);
@@ -771,7 +772,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-nodes", "node1ConsistentId", "node2ConsistentId"
+                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId"
                     );
 
             assertThatExitCodeMeansSuccess(exitCode);

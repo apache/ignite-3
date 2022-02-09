@@ -56,10 +56,10 @@ public class ClusterCommandSpec extends CategorySpec {
          * List of names of the nodes (each represented by a separate command line argument) that will host the Metastorage Raft group.
          * If the "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Raft group.
          */
-        @Option(names = "--metastorage-nodes", required = true, arity = "1..*", description = {
-                "List of names of the nodes (each represented by a separate command line argument)",
+        @Option(names = "--metastorage-node", required = true, description = {
+                "Name of the node (repeat like '--metastorage-node node1 --metastorage-node node2' to specify more than one node)",
                 "that will host the Metastorage Raft group.",
-                "If the \"--cmg-nodes\" parameter is empty, the same nodes will also host the Cluster Management Raft group."
+                "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Raft group."
         })
         private List<String> metastorageNodes;
 
@@ -67,10 +67,10 @@ public class ClusterCommandSpec extends CategorySpec {
          * List of names of the nodes (each represented by a separate command line argument) that will host
          * the Cluster Management Raft group.
          */
-        @Option(names = "--cmg-nodes", arity = "0..*", description = {
-                "List of names of the nodes (each represented by a separate command line argument)",
+        @Option(names = "--cmg-node", description = {
+                "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' to specify more than one node)",
                 "that will host the Cluster Management Raft group.",
-                "If omitted, then --metastorage-nodes will also supply the nodes for the Cluster Management Raft group."
+                "If omitted, then --metastorage-node values will also supply the nodes for the Cluster Management Raft group."
         })
         private List<String> cmgNodes;
 
