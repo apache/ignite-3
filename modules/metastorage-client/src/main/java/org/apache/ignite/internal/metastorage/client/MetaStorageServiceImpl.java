@@ -28,22 +28,21 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
-import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
-import org.apache.ignite.internal.metastorage.common.command.IfInfo;
-import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
+import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
@@ -201,7 +201,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<StatementResult> invoke(If iif) {
-        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(iif))).thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(iif)))
+                .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
     }
 
     /** {@inheritDoc} */
@@ -367,7 +368,8 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         } else if (condition instanceof CompoundCondition) {
             CompoundCondition cond = (CompoundCondition) condition;
 
-            cnd = new CompoundConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()), cond.binaryConditionType());
+            cnd = new CompoundConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()),
+                    cond.binaryConditionType());
         } else {
             assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
         }

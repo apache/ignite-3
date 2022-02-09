@@ -157,6 +157,7 @@ public interface KeyValueStorage extends AutoCloseable {
     boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
 
     StatementResult invoke(If iif);
+
     /**
      * Returns cursor by entries which correspond to the given keys range.
      *

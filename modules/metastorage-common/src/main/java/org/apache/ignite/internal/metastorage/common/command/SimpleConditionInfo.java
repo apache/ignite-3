@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 
 /**

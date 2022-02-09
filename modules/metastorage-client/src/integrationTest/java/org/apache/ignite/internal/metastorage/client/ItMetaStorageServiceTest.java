@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.metastorage.client;
 
-import static org.apache.ignite.internal.metastorage.client.Conditions.*;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.client.Conditions.revision;
+import static org.apache.ignite.internal.metastorage.client.Conditions.value;
+import static org.apache.ignite.internal.metastorage.client.If.iif;
 import static org.apache.ignite.internal.metastorage.client.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
 import static org.apache.ignite.internal.metastorage.client.ItMetaStorageServiceTest.ServerUpdateMatcher.upd;
-import static org.apache.ignite.internal.metastorage.client.Operations.*;
-import static org.apache.ignite.internal.metastorage.client.CompoundCondition.*;
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.metastorage.client.If.iif;
+import static org.apache.ignite.internal.metastorage.client.Operations.ops;
+import static org.apache.ignite.internal.metastorage.client.Operations.put;
+import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -60,11 +63,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractSimpleCondition;
-import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
@@ -786,10 +789,10 @@ public class ItMetaStorageServiceTest {
          */
 
         var iif = If.iif(or(value(key1).eq(val1), value(key2).ne(val2)),
-            iif(revision(key3).eq(3),
-                ops(put(key1, rval1)).yield(true),
-                ops(put(key1, rval1), remove(key2)).yield(false)),
-            ops(put(key2, rval2)).yield(false));
+                iif(revision(key3).eq(3),
+                        ops(put(key1, rval1)).yield(true),
+                        ops(put(key1, rval1), remove(key2)).yield(false)),
+                ops(put(key2, rval2)).yield(false));
 
         var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
 
@@ -800,15 +803,23 @@ public class ItMetaStorageServiceTest {
         verify(mockStorage).invoke(ifCaptor.capture());
 
         var resultIf = ifCaptor.getValue();
-        assertThat(resultIf.condition(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1), new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
+        assertThat(resultIf.condition(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
+                new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
 
         assertThat(resultIf.andThen().iif().condition(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
 
-        assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)), new StatementResult(true))));
+        assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(
+                Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)),
+                new StatementResult(true))));
 
-        assertThat(resultIf.andThen().iif().orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1), new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)), new StatementResult(false))));
+        assertThat(resultIf.andThen().iif().orElse().update(), upd(new Update(
+                Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1),
+                        new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)),
+                new StatementResult(false))));
 
-        assertThat(resultIf.orElse().update(), upd(new Update(Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)), new StatementResult(false))));
+        assertThat(resultIf.orElse().update(), upd(new Update(
+                Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)),
+                new StatementResult(false))));
     }
 
     @Test
@@ -929,11 +940,15 @@ public class ItMetaStorageServiceTest {
             this.update = update;
         }
 
+        public static ServerUpdateMatcher upd(Update update) {
+            return new ServerUpdateMatcher(update);
+        }
+
         @Override
         protected boolean matchesSafely(Update item) {
-            return item.operations().size() == update.operations().size() &&
-                    Arrays.equals(item.result().bytes(), update.result().bytes()) &&
-                    opsEqual(item.operations().iterator(), update.operations().iterator());
+            return item.operations().size() == update.operations().size()
+                    && Arrays.equals(item.result().bytes(), update.result().bytes())
+                    && opsEqual(item.operations().iterator(), update.operations().iterator());
 
         }
 
@@ -947,22 +962,23 @@ public class ItMetaStorageServiceTest {
             mismatchDescription.appendText(toString(item));
         }
 
-        public static ServerUpdateMatcher upd(Update update) {
-            return new ServerUpdateMatcher(update);
-        }
-
         private String toString(Update upd) {
-            return "Update([" + upd.operations().stream().map(o -> o.type() + "(" + Arrays.toString(o.key()) + ", " + Arrays.toString(o.value()) + ")").collect(Collectors.joining(",")) + "])";
+            return "Update([" + upd.operations().stream()
+                    .map(o -> o.type() + "(" + Arrays.toString(o.key()) + ", " + Arrays.toString(o.value()) + ")")
+                    .collect(Collectors.joining(",")) + "])";
         }
 
-        private boolean opsEqual(Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops1, Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops2) {
+        private boolean opsEqual(Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops1,
+                Iterator<org.apache.ignite.internal.metastorage.server.Operation> ops2) {
             if (!ops1.hasNext()) {
                 return true;
             } else {
                 return opEqual(ops1.next(), ops2.next()) && opsEqual(ops1, ops2);
             }
         }
-        private boolean opEqual(org.apache.ignite.internal.metastorage.server.Operation op1, org.apache.ignite.internal.metastorage.server.Operation op2) {
+
+        private boolean opEqual(org.apache.ignite.internal.metastorage.server.Operation op1,
+                org.apache.ignite.internal.metastorage.server.Operation op2) {
             return Arrays.equals(op1.key(), op2.key()) && Arrays.equals(op1.value(), op2.value()) && op1.type() == op2.type();
         }
     }
@@ -975,14 +991,19 @@ public class ItMetaStorageServiceTest {
             this.condition = condition;
         }
 
+        public static ServerConditionMatcher cond(org.apache.ignite.internal.metastorage.server.Condition condition) {
+            return new ServerConditionMatcher(condition);
+        }
+
         @Override
         protected boolean matchesSafely(org.apache.ignite.internal.metastorage.server.Condition item) {
             if (condition.getClass() == item.getClass() && Arrays.deepEquals(condition.keys(), item.keys())) {
                 if (condition.getClass().isInstance(AbstractCompoundCondition.class)) {
-                    return new ServerConditionMatcher(((AbstractCompoundCondition) condition).leftCondition()).matchesSafely(((AbstractCompoundCondition) item).leftCondition()) &&
-                            new ServerConditionMatcher(((AbstractCompoundCondition) condition).rightCondition()).matchesSafely(((AbstractCompoundCondition) item).rightCondition());
-                }
-                else {
+                    return new ServerConditionMatcher(((AbstractCompoundCondition) condition).leftCondition())
+                            .matchesSafely(((AbstractCompoundCondition) item).leftCondition())
+                            && new ServerConditionMatcher(((AbstractCompoundCondition) condition).rightCondition())
+                                    .matchesSafely(((AbstractCompoundCondition) item).rightCondition());
+                } else {
                     return true;
                 }
             }
@@ -1011,10 +1032,6 @@ public class ItMetaStorageServiceTest {
                 throw new IllegalArgumentException("Unknown condition type " + cond.getClass().getSimpleName());
             }
 
-        }
-
-        public static ServerConditionMatcher cond(org.apache.ignite.internal.metastorage.server.Condition condition) {
-            return new ServerConditionMatcher(condition);
         }
     }
 

@@ -27,13 +27,12 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
-import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.CompoundConditionType;
-import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -43,7 +42,7 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
@@ -60,8 +60,6 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCo
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
-import org.apache.ignite.internal.metastorage.server.Statement;
-import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
@@ -70,6 +68,8 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Operation;
 import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.Statement;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
@@ -471,10 +471,11 @@ public class MetaStorageListener implements RaftGroupListener {
 
             } else if (inf.type() == CompoundConditionType.OR) {
                 return new OrCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
-            } else
-                throw new IllegalArgumentException("Unknown binary condition " + inf.type());
+            } else {
+                throw new IllegalArgumentException("Unknown compound condition " + inf.type());
+            }
         } else {
-            throw new IllegalArgumentException("Unknow condition info type " + info);
+            throw new IllegalArgumentException("Unknown condition info type " + info);
         }
     }
 

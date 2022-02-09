@@ -27,12 +27,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.SimpleCondition;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.EntryEvent;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.Operations;
+import org.apache.ignite.internal.metastorage.client.SimpleCondition;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -90,8 +90,8 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
      * stored {@link MetaStorageManager#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
-     * possible to use {@link SimpleCondition.RevisionCondition#eq} on {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map,
-     * long)}. {@link SimpleCondition.RevisionCondition#le(long)} must be used instead.
+     * possible to use {@link SimpleCondition.RevisionCondition#eq} on {@link #MASTER_KEY}
+     * in {@link DistributedConfigurationStorage#write(Map, long)}. {@link SimpleCondition.RevisionCondition#le(long)} must be used instead.
      *
      * @see #MASTER_KEY
      * @see MetaStorageManager#APPLIED_REV

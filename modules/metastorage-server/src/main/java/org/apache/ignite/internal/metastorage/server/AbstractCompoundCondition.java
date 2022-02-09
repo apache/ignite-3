@@ -26,8 +26,12 @@ public abstract class AbstractCompoundCondition implements Condition {
 
     @Override
     public boolean test(Entry... e) {
-        return combine(leftCondition.test(Arrays.copyOf(e, leftCondition.keys().length)),
-                rightCondition.test(Arrays.copyOfRange(e, leftCondition.keys().length, leftCondition.keys().length + rightCondition.keys().length)));
+        return combine(
+                leftCondition.test(Arrays.copyOf(e, leftCondition.keys().length)),
+                rightCondition.test(
+                        Arrays.copyOfRange(e,
+                                leftCondition.keys().length,
+                                leftCondition.keys().length + rightCondition.keys().length)));
     }
 
     protected abstract boolean combine(boolean left, boolean right);

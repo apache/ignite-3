@@ -1667,11 +1667,18 @@ public abstract class AbstractKeyValueStorageTest {
 
         If iif = new If(
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
-            new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
-                new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new StatementResult(2))))),
-            new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
-
+                new Statement(
+                        new If(
+                                new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                                new Statement(
+                                        new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                                new Statement(
+                                        new Update(
+                                                List.of(new Operation(OperationType.PUT, key1, rval1),
+                                                        new Operation(OperationType.REMOVE, key2, null)),
+                                                new StatementResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3)))
+        );
 
         StatementResult branch = storage.invoke(iif);
 
@@ -1747,7 +1754,9 @@ public abstract class AbstractKeyValueStorageTest {
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
                 new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
                         new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
-                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new StatementResult(2))))),
+                        new Statement(new Update(
+                                List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
+                                new StatementResult(2))))),
                 new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
 
         StatementResult branch = storage.invoke(iif);
@@ -1815,7 +1824,9 @@ public abstract class AbstractKeyValueStorageTest {
                 new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
                 new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
                         new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
-                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)), new StatementResult(2))))),
+                        new Statement(new Update(
+                                List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
+                                new StatementResult(2))))),
                 new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
 
         StatementResult branch = storage.invoke(iif);
@@ -1836,6 +1847,7 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(3, e3.revision());
         assertArrayEquals(rval3, e3.value());
     }
+
     @Test
     public void rangeCursor() {
         byte[] key1 = key(1);

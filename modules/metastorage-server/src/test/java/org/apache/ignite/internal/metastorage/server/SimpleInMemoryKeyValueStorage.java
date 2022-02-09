@@ -344,8 +344,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                     }
 
                     return branch.update().result();
-                } else
+                } else {
                     currIf = branch.iif();
+                }
             }
         }
     }
