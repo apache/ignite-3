@@ -63,7 +63,6 @@ import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
@@ -218,14 +217,22 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             res.add(Statement.EXECUTE_FAILED);
 
             if (firstError.isEmpty()) {
-                if (e instanceof IgniteException) {
-                    firstError.set(UNKNOWN, e.getCause().getMessage());
+                if (e instanceof ClassCastException) {
+                    firstError.set(UNKNOWN, "Unexpected result after query:" + query.sql()
+                            + ". Not an upsert statement?" + e.getMessage());
                 } else {
-                    firstError.set(UNKNOWN, e.getMessage());
+                    StringWriter sw = getWriterWithStackTrace(e);
+
+                    firstError.set(UNKNOWN, sw.toString());
                 }
             }
 
-            LOG.error("Unexpected error:", e);
+            if (e instanceof ClassCastException) {
+                LOG.error("Unexpected result after query:" + query.sql()
+                        + ". Not an upsert statement?", e);
+            } else {
+                LOG.error("Unexpected error:", e);
+            }
         }
     }
 
