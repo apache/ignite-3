@@ -402,6 +402,10 @@ public class RocksDbSortedIndexStorageTest {
                 .filter(filter)
                 .collect(toList());
 
+        if (shuffledDefinitions.isEmpty()) {
+            shuffledDefinitions = new ArrayList<>(ALL_TYPES_COLUMN_DEFINITIONS);
+        }
+
         Collections.shuffle(shuffledDefinitions, random);
 
         if (log.isInfoEnabled()) {
