@@ -32,7 +32,7 @@ import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
-import org.apache.ignite.internal.metastorage.common.command.BinaryConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
@@ -364,10 +364,10 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
             }
             
-        } else if (condition instanceof BinaryCondition) {
-            BinaryCondition cond = (BinaryCondition) condition;
+        } else if (condition instanceof CompoundCondition) {
+            CompoundCondition cond = (CompoundCondition) condition;
             
-            cnd = new BinaryConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()), cond.binaryConditionType());
+            cnd = new CompoundConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()), cond.binaryConditionType());
         } else {
             assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
         }

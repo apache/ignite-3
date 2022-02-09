@@ -44,6 +44,10 @@ public final class Operations {
         return new Update(Arrays.asList(operations), new StatementResult(result));
     }
     
+    public Update yield() {
+        return new Update(Arrays.asList(operations), new StatementResult(new byte[]{}));
+    }
+    
     public static Operations ops(Operation... operations) {
         return new Operations(operations);
     }

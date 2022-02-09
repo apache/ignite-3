@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.metastorage.client.Conditions.*;
 import static org.apache.ignite.internal.metastorage.client.ItMetaStorageServiceTest.ServerConditionMatcher.cond;
 import static org.apache.ignite.internal.metastorage.client.ItMetaStorageServiceTest.ServerUpdateMatcher.upd;
 import static org.apache.ignite.internal.metastorage.client.Operations.*;
-import static org.apache.ignite.internal.metastorage.client.BinaryCondition.*;
+import static org.apache.ignite.internal.metastorage.client.CompoundCondition.*;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.metastorage.client.If._if;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
@@ -58,7 +58,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
-import org.apache.ignite.internal.metastorage.server.AbstractBinaryCondition;
+import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
 import org.apache.ignite.internal.metastorage.server.AbstractUnaryCondition;
 import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
@@ -978,9 +978,9 @@ public class ItMetaStorageServiceTest {
         @Override
         protected boolean matchesSafely(org.apache.ignite.internal.metastorage.server.Condition item) {
             if (condition.getClass() == item.getClass() && Arrays.deepEquals(condition.keys(), item.keys())) {
-                if (condition.getClass().isInstance(AbstractBinaryCondition.class)) {
-                    return new ServerConditionMatcher(((AbstractBinaryCondition) condition).leftCondition()).matchesSafely(((AbstractBinaryCondition) item).leftCondition()) &&
-                            new ServerConditionMatcher(((AbstractBinaryCondition) condition).rightCondition()).matchesSafely(((AbstractBinaryCondition) item).rightCondition());
+                if (condition.getClass().isInstance(AbstractCompoundCondition.class)) {
+                    return new ServerConditionMatcher(((AbstractCompoundCondition) condition).leftCondition()).matchesSafely(((AbstractCompoundCondition) item).leftCondition()) &&
+                            new ServerConditionMatcher(((AbstractCompoundCondition) condition).rightCondition()).matchesSafely(((AbstractCompoundCondition) item).rightCondition());
                 }
                 else {
                     return true;
@@ -1004,9 +1004,9 @@ public class ItMetaStorageServiceTest {
         private String toString(org.apache.ignite.internal.metastorage.server.Condition cond) {
             if (cond instanceof AbstractUnaryCondition) {
                 return cond.getClass().getSimpleName() + "(" + Arrays.deepToString(cond.keys()) + ")";
-            } else if (cond instanceof AbstractBinaryCondition) {
-                return cond.getClass() + "(" + toString(((AbstractBinaryCondition) cond).leftCondition()) + ", " + toString(
-                        ((AbstractBinaryCondition) cond).rightCondition()) + ")";
+            } else if (cond instanceof AbstractCompoundCondition) {
+                return cond.getClass() + "(" + toString(((AbstractCompoundCondition) cond).leftCondition()) + ", " + toString(
+                        ((AbstractCompoundCondition) cond).rightCondition()) + ")";
             } else {
                 throw new IllegalArgumentException("Unknown condition type " + cond.getClass().getSimpleName());
             }

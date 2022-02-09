@@ -1,6 +1,6 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
-public enum BinaryConditionType {
+public enum CompoundConditionType {
     AND,
     OR
 }

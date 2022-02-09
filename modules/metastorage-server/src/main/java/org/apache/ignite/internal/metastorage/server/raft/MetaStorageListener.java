@@ -31,7 +31,7 @@ import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
-import org.apache.ignite.internal.metastorage.common.command.BinaryConditionType;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionType;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
@@ -43,7 +43,7 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.BinaryConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
@@ -463,13 +463,13 @@ public class MetaStorageListener implements RaftGroupListener {
             } else {
                 throw new IllegalArgumentException("Unknown condition type: " + type);
             }
-        } else if (info instanceof BinaryConditionInfo) {
-            BinaryConditionInfo inf = (BinaryConditionInfo) info;
+        } else if (info instanceof CompoundConditionInfo) {
+            CompoundConditionInfo inf = (CompoundConditionInfo) info;
             
-            if (inf.type() == BinaryConditionType.AND) {
+            if (inf.type() == CompoundConditionType.AND) {
                 return new AndCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
             
-            } else if (inf.type() == BinaryConditionType.OR) {
+            } else if (inf.type() == CompoundConditionType.OR) {
                 return new OrCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
             } else
                 throw new IllegalArgumentException("Unknown binary condition " + inf.type());

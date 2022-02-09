@@ -1,6 +1,6 @@
 package org.apache.ignite.internal.metastorage.server;
 
-public class OrCondition extends AbstractBinaryCondition {
+public class OrCondition extends AbstractCompoundCondition {
     
     public OrCondition(Condition leftCondition, Condition rightCondition) {
         super(leftCondition, rightCondition);

@@ -1,13 +1,13 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
-public class BinaryConditionInfo implements ConditionInfo {
+public class CompoundConditionInfo implements ConditionInfo {
     
     private final ConditionInfo leftConditionInfo;
     private final ConditionInfo rightConditionInfo;
-    private final BinaryConditionType type;
+    private final CompoundConditionType type;
     
-    public BinaryConditionInfo(ConditionInfo leftConditionInfo,
-            ConditionInfo rightConditionInfo, BinaryConditionType type) {
+    public CompoundConditionInfo(ConditionInfo leftConditionInfo,
+            ConditionInfo rightConditionInfo, CompoundConditionType type) {
         this.leftConditionInfo = leftConditionInfo;
         this.rightConditionInfo = rightConditionInfo;
         this.type = type;
@@ -21,7 +21,7 @@ public class BinaryConditionInfo implements ConditionInfo {
         return rightConditionInfo;
     }
     
-    public BinaryConditionType type() {
+    public CompoundConditionType type() {
         return type;
     }
     
