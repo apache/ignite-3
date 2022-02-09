@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
-import org.apache.ignite.internal.metastorage.server.AbstractUnaryCondition;
+import org.apache.ignite.internal.metastorage.server.AbstractSimpleCondition;
 import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -827,7 +827,7 @@ public class ItMetaStorageServiceTest {
 
         assertTrue(metaStorageSvc.invoke(condition, success, failure).get());
 
-        var conditionCaptor = ArgumentCaptor.forClass(AbstractUnaryCondition.class);
+        var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
         ArgumentCaptor<Collection<org.apache.ignite.internal.metastorage.server.Operation>> successCaptor =
                 ArgumentCaptor.forClass(Collection.class);
@@ -1002,7 +1002,7 @@ public class ItMetaStorageServiceTest {
         }
         
         private String toString(org.apache.ignite.internal.metastorage.server.Condition cond) {
-            if (cond instanceof AbstractUnaryCondition) {
+            if (cond instanceof AbstractSimpleCondition) {
                 return cond.getClass().getSimpleName() + "(" + Arrays.deepToString(cond.keys()) + ")";
             } else if (cond instanceof AbstractCompoundCondition) {
                 return cond.getClass() + "(" + toString(((AbstractCompoundCondition) cond).leftCondition()) + ", " + toString(

@@ -33,7 +33,7 @@ import org.apache.ignite.internal.metastorage.common.ConditionType;
 import org.apache.ignite.internal.metastorage.common.UpdateInfo;
 import org.apache.ignite.internal.metastorage.common.command.CompoundConditionType;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -432,8 +432,8 @@ public class MetaStorageListener implements RaftGroupListener {
     }
 
     private static Condition toCondition(ConditionInfo info) {
-        if (info instanceof UnaryConditionInfo) {
-            UnaryConditionInfo inf = (UnaryConditionInfo) info;
+        if (info instanceof SimpleConditionInfo) {
+            SimpleConditionInfo inf = (SimpleConditionInfo) info;
             byte[] key = inf.key();
     
             ConditionType type = inf.type();

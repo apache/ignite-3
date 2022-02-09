@@ -26,7 +26,7 @@ import org.apache.ignite.internal.metastorage.common.ConditionType;
  * @see MetaStorageService#invoke(Condition, Operation, Operation)
  * @see MetaStorageService#invoke(Condition, Collection, Collection)
  */
-public final class UnaryCondition implements Condition {
+public final class SimpleCondition implements Condition {
     /** Actual condition implementation. */
     private final InnerCondition cond;
 
@@ -35,7 +35,7 @@ public final class UnaryCondition implements Condition {
      *
      * @param cond The actual condition implementation.
      */
-    UnaryCondition(InnerCondition cond) {
+    SimpleCondition(InnerCondition cond) {
         this.cond = cond;
     }
 
@@ -76,14 +76,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#REV_EQUAL}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition eq(long rev) {
+        public SimpleCondition eq(long rev) {
             validate(type());
 
             type(ConditionType.REV_EQUAL);
 
             this.rev = rev;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -94,14 +94,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#REV_NOT_EQUAL}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition ne(long rev) {
+        public SimpleCondition ne(long rev) {
             validate(type());
 
             type(ConditionType.REV_NOT_EQUAL);
 
             this.rev = rev;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -112,14 +112,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#REV_GREATER}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition gt(long rev) {
+        public SimpleCondition gt(long rev) {
             validate(type());
 
             type(ConditionType.REV_GREATER);
 
             this.rev = rev;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -130,14 +130,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#REV_GREATER_OR_EQUAL}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition ge(long rev) {
+        public SimpleCondition ge(long rev) {
             validate(type());
 
             type(ConditionType.REV_GREATER_OR_EQUAL);
 
             this.rev = rev;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -148,13 +148,13 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#REV_LESS}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition lt(long rev) {
+        public SimpleCondition lt(long rev) {
             validate(type());
 
             type(ConditionType.REV_LESS);
             this.rev = rev;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -165,14 +165,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#REV_LESS_OR_EQUAL}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition le(long rev) {
+        public SimpleCondition le(long rev) {
             validate(type());
 
             type(ConditionType.REV_LESS_OR_EQUAL);
 
             this.rev = rev;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
     }
 
@@ -205,14 +205,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#VAL_EQUAL}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition eq(byte[] val) {
+        public SimpleCondition eq(byte[] val) {
             validate(type());
 
             type(ConditionType.VAL_EQUAL);
 
             this.val = val;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -223,14 +223,14 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#VAL_NOT_EQUAL}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition ne(byte[] val) {
+        public SimpleCondition ne(byte[] val) {
             validate(type());
 
             type(ConditionType.VAL_NOT_EQUAL);
 
             this.val = val;
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
     }
 
@@ -255,12 +255,12 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#KEY_EXISTS}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition exists() {
+        public SimpleCondition exists() {
             validate(type());
 
             type(ConditionType.KEY_EXISTS);
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
 
         /**
@@ -270,12 +270,12 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#KEY_NOT_EXISTS}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition notExists() {
+        public SimpleCondition notExists() {
             validate(type());
 
             type(ConditionType.KEY_NOT_EXISTS);
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
     }
 
@@ -301,12 +301,12 @@ public final class UnaryCondition implements Condition {
          * @return The condition of type {@link ConditionType#TOMBSTONE}.
          * @throws IllegalStateException In case when the condition is already defined.
          */
-        public UnaryCondition tombstone() {
+        public SimpleCondition tombstone() {
             validate(type());
 
             type(ConditionType.TOMBSTONE);
 
-            return new UnaryCondition(this);
+            return new SimpleCondition(this);
         }
     }
 

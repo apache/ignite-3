@@ -27,7 +27,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.UnaryCondition;
+import org.apache.ignite.internal.metastorage.client.SimpleCondition;
 import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.common.OperationType;
@@ -88,7 +88,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
         var mock = mock(MetaStorageManager.class);
 
         when(mock.invoke(any(), anyCollection(), anyCollection())).thenAnswer(invocation -> {
-            UnaryCondition condition = invocation.getArgument(0);
+            SimpleCondition condition = invocation.getArgument(0);
             Collection<Operation> success = invocation.getArgument(1);
             Collection<Operation> failure = invocation.getArgument(2);
 
@@ -116,15 +116,15 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     }
 
     /**
-     * Converts a {@link UnaryCondition} to a {@link org.apache.ignite.internal.metastorage.server.Condition}.
+     * Converts a {@link SimpleCondition} to a {@link org.apache.ignite.internal.metastorage.server.Condition}.
      */
-    private static org.apache.ignite.internal.metastorage.server.Condition toServerCondition(UnaryCondition condition) {
+    private static org.apache.ignite.internal.metastorage.server.Condition toServerCondition(SimpleCondition condition) {
         switch (condition.type()) {
             case REV_LESS_OR_EQUAL:
                 return new RevisionCondition(
                         RevisionCondition.Type.LESS_OR_EQUAL,
                         condition.inner().key(),
-                        ((UnaryCondition.RevisionCondition) condition.inner()).revision()
+                        ((SimpleCondition.RevisionCondition) condition.inner()).revision()
                 );
             case KEY_NOT_EXISTS:
                 return new ExistenceCondition(

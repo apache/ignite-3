@@ -36,7 +36,7 @@ import org.apache.ignite.internal.metastorage.common.command.CompoundConditionIn
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
-import org.apache.ignite.internal.metastorage.common.command.UnaryConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
@@ -341,25 +341,25 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     private static ConditionInfo toConditionInfo(@NotNull Condition condition) {
         ConditionInfo cnd = null;
-        if (condition instanceof UnaryCondition) {
-            Object obj = ((UnaryCondition) condition).inner();
+        if (condition instanceof SimpleCondition) {
+            Object obj = ((SimpleCondition) condition).inner();
     
-            if (obj instanceof UnaryCondition.ExistenceCondition) {
-                UnaryCondition.ExistenceCondition inner = (UnaryCondition.ExistenceCondition) obj;
+            if (obj instanceof SimpleCondition.ExistenceCondition) {
+                SimpleCondition.ExistenceCondition inner = (SimpleCondition.ExistenceCondition) obj;
         
-                cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, 0);
-            } else if (obj instanceof UnaryCondition.TombstoneCondition) {
-                UnaryCondition.TombstoneCondition inner = (UnaryCondition.TombstoneCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, 0);
+            } else if (obj instanceof SimpleCondition.TombstoneCondition) {
+                SimpleCondition.TombstoneCondition inner = (SimpleCondition.TombstoneCondition) obj;
         
-                cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, 0);
-            } else if (obj instanceof UnaryCondition.RevisionCondition) {
-                UnaryCondition.RevisionCondition inner = (UnaryCondition.RevisionCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, 0);
+            } else if (obj instanceof SimpleCondition.RevisionCondition) {
+                SimpleCondition.RevisionCondition inner = (SimpleCondition.RevisionCondition) obj;
         
-                cnd = new UnaryConditionInfo(inner.key(), inner.type(), null, inner.revision());
-            } else if (obj instanceof UnaryCondition.ValueCondition) {
-                UnaryCondition.ValueCondition inner = (UnaryCondition.ValueCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, inner.revision());
+            } else if (obj instanceof SimpleCondition.ValueCondition) {
+                SimpleCondition.ValueCondition inner = (SimpleCondition.ValueCondition) obj;
         
-                cnd = new UnaryConditionInfo(inner.key(), inner.type(), inner.value(), 0);
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), inner.value(), 0);
             } else {
                 assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
             }
