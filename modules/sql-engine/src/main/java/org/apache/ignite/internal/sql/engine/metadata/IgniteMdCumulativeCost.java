@@ -34,7 +34,6 @@ import org.apache.calcite.rel.metadata.MetadataHandler;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.util.BuiltInMethod;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 
 /**
@@ -43,8 +42,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
  */
 @SuppressWarnings("unused") // actually all methods are used by runtime generated classes
 public class IgniteMdCumulativeCost implements MetadataHandler<BuiltInMetadata.CumulativeCost> {
-    public static final RelMetadataProvider SOURCE = ReflectiveRelMetadataProvider.reflectiveSource(
-            BuiltInMethod.CUMULATIVE_COST.method, new IgniteMdCumulativeCost());
+    public static final RelMetadataProvider SOURCE =
+            ReflectiveRelMetadataProvider.reflectiveSource(new IgniteMdCumulativeCost(), BuiltInMetadata.CumulativeCost.Handler.class);
 
     /** {@inheritDoc} */
     @Override

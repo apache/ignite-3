@@ -18,6 +18,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.lang.Thread.sleep;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -182,7 +183,7 @@ public class ItCliServiceTest {
     private void sendTestTaskAndWait(Node node, int code) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(10);
         for (int i = 0; i < 10; i++) {
-            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes());
+            ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(code, null, latch));
             node.apply(task);
         }

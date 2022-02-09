@@ -42,6 +42,11 @@ Run code style checks only:
 mvn clean validate -Pcheckstyle -Dmaven.all-checks.skip
 ```
 
+Run checks for Legacy API only:
+```
+mvn clean validate -Pmodernizer -Dmaven.all-checks.skip
+```
+
 Run javadoc style checks for public api only:
 ```
 mvn clean checkstyle:checkstyle-aggregate -P javadoc-public-api

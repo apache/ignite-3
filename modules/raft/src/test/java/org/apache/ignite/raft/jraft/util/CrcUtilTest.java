@@ -19,13 +19,14 @@ package org.apache.ignite.raft.jraft.util;
 import java.nio.ByteBuffer;
 import org.junit.jupiter.api.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CrcUtilTest {
 
     @Test
     public void testCrc64() {
-        byte[] bs = "hello world".getBytes();
+        byte[] bs = "hello world".getBytes(UTF_8);
         long c = CrcUtil.crc64(bs);
         assertEquals(c, CrcUtil.crc64(bs));
         assertEquals(c, CrcUtil.crc64(bs));

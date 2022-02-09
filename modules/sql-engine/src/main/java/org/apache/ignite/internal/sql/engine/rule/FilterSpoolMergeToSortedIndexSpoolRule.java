@@ -27,7 +27,6 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
-import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.core.Spool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
@@ -36,10 +35,12 @@ import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
+import org.immutables.value.Value;
 
 /**
  * Rule that pushes filter into the spool.
  */
+@Value.Enclosing
 public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolMergeToSortedIndexSpoolRule.Config> {
     /** Instance. */
     public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
@@ -96,12 +97,10 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @SuppressWarnings("ClassNameSameAsAncestorName")
+    @Value.Immutable
     public interface Config extends RelRule.Config {
-
-        Config DEFAULT = RelRule.Config.EMPTY
-                .withRelBuilderFactory(RelFactories.LOGICAL_BUILDER)
+        Config DEFAULT = ImmutableFilterSpoolMergeToSortedIndexSpoolRule.Config.of()
                 .withDescription("FilterSpoolMergeToSortedIndexSpoolRule")
-                .as(FilterSpoolMergeToSortedIndexSpoolRule.Config.class)
                 .withOperandFor(IgniteFilter.class, IgniteTableSpool.class);
 
         /** Defines an operand tree for the given classes. */
