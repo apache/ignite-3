@@ -25,9 +25,10 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
 import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * URI route with appropriate handler for request.
@@ -40,10 +41,11 @@ public class Route {
     private final HttpMethod method;
 
     /** Accept type. */
+    @Nullable
     private final String acceptType;
 
     /** Handler. */
-    private final BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd;
+    private final RequestHandler hnd;
 
     /**
      * Create a new URI route with the given parameters.
@@ -56,8 +58,8 @@ public class Route {
     public Route(
             String route,
             HttpMethod method,
-            String acceptType,
-            BiConsumer<RestApiHttpRequest, RestApiHttpResponse> hnd
+            @Nullable String acceptType,
+            RequestHandler hnd
     ) {
         this.route = route;
         this.method = method;
@@ -71,8 +73,8 @@ public class Route {
      * @param req  Request.
      * @param resp Response.
      */
-    public void handle(FullHttpRequest req, RestApiHttpResponse resp) {
-        hnd.accept(new RestApiHttpRequest(req, paramsDecode(req.uri())), resp);
+    public CompletableFuture<RestApiHttpResponse> handle(FullHttpRequest req, RestApiHttpResponse resp) {
+        return hnd.handle(new RestApiHttpRequest(req, paramsDecode(req.uri())), resp);
     }
 
     /**

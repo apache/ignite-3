@@ -19,6 +19,10 @@ package org.apache.ignite.internal.rest.presentation;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -27,6 +31,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -135,7 +141,7 @@ public class ConfigurationPresentationTest {
     void testCorrectUpdateFullCfg() {
         String updateVal = "{\"root\":{\"foo\":\"bar\",\"subCfg\":{\"bar\":\"foo\"}}}";
 
-        cfgPresentation.update(updateVal);
+        assertThat(cfgPresentation.update(updateVal), willBe(nullValue(Void.class)));
 
         assertEquals("bar", cfg.foo().value());
         assertEquals("foo", cfg.subCfg().bar().value());
@@ -144,7 +150,9 @@ public class ConfigurationPresentationTest {
 
     @Test
     void testCorrectUpdateSubCfg() {
-        cfgPresentation.update("{\"root\":{\"subCfg\":{\"bar\":\"foo\"}}}");
+        String updateVal = "{\"root\":{\"subCfg\":{\"bar\":\"foo\"}}}";
+
+        assertThat(cfgPresentation.update(updateVal), willBe(nullValue(Void.class)));
 
         assertEquals("foo", cfg.foo().value());
         assertEquals("foo", cfg.subCfg().bar().value());
@@ -153,24 +161,30 @@ public class ConfigurationPresentationTest {
 
     @Test
     void testErrorUpdateCfg() {
-        assertThrows(
+        assertFutureThrows(
                 IllegalArgumentException.class,
-                () -> cfgPresentation.update("{\"root\":{\"foo\":100,\"subCfg\":{\"bar\":\"foo\"}}}")
+                cfgPresentation.update("{\"root\":{\"foo\":100,\"subCfg\":{\"bar\":\"foo\"}}}")
         );
 
-        assertThrows(
+        assertFutureThrows(
                 IllegalArgumentException.class,
-                () -> cfgPresentation.update("{\"root0\":{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"foo\"}}}")
+                cfgPresentation.update("{\"root0\":{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"foo\"}}}")
         );
 
-        assertThrows(IllegalArgumentException.class, () -> cfgPresentation.update("{"));
+        assertFutureThrows(IllegalArgumentException.class, cfgPresentation.update("{"));
 
-        assertThrows(IllegalArgumentException.class, () -> cfgPresentation.update(""));
+        assertFutureThrows(IllegalArgumentException.class, cfgPresentation.update(""));
 
-        assertThrows(
+        assertFutureThrows(
                 ConfigurationValidationException.class,
-                () -> cfgPresentation.update("{\"root\":{\"foo\":\"error\",\"subCfg\":{\"bar\":\"foo\"}}}")
+                cfgPresentation.update("{\"root\":{\"foo\":\"error\",\"subCfg\":{\"bar\":\"foo\"}}}")
         );
+    }
+
+    private static void assertFutureThrows(Class<?> expectedType, CompletableFuture<?> future) {
+        ExecutionException e = assertThrows(ExecutionException.class, () -> future.get(1, SECONDS));
+
+        assertThat(e.getCause(), isA(expectedType));
     }
 
     /**

@@ -16,6 +16,8 @@
  */
 package org.apache.ignite.raft.jraft.storage.impl;
 
+import static java.nio.charset.StandardCharsets.US_ASCII;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -212,7 +214,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
         final ColumnFamilyOptions cfOption = createColumnFamilyOptions();
         this.cfOptions.add(cfOption);
         // Column family to store configuration log entry.
-        columnFamilyDescriptors.add(new ColumnFamilyDescriptor("Configuration".getBytes(), cfOption));
+        columnFamilyDescriptors.add(new ColumnFamilyDescriptor("Configuration".getBytes(US_ASCII), cfOption));
         // Default column family to store user data log entry.
         columnFamilyDescriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, cfOption));
 

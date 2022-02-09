@@ -29,13 +29,14 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.immutables.value.Value;
 
 /**
  * Converter rule for sort operator.
  */
+@Value.Enclosing
 public class SortConverterRule extends RelRule<SortConverterRule.Config> {
-    public static final RelOptRule INSTANCE = SortConverterRule.Config.DEFAULT
-            .as(SortConverterRule.Config.class).toRule();
+    public static final RelOptRule INSTANCE = SortConverterRule.Config.DEFAULT.toRule();
 
     /** Creates a LimitConverterRule. */
     protected SortConverterRule(SortConverterRule.Config config) {
@@ -43,11 +44,11 @@ public class SortConverterRule extends RelRule<SortConverterRule.Config> {
     }
 
     /** Rule configuration. */
+    @Value.Immutable
     public interface Config extends RelRule.Config {
-        SortConverterRule.Config DEFAULT = EMPTY
+        SortConverterRule.Config DEFAULT = ImmutableSortConverterRule.Config.of()
                 .withOperandSupplier(b ->
-                        b.operand(LogicalSort.class).anyInputs())
-                .as(SortConverterRule.Config.class);
+                        b.operand(LogicalSort.class).anyInputs());
 
         /** {@inheritDoc} */
         @Override
