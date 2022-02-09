@@ -380,7 +380,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 continue;
             }
 
-            b.append(':').append(node.getType().getFullTypeString());
+            b.append(node).append(':').append(node.getType().getFullTypeString());
 
             new RexShuttle() {
                 @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
