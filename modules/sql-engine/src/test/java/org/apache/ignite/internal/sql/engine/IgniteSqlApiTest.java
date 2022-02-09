@@ -179,7 +179,7 @@ public class IgniteSqlApiTest {
     }
 
     @Test
-    public void mixSqlAndTableAPIInTx() {
+    public void mixSqlAndTableApiInTx() {
         // Create table.
         Session sess = igniteSql.createSession();
         sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");

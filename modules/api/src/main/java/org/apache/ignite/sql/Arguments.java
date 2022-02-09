@@ -24,8 +24,8 @@ import java.util.List;
  * Represents query arguments for batch query execution.
  *
  * <p>TODO: replace inheritance with delegation.
- * <p>TODO: add arguments length validation.
- * <p>TODO: add named arguments support.
+ * TODO: add arguments length validation.
+ * TODO: add named arguments support.
  */
 public class Arguments extends ArrayList<List<Object>> implements List<List<Object>> {
     /**
