@@ -654,7 +654,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --node-endpoint=127.0.0.1:17300 --metastorage-node node1ConsistentId --metastorage-node node2ConsistentId "
+        @DisplayName("init --node-endpoint=127.0.0.1:17300 --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
                 + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void initSuccess() throws Exception {
             when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
@@ -666,7 +666,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
@@ -693,7 +693,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
@@ -719,7 +719,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
@@ -732,13 +732,13 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         }
 
         @Test
-        @DisplayName("init --metastorage-node node1ConsistentId --metastorage-node node2ConsistentId "
+        @DisplayName("init --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
                 + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void nodeEndpointIsMandatoryForInit() {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init",
-                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId",
+                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
 
@@ -760,11 +760,11 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThatExitCodeIs(2, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--metastorage-node=<metastorageNodes>'"));
+            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--meta-storage-node=<metastorageNodes>'"));
         }
 
         @Test
-        @DisplayName("init --node-endpoint=127.0.0.1:17300 --metastorage-node node2ConsistentId --metastorage-node node3ConsistentId")
+        @DisplayName("init --node-endpoint=127.0.0.1:17300 --meta-storage-node node2ConsistentId --meta-storage-node node3ConsistentId")
         void cmgNodesAreNotMandatoryForInit() throws Exception {
             when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(response);
@@ -772,7 +772,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var cmd = cmd(ctx);
             var exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--metastorage-node", "node1ConsistentId", "--metastorage-node", "node2ConsistentId"
+                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId"
                     );
 
             assertThatExitCodeMeansSuccess(exitCode);

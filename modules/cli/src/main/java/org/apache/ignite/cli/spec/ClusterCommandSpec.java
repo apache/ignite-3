@@ -17,8 +17,7 @@
 
 package org.apache.ignite.cli.spec;
 
-import static java.util.Collections.emptyList;
-
+import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
 import org.apache.ignite.cli.builtins.cluster.ClusterApiClient;
@@ -56,8 +55,8 @@ public class ClusterCommandSpec extends CategorySpec {
          * List of names of the nodes (each represented by a separate command line argument) that will host the Metastorage Raft group.
          * If the "--cmg-nodes" parameter is omitted, the same nodes will also host the Cluster Management Raft group.
          */
-        @Option(names = "--metastorage-node", required = true, description = {
-                "Name of the node (repeat like '--metastorage-node node1 --metastorage-node node2' to specify more than one node)",
+        @Option(names = "--meta-storage-node", required = true, description = {
+                "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
                 "that will host the Metastorage Raft group.",
                 "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Raft group."
         })
@@ -70,9 +69,9 @@ public class ClusterCommandSpec extends CategorySpec {
         @Option(names = "--cmg-node", description = {
                 "Name of the node (repeat like '--cmg-node node1 --cmg-node node2' to specify more than one node)",
                 "that will host the Cluster Management Raft group.",
-                "If omitted, then --metastorage-node values will also supply the nodes for the Cluster Management Raft group."
+                "If omitted, then --meta-storage-node values will also supply the nodes for the Cluster Management Raft group."
         })
-        private List<String> cmgNodes;
+        private List<String> cmgNodes = new ArrayList<>();
 
         /** {@inheritDoc} */
         @Override
@@ -80,7 +79,7 @@ public class ClusterCommandSpec extends CategorySpec {
             clusterApiClient.init(
                     nodeEndpoint,
                     metastorageNodes,
-                    cmgNodes == null ? emptyList() : cmgNodes,
+                    cmgNodes,
                     spec.commandLine().getOut()
             );
         }
