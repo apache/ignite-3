@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CALCITE_CONNECTION_CONFIG;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,6 +72,6 @@ public class ExpressionFactoryImplTest {
 
         SingleScalar scalar2 = expFactory.scalar(Arrays.asList(firstNode, secondNode), type);
 
-        assertNotEquals(scalar1, scalar2);
+        assertNotSame(scalar1, scalar2);
     }
 }
