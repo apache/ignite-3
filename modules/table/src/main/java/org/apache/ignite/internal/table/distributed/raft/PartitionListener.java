@@ -115,9 +115,9 @@ public class PartitionListener implements RaftGroupListener {
             }
 
             if (command instanceof GetCommand) {
-                handleGetCommand((CommandClosure<GetCommand>) clo);
+                clo.result(handleGetCommand((GetCommand) command));
             } else if (command instanceof GetAllCommand) {
-                handleGetAllCommand((CommandClosure<GetAllCommand>) clo);
+                clo.result(handleGetAllCommand((GetAllCommand) command));
             } else {
                 assert false : "Command was not found [cmd=" + clo.command() + ']';
             }
@@ -135,39 +135,43 @@ public class PartitionListener implements RaftGroupListener {
             }
 
             if (command instanceof InsertCommand) {
-                handleInsertCommand((CommandClosure<InsertCommand>) clo);
+                clo.result(handleInsertCommand((InsertCommand) command));
             } else if (command instanceof DeleteCommand) {
-                handleDeleteCommand((CommandClosure<DeleteCommand>) clo);
+                clo.result(handleDeleteCommand((DeleteCommand) command));
             } else if (command instanceof ReplaceCommand) {
-                handleReplaceCommand((CommandClosure<ReplaceCommand>) clo);
+                clo.result(handleReplaceCommand((ReplaceCommand) command));
             } else if (command instanceof UpsertCommand) {
-                handleUpsertCommand((CommandClosure<UpsertCommand>) clo);
+                handleUpsertCommand((UpsertCommand) command);
+
+                clo.result(null);
             } else if (command instanceof InsertAllCommand) {
-                handleInsertAllCommand((CommandClosure<InsertAllCommand>) clo);
+                clo.result(handleInsertAllCommand((InsertAllCommand) command));
             } else if (command instanceof UpsertAllCommand) {
-                handleUpsertAllCommand((CommandClosure<UpsertAllCommand>) clo);
+                handleUpsertAllCommand((UpsertAllCommand) command);
+
+                clo.result(null);
             } else if (command instanceof DeleteAllCommand) {
-                handleDeleteAllCommand((CommandClosure<DeleteAllCommand>) clo);
+                clo.result(handleDeleteAllCommand((DeleteAllCommand) command));
             } else if (command instanceof DeleteExactCommand) {
-                handleDeleteExactCommand((CommandClosure<DeleteExactCommand>) clo);
+                clo.result(handleDeleteExactCommand((DeleteExactCommand) command));
             } else if (command instanceof DeleteExactAllCommand) {
-                handleDeleteExactAllCommand((CommandClosure<DeleteExactAllCommand>) clo);
+                clo.result(handleDeleteExactAllCommand((DeleteExactAllCommand) command));
             } else if (command instanceof ReplaceIfExistCommand) {
-                handleReplaceIfExistsCommand((CommandClosure<ReplaceIfExistCommand>) clo);
+                clo.result(handleReplaceIfExistsCommand((ReplaceIfExistCommand) command));
             } else if (command instanceof GetAndDeleteCommand) {
-                handleGetAndDeleteCommand((CommandClosure<GetAndDeleteCommand>) clo);
+                clo.result(handleGetAndDeleteCommand((GetAndDeleteCommand) command));
             } else if (command instanceof GetAndReplaceCommand) {
-                handleGetAndReplaceCommand((CommandClosure<GetAndReplaceCommand>) clo);
+                clo.result(handleGetAndReplaceCommand((GetAndReplaceCommand) command));
             } else if (command instanceof GetAndUpsertCommand) {
-                handleGetAndUpsertCommand((CommandClosure<GetAndUpsertCommand>) clo);
+                clo.result(handleGetAndUpsertCommand((GetAndUpsertCommand) command));
             } else if (command instanceof ScanInitCommand) {
-                handleScanInitCommand((CommandClosure<ScanInitCommand>) clo);
+                handleScanInitCommand((CommandClosure<ScanInitCommand>) clo, (ScanInitCommand) command);
             } else if (command instanceof ScanRetrieveBatchCommand) {
-                handleScanRetrieveBatchCommand((CommandClosure<ScanRetrieveBatchCommand>) clo);
+                handleScanRetrieveBatchCommand((CommandClosure<ScanRetrieveBatchCommand>) clo, (ScanRetrieveBatchCommand) command);
             } else if (command instanceof ScanCloseCommand) {
-                handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo);
+                handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo, (ScanCloseCommand) command);
             } else if (command instanceof FinishTxCommand) {
-                handleFinishTxCommand((CommandClosure<FinishTxCommand>) clo);
+                clo.result(handleFinishTxCommand((FinishTxCommand) command));
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
@@ -200,237 +204,218 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Handler for the {@link GetCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleGetCommand(CommandClosure<GetCommand> clo) {
-        GetCommand cmd = clo.command();
-
-        clo.result(new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp())));
+    private SingleRowResponse handleGetCommand(GetCommand cmd) {
+        return new SingleRowResponse(storage.get(cmd.getRow(), cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link GetAllCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleGetAllCommand(CommandClosure<GetAllCommand> clo) {
-        GetAllCommand cmd = clo.command();
-
+    private MultiRowsResponse handleGetAllCommand(GetAllCommand cmd) {
         Collection<BinaryRow> keyRows = cmd.getRows();
 
         assert keyRows != null && !keyRows.isEmpty();
 
         // TODO asch IGNITE-15934 all reads are sequential, can be parallelized ?
-        clo.result(new MultiRowsResponse(storage.getAll(keyRows, cmd.getTimestamp())));
+        return new MultiRowsResponse(storage.getAll(keyRows, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link InsertCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleInsertCommand(CommandClosure<InsertCommand> clo) {
-        InsertCommand cmd = clo.command();
-
-        clo.result(storage.insert(cmd.getRow(), cmd.getTimestamp()));
+    private boolean handleInsertCommand(InsertCommand cmd) {
+        return storage.insert(cmd.getRow(), cmd.getTimestamp());
     }
 
     /**
      * Handler for the {@link DeleteCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleDeleteCommand(CommandClosure<DeleteCommand> clo) {
-        DeleteCommand cmd = clo.command();
-
-        clo.result(storage.delete(cmd.getRow(), cmd.getTimestamp()));
+    private boolean handleDeleteCommand(DeleteCommand cmd) {
+        return storage.delete(cmd.getRow(), cmd.getTimestamp());
     }
 
     /**
      * Handler for the {@link ReplaceCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleReplaceCommand(CommandClosure<ReplaceCommand> clo) {
-        ReplaceCommand cmd = clo.command();
-
-        clo.result(storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp()));
+    private boolean handleReplaceCommand(ReplaceCommand cmd) {
+        return storage.replace(cmd.getOldRow(), cmd.getRow(), cmd.getTimestamp());
     }
 
     /**
      * Handler for the {@link UpsertCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
      */
-    private void handleUpsertCommand(CommandClosure<UpsertCommand> clo) {
-        UpsertCommand cmd = clo.command();
-
+    private void handleUpsertCommand(UpsertCommand cmd) {
         storage.upsert(cmd.getRow(), cmd.getTimestamp());
-
-        clo.result(null);
     }
 
     /**
      * Handler for the {@link InsertAllCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleInsertAllCommand(CommandClosure<InsertAllCommand> clo) {
-        InsertAllCommand cmd = clo.command();
-
+    private MultiRowsResponse handleInsertAllCommand(InsertAllCommand cmd) {
         Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.insertAll(rows, cmd.getTimestamp())));
+        return new MultiRowsResponse(storage.insertAll(rows, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link UpsertAllCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleUpsertAllCommand(CommandClosure<UpsertAllCommand> clo) {
-        UpsertAllCommand cmd = clo.command();
-
+    private void handleUpsertAllCommand(UpsertAllCommand cmd) {
         Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
         storage.upsertAll(rows, cmd.getTimestamp());
-
-        clo.result(null);
     }
 
     /**
      * Handler for the {@link DeleteAllCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleDeleteAllCommand(CommandClosure<DeleteAllCommand> clo) {
-        DeleteAllCommand cmd = clo.command();
-
+    private MultiRowsResponse handleDeleteAllCommand(DeleteAllCommand cmd) {
         Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp())));
+        return new MultiRowsResponse(storage.deleteAll(rows, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link DeleteExactCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleDeleteExactCommand(CommandClosure<DeleteExactCommand> clo) {
-        DeleteExactCommand cmd = clo.command();
-
+    private boolean handleDeleteExactCommand(DeleteExactCommand cmd) {
         BinaryRow row = cmd.getRow();
 
         assert row != null;
         assert row.hasValue();
 
-        clo.result(storage.deleteExact(row, cmd.getTimestamp()));
+        return storage.deleteExact(row, cmd.getTimestamp());
     }
 
     /**
      * Handler for the {@link DeleteExactAllCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleDeleteExactAllCommand(CommandClosure<DeleteExactAllCommand> clo) {
-        DeleteExactAllCommand cmd = clo.command();
-
+    private MultiRowsResponse handleDeleteExactAllCommand(DeleteExactAllCommand cmd) {
         Collection<BinaryRow> rows = cmd.getRows();
 
         assert rows != null && !rows.isEmpty();
 
-        clo.result(new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTimestamp())));
+        return new MultiRowsResponse(storage.deleteAllExact(rows, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link ReplaceIfExistCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleReplaceIfExistsCommand(CommandClosure<ReplaceIfExistCommand> clo) {
-        ReplaceIfExistCommand cmd = clo.command();
-
+    private boolean handleReplaceIfExistsCommand(ReplaceIfExistCommand cmd) {
         BinaryRow row = cmd.getRow();
 
         assert row != null;
 
-        clo.result(storage.replace(row, cmd.getTimestamp()));
+        return storage.replace(row, cmd.getTimestamp());
     }
 
     /**
      * Handler for the {@link GetAndDeleteCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleGetAndDeleteCommand(CommandClosure<GetAndDeleteCommand> clo) {
-        GetAndDeleteCommand cmd = clo.command();
-
+    private SingleRowResponse handleGetAndDeleteCommand(GetAndDeleteCommand cmd) {
         BinaryRow row = cmd.getRow();
 
         assert row != null;
 
-        clo.result(new SingleRowResponse(storage.getAndDelete(row, cmd.getTimestamp())));
+        return new SingleRowResponse(storage.getAndDelete(row, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link GetAndReplaceCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleGetAndReplaceCommand(CommandClosure<GetAndReplaceCommand> clo) {
-        GetAndReplaceCommand cmd = clo.command();
-
+    private SingleRowResponse handleGetAndReplaceCommand(GetAndReplaceCommand cmd) {
         BinaryRow row = cmd.getRow();
 
         assert row != null && row.hasValue();
 
-        clo.result(new SingleRowResponse(storage.getAndReplace(row, cmd.getTimestamp())));
+        return new SingleRowResponse(storage.getAndReplace(row, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link GetAndUpsertCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleGetAndUpsertCommand(CommandClosure<GetAndUpsertCommand> clo) {
-        GetAndUpsertCommand cmd = clo.command();
-
+    private SingleRowResponse handleGetAndUpsertCommand(GetAndUpsertCommand cmd) {
         BinaryRow row = cmd.getRow();
 
         assert row != null && row.hasValue();
 
-        clo.result(new SingleRowResponse(storage.getAndUpsert(row, cmd.getTimestamp())));
+        return new SingleRowResponse(storage.getAndUpsert(row, cmd.getTimestamp()));
     }
 
     /**
      * Handler for the {@link FinishTxCommand}.
      *
-     * @param clo Command closure.
+     * @param cmd Command.
+     * @return Result.
      */
-    private void handleFinishTxCommand(CommandClosure<FinishTxCommand> clo) {
-        FinishTxCommand cmd = clo.command();
-
+    private boolean handleFinishTxCommand(FinishTxCommand cmd) {
         Timestamp ts = cmd.timestamp();
         boolean commit = cmd.finish();
 
-        clo.result(txManager.changeState(ts, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED));
+        return txManager.changeState(ts, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED);
     }
 
     /**
      * Handler for the {@link ScanInitCommand}.
      *
      * @param clo Command closure.
+     * @param cmd Command.
      */
-    private void handleScanInitCommand(CommandClosure<ScanInitCommand> clo) {
-        ScanInitCommand rangeCmd = clo.command();
-
-        IgniteUuid cursorId = rangeCmd.scanId();
+    private void handleScanInitCommand(
+            CommandClosure<ScanInitCommand> clo,
+            ScanInitCommand cmd
+    ) {
+        IgniteUuid cursorId = cmd.scanId();
 
         try {
             Cursor<BinaryRow> cursor = storage.scan(key -> true);
@@ -439,7 +424,7 @@ public class PartitionListener implements RaftGroupListener {
                     cursorId,
                     new CursorMeta(
                             cursor,
-                            rangeCmd.requesterNodeId(),
+                            cmd.requesterNodeId(),
                             new AtomicInteger(0)
                     )
             );
@@ -454,13 +439,17 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link ScanRetrieveBatchCommand}.
      *
      * @param clo Command closure.
+     * @param cmd Command.
      */
-    private void handleScanRetrieveBatchCommand(CommandClosure<ScanRetrieveBatchCommand> clo) {
-        CursorMeta cursorDesc = cursors.get(clo.command().scanId());
+    private void handleScanRetrieveBatchCommand(
+            CommandClosure<ScanRetrieveBatchCommand> clo,
+            ScanRetrieveBatchCommand cmd
+    ) {
+        CursorMeta cursorDesc = cursors.get(cmd.scanId());
 
         if (cursorDesc == null) {
             clo.result(new NoSuchElementException(format(
-                    "Cursor with id={} is not found on server side.", clo.command().scanId())));
+                    "Cursor with id={} is not found on server side.", cmd.scanId())));
 
             return;
         }
@@ -475,7 +464,7 @@ public class PartitionListener implements RaftGroupListener {
         List<BinaryRow> res = new ArrayList<>();
 
         try {
-            for (int i = 0; i < clo.command().itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
+            for (int i = 0; i < cmd.itemsToRetrieveCount() && cursorDesc.cursor().hasNext(); i++) {
                 res.add(cursorDesc.cursor().next());
             }
         } catch (NoSuchElementException e) {
@@ -489,9 +478,13 @@ public class PartitionListener implements RaftGroupListener {
      * Handler for the {@link ScanCloseCommand}.
      *
      * @param clo Command closure.
+     * @param cmd Command.
      */
-    private void handleScanCloseCommand(CommandClosure<ScanCloseCommand> clo) {
-        CursorMeta cursorDesc = cursors.remove(clo.command().scanId());
+    private void handleScanCloseCommand(
+            CommandClosure<ScanCloseCommand> clo,
+            ScanCloseCommand cmd
+    ) {
+        CursorMeta cursorDesc = cursors.remove(cmd.scanId());
 
         if (cursorDesc == null) {
             clo.result(null);
