@@ -101,7 +101,7 @@ public class ClusterApiClient {
             errorPayload = httpResponse.body();
         }
 
-        return new IgniteCliException(message + "\n\n" + errorPayload);
+        return new IgniteCliException(message + System.lineSeparator().repeat(2) + errorPayload);
     }
 
     private String prettifyJson(HttpResponse<String> httpResponse) throws JsonProcessingException {

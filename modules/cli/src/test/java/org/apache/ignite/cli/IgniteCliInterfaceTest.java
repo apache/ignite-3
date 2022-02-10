@@ -680,7 +680,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThat(requestBodyBytes(capturedRequest), is(expSentContent.getBytes(UTF_8)));
             assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
 
-            assertThat(out.toString(UTF_8), is("Cluster was initialized successfully.\n"));
+            assertThat(out.toString(UTF_8), is(platformizeNewLines("Cluster was initialized successfully.\n")));
             assertThatStderrIsEmpty();
         }
 
@@ -700,14 +700,15 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThatExitCodeIs(1, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("org.apache.ignite.cli.IgniteCliException: Failed to initialize cluster\n"
-                    + "\n"
-                    + "{\n"
-                    + "  \"error\" : {\n"
-                    + "    \"type\" : \"INTERNAL_ERROR\",\n"
-                    + "    \"message\" : \"Cannot elect leaders\"\n"
-                    + "  }\n"
-                    + "}"));
+            assertThat(err.toString(UTF_8), startsWith(platformizeNewLines(
+                    "org.apache.ignite.cli.IgniteCliException: Failed to initialize cluster\n"
+                            + "\n"
+                            + "{\n"
+                            + "  \"error\" : {\n"
+                            + "    \"type\" : \"INTERNAL_ERROR\",\n"
+                            + "    \"message\" : \"Cannot elect leaders\"\n"
+                            + "  }\n"
+                            + "}")));
         }
 
         @Test
@@ -726,9 +727,10 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThatExitCodeIs(1, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("org.apache.ignite.cli.IgniteCliException: Failed to initialize cluster\n"
-                    + "\n"
-                    + "Oops"));
+            assertThat(err.toString(UTF_8), startsWith(platformizeNewLines(
+                    "org.apache.ignite.cli.IgniteCliException: Failed to initialize cluster\n"
+                            + "\n"
+                            + "Oops")));
         }
 
         @Test
@@ -777,9 +779,13 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatExitCodeMeansSuccess(exitCode);
 
-            assertThat(out.toString(UTF_8), is("Cluster was initialized successfully.\n"));
+            assertThat(out.toString(UTF_8), is(platformizeNewLines("Cluster was initialized successfully.\n")));
             assertThatStderrIsEmpty();
         }
+    }
+
+    private String platformizeNewLines(String str) {
+        return str.replace("\n", System.lineSeparator());
     }
 
     private void assertThatStdoutIsEmpty() {
