@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16502")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
@@ -385,7 +385,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
     }

@@ -29,6 +29,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
@@ -438,7 +439,8 @@ public class PartitionListener implements RaftGroupListener {
                     cursorId,
                     new CursorMeta(
                             cursor,
-                            rangeCmd.requesterNodeId()
+                            rangeCmd.requesterNodeId(),
+                            new AtomicInteger(0)
                     )
             );
         } catch (StorageException e) {
@@ -461,6 +463,13 @@ public class PartitionListener implements RaftGroupListener {
                     "Cursor with id={} is not found on server side.", clo.command().scanId())));
 
             return;
+        }
+
+        AtomicInteger internalBatchCounter = cursorDesc.batchCounter();
+
+        if (internalBatchCounter.getAndSet(clo.command().batchCounter()) != clo.command().batchCounter() - 1) {
+            throw new IllegalStateException(
+                    "Counters from received scan command and handled scan command in partition listener are inconsistent");
         }
 
         List<BinaryRow> res = new ArrayList<>();
@@ -587,15 +596,19 @@ public class PartitionListener implements RaftGroupListener {
         /** Id of the node that creates cursor. */
         private final String requesterNodeId;
 
+        /** Batch counter of a cursor. */
+        private final AtomicInteger batchCounter;
+
         /**
          * The constructor.
          *
          * @param cursor          The cursor.
          * @param requesterNodeId Id of the node that creates cursor.
          */
-        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId) {
+        CursorMeta(Cursor<BinaryRow> cursor, String requesterNodeId, AtomicInteger batchCounter) {
             this.cursor = cursor;
             this.requesterNodeId = requesterNodeId;
+            this.batchCounter = batchCounter;
         }
 
         /** Returns cursor. */
@@ -606,6 +619,11 @@ public class PartitionListener implements RaftGroupListener {
         /** Returns id of the node that creates cursor. */
         public String requesterNodeId() {
             return requesterNodeId;
+        }
+
+        /** Returns batch counter of a cursor. */
+        public AtomicInteger batchCounter() {
+            return batchCounter;
         }
     }
 }
