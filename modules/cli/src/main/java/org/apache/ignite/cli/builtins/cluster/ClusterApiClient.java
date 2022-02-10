@@ -54,8 +54,8 @@ public class ClusterApiClient {
      * Sends 'cluster init' command to the specified node.
      *
      * @param nodeEndpoint host:port on which REST API is listening
-     * @param metastorageNodeIds consistent IDs of the nodes that will form metastorage RAFT group
-     * @param cmgNodeIds         consistent IDs of the nodes that will form Cluster Management RAFT Group; if empty,
+     * @param metastorageNodeIds consistent IDs of the nodes that will host the Meta Storage Raft group
+     * @param cmgNodeIds         consistent IDs of the nodes that will host the Cluster Management Raft Group; if empty,
      *                           then nodes specified in metastorageNodeIds will form Cluster Management RAFT Group as well
      * @param out                {@link PrintWriter} to which to report about the command outcome
      */

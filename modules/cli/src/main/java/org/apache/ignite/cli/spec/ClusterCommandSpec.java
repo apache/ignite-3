@@ -57,7 +57,7 @@ public class ClusterCommandSpec extends CategorySpec {
          */
         @Option(names = "--meta-storage-node", required = true, description = {
                 "Name of the node (repeat like '--meta-storage-node node1 --meta-storage-node node2' to specify more than one node)",
-                "that will host the Metastorage Raft group.",
+                "that will host the Meta Storage Raft group.",
                 "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Raft group."
         })
         private List<String> metastorageNodes;
