@@ -76,7 +76,6 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -668,7 +667,6 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15156")
     public void testFollowerCatchUpFromSnapshot2() throws Exception {
         doTestFollowerCatchUp(true, false);
     }

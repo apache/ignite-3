@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.network.serialization.marshal.Throwables.causalChain;
 import static org.apache.ignite.internal.network.serialization.marshal.Throwables.rootCauseOf;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -175,7 +176,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
                 ),
 
                 // the following test writing methods only (readers are just to help testing them)
-                new ReadWriteSpec<>("writeBytes", oos -> oos.writeBytes("abc"), input -> readBytesFully(input, 3), "abc".getBytes()),
+                new ReadWriteSpec<>("writeBytes", oos -> oos.writeBytes("abc"), input -> readBytesFully(input, 3), "abc".getBytes(UTF_8)),
                 new ReadWriteSpec<>("writeChars", oos -> oos.writeChars("a"), DataInput::readChar, 'a'),
 
                 // the following test reading methods only (writers are just to help testing them)

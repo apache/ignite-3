@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.builtins.init;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -203,7 +205,7 @@ public class InitIgniteCommand {
             @NotNull Path cfgDir,
             @NotNull Path logDir
     ) {
-        try (FileWriter fileWriter = new FileWriter(f)) {
+        try (FileWriter fileWriter = new FileWriter(f, UTF_8)) {
             Properties props = new Properties();
 
             props.setProperty("bin", binDir.toString());

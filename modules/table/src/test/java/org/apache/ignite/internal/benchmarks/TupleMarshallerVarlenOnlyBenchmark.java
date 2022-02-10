@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -144,7 +145,7 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                 data[i] = (byte) (rnd.nextInt() & 0x7F);
             }
 
-            val = new String(data); // Latin1 string.
+            val = new String(data, StandardCharsets.ISO_8859_1); // Latin1 string.
         } else {
             rnd.nextBytes((byte[]) (val = new byte[dataSize / fieldsCount]));
         }

@@ -15,39 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.tx;
-
-import java.util.concurrent.CompletableFuture;
-
 /**
- * The transaction.
+ * Contains plan transformation rules.
  */
-public interface Transaction {
-    /**
-     * Synchronously commits a transaction.
-     *
-     * @throws TransactionException If a transaction can't be committed.
-     */
-    void commit() throws TransactionException;
 
-    /**
-     * Asynchronously commits a transaction.
-     *
-     * @return The future.
-     */
-    CompletableFuture<Void> commitAsync();
+@CalciteImmutable
+package org.apache.ignite.internal.sql.engine.rule;
 
-    /**
-     * Synchronously rolls back a transaction.
-     *
-     * @throws TransactionException If a transaction can't be rolled back.
-     */
-    void rollback() throws TransactionException;
-
-    /**
-     * Asynchronously rolls back a transaction.
-     *
-     * @return The future.
-     */
-    CompletableFuture<Void> rollbackAsync();
-}
+import org.apache.calcite.CalciteImmutable;

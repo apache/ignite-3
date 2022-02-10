@@ -26,6 +26,7 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -128,7 +129,7 @@ public class UtilsTest {
         assertEquals(128, buf.capacity());
         assertEquals(128, buf.remaining());
 
-        buf.put("hello".getBytes());
+        buf.put("hello".getBytes(UTF_8));
         assertEquals(5, buf.position());
 
         buf = Utils.expandByteBufferAtLeast(buf, 128);

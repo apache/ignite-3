@@ -26,6 +26,7 @@ import org.apache.ignite.raft.jraft.util.ByteBufferCollector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -86,7 +87,7 @@ public class SnapshotFileReaderTest extends BaseStorageTest {
         assertEquals(data.length(), buf.remaining());
         final byte[] bs = new byte[data.length()];
         buf.get(bs);
-        assertEquals(data, new String(bs));
+        assertEquals(data, new String(bs, UTF_8));
 
     }
 }

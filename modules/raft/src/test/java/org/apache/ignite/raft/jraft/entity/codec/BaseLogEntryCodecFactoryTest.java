@@ -26,6 +26,7 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -87,7 +88,7 @@ public abstract class BaseLogEntryCodecFactoryTest {
 
     @Test
     public void testEncodeDecodeWithData() {
-        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
+        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes(UTF_8));
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setId(new LogId(100, 3));
         entry.setChecksum(123456L);

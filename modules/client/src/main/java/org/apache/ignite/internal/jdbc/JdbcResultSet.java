@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -618,7 +620,7 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == Double.class) {
             return ByteBuffer.allocate(8).putDouble(((Double) val)).array();
         } else if (cls == String.class) {
-            return ((String) val).getBytes();
+            return ((String) val).getBytes(UTF_8);
         } else if (cls == UUID.class) {
             ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
 
