@@ -56,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.exec.StatementMismatchException;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -104,6 +105,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             cursors = queryCursors.stream()
                     .map(cursor -> new JdbcQueryCursor<>(req.maxRows(), cursor))
                     .collect(Collectors.toList());
+        } catch (StatementMismatchException e) {
+            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
+                    "Given statement type does not match that declared by JDBC driver."));
         } catch (Exception e) {
             StringWriter sw = getWriterWithStackTrace(e);
 

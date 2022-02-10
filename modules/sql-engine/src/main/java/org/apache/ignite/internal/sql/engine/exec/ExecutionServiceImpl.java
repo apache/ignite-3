@@ -248,16 +248,18 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
      * @param qryType Query type.
      * @param isQuery {@code null} if not applicable, {@code true} for select queries,
      *                           otherwise (DML/DDL queries) {@code false}.
+     *
+     * @throws StatementMismatchException when expected query type are different from actual query type.
      */
-    private static void checkQueryType(Type qryType, Boolean isQuery) {
+    private static void checkQueryType(Type qryType, Boolean isQuery) throws StatementMismatchException {
         if (isQuery == null || qryType == Type.EXPLAIN) {
             return;
         }
         if (isQuery && qryType != Type.QUERY) {
-            throw new IgniteInternalException("Given statement type does not match that declared by JDBC driver");
+            throw new StatementMismatchException();
         }
         if (!isQuery && qryType != Type.DML && qryType != Type.DDL) {
-            throw new IgniteInternalException("Given statement type does not match that declared by JDBC driver");
+            throw new StatementMismatchException();
         }
     }
 

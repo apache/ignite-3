@@ -719,6 +719,8 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testStatementTypeMismatchUpdate() throws Exception {
+        stmt.executeUpdate("update TEST set NAME='28' where ID=1");
+
         assertThrows(
                 SQLException.class,
                 () -> stmt.executeQuery("update TEST set NAME='28' where ID=1"),
@@ -731,7 +733,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         assertTrue(next);
 
-        assertEquals("name_1", rs.getString(1),
+        assertEquals("28", rs.getString(1),
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
                         + " Data [val=" + rs.getString(1) + ']');
