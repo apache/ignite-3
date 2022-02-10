@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.ui;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static picocli.CommandLine.Help.Ansi.AUTO;
 
@@ -54,10 +55,10 @@ public class ProgressBarTest extends AbstractCliTest {
     public void testScaledToTerminalWidth() throws IOException {
         var progressBar = new ProgressBar(out, 3, 80);
         progressBar.step();
-        assertEquals(80, outputStream.toString().replace("\r", "").length());
+        assertEquals(80, outputStream.toString(UTF_8).replace("\r", "").length());
         assertEquals(
                 "\r|========================>                                                 | 33%",
-                outputStream.toString()
+                outputStream.toString(UTF_8)
         );
     }
 
@@ -73,7 +74,7 @@ public class ProgressBarTest extends AbstractCliTest {
                                 + "\r|================================================>                         | 66%"
                                 + "\r|==========================================================================|@|green,bold Done!|@"
                                 + "\r|==========================================================================|@|green,bold Done!|@"),
-                outputStream.toString()
+                outputStream.toString(UTF_8)
         );
     }
 }
