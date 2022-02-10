@@ -179,7 +179,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         void add() {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
-            var exitCode =
+            int exitCode =
                     cmd(ctx).execute("module add mvn:groupId:artifactId:version".split(" "));
 
             verify(moduleMgr).addModule("mvn:groupId:artifactId:version", ignitePaths, Collections.emptyList());
@@ -193,7 +193,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
-            var exitCode = cmd(ctx)
+            int exitCode = cmd(ctx)
                     .execute(
                             ("module add mvn:groupId:artifactId:version --repo http://mvnrepo.com/repostiory "
                                     + "--repo http://anotherrepo.com/repostiory").split(" "));
@@ -212,7 +212,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError()).thenReturn(ignitePaths);
 
-            var exitCode =
+            int exitCode =
                     cmd(ctx).execute("module add test-module".split(" "));
 
             verify(moduleMgr).addModule("test-module", ignitePaths, Collections.emptyList());
@@ -226,8 +226,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             when(moduleMgr.removeModule(moduleName)).thenReturn(true);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("module remove builtin-module".split(" "));
 
             verify(moduleMgr).removeModule(moduleName);
@@ -244,8 +244,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             when(moduleMgr.removeModule(moduleName)).thenReturn(false);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd(ctx).execute("module remove unknown-module".split(" "));
 
             verify(moduleMgr).removeModule(moduleName);
@@ -287,14 +287,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                                             Collections.emptyList(),
                                             ModuleRegistry.SourceType.Standard, ""), externalModule)));
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("module list".split(" "));
 
             verify(moduleMgr).builtinModules();
             assertThatExitCodeMeansSuccess(exitCode);
 
-            var expOutput = cmd.getColorScheme().text("@|bold Optional Ignite Modules|@\n"
+            String expOutput = cmd.getColorScheme().text("@|bold Optional Ignite Modules|@\n"
                     + "+---------+--------------+------------+\n"
                     + "| @|bold Name|@    | @|bold Description|@  | @|bold Installed?|@ |\n"
                     + "+---------+--------------+------------+\n"
@@ -348,7 +348,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             CommandLine cli = cmd(ctx);
 
-            var exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
+            int exitCode = cli.execute(("node start " + nodeName + " --config conf.json").split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
 
@@ -384,8 +384,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                     .thenReturn(ignitePaths);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute(("node stop " + nodeName).split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -409,8 +409,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                     .thenReturn(ignitePaths);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute(("node stop " + nodeName).split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -435,8 +435,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                     .thenReturn(ignitePaths);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("node list".split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -462,8 +462,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(cliPathsCfgLdr.loadIgnitePathsOrThrowError())
                     .thenReturn(ignitePaths);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("node list".split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -479,8 +479,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         void classpath() throws IOException {
             when(nodeMgr.classpathItems()).thenReturn(Arrays.asList("item1", "item2"));
 
-            var cmd = cmd(ctx);
-            var exitCode = cmd.execute("node classpath".split(" "));
+            CommandLine cmd = cmd(ctx);
+            int exitCode = cmd.execute("node classpath".split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
             verify(nodeMgr).classpathItems();
@@ -519,7 +519,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(res.body()).thenReturn("{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}");
             when(httpClient.<String>send(any(), any())).thenReturn(res);
 
-            var exitCode =
+            int exitCode =
                     cmd(ctx).execute("config get --node-endpoint localhost:8081 --type node".split(" "));
 
             assertThatExitCodeMeansSuccess(exitCode);
@@ -549,7 +549,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(res.body()).thenReturn("{\"autoAdjust\":{\"enabled\":true}}");
             when(httpClient.<String>send(any(), any())).thenReturn(res);
 
-            var exitCode =
+            int exitCode =
                     cmd(ctx).execute(("config get --node-endpoint localhost:8081 "
                             + "--selector local.baseline --type node").split(" "));
 
@@ -579,8 +579,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             var expSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute(("config set --node-endpoint localhost:8081 "
                             + "local.baseline.autoAdjust.enabled=true --type node"
                     ).split(" "));
@@ -613,8 +613,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             var expSentContent = "{\"local\":{\"baseline\":{\"autoAdjust\":{\"enabled\":true}}}}";
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute(("config set --node-endpoint localhost:8081 "
                             + "local.baseline.autoAdjust.enabled=true --type node"
                     ).split(" "));
@@ -663,8 +663,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             var expSentContent = "{\"metastorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
                     + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"]}";
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
                             "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
@@ -690,8 +690,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(response.body()).thenReturn("{\"error\":{\"type\":\"INTERNAL_ERROR\",\"message\":\"Cannot elect leaders\"}}");
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
                             "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
@@ -717,8 +717,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(response.body()).thenReturn("Oops");
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
                             "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
@@ -737,8 +737,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @DisplayName("init --meta-storage-node node1ConsistentId --meta-storage-node node2ConsistentId "
                 + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void nodeEndpointIsMandatoryForInit() {
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("cluster", "init",
                             "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
@@ -753,8 +753,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @Test
         @DisplayName("init --node-endpoint=127.0.0.1:17300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void metastorageNodesAreMandatoryForInit() {
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
                             "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
                     );
@@ -771,8 +771,8 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
-            var cmd = cmd(ctx);
-            var exitCode =
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
                     cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
                             "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId"
                     );
