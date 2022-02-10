@@ -27,7 +27,7 @@ public class InitClusterRequest {
     @SuppressWarnings("unused")
     @JsonProperty
     private final List<String> metastorageNodes;
-    
+
     @SuppressWarnings("unused")
     @JsonProperty
     private final List<String> cmgNodes;
