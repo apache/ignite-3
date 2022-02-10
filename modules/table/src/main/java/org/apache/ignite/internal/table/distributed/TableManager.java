@@ -698,7 +698,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        tableAsync(name).thenAccept(tbl -> {
+        tableAsyncInternal(name).thenAccept(tbl -> {
             if (tbl != null) {
                 tblFut.completeExceptionally(new TableAlreadyExistsException(name));
             } else {
@@ -923,7 +923,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        tableAsync(name).thenAccept(tbl -> {
+        tableAsyncInternal(name).thenAccept(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
@@ -1105,20 +1105,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-        try {
-            UUID tableId = directTableId(IgniteObjectName.parseCanonicalName(name));
-
-            if (tableId == null) {
-                return CompletableFuture.completedFuture(null);
-            }
-
-            return (CompletableFuture) tableAsyncInternal(tableId, false);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
     }
 
     /** {@inheritDoc} */
@@ -1129,6 +1116,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
         try {
             return tableAsyncInternal(id, true);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Gets a table by name, if it was created before. Doesn't parse canonical name.
+     *
+     * @param name Table name.
+     * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
+     * */
+    @NotNull
+    private CompletableFuture<Table> tableAsyncInternal(String name) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            UUID tableId = directTableId(name);
+
+            if (tableId == null) {
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return (CompletableFuture) tableAsyncInternal(tableId, false);
         } finally {
             busyLock.leaveBusy();
         }
