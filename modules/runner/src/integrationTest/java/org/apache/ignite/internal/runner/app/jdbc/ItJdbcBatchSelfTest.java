@@ -155,9 +155,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchException() throws Exception {
         final int batchSize = 7;
 
-        final int failedIdx = 5;
+        final int successUpdates = 5;
 
-        for (int idx = 0, i = 0; i < failedIdx; ++i, idx += i) {
+        for (int idx = 0, i = 0; i < successUpdates; ++i, idx += i) {
             stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
                     + generateValues(idx, i + 1));
         }
@@ -172,15 +172,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown");
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? i + 1 : Statement.EXECUTE_FAILED, updCnts[i],
-                        "Invalid update count");
+            for (int i = 0; i < successUpdates; ++i) {
+                assertEquals(i + 1, updCnts[i], "Invalid update count");
             }
 
             if (!e.getMessage().contains("Given statement type does not match that declared by JDBC driver")) {
@@ -198,9 +195,9 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchParseException() throws Exception {
         final int batchSize = 7;
 
-        final int failedIdx = 5;
+        final int successUpdates = 5;
 
-        for (int idx = 0, i = 0; i < failedIdx; ++i, idx += i) {
+        for (int idx = 0, i = 0; i < successUpdates; ++i, idx += i) {
             stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
                     + generateValues(idx, i + 1));
         }
@@ -215,15 +212,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown");
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? i + 1 : Statement.EXECUTE_FAILED, updCnts[i],
-                        "Invalid update count: " + i);
+            for (int i = 0; i < successUpdates; ++i) {
+                assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
@@ -272,8 +266,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown");
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
             assertEquals(batchSize, updCnts.length, "Invalid update counts size");
@@ -296,13 +288,11 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBatchKeyDuplicatesException() throws Exception {
-        final int batchSize = 7;
-
-        final int failedIdx = 5;
+        final int successUpdates = 5;
 
         int idx = 0;
 
-        for (int i = 0; i < failedIdx; ++i, idx += i) {
+        for (int i = 0; i < successUpdates; ++i, idx += i) {
             stmt.addBatch("insert into Person (id, firstName, lastName, age) values "
                     + generateValues(idx, i + 1));
         }
@@ -317,14 +307,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown");
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? i + 1 : Statement.EXECUTE_FAILED, updCnts[i], "Invalid update count: " + i);
+            for (int i = 0; i < successUpdates; ++i) {
+                assertEquals(i + 1, updCnts[i], "Invalid update count: " + i);
             }
 
             if (!e.getMessage().contains("Failed to INSERT some keys because they are already in cache")) {
@@ -365,12 +353,10 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown");
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(4, updCnts.length, "Invalid update counts size");
-            assertArrayEquals(new int[] {1, 2, Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED}, updCnts, "Invalid update count");
+            assertEquals(2, updCnts.length, "Invalid update counts size");
+            assertArrayEquals(new int[] {1, 2}, updCnts, "Invalid update count");
         }
     }
 
@@ -454,8 +440,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown");
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
             assertEquals(batchSize, updCnts.length, "Invalid update counts size");
@@ -543,8 +527,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
             assertEquals(batchSize, updCnts.length, "Invalid update counts size");
@@ -604,15 +586,15 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchUpdateExceptionPrepared() throws Exception {
         final int batchSize = 7;
 
-        final int failedIdx = 5;
+        final int successUpdates = 5;
 
         populateTable(batchSize);
 
         pstmt = conn.prepareStatement("update Person set age = 100 where id = ?;");
 
-        assert failedIdx + 2 == batchSize;
+        assert successUpdates + 2 == batchSize;
 
-        for (int i = 0; i < failedIdx; ++i) {
+        for (int i = 0; i < successUpdates; ++i) {
             pstmt.setInt(1, i);
 
             pstmt.addBatch();
@@ -622,7 +604,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         pstmt.addBatch();
 
-        pstmt.setInt(1, failedIdx + 1);
+        pstmt.setInt(1, successUpdates + 1);
 
         pstmt.addBatch();
 
@@ -631,14 +613,12 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? 1 : Statement.EXECUTE_FAILED, updCnts[i], "Invalid update count[" + i + ']');
+            for (int i = 0; i < successUpdates; ++i) {
+                assertEquals(1, updCnts[i], "Invalid update count[" + i + ']');
             }
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
@@ -673,15 +653,15 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     public void testBatchDeleteExceptionPrepared() throws Exception {
         final int batchSize = 7;
 
-        final int failedIdx = 5;
+        final int successUpdates = 5;
 
         populateTable(batchSize);
 
         pstmt = conn.prepareStatement("delete from Person where id = ?;");
 
-        assert failedIdx + 2 == batchSize;
+        assert successUpdates + 2 == batchSize;
 
-        for (int i = 0; i < failedIdx; ++i) {
+        for (int i = 0; i < successUpdates; ++i) {
             pstmt.setInt(1, i);
 
             pstmt.addBatch();
@@ -691,7 +671,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
         pstmt.addBatch();
 
-        pstmt.setInt(1, failedIdx + 1);
+        pstmt.setInt(1, successUpdates + 1);
 
         pstmt.addBatch();
 
@@ -700,23 +680,17 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
         } catch (BatchUpdateException e) {
-            checkThereAreNotUsedConnections();
-
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            assertEquals(successUpdates, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? 1 : Statement.EXECUTE_FAILED, updCnts[i], "Invalid update count");
+            for (int i = 0; i < successUpdates; ++i) {
+                assertEquals(1, updCnts[i], "Invalid update count");
             }
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
             assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
         }
-    }
-
-    private void checkThereAreNotUsedConnections() {
-
     }
 
     @Test

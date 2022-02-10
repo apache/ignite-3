@@ -25,7 +25,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -61,17 +60,13 @@ import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteBiTuple;
-import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(JdbcQueryEventHandlerImpl.class);
-
     /** Current JDBC cursors. */
     private final ConcurrentHashMap<Long, SqlCursor<List<?>>> openCursors = new ConcurrentHashMap<>();
 
@@ -174,66 +169,65 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        IntList res = new IntArrayList();
+        final Query firstQuery = req.queries().get(0);
+        if (CollectionUtils.nullOrEmpty(firstQuery.args())) {
+            return batchAsync(req.schemaName(), req.queries());
+        } else {
+            return batchPreparedStatementAsync(req.schemaName(), firstQuery);
+        }
+    }
 
-        IgniteBiTuple<Integer, String> firstError = new IgniteBiTuple<>();
-        try {
-            for (Query query : req.queries()) {
-                if (query.args() == null) {
-                    executeAndCollectUpdateResult(req, res, query, OBJECT_EMPTY_ARRAY, firstError);
-                } else {
-                    for (Object[] arg : query.args()) {
-                        executeAndCollectUpdateResult(req, res, query, arg, firstError);
-                    }
-                }
+    private CompletableFuture<BatchExecuteResult> batchAsync(String schemaName, List<Query> queries) {
+        IntList res = new IntArrayList(queries.size());
+
+        for (Query query : queries) {
+            try {
+                executeAndCollectUpdateCount(schemaName, query.sql(), OBJECT_EMPTY_ARRAY, res);
+            } catch (Exception e) {
+                return handleBatchException(e, query, res);
             }
-        } catch (Exception e) {
-            StringWriter sw = getWriterWithStackTrace(e);
-
-            return CompletableFuture.completedFuture(new BatchExecuteResult(Response.STATUS_FAILED,
-                    "Exception while executing query " + req.queries().get(0).sql() + ". Error message: " + sw));
         }
 
-        if (!firstError.isEmpty()) {
-            return CompletableFuture.completedFuture(new BatchExecuteResult(
-                    Response.STATUS_FAILED,
-                    firstError.getKey(),
-                    firstError.getValue(),
-                    res.toIntArray())
-            );
-        }
         return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
     }
 
-    private void executeAndCollectUpdateResult(BatchExecuteRequest req, IntList res, Query query,
-            Object[] arg, IgniteBiTuple<Integer, String> firstError) {
+    private CompletableFuture<BatchExecuteResult> batchPreparedStatementAsync(String schemaName, Query query) {
+        IntList res = new IntArrayList(query.args().size());
+
         try {
-            List<SqlCursor<List<?>>> cursors = processor.query(req.schemaName(), query.sql(), arg);
-            for (SqlCursor<List<?>> cursor : cursors) {
-                long updatedRows = (long) cursor.next().get(0);
-                res.add((int) updatedRows);
+            for (Object[] arg : query.args()) {
+                executeAndCollectUpdateCount(schemaName, query.sql(), arg, res);
             }
         } catch (Exception e) {
-            res.add(Statement.EXECUTE_FAILED);
-
-            if (firstError.isEmpty()) {
-                if (e instanceof ClassCastException) {
-                    firstError.set(UNKNOWN, "Unexpected result after query:" + query.sql()
-                            + ". Not an upsert statement?" + e.getMessage());
-                } else {
-                    StringWriter sw = getWriterWithStackTrace(e);
-
-                    firstError.set(UNKNOWN, sw.toString());
-                }
-            }
-
-            if (e instanceof ClassCastException) {
-                LOG.error("Unexpected result after query:" + query.sql()
-                        + ". Not an upsert statement?", e);
-            } else {
-                LOG.error("Unexpected error:", e);
-            }
+            return handleBatchException(e, query, res);
         }
+
+        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+    }
+
+    private void executeAndCollectUpdateCount(String schema, String sql, Object[] arg, IntList res) {
+        List<SqlCursor<List<?>>> cursors = processor.query(schema, sql, arg);
+        for (SqlCursor<List<?>> cursor : cursors) {
+            long updatedRows = (long) cursor.next().get(0);
+            res.add((int) updatedRows);
+        }
+    }
+
+    private CompletableFuture<BatchExecuteResult> handleBatchException(Exception e, Query query, IntList res) {
+        StringWriter sw = getWriterWithStackTrace(e);
+
+        String error;
+
+        if (e instanceof ClassCastException) {
+            error = "Unexpected result after query:" + query.sql()
+                    + ". Not an upsert statement? " + sw;
+        } else {
+            error = sw.toString();
+        }
+
+        return CompletableFuture.completedFuture(
+                new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, res.toIntArray())
+        );
     }
 
     /** {@inheritDoc} */
