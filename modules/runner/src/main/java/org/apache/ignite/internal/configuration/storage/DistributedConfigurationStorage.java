@@ -89,12 +89,12 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      * revision of {@link #MASTER_KEY}.
      *
      * <p>This is true for all cases except for node restart. Key-specific revision values are lost on local vault copy after restart, so
-     * stored {@link MetaStorageManager#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
+     * stored {@link Constants#APPLIED_REV} value is used instead. This fact has very important side effect: it's no longer
      * possible to use {@link Condition.RevisionCondition#eq} on {@link #MASTER_KEY} in {@link DistributedConfigurationStorage#write(Map,
      * long)}. {@link Condition.RevisionCondition#le(long)} must be used instead.
      *
      * @see #MASTER_KEY
-     * @see MetaStorageManager#APPLIED_REV
+     * @see Constants#APPLIED_REV
      * @see #write(Map, long)
      */
     private final AtomicLong changeId = new AtomicLong(0L);

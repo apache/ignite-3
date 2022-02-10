@@ -291,6 +291,15 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Gets an indicator which shown if Metastorage initialized on start or not.
+     *
+     * @return True when Metastorage knows nodes on start, false otherwise.
+     */
+    public boolean isMetaStorageInitializedOnStart() {
+        return metaStorageNodesOnStart;
+    }
+
+    /**
      * Deploy all registered watches.
      */
     public synchronized void deployWatches() throws NodeStoppingException {
@@ -318,6 +327,23 @@ public class MetaStorageManager implements IgniteComponent {
             }
 
             deployed = true;
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Retrieves a current revision.
+     *
+     * @return Revision.
+     */
+    public CompletableFuture<Long> revision() {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return metaStorageSvcFut.thenCompose(svc -> svc.revision());
         } finally {
             busyLock.leaveBusy();
         }

@@ -32,6 +32,13 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MetaStorageService {
     /**
+     * Retrieves a current revision.
+     *
+     * @return Revision.
+     */
+    CompletableFuture<Long> revision();
+
+    /**
      * Retrieves an entry for the given key.
      *
      * @param key Key. Couldn't be {@code null}.
