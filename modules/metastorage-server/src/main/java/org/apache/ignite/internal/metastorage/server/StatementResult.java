@@ -24,35 +24,34 @@ import java.nio.ByteBuffer;
  * Provides some shortcut methods to represent the values of some primitive types.
  */
 public class StatementResult {
-
     /** Result data. */
-    private final byte[] result;
+    private final byte[] res;
 
     /**
      * Constructs result from the byte array.
      *
-     * @param result byte array.
+     * @param res byte array.
      */
-    public StatementResult(byte[] result) {
-        this.result = result;
+    public StatementResult(byte[] res) {
+        this.res = res;
     }
 
     /**
      * Constructs result from the boolean value.
      *
-     * @param result boolean.
+     * @param res boolean.
      */
-    public StatementResult(boolean result) {
-        this.result = new byte[] {(byte) (result ? 1 : 0)};
+    public StatementResult(boolean res) {
+        this.res = new byte[] {(byte) (res ? 1 : 0)};
     }
 
     /**
      * Constructs result from the int value.
      *
-     * @param result int.
+     * @param res int.
      */
-    public StatementResult(int result) {
-        this.result = ByteBuffer.allocate(4).putInt(result).array();
+    public StatementResult(int res) {
+        this.res = ByteBuffer.allocate(4).putInt(res).array();
     }
 
     /**
@@ -61,7 +60,7 @@ public class StatementResult {
      * @return boolean result.
      */
     public boolean getAsBoolean() {
-        return result[0] != 0;
+        return res[0] != 0;
     }
 
     /**
@@ -70,7 +69,7 @@ public class StatementResult {
      * @return int result.
      */
     public Integer getAsInt() {
-        return ByteBuffer.wrap(result).getInt();
+        return ByteBuffer.wrap(res).getInt();
     }
 
     /**
@@ -79,6 +78,6 @@ public class StatementResult {
      * @return backed byte array.
      */
     public byte[] bytes() {
-        return result;
+        return res;
     }
 }

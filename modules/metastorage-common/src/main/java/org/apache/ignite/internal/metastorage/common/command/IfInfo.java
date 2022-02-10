@@ -20,11 +20,26 @@ package org.apache.ignite.internal.metastorage.common.command;
 import java.io.Serializable;
 import org.apache.ignite.internal.metastorage.common.StatementInfo;
 
+/**
+ * Defines if-statement for {@link MultiInvokeCommand}.
+ */
 public class IfInfo implements Serializable {
+    /** Condition definition. */
     private final ConditionInfo cond;
+
+    /** Definition of execution branch, if condition evaluates to true (aka left branch). */
     private final StatementInfo andThen;
+
+    /** Definition execution branch, if condition evaluates to false (aka right branch). */
     private final StatementInfo orElse;
 
+    /**
+     * Constructs new if statement definition.
+     *
+     * @param cond condition.
+     * @param andThen left execution branch.
+     * @param orElse right execution branch.
+     */
     public IfInfo(ConditionInfo cond, StatementInfo andThen,
             StatementInfo orElse) {
         this.cond = cond;
@@ -32,14 +47,29 @@ public class IfInfo implements Serializable {
         this.orElse = orElse;
     }
 
+    /**
+     * Returns boolean condition definition.
+     *
+     * @return Boolean condition definition.
+     */
     public ConditionInfo cond() {
         return cond;
     }
 
+    /**
+     * Returns definition of execution branch, if condition evaluates to true (aka left branch).
+     *
+     * @return Left execution branch definition.
+     */
     public StatementInfo andThen() {
         return andThen;
     }
 
+    /**
+     * Returns definition of execution branch, if condition evaluates to false (aka right branch).
+     *
+     * @return Right execution branch definition.
+     */
     public StatementInfo orElse() {
         return orElse;
     }

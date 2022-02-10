@@ -634,9 +634,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         try {
             If currIf = iif;
             while (true) {
-                Collection<Entry> e = getAll(Arrays.asList(currIf.condition().keys()));
+                Collection<Entry> e = getAll(Arrays.asList(currIf.cond().keys()));
 
-                Statement branch = (currIf.condition().test(e.toArray(new Entry[e.size()]))) ? currIf.andThen() : currIf.orElse();
+                Statement branch = (currIf.cond().test(e.toArray(new Entry[e.size()]))) ? currIf.andThen() : currIf.orElse();
 
                 if (branch.isTerminal()) {
                     Update update = branch.update();

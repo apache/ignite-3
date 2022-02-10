@@ -24,7 +24,7 @@ package org.apache.ignite.internal.metastorage.server;
  */
 public class If {
     /** Boolean condition. */
-    private final Condition condition;
+    private final Condition cond;
 
     /** Execution branch, if condition evaluates to true (aka left branch). */
     private final Statement andThen;
@@ -35,12 +35,12 @@ public class If {
     /**
      * Construct new {@link If} statement.
      *
-     * @param condition Boolean condition.
+     * @param cond Boolean condition.
      * @param andThen Left execution branch.
      * @param orElse Right execution branch.
      */
-    public If(Condition condition, Statement andThen, Statement orElse) {
-        this.condition = condition;
+    public If(Condition cond, Statement andThen, Statement orElse) {
+        this.cond = cond;
         this.andThen = andThen;
         this.orElse = orElse;
     }
@@ -50,8 +50,8 @@ public class If {
      *
      * @return Boolean condition.
      */
-    public Condition condition() {
-        return condition;
+    public Condition cond() {
+        return cond;
     }
 
     /**

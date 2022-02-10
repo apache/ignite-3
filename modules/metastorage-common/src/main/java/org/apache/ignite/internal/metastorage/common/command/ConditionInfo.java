@@ -19,5 +19,11 @@ package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
 
+/**
+ * Interface for condition definition.
+ *
+ * @see SimpleConditionInfo
+ * @see CompoundConditionInfo
+ */
 public interface ConditionInfo extends Serializable {
 }

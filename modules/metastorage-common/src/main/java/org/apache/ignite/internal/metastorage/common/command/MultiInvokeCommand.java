@@ -19,14 +19,28 @@ package org.apache.ignite.internal.metastorage.common.command;
 
 import org.apache.ignite.raft.client.Command;
 
+/**
+ * Represents invoke command with nested conditions and execution branches.
+ */
 public class MultiInvokeCommand implements Command {
 
+    /** If statement to invoke. */
     private final IfInfo iif;
 
+    /**
+     * Constructs new multi-invoke command.
+     *
+     * @param iif if statement.
+     */
     public MultiInvokeCommand(IfInfo iif) {
         this.iif = iif;
     }
 
+    /**
+     * Returns if statement.
+     *
+     * @return if statement.
+     */
     public IfInfo iif() {
         return iif;
     }

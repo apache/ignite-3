@@ -19,13 +19,27 @@ package org.apache.ignite.internal.metastorage.common;
 
 import java.io.Serializable;
 
+/**
+ * Simple result definition of statement execution, backed by byte[] array.
+ */
 public class StatementResultInfo implements Serializable {
+    /** Result data. */
     private final byte[] res;
 
+    /**
+     * Constructs result definition from the byte array.
+     *
+     * @param res byte array.
+     */
     public StatementResultInfo(byte[] res) {
         this.res = res;
     }
 
+    /**
+     * Returns result as row byte array.
+     *
+     * @return result as row byte array.
+     */
     public byte[] result() {
         return res;
     }

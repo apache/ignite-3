@@ -17,27 +17,57 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
+/**
+ * Defines compond multi-key condition for {@link MultiInvokeCommand}.
+ */
 public class CompoundConditionInfo implements ConditionInfo {
 
-    private final ConditionInfo leftConditionInfo;
-    private final ConditionInfo rightConditionInfo;
+    /** Left condition. */
+    private final ConditionInfo leftCondInfo;
+
+    /** Right condition. */
+    private final ConditionInfo rightCondInfo;
+
+    /** Compound condition type. */
     private final CompoundConditionType type;
 
-    public CompoundConditionInfo(ConditionInfo leftConditionInfo,
-            ConditionInfo rightConditionInfo, CompoundConditionType type) {
-        this.leftConditionInfo = leftConditionInfo;
-        this.rightConditionInfo = rightConditionInfo;
+    /**
+     * Constructs new compound condition definition.
+     *
+     * @param leftCondInfo left condition definition.
+     * @param rightCondInfo right conditoin definition.
+     * @param type type of compound condition definition.
+     */
+    public CompoundConditionInfo(ConditionInfo leftCondInfo,
+            ConditionInfo rightCondInfo, CompoundConditionType type) {
+        this.leftCondInfo = leftCondInfo;
+        this.rightCondInfo = rightCondInfo;
         this.type = type;
     }
 
+    /**
+     * Returns left condition definition.
+     *
+     * @return left condition definition.
+     */
     public ConditionInfo leftConditionInfo() {
-        return leftConditionInfo;
+        return leftCondInfo;
     }
 
+    /**
+     * Returns right condition definition.
+     *
+     * @return right condition definition.
+     */
     public ConditionInfo rightConditionInfo() {
-        return rightConditionInfo;
+        return rightCondInfo;
     }
 
+    /**
+     * Returns definition for type of compound condition.
+     *
+     * @return definition for type of compound condition.
+     */
     public CompoundConditionType type() {
         return type;
     }

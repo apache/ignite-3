@@ -803,10 +803,10 @@ public class ItMetaStorageServiceTest {
         verify(mockStorage).invoke(ifCaptor.capture());
 
         var resultIf = ifCaptor.getValue();
-        assertThat(resultIf.condition(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
+        assertThat(resultIf.cond(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
                 new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
 
-        assertThat(resultIf.andThen().iif().condition(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
+        assertThat(resultIf.andThen().iif().cond(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
 
         assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(
                 Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)),
