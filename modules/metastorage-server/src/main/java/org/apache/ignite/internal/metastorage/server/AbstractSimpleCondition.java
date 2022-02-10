@@ -42,15 +42,23 @@ public abstract class AbstractSimpleCondition implements Condition {
         return keys[0];
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull byte[][] keys() {
         return keys;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public boolean test(Entry... e) {
-        return test(e[0]);
+    public boolean test(@NotNull Entry... entries) {
+        return test(entries[0]);
     }
 
-    protected abstract boolean test(Entry entry);
+    /**
+     * Tests the given entry on condition.
+     *
+     * @param entry Entry which will be tested on the condition. Can't be {@code null}.
+     * @return {@code True} if the given entry satisfies to the condition, otherwise - {@code false}.
+     */
+    protected abstract boolean test(@NotNull Entry entry);
 }

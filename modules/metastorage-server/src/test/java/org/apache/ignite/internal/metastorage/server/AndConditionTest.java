@@ -31,6 +31,11 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for 'and' compound condition.
+ *
+ * @see AndCondition
+ */
 public class AndConditionTest {
 
     private Condition cond1;

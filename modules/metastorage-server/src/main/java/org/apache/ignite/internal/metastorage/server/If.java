@@ -17,25 +17,57 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+/**
+ * Root building block for the compound metastorage invoke command.
+ * Contains of boolean condition and 2 branches of execution, like usual programming language's if.
+ * Every branch can be either new {@link If} statement (non-terminal) or result terminal statement {@link Update}.
+ */
 public class If {
+    /** Boolean condition. */
     private final Condition condition;
+
+    /** Execution branch, if condition evaluates to true (aka left branch). */
     private final Statement andThen;
+
+    /** Execution branch, if condition evaluates to false (aka right branch). */
     private final Statement orElse;
 
+    /**
+     * Construct new {@link If} statement.
+     *
+     * @param condition Boolean condition.
+     * @param andThen Left execution branch.
+     * @param orElse Right execution branch.
+     */
     public If(Condition condition, Statement andThen, Statement orElse) {
         this.condition = condition;
         this.andThen = andThen;
         this.orElse = orElse;
     }
 
+    /**
+     * Returns boolean condition.
+     *
+     * @return Boolean condition.
+     */
     public Condition condition() {
         return condition;
     }
 
+    /**
+     * Execution branch, if condition evaluates to true (aka left branch).
+     *
+     * @return Left execution branch.
+     */
     public Statement andThen() {
         return andThen;
     }
 
+    /**
+     * Execution branch, if condition evaluates to false (aka right branch).
+     *
+     * @return Right execution branch.
+     */
     public Statement orElse() {
         return orElse;
     }

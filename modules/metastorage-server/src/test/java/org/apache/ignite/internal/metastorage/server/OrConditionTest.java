@@ -31,6 +31,11 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for 'or' compound condition.
+ *
+ * @see OrCondition
+ */
 public class OrConditionTest {
     private Condition cond1;
     private Condition cond2;
