@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -1682,7 +1683,7 @@ public abstract class AbstractKeyValueStorageTest {
 
         StatementResult branch = storage.invoke(iif);
 
-        assertEquals(1, branch.getAsInt());
+        assertEquals(1, ByteBuffer.wrap(branch.bytes()).getInt());
 
         assertEquals(4, storage.revision());
         assertEquals(4, storage.updateCounter());
@@ -1761,7 +1762,7 @@ public abstract class AbstractKeyValueStorageTest {
 
         StatementResult branch = storage.invoke(iif);
 
-        assertEquals(2, branch.getAsInt());
+        assertEquals(2, ByteBuffer.wrap(branch.bytes()).getInt());
 
         assertEquals(5, storage.revision());
         assertEquals(6, storage.updateCounter());
@@ -1831,7 +1832,7 @@ public abstract class AbstractKeyValueStorageTest {
 
         StatementResult branch = storage.invoke(iif);
 
-        assertEquals(3, branch.getAsInt());
+        assertEquals(3, ByteBuffer.wrap(branch.bytes()).getInt());
 
         assertEquals(3, storage.revision());
         assertEquals(3, storage.updateCounter());

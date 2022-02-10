@@ -55,24 +55,6 @@ public class StatementResult {
     }
 
     /**
-     * Returns result value as a boolean.
-     *
-     * @return boolean result.
-     */
-    public boolean getAsBoolean() {
-        return res[0] != 0;
-    }
-
-    /**
-     * Returns result as an int.
-     *
-     * @return int result.
-     */
-    public Integer getAsInt() {
-        return ByteBuffer.wrap(res).getInt();
-    }
-
-    /**
      * Returns backed byte array.
      *
      * @return backed byte array.
@@ -80,4 +62,5 @@ public class StatementResult {
     public byte[] bytes() {
         return res;
     }
+
 }

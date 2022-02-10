@@ -59,17 +59,28 @@ public class StatementResult {
      * Returns result value as a boolean.
      *
      * @return boolean result.
+     * @throws ResultConversionException if boolean conversion is not possible, or can have ambiguous behaviour.
      */
     public boolean getAsBoolean() {
+        if (result.length != 1) {
+            throw new ResultConversionException("Result can't be interpreted as boolean");
+        }
+
         return result[0] != 0;
+
     }
 
     /**
      * Returns result as an int.
      *
      * @return int result.
+     * @throws ResultConversionException if int conversion is not possible, or can have ambiguous behaviour.
      */
     public Integer getAsInt() {
+        if (result.length != 4) {
+            throw new ResultConversionException("Result can't be interpreted as int");
+        }
+
         return ByteBuffer.wrap(result).getInt();
     }
 
@@ -80,5 +91,20 @@ public class StatementResult {
      */
     public byte[] bytes() {
         return result;
+    }
+
+    /**
+     * Exception to propagate result type conversion issues.
+     */
+    public static class ResultConversionException extends RuntimeException {
+
+        /**
+         * Constructs new conversion exception.
+         *
+         * @param msg exception message.
+         */
+        public ResultConversionException(String msg) {
+            super(msg);
+        }
     }
 }

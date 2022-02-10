@@ -611,13 +611,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
+            Entry[] entries = getAll(Arrays.asList(condition.keys())).toArray(new Entry[]{});
 
-            boolean branch = condition.test(e.toArray(new Entry[]{ }));
+            boolean branch = condition.test(entries);
 
             Collection<Operation> ops = branch ? success : failure;
 
-            extracted(ops);
+            applyOperations(ops);
 
             return branch;
         } catch (RocksDBException e) {
@@ -633,15 +633,23 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             If currIf = iif;
-            while (true) {
-                Collection<Entry> e = getAll(Arrays.asList(currIf.cond().keys()));
 
-                Statement branch = (currIf.cond().test(e.toArray(new Entry[e.size()]))) ? currIf.andThen() : currIf.orElse();
+            byte maximumNumOfNestedBranch = 100;
+
+            while (true) {
+                if (maximumNumOfNestedBranch-- <= 0) {
+                    throw new IgniteInternalException(
+                            "Too many nested (" + maximumNumOfNestedBranch + ") statements in multi-invoke command.");
+                }
+
+                Entry[] entries = getAll(Arrays.asList(currIf.cond().keys())).toArray(new Entry[]{});
+
+                Statement branch = (currIf.cond().test(entries)) ? currIf.andThen() : currIf.orElse();
 
                 if (branch.isTerminal()) {
                     Update update = branch.update();
 
-                    extracted(update.operations());
+                    applyOperations(update.operations());
 
                     return update.result();
                 } else {
@@ -655,7 +663,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    private void extracted(Collection<Operation> ops) throws RocksDBException {
+    private void applyOperations(Collection<Operation> ops) throws RocksDBException {
         long curRev = rev + 1;
 
         boolean modified = false;

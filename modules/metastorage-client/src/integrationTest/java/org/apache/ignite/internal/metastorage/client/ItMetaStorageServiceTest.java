@@ -768,6 +768,7 @@ public class ItMetaStorageServiceTest {
         ByteArray key1 = new ByteArray(new byte[]{1});
         ByteArray key2 = new ByteArray(new byte[]{2});
         ByteArray key3 = new ByteArray(new byte[]{3});
+
         var val1 = new byte[]{4};
         var val2 = new byte[]{5};
 
@@ -803,6 +804,7 @@ public class ItMetaStorageServiceTest {
         verify(mockStorage).invoke(ifCaptor.capture());
 
         var resultIf = ifCaptor.getValue();
+
         assertThat(resultIf.cond(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
                 new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
 
