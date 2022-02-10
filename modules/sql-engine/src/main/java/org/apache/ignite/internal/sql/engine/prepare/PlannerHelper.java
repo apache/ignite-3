@@ -160,7 +160,12 @@ public class PlannerHelper {
                 return rel;
             }
 
-            processNode(rel);
+            if (rel.isMerge()) {
+                // MERGE operator always contains modified table as a source.
+                spoolNeeded = true;
+            } else {
+                processNode(rel);
+            }
 
             if (spoolNeeded) {
                 IgniteTableSpool spool = new IgniteTableSpool(
@@ -207,7 +212,7 @@ public class PlannerHelper {
         /**
          * Process a scan node and raise a {@link #spoolNeeded flag} if needed.
          *
-         * @param scan TableScan to analize.
+         * @param scan TableScan to analyze.
          * @return The input rel.
          */
         private IgniteRel processScan(TableScan scan) {
@@ -245,8 +250,7 @@ public class PlannerHelper {
          * Get modifyNodeInsertsData flag: {@code true} in case {@link #modifyNode} produces any insert.
          */
         private boolean modifyNodeInsertsData() {
-            return modifyNode.isInsert(); // MERGE should be analyzed too
-            // but currently it is not implemented
+            return modifyNode.isInsert();
         }
     }
 }

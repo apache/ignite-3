@@ -110,7 +110,7 @@ public interface InternalIgniteTable extends IgniteTable {
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,
-            @Nullable Object arg
+            @Nullable List<String> arg
     );
 
     /**

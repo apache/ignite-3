@@ -178,6 +178,11 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
                     requested--;
                     downstream().push(row);
+                    Object[] obj = ((Object[])(row));
+                    System.err.println("!!!!");
+                    for (Object o : obj) {
+                        System.err.println(o == null ? "null" : o);
+                    }
                 }
             } finally {
                 inLoop = false;

@@ -515,6 +515,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             case INSERT:
             case UPDATE:
             case DELETE:
+            case MERGE:
                 InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
 
                 assert tbl != null;
@@ -527,10 +528,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 node.register(input);
 
                 return node;
-            case MERGE:
-                throw new UnsupportedOperationException();
             default:
-                throw new AssertionError();
+                throw new AssertionError("Unsupported operation: " + rel.getOperation());
         }
     }
 

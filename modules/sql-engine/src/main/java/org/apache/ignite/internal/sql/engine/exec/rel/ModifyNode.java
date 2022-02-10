@@ -114,6 +114,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             case DELETE:
             case UPDATE:
             case INSERT:
+            case MERGE:
                 rows.add(table.toBinaryRow(context(), row, op, cols));
 
                 flushTuples(false);
@@ -196,25 +197,25 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         // TODO: IGNITE-15087 Implement support for transactional SQL
         switch (op) {
             case INSERT:
-                Collection<BinaryRow> duplicates = tableView.insertAll(rows, null).join();
+                Collection<BinaryRow> conflictKeys = tableView.insertAll(rows, null).join();
 
-                if (!duplicates.isEmpty()) {
+                if (!conflictKeys.isEmpty()) {
                     IgniteTypeFactory typeFactory = context().getTypeFactory();
                     RowHandler.RowFactory<RowT> rowFactory = context().rowHandler().factory(
                             context().getTypeFactory(),
                             table.descriptor().insertRowType(typeFactory)
                     );
 
-                    throw new IgniteInternalException(
-                            "Failed to INSERT some keys because they are already in cache. "
-                                    + "[rows=" + duplicates.stream()
-                                    .map(binRow -> table.toRow(context(), binRow, rowFactory, null))
-                                    .map(context().rowHandler()::toString)
-                                    .collect(Collectors.toList()) + ']'
-                    );
+                    List<String> conflictKeys0 = conflictKeys.stream()
+                            .map(binRow -> table.toRow(context(), binRow, rowFactory, null))
+                            .map(context().rowHandler()::toString)
+                            .collect(Collectors.toList());
+
+                    throw conflictKeysException(conflictKeys0); // todo !!!
                 }
 
                 break;
+            case MERGE:
             case UPDATE:
                 tableView.upsertAll(rows, null).join();
 
@@ -224,10 +225,22 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             default:
-                throw new AssertionError();
+                throw new UnsupportedOperationException(op.name());
         }
 
         updatedRows += rows.size();
+    }
+
+    /** Transforms keys list to appropriate exception. */
+    private IgniteInternalException conflictKeysException(List<String> conflictKeys) {
+        if (op == TableModify.Operation.INSERT) {
+            return new IgniteInternalException("Failed to INSERT some keys because they are already in cache. " +
+                    "[rows=" + conflictKeys + ']');
+        }
+        else {
+            return new IgniteInternalException("Failed to MERGE some keys due to keys conflict or concurrent updates. " +
+                    "[rows=" + conflictKeys + ']'); // todo !!!
+        }
     }
 
     private enum State {
