@@ -71,7 +71,7 @@ class NodeEndpointOptions {
         var hostPort = endpoint.split(":");
 
         if (hostPort.length != 2) {
-            throw new IgniteCliException("Incorrect host:port pair provided "
+            throw new IgniteCliException("Incorrect host:port pair provided: '" + endpoint + "' "
                     + "(example of valid value 'localhost:10300')");
         }
 
