@@ -56,7 +56,7 @@ public class ClusterApiClient {
      * @param nodeEndpoint host:port on which REST API is listening
      * @param metastorageNodeIds consistent IDs of the nodes that will host the Meta Storage Raft group
      * @param cmgNodeIds         consistent IDs of the nodes that will host the Cluster Management Raft Group; if empty,
-     *                           then nodes specified in metastorageNodeIds will form Cluster Management RAFT Group as well
+     *                           {@code metastorageNodeIds} will be used to host the CMG as well
      * @param out                {@link PrintWriter} to which to report about the command outcome
      */
     public void init(String nodeEndpoint, List<String> metastorageNodeIds, List<String> cmgNodeIds, PrintWriter out) {
