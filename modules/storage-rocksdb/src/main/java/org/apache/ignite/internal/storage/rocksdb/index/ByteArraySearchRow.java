@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * {@link SearchRow} implementation that simply wraps a byte array.
@@ -32,12 +31,12 @@ class ByteArraySearchRow implements SearchRow {
     }
 
     @Override
-    public byte @NotNull [] keyBytes() {
+    public byte[] keyBytes() {
         return bytes;
     }
 
     @Override
-    public @NotNull ByteBuffer key() {
+    public ByteBuffer key() {
         return ByteBuffer.wrap(bytes);
     }
 

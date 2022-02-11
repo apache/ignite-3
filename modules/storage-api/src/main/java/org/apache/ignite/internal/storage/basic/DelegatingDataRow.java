@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Basic array-based implementation of the {@link DataRow} that uses another instance of {@link SearchRow} to delegate key access.
@@ -48,7 +47,6 @@ public class DelegatingDataRow implements DataRow {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public ByteBuffer key() {
         return key.key();
@@ -56,7 +54,7 @@ public class DelegatingDataRow implements DataRow {
 
     /** {@inheritDoc} */
     @Override
-    public byte @NotNull [] keyBytes() {
+    public byte[] keyBytes() {
         return key.keyBytes();
     }
 

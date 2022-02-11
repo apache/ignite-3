@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.basic;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.storage.DataRow;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Basic array-based implementation of the {@link DataRow}.
@@ -47,7 +46,6 @@ public class SimpleDataRow implements DataRow {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public ByteBuffer key() {
         return ByteBuffer.wrap(key);
@@ -55,7 +53,7 @@ public class SimpleDataRow implements DataRow {
 
     /** {@inheritDoc} */
     @Override
-    public byte @NotNull [] keyBytes() {
+    public byte[] keyBytes() {
         return key;
     }
 
