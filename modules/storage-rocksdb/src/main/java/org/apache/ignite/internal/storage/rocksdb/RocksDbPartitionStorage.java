@@ -150,7 +150,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
             byte[] value = values.get(i);
 
             if (value != null) {
-                res.add(new SimpleDataRow(keys.get(i).keyBytes(), value));
+                res.add(new DelegatingDataRow(keys.get(i), value));
             }
         }
 
@@ -492,21 +492,14 @@ class RocksDbPartitionStorage implements PartitionStorage {
      * and the key's hash (an optimisation).
      */
     private byte[] partitionKey(SearchRow key) {
-        byte[] keyBytes = key.preferArrayKey() ? key.keyBytes() : null;
-        ByteBuffer keyBuffer = key.preferArrayKey() ? null : key.key();
-
-        ByteBuffer buf = ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + key.keyLength())
-                .order(ByteOrder.BIG_ENDIAN)
-                .putShort((short) partId);
+        ByteBuffer keyBuffer = key.key().rewind();
 
         // TODO: use precomputed hash, see https://issues.apache.org/jira/browse/IGNITE-16370
-        if (key.preferArrayKey()) {
-            buf.putInt(Arrays.hashCode(keyBytes)).put(keyBytes);
-        } else {
-            keyBuffer.rewind();
-
-            buf.putInt(hashCode(keyBuffer)).put(keyBuffer);
-        }
+        ByteBuffer buf = ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + key.keyLength())
+                .order(ByteOrder.BIG_ENDIAN)
+                .putShort((short) partId)
+                .putInt(hashCode(keyBuffer))
+                .put(keyBuffer);
 
         return buf.array();
     }

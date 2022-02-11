@@ -677,11 +677,6 @@ public abstract class AbstractPartitionStorageTest {
             public int keyLength() {
                 return keyBytes().length;
             }
-
-            @Override
-            public boolean preferArrayKey() {
-                return true;
-            }
         };
     }
 

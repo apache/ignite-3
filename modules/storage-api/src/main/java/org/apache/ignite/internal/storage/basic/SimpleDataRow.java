@@ -66,12 +66,6 @@ public class SimpleDataRow implements DataRow {
 
     /** {@inheritDoc} */
     @Override
-    public boolean preferArrayKey() {
-        return true;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ByteBuffer value() {
         return ByteBuffer.wrap(value);
     }

@@ -68,12 +68,6 @@ public class DelegatingDataRow implements DataRow {
 
     /** {@inheritDoc} */
     @Override
-    public boolean preferArrayKey() {
-        return key.preferArrayKey();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ByteBuffer value() {
         return ByteBuffer.wrap(value);
     }

@@ -45,9 +45,4 @@ class ByteArraySearchRow implements SearchRow {
     public int keyLength() {
         return bytes.length;
     }
-
-    @Override
-    public boolean preferArrayKey() {
-        return true;
-    }
 }

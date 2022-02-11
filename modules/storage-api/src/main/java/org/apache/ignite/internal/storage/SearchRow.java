@@ -43,9 +43,4 @@ public interface SearchRow {
      * of the corresponding byte buffer.
      */
     int keyLength();
-
-    /**
-     * Returns {@code true} if usage of {@link #keyBytes()} is preferrable to {@link #key()}.
-     */
-    boolean preferArrayKey();
 }

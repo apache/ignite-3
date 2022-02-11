@@ -56,9 +56,4 @@ public class BinarySearchRow implements SearchRow {
     public int keyLength() {
         return key.capacity();
     }
-
-    @Override
-    public boolean preferArrayKey() {
-        return false;
-    }
 }
