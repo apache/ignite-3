@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 
@@ -39,10 +36,6 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
 
     private final ThreadPoolExecutor planningPool;
 
-    private final BlockingQueue<Runnable> planningTasks = new LinkedBlockingQueue<>();
-
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
-
     /**
      * Creates a plan cache of provided size.
      *
@@ -54,7 +47,7 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
                 4,
                 THREAD_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS,
-                planningTasks,
+                new LinkedBlockingQueue<>(),
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sqlPlan"))
         );
 
@@ -69,14 +62,7 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     /** {@inheritDoc} */
     @Override
     public QueryPlan queryPlan(CacheKey key, Supplier<QueryPlan> planSupplier) {
-        lock.readLock().lock();
-
-        CompletableFuture<QueryPlan> planFut;
-        try {
-            planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(planSupplier, planningPool));
-        } finally {
-            lock.readLock().unlock();
-        }
+        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(planSupplier, planningPool));
 
         return planFut.join().copy();
     }
@@ -84,14 +70,7 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     /** {@inheritDoc} */
     @Override
     public QueryPlan queryPlan(CacheKey key) {
-        lock.readLock().lock();
-
-        CompletableFuture<QueryPlan> planFut;
-        try {
-            planFut = cache.get(key);
-        } finally {
-            lock.readLock().unlock();
-        }
+        CompletableFuture<QueryPlan> planFut = cache.get(key);
 
         if (planFut == null) {
             return null;
@@ -103,14 +82,7 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     /** {@inheritDoc} */
     @Override
     public void clear() {
-        lock.writeLock().lock();
-
-        try {
-            planningTasks.clear();
-            cache.clear();
-        } finally {
-            lock.writeLock().unlock();
-        }
+        cache.clear();
     }
 
     /** {@inheritDoc} */
