@@ -36,10 +36,4 @@ public interface SearchRow {
      * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
      */
     ByteBuffer key();
-
-    /**
-     * Returns the amount of bytes in the key. This method is preferrable to the usage of {@code keyBytes().length} or retrieving the size
-     * of the corresponding byte buffer.
-     */
-    int keyLength();
 }

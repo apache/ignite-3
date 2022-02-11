@@ -57,11 +57,6 @@ public class SimpleDataRow implements DataRow {
         return key;
     }
 
-    @Override
-    public int keyLength() {
-        return key.length;
-    }
-
     /** {@inheritDoc} */
     @Override
     public ByteBuffer value() {

@@ -60,12 +60,6 @@ public class DelegatingDataRow implements DataRow {
 
     /** {@inheritDoc} */
     @Override
-    public int keyLength() {
-        return key.keyLength();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public ByteBuffer value() {
         return ByteBuffer.wrap(value);
     }

@@ -51,9 +51,4 @@ public class BinarySearchRow implements SearchRow {
     public ByteBuffer key() {
         return key;
     }
-
-    @Override
-    public int keyLength() {
-        return key.capacity();
-    }
 }

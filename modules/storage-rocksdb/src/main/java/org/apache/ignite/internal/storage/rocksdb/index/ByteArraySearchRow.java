@@ -39,9 +39,4 @@ class ByteArraySearchRow implements SearchRow {
     public ByteBuffer key() {
         return ByteBuffer.wrap(bytes);
     }
-
-    @Override
-    public int keyLength() {
-        return bytes.length;
-    }
 }
