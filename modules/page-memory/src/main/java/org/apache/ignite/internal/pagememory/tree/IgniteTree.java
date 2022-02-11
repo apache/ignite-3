@@ -23,6 +23,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface for ignite internal tree.
+ *
+ * @param <K> Type of keys maintained by this tree.
+ * @param <V> Type of mapped values.
  */
 public interface IgniteTree<K, V> {
     /**
