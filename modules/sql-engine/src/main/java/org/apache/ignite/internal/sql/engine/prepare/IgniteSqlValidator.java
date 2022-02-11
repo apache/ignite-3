@@ -328,10 +328,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         RESOURCE.unknownTargetColumn(id.toString()));
             }
 
-            if (!desc.isUpdateAllowed(relOptTable, target.getIndex())) {
+/*            if (!desc.isUpdateAllowed(relOptTable, target.getIndex())) {
                 throw newValidationError(id,
                         IgniteResource.INSTANCE.cannotUpdateField(id.toString()));
-            }
+            }*/
         }
     }
 

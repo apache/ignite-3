@@ -345,8 +345,6 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
                     keyOffset,
                     schemaDescriptor.keyColumns().length(),
                     columnToIndex, offset, hnd, row);
-
-            assert nonNullVarlenKeyCols == schemaDescriptor.keyColumns().length(); // todo remove at the end of PR
         }
 
         int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
