@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePa
 import static org.apache.ignite.internal.util.ArrayUtils.clearTail;
 import static org.apache.ignite.internal.util.ArrayUtils.set;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
+import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,6 +56,8 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseBag;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
+import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteCursor;
@@ -68,7 +71,7 @@ import org.jetbrains.annotations.Nullable;
  * <h3>Abstract B+Tree.</h3>
  *
  * <p>B+Tree is a block-based tree structure. Each block is represented with the page ({@link PageIo}) and contains a single tree node.
- * There are two types of pages/nodes: {@link BplusInnerIo} and {@link BPlusLeafIO}.
+ * There are two types of pages/nodes: {@link BplusInnerIo} and {@link BplusLeafIo}.
  *
  * <p>Every page in the tree contains a list of <i>items</i>. Item is just a fixed-size binary payload. Inner nodes and leaves may have
  * different item sizes. There's a limit on how many items each page can hold. It is defined by a {@link BplusIo#getMaxCount(long, int)}
@@ -133,32 +136,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /** Empty array. */
     private static final Object[] EMPTY = {};
 
-    /** Wrapper for tree pages operations. Noop by default. Override for test purposes. */
-    public static PageHandlerWrapper<Result> testHndWrapper = null;
-
-    /**
-     *
-     */
-    public static final ThreadLocal<Boolean> suspendFailureDiagnostic = ThreadLocal.withInitial(() -> false);
-
     /** Destroy msg. */
     public static final String CONC_DESTROY_MSG = "Tree is being concurrently destroyed: ";
 
-    /**
-     *
-     */
-    private static volatile boolean interrupted;
+    /** Number of repetitions to capture a lock in the B+Tree. */
+    public static final String IGNITE_BPLUS_TREE_LOCK_RETRIES = "IGNITE_BPLUS_TREE_LOCK_RETRIES";
 
-    /**
-     *
-     */
-    public static final int IGNITE_BPLUS_TREE_LOCK_RETRIES_DEFAULT = 1000;
-
-    /**
-     *
-     */
-    private static final int LOCK_RETRIES = IgniteSystemProperties.getInteger(
-            IGNITE_BPLUS_TREE_LOCK_RETRIES, IGNITE_BPLUS_TREE_LOCK_RETRIES_DEFAULT);
+    /** Number of retries. */
+    private static final int LOCK_RETRIES = getInteger(IGNITE_BPLUS_TREE_LOCK_RETRIES, 1000);
 
     /** Flag that the tree is destroyed. */
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
@@ -173,9 +158,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      */
     private final float maxFill;
 
-    /**
-     *
-     */
+    /** Meta page id. */
     protected final long metaPageId;
 
     /**
@@ -191,18 +174,15 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      *
      */
-    private IoVersions<? extends BPlusLeafIO<L>> leafIos;
+    private IoVersions<? extends BplusLeafIo<L>> leafIos;
 
     /**
      *
      */
     private final AtomicLong globalRmvId;
 
-    /** Tree root meta data. */
+    /** Tree meta data. */
     private volatile TreeMetaData treeMeta;
-
-    /** Failure processor. */
-    private final FailureProcessor failureProcessor;
 
     /** Flag for enabling single-threaded append-only tree creation. */
     private boolean sequentialWriteOptsEnabled;
@@ -845,7 +825,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
             // Safe cast because we should never recycle meta page until the tree is destroyed.
-            BPlusMetaIO io = (BPlusMetaIO) iox;
+            BplusMetaIo io = (BplusMetaIo) iox;
 
             assert lvl == io.getRootLevel(metaAddr); // Can drop only root.
 
@@ -878,11 +858,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 Long rootPageId,
                 int lvl,
                 IoStatisticsHolder statHolder
-        ) throws IgniteInternalCheckedException {
+        ) {
             assert rootPageId != null;
 
             // Safe cast because we should never recycle meta page until the tree is destroyed.
-            BPlusMetaIO io = (BPlusMetaIO) iox;
+            BplusMetaIo io = (BplusMetaIo) iox;
 
             assert lvl == io.getLevelsCount(pageAddr);
 
@@ -914,15 +894,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 Long rootId,
                 int inlineSize,
                 IoStatisticsHolder statHolder
-        ) throws IgniteInternalCheckedException {
+        ) {
             assert rootId != null;
 
             // Safe cast because we should never recycle meta page until the tree is destroyed.
-            BPlusMetaIO io = (BPlusMetaIO) iox;
+            BplusMetaIo io = (BplusMetaIo) iox;
 
             io.initRoot(pageAddr, rootId, pageSize());
-            io.setInlineSize(pageAddr, inlineSize);
-            io.initFlagsAndVersion(pageAddr, BPlusMetaIO.DEFAULT_FLAGS, IgniteVersionUtils.VER);
 
             assert io.getRootLevel(pageAddr) == 0;
             assert io.getFirstPageId(pageAddr, 0) == rootId;
@@ -944,7 +922,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param innerIos Inner IO versions.
      * @param leafIos Leaf IO versions.
      * @param pageFlag Default flag value for allocated pages.
-     * @param failureProcessor if the tree is corrupted.
      * @throws IgniteInternalCheckedException If failed.
      */
     protected BplusTree(
@@ -956,9 +933,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long metaPageId,
             @Nullable ReuseList reuseList,
             IoVersions<? extends BplusInnerIo<L>> innerIos,
-            IoVersions<? extends BPlusLeafIO<L>> leafIos,
-            byte pageFlag,
-            @Nullable FailureProcessor failureProcessor
+            IoVersions<? extends BplusLeafIo<L>> leafIos,
+            byte pageFlag
     ) throws IgniteInternalCheckedException {
         this(
                 name,
@@ -969,7 +945,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 metaPageId,
                 reuseList,
                 pageFlag,
-                failureProcessor,
                 DEFAULT_PAGE_IO_RESOLVER
         );
 
@@ -985,7 +960,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param pageFlag Default flag value for allocated pages.
-     * @param failureProcessor if the tree is corrupted.
      */
     protected BplusTree(
             String name,
@@ -996,7 +970,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long metaPageId,
             ReuseList reuseList,
             byte pageFlag,
-            @Nullable FailureProcessor failureProcessor,
             PageIoResolver pageIoRslvr
     ) {
         super(name, cacheGrpId, grpName, pageMem, pageIoRslvr, pageFlag);
@@ -1010,34 +983,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         this.metaPageId = metaPageId;
         this.reuseList = reuseList;
         this.globalRmvId = globalRmvId;
-        this.failureProcessor = failureProcessor;
 
         // Initialize page handlers.
-        askNeighbor = (PageHandler<Get, Result>) wrap(this, new AskNeighbor());
-        search = (PageHandler<Get, Result>) wrap(this, new Search());
-        lockTailExact = (PageHandler<Update, Result>) wrap(this, new LockTailExact());
-        lockTail = (PageHandler<Remove, Result>) wrap(this, new LockTail());
-        lockTailForward = (PageHandler<Remove, Result>) wrap(this, new LockTailForward());
-        lockBackAndTail = (PageHandler<Remove, Result>) wrap(this, new LockBackAndTail());
-        lockBackAndRmvFromLeaf = (PageHandler<Remove, Result>) wrap(this, new LockBackAndRmvFromLeaf());
-        rmvFromLeaf = (PageHandler<Remove, Result>) wrap(this, new RemoveFromLeaf());
-        insert = (PageHandler<Put, Result>) wrap(this, new Insert());
-        replace = (PageHandler<Put, Result>) wrap(this, new Replace());
-    }
-
-    /**
-     * Returns a wrapper for page handler. By default, there is no wrapper.
-     *
-     * @param tree B-plus tree.
-     * @param hnd Page handler.
-     * @return Page handler wrapper.
-     */
-    private PageHandler<?, Result> wrap(BplusTree<?, ?> tree, PageHandler<?, Result> hnd) {
-        if (testHndWrapper == null) {
-            return hnd;
-        } else {
-            return testHndWrapper.wrap(tree, hnd);
-        }
+        askNeighbor = new AskNeighbor();
+        search = new Search();
+        lockTailExact = new LockTailExact();
+        lockTail = new LockTail();
+        lockTailForward = new LockTailForward();
+        lockBackAndTail = new LockBackAndTail();
+        lockBackAndRmvFromLeaf = new LockBackAndRmvFromLeaf();
+        rmvFromLeaf = new RemoveFromLeaf();
+        insert = new Insert();
+        replace = new Replace();
     }
 
     /**
@@ -1048,7 +1005,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      */
     public void setIos(
             IoVersions<? extends BplusInnerIo<L>> innerIos,
-            IoVersions<? extends BPlusLeafIO<L>> leafIos
+            IoVersions<? extends BplusLeafIo<L>> leafIos
     ) {
         assert innerIos != null;
         assert leafIos != null;
@@ -1089,7 +1046,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             init(rootId, latestLeafIo());
 
             // Initialize meta page with new root page.
-            Bool res = write(metaPageId, initRoot, BPlusMetaIO.VERSIONS.latest(), rootId, inlineSize, FALSE,
+            Bool res = write(metaPageId, initRoot, BplusMetaIo.VERSIONS.latest(), rootId, inlineSize, FALSE,
                     statisticsHolder());
 
             assert res == TRUE : res;
@@ -1134,7 +1091,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
 
             try {
-                BPlusMetaIO io = BPlusMetaIO.VERSIONS.forPage(pageAddr);
+                BplusMetaIo io = BplusMetaIo.VERSIONS.forPage(pageAddr);
 
                 int rootLvl = io.getRootLevel(pageAddr);
                 long rootId = io.getFirstPageId(pageAddr, rootLvl);
@@ -1197,7 +1154,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         long pageAddr = metaPageAddr != 0L ? metaPageAddr : readLock(metaId, metaPage); // Meta can't be removed.
 
         try {
-            BPlusMetaIO io = BPlusMetaIO.VERSIONS.forPage(pageAddr);
+            BplusMetaIo io = BplusMetaIo.VERSIONS.forPage(pageAddr);
 
             if (lvl < 0) {
                 lvl = io.getRootLevel(pageAddr);
@@ -1596,11 +1553,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
     }
 
-    /**
-     * @param row Lookup row for exact match.
-     * @return Found row.
-     * @throws IgniteInternalCheckedException If failed.
-     */
+    /** {@inheritDoc} */
     @Override
     public final T findOne(L row) throws IgniteInternalCheckedException {
         return findOne(row, null, null);
@@ -1619,8 +1572,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             switch (findDown(g, g.rootId, 0L, g.rootLvl)) {
                 case RETRY:
                 case RETRY_ROOT:
-                    checkInterrupted();
-
                     continue;
 
                 default:
@@ -1662,8 +1613,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                         switch (res) {
                             case RETRY:
-                                checkInterrupted();
-
                                 continue; // The child page got split, need to reread our page.
 
                             default:
@@ -1861,11 +1810,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param msg Message.
      */
     private void fail(Object msg) {
-        AssertionError err = new AssertionError(msg);
-
-        processFailure(FailureType.CRITICAL_ERROR, err);
-
-        throw err;
+        throw new AssertionError(msg);
     }
 
     /**
@@ -2083,38 +2028,15 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         return idx > -Short.MAX_VALUE && idx < Short.MAX_VALUE;
     }
 
-    /**
-     * Check if interrupted.
-     *
-     * @throws IgniteInterruptedCheckedException If interrupted.
-     */
-    private static void checkInterrupted() throws IgniteInterruptedCheckedException {
-        // We should not interrupt operations in the middle, because otherwise we'll end up in inconsistent state.
-        // Because of that we do not check for Thread.interrupted()
-        if (interrupted) {
-            throw new IgniteInterruptedCheckedException("Interrupted.");
-        }
-    }
-
-    /**
-     * Interrupt all operations on all threads and all indexes.
-     */
-    @SuppressWarnings("unused")
-    public static void interruptAll() {
-        interrupted = true;
-    }
-
-    /**
-     * @param row Lookup row.
-     * @return Removed row.
-     * @throws IgniteInternalCheckedException If failed.
-     */
+    /** {@inheritDoc} */
     @Override
     public final T remove(L row) throws IgniteInternalCheckedException {
         return doRemove(row, true);
     }
 
     /**
+     * Removes the mapping for a key from this tree if it is present.
+     *
      * @param row Lookup row.
      * @return {@code True} if removed row.
      * @throws IgniteInternalCheckedException If failed.
@@ -2141,8 +2063,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 switch (res) {
                     case RETRY:
                     case RETRY_ROOT:
-                        checkInterrupted();
-
                         continue;
 
                     default:
@@ -2150,8 +2070,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             res = x.tryFinish();
 
                             if (res == RETRY || res == RETRY_ROOT) {
-                                checkInterrupted();
-
                                 continue;
                             }
 
@@ -2233,8 +2151,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         }
 
                         if (res == RETRY) {
-                            checkInterrupted();
-
                             continue;
                         }
 
@@ -2300,8 +2216,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 switch (res) {
                     case RETRY:
                     case RETRY_ROOT:
-                        checkInterrupted();
-
                         continue;
 
                     default:
@@ -2311,8 +2225,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                             // If not found, then the tree grew beyond our call stack -> retry from the actual root.
                             if (res == RETRY || res == NOT_FOUND) {
                                 assert r.checkTailLevel(getRootLevel()) : "tail=" + r.tail + ", res=" + res;
-
-                                checkInterrupted();
 
                                 continue;
                             }
@@ -2388,8 +2300,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         res = removeDown(r, r.pageId, r.backId, r.fwdId, lvl - 1);
 
                         if (res == RETRY) {
-                            checkInterrupted();
-
                             continue;
                         }
 
@@ -2455,7 +2365,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
-     * @return Root level.
+     * Returns root level.
+     *
      * @throws IgniteInternalCheckedException If failed.
      */
     public final int rootLevel() throws IgniteInternalCheckedException {
@@ -2620,9 +2531,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public final T put(T row) throws IgniteInternalCheckedException {
         return doPut(row, true);
@@ -2659,8 +2568,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 switch (res) {
                     case RETRY:
                     case RETRY_ROOT:
-                        checkInterrupted();
-
                         continue;
 
                     case FOUND:
@@ -2673,8 +2580,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                                 p.releaseTail();
 
                                 assert p.checkTailLevel(getRootLevel()) : "tail=" + p.tail + ", res=" + res;
-
-                                checkInterrupted();
 
                                 continue;
                             }
@@ -2942,7 +2847,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     protected Iterable<Long> getFirstPageIds(long pageAddr) {
         List<Long> res = new ArrayList<>();
 
-        BPlusMetaIO mio = BPlusMetaIO.VERSIONS.forPage(pageAddr);
+        BplusMetaIo mio = BplusMetaIo.VERSIONS.forPage(pageAddr);
 
         for (int lvl = mio.getRootLevel(pageAddr); lvl >= 0; lvl--) {
             res.add(mio.getFirstPageId(pageAddr, lvl));
@@ -3045,8 +2950,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                         }
 
                         if (res == RETRY) {
-                            checkInterrupted();
-
                             continue;
                         }
 
@@ -3088,8 +2991,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             switch (visitDown(c, c.rootId, 0L, c.rootLvl)) {
                 case RETRY:
                 case RETRY_ROOT:
-                    checkInterrupted();
-
                     continue;
 
                 default:
@@ -3131,8 +3032,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
                         switch (res) {
                             case RETRY:
-                                checkInterrupted();
-
                                 continue; // The child page got split, need to reread our page.
 
                             default:
@@ -3353,11 +3252,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (lockRetriesCnt == 0) {
                 String errMsg = lockRetryErrorMessage(getClass().getSimpleName());
 
-                IgniteInternalCheckedException e = new IgniteInternalCheckedException(errMsg);
-
-                processFailure(FailureType.CRITICAL_ERROR, e);
-
-                throw e;
+                throw new IgniteInternalCheckedException(errMsg);
             }
 
             lockRetriesCnt--;
@@ -5744,7 +5639,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             return leafIos.forVersion(ver);
         }
 
-        throw new IllegalStateException("Unknown page type: " + type + " pageId: " + U.hexLong(PageIo.getPageId(pageAddr)));
+        throw new IllegalStateException("Unknown page type: " + type + " pageId: " + hexLong(PageIo.getPageId(pageAddr)));
     }
 
     /**
@@ -5768,7 +5663,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     /**
      * Returns the latest version of leaf page IO.
      */
-    public final BPlusLeafIO<L> latestLeafIo() {
+    public final BplusLeafIo<L> latestLeafIo() {
         return leafIos.latest();
     }
 
@@ -6411,7 +6306,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
-     * Tree root meta data.
+     * Tree meta data.
      */
     private static class TreeMetaData {
         /** Root level. */
@@ -6605,29 +6500,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return New CorruptedTreeException instance.
      */
     protected CorruptedTreeException corruptedTreeException(String msg, Throwable cause, int grpId, long... pageIds) {
-        CorruptedTreeException e = new CorruptedTreeException(msg, cause, grpName, grpId, pageIds);
-
-        processFailure(FailureType.CRITICAL_ERROR, e);
-
-        return e;
-    }
-
-    /**
-     * Processes failure with failure processor.
-     *
-     * @param failureType Failure type.
-     * @param e Exception.
-     */
-    protected void processFailure(FailureType failureType, Throwable e) {
-        if (failureProcessor != null && !suspendFailureDiagnostic.get()) {
-            failureProcessor.process(new FailureContext(failureType, e));
-        }
+        return new CorruptedTreeException(msg, cause, grpName, grpId, pageIds);
     }
 
     /**
      * Returns meta page id.
-     *
-     * @return Meta page id.
      */
     public long getMetaPageId() {
         return metaPageId;

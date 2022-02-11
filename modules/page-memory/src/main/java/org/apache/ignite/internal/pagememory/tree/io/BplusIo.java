@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  * IO handle items list differently:
  * <ul>
  *     <li>
- *         {@link BPlusLeafIO} uses an array to store all items, with no gaps inbetween:
+ *         {@link BplusLeafIo} uses an array to store all items, with no gaps inbetween:
  *         <pre><code>
  * | item0 | item1 | ... | itemN-2 | itemN-1 |
  *         </code></pre>

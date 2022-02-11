@@ -24,10 +24,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Interface for ignite internal tree.
  *
- * @param <K> Type of keys maintained by this tree.
- * @param <V> Type of mapped values.
+ * @param <L> Type of keys maintained by this tree.
+ * @param <T> Type of mapped values.
  */
-public interface IgniteTree<K, V> {
+public interface IgniteTree<L, T> {
     /**
      * Put value in this tree.
      *
@@ -35,7 +35,7 @@ public interface IgniteTree<K, V> {
      * @return The previous value associated with key.
      * @throws IgniteInternalCheckedException If failed.
      */
-    @Nullable V put(V val) throws IgniteInternalCheckedException;
+    @Nullable T put(T val) throws IgniteInternalCheckedException;
 
     /**
      * Invokes a closure for a value by given key.
@@ -45,7 +45,7 @@ public interface IgniteTree<K, V> {
      * @param c Closure.
      * @throws IgniteInternalCheckedException If failed.
      */
-    void invoke(K key, @Nullable Object x, InvokeClosure<V> c) throws IgniteInternalCheckedException;
+    void invoke(L key, @Nullable Object x, InvokeClosure<T> c) throws IgniteInternalCheckedException;
 
     /**
      * Returns the value to which the specified key is mapped, or {@code null} if this tree contains no mapping for the key.
@@ -53,7 +53,7 @@ public interface IgniteTree<K, V> {
      * @param key The key whose associated value is to be returned.
      * @throws IgniteInternalCheckedException If failed.
      */
-    @Nullable V findOne(K key) throws IgniteInternalCheckedException;
+    @Nullable T findOne(L key) throws IgniteInternalCheckedException;
 
     /**
      * Returns a cursor from lower to upper bounds inclusive.
@@ -62,7 +62,7 @@ public interface IgniteTree<K, V> {
      * @param upper Upper bound or {@code null} if unbounded.
      * @throws IgniteInternalCheckedException If failed.
      */
-    IgniteCursor<V> find(@Nullable K lower, @Nullable K upper) throws IgniteInternalCheckedException;
+    IgniteCursor<T> find(@Nullable L lower, @Nullable L upper) throws IgniteInternalCheckedException;
 
     /**
      * Returns a cursor from lower to upper bounds inclusive.
@@ -72,21 +72,21 @@ public interface IgniteTree<K, V> {
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    IgniteCursor<V> find(@Nullable K lower, @Nullable K upper, @Nullable Object x) throws IgniteInternalCheckedException;
+    IgniteCursor<T> find(@Nullable L lower, @Nullable L upper, @Nullable Object x) throws IgniteInternalCheckedException;
 
     /**
      * Returns a value mapped to the lowest key, or {@code null} if tree is empty.
      *
      * @throws IgniteInternalCheckedException If failed.
      */
-    @Nullable V findFirst() throws IgniteInternalCheckedException;
+    @Nullable T findFirst() throws IgniteInternalCheckedException;
 
     /**
      * Returns a value mapped to the greatest key, or {@code null} if tree is empty.
      *
      * @throws IgniteInternalCheckedException If failed.
      */
-    @Nullable V findLast() throws IgniteInternalCheckedException;
+    @Nullable T findLast() throws IgniteInternalCheckedException;
 
     /**
      * Removes the mapping for a key from this tree if it is present.
@@ -95,7 +95,7 @@ public interface IgniteTree<K, V> {
      * @return The previous value associated with key, or {@code null} if there was no mapping for key.
      * @throws IgniteInternalCheckedException If failed.
      */
-    @Nullable V remove(K key) throws IgniteInternalCheckedException;
+    @Nullable T remove(L key) throws IgniteInternalCheckedException;
 
     /**
      * Returns the number of elements in this tree.
