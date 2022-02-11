@@ -48,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
  *         </code></pre>
  *     </li>
  *     <li>
- *         {@link BPlusInnerIO} interlaces items arrays with links array. It looks like this:
+ *         {@link BplusInnerIo} interlaces items arrays with links array. It looks like this:
  *         <pre><code>
  * | link0 | item0 | link1 | item1 | ... | linkN-1 | itemN-1 | linkN |
  *         </code></pre>
@@ -77,7 +77,10 @@ public abstract class BplusIo<L> extends PageIo {
     /** Offset start storing items in a page. */
     protected static final int ITEMS_OFF = REMOVE_ID_OFF + 8;
 
-    /** Sign that we can get the full row from this page. Must always be {@code true} for leaf pages. */
+    /**
+     * Sign that we can get the full row from this page. Must always be {@code true} for leaf pages.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+     */
     private final boolean canGetRow;
 
     /** If this is a leaf IO. */
