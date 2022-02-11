@@ -17,17 +17,26 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Thrown when unmarshalling fails.
- */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
-        super(message);
+import org.junit.jupiter.api.Test;
+
+class DefaultSchemaMismatchHandlerTest {
+    private final DefaultSchemaMismatchHandler handler = new DefaultSchemaMismatchHandler();
+
+    @Test
+    void doesNothingOnFieldIgnored() {
+        assertDoesNotThrow(() -> handler.onFieldIgnored(new Object(), "field", "value"));
     }
 
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
+    @Test
+    void doesNothingOnFieldMissed() {
+        assertDoesNotThrow(() -> handler.onFieldMissed(new Object(), "field"));
+    }
+
+    @Test
+    void throwsOnFieldTypeChanged() {
+        assertThrows(SchemaMismatchException.class, () -> handler.onFieldTypeChanged(new Object(), "field", int.class, "value"));
     }
 }

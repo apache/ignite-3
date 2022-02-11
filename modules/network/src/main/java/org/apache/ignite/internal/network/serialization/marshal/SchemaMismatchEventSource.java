@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-
 /**
- * Thrown when unmarshalling fails.
+ * An object on which {@link SchemaMismatchHandler}s may be registered.
  */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
-        super(message);
-    }
-
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
-    }
+public interface SchemaMismatchEventSource {
+    /**
+     * Sets the {@link SchemaMismatchHandler} for the given class if not set or replaces the existing one.
+     *
+     * <p>Note that the handlers are per declared class, not per concrete class lineage.
+     *
+     * @param layerClass the class; for schema changes concerning this class the events will be generated
+     * @param handler    the handler that will handle the schema mismatch events
+     * @param <T>        layer type
+     */
+    <T> void replaceSchemaMismatchHandler(Class<T> layerClass, SchemaMismatchHandler<T> handler);
 }

@@ -74,7 +74,7 @@ public class ClassDescriptorFactory {
     public ClassDescriptor create(Class<?> clazz) {
         ClassDescriptor classDesc = create0(clazz);
 
-        registry.addDescriptor(classDesc);
+        registry.addDescriptor(clazz, classDesc);
 
         Queue<FieldDescriptor> fieldDescriptors = new ArrayDeque<>(classDesc.fields());
 
@@ -87,11 +87,11 @@ public class ClassDescriptorFactory {
                 continue;
             }
 
-            Class<?> fieldClass = fieldDescriptor.clazz();
+            Class<?> fieldClass = fieldDescriptor.localClass();
 
             ClassDescriptor fieldClassDesc = create0(fieldClass);
 
-            registry.addDescriptor(fieldClassDesc);
+            registry.addDescriptor(fieldClass, fieldClassDesc);
 
             fieldDescriptors.addAll(fieldClassDesc.fields());
         }
@@ -132,10 +132,11 @@ public class ClassDescriptorFactory {
     private ClassDescriptor externalizable(int descriptorId, Class<? extends Externalizable> clazz) {
         checkHasPublicNoArgConstructor(clazz);
 
-        return new ClassDescriptor(
+        return ClassDescriptor.local(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
+                componentTypeDescriptor(clazz),
                 Collections.emptyList(),
                 new Serialization(
                         SerializationType.EXTERNALIZABLE,
@@ -155,6 +156,7 @@ public class ClassDescriptorFactory {
      * @param clazz class which super-class to parse
      * @return descriptor of the super-class or {@code null} if the class is an enum, or it has no super-class, or the super-class is Object
      */
+    @Nullable
     private ClassDescriptor superClassDescriptor(Class<?> clazz) {
         if (Enum.class.isAssignableFrom(clazz)) {
             return null;
@@ -166,7 +168,27 @@ public class ClassDescriptorFactory {
             return null;
         }
 
-        return create(superclass);
+        return getOrCreate(superclass);
+    }
+
+    private ClassDescriptor getOrCreate(Class<?> clazz) {
+        ClassDescriptor existingDescriptor = registry.getDescriptor(clazz);
+        if (existingDescriptor != null) {
+            return existingDescriptor;
+        }
+
+        return create(clazz);
+    }
+
+    @Nullable
+    private ClassDescriptor componentTypeDescriptor(Class<?> clazz) {
+        Class<?> componentType = clazz.getComponentType();
+
+        if (componentType == null) {
+            return null;
+        }
+
+        return getOrCreate(componentType);
     }
 
     /**
@@ -201,10 +223,11 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor serializable(int descriptorId, Class<? extends Serializable> clazz) {
-        return new ClassDescriptor(
+        return ClassDescriptor.local(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
+                componentTypeDescriptor(clazz),
                 fields(clazz),
                 new Serialization(
                         SerializationType.SERIALIZABLE,
@@ -245,10 +268,11 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor arbitrary(int descriptorId, Class<?> clazz) {
-        return new ClassDescriptor(
+        return ClassDescriptor.local(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
+                componentTypeDescriptor(clazz),
                 fields(clazz),
                 new Serialization(SerializationType.ARBITRARY)
         );
@@ -317,7 +341,7 @@ public class ClassDescriptorFactory {
     }
 
     private FieldDescriptor fieldDescriptorFromObjectStreamField(ObjectStreamField field, Class<?> clazz) {
-        return new FieldDescriptor(field.getName(), field.getType(), registry.getId(field.getType()), field.isUnshared(), clazz);
+        return FieldDescriptor.local(field.getName(), field.getType(), registry.getId(field.getType()), field.isUnshared(), clazz);
     }
 
     private List<FieldDescriptor> actualFields(Class<?> clazz) {
@@ -329,7 +353,7 @@ public class ClassDescriptorFactory {
                     // Ignore static and transient fields.
                     return !Modifier.isStatic(modifiers) && !Modifier.isTransient(modifiers);
                 })
-                .map(field -> new FieldDescriptor(field, registry.getId(field.getType())))
+                .map(field -> FieldDescriptor.local(field, registry.getId(field.getType())))
                 .collect(toList());
     }
 

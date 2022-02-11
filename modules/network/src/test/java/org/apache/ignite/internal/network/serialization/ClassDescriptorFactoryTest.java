@@ -485,8 +485,6 @@ public class ClassDescriptorFactoryTest {
         ClassDescriptor descriptor = factory.create(Child.class);
 
         assertThat(descriptor.fields(), hasSize(1));
-
-        assertThat(descriptor.fields().get(0).clazz(), is(String.class));
         assertThat(descriptor.fields().get(0).name(), is("childValue"));
     }
 
@@ -494,13 +492,8 @@ public class ClassDescriptorFactoryTest {
     void shouldSortArbitraryObjectFieldsLexicographicallyByFieldName() {
         ClassDescriptor descriptor = factory.create(ClassWithFieldOrderPermutation.class);
 
-        assertThat(descriptor.fields().get(0).clazz(), is(int.class));
         assertThat(descriptor.fields().get(0).name(), is("apple"));
-
-        assertThat(descriptor.fields().get(1).clazz(), is(int.class));
         assertThat(descriptor.fields().get(1).name(), is("banana"));
-
-        assertThat(descriptor.fields().get(2).clazz(), is(int.class));
         assertThat(descriptor.fields().get(2).name(), is("value"));
     }
 
@@ -509,7 +502,7 @@ public class ClassDescriptorFactoryTest {
     void detectsSuperClass() {
         ClassDescriptor descriptor = factory.create(Child.class);
 
-        assertThat(descriptor.superClassDescriptor().clazz(), is(Parent.class));
+        assertThat(descriptor.superClassDescriptor().className(), is(Parent.class.getName()));
     }
 
     @Test
@@ -581,6 +574,20 @@ public class ClassDescriptorFactoryTest {
         ClassDescriptor descriptor = factory.create(WithDuplicateSerialPersistentFields.class);
 
         assertThat(descriptor.fields(), hasSize(1));
+    }
+
+    @Test
+    void producesNoComponentTypeDescriptorForNonArrayTypes() {
+        ClassDescriptor descriptor = factory.create(ClassDescriptorFactory.class);
+
+        assertThat(descriptor.componentTypeDescriptorId(), is(nullValue()));
+    }
+
+    @Test
+    void producesComponentTypeDescriptorForArrayTypes() {
+        ClassDescriptor descriptor = factory.create(ClassDescriptorFactory[].class);
+
+        assertThat(descriptor.componentTypeName(), is(ClassDescriptorFactory.class.getName()));
     }
 
     private static class Parent {
