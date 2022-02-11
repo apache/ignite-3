@@ -18,13 +18,17 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Implementation of {@link QueryPlanCache} that simply wraps a {@link Caffeine} cache.
@@ -64,7 +68,19 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     public QueryPlan queryPlan(CacheKey key, Supplier<QueryPlan> planSupplier) {
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(planSupplier, planningPool));
 
-        return planFut.join().copy();
+        try {
+            return planFut.join().copy();
+        } catch (CancellationException | CompletionException ex) {
+            if (ex.getCause() instanceof IgniteInternalException) {
+                throw (IgniteInternalException) ex.getCause();
+            }
+
+            if (ex.getCause() instanceof IgniteException) {
+                throw (IgniteException) ex.getCause();
+            }
+
+            throw new IgniteInternalException(ex);
+        }
     }
 
     /** {@inheritDoc} */
@@ -76,7 +92,19 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
             return null;
         }
 
-        return planFut.join().copy();
+        try {
+            return planFut.join().copy();
+        } catch (CancellationException | CompletionException ex) {
+            if (ex.getCause() instanceof IgniteInternalException) {
+                throw (IgniteInternalException) ex.getCause();
+            }
+
+            if (ex.getCause() instanceof IgniteException) {
+                throw (IgniteException) ex.getCause();
+            }
+
+            throw new IgniteInternalException(ex);
+        }
     }
 
     /** {@inheritDoc} */
