@@ -40,4 +40,14 @@ class ByteArraySearchRow implements SearchRow {
     public @NotNull ByteBuffer key() {
         return ByteBuffer.wrap(bytes);
     }
+
+    @Override
+    public int keyLength() {
+        return bytes.length;
+    }
+
+    @Override
+    public boolean preferArrayKey() {
+        return true;
+    }
 }

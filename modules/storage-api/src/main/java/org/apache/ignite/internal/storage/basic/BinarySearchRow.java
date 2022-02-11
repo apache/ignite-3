@@ -27,7 +27,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class BinarySearchRow implements SearchRow {
     /** Key array. */
-    private final byte[] key;
+    private final ByteBuffer key;
 
     /**
      * The constructor.
@@ -35,19 +35,30 @@ public class BinarySearchRow implements SearchRow {
      * @param row The search row.
      */
     public BinarySearchRow(BinaryRow row) {
-        // TODO asch IGNITE-15934 can reuse thread local byte buffer
-        key = new byte[row.keySlice().capacity()];
-
-        row.keySlice().get(key);
+        key = row.keySlice();
     }
 
     @Override
     public byte @NotNull [] keyBytes() {
-        return key;
+        byte[] bytes = new byte[key.capacity()];
+
+        key.rewind().get(bytes);
+
+        return bytes;
     }
 
     @Override
     public @NotNull ByteBuffer key() {
-        return ByteBuffer.wrap(key);
+        return key;
+    }
+
+    @Override
+    public int keyLength() {
+        return key.capacity();
+    }
+
+    @Override
+    public boolean preferArrayKey() {
+        return false;
     }
 }

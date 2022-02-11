@@ -672,6 +672,16 @@ public abstract class AbstractPartitionStorageTest {
             public @NotNull ByteBuffer key() {
                 return ByteBuffer.wrap(keyBytes());
             }
+
+            @Override
+            public int keyLength() {
+                return keyBytes().length;
+            }
+
+            @Override
+            public boolean preferArrayKey() {
+                return true;
+            }
         };
     }
 
