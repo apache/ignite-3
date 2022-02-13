@@ -39,9 +39,11 @@ import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSc
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -109,6 +111,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private TxManager tm;
 
+    /** Configuration manager. */
+    @Mock
+    private ConfigurationManager cfgMgr;
+
+    /** Configuration manager. */
+    @Mock
+    private MetaStorageManager metaStorageManager;
+
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -159,7 +169,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor(cfgMgr, metaStorageManager, cs, tblManager);
 
         queryProc.start();
     }
@@ -170,8 +180,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Test
     void checkAppropriateTableFound() throws Exception {
         TableManager tableManager = mock(TableManager.class);
+        ConfigurationManager cfgMgr = mock(ConfigurationManager.class);
+        MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(cfgMgr, metaStorageManager, () -> {});
         UUID tblId = UUID.randomUUID();
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
@@ -194,7 +206,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(tbl.internalTable()).thenReturn(internalTbl);
         when(internalTbl.tableId()).thenReturn(tblId);
 
-        schemaManager.onTableCreated("TEST_SCHEMA", tbl);
+        // TODO
+        schemaManager.onTableCreated("TEST_SCHEMA", tbl, 0L);
 
         schemaManager.tableById(tblId);
         Mockito.verify(tableManager, never()).table(any(UUID.class));

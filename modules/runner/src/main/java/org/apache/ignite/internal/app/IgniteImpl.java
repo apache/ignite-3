@@ -222,6 +222,8 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
+                clusterCfgMgr,
+                metaStorageMgr,
                 clusterSvc,
                 distributedTblMgr
         );

@@ -844,7 +844,7 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Returns applied revision for {@link VaultManager#putAll} operation.
      */
-    private long appliedRevision() {
+    public long appliedRevision() {
         byte[] appliedRevision = vaultMgr.get(APPLIED_REV).join().value();
 
         return appliedRevision == null ? 0L : bytesToLong(appliedRevision);

@@ -25,7 +25,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
@@ -60,6 +62,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
+    private final ConfigurationManager configurationManager;
+
+    private final MetaStorageManager metaStorageManager;
+
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -78,9 +84,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     private volatile Map<String, SqlExtension> extensions;
 
     public SqlQueryProcessor(
+            ConfigurationManager configurationManager,
+            MetaStorageManager metaStorageManager,
             ClusterService clusterSrvc,
             TableManager tableManager
     ) {
+        this.configurationManager = configurationManager;
+        this.metaStorageManager = metaStorageManager;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
     }
@@ -106,7 +116,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
-        SqlSchemaManagerImpl schemaHolder = new SqlSchemaManagerImpl(tableManager, planCache::clear);
+        SqlSchemaManagerImpl schemaHolder =
+            new SqlSchemaManagerImpl(configurationManager, metaStorageManager, planCache::clear);
 
         executionSrvc = new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -128,7 +139,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         executionSrvc.start();
         planCache.start();
 
-        extensionList.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog)));
+        extensionList.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog, metaStorageManager.appliedRevision())));
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
@@ -211,8 +222,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableCreated(
-                    "PUBLIC",
-                    parameters.table()
+                "PUBLIC",
+                parameters.table(),
+                parameters.causalityToken()
             );
 
             return false;
@@ -230,8 +242,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableUpdated(
-                    "PUBLIC",
-                    parameters.table()
+                "PUBLIC",
+                parameters.table(),
+                parameters.causalityToken()
             );
 
             return false;
@@ -249,9 +262,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableDropped(
-                    "PUBLIC",
-                    parameters.tableName()
-            );
+                "PUBLIC",
+                parameters.tableName(),
+                parameters.causalityToken()
+        );
 
             return false;
         }

@@ -25,6 +25,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -184,6 +186,10 @@ public class VersionedValue<T> {
                 + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
 
         res.complete(value);
+    }
+
+    public void update(long causalityToken, Supplier<T> defaultVal, Function<T, T> updater) {
+
     }
 
     /**
