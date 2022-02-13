@@ -79,7 +79,7 @@ public class RocksDbDataRegion implements DataRegion {
                 assert false : dataRegionView.cache();
         }
 
-        writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
+        writeBufferManager = new WriteBufferManager(writeBufferSize, cache, true);
     }
 
     /** {@inheritDoc} */
