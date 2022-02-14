@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -183,5 +185,50 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT count(*) FROM test2 WHERE b = 0").returns(5_000L).check();
         assertQuery("SELECT count(*) FROM test2 WHERE b = 1").returns(5_000L).check();
         assertQuery("SELECT count(*) FROM test2 WHERE b = 2").returns(5_000L).check();
+    }
+
+    /** Test MERGE operator with aliases. */
+    @Test
+    public void testMergeAliases() {
+        sql("CREATE TABLE test1 (k int PRIMARY KEY, a int, b int, c varchar)");
+        sql("INSERT INTO test1 VALUES (0, 0, 0, '0')");
+
+        sql("CREATE TABLE test2 (k int PRIMARY KEY, a int, d int, e varchar)");
+
+        // Without aliases, column 'A' in insert statement is not ambiguous.
+        sql("MERGE INTO test2 USING test1 ON c = e " +
+                "WHEN MATCHED THEN UPDATE SET d = b + 1" +
+                "WHEN NOT MATCHED THEN INSERT (k, a, d, e) VALUES (k + 1, a, b, c)");
+
+        assertQuery("SELECT * FROM test2").returns(1, 0, 0, "0").check();
+
+        // Target table alias duplicate source table name.
+        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e " +
+                "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
+
+        // Source table alias duplicate target table name.
+        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e " +
+                "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
+
+        // Without aliases, reference columns by table name.
+        sql("MERGE INTO test2 USING test1 ON test1.a = test2.a " +
+                "WHEN MATCHED THEN UPDATE SET a = test1.a + 1");
+
+        assertQuery("SELECT * FROM test2").returns(1, 1, 0, "0").check();
+
+        // Ambiguous column name in condition.
+        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a " +
+                "WHEN MATCHED THEN UPDATE SET a = test1.a + 1"), "Column 'A' is ambiguous");
+
+        // Ambiguous column name in update statement.
+        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e " +
+                "WHEN MATCHED THEN UPDATE SET a = a + 1"), "Column 'A' is ambiguous");
+
+        // With aliases, reference columns by table alias.
+        sql("MERGE INTO test2 test1 USING test1 test2 ON test1.d = test2.b " +
+                "WHEN MATCHED THEN UPDATE SET a = test1.a + 1 " +
+                "WHEN NOT MATCHED THEN INSERT (a, d, e) VALUES (test2.a, test2.b, test2.c)");
+
+        assertQuery("SELECT * FROM test2").returns(1, 2, 0, "0").check();
     }
 }
