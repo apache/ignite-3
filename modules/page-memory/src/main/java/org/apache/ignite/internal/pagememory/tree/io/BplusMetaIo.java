@@ -31,7 +31,7 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 // TODO: https://issues.apache.org/jira/browse/IGNITE-16534
 public class BplusMetaIo extends PageIo {
     /** Page IO type. */
-    public static final int T_BPLUS_META = 2;
+    public static final int T_BPLUS_META = 3;
 
     /** I/O versions. */
     public static final IoVersions<BplusMetaIo> VERSIONS = new IoVersions<>(new BplusMetaIo(1));
