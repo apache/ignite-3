@@ -423,7 +423,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
 
                 e.addSuppressed(ex);
 
-                Query<?> qry = (Query<?>) queryRegistry.query(msg.queryId());
+                RunningQuery qry = queryRegistry.query(msg.queryId());
 
                 qry.cancel();
 
