@@ -104,11 +104,11 @@ namespace Apache.Ignite
         /// Gets or sets the retry policy. When a request fails due to a connection error,
         /// Ignite will retry the request if the specified policy allows it.
         /// <para />
-        /// Default is null: operations won't be retried. TODO.
+        /// Default is <see cref="RetryNonePolicy"/> - does not retry anything.
         /// <para />
         /// See also <see cref="RetryAllPolicy"/>, <see cref="RetryReadPolicy"/>, <see cref="RetryNonePolicy"/>, <see cref="RetryLimit"/>.
         /// </summary>
-        public IRetryPolicy RetryPolicy { get; set; }
+        public IRetryPolicy RetryPolicy { get; set; } = RetryNonePolicy.Instance;
 
         /// <summary>
         /// Gets or sets the retry limit. When a request fails due to a connection error,
