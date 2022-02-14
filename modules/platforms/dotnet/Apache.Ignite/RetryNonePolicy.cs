@@ -20,7 +20,7 @@ namespace Apache.Ignite
     /// <summary>
     /// Retry policy that always returns false.
     /// </summary>
-    public class RetryNonePolicy : IRetryPolicy
+    public sealed class RetryNonePolicy : IRetryPolicy
     {
         /// <summary>
         /// Singleton instance.

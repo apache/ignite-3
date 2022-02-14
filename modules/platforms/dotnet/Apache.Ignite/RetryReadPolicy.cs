@@ -17,12 +17,13 @@
 
 namespace Apache.Ignite
 {
+    using System;
     using Internal.Common;
 
     /// <summary>
     /// Retry policy that returns true for all read-only operations that do not modify data.
     /// </summary>
-    public class RetryReadPolicy : IRetryPolicy
+    public sealed class RetryReadPolicy : IRetryPolicy
     {
         /// <summary>
         /// Singleton instance.
@@ -34,8 +35,27 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(context, nameof(context));
 
-            // TODO: Switch.
-            return false;
+            return context.Operation switch
+            {
+                ClientOperationType.TablesGet => true,
+                ClientOperationType.TableGet => true,
+                ClientOperationType.TupleUpsert => false,
+                ClientOperationType.TupleGet => true,
+                ClientOperationType.TupleUpsertAll => false,
+                ClientOperationType.TupleGetAll => true,
+                ClientOperationType.TupleGetAndUpsert => false,
+                ClientOperationType.TupleInsert => false,
+                ClientOperationType.TupleInsertAll => false,
+                ClientOperationType.TupleReplace => false,
+                ClientOperationType.TupleReplaceExact => false,
+                ClientOperationType.TupleGetAndReplace => false,
+                ClientOperationType.TupleDelete => false,
+                ClientOperationType.TupleDeleteAll => false,
+                ClientOperationType.TupleDeleteExact => false,
+                ClientOperationType.TupleDeleteAllExact => false,
+                ClientOperationType.TupleGetAndDelete => false,
+                var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
+            };
         }
     }
 }
