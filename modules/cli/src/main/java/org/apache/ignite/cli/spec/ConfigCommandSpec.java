@@ -18,7 +18,6 @@
 package org.apache.ignite.cli.spec;
 
 import javax.inject.Inject;
-import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.builtins.config.ConfigurationClient;
 import picocli.CommandLine;
 
@@ -45,7 +44,7 @@ public class ConfigCommandSpec extends CategorySpec {
 
         /** Command option for setting custom node host. */
         @CommandLine.Mixin
-        private CfgHostnameOptions cfgHostnameOptions;
+        private NodeEndpointOptions cfgHostnameOptions;
 
         /** Command option for setting HOCON based config selector. */
         @CommandLine.Option(
@@ -88,9 +87,9 @@ public class ConfigCommandSpec extends CategorySpec {
         @CommandLine.Parameters(paramLabel = "hocon", description = "Configuration in Hocon format")
         private String cfg;
 
-        /** Command option for setting custome node host. */
+        /** Command option for setting custom node host. */
         @CommandLine.Mixin
-        private CfgHostnameOptions cfgHostnameOptions;
+        private NodeEndpointOptions cfgHostnameOptions;
 
         /** Configuration type: {@code node} or {@code cluster}. */
         //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
@@ -115,60 +114,4 @@ public class ConfigCommandSpec extends CategorySpec {
         }
     }
 
-    /**
-     * Prepared picocli mixin for generic node hostname option.
-     */
-    private static class CfgHostnameOptions {
-        /** Custom node REST endpoint address. */
-        @CommandLine.Option(
-                names = "--node-endpoint",
-                description = "Ignite server node's REST API address and port number",
-                paramLabel = "host:port"
-        )
-        private String endpoint;
-
-        /**
-         * Returns REST endpoint port.
-         *
-         * @return REST endpoint port.
-         */
-        private int port() {
-            if (endpoint == null) {
-                return 10300;
-            }
-
-            var hostPort = parse();
-
-            try {
-                return Integer.parseInt(hostPort[1]);
-            } catch (NumberFormatException ex) {
-                throw new IgniteCliException("Can't parse port from " + hostPort[1] + " value");
-            }
-        }
-
-        /**
-         * Returns REST endpoint host.
-         *
-         * @return REST endpoint host.
-         */
-        private String host() {
-            return endpoint != null ? parse()[0] : "localhost";
-        }
-
-        /**
-         * Parses REST endpoint host and port from string.
-         *
-         * @return 2-elements array [host, port].
-         */
-        private String[] parse() {
-            var hostPort = endpoint.split(":");
-
-            if (hostPort.length != 2) {
-                throw new IgniteCliException("Incorrect host:port pair provided "
-                        + "(example of valid value 'localhost:10300')");
-            }
-
-            return hostPort;
-        }
-    }
 }
