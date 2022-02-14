@@ -98,9 +98,26 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
         {
-            var socket = await GetSocketAsync().ConfigureAwait(false);
+            var attempt = 0;
+            List<Exception>? errors = null;
 
-            return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+            while (true)
+            {
+                try
+                {
+                    var socket = await GetSocketAsync().ConfigureAwait(false);
+
+                    // TODO: Request disposal?
+                    return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    if (!HandleOpError(e, clientOp, ref attempt, ref errors))
+                    {
+                        throw;
+                    }
+                }
+            }
         }
 
         /// <inheritdoc/>
@@ -251,6 +268,95 @@ namespace Apache.Ignite.Internal
 
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether a failed operation should be retried.
+        /// </summary>
+        /// <param name="exception">Exception that caused the operation to fail.</param>
+        /// <param name="op">Operation code.</param>
+        /// <param name="attempt">Current attempt.</param>
+        /// <returns>
+        /// <c>true</c> if the operation should be retried on another connection, <c>false</c> otherwise.
+        /// </returns>
+        private bool ShouldRetry(Exception exception, ClientOp op, int attempt)
+        {
+            var e = exception;
+
+            while (e != null && !(e is SocketException))
+            {
+                e = e.InnerException;
+            }
+
+            if (e == null)
+            {
+                // Only retry socket exceptions.
+                return false;
+            }
+
+            if (Configuration.RetryPolicy is RetryNonePolicy)
+            {
+                return false;
+            }
+
+            if (Configuration.RetryLimit > 0 && attempt >= Configuration.RetryLimit)
+            {
+                return false;
+            }
+
+            var publicOpType = op.ToPublicOperationType();
+
+            if (publicOpType == null)
+            {
+                // System operation.
+                return true;
+            }
+
+            var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
+
+            return Configuration.RetryPolicy.ShouldRetry(ctx);
+        }
+
+        /// <summary>
+        /// Handles operation error.
+        /// </summary>
+        /// <param name="exception">Error.</param>
+        /// <param name="op">Operation code.</param>
+        /// <param name="attempt">Current attempt.</param>
+        /// <param name="errors">Previous errors.</param>
+        /// <returns>True if the error was handled, false otherwise.</returns>
+        private bool HandleOpError(
+            Exception exception,
+            ClientOp op,
+            ref int attempt,
+            ref List<Exception>? errors)
+        {
+            if (!ShouldRetry(exception, op, attempt))
+            {
+                if (errors == null)
+                {
+                    return false;
+                }
+
+                var inner = new AggregateException(errors);
+
+                throw new IgniteClientException(
+                    $"Operation failed after {attempt} retries, examine InnerException for details.",
+                    inner);
+            }
+
+            if (errors == null)
+            {
+                errors = new List<Exception> { exception };
+            }
+            else
+            {
+                errors.Add(exception);
+            }
+
+            attempt++;
+
+            return true;
         }
     }
 }

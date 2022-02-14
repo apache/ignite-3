@@ -30,9 +30,39 @@ namespace Apache.Ignite
         /// </summary>
         TablesGet,
 
+        TableGet,
+
         /// <summary>
         /// Upsert (<see cref="IRecordView{T}.UpsertAsync"/>).
         /// </summary>
-        TableUpsert,
+        TupleUpsert,
+
+        TupleGet,
+
+        TupleUpsertAll,
+
+        TupleGetAll,
+
+        TupleGetAndUpsert,
+
+        TupleInsert,
+
+        TupleInsertAll,
+
+        TupleReplace,
+
+        TupleReplaceExact,
+
+        TupleGetAndReplace,
+
+        TupleDelete,
+
+        TupleDeleteAll,
+
+        TupleDeleteExact,
+
+        TupleDeleteAllExact,
+
+        TupleGetAndDelete
     }
 }
