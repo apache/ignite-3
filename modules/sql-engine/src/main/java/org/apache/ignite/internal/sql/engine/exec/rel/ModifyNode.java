@@ -21,17 +21,22 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.ModifyTuple;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
  * ModifyNode.
@@ -40,13 +45,13 @@ import org.apache.ignite.lang.IgniteInternalException;
 public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<RowT>, Downstream<RowT> {
     private final InternalIgniteTable table;
 
-    private final TableModify.Operation op;
+    private final TableModify.Operation modifyOp;
 
     private final List<String> cols;
 
     private final InternalTable tableView;
 
-    private List<BinaryRow> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
+    private List<ModifyTuple> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
 
@@ -78,7 +83,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         super(ctx, rowType);
 
         this.table = table;
-        this.op = op;
+        this.modifyOp = op;
         this.cols = cols;
 
         tableView = table.table();
@@ -110,18 +115,18 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         waiting--;
 
-        switch (op) {
+        switch (modifyOp) {
             case DELETE:
             case UPDATE:
             case INSERT:
             case MERGE:
-                rows.add(table.toBinaryRow(context(), row, op, cols));
+                rows.add(table.toBinaryRow(context(), row, modifyOp, cols));
 
                 flushTuples(false);
 
                 break;
             default:
-                throw new UnsupportedOperationException(op.name());
+                throw new UnsupportedOperationException(modifyOp.name());
         }
 
         if (waiting == 0) {
@@ -186,46 +191,61 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
     }
 
+    /** Returns mapping of modifications per modification action. */
+    private Map<Operation, Collection<BinaryRow>> getOperationsPerAction(List<ModifyTuple> rows) {
+        Map<Operation, Collection<BinaryRow>> store = new EnumMap<>(Operation.class);
+
+        for (ModifyTuple tuple : rows) {
+            store.computeIfAbsent(tuple.getOp(), k -> new ArrayList<>()).add(tuple.getRow());
+        }
+
+        return store;
+    }
+
     private void flushTuples(boolean force) {
         if (nullOrEmpty(rows) || !force && rows.size() < MODIFY_BATCH_SIZE) {
             return;
         }
 
-        List<BinaryRow> rows = this.rows;
+        List<ModifyTuple> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
+        Map<Operation, Collection<BinaryRow>> operations = getOperationsPerAction(rows);
+
         // TODO: IGNITE-15087 Implement support for transactional SQL
-        switch (op) {
-            case INSERT:
-                Collection<BinaryRow> conflictKeys = tableView.insertAll(rows, null).join();
+        for (Map.Entry<Operation, Collection<BinaryRow>> op : operations.entrySet()) {
+            switch (op.getKey()) {
+                case INSERT:
+                    Collection<BinaryRow> conflictKeys = tableView.insertAll(op.getValue(), null).join();
 
-                if (!conflictKeys.isEmpty()) {
-                    IgniteTypeFactory typeFactory = context().getTypeFactory();
-                    RowHandler.RowFactory<RowT> rowFactory = context().rowHandler().factory(
-                            context().getTypeFactory(),
-                            table.descriptor().insertRowType(typeFactory)
-                    );
+                    if (!conflictKeys.isEmpty()) {
+                        IgniteTypeFactory typeFactory = context().getTypeFactory();
+                        RowHandler.RowFactory<RowT> rowFactory = context().rowHandler().factory(
+                                context().getTypeFactory(),
+                                table.descriptor().insertRowType(typeFactory)
+                        );
 
-                    List<String> conflictKeys0 = conflictKeys.stream()
-                            .map(binRow -> table.toRow(context(), binRow, rowFactory, null))
-                            .map(context().rowHandler()::toString)
-                            .collect(Collectors.toList());
+                        List<String> conflictKeys0 = conflictKeys.stream()
+                                .map(binRow -> table.toRow(context(), binRow, rowFactory, null))
+                                .map(context().rowHandler()::toString)
+                                .collect(Collectors.toList());
 
-                    throw conflictKeysException(conflictKeys0); // todo !!!
-                }
+                        throw conflictKeysException(conflictKeys0);
+                    }
 
-                break;
-            case MERGE:
-            case UPDATE:
-                tableView.upsertAll(rows, null).join();
+                    break;
+                case MERGE:
+                case UPDATE:
+                    tableView.upsertAll(op.getValue(), null).join();
 
-                break;
-            case DELETE:
-                tableView.deleteAll(rows, null).join();
+                    break;
+                case DELETE:
+                    tableView.deleteAll(op.getValue(), null).join();
 
-                break;
-            default:
-                throw new UnsupportedOperationException(op.name());
+                    break;
+                default:
+                    throw new UnsupportedOperationException(op.getKey().name());
+            }
         }
 
         updatedRows += rows.size();
@@ -233,13 +253,14 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     /** Transforms keys list to appropriate exception. */
     private IgniteInternalException conflictKeysException(List<String> conflictKeys) {
-        if (op == TableModify.Operation.INSERT) {
+        if (modifyOp == TableModify.Operation.INSERT) {
             return new IgniteInternalException("Failed to INSERT some keys because they are already in cache. " +
                     "[rows=" + conflictKeys + ']');
         }
         else {
-            return new IgniteInternalException("Failed to MERGE some keys due to keys conflict or concurrent updates. " +
-                    "[rows=" + conflictKeys + ']'); // todo !!!
+            return new IgniteInternalException(
+                    IgniteStringFormatter.format("Failed to MERGE some keys due to keys conflict or concurrent updates, "
+                            + "clashed input rows: {}", conflictKeys));
         }
     }
 

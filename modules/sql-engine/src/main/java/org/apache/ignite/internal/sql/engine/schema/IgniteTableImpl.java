@@ -35,6 +35,7 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
@@ -252,7 +253,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> BinaryRow toBinaryRow(
+    public <RowT> ModifyTuple toBinaryRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,
@@ -272,7 +273,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         }
     }
 
-    private <RowT> BinaryRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyTuple insertTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
         int nonNullVarlenValCols = 0;
 
@@ -300,10 +301,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return rowAssembler.build();
+        return new ModifyTuple(rowAssembler.build(), TableModify.Operation.INSERT);
     }
 
-    private <RowT> BinaryRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyTuple mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         int rowColumnsCnt = hnd.columnCount(row);
@@ -326,7 +327,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         }
     }
 
-    private <RowT> BinaryRow updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyTuple updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
@@ -370,7 +371,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return rowAssembler.build();
+        return new ModifyTuple(rowAssembler.build(), Operation.UPDATE);
     }
 
     private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
@@ -396,7 +397,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return nonNullCols;
     }
 
-    private <RowT> BinaryRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyTuple deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
 
         RowHandler<RowT> hnd = ectx.rowHandler();
@@ -427,7 +428,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return rowAssembler.build();
+        return new ModifyTuple(rowAssembler.build(), Operation.DELETE);
     }
 
     private ColocationGroup partitionedGroup() {

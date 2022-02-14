@@ -185,6 +185,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
             }
         }
 
+        assert waiting >= 0;
+
         if (waiting == 0 || activeSubscription == null) {
             if (activeSubscription == null) {
                 waiting = 0;
@@ -239,9 +241,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         public void onNext(BinaryRow binRow) {
             RowT row = convert(binRow);
 
-            synchronized (inBuff) {
-                inBuff.add(row);
-            }
+            inBuff.add(row);
 
             if (received.incrementAndGet() == inBufSize) {
                 received.set(0);

@@ -93,6 +93,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.ModifyTuple;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -773,7 +774,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> BinaryRow toBinaryRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
+        public <RowT> ModifyTuple toBinaryRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
             throw new AssertionError();
         }
     }
