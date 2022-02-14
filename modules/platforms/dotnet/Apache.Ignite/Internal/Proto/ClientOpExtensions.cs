@@ -31,6 +31,7 @@ namespace Apache.Ignite.Internal.Proto
         /// <returns>Operation type.</returns>
         public static ClientOperationType? ToPublicOperationType(this ClientOp op)
         {
+            // TODO: Test for all arms.
             return op switch
             {
                 ClientOp.TablesGet => ClientOperationType.TablesGet,
