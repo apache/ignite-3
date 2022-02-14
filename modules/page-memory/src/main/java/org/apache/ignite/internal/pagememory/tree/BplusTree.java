@@ -162,8 +162,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
     private boolean canGetRowFromInner;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
     private IoVersions<? extends BplusInnerIo<L>> innerIos;
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
     private IoVersions<? extends BplusLeafIo<L>> leafIos;
 
     private final AtomicLong globalRmvId;
