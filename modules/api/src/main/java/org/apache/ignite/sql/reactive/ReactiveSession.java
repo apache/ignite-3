@@ -17,12 +17,11 @@
 
 package org.apache.ignite.sql.reactive;
 
-import java.util.List;
 import java.util.concurrent.Flow;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,7 +39,7 @@ public interface ReactiveSession {
      * @return Reactive result.
      * @throws SqlException If failed.
      */
-    ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull String query,
+    ReactiveResultSet executeReactive(@Nullable Transaction transaction, String query,
             @Nullable Object... arguments);
 
     /**
@@ -51,7 +50,7 @@ public interface ReactiveSession {
      * @return Reactive result.
      * @throws SqlException If failed.
      */
-    ReactiveResultSet executeReactive(@Nullable Transaction transaction, @NotNull Statement statement);
+    ReactiveResultSet executeReactive(@Nullable Transaction transaction, Statement statement);
 
     /**
      * Executes batched SQL query in a reactive way.
@@ -64,8 +63,8 @@ public interface ReactiveSession {
      */
     Flow.Publisher<Integer> executeBatchReactive(
             @Nullable Transaction transaction,
-            @NotNull String query,
-            @NotNull List<List<@Nullable Object>> batch
+            String query,
+            BatchedArguments batch
     );
 
     /**
@@ -79,7 +78,7 @@ public interface ReactiveSession {
      */
     Flow.Publisher<Integer> executeBatchReactive(
             @Nullable Transaction transaction,
-            @NotNull Statement statement,
-            @NotNull List<List<@Nullable Object>> batch
+            Statement statement,
+            BatchedArguments batch
     );
 }

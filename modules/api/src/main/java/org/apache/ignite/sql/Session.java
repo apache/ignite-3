@@ -28,47 +28,19 @@ import org.jetbrains.annotations.Nullable;
  * SQL Session provides methods for query execution.
  *
  * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Modifying the session state
- * may affect the queries that are already started within this session. Thus, modifying session state from concurrent threads may lead to
+ * may affect the queries that are already started within this session. Thus, modifying session state from multiple threads may lead to
  * unexpected behaviour.
  *
  * <p>Session "execute*" methods are thread-safe and can be called from different threads.
  *
- * <p>Statement created via a current session can't be used in different sessions. Prepared statement forces performance optimizations,
- * such as query plan caching on the server side, which is useful for frequently executed queries or for queries when low-latency is
- * critical. However, prepared statement execution flow may switch to a normal flow for short time automatically, when the server side state
- * is lost and has to be recovered (e.g. due to client reconnect, cluster reconfiguration, or any other).
+ * <p>Closing a session will not affect already running queries.
  */
 public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     /** Default schema name. */
     String DEFAULT_SCHEMA = "PUBLIC";
 
-    /**
-     * Creates an SQL statement abject, which represents a query and holds a query-specific settings that overrides the session default
-     * settings.
-     *
-     * @param query SQL query template.
-     * @return A new statement.
-     */
-    Statement createStatement(@NotNull String query);
-
-    /**
-     * Creates an SQL statement abject, which represents a prepared query and holds a query-specific settings that overrides the session
-     * default settings.
-     *
-     * @param query SQL query template.
-     * @return A new statement.
-     * @throws SqlException If parsing failed.
-     */
-    Statement createPreparedStatement(String query);
-
-    /**
-     * Create a prepared copy of given statement.
-     *
-     * @param statement SQL query statement.
-     * @return A new statement.
-     * @throws SqlException If parsing failed.
-     */
-    Statement prepare(Statement statement);
+    /** Default maximal number of rows in a single page. */
+    int DEFAULT_PAGE_SIZE = 1024;
 
     /**
      * Executes single SQL query.
@@ -79,7 +51,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @return SQL query results set.
      * @throws SqlException If failed.
      */
-    @NotNull ResultSet execute(@Nullable Transaction transaction, @NotNull String query, @Nullable Object... arguments);
+    ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
      * Executes single SQL statement.
@@ -89,7 +61,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param arguments Arguments for the statement.
      * @return SQL query results set.
      */
-    @NotNull ResultSet execute(@Nullable Transaction transaction, @NotNull Statement statement, @Nullable Object... arguments);
+    ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
 
     /**
      * Executes batched SQL query.
@@ -99,7 +71,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
      */
-    @NotNull int[] executeBatch(@Nullable Transaction transaction, @NotNull String query, @NotNull Arguments batch);
+    int[] executeBatch(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
     /**
      * Executes batched SQL query.
@@ -109,10 +81,10 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
      */
-    @NotNull int[] executeBatch(
+    int[] executeBatch(
             @Nullable Transaction transaction,
-            @NotNull Statement statement,
-            @NotNull Arguments batch
+            Statement statement,
+            BatchedArguments batch
     );
 
     /**
@@ -122,13 +94,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param arguments Arguments for the template (optional).
      * @throws SqlException If failed.
      */
-    void executeScript(@NotNull String query, @Nullable Object... arguments);
-
-    /**
-     * Closes session, cleanup remote session resources, and stops all queries that are running within the current session.
-     */
-    @Override
-    void close();
+    void executeScript(String query, @Nullable Object... arguments);
 
     /**
      * Sets default query timeout.
@@ -136,7 +102,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param timeout Query timeout value.
      * @param timeUnit Timeunit.
      */
-    void defaultTimeout(long timeout, @NotNull TimeUnit timeUnit);
+    void defaultTimeout(long timeout, TimeUnit timeUnit);
 
     /**
      * Return default query timeout.
@@ -144,7 +110,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param timeUnit Timeunit to convert timeout to.
      * @return Default query timeout in the given timeunit.
      */
-    long defaultTimeout(@NotNull TimeUnit timeUnit);
+    long defaultTimeout(TimeUnit timeUnit);
 
     /**
      * Sets default schema for the session, which the queries will be executed with.
@@ -154,7 +120,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      *
      * @param schema Default schema.
      */
-    void defaultSchema(@NotNull String schema);
+    void defaultSchema(String schema);
 
     /**
      * Returns session default schema.
@@ -164,7 +130,24 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @return Session default schema.
      * @see #defaultSchema(String)
      */
-    @NotNull String defaultSchema();
+    String defaultSchema();
+
+    /**
+     * Sets default page size, which is a maximal amount of results rows that can be fetched once at a time.
+     *
+     * @param pageSize Maximal amount of rows in a page.
+     * @return {@code this} for chaining.
+     */
+    Session defaultPageSize(int pageSize);
+
+    /**
+     * Returns default page size, which is a maximal amount of results rows that can be fetched once at a time.
+     *
+     * <p>Default value is {@link #DEFAULT_PAGE_SIZE}.
+     *
+     * @return Maximal amount of rows in a page.
+     */
+    int defaultPageSize();
 
     /**
      * Sets session property.
@@ -173,7 +156,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param value Property value.
      * @return {@code this} for chaining.
      */
-    Session property(@NotNull String name, @Nullable Object value);
+    Session property(String name, @Nullable Object value);
 
     /**
      * Returns session property.
@@ -181,5 +164,12 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @param name Property name.
      * @return Property value.
      */
-    @Nullable Object property(@NotNull String name);
+    @Nullable Object property(String name);
+
+    /**
+     * Closes session, cleanup remote session resources, and stops all queries that are running within the current session.
+     */
+    @Override
+    void close();
+
 }

@@ -21,6 +21,7 @@ import java.util.concurrent.Flow;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Reactive result set provides methods to subscribe to the query results in reactive way.
@@ -31,12 +32,12 @@ import org.apache.ignite.sql.SqlRow;
  */
 public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     /**
-     * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
+     * Returns publisher for the result metadata.
      *
      * @return Metadata publisher.
      * @see ResultSet#metadata()
      */
-    Flow.Publisher<ResultSetMetadata> metadata();
+    Flow.Publisher<@Nullable ResultSetMetadata> metadata();
 
     /**
      * Returns publisher for the flag that determines whether the result of the query execution is a collection of rows, or not.
@@ -49,8 +50,8 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
     Flow.Publisher<Boolean> hasRowSet();
 
     /**
-     * Returns number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.),
-     * or {@code 0} if statement return nothing (such as "ALTER TABLE", etc) or {@code -1} if inapplicable.
+     * Returns number of rows affected by the DML statement execution (such as "INSERT", "UPDATE", etc.), or {@code 0} if statement return
+     * nothing (such as "ALTER TABLE", etc) or {@code -1} if inapplicable.
      *
      * <p>Note: when returns {@code -1}, then either {@link #hasRowSet()} or {@link #wasApplied()} returns {@code true}.
      *

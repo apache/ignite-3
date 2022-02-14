@@ -27,4 +27,13 @@ public interface IgniteSql {
      * @return A new session.
      */
     Session createSession();
+
+    /**
+     * Creates an SQL statement abject, which represents a query and holds a query-specific settings that overrides the session default
+     * settings.
+     *
+     * @param query SQL query template.
+     * @return A new statement.
+     */
+    Statement createStatement(String query);
 }

@@ -39,7 +39,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.util.Constants;
-import org.apache.ignite.sql.Arguments;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -110,7 +110,7 @@ public class IgniteSqlApiTest {
 
         // Execute batched DML query.
         int[] res = sess.executeBatch(null, "INSERT INTO tbl VALUES (?, ?)",
-                Arguments.batch(2, "str2").add(3, "str3").add(4, "str4"));
+                BatchedArguments.of(2, "str2").add(3, "str3").add(4, "str4"));
 
         assertEquals(3, res.length);
         assertTrue(Arrays.stream(res).allMatch(i -> i == 1));
@@ -150,7 +150,7 @@ public class IgniteSqlApiTest {
 
             // Execute batched DML query.
             int[] res = sess.executeBatch(tx, "INSERT INTO tbl VALUES (?, ?)",
-                    Arguments.batch(2, "str2").add(3, "str3").add(4, "str4"));
+                    BatchedArguments.of(2, "str2").add(3, "str3").add(4, "str4"));
 
             assertTrue(Arrays.stream(res).allMatch(i -> i == 1));
 
@@ -236,7 +236,7 @@ public class IgniteSqlApiTest {
             Session sess = igniteSql.createSession();
             sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
             sess.executeBatch(null, "INSERT INTO tbl VALUES (?, ?)",
-                    Arguments.batch(1, "str1").add(2, "str2").add(3, "str3").add(4, "str4").add(5, "str5"));
+                    BatchedArguments.of(1, "str1").add(2, "str2").add(3, "str3").add(4, "str4").add(5, "str5"));
         }
 
         KeyValueView<Tuple, Tuple> table = getTable();
@@ -281,7 +281,7 @@ public class IgniteSqlApiTest {
             Session sess = igniteSql.createSession();
             sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
             sess.executeBatch(null, "INSERT INTO tbl VALUES (?, ?)",
-                    Arguments.batch(1, "str1").add(2, "str2").add(3, "str3").add(4, "str4"));
+                    BatchedArguments.of(1, "str1").add(2, "str2").add(3, "str3").add(4, "str4"));
         }
 
         SqlRowSubscriber subscriber = new SqlRowSubscriber(row -> {
@@ -332,6 +332,9 @@ public class IgniteSqlApiTest {
 
     @NotNull
     private KeyValueView<Tuple, Tuple> getTable() {
+        BatchedArguments of = BatchedArguments.of();
+        BatchedArguments of2 = BatchedArguments.of((Object) null);
+
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{new Column("id", NativeTypes.INT32, false)},
                 new Column[]{new Column("val", NativeTypes.STRING, true)}
@@ -399,9 +402,9 @@ public class IgniteSqlApiTest {
                 });
 
         Mockito.when(session.executeBatch(Mockito.nullable(Transaction.class), Mockito.eq("INSERT INTO tbl VALUES (?, ?)"),
-                Mockito.any(Arguments.class)))
+                Mockito.any(BatchedArguments.class)))
                 .then(ans -> {
-                    Arguments args = ans.getArgument(2);
+                    BatchedArguments args = ans.getArgument(2);
 
                     args.forEach(a -> state(ans.getArgument(0)).put((Integer) a.get(0), (String) a.get(1)));
 

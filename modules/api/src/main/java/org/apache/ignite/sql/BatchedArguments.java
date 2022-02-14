@@ -18,6 +18,7 @@
 package org.apache.ignite.sql;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -27,17 +28,31 @@ import java.util.List;
  * TODO: add arguments length validation.
  * TODO: add named arguments support.
  */
-public class Arguments extends ArrayList<List<Object>> implements List<List<Object>> {
+public class BatchedArguments extends ArrayList<List<Object>> implements List<List<Object>> {
     /**
      * Creates batched arguments.
      *
      * @param args Arguments.
      * @return Batch query arguments.
      */
-    public static Arguments batch(Object... args) {
-        Arguments arguments = new Arguments();
+    public static BatchedArguments of(Object... args) {
+        BatchedArguments arguments = new BatchedArguments();
 
-        arguments.add(List.of(args));
+        arguments.add(Arrays.asList(args));
+
+        return arguments;
+    }
+
+    /**
+     * Creates batched arguments.
+     *
+     * @param args Arguments.
+     * @return Batch query arguments.
+     */
+    public static BatchedArguments of(List<List<Object>> args) {
+        BatchedArguments arguments = new BatchedArguments();
+
+        arguments.addAll(args);
 
         return arguments;
     }
@@ -48,7 +63,7 @@ public class Arguments extends ArrayList<List<Object>> implements List<List<Obje
      * @param args Arguments.
      * @return {@code this} for chaining.
      */
-    public Arguments add(Object... args) {
+    public BatchedArguments add(Object... args) {
         add(List.of(args));
 
         return this;

@@ -17,12 +17,11 @@
 
 package org.apache.ignite.sql.async;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,9 +30,6 @@ import org.jetbrains.annotations.Nullable;
  * @see org.apache.ignite.sql.Session
  */
 public interface AsyncSession {
-    /** Default maximal number of rows in a single page. */
-    int DEFAULT_PAGE_SIZE = 1024;
-
     /**
      * Executes SQL query in an asynchronous way.
      *
@@ -43,7 +39,7 @@ public interface AsyncSession {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull String query,
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query,
             @Nullable Object... arguments);
 
     /**
@@ -54,7 +50,7 @@ public interface AsyncSession {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, @NotNull Statement statement);
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement);
 
     /**
      * Executes batched SQL query in an asynchronous way.
@@ -65,10 +61,10 @@ public interface AsyncSession {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    @NotNull CompletableFuture<Integer> executeBatchAsync(
+    CompletableFuture<Integer> executeBatchAsync(
             @Nullable Transaction transaction,
-            @NotNull String query,
-            @NotNull List<List<@Nullable Object>> batch
+            String query,
+            BatchedArguments batch
     );
 
     /**
@@ -80,26 +76,9 @@ public interface AsyncSession {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    @NotNull CompletableFuture<Integer> executeBatchAsync(
+    CompletableFuture<Integer> executeBatchAsync(
             @Nullable Transaction transaction,
-            @NotNull Statement statement,
-            @NotNull List<List<@Nullable Object>> batch
+            Statement statement,
+            BatchedArguments batch
     );
-
-    /**
-     * Sets default page size for asynchronous queries.
-     *
-     * @param pageSize Maximal number of rows in a page.
-     * @return {@code this} for chaining.
-     */
-    AsyncSession pageSize(int pageSize);
-
-    /**
-     * Returns default page size for asynchronous queries.
-     *
-     * <p>Default value is {@link #DEFAULT_PAGE_SIZE}.
-     *
-     * @return Maximal number of rows in a page.
-     */
-    int pageSize();
 }
