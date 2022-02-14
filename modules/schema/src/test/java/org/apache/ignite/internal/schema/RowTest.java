@@ -355,23 +355,6 @@ public class RowTest {
         checkValues(sch, checkArr);
     }
 
-    @Test
-    public void test() {
-        Column[] keyCol = {new Column("keyCol", INT32, false)};
-
-        Column[] valColsMulti =
-                new Column[]{
-                        new Column("valCol1", INT32, true),
-                        new Column("valCol2", INT32, true),
-                        new Column("valCol3", INT32, true),
-                        new Column("valCol4", STRING, true)};
-
-        SchemaDescriptor schemaMulti = new SchemaDescriptor(1, keyCol, valColsMulti);
-
-        Object[] checkArr = new Object[] {1, 1, 1, 1, "1"};
-        checkValues(schemaMulti, checkArr);
-    }
-
     /**
      * Parametrized test for correctness of empty string insertion.
      *
@@ -714,10 +697,11 @@ public class RowTest {
             }
         }
 
-        byte[] data = asm.toBytes();
-        ByteBufferRow row0 = (ByteBufferRow)asm.build();
+        BinaryRow row0 = asm.build();
 
-        assert row0.bytes().length > 0;
+        assert vals.length > 0 && row0.bytes().length > 0;
+
+        byte[] data = asm.toBytes();
 
         Row row = new Row(schema, new ByteBufferRow(data));
 

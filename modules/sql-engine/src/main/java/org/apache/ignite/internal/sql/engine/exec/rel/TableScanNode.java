@@ -24,6 +24,7 @@ import java.util.Queue;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
@@ -178,11 +179,6 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
                     requested--;
                     downstream().push(row);
-                    Object[] obj = ((Object[])(row));
-                    System.err.println("!!!!");
-                    for (Object o : obj) {
-                        System.err.println(o == null ? "null" : o);
-                    }
                 }
             } finally {
                 inLoop = false;
@@ -190,6 +186,10 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         }
 
         if (waiting == 0 || activeSubscription == null) {
+            if (activeSubscription == null) {
+                waiting = 0;
+            }
+
             requestNextBatch();
         }
 
@@ -223,7 +223,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        private int received;
+        AtomicInteger received = new AtomicInteger();
 
         /** {@inheritDoc} */
         @Override
@@ -239,10 +239,12 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         public void onNext(BinaryRow binRow) {
             RowT row = convert(binRow);
 
-            inBuff.add(row);
+            synchronized (inBuff) {
+                inBuff.add(row);
+            }
 
-            if (++received == inBufSize) {
-                received = 0;
+            if (received.incrementAndGet() == inBufSize) {
+                received.set(0);
 
                 context().execute(() -> {
                     waiting = 0;
@@ -262,11 +264,9 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         public void onComplete() {
-            int received0 = received;
-
             context().execute(() -> {
                 activeSubscription = null;
-                waiting -= received0;
+                waiting -= received.get();
 
                 push();
             }, TableScanNode.this::onError);

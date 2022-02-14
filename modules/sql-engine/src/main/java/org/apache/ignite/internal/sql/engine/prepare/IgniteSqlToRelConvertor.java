@@ -68,20 +68,6 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
             return super.convertQueryRecursive(qry, top, targetRowType);
     }
 
-/*    protected RelNode convertInsert(SqlInsert call) {
-        RelOptTable targetTable = getTargetTable(call);
-
-        final RelDataType targetRowType =
-                targetTable.getRowType();
-        assert targetRowType != null;
-        RelNode sourceRel =
-                convertQueryRecursive(call.getSource(), false, targetRowType).project();
-        //RelNode massagedRel = convertColumnList(call, sourceRel);
-
-        //return super.createModify(targetTable, massagedRel);
-        return sourceRel;
-    }*/
-
     /**
      * This method was copy-pasted from super-method except this changes:
      * - For updateCall we require all columns in the project and should not skip anything.
