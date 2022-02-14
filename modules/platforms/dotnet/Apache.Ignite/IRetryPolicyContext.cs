@@ -20,9 +20,9 @@ namespace Apache.Ignite
     using System;
 
     /// <summary>
-    /// Retry policy context. See <see cref="IClientRetryPolicy.ShouldRetry"/>.
+    /// Retry policy context. See <see cref="IRetryPolicy.ShouldRetry"/>.
     /// </summary>
-    public interface IClientRetryPolicyContext
+    public interface IRetryPolicyContext
     {
         /// <summary>
         /// Gets the client configuration.
@@ -32,7 +32,7 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets the operation type.
         /// </summary>
-        ClientOperationType ClientOperation { get; }
+        ClientOperationType Operation { get; }
 
         /// <summary>
         /// Gets the current iteration.

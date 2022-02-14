@@ -21,7 +21,7 @@ namespace Apache.Ignite
     /// Client retry policy determines whether client operations that have failed due to a connection issue
     /// should be retried.
     /// </summary>
-    public interface IClientRetryPolicy
+    public interface IRetryPolicy
     {
         /// <summary>
         /// Gets a value indicating whether a client operation that has failed due to a connection issue
@@ -31,6 +31,6 @@ namespace Apache.Ignite
         /// <returns>
         /// <c>true</c> if the operation should be retried on another connection, <c>false</c> otherwise.
         /// </returns>
-        bool ShouldRetry(IClientRetryPolicyContext context);
+        bool ShouldRetry(IRetryPolicyContext context);
     }
 }

@@ -73,6 +73,8 @@ namespace Apache.Ignite
             Logger = other.Logger;
             SocketTimeout = other.SocketTimeout;
             Endpoints = other.Endpoints.ToList();
+            RetryPolicy = other.RetryPolicy;
+            RetryLimit = other.RetryLimit;
         }
 
         /// <summary>
@@ -97,5 +99,24 @@ namespace Apache.Ignite
         ///  * my-host.com:780..787 (custom port range).
         /// </summary>
         public IList<string> Endpoints { get; } = new List<string>();
+
+        /// <summary>
+        /// Gets or sets the retry policy. When a request fails due to a connection error,
+        /// Ignite will retry the request if the specified policy allows it.
+        /// <para />
+        /// Default is null: operations won't be retried. TODO.
+        /// <para />
+        /// See also <see cref="RetryAllPolicy"/>, <see cref="RetryReadPolicy"/>, <see cref="RetryNonePolicy"/>, <see cref="RetryLimit"/>.
+        /// </summary>
+        public IRetryPolicy RetryPolicy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the retry limit. When a request fails due to a connection error,
+        /// Ignite will retry the request if the specified <see cref="RetryPolicy"/> allows it. When this property is
+        /// greater than <c>0</c>, Ignite will limit the number of retries.
+        /// <para />
+        /// Default is <c>0</c>: no limit on retries.
+        /// </summary>
+        public int RetryLimit { get; set; }
     }
 }
