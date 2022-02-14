@@ -68,19 +68,7 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     public QueryPlan queryPlan(CacheKey key, Supplier<QueryPlan> planSupplier) {
         CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(planSupplier, planningPool));
 
-        try {
-            return planFut.join().copy();
-        } catch (CancellationException | CompletionException ex) {
-            if (ex.getCause() instanceof IgniteInternalException) {
-                throw (IgniteInternalException) ex.getCause();
-            }
-
-            if (ex.getCause() instanceof IgniteException) {
-                throw (IgniteException) ex.getCause();
-            }
-
-            throw new IgniteInternalException(ex);
-        }
+        return join(planFut).copy();
     }
 
     /** {@inheritDoc} */
@@ -92,19 +80,7 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
             return null;
         }
 
-        try {
-            return planFut.join().copy();
-        } catch (CancellationException | CompletionException ex) {
-            if (ex.getCause() instanceof IgniteInternalException) {
-                throw (IgniteInternalException) ex.getCause();
-            }
-
-            if (ex.getCause() instanceof IgniteException) {
-                throw (IgniteException) ex.getCause();
-            }
-
-            throw new IgniteInternalException(ex);
-        }
+        return join(planFut).copy();
     }
 
     /** {@inheritDoc} */
@@ -125,5 +101,29 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
         clear();
 
         planningPool.shutdownNow();
+    }
+
+    /**
+     * Waits for the future to complete and returns the result. If an exception is thrown, converts future-related exceptions
+     * to internal exceptions.
+     *
+     * @param future A future to wait.
+     * @param <T> Type of the result of the future.
+     * @return The result of the future.
+     */
+    private <T> T join(CompletableFuture<T> future) {
+        try {
+            return future.join();
+        } catch (CancellationException | CompletionException ex) {
+            if (ex.getCause() instanceof IgniteInternalException) {
+                throw (IgniteInternalException) ex.getCause();
+            }
+
+            if (ex.getCause() instanceof IgniteException) {
+                throw (IgniteException) ex.getCause();
+            }
+
+            throw new IgniteInternalException(ex);
+        }
     }
 }
