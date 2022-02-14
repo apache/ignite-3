@@ -31,7 +31,8 @@ public interface SearchRow {
     byte[] keyBytes();
 
     /**
-     * Returns key object as a byte buffer. Allows more effective memory management in certain cases.
+     * Returns key object as a byte buffer. Allows more effective memory management in certain cases. Position of the resulting buffer
+     * must be {@code 0}.
      *
      * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
      */

@@ -40,7 +40,7 @@ public class BinarySearchRow implements SearchRow {
     @Override
     public byte[] keyBytes() {
         // TODO asch IGNITE-15934 can reuse thread local byte buffer
-        byte[] bytes = new byte[key.capacity()];
+        byte[] bytes = new byte[key.limit()];
 
         key.rewind().get(bytes);
 
@@ -49,6 +49,6 @@ public class BinarySearchRow implements SearchRow {
 
     @Override
     public ByteBuffer key() {
-        return key;
+        return key.rewind();
     }
 }

@@ -492,9 +492,9 @@ class RocksDbPartitionStorage implements PartitionStorage {
      * and the key's hash (an optimisation).
      */
     private byte[] partitionKey(SearchRow key) {
-        ByteBuffer keyBuffer = key.key().rewind();
+        ByteBuffer keyBuffer = key.key();
 
-        return ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + keyBuffer.capacity())
+        return ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + keyBuffer.limit())
                 .order(ByteOrder.BIG_ENDIAN)
                 .putShort((short) partId)
                 // TODO: use precomputed hash, see https://issues.apache.org/jira/browse/IGNITE-16370
