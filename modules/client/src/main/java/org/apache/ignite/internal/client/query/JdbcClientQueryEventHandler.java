@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
@@ -78,6 +79,16 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
         return client.sendRequestAsync(ClientOp.SQL_EXEC_BATCH, req, res);
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(
+            BatchPreparedStmntRequest req) {
+        BatchExecuteResult res = new BatchExecuteResult();
+
+        return client.sendRequestAsync(ClientOp.SQL_EXEC_PS_BATCH, req, res);
+    }
+
 
     /** {@inheritDoc} */
     @Override

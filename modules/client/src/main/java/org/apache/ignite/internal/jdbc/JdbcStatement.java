@@ -36,7 +36,6 @@ import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.Query;
 import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.QuerySingleResult;
@@ -51,7 +50,7 @@ public class JdbcStatement implements Statement {
     private static final int DFLT_PAGE_SIZE = 1024;
 
     /** JDBC Connection implementation. */
-    private final JdbcConnection conn;
+    protected final JdbcConnection conn;
 
     /** Result set holdability. */
     private final int resHoldability;
@@ -75,7 +74,7 @@ public class JdbcStatement implements Statement {
     private volatile List<JdbcResultSet> resSets;
 
     /** Batch. */
-    protected List<Query> batch;
+    private List<String> batch;
 
     /** Close on completion. */
     private boolean closeOnCompletion;
@@ -506,7 +505,7 @@ public class JdbcStatement implements Statement {
             batch = new ArrayList<>();
         }
 
-        batch.add(new Query(sql));
+        batch.add(sql);
     }
 
     /** {@inheritDoc} */

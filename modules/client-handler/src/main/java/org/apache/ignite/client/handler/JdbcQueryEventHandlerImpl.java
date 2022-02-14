@@ -36,6 +36,7 @@ import org.apache.ignite.client.handler.requests.sql.JdbcQueryCursor;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
@@ -46,7 +47,6 @@ import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
 import org.apache.ignite.client.proto.query.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.client.proto.query.event.Query;
 import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
 import org.apache.ignite.client.proto.query.event.QueryCloseResult;
 import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
@@ -60,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -169,20 +168,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        final Query firstQuery = req.queries().get(0);
-        if (CollectionUtils.nullOrEmpty(firstQuery.args())) {
-            return batchAsync(req.schemaName(), req.queries());
-        } else {
-            return batchPreparedStatementAsync(req.schemaName(), firstQuery);
-        }
-    }
+        List<String> queries = req.queries();
 
-    private CompletableFuture<BatchExecuteResult> batchAsync(String schemaName, List<Query> queries) {
         IntList res = new IntArrayList(queries.size());
 
-        for (Query query : queries) {
+        for (String query : queries) {
             try {
-                executeAndCollectUpdateCount(schemaName, query.sql(), OBJECT_EMPTY_ARRAY, res);
+                executeAndCollectUpdateCount(req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
             } catch (Exception e) {
                 return handleBatchException(e, query, res);
             }
@@ -191,15 +183,17 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
     }
 
-    private CompletableFuture<BatchExecuteResult> batchPreparedStatementAsync(String schemaName, Query query) {
-        IntList res = new IntArrayList(query.args().size());
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
+        IntList res = new IntArrayList(req.getArgs().size());
 
         try {
-            for (Object[] arg : query.args()) {
-                executeAndCollectUpdateCount(schemaName, query.sql(), arg, res);
+            for (Object[] arg : req.getArgs()) {
+                executeAndCollectUpdateCount(req.schemaName(), req.getQuery(), arg, res);
             }
         } catch (Exception e) {
-            return handleBatchException(e, query, res);
+            return handleBatchException(e, req.getQuery(), res);
         }
 
         return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
@@ -213,14 +207,13 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
     }
 
-    private CompletableFuture<BatchExecuteResult> handleBatchException(Exception e, Query query, IntList res) {
+    private CompletableFuture<BatchExecuteResult> handleBatchException(Exception e, String query, IntList res) {
         StringWriter sw = getWriterWithStackTrace(e);
 
         String error;
 
         if (e instanceof ClassCastException) {
-            error = "Unexpected result after query:" + query.sql()
-                    + ". Not an upsert statement? " + sw;
+            error = "Unexpected result after query:" + query + ". Not an upsert statement? " + sw;
         } else {
             error = sw.toString();
         }

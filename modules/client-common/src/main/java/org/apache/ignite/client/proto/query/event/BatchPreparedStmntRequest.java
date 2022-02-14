@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import io.netty.util.internal.StringUtil;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.client.proto.query.ClientMessage;
@@ -26,37 +27,38 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
- * JDBC batch execute request.
+ * JDBC prepared statement query batch execute request.
  */
-public class BatchExecuteRequest implements ClientMessage {
+public class BatchPreparedStmntRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 
-    /** Sql queries. */
-    private List<String> queries;
+    /** Sql query. */
+    private String query;
 
-    /** Client auto commit flag state. */
-    private boolean autoCommit;
+    /** Batch of query arguments. */
+    private List<Object[]> args;
 
     /**
      * Default constructor.
      */
-    public BatchExecuteRequest() {
+    public BatchPreparedStmntRequest() {
     }
 
     /**
      * Constructor.
      *
      * @param schemaName Schema name.
-     * @param queries    Queries.
-     * @param autoCommit Client auto commit flag state.
+     * @param query Sql query string.
+     * @param args Sql query arguments.
      */
-    public BatchExecuteRequest(String schemaName, List<String> queries, boolean autoCommit) {
-        assert !CollectionUtils.nullOrEmpty(queries);
+    public BatchPreparedStmntRequest(String schemaName, String query, List<Object[]> args) {
+        assert !StringUtil.isNullOrEmpty(query);
+        assert !CollectionUtils.nullOrEmpty(args);
 
+        this.query = query;
+        this.args = args;
         this.schemaName = schemaName;
-        this.queries = queries;
-        this.autoCommit = autoCommit;
     }
 
     /**
@@ -69,21 +71,21 @@ public class BatchExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the queries.
+     * Get the sql query string.
      *
-     * @return Queries.
+     * @return Query string.
      */
-    public List<String> queries() {
-        return queries;
+    public String getQuery() {
+        return query;
     }
 
     /**
-     * Get the auto commit flag.
+     * Get the query arguments batch.
      *
-     * @return Auto commit flag.
+     * @return query arguments batch.
      */
-    boolean autoCommit() {
-        return autoCommit;
+    public List<Object[]> getArgs() {
+        return args;
     }
 
     /** {@inheritDoc} */
@@ -91,10 +93,11 @@ public class BatchExecuteRequest implements ClientMessage {
     public void writeBinary(ClientMessagePacker packer) {
         ClientMessageUtils.writeStringNullable(packer, schemaName);
 
-        packer.packArrayHeader(queries.size());
+        packer.packString(query);
+        packer.packArrayHeader(args.size());
 
-        for (String q : queries) {
-            ClientMessageUtils.writeStringNullable(packer, q);
+        for (Object[] arg : args) {
+            packer.packObjectArray(arg);
         }
     }
 
@@ -103,18 +106,20 @@ public class BatchExecuteRequest implements ClientMessage {
     public void readBinary(ClientMessageUnpacker unpacker) {
         schemaName = ClientMessageUtils.readStringNullable(unpacker);
 
+        query = unpacker.unpackString();
+
         int n = unpacker.unpackArrayHeader();
 
-        queries = new ArrayList<>(n);
+        args = new ArrayList<>(n);
 
         for (int i = 0; i < n; ++i) {
-            queries.add(ClientMessageUtils.readStringNullable(unpacker));
+            args.add(unpacker.unpackObjectArray());
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(BatchExecuteRequest.class, this);
+        return S.toString(BatchPreparedStmntRequest.class, this);
     }
 }

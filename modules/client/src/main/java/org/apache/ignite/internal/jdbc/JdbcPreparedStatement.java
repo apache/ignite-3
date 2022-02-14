@@ -19,11 +19,13 @@ package org.apache.ignite.internal.jdbc;
 
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
+import io.netty.util.internal.StringUtil;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.Array;
+import java.sql.BatchUpdateException;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
@@ -41,10 +43,13 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
+import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.SqlStateCode;
-import org.apache.ignite.client.proto.query.event.Query;
+import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
  * Jdbc prepared statement implementation.
@@ -54,10 +59,10 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     private final String sql;
 
     /** Query arguments. */
-    private ArrayList<Object> args;
+    private List<Object> currentArgs;
 
-    /** Batch query. */
-    private Query batchedQuery;
+    /** Batched query arguments. */
+    private List<Object[]> batchedArgs;
 
     /**
      * Creates new prepared statement.
@@ -101,19 +106,26 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
 
         closeResults();
 
+        if (CollectionUtils.nullOrEmpty(batchedArgs) || StringUtil.isNullOrEmpty(sql)) {
+            return INT_EMPTY_ARRAY;
+        }
+
+        BatchPreparedStmntRequest req
+                = new BatchPreparedStmntRequest(conn.getSchema(), sql, batchedArgs);
+
         try {
-            if (batchedQuery == null) {
-                return INT_EMPTY_ARRAY;
+            BatchExecuteResult res = conn.handler().batchPrepStatementAsync(req).join();
+
+            if (!res.hasResults()) {
+                throw new BatchUpdateException(res.err(),
+                        IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
+                        res.getErrorCode(),
+                        res.updateCounts());
             }
 
-            assert batch == null;
-
-            batch = Collections.singletonList(batchedQuery);
-
-            return super.executeBatch();
+            return res.updateCounts();
         } finally {
-            batchedQuery = null;
-            batch = null;
+            batchedArgs = null;
         }
     }
 
@@ -200,24 +212,13 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void addBatch() throws SQLException {
         ensureNotClosed();
 
-        addBatch(sql, args);
-
-        args = null;
-    }
-
-    /**
-     * Adds a set of parameters to batch of commands.
-     *
-     * @throws SQLException If statement is closed.
-     */
-    private void addBatch(String sql, ArrayList<Object> args) throws SQLException {
-        ensureNotClosed();
-
-        if (batchedQuery == null) {
-            batchedQuery = new Query(sql);
+        if (batchedArgs == null) {
+            batchedArgs = new ArrayList<>();
         }
 
-        batchedQuery.addBatchedArgs(args.toArray());
+        batchedArgs.add(currentArgs.toArray());
+
+        currentArgs = null;
     }
 
     /** {@inheritDoc} */
@@ -232,7 +233,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void clearBatch() throws SQLException {
         ensureNotClosed();
 
-        batchedQuery = null;
+        batchedArgs = null;
     }
 
     /** {@inheritDoc} */
@@ -405,7 +406,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     public void clearParameters() throws SQLException {
         ensureNotClosed();
 
-        args = null;
+        currentArgs = null;
     }
 
     /** {@inheritDoc} */
@@ -634,15 +635,15 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
             throw new SQLException("Parameter index is invalid: " + paramIdx);
         }
 
-        if (args == null) {
-            args = new ArrayList<>(paramIdx);
+        if (currentArgs == null) {
+            currentArgs = new ArrayList<>(paramIdx);
         }
 
-        while (args.size() < paramIdx) {
-            args.add(null);
+        while (currentArgs.size() < paramIdx) {
+            currentArgs.add(null);
         }
 
-        args.set(paramIdx - 1, val);
+        currentArgs.set(paramIdx - 1, val);
     }
 
     /**
@@ -651,6 +652,8 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
      * @throws SQLException If failed.
      */
     private void executeWithArguments() throws SQLException {
-        execute0(sql, args);
+        execute0(sql, currentArgs);
+
+        currentArgs = null;
     }
 }

@@ -153,8 +153,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16268")
     @Test
     public void testBatchException() throws Exception {
-        final int batchSize = 7;
-
         final int successUpdates = 5;
 
         for (int idx = 0, i = 0; i < successUpdates; ++i, idx += i) {
@@ -193,8 +191,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBatchParseException() throws Exception {
-        final int batchSize = 7;
-
         final int successUpdates = 5;
 
         for (int idx = 0, i = 0; i < successUpdates; ++i, idx += i) {
@@ -402,11 +398,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBatchExceptionPrepared() throws Exception {
-        final int batchSize = 7;
-
         final int failedIdx = 5;
-
-        assert failedIdx + 2 == batchSize;
 
         for (int i = 0; i < failedIdx; ++i) {
             int paramCnt = 1;
@@ -442,10 +434,10 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         } catch (BatchUpdateException e) {
             int[] updCnts = e.getUpdateCounts();
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            assertEquals(failedIdx, updCnts.length, "Invalid update counts size");
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? 1 : Statement.EXECUTE_FAILED, updCnts[i], "Invalid update count");
+            for (int i = 0; i < failedIdx; ++i) {
+                assertEquals(1, updCnts[i], "Invalid update count");
             }
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
