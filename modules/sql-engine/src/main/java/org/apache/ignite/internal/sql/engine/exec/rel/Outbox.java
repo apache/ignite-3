@@ -152,10 +152,13 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
     }
 
     /** {@inheritDoc} */
+    @Override public void onError(Throwable e) {
+        onErrorInternal(e);
+    }
+
+    /** {@inheritDoc} */
     @Override
     protected void onErrorInternal(Throwable e) {
-        log.error("Error occurred during execution", e);
-
         try {
             sendError(e);
         } catch (IgniteInternalCheckedException ex) {
