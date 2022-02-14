@@ -5215,8 +5215,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (reuseList != null && freePages != null) {
                 reuseList.addForRecycle(this);
             }
-
-            Remove remove = this;
         }
 
         /**
