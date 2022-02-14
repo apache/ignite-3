@@ -309,10 +309,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
         int rowColumnsCnt = hnd.columnCount(row);
 
-        if (desc.columnsCount() + updateColList.size() == rowColumnsCnt) { // Only WHEN MATCHED clause in MERGE.
-            return updateTuple(row, updateColList, 0, ectx);
-        } else if (desc.columnsCount() == rowColumnsCnt) { // Only WHEN NOT MATCHED clause in MERGE.
+        if (desc.columnsCount() == rowColumnsCnt) { // Only WHEN NOT MATCHED clause in MERGE.
             return insertTuple(row, ectx);
+        } else if (desc.columnsCount() + updateColList.size() == rowColumnsCnt) { // Only WHEN MATCHED clause in MERGE.
+            return updateTuple(row, updateColList, 0, ectx);
         } else {
             // Both WHEN MATCHED and WHEN NOT MATCHED clauses in MERGE.
             //assert rowColumnsCnt == desc.columnsCount() * 2 : "Unexpected columns count: " + rowColumnsCnt; todo !!!

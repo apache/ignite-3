@@ -158,4 +158,10 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
     public int columnsCount() {
         return descriptors.length;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public int keysCount() {
+        return keyFields.cardinality();
+    }
 }
