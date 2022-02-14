@@ -321,6 +321,23 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Runs callable tasks in specified number of threads.
+     *
+     * @param call Callable.
+     * @param threadNum Number of threads.
+     * @param threadName Thread names.
+     * @return Execution time in milliseconds.
+     * @throws Exception If failed.
+     */
+    public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
+        List<Callable<?>> calls = Collections.nCopies(threadNum, call);
+
+        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName);
+
+        return runMultiThreaded(calls, threadFactory);
+    }
+
+    /**
      * Runs runnable object in specified number of threads.
      *
      * @param run Target runnable.
