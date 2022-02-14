@@ -17,6 +17,7 @@
 
 <modernizer>
     <!-- Additional rules that augment the standard ones -->
+    <!-- Method/constructor descriptors (used in 'name') can be obtained using 'javap -s'. -->
 
     <!-- Disallow String#getBytes() -->
     <violation>
@@ -37,5 +38,12 @@
         <name>java/lang/String."&lt;init&gt;":([B)V</name>
         <version>1.6</version>
         <comment>Prefer java.lang.String.&lt;init&gt;(byte[], java.nio.charset.Charset)</comment>
+    </violation>
+
+    <!-- Disallow ByteArrayOutputStream#toString() -->
+    <violation>
+        <name>java/io/ByteArrayOutputStream.toString:()Ljava/lang/String;</name>
+        <version>1.10</version>
+        <comment>Prefer java.io.ByteArrayOutputStream.toString(java.nio.charset.Charset)</comment>
     </violation>
 </modernizer>

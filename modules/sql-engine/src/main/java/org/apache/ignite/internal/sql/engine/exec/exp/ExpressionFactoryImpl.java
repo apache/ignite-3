@@ -374,7 +374,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 b.append(';');
             }
 
-            b.append(nodes.get(i));
+            RexNode node = nodes.get(i);
+
+            b.append(node);
+
+            if (node == null) {
+                continue;
+            }
+
+            b.append(':').append(node.getType().getFullTypeString());
 
             new RexShuttle() {
                 @Override public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {

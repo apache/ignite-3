@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -73,6 +74,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Tests NOT NULL and DEFAULT column constraints. */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16292")
     @Test
     public void testCheckDefaultsAndNullables() {
         sql("CREATE TABLE tbl(c1 int primary key, c2 int NOT NULL, c3 int NOT NULL DEFAULT 100)");

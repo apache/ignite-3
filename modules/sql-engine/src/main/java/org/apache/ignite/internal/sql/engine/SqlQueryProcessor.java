@@ -84,13 +84,13 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Keeps queries plans to avoid expensive planning of the same queries. */
-    private final QueryPlanCache planCache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
-
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
 
     private final List<LifecycleAware> services = new ArrayList<>();
+
+    /** Keeps queries plans to avoid expensive planning of the same queries. */
+    private volatile QueryPlanCache planCache;
 
     private volatile ExecutionService executionSrvc;
 
@@ -121,6 +121,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public synchronized void start() {
+        planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
         taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
         prepareSvc = registerService(new PrepareServiceImpl());
         queryRegistry = registerService(new QueryRegistryImpl());
