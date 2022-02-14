@@ -18,44 +18,69 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Implementation of {@link QueryPlanCache} that simply wraps a {@link Caffeine} cache.
  */
 public class QueryPlanCacheImpl implements QueryPlanCache {
-    private final ConcurrentMap<CacheKey, QueryPlan> cache;
+    private static final long THREAD_TIMEOUT_MS = 60_000;
+
+    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
+
+    private final ThreadPoolExecutor planningPool;
 
     /**
      * Creates a plan cache of provided size.
      *
      * @param cacheSize Desired cache size.
      */
-    public QueryPlanCacheImpl(int cacheSize) {
+    public QueryPlanCacheImpl(String nodeName, int cacheSize) {
+        planningPool = new ThreadPoolExecutor(
+                4,
+                4,
+                THREAD_TIMEOUT_MS,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sqlPlan"))
+        );
+
+        planningPool.allowCoreThreadTimeOut(true);
+
         cache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
-                .<CacheKey, QueryPlan>build()
+                .<CacheKey, CompletableFuture<QueryPlan>>build()
                 .asMap();
     }
 
     /** {@inheritDoc} */
     @Override
     public QueryPlan queryPlan(CacheKey key, Supplier<QueryPlan> planSupplier) {
-        Map<CacheKey, QueryPlan> cache = this.cache;
-        QueryPlan plan = cache.computeIfAbsent(key, k -> planSupplier.get());
+        CompletableFuture<QueryPlan> planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(planSupplier, planningPool));
 
-        return plan.copy();
+        return join(planFut).copy();
     }
 
     /** {@inheritDoc} */
     @Override
     public QueryPlan queryPlan(CacheKey key) {
-        Map<CacheKey, QueryPlan> cache = this.cache;
-        QueryPlan plan = cache.get(key);
+        CompletableFuture<QueryPlan> planFut = cache.get(key);
 
-        return plan != null ? plan.copy() : null;
+        if (planFut == null) {
+            return null;
+        }
+
+        return join(planFut).copy();
     }
 
     /** {@inheritDoc} */
@@ -74,5 +99,31 @@ public class QueryPlanCacheImpl implements QueryPlanCache {
     @Override
     public void stop() {
         clear();
+
+        planningPool.shutdownNow();
+    }
+
+    /**
+     * Waits for the future to complete and returns the result. If an exception is thrown, converts future-related exceptions
+     * to internal exceptions.
+     *
+     * @param future A future to wait.
+     * @param <T> Type of the result of the future.
+     * @return The result of the future.
+     */
+    private <T> T join(CompletableFuture<T> future) {
+        try {
+            return future.join();
+        } catch (CancellationException | CompletionException ex) {
+            if (ex.getCause() instanceof IgniteInternalException) {
+                throw (IgniteInternalException) ex.getCause();
+            }
+
+            if (ex.getCause() instanceof IgniteException) {
+                throw (IgniteException) ex.getCause();
+            }
+
+            throw new IgniteInternalException(ex);
+        }
     }
 }
