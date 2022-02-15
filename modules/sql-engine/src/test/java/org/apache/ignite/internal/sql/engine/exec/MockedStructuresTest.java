@@ -42,6 +42,7 @@ import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -108,6 +109,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
+
+    /** Meta storage manager */
+    @Mock
+    MetaStorageManager msm;
 
     /** Tables configuration. */
     @InjectConfiguration(
@@ -487,7 +492,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 workDir,
-                tm
+                tm,
+                msm
         );
 
         tableManager.start();
