@@ -208,7 +208,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(final Runnable task) {
+    public static CompletableFuture<?> runAsync(final RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -462,5 +462,27 @@ public final class IgniteTestUtils {
                 testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "null"),
                 testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "null"),
                 idx);
+    }
+
+    /**
+     * Runnable that can throw exceptions.
+     */
+    @FunctionalInterface
+    public interface RunnableX extends Runnable {
+        /**
+         * Runnable body.
+         *
+         * @throws Exception If failed.
+         */
+        void runx() throws Exception;
+
+        @Override
+        default void run() {
+            try {
+                runx();
+            } catch (Exception e) {
+                throw new IgniteInternalException(e);
+            }
+        }
     }
 }
