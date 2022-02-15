@@ -32,6 +32,10 @@
     <artifactId>ignite-examples</artifactId>
     <version>3.0.0-SNAPSHOT</version>
 
+    <properties>
+        <root.directory>${pom.basedir}/..</root.directory>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
