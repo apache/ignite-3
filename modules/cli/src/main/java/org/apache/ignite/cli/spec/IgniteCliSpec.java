@@ -48,6 +48,7 @@ import picocli.CommandLine;
                 ModuleCommandSpec.class,
                 NodeCommandSpec.class,
                 ConfigCommandSpec.class,
+                ClusterCommandSpec.class,
         }
 )
 public class IgniteCliSpec extends CommandSpec {
