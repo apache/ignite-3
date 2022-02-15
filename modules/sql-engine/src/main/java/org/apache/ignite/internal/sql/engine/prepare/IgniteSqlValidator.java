@@ -105,13 +105,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         this.parameters = parameters;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void validateInsert(SqlInsert insert) {
-        if (insert.getTargetColumnList() == null) {
-            insert.setOperand(3, inferColumnList(insert));
-        }
-
+    private void validateInsertFields(SqlInsert insert) {
         if (insert.getTargetColumnList() == null) {
             return;
         }
@@ -147,8 +141,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             throw newValidationError(insert,
                     IgniteResource.INSTANCE.cannotUpdatePkPartially(keyColsColl.toString()));
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateInsert(SqlInsert insert) {
+        if (insert.getTargetColumnList() == null) {
+            insert.setOperand(3, inferColumnList(insert));
+        }
+
+        validateInsertFields(insert);
 
         super.validateInsert(insert);
+
+        //validateInsertFields(insert);
     }
 
     private Iterator<ColumnDescriptor> getKeysColumns(final SqlNodeList cols, SqlValidatorNamespace ns) {

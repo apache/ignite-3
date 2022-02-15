@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.ignite.internal.schema.BinaryRow;
 
-/** POJO to store key, value and modify operation. */
+/** POJO to store row and modify operation. */
 public class ModifyTuple {
     private final BinaryRow row;
 

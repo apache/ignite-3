@@ -82,7 +82,6 @@ public class PlannerHelper {
             }
 
             // Transformation chain
-            // Transformation chain
             rel = planner.transform(PlannerPhase.HEP_DECORRELATE, rel.getTraitSet(), rel);
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
