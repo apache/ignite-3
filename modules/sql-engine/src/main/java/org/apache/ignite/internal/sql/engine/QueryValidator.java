@@ -19,13 +19,6 @@ public interface QueryValidator {
     boolean isQuery();
 
     /**
-     * Checks if 'explain' type is allowed.
-     *
-     * @return {@code true} if explain is allowed, {@code false} otherwise.
-     */
-    boolean allowExplain();
-
-    /**
      * Checks if validation is needed.
      *
      * @return {@code true} if validation is not required, {@code false} otherwise.
@@ -41,13 +34,7 @@ public interface QueryValidator {
         if (skipCheck()) {
             return;
         }
-        if (plan.type() == Type.EXPLAIN) {
-            if (allowExplain()) {
-                return;
-            }
-            throw new StatementMismatchException();
-        }
-        if (plan.type() == Type.QUERY) {
+        if (plan.type() == Type.QUERY || plan.type() == Type.EXPLAIN) {
             if (isQuery()) {
                 return;
             }
@@ -68,13 +55,7 @@ public interface QueryValidator {
         if (skipCheck()) {
             return;
         }
-        if (rootNode.getKind() == SqlKind.EXPLAIN) {
-            if (allowExplain()) {
-                return;
-            }
-            throw new StatementMismatchException();
-        }
-        if (rootNode.getKind() == SqlKind.SELECT) {
+        if (SqlKind.QUERY.contains(rootNode.getKind())) {
             if (isQuery()) {
                 return;
             }

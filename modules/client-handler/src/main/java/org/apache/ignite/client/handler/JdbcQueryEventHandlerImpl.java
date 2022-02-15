@@ -99,7 +99,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            QueryContext context = createQueryContext(req.getStmtType(), true);
+            QueryContext context = createQueryContext(req.getStmtType());
 
             List<SqlCursor<List<?>>> queryCursors = processor.query(context, req.schemaName(), req.sqlQuery(),
                     req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
@@ -139,16 +139,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return CompletableFuture.completedFuture(new QueryExecuteResult(results));
     }
 
-    private QueryContext createQueryContext(JdbcStatementType stmtType, boolean allowExplain) {
+    private QueryContext createQueryContext(JdbcStatementType stmtType) {
         QueryValidator validator = new QueryValidator() {
             @Override
             public boolean isQuery() {
                 return stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE;
-            }
-
-            @Override
-            public boolean allowExplain() {
-                return allowExplain;
             }
 
             @Override
