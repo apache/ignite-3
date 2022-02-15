@@ -1280,7 +1280,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
             assertNull(tree.put(i));
         }
 
-        final int putRmvThreadCnt = Math.min(Runtime.getRuntime().availableProcessors(), rmvPutSlidingWindowSize);
+        final int putRmvThreadCnt = Math.min(CPUS, rmvPutSlidingWindowSize);
 
         final int loopCnt = CNT / putRmvThreadCnt;
 
@@ -1404,7 +1404,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
             assertNull(tree.put(i));
         }
 
-        final int putRmvThreadCnt = Math.min(Runtime.getRuntime().availableProcessors(), rmvPutSlidingWindowSize);
+        final int putRmvThreadCnt = Math.min(CPUS, rmvPutSlidingWindowSize);
         final int sizeThreadCnt = putRmvThreadCnt;
 
         final CyclicBarrier putRmvOpBarrier = new CyclicBarrier(putRmvThreadCnt + sizeThreadCnt, () -> {
@@ -1549,7 +1549,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
             assertNull(tree.put(i));
         }
 
-        final int hwThreads = Runtime.getRuntime().availableProcessors();
+        final int hwThreads = CPUS;
         final int putRmvThreadCnt = Math.max(1, hwThreads / 2);
         final int sizeThreadCnt = hwThreads - putRmvThreadCnt;
 
@@ -1663,7 +1663,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
         final AtomicLong curPutKey = new AtomicLong(0);
         final BlockingQueue<Long> rowsToRemove = new ArrayBlockingQueue<>(MAX_PER_PAGE / 2);
 
-        final int hwThreadCnt = Runtime.getRuntime().availableProcessors();
+        final int hwThreadCnt = CPUS;
         final int putThreadCnt = Math.max(1, hwThreadCnt / 4);
         final int rmvThreadCnt = Math.max(1, hwThreadCnt / 2 - putThreadCnt);
         final int sizeThreadCnt = Math.max(1, hwThreadCnt - putThreadCnt - rmvThreadCnt);
@@ -1775,7 +1775,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
         final AtomicLong curPutKey = new AtomicLong(0);
         final BlockingQueue<Long> rowsToRemove = new ArrayBlockingQueue<>(slidingWindowSize);
 
-        final int hwThreadCnt = Runtime.getRuntime().availableProcessors();
+        final int hwThreadCnt = CPUS;
         final int putThreadCnt = Math.max(1, hwThreadCnt / 4);
         final int rmvThreadCnt = Math.max(1, hwThreadCnt / 4);
         final int findThreadCnt = Math.max(1, hwThreadCnt / 4);
@@ -2026,7 +2026,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
         // is impossible if we already have a key in a back page, thus we will have lots of empty routing pages.
         // This way the tree grows faster than shrinks and gets out of height limit of 26 (for this page size) quickly.
         // Since the tree height can not be larger than the key count for this case, we can use 26 as a safe number.
-        final int keys = MAX_PER_PAGE == 1 ? 26 : 10_000;
+        final int keys = MAX_PER_PAGE == 1 ? 26 : 2_000;
 
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
@@ -2658,7 +2658,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-            return pageMem.allocatePage(grpId, INDEX_PARTITION, FLAG_AUX);
+            return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
         }
     }
 

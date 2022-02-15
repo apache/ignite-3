@@ -389,8 +389,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
             PageEvictionTracker evictionTracker
     ) throws IgniteInternalCheckedException {
         super(
-                grpId,
-                name,
+                name, grpId,
                 pageMem,
                 lockLsnr,
                 defaultPageFlag,
