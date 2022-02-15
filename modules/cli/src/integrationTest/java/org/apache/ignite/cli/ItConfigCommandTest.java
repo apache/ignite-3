@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
@@ -119,7 +120,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
         assertEquals(
                 "Configuration was updated successfully." + nl + nl
                         + "Use the ignite config get command to view the updated configuration." + nl,
-                out.toString()
+                out.toString(UTF_8)
         );
 
         resetStreams();
@@ -134,7 +135,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         assertEquals(0, exitCode);
 
-        DocumentContext document = JsonPath.parse(removeTrailingQuotes(unescapeQuotes(out.toString())));
+        DocumentContext document = JsonPath.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
 
         assertEquals("localhost1", document.read("$.node.metastorageNodes[0]"));
     }
@@ -152,7 +153,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         assertEquals(1, exitCode);
         assertThat(
-                err.toString(),
+                err.toString(UTF_8),
                 both(startsWith("org.apache.ignite.cli.IgniteCliException: Failed to set configuration"))
                         .and(containsString("'node' configuration doesn't have the 'metastorgeNodes' sub-configuration"))
         );
@@ -170,7 +171,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         assertEquals(1, exitCode);
         assertThat(
-                err.toString(),
+                err.toString(UTF_8),
                 both(startsWith("org.apache.ignite.cli.IgniteCliException: Failed to set configuration"))
                         .and(containsString("'String[]' is expected as a type for the 'node.metastorageNodes' configuration value"))
         );
@@ -190,7 +191,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         assertEquals(0, exitCode);
 
-        JSONObject outResult = (JSONObject) JSONValue.parse(removeTrailingQuotes(unescapeQuotes(out.toString())));
+        JSONObject outResult = (JSONObject) JSONValue.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
 
         assertTrue(outResult.containsKey("inbound"));
 

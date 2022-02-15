@@ -15,17 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.cli.builtins.cluster;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.RootQuery;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
 /**
- * ExecutionService interface.
- * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A request to the Cluster Init REST API.
  */
-public interface ExecutionService<RowT> extends LifecycleAware {
-    SqlCursor<List<?>> executePlan(RootQuery<RowT> qry, QueryPlan plan);
+public class InitClusterRequest {
+    @SuppressWarnings("unused")
+    @JsonProperty
+    private final List<String> metastorageNodes;
+
+    @SuppressWarnings("unused")
+    @JsonProperty
+    private final List<String> cmgNodes;
+
+    public InitClusterRequest(List<String> metastorageNodes, List<String> cmgNodes) {
+        this.metastorageNodes = List.copyOf(metastorageNodes);
+        this.cmgNodes = List.copyOf(cmgNodes);
+    }
 }

@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.List;
-import org.apache.ignite.internal.sql.engine.RootQuery;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 
 /**
- * ExecutionService interface.
- * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Preparation service that accepts an AST of the query and returns a prepared query plan.
  */
-public interface ExecutionService<RowT> extends LifecycleAware {
-    SqlCursor<List<?>> executePlan(RootQuery<RowT> qry, QueryPlan plan);
+public interface PrepareService extends LifecycleAware {
+    /**
+     * Prepare query plan.
+     */
+    QueryPlan prepareSingle(SqlNode sqlNode, PlanningContext ctx);
 }

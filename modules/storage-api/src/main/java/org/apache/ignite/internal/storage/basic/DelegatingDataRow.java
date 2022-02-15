@@ -20,13 +20,14 @@ package org.apache.ignite.internal.storage.basic;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.SearchRow;
 
 /**
- * Basic array-based implementation of the {@link DataRow}.
+ * Basic array-based implementation of the {@link DataRow} that uses another instance of {@link SearchRow} to delegate key access.
  */
-public class SimpleDataRow implements DataRow {
-    /** Key array. */
-    private final byte[] key;
+public class DelegatingDataRow implements DataRow {
+    /** Key. */
+    private final SearchRow key;
 
     /** Value array. */
     private final byte[] value;
@@ -37,7 +38,7 @@ public class SimpleDataRow implements DataRow {
      * @param key   Key.
      * @param value Value.
      */
-    public SimpleDataRow(byte[] key, byte[] value) {
+    public DelegatingDataRow(SearchRow key, byte[] value) {
         assert key != null;
         assert value != null;
 
@@ -48,13 +49,13 @@ public class SimpleDataRow implements DataRow {
     /** {@inheritDoc} */
     @Override
     public ByteBuffer key() {
-        return ByteBuffer.wrap(key);
+        return key.key();
     }
 
     /** {@inheritDoc} */
     @Override
     public byte[] keyBytes() {
-        return key;
+        return key.keyBytes();
     }
 
     /** {@inheritDoc} */
@@ -80,13 +81,13 @@ public class SimpleDataRow implements DataRow {
         }
 
         DataRow row = (DataRow) o;
-        return Arrays.equals(key, row.keyBytes()) && Arrays.equals(value, row.valueBytes());
+        return Arrays.equals(keyBytes(), row.keyBytes()) && Arrays.equals(value, row.valueBytes());
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        int result = Arrays.hashCode(key);
+        int result = Arrays.hashCode(keyBytes());
         result = 31 * result + Arrays.hashCode(value);
         return result;
     }
