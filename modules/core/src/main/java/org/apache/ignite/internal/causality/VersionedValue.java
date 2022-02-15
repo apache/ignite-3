@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -49,6 +50,9 @@ public class VersionedValue<T> {
     /** Versioned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
 
+    /** Default value supplier. */
+    private final Supplier<T> defaultVal;
+
     /**
      * This lock guarantees that the history is not trimming {@link #trimToSize(long)} during getting a value from versioned storage {@link
      * #get(long)}.
@@ -58,28 +62,33 @@ public class VersionedValue<T> {
     /**
      * Constructor.
      *
-     * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
-     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
-     *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                  concurrently with {@link #set(long, T)} operations.
-     * @param historySize               Size of the history of changes to store, including last applied token.
+     * @param storageRevisionUpdating    Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
+     * @param observableRevisionUpdater  A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
+     *                                   should be able to listen to, for receiving storage revision updates. This closure is called once on
+     *                                   a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
+     *                                   on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                   concurrently with {@link #set(long, T)} operations.
+     * @param historySize                Size of the history of changes to store, including last applied token.
+     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, BiFunction)} to evaluate
+     *                                   the default value if the value is not initialized yet.
      */
     public VersionedValue(
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
             Consumer<Consumer<Long>> observableRevisionUpdater,
-            int historySize
+            int historySize,
+            @Nullable Supplier<T> defaultVal
     ) {
         this.storageRevisionUpdating = storageRevisionUpdating;
 
         observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
 
         this.historySize = historySize;
+
+        this.defaultVal = defaultVal;
     }
 
     /**
-     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int)}.
+     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
      *
      * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
@@ -92,11 +101,11 @@ public class VersionedValue<T> {
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
             Consumer<Consumer<Long>> observableRevisionUpdater
     ) {
-        this(storageRevisionUpdating, observableRevisionUpdater, 2);
+        this(storageRevisionUpdating, observableRevisionUpdater, 2, null);
     }
 
     /**
-     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiConsumer, Consumer, int)}.
+     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
@@ -143,6 +152,39 @@ public class VersionedValue<T> {
         } finally {
             trimHistoryLock.readLock().unlock();
         }
+    }
+
+    /**
+     * Locks the given causality token to prevent its deletion from history of every {@link VersionedValue}
+     * that share the same {@link CausalityTokensLockManager} as this.
+     * This method works like read lock in read-write lock concept, allowing multiple {@link VersionedValue} to
+     * acquire lock on same token.
+     *
+     * @param causalityToken Causality token.
+     * @throws OutdatedTokenException If outdated token is passed as an argument.
+     */
+    public void lock(long causalityToken) throws OutdatedTokenException {
+
+    }
+
+    /**
+     * Locks the token and gets the value (see {@link #lock(long)} and {@link #get(long)}).
+     *
+     * @param causalityToken Causality token,
+     * @return The future, see {@link #get(long)}.
+     * @throws OutdatedTokenException If outdated token is passed as an argument.
+     */
+    public CompletableFuture<T> lockAndGet(long causalityToken) throws OutdatedTokenException {
+        return null;
+    }
+
+    /**
+     * Unlocks the token, previously locked using {@link #lock(long)}.
+     *
+     * @param causalityToken Causality token.
+     * @throws OutdatedTokenException If outdated token is passed as an argument.
+     */
+    public void unlock(long causalityToken) throws OutdatedTokenException {
 
     }
 
@@ -157,6 +199,11 @@ public class VersionedValue<T> {
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
 
         if (histEntry == null) {
+            if (history.isEmpty() && defaultVal != null) {
+                history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(defaultVal.get()));
+                return history.get(causalityToken);
+            }
+
             throw new OutdatedTokenException(causalityToken, actualToken, historySize);
         }
 
@@ -188,8 +235,28 @@ public class VersionedValue<T> {
         res.complete(value);
     }
 
-    public void update(long causalityToken, Supplier<T> defaultVal, Function<T, T> updater) {
-
+    /**
+     * Updates the value on the given causality token using the given updater. The updater receives the value on
+     * previous token, or {@link Throwable} if exception or error was thrown, or default value (see constructor) if
+     * the value isn't initialized, or current intermediate value; and returns a new value. <br>
+     * This method can be called multiple times for the same token, and doesn't complete the future created for this token.
+     * The future is supposed to be completed by storage revision update in this case. If this method has been called at least
+     * once on the given token, the updater will receive a value that was evaluated by updater on previous call, as
+     * intermediate result. <br>
+     * As the order of multiple calls of this method on the same token is unknown, operations done by the updater must be
+     * commutative. <br>
+     * For example, this method was called for token N-1 and updater evaluated the value V1. Then a storage revision update happened.
+     * Then, this method is called for token N, updater receives V1 and evaluates V2. After that, this method is called once again
+     * for token N, then the updater receives V2 as intermediate result and evaluates V3. Then storage revision update happens and
+     * the future for token N completes with value V3. Regardless of order in which this method's calls are made, V3 should be
+     * the final result.
+     *
+     * @param causalityToken Causality token.
+     * @param updater Updater function.
+     * @return Previous value.
+     */
+    public T update(long causalityToken, Function<T, T> updater) {
+        return null;
     }
 
     /**

@@ -24,8 +24,11 @@ import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * This map view is constructed from a map and a single change applied to it, like put, remove or clear.
+ */
 public class PatchedMapView<K, V> implements Map<K, V> {
-    private static int DEFAULT_MAX_DEPTH = 5;
+    private static final int DEFAULT_MAX_DEPTH = 5;
 
     private final Map<K, V> internalMap;
     private final boolean isCleared;

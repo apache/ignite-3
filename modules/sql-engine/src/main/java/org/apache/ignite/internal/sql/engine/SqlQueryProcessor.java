@@ -21,7 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.util.Pair;
@@ -64,8 +66,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final ConfigurationManager configurationManager;
 
-    private final MetaStorageManager metaStorageManager;
-
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -74,6 +74,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+
+    private final Supplier<CompletableFuture<Long>> directMsRevision;
 
     private volatile ExecutionService executionSrvc;
 
@@ -85,14 +87,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     public SqlQueryProcessor(
             ConfigurationManager configurationManager,
-            MetaStorageManager metaStorageManager,
             ClusterService clusterSrvc,
-            TableManager tableManager
+            TableManager tableManager,
+            Supplier<CompletableFuture<Long>> directMsRevision
     ) {
         this.configurationManager = configurationManager;
-        this.metaStorageManager = metaStorageManager;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.directMsRevision = directMsRevision;
     }
 
     /** {@inheritDoc} */
@@ -117,7 +119,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
         SqlSchemaManagerImpl schemaHolder =
-            new SqlSchemaManagerImpl(configurationManager, metaStorageManager, planCache::clear);
+            new SqlSchemaManagerImpl(configurationManager, planCache::clear, directMsRevision);
 
         executionSrvc = new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -139,7 +141,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         executionSrvc.start();
         planCache.start();
 
-        extensionList.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog, metaStorageManager.appliedRevision())));
+        extensionList.forEach(ext -> ext.init(
+            catalog -> directMsRevision.get().thenAccept(
+                revision -> schemaHolder.registerExternalCatalog(ext.name(), catalog, revision)
+            )
+        ));
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {

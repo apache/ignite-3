@@ -50,7 +50,8 @@ public class VersionValueTest {
                     integerVersionedValue.set(token, TEST_VALUE);
                 },
                 REGISTER,
-                2
+                2,
+                null
         );
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);

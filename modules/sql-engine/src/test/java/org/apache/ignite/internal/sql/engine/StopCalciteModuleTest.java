@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.EventListener;
@@ -97,9 +98,6 @@ public class StopCalciteModuleTest {
 
     @Mock
     ConfigurationManager cfgMgr;
-
-    @Mock
-    MetaStorageManager metaStorageManager;
 
     SchemaRegistry schemaReg;
 
@@ -176,7 +174,7 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(cfgMgr, metaStorageManager, clusterSrvc, tableManager);
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(cfgMgr, clusterSrvc, tableManager, () -> CompletableFuture.completedFuture(0L));
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 

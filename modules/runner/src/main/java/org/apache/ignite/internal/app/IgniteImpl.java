@@ -27,6 +27,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -197,13 +199,17 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
+        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 modules.distributed().validators(),
-                new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+                cfgStorage,
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
+
+        Supplier<CompletableFuture<Long>> directMsRevisionSup = cfgStorage::lastRevision;
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -223,9 +229,9 @@ public class IgniteImpl implements Ignite {
 
         qryEngine = new SqlQueryProcessor(
                 clusterCfgMgr,
-                metaStorageMgr,
                 clusterSvc,
-                distributedTblMgr
+                distributedTblMgr,
+                directMsRevisionSup
         );
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);

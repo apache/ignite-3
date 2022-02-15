@@ -40,6 +40,7 @@ import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSch
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -115,10 +116,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationManager cfgMgr;
 
-    /** Configuration manager. */
-    @Mock
-    private MetaStorageManager metaStorageManager;
-
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -169,7 +166,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cfgMgr, metaStorageManager, cs, tblManager);
+        queryProc = new SqlQueryProcessor(cfgMgr, cs, tblManager, () -> CompletableFuture.completedFuture(0L));
 
         queryProc.start();
     }
@@ -181,9 +178,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void checkAppropriateTableFound() throws Exception {
         TableManager tableManager = mock(TableManager.class);
         ConfigurationManager cfgMgr = mock(ConfigurationManager.class);
-        MetaStorageManager metaStorageManager = mock(MetaStorageManager.class);
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(cfgMgr, metaStorageManager, () -> {});
+        when(cfgMgr.configurationRegistry()).thenReturn(mock(ConfigurationRegistry.class));
+
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(cfgMgr, () -> {}, () -> CompletableFuture.completedFuture(0L));
         UUID tblId = UUID.randomUUID();
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
@@ -480,6 +478,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             return ret;
         });
+
+        ConfigurationRegistry configurationRegistry = mock(ConfigurationRegistry.class);
+
+        when(cfgMgr.configurationRegistry()).thenReturn(configurationRegistry);
 
         TableManager tableManager = createTableManager();
 
