@@ -29,7 +29,6 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Spool;
-import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
@@ -58,7 +57,6 @@ public class FilterSpoolMergeToHashIndexSpoolRule extends RelRule<FilterSpoolMer
         final IgniteTableSpool spool = call.rel(1);
 
         RelOptCluster cluster = spool.getCluster();
-        RexBuilder builder = RexUtils.builder(cluster);
 
         RelTraitSet trait = spool.getTraitSet();
         CorrelationTrait filterCorr = TraitUtils.correlation(filter);
