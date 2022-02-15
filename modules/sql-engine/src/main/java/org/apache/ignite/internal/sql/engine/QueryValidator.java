@@ -19,21 +19,11 @@ public interface QueryValidator {
     boolean isQuery();
 
     /**
-     * Checks if validation is needed.
-     *
-     * @return {@code true} if validation is not required, {@code false} otherwise.
-     */
-    boolean skipCheck();
-
-    /**
      * Checks the prepared query plan type against the expected query type.
      *
      * @throws StatementMismatchException in the case of a validation error.
      */
     default void validatePlan(QueryPlan plan) throws StatementMismatchException {
-        if (skipCheck()) {
-            return;
-        }
         if (plan.type() == Type.QUERY || plan.type() == Type.EXPLAIN) {
             if (isQuery()) {
                 return;
@@ -52,9 +42,6 @@ public interface QueryValidator {
      * @throws StatementMismatchException in the case of a validation error.
      */
     default void validateParsedQuery(SqlNode rootNode) throws StatementMismatchException {
-        if (skipCheck()) {
-            return;
-        }
         if (SqlKind.QUERY.contains(rootNode.getKind())) {
             if (isQuery()) {
                 return;

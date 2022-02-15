@@ -140,17 +140,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     private QueryContext createQueryContext(JdbcStatementType stmtType) {
-        QueryValidator validator = new QueryValidator() {
-            @Override
-            public boolean isQuery() {
-                return stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE;
-            }
-
-            @Override
-            public boolean skipCheck() {
-                return stmtType == null || stmtType == JdbcStatementType.ANY_STATEMENT_TYPE;
-            }
-        };
+        if (stmtType == null || stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
+            return QueryContext.of();
+        }
+        QueryValidator validator = () -> stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE;
 
         return QueryContext.of(validator);
     }
