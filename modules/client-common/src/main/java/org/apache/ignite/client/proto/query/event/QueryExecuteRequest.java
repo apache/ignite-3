@@ -75,7 +75,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the page size.
+     * Returns the page size.
      *
      * @return Page size.
      */
@@ -84,7 +84,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the max rows.
+     * Returns the max rows.
      *
      * @return Max rows.
      */
@@ -93,7 +93,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the sql query.
+     * Returns the sql query.
      *
      * @return Sql query.
      */
@@ -102,7 +102,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the arguments.
+     * Returns the arguments.
      *
      * @return Sql query arguments.
      */
@@ -111,7 +111,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the schema name.
+     * Returns the schema name.
      *
      * @return Schema name.
      */
@@ -120,7 +120,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the expected statement type.
+     * Returns the expected statement type.
      *
      * @return Statement type.
      */
