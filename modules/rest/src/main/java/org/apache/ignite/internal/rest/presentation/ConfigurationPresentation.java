@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rest.presentation;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -49,9 +50,10 @@ public interface ConfigurationPresentation<R> {
      * Converts and applies configuration update request to system configuration.
      *
      * @param cfgUpdate Configuration update request in representation form.
+     * @return A future that resolves when the update operation either finishes or fails.
      * @throws IllegalArgumentException         If the configuration format is invalid.
      * @throws ConfigurationValidationException If configuration validation failed.
      * @throws IgniteException                  If an error happens.
      */
-    void update(R cfgUpdate);
+    CompletableFuture<Void> update(R cfgUpdate);
 }

@@ -27,32 +27,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test class for {@link Route}.
  */
 public class RouteTest {
+    private static final RequestHandler NO_OP_HANDLER = (request, response) -> CompletableFuture.completedFuture(response);
+
     @Test
     void testMatchByUri() {
-        var route = new Route("/user", GET, null, (request, response) -> {
-        });
+        var route = new Route("/user", GET, null, NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user");
         assertTrue(route.match(req));
     }
 
     @Test
     void testNonMatchByUri() {
-        var route = new Route("/user", GET, null, (request, response) -> {
-        });
+        var route = new Route("/user", GET, null, NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/1");
         assertFalse(route.match(req));
     }
 
     @Test
     void testMatchByContentTypeIfAcceptTypeEmpty() {
-        var route = new Route("/user", GET, null, (request, response) -> {
-        });
+        var route = new Route("/user", GET, null, NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/");
         req.headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN);
         assertTrue(route.match(req));
@@ -60,8 +60,7 @@ public class RouteTest {
 
     @Test
     void testMatchByContentTypeIfAcceptTypeNonEmpty() {
-        var route = new Route("/user", PUT, "text/plain", (request, response) -> {
-        });
+        var route = new Route("/user", PUT, "text/plain", NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, PUT, "/user");
         req.headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.TEXT_PLAIN);
         assertTrue(route.match(req));
@@ -69,8 +68,7 @@ public class RouteTest {
 
     @Test
     void testNonMatchByContentTypeIfAcceptTypeNonEmpty() {
-        var route = new Route("/user", PUT, "text/plain", (request, response) -> {
-        });
+        var route = new Route("/user", PUT, "text/plain", NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/");
         req.headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON);
         assertFalse(route.match(req));
@@ -78,16 +76,14 @@ public class RouteTest {
 
     @Test
     void testMatchByUriWithParams() {
-        var route = new Route("/user/:user", GET, null, (request, response) -> {
-        });
+        var route = new Route("/user/:user", GET, null, NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, GET, "/user/John");
         assertTrue(route.match(req));
     }
 
     @Test
     void testPatchVerbMatch() {
-        var route = new Route("/user", PATCH, null, (request, response) -> {
-        });
+        var route = new Route("/user", PATCH, null, NO_OP_HANDLER);
         var req = new DefaultHttpRequest(HTTP_1_1, PATCH, "/user");
 
         assertTrue(route.match(req));

@@ -42,11 +42,6 @@ Run code style checks only:
 mvn clean validate -Pcheckstyle -Dmaven.all-checks.skip
 ```
 
-Run checks for Legacy API only:
-```
-mvn clean validate -Pmodernizer -Dmaven.all-checks.skip
-```
-
 Run javadoc style checks for public api only:
 ```
 mvn clean checkstyle:checkstyle-aggregate -P javadoc-public-api
@@ -56,6 +51,26 @@ mvn clean checkstyle:checkstyle-aggregate -P javadoc-public-api
 Code style check results are generated at:
 * `target/site/checkstyle-aggregate.html`
 * `target/checkstyle.xml`
+
+### Legacy API
+The project is checked for legacy APIs with [Modernizer Maven Plugin](https://github.com/gaul/modernizer-maven-plugin/).
+* [Modernizer rules](check-rules/modernizer-rules.xml)
+
+Plugin is enabled by default and is bound to `test-compile` phase (due to requirement to run on already compiled classes)
+
+Build project without legacy API check:
+```
+mvn clean <compile|package|install|deploy> -Dmodernizer.skip
+```
+
+Run legacy API checks only:
+```
+mvn clean test-compile -Pmodernizer -Dmaven.all-checks.skip
+```
+or
+```
+mvn clean test-compile -Dmaven.all-checks.skip && mvn modernizer:modernizer
+```
 
 ### License headers
 Project files license headers match with required template is checked with [Apache Rat Maven Plugin](https://creadur.apache.org/rat/apache-rat-plugin/).

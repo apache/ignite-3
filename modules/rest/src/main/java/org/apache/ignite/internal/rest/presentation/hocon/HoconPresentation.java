@@ -21,8 +21,11 @@ import static com.typesafe.config.ConfigFactory.parseString;
 import static com.typesafe.config.ConfigRenderOptions.concise;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.split;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -61,33 +64,34 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
 
     /** {@inheritDoc} */
     @Override
-    public void update(String cfgUpdate) {
+    public CompletableFuture<Void> update(String cfgUpdate) {
         if (cfgUpdate.isBlank()) {
-            throw new IllegalArgumentException("Empty configuration");
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Empty configuration"));
         }
+
+        Config config;
 
         try {
-            registry.change(HoconConverter.hoconSource(parseString(cfgUpdate).root())).get();
-        } catch (IllegalArgumentException | ConfigurationValidationException e) {
-            throw e;
+            config = parseString(cfgUpdate);
         } catch (ConfigException.Parse e) {
-            throw new IllegalArgumentException(e);
-        } catch (Throwable t) {
-            RuntimeException e;
-
-            Throwable cause = t.getCause();
-
-            if (cause instanceof IllegalArgumentException) {
-                e = (RuntimeException) cause;
-            } else if (cause instanceof ConfigurationValidationException) {
-                e = (RuntimeException) cause;
-            } else if (cause instanceof ConfigurationChangeException) {
-                e = (RuntimeException) cause.getCause();
-            } else {
-                e = new IgniteException(t);
-            }
-
-            throw e;
+            return CompletableFuture.failedFuture(new IllegalArgumentException(e));
         }
+
+        return registry.change(HoconConverter.hoconSource(config.root()))
+                .exceptionally(e -> {
+                    if (e instanceof CompletionException) {
+                        e = e.getCause();
+                    }
+
+                    if (e instanceof IllegalArgumentException) {
+                        throw (RuntimeException) e;
+                    } else if (e instanceof ConfigurationValidationException) {
+                        throw (RuntimeException) e;
+                    } else if (e instanceof ConfigurationChangeException) {
+                        throw (RuntimeException) e.getCause();
+                    } else {
+                        throw new IgniteException(e);
+                    }
+                });
     }
 }
