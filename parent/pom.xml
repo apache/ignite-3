@@ -887,7 +887,7 @@
                         <executions>
                             <execution>
                                 <id>modernizer</id>
-                                <phase>validate</phase>
+                                <phase>test-compile</phase>
                                 <goals>
                                     <goal>modernizer</goal>
                                 </goals>
