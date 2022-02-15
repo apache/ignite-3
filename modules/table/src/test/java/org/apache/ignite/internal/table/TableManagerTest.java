@@ -90,6 +90,7 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
+@Disabled("TODO: IGNITE-16545 Subscription to revision update in the test configuration framework")
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is statically configured. */
     private static final String STATIC_TABLE_NAME = "t1";
@@ -173,7 +174,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16433")
     @Test
     public void testStaticTableConfigured() {
+        TestRevisionRegister registry = new TestRevisionRegister();
+
         TableManager tableManager = new TableManager(
+                registry,
+                () -> CompletableFuture.completedFuture(0L),
                 tblsCfg,
                 dataStorageCfg,
                 rm,
@@ -186,6 +191,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, tableManager.tables().size());
 
         assertNotNull(tableManager.table(STATIC_TABLE_NAME));
+
+        registry.moveRevision.accept(0L);
     }
 
     /**
@@ -498,7 +505,11 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @NotNull
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+        TestRevisionRegister registry = new TestRevisionRegister();
+
         TableManager tableManager = new TableManager(
+                registry,
+                () -> CompletableFuture.completedFuture(0L),
                 tblsCfg,
                 dataStorageCfg,
                 rm,
@@ -512,6 +523,27 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tblManagerFut.complete(tableManager);
 
+        registry.moveRevision.accept(0L);
+
         return tableManager;
+    }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+
+        /** Revision consumer. */
+        Consumer<Long> moveRevision;
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            if (moveRevision == null) {
+                moveRevision = consumer;
+            } else {
+                moveRevision = moveRevision.andThen(consumer);
+            }
+        }
     }
 }

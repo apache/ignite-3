@@ -30,6 +30,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * <p>After some table maintenance process some first versions may become outdated and can be safely cleaned up if the process guarantees
  * the table no longer has a data of these versions.
+ * TODO: IGNITE-16550 Redesign SchemaRegistry to use causality tokens
  *
  * @implSpec The changes in between two arbitrary actual versions MUST NOT be lost. Thus, schema versions can only be removed from the
  *      beginning.
@@ -60,7 +61,7 @@ public interface SchemaRegistry {
     SchemaDescriptor waitLatestSchema();
 
     /**
-     * Get last registereg schema version.
+     * Get last registered schema version.
      */
     public int lastSchemaVersion();
 

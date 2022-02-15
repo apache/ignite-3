@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.benchmarks;
 
-import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
-
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.Column;
@@ -107,7 +106,8 @@ public class TupleMarshallerFixlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION) {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl((t, v) -> CompletableFuture.completedFuture(null),
+                () -> CompletableFuture.completedFuture(1L)) {
             @Override
             public SchemaDescriptor schema() {
                 return schema;

@@ -448,19 +448,27 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         clusterNodes.get(0).tables().dropTable(TABLE_NAME);
 
+        CompletableFuture<Void> dropTbkFut = ignite1.tables().dropTableAsync(TABLE_NAME);
+
         // Because the event inhibitor was started, last metastorage updates do not reach to one node.
         // Therefore the table still exists locally, but API prevents getting it.
         for (Ignite ignite : clusterNodes) {
-            assertNull(ignite.tables().table(TABLE_NAME));
+            if (ignite != ignite1) {
+                assertNull(ignite.tables().table(TABLE_NAME));
 
-            assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
+                assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
 
-            assertThrows(TableNotFoundException.class, () -> dropTable(ignite, SCHEMA, SHORT_TABLE_NAME));
+                assertThrows(TableNotFoundException.class, () -> dropTable(ignite, SCHEMA, SHORT_TABLE_NAME));
 
-            dropTableIfExists(ignite, SCHEMA, SHORT_TABLE_NAME);
+                dropTableIfExists(ignite, SCHEMA, SHORT_TABLE_NAME);
+            }
         }
 
+        assertFalse(dropTbkFut.isDone());
+
         ignite1Inhibitor.stopInhibit();
+
+        assertThrows(ExecutionException.class, () -> dropTbkFut.get(10, TimeUnit.SECONDS));
     }
 
     /**

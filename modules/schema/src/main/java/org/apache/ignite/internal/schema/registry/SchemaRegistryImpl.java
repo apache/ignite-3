@@ -21,11 +21,12 @@ import static java.util.stream.Collectors.toList;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Function;
-import java.util.function.IntSupplier;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -51,19 +52,22 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private volatile int lastVer;
 
     /** Schema store. */
-    private final Function<Integer, SchemaDescriptor> history;
+    private final BiFunction<Long, Integer, CompletableFuture<SchemaDescriptor>> history;
 
-    /** The method to provide the latest schema version on cluster. */
-    private final IntSupplier latestVersionStore;
+    /** The latest available token in distributed Metastorage. */
+    private final Supplier<CompletableFuture<Long>> directMsRevision;
 
     /**
      * Default constructor.
      *
      * @param history            Schema history.
-     * @param latestVersionStore The method to provide the latest version of the schema.
+     * @param directMsRevision The latest available token in distributed Metastorage.
      */
-    public SchemaRegistryImpl(Function<Integer, SchemaDescriptor> history, IntSupplier latestVersionStore) {
-        this(INITIAL_SCHEMA_VERSION, history, latestVersionStore);
+    public SchemaRegistryImpl(
+            BiFunction<Long, Integer, CompletableFuture<SchemaDescriptor>> history,
+            Supplier<CompletableFuture<Long>> directMsRevision
+    ) {
+        this(INITIAL_SCHEMA_VERSION, history, directMsRevision);
     }
 
     /**
@@ -71,12 +75,16 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param initialVer         Initial version.
      * @param history            Schema history.
-     * @param latestVersionStore The method to provide the latest version of the schema.
+     * @param directMsRevision The latest available token in distributed Metastorage.
      */
-    public SchemaRegistryImpl(int initialVer, Function<Integer, SchemaDescriptor> history, IntSupplier latestVersionStore) {
+    public SchemaRegistryImpl(
+            int initialVer,
+            BiFunction<Long, Integer, CompletableFuture<SchemaDescriptor>> history,
+            Supplier<CompletableFuture<Long>> directMsRevision
+    ) {
         lastVer = initialVer;
         this.history = history;
-        this.latestVersionStore = latestVersionStore;
+        this.directMsRevision = directMsRevision;
     }
 
     /** {@inheritDoc} */
@@ -88,19 +96,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
             return desc;
         }
 
-        desc = history.apply(ver);
+        desc = directMsRevision.get().thenCompose(token -> history.apply(token, ver)).join();
 
-        if (desc != null) {
-            schemaCache.putIfAbsent(ver, desc);
+        schemaCache.putIfAbsent(ver, desc);
 
-            return desc;
-        }
-
-        if (lastVer < ver || ver <= 0) {
-            throw new SchemaRegistryException("Incorrect schema version requested: ver=" + ver);
-        } else {
-            throw new SchemaRegistryException("Failed to find schema: ver=" + ver);
-        }
+        return desc;
     }
 
     /** {@inheritDoc} */
@@ -116,17 +116,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
-        int lastVer0 = latestVersionStore.getAsInt();
-
-        if (lastVer0 == INITIAL_SCHEMA_VERSION) {
-            return schema();
-        }
-
-        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer
-                + ", consLastVer=" + lastVer0 + ']';
-
-        return schema(lastVer0);
+    @Override
+    public SchemaDescriptor waitLatestSchema() {
+        return schema();
     }
 
     /** {@inheritDoc} */

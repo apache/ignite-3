@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
-import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -43,6 +42,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -151,12 +151,14 @@ public class UpgradingRowAdapterTest {
         ByteBufferRow row = new ByteBufferRow(serializeValuesToRow(schema, values));
 
         // Validate row.
-        validateRow(values, new SchemaRegistryImpl(1, v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION), row);
+        validateRow(values, new SchemaRegistryImpl(1, (t, v) -> CompletableFuture.completedFuture(v == 1 ? schema : schema2),
+                () -> CompletableFuture.completedFuture(0L)), row);
 
         // Validate upgraded row.
         values.add(addedColumnIndex, null);
 
-        validateRow(values, new SchemaRegistryImpl(2, v -> v == 1 ? schema : schema2, () -> INITIAL_SCHEMA_VERSION), row);
+        validateRow(values, new SchemaRegistryImpl(2, (t, v) -> CompletableFuture.completedFuture(v == 1 ? schema : schema2),
+                () -> CompletableFuture.completedFuture(0L)), row);
     }
 
     private void validateRow(List<Object> values, SchemaRegistryImpl schemaRegistry, ByteBufferRow binaryRow) {

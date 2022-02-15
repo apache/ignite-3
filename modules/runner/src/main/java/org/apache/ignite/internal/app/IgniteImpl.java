@@ -27,6 +27,8 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -197,10 +199,12 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
+        var distributedCfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 modules.distributed().validators(),
-                new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+                distributedCfgStorage,
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
@@ -211,7 +215,21 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
+        Consumer<Consumer<Long>> registry = (c) -> {
+            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
+                LOG.info("Node: " + name);
+
+                c.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
+        Supplier<CompletableFuture<Long>> msRevision = () -> distributedCfgStorage.lastRevision();
+
         distributedTblMgr = new TableManager(
+                registry,
+                msRevision,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,

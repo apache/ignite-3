@@ -20,11 +20,11 @@ package org.apache.ignite.internal.benchmarks;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -121,7 +121,8 @@ public class TupleMarshallerVarlenOnlyBenchmark {
                         .toArray(Column[]::new)
         );
 
-        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION) {
+        marshaller = new TupleMarshallerImpl(new SchemaRegistryImpl((t, v) -> CompletableFuture.completedFuture(null),
+                () -> CompletableFuture.completedFuture(1L)) {
             @Override
             public SchemaDescriptor schema() {
                 return schema;
