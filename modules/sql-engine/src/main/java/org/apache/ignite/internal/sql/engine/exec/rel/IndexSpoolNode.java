@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeHashIndex;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeIndex;
 import org.apache.ignite.internal.sql.engine.exec.RuntimeSortedIndex;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Index spool node.
@@ -199,6 +200,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             ExecutionContext<RowT> ctx,
             RelDataType rowType,
             ImmutableBitSet keys,
+            @Nullable Predicate<RowT> filter,
             Supplier<RowT> searchRow
     ) {
         RuntimeHashIndex<RowT> idx = new RuntimeHashIndex<>(ctx, keys);
@@ -206,7 +208,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         ScanNode<RowT> scan = new ScanNode<>(
                 ctx,
                 rowType,
-                idx.scan(searchRow)
+                idx.scan(searchRow, filter)
         );
 
         return new IndexSpoolNode<>(ctx, rowType, idx, scan);

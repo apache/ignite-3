@@ -18,28 +18,14 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
-import java.util.UUID;
+import org.apache.ignite.internal.sql.engine.RootQuery;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
 /**
  * ExecutionService interface.
  * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface ExecutionService extends LifecycleAware {
-    /**
-     * Executes a query.
-     *
-     * @param schema Schema name.
-     * @param query  Query.
-     * @param params Query parameters.
-     * @return Query cursor.
-     */
-    List<SqlCursor<List<?>>> executeQuery(String schema, String query, Object[] params);
-
-    /**
-     * Cancels a running query.
-     *
-     * @param queryId Query ID.
-     */
-    void cancelQuery(UUID queryId);
+public interface ExecutionService<RowT> extends LifecycleAware {
+    SqlCursor<List<?>> executePlan(RootQuery<RowT> qry, QueryPlan plan);
 }

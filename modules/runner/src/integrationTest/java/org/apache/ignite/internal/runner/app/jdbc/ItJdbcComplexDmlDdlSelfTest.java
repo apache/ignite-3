@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Base class for complex SQL tests based on JDBC driver.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16207")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
     /** Names of companies to use. */
     private static final List<String> COMPANIES = Arrays.asList("ASF", "GNU", "BSD");
@@ -56,10 +56,10 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
                 "CREATE TABLE person_t (ID int, NAME varchar, AGE int, COMPANY varchar, CITY varchar, "
                         + "primary key (ID, NAME, CITY))");
 
-        sql(new UpdateChecker(0), "CREATE TABLE city (name varchar, population int, primary key (name))");
+        sql(new UpdateChecker(0), "CREATE TABLE city_t (name varchar, population int, primary key (name))");
 
         sql(new UpdateChecker(3),
-                "INSERT INTO city (name, population) values(?, ?), (?, ?), (?, ?)",
+                "INSERT INTO city_t (name, population) values(?, ?), (?, ?), (?, ?)",
                 "St. Petersburg", 6000000,
                 "Boston", 2000000,
                 "London", 8000000
@@ -105,7 +105,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
 
         // Berkeley is not present in City table, although 25 people have it specified as their city.
         sql(new ResultChecker(new Object[][] {{75L}}),
-                "SELECT COUNT(*) from person_t p inner join City c on p.city = c.name");
+                "SELECT COUNT(*) from person_t p inner join City_t c on p.city = c.name");
 
         sql(new UpdateChecker(34),
                 "UPDATE person_t SET company = 'New Company', age = CASE WHEN MOD(id, 2) <> 0 THEN age + 5 ELSE "
@@ -134,7 +134,7 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
 
         assertEquals(cnt[0], 34, "Invalid rows count");
 
-        sql(new UpdateChecker(0), "DROP TABLE city");
+        sql(new UpdateChecker(0), "DROP TABLE city_t");
         sql(new UpdateChecker(0), "DROP TABLE person_t");
     }
 
