@@ -664,12 +664,12 @@ public abstract class AbstractPartitionStorageTest {
     private static SearchRow searchRow(String key) {
         return new SearchRow() {
             @Override
-            public byte @NotNull [] keyBytes() {
+            public byte[] keyBytes() {
                 return key.getBytes(StandardCharsets.UTF_8);
             }
 
             @Override
-            public @NotNull ByteBuffer key() {
+            public ByteBuffer key() {
                 return ByteBuffer.wrap(keyBytes());
             }
         };
