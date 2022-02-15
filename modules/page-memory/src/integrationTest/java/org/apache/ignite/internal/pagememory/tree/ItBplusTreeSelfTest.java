@@ -1007,7 +1007,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         Map<Long, Long> map = new HashMap<>();
 
-        int loops = reuseList == null ? 100_000 : 300_000;
+        int loops = reuseList == null ? 50_000 : 150_000;
 
         for (int i = 0; i < loops; i++) {
             Long x = (long) BplusTree.randomInt(CNT);
@@ -1334,7 +1334,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
             while (!stop.get()) {
-                Thread.sleep(5000);
+                Thread.sleep(1_000);
 
                 println(TestTree.printLocks());
             }
@@ -1422,7 +1422,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
             }
         });
 
-        final int loopCnt = 500;
+        final int loopCnt = 250;
 
         CompletableFuture<?> putRmvFut = runMultiThreadedAsync(() -> {
             for (int i = 0; i < loopCnt && !stop.get(); ++i) {
@@ -1494,7 +1494,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
             while (!stop.get()) {
-                Thread.sleep(5000);
+                Thread.sleep(1_000);
 
                 println(TestTree.printLocks());
             }
@@ -1730,7 +1730,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<?> treePrintFut = runMultiThreadedAsync(() -> {
             while (!stop.get()) {
-                Thread.sleep(1000);
+                Thread.sleep(1_000);
 
                 println(TestTree.printLocks());
                 println(tree.printTree());
@@ -1864,7 +1864,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<?> lockPrintingFut = runMultiThreadedAsync(() -> {
             while (!stop.get()) {
-                Thread.sleep(1000);
+                Thread.sleep(1_000);
 
                 println(TestTree.printLocks());
             }
@@ -2031,7 +2031,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 5; i++) {
             for (long idx = 0L; idx < keys; ++idx) {
                 tree.put(idx);
             }
@@ -2120,12 +2120,12 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                 info("Done, read count: " + cnt);
 
                 return null;
-            }, 10, "find");
+            }, 5, "find");
 
             asyncRunFut = getFut;
 
             try {
-                Thread.sleep(100);
+                Thread.sleep(50);
 
                 for (int j = 0; j < 20; j++) {
                     for (long idx = 0L; idx < keys / 2; ++idx) {
@@ -2338,7 +2338,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         final Map<Long, Long> map = new ConcurrentHashMap<>();
 
-        final int loops = reuseList == null ? 20_000 : 60_000;
+        final int loops = reuseList == null ? 10_000 : 30_000;
 
         final IgniteStripedLock lock = new IgniteStripedLock(256);
 
@@ -2349,7 +2349,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                 final Long x = (long) DataStructure.randomInt(CNT);
                 final int op = DataStructure.randomInt(4);
 
-                if (i % 10000 == 0) {
+                if (i % 5_000 == 0) {
                     println(" --> " + ops[op] + "_" + i + "  " + x);
                 }
 
@@ -2373,7 +2373,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
                         assertNoLocks();
                     } else if (op == 2) {
-                        tree.invoke(x, null, new InvokeClosure<Long>() {
+                        tree.invoke(x, null, new InvokeClosure<>() {
                             OperationType opType;
 
                             @Override
@@ -2436,7 +2436,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<?> fut2 = runMultiThreadedAsync(() -> {
             while (!stop.get()) {
-                Thread.sleep(5000);
+                Thread.sleep(1_000);
 
                 println(TestTree.printLocks());
             }
