@@ -29,17 +29,4 @@ public enum JdbcStatementType {
 
     /** DML / DDL statement type. */
     UPDATE_STATEMENT_TYPE;
-
-    /** Enumerated values. */
-    private static final JdbcStatementType[] VALS = values();
-
-    /**
-     * Efficiently gets enumerated value from its ordinal.
-     *
-     * @param ord Ordinal value.
-     * @return Enumerated value or {@code null} if ordinal out of range.
-     */
-    public static JdbcStatementType fromOrdinal(int ord) {
-        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
-    }
 }

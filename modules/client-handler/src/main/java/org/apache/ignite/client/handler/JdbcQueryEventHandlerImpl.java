@@ -52,7 +52,9 @@ import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 import org.apache.ignite.client.proto.query.event.QuerySingleResult;
 import org.apache.ignite.client.proto.query.event.Response;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
@@ -97,9 +99,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            Boolean isQuery = getExpectedQueryFlag(req.getStmtType());
+            QueryContext context = getQueryContext(req.getStmtType(), true);
 
-            List<SqlCursor<List<?>>> queryCursors = processor.query(isQuery, req.schemaName(), req.sqlQuery(),
+            List<SqlCursor<List<?>>> queryCursors = processor.query(context, req.schemaName(), req.sqlQuery(),
                     req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
 
             cursors = queryCursors.stream()
@@ -137,17 +139,25 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return CompletableFuture.completedFuture(new QueryExecuteResult(results));
     }
 
-    private Boolean getExpectedQueryFlag(JdbcStatementType stmtType) {
-        switch (stmtType) {
-            case ANY_STATEMENT_TYPE:
-                return null;
-            case SELECT_STATEMENT_TYPE:
-                return true;
-            case UPDATE_STATEMENT_TYPE:
-                return false;
-            default:
-                throw new IllegalArgumentException("Unexpected JdbcStatementType: " + stmtType);
-        }
+    private QueryContext getQueryContext(JdbcStatementType stmtType, boolean allowExplain) {
+        QueryValidator validator = new QueryValidator() {
+            @Override
+            public boolean isQuery() {
+                return stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE;
+            }
+
+            @Override
+            public boolean allowExplain() {
+                return allowExplain;
+            }
+
+            @Override
+            public boolean skipCheck() {
+                return stmtType == null || stmtType == JdbcStatementType.ANY_STATEMENT_TYPE;
+            }
+        };
+
+        return QueryContext.of(validator);
     }
 
     /** {@inheritDoc} */

@@ -20,8 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * StatementMismatchException.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * StatementMismatchException is used during query validation.
+ * The exception is used when the expected query type
+ * does not match the actual query type obtained after parsing a sql string.
  */
 public class StatementMismatchException extends IgniteInternalException {
 }

@@ -40,7 +40,7 @@ public interface QueryProcessor extends IgniteComponent {
     /**
      * Execute the query with given schema name and parameters.
      *
-     * @param isQuery Flag indicating that the expected type of request is a query.
+     * @param context User query context.
      * @param schemaName Schema name.
      * @param qry Sql query.
      * @param params Query parameters.
@@ -48,5 +48,5 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      * */
-    List<SqlCursor<List<?>>> query(Boolean isQuery, String schemaName, String qry, Object... params);
+    List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params);
 }

@@ -128,7 +128,7 @@ public class QueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
-        packer.packByte((byte) stmtType.ordinal());
+        packer.packString(stmtType.name());
         packer.packString(schemaName);
         packer.packInt(pageSize);
         packer.packInt(maxRows);
@@ -140,7 +140,7 @@ public class QueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
-        stmtType = JdbcStatementType.fromOrdinal(unpacker.unpackByte());
+        stmtType = JdbcStatementType.valueOf(unpacker.unpackString());
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();
         maxRows = unpacker.unpackInt();
