@@ -141,9 +141,8 @@ public final class IgniteTestUtils {
      * @param cls Expected exception class.
      * @return Thrown throwable.
      */
-    @Nullable
     public static Throwable assertThrowsWithCause(
-            @NotNull Runnable run,
+            @NotNull RunnableX run,
             @NotNull Class<? extends Throwable> cls
     ) {
         try {
@@ -218,9 +217,13 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(final Runnable task, String threadName) {
+    public static CompletableFuture<?> runAsync(final RunnableX task, String threadName) {
         return runAsync(() -> {
-            task.run();
+            try {
+                task.run();
+            } catch (Throwable e) {
+                throw new Exception(e);
+            }
 
             return null;
         }, threadName);
@@ -465,24 +468,10 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Runnable that can throw exceptions.
+     * Runnable that could throw an exception.
      */
     @FunctionalInterface
-    public interface RunnableX extends Runnable {
-        /**
-         * Runnable body.
-         *
-         * @throws Exception If failed.
-         */
-        void runx() throws Exception;
-
-        @Override
-        default void run() {
-            try {
-                runx();
-            } catch (Exception e) {
-                throw new IgniteInternalException(e);
-            }
-        }
+    public interface RunnableX {
+        void run() throws Throwable;
     }
 }

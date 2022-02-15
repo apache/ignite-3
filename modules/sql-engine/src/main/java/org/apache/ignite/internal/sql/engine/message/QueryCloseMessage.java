@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.message;
 
-import java.util.List;
-import org.apache.ignite.internal.sql.engine.RootQuery;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import java.io.Serializable;
+import java.util.UUID;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * ExecutionService interface.
- * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * QueryCloseMessage interface.
+ * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface ExecutionService<RowT> extends LifecycleAware {
-    SqlCursor<List<?>> executePlan(RootQuery<RowT> qry, QueryPlan plan);
+@Transferable(value = SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE)
+public interface QueryCloseMessage extends NetworkMessage, Serializable {
+    /**
+     * Get query ID.
+     */
+    UUID queryId();
 }
