@@ -65,10 +65,10 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteCursor;
 import org.apache.ignite.internal.util.IgniteLongList;
-import org.apache.ignite.lang.GridTuple3;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringBuilder;
+import org.apache.ignite.lang.IgniteTuple3;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -2569,10 +2569,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Releases the lock that is held by long tree destroy process for a short period of time and acquires it again, allowing other
      * processes to acquire it.
      *
-     * @param lockedPages Deque of locked pages. {@link GridTuple3} contains page id, page pointer and page address. Pages are ordered in
+     * @param lockedPages Deque of locked pages. {@link IgniteTuple3} contains page id, page pointer and page address. Pages are ordered in
      *      that order as they were locked by destroy method. We unlock them in reverse order and unlock in direct order.
      */
-    private void temporaryReleaseLock(Deque<GridTuple3<Long, Long, Long>> lockedPages) {
+    private void temporaryReleaseLock(Deque<IgniteTuple3<Long, Long, Long>> lockedPages) {
         lockedPages.iterator().forEachRemaining(t -> writeUnlock(t.get1(), t.get2(), t.get3(), true));
 
         temporaryReleaseLock();
@@ -2631,7 +2631,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         AtomicLong lockHoldStartTime = new AtomicLong(FastTimestamps.coarseCurrentTimeMillis());
 
-        Deque<GridTuple3<Long, Long, Long>> lockedPages = new LinkedList<>();
+        Deque<IgniteTuple3<Long, Long, Long>> lockedPages = new LinkedList<>();
 
         final long lockMaxTime = maxLockHoldTime();
 
@@ -2640,7 +2640,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         try {
             long metaPageAddr = writeLock(metaPageId, metaPage); // No checks, we must be out of use.
 
-            lockedPages.push(new GridTuple3<>(metaPageId, metaPage, metaPageAddr));
+            lockedPages.push(new IgniteTuple3<>(metaPageId, metaPage, metaPageAddr));
 
             try {
                 assert metaPageAddr != 0L;
@@ -2694,7 +2694,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             @Nullable Consumer<L> c,
             AtomicLong lockHoldStartTime,
             long lockMaxTime,
-            Deque<GridTuple3<Long, Long, Long>> lockedPages
+            Deque<IgniteTuple3<Long, Long, Long>> lockedPages
     ) throws IgniteInternalCheckedException {
         if (pageId == 0) {
             return 0;
@@ -2711,7 +2711,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 return 0; // This page was possibly recycled, but we still need to destroy the rest of the tree.
             }
 
-            lockedPages.push(new GridTuple3<>(pageId, page, pageAddr));
+            lockedPages.push(new IgniteTuple3<>(pageId, page, pageAddr));
 
             try {
                 BplusIo<L> io = io(pageAddr);

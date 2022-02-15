@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * This class doesn't provide any synchronization for multi-threaded access and it is responsibility of the user of this class to provide
  * outside synchronization, if needed.
  */
-public class GridTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable, Cloneable {
+public class IgniteTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable, Cloneable {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -49,7 +49,7 @@ public class GridTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable,
     /**
      * Empty constructor required by {@link Externalizable}.
      */
-    public GridTuple3() {
+    public IgniteTuple3() {
         // No-op.
     }
 
@@ -60,7 +60,7 @@ public class GridTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable,
      * @param val2 Second value.
      * @param val3 Third value.
      */
-    public GridTuple3(@Nullable V1 val1, @Nullable V2 val2, @Nullable V3 val3) {
+    public IgniteTuple3(@Nullable V1 val1, @Nullable V2 val2, @Nullable V3 val3) {
         this.val1 = val1;
         this.val2 = val2;
         this.val3 = val3;
@@ -206,11 +206,11 @@ public class GridTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable,
             return true;
         }
 
-        if (!(o instanceof GridTuple3)) {
+        if (!(o instanceof IgniteTuple3)) {
             return false;
         }
 
-        GridTuple3<?, ?, ?> t = (GridTuple3<?, ?, ?>) o;
+        IgniteTuple3<?, ?, ?> t = (IgniteTuple3<?, ?, ?>) o;
 
         return Objects.equals(val1, t.val1) && Objects.equals(val2, t.val2) && Objects.equals(val3, t.val3);
     }
@@ -229,6 +229,6 @@ public class GridTuple3<V1, V2, V3> implements Iterable<Object>, Externalizable,
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(GridTuple3.class, this);
+        return S.toString(IgniteTuple3.class, this);
     }
 }
