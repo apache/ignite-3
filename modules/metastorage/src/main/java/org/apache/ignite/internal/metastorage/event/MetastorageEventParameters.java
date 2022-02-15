@@ -22,7 +22,7 @@ import org.apache.ignite.internal.manager.EventParameters;
 /**
  * Metastorage event parameters.
  */
-public class MetastorageEventParameters implements EventParameters {
+public class MetastorageEventParameters extends EventParameters {
     /** Revision. */
     long revision;
 
@@ -32,6 +32,7 @@ public class MetastorageEventParameters implements EventParameters {
      * @param revision Metastorage revisioin.
      */
     public MetastorageEventParameters(long revision) {
+        super(revision);
         this.revision = revision;
     }
 
