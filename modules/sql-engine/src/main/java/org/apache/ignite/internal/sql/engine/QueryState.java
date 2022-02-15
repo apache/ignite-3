@@ -15,31 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
-
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.sql.engine;
 
 /**
- * OutboxCloseMessage interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Describes all possible states of the query.
  */
-@Transferable(value = SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE)
-public interface OutboxCloseMessage extends NetworkMessage, Serializable {
-    /**
-     * Get query ID.
-     */
-    UUID queryId();
+public enum QueryState {
+    /** The query has been initialized and registered, but neither planning nor execution has started yet. */
+    INITED,
 
-    /**
-     * Get fragment ID.
-     */
-    long fragmentId();
+    /** The planning has been started. This phase implies splitting the query on fragments. */
+    PLANNING,
 
-    /**
-     * Get exchange ID.
-     */
-    long exchangeId();
+    /** The mapping has been started. At this phase every particular fragment is mapped to a node. */
+    MAPPING,
+
+    /** The actual execution has been started. */
+    EXECUTING,
+
+    /** The query start to clean up all acquired resources. */
+    CLOSING,
+
+    /** The query have been complete and will be unregistered soon. */
+    CLOSED
 }

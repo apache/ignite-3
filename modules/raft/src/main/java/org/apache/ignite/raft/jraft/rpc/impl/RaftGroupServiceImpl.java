@@ -358,7 +358,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         Peer leader = this.leader;
 
         if (leader == null)
-            return refreshLeader().thenCompose(res -> addLearners(learners));
+            return refreshLeader().thenCompose(res -> removeLearners(learners));
 
         List<String> lrns = learners.stream().map(p -> PeerId.fromPeer(p).toString()).collect(Collectors.toList());
         RemoveLearnersRequest req = factory.removeLearnersRequest().groupId(groupId).learnersList(lrns).build();

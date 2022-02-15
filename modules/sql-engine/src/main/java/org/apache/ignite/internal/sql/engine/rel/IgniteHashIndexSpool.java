@@ -79,7 +79,7 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
                 input.getInputs().get(0),
                 input.getExpressionList("searchRow"),
-                null
+                input.getExpression("condition")
         );
     }
 
@@ -110,7 +110,9 @@ public class IgniteHashIndexSpool extends AbstractIgniteSpool implements Interna
     public RelWriter explainTerms(RelWriter pw) {
         RelWriter writer = super.explainTerms(pw);
 
-        return writer.item("searchRow", searchRow);
+        return writer
+                .item("searchRow", searchRow)
+                .item("condition", cond);
     }
 
     /** {@inheritDoc} */

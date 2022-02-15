@@ -152,7 +152,7 @@ public class ConfigurationClient {
         var errorMsg = mapper.writerWithDefaultPrettyPrinter()
                 .writeValueAsString(mapper.readValue(res.body(), JsonNode.class));
 
-        return new IgniteCliException(msg + "\n\n" + errorMsg);
+        return new IgniteCliException(msg + System.lineSeparator().repeat(2) + errorMsg);
     }
 
     /**

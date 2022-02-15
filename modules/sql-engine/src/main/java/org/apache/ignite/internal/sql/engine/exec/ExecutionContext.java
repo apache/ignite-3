@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.checkRange;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -303,7 +304,9 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
         executor.execute(qryId, fragmentId(), () -> {
             try {
-                task.run();
+                if (!isCancelled()) {
+                    task.run();
+                }
             } catch (Throwable e) {
                 onError.accept(e);
 
@@ -352,5 +355,26 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        ExecutionContext<?> context = (ExecutionContext<?>) o;
+
+        return qryId.equals(context.qryId) && fragmentDesc.fragmentId() == context.fragmentDesc.fragmentId();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(qryId, fragmentDesc.fragmentId());
     }
 }
