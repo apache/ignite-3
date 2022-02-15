@@ -140,7 +140,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     }
 
     private QueryContext createQueryContext(JdbcStatementType stmtType) {
-        if (stmtType == null || stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
+        if (stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
             return QueryContext.of();
         }
         QueryValidator validator = () -> stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE;
