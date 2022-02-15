@@ -130,7 +130,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private LockManager lm;
 
-    /** Meta storage manager */
+    /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
 

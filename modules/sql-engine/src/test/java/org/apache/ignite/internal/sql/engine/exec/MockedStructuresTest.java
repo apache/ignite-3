@@ -110,7 +110,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private TxManager tm;
 
-    /** Meta storage manager */
+    /** Meta storage manager. */
     @Mock
     MetaStorageManager msm;
 
