@@ -27,7 +27,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Test with fake reuse list.
  */
-public class BplusTreeFakeReuseSelfTest extends BplusTreeSelfTest {
+// TODO: https://issues.apache.org/jira/browse/IGNITE-16548
+public class ItBplusTreeFakeReuseSelfTest extends ItBplusTreeSelfTest {
     /** {@inheritDoc} */
     @Override
     protected ReuseList createReuseList(

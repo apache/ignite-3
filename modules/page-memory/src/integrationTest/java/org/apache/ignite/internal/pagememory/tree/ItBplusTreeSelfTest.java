@@ -26,10 +26,10 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
-import static org.apache.ignite.internal.pagememory.tree.BplusTreeSelfTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.NOOP;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.PUT;
 import static org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType.REMOVE;
+import static org.apache.ignite.internal.pagememory.tree.ItBplusTreeSelfTest.TestTree.threadId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
@@ -113,8 +113,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Class to test the {@link BplusTree}.
  */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-16548
 @ExtendWith(ConfigurationExtension.class)
-public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
+public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     private static final short LONG_INNER_IO = 30000;
 
     private static final short LONG_LEAF_IO = 30001;
