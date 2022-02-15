@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.util.Objects;
 import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -63,6 +64,8 @@ public class QueryExecuteRequest implements ClientMessage {
      */
     public QueryExecuteRequest(JdbcStatementType stmtType,
             String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
+        Objects.requireNonNull(stmtType);
+
         this.stmtType = stmtType;
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
