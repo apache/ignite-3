@@ -254,10 +254,9 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     /** Transforms keys list to appropriate exception. */
     private IgniteInternalException conflictKeysException(List<String> conflictKeys) {
         if (modifyOp == TableModify.Operation.INSERT) {
-            return new IgniteInternalException("Failed to INSERT some keys because they are already in cache. " +
-                    "[rows=" + conflictKeys + ']');
-        }
-        else {
+            return new IgniteInternalException("Failed to INSERT some keys because they are already in cache. "
+                    + "[rows=" + conflictKeys + ']');
+        } else {
             return new IgniteInternalException(
                     IgniteStringFormatter.format("Failed to MERGE some keys due to keys conflict or concurrent updates, "
                             + "clashed input rows: {}", conflictKeys));

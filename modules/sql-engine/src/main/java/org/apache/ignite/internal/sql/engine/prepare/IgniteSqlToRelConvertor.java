@@ -62,10 +62,11 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
 
     /** {@inheritDoc} */
     @Override protected RelRoot convertQueryRecursive(SqlNode qry, boolean top, @Nullable RelDataType targetRowType) {
-        if (qry.getKind() == SqlKind.MERGE)
+        if (qry.getKind() == SqlKind.MERGE) {
             return RelRoot.of(convertMerge((SqlMerge) qry), qry.getKind());
-        else
+        } else {
             return super.convertQueryRecursive(qry, top, targetRowType);
+        }
     }
 
     /**
@@ -106,7 +107,7 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
         // then, convert the insert statement so we can get the insert
         // values expressions
         SqlInsert insertCall = call.getInsertCall();
-        int nLevel1Exprs = 0;
+        int numLevel1Exprs = 0;
         List<RexNode> level1InsertExprs = null;
         List<RexNode> level2InsertExprs = null;
         if (insertCall != null) {
@@ -126,28 +127,28 @@ public class IgniteSqlToRelConvertor extends SqlToRelConverter {
                         ((LogicalProject) insertRel.getInput(0).getInput(0))
                                 .getProjects();
             }
-            nLevel1Exprs = level1InsertExprs.size();
+            numLevel1Exprs = level1InsertExprs.size();
         }
 
         LogicalJoin join = (LogicalJoin) mergeSourceRel.getInput(0);
 
         final List<RexNode> projects = new ArrayList<>();
 
-        for (int level1Idx = 0; level1Idx < nLevel1Exprs; level1Idx++) {
+        for (int level1Idx = 0; level1Idx < numLevel1Exprs; level1Idx++) {
             requireNonNull(level1InsertExprs, "level1InsertExprs");
             if ((level2InsertExprs != null)
                     && (level1InsertExprs.get(level1Idx) instanceof RexInputRef)) {
                 int level2Idx =
                         ((RexInputRef) level1InsertExprs.get(level1Idx)).getIndex();
                 projects.add(level2InsertExprs.get(level2Idx));
-            } else
+            } else {
                 projects.add(level1InsertExprs.get(level1Idx));
+            }
         }
         if (updateCall != null) {
             final LogicalProject project = (LogicalProject) mergeSourceRel;
             projects.addAll(project.getProjects());
-        }
-        else {
+        } else {
             // Convert to ANTI join if there is no UPDATE clause.
             join = join.copy(join.getTraitSet(), join.getCondition(), join.getLeft(), join.getRight(), JoinRelType.ANTI,
                     false);

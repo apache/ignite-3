@@ -35,7 +35,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16529")
-    public void mergeOpChangePK() {
+    public void mergeOpChangePrimaryKey() {
         clearAndPopulateMergeTable1();
 
         clearAndPopulateMergeTable2();
@@ -154,8 +154,9 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                 + "WHEN MATCHED THEN UPDATE SET b = dst.b + 1 " // dst.b just for check here
                 + "WHEN NOT MATCHED THEN INSERT (k1, k2, a, b, c) VALUES (src.k1 + 1, src.k2 + 1, src.a + 1, 1, src.a)";
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 5; i++) {
             sql(sql);
+        }
 
         assertQuery("SELECT * FROM test1")
                 .returns(0, 0, 0, 0, "0")

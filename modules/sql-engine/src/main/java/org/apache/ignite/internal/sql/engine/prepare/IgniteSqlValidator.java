@@ -140,8 +140,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
             it = getKeysColumns(insert.getTargetColumnList(), ns);
 
-            while (it.hasNext())
+            while (it.hasNext()) {
                 keyColsColl.add(it.next().name());
+            }
 
             throw newValidationError(insert,
                     IgniteResource.INSTANCE.cannotUpdatePkPartially(keyColsColl.toString()));
@@ -179,8 +180,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             public ColumnDescriptor next() {
                 ColumnDescriptor tmp = colDesc;
 
-                if (tmp == null)
+                if (tmp == null) {
                     throw new NoSuchElementException();
+                }
 
                 advance();
 

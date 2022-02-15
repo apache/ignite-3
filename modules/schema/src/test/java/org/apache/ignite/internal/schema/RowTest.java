@@ -507,7 +507,7 @@ public class RowTest {
 
             if (emptyKey && i == 0) {
                 res[i] = "";
-            } else if (emptyVal && i > 1) {
+            } else if (emptyVal && i == 1) {
                 res[i] = "";
             } else {
                 res[i] = rnd.apply(type);

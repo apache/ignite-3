@@ -24,7 +24,6 @@ import java.util.Queue;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.type.RelDataType;
@@ -225,7 +224,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        AtomicInteger received = new AtomicInteger();
+        int received = 0; // HB defenced here.
 
         /** {@inheritDoc} */
         @Override
@@ -243,8 +242,8 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
             inBuff.add(row);
 
-            if (received.incrementAndGet() == inBufSize) {
-                received.set(0);
+            if (++received == inBufSize) {
+                received = 0;
 
                 context().execute(() -> {
                     waiting = 0;
@@ -264,9 +263,11 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         public void onComplete() {
+            int received0 = received;
+
             context().execute(() -> {
                 activeSubscription = null;
-                waiting -= received.get();
+                waiting -= received0;
 
                 push();
             }, TableScanNode.this::onError);
