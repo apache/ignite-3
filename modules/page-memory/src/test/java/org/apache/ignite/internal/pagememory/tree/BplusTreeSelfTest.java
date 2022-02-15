@@ -79,6 +79,7 @@ import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -107,10 +108,12 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class to test the {@link BplusTree}.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
     private static final short LONG_INNER_IO = 30000;
 
@@ -2575,6 +2578,9 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
                     new IoVersions<>(new LongLeafIo())
             );
 
+            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongInnerIo(canGetRow)));
+            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongLeafIo()));
+
             initTree(true);
         }
 
@@ -2981,7 +2987,7 @@ public class BplusTreeSelfTest extends BaseIgniteAbstractTest {
             Map<Long, Long> locks = m.get(thId);
 
             if (locks == null) {
-                // TODO: IGNITE-16275 Maybe return LinkedHashMap
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
                 locks = new ConcurrentHashMap<>();
 
                 if (m.putIfAbsent(thId, locks) != null) {
