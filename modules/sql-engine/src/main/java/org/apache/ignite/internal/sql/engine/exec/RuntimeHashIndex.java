@@ -24,10 +24,13 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.GroupKey;
+import org.apache.ignite.internal.sql.engine.util.FilteringIterator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Runtime hash index based on on-heap hash map.
@@ -69,8 +72,8 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         rows.clear();
     }
 
-    public Iterable<RowT> scan(Supplier<RowT> searchRow) {
-        return new IndexScan(searchRow);
+    public Iterable<RowT> scan(Supplier<RowT> searchRow, @Nullable Predicate<RowT> filter) {
+        return new IndexScan(searchRow, filter);
     }
 
     private GroupKey key(RowT r) {
@@ -87,14 +90,17 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         /** Search row. */
         private final Supplier<RowT> searchRow;
 
+        private final Predicate<RowT> filter;
+
         /**
          * Constructor.
          * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
          *
          * @param searchRow Search row.
          */
-        IndexScan(Supplier<RowT> searchRow) {
+        IndexScan(Supplier<RowT> searchRow, @Nullable Predicate<RowT> filter) {
             this.searchRow = searchRow;
+            this.filter = filter;
         }
 
         /** {@inheritDoc} */
@@ -109,7 +115,11 @@ public class RuntimeHashIndex<RowT> implements RuntimeIndex<RowT> {
         public Iterator<RowT> iterator() {
             List<RowT> eqRows = rows.get(key(searchRow.get()));
 
-            return eqRows == null ? Collections.emptyIterator() : eqRows.iterator();
+            if (eqRows == null) {
+                return Collections.emptyIterator();
+            }
+
+            return filter == null ? eqRows.iterator() : new FilteringIterator<>(eqRows.iterator(), filter);
         }
     }
 }
