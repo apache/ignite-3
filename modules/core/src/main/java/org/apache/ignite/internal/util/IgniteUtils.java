@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -660,5 +661,55 @@ public class IgniteUtils {
      */
     public static boolean isPow2(int i) {
         return i > 0 && (i & (i - 1)) == 0;
+    }
+
+    /**
+     * Finds a method in the class and it parents.
+     *
+     * <p>Method.getMethod() does not return non-public method, Method.getDeclaratedMethod() does not look at parent classes.
+     *
+     * @param cls The class to search,
+     * @param name Name of the method.
+     * @param paramTypes Method parameters.
+     * @return Method or {@code null}.
+     */
+    @Nullable
+    public static Method findNonPublicMethod(Class<?> cls, String name, Class<?>... paramTypes) {
+        while (cls != null) {
+            Method mtd = getNonPublicMethod(cls, name, paramTypes);
+
+            if (mtd != null) {
+                return mtd;
+            }
+
+            cls = cls.getSuperclass();
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets a method from the class.
+     *
+     * <p>Method.getMethod() does not return non-public method.
+     *
+     * @param cls Target class.
+     * @param name Name of the method.
+     * @param paramTypes Method parameters.
+     * @return Method or {@code null}.
+     */
+    @Nullable
+    public static Method getNonPublicMethod(Class<?> cls, String name, Class<?>... paramTypes) {
+        try {
+            Method mtd = cls.getDeclaredMethod(name, paramTypes);
+
+            mtd.setAccessible(true);
+
+            return mtd;
+        } catch (NoSuchMethodException ignored) {
+            // No-op.
+        }
+
+        return null;
     }
 }
