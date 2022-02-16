@@ -141,9 +141,8 @@ public final class IgniteTestUtils {
      * @param cls Expected exception class.
      * @return Thrown throwable.
      */
-    @Nullable
     public static Throwable assertThrowsWithCause(
-            @NotNull Runnable run,
+            @NotNull RunnableX run,
             @NotNull Class<? extends Throwable> cls
     ) {
         try {
@@ -445,5 +444,13 @@ public final class IgniteTestUtils {
                 testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "null"),
                 testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "null"),
                 idx);
+    }
+
+    /**
+     * Runnable that could throw an exception.
+     */
+    @FunctionalInterface
+    public interface RunnableX {
+        void run() throws Throwable;
     }
 }

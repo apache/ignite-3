@@ -43,6 +43,8 @@
     </licenses>
 
     <properties>
+        <root.directory>${pom.basedir}/../..</root.directory>
+
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
 
@@ -557,6 +559,12 @@
                 <groupId>com.google.testing.compile</groupId>
                 <artifactId>compile-testing</artifactId>
                 <version>${compile.testing.library.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.hamcrest</groupId>
+                        <artifactId>hamcrest-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -575,6 +583,12 @@
                 <groupId>com.github.npathai</groupId>
                 <artifactId>hamcrest-optional</artifactId>
                 <version>${hamcrest.optional.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.hamcrest</groupId>
+                        <artifactId>hamcrest-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -877,7 +891,7 @@
                             <javaVersion>${maven.compiler.source}</javaVersion>
                             <!-- Augment the standard rule set with our rules -->
                             <violationsFiles>
-                                <violationFile>check-rules/modernizer-rules.xml</violationFile>
+                                <violationFile>${root.directory}/check-rules/modernizer-rules.xml</violationFile>
                             </violationsFiles>
                             <ignorePackages>
                                 <package>org.apache.ignite.internal.sql.engine</package>
@@ -887,7 +901,7 @@
                         <executions>
                             <execution>
                                 <id>modernizer</id>
-                                <phase>validate</phase>
+                                <phase>test-compile</phase>
                                 <goals>
                                     <goal>modernizer</goal>
                                 </goals>

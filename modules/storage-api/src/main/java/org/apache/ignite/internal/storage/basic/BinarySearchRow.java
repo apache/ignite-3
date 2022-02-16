@@ -20,14 +20,13 @@ package org.apache.ignite.internal.storage.basic;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Adapter that converts a {@link BinaryRow} into a {@link SearchRow}.
  */
 public class BinarySearchRow implements SearchRow {
     /** Key array. */
-    private final byte[] key;
+    private final ByteBuffer key;
 
     /**
      * The constructor.
@@ -35,19 +34,21 @@ public class BinarySearchRow implements SearchRow {
      * @param row The search row.
      */
     public BinarySearchRow(BinaryRow row) {
+        key = row.keySlice();
+    }
+
+    @Override
+    public byte[] keyBytes() {
         // TODO asch IGNITE-15934 can reuse thread local byte buffer
-        key = new byte[row.keySlice().capacity()];
+        byte[] bytes = new byte[key.limit()];
 
-        row.keySlice().get(key);
+        key.rewind().get(bytes);
+
+        return bytes;
     }
 
     @Override
-    public byte @NotNull [] keyBytes() {
-        return key;
-    }
-
-    @Override
-    public @NotNull ByteBuffer key() {
-        return ByteBuffer.wrap(key);
+    public ByteBuffer key() {
+        return key.rewind();
     }
 }
