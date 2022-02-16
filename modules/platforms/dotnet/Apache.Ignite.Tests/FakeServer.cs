@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Internal.Proto;
 
     /// <summary>
     /// Fake Ignite server for test purposes.
@@ -55,7 +56,7 @@ namespace Apache.Ignite.Tests
                     var msg = ReceiveBytes(handler, msgSize);
 
                     // Write handshake response.
-
+                    handler.Send(ProtoCommon.MagicBytes);
 
                     while (_cts.IsCancellationRequested)
                     {
