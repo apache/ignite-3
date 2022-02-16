@@ -25,7 +25,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * User query context.
- * */
+ */
 public class QueryContext implements Context {
     /** Context params. */
     private final Object[] params;
