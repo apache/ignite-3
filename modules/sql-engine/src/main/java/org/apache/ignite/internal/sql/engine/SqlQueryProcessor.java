@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +33,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -70,6 +67,8 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
 /**
  *  SqlQueryProcessor.
@@ -118,6 +117,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager schemaManager;
 
+    /** Constructor. */
     public SqlQueryProcessor(
             ConfigurationManager configurationManager,
             ClusterService clusterSrvc,
@@ -164,7 +164,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
         SqlSchemaManagerImpl schemaManager =
-            new SqlSchemaManagerImpl(configurationManager, planCache::clear, directMsRevision);
+                new SqlSchemaManagerImpl(configurationManager, planCache::clear, directMsRevision);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -189,9 +189,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         services.forEach(LifecycleAware::start);
 
         extensionList.forEach(ext -> ext.init(
-            catalog -> directMsRevision.get().thenAccept(
-                revision -> schemaManager.registerExternalCatalog(ext.name(), catalog, revision)
-            )
+                catalog -> directMsRevision.get().thenAccept(
+                    revision -> schemaManager.registerExternalCatalog(ext.name(), catalog, revision)
+                )
         ));
     }
 
@@ -372,9 +372,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableCreated(
-                "PUBLIC",
-                parameters.table(),
-                parameters.causalityToken()
+                    "PUBLIC",
+                    parameters.table(),
+                    parameters.causalityToken()
             );
 
             return false;
@@ -392,9 +392,9 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableUpdated(
-                "PUBLIC",
-                parameters.table(),
-                parameters.causalityToken()
+                    "PUBLIC",
+                    parameters.table(),
+                    parameters.causalityToken()
             );
 
             return false;
@@ -412,10 +412,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         @Override
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableDropped(
-                "PUBLIC",
-                parameters.tableName(),
-                parameters.causalityToken()
-        );
+                    "PUBLIC",
+                    parameters.tableName(),
+                    parameters.causalityToken()
+            );
 
             return false;
         }

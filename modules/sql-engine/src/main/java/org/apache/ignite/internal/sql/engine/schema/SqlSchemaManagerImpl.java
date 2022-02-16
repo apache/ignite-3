@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static java.util.Comparator.comparingInt;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,10 +49,6 @@ import org.apache.ignite.lang.PatchedMapView;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static java.util.Comparator.comparingInt;
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
-
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
@@ -73,9 +73,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public SqlSchemaManagerImpl(
-        ConfigurationManager configurationManager,
-        Runnable onSchemaUpdatedCallback,
-        Supplier<CompletableFuture<Long>> directMsRevision
+            ConfigurationManager configurationManager,
+            Runnable onSchemaUpdatedCallback,
+            Supplier<CompletableFuture<Long>> directMsRevision
     ) {
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
         this.storageRevisionUpdater = c -> configurationManager.configurationRegistry().listenUpdateStorageRevision(rev -> {
@@ -102,16 +102,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         CompletableFuture<SchemaPlus> fut = directMsRevision.get().thenCompose(token -> {
             try {
                 return calciteSchemaVv.get(token);
-            }
-            catch (OutdatedTokenException e) {
+            } catch (OutdatedTokenException e) {
                 throw new IgniteInternalException(e);
             }
         });
 
         try {
             return schema != null ? fut.get().getSubSchema(schema) : fut.get();
-        }
-        catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             throw new IgniteInternalException(e);
         }
     }
@@ -123,8 +121,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         CompletableFuture<Map<UUID, IgniteTable>> fut = directMsRevision.get().thenCompose(token -> {
             try {
                 return tablesVv.get(token);
-            }
-            catch (OutdatedTokenException e) {
+            } catch (OutdatedTokenException e) {
                 throw new IgniteInternalException(e);
             }
         });
@@ -133,8 +130,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         try {
             table = fut.get().get(id);
-        }
-        catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             throw new IgniteException(e);
         }
 
@@ -182,37 +178,37 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         externalCatalogsVv.update(causalityToken, catalogs -> {
             Map<String, Schema> res = PatchedMapView.of(catalogs).computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
 
-            SchemaPlus schemaPlus = (SchemaPlus)res.get(catalogName);
+            SchemaPlus schemaPlus = (SchemaPlus) res.get(catalogName);
             schemaPlus.add(schemaName, new ExternalSchemaHolder(tables));
 
             return res;
         });
     }
 
+    /** */
     public synchronized void onSchemaCreated(String schemaName, long causalityToken) {
         schemasVv.update(
-            causalityToken,
-            schemas -> PatchedMapView.of(schemas).putIfAbsent(schemaName, new IgniteSchema(schemaName))
+                causalityToken,
+                schemas -> PatchedMapView.of(schemas).putIfAbsent(schemaName, new IgniteSchema(schemaName))
         );
 
         try {
             rebuild(causalityToken);
-        }
-        catch (OutdatedTokenException e) {
+        } catch (OutdatedTokenException e) {
             throw new IgniteInternalException(e);
         }
     }
 
+    /** */
     public synchronized void onSchemaDropped(String schemaName, long causalityToken) {
         schemasVv.update(
-            causalityToken,
-            schemas -> PatchedMapView.of(schemas).remove(schemaName)
+                causalityToken,
+                schemas -> PatchedMapView.of(schemas).remove(schemaName)
         );
 
         try {
             rebuild(causalityToken);
-        }
-        catch (OutdatedTokenException e) {
+        } catch (OutdatedTokenException e) {
             throw new IgniteInternalException(e);
         }
     }
@@ -222,9 +218,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public synchronized void onTableCreated(
-        String schemaName,
-        TableImpl table,
-        long causalityToken
+            String schemaName,
+            TableImpl table,
+            long causalityToken
     ) {
         schemasVv.update(causalityToken, schemas -> {
             IgniteSchema prevSchema = schemas.computeIfAbsent(schemaName, IgniteSchema::new);
@@ -233,22 +229,22 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             SchemaDescriptor descriptor = table.schemaView().schema();
 
             List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
-                .map(descriptor::column)
-                .sorted(comparingInt(Column::columnOrder))
-                .map(col -> new ColumnDescriptorImpl(
-                    col.name(),
-                    descriptor.isKeyColumn(col.schemaIndex()),
-                    col.columnOrder(),
-                    col.schemaIndex(),
-                    col.type(),
-                    col::defaultValue
-                ))
-                .collect(toList());
+                    .map(descriptor::column)
+                    .sorted(comparingInt(Column::columnOrder))
+                    .map(col -> new ColumnDescriptorImpl(
+                        col.name(),
+                        descriptor.isKeyColumn(col.schemaIndex()),
+                        col.columnOrder(),
+                        col.schemaIndex(),
+                        col.type(),
+                        col::defaultValue
+                    ))
+                    .collect(toList());
 
             IgniteTableImpl igniteTable = new IgniteTableImpl(
-                new TableDescriptorImpl(colDescriptors),
-                table.internalTable(),
-                table.schemaView()
+                    new TableDescriptorImpl(colDescriptors),
+                    table.internalTable(),
+                    table.schemaView()
             );
 
             schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
@@ -256,8 +252,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             tablesVv.update(causalityToken, tables -> {
                 try {
                     rebuild(causalityToken);
-                }
-                catch (OutdatedTokenException e) {
+                } catch (OutdatedTokenException e) {
                     throw new IgniteInternalException(e);
                 }
 
@@ -273,9 +268,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public void onTableUpdated(
-        String schemaName,
-        TableImpl table,
-        long causalityToken
+            String schemaName,
+            TableImpl table,
+            long causalityToken
     ) {
         onTableCreated(schemaName, table, causalityToken);
     }
@@ -285,9 +280,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public synchronized void onTableDropped(
-        String schemaName,
-        String tableName,
-        long causalityToken
+            String schemaName,
+            String tableName,
+            long causalityToken
     ) {
         schemasVv.update(causalityToken, schemas -> {
             IgniteSchema prevSchema = schemas.computeIfAbsent(schemaName, IgniteSchema::new);
@@ -303,8 +298,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             try {
                 rebuild(causalityToken);
-            }
-            catch (OutdatedTokenException e) {
+            } catch (OutdatedTokenException e) {
                 throw new IgniteInternalException(e);
             }
 
