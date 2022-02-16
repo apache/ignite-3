@@ -37,8 +37,6 @@ namespace Apache.Ignite.Tests
 
         public FakeServer()
         {
-            var buf = new byte[1024];
-
             var listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             listener.Bind(new IPEndPoint(IPAddress.Loopback, Port));
@@ -53,23 +51,25 @@ namespace Apache.Ignite.Tests
                     // Read handshake.
                     ReceiveBytes(handler, 4); // Magic.
                     var msgSize = BitConverter.ToInt32(ReceiveBytes(handler, 4));
-                    var msg = ReceiveBytes(handler, msgSize);
+                    ReceiveBytes(handler, msgSize);
 
                     // Write handshake response.
                     handler.Send(ProtoCommon.MagicBytes);
+                    handler.Send(new byte[] { 7, 0, 0, 0 }); // Size.
+                    handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
 
                     while (_cts.IsCancellationRequested)
                     {
-                        var bytesRec = handler.Receive(buf);
+                        msgSize = BitConverter.ToInt32(ReceiveBytes(handler, 4));
+                        var msg = ReceiveBytes(handler, msgSize);
 
-                        if (bytesRec == -1)
-                        {
-                            break;
-                        }
+                        // Assume fixint8.
+                        // var opCode = msg[0];
+                        var requestId = msg[1];
+
+                        handler.Send(new byte[] { 4, 0, 0, 0 }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 1, 192 }); // Error with null message.
                     }
-
-                    // TODO: Send response.
-                    handler.Send(new byte[1]);
 
                     handler.Shutdown(SocketShutdown.Both);
                     handler.Close();
