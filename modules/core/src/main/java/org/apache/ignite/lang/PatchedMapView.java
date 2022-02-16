@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.lang;
 
 import java.util.Collection;
@@ -46,118 +47,154 @@ public class PatchedMapView<K, V> implements Map<K, V> {
         this.replaced = replaced;
     }
 
-    @Override public int size() {
-        if (added != null)
+    @Override
+    public int size() {
+        if (added != null) {
             return internalMap.size() + 1;
-        else if (replaced != null)
+        } else if (replaced != null) {
             return internalMap.size();
-        else if (removed != null)
+        } else if (removed != null) {
             return internalMap.size() - 1;
-        else if (isCleared)
+        } else if (isCleared) {
             return 0;
-        else
+        } else {
             throw new AssertionError();
+        }
     }
 
-    @Override public boolean isEmpty() {
+    @Override
+    public boolean isEmpty() {
         return size() == 0;
     }
 
-    @Override public boolean containsKey(Object key) {
-        if (added != null)
+    @Override
+    public boolean containsKey(Object key) {
+        if (added != null) {
             return internalMap.containsKey(key) && added.containsKey(key);
-        else if (replaced != null)
+        } else if (replaced != null) {
             return internalMap.containsKey(key);
-        else if (removed != null)
+        } else if (removed != null) {
             return internalMap.containsKey(key) && !removed.equals(key);
-        else if (isCleared)
+        } else if (isCleared) {
             return false;
-        else
+        } else {
             throw new AssertionError();
+        }
     }
 
-    @Override public boolean containsValue(Object value) {
+    @Override
+    public boolean containsValue(Object value) {
         return values().stream().anyMatch(v -> Objects.equals(v, value));
     }
 
-    @Override public V get(Object key) {
-        if (added != null)
+    @Override
+    public V get(Object key) {
+        if (added != null) {
             return (added.containsKey(key)) ? added.getValue() : internalMap.get(key);
-        else if (replaced != null)
+        } else if (replaced != null) {
             return (replaced.containsKey(key)) ? replaced.getValue() : internalMap.get(key);
-        else if (removed != null)
+        } else if (removed != null) {
             return (removed.equals(key)) ? null : internalMap.get(key);
-        else if (isCleared)
+        } else if (isCleared) {
             return null;
-        else
+        } else {
             throw new AssertionError();
+        }
     }
 
-    @Nullable @Override public V put(K key, V value) {
+    @Nullable
+    @Override
+    public V put(K key, V value) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public V remove(Object key) {
+    @Override
+    public V remove(Object key) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public void putAll(@NotNull Map<? extends K, ? extends V> m) {
+    @Override
+    public void putAll(@NotNull Map<? extends K, ? extends V> m) {
         throw new UnsupportedOperationException();
     }
 
-    @Override public void clear() {
+    @Override
+    public void clear() {
         throw new UnsupportedOperationException();
     }
 
-    @NotNull @Override public Set<K> keySet() {
+    @NotNull
+    @Override
+    public Set<K> keySet() {
         throw new UnsupportedOperationException();
     }
 
-    @NotNull @Override public Collection<V> values() {
+    @NotNull
+    @Override
+    public Collection<V> values() {
         throw new UnsupportedOperationException();
     }
 
-    @NotNull @Override public Set<Entry<K, V>> entrySet() {
+    @NotNull
+    @Override
+    public Set<Entry<K, V>> entrySet() {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * Creates a PatchedMapView builder from the map.
+     *
+     * @param map Map.
+     * @return PatchedMapView builder.
+     */
     public static <K, V> PatchedMapViewBuilder<K, V> of(Map<K, V> map) {
         return new PatchedMapViewBuilder<>(map);
     }
 
+    /**
+     * Creates a PatchedMapView builder from the map.
+     *
+     * @param map Map.
+     * @param maxDepth Maximum count of patches in PatchedMapView.
+     * @return PatchedMapView builder.
+     */
     public static <K, V> PatchedMapViewBuilder<K, V> of(Map<K, V> map, int maxDepth) {
         return new PatchedMapViewBuilder<>(map, maxDepth);
     }
 
     private int depth() {
-        return internalMap instanceof PatchedMapView ? ((PatchedMapView<K, V>)internalMap).depth() + 1 : 1;
+        return internalMap instanceof PatchedMapView ? ((PatchedMapView<K, V>) internalMap).depth() + 1 : 1;
     }
 
     private Map<K, V> squash() {
-        Map<K, V> res = internalMap instanceof PatchedMapView ? ((PatchedMapView<K, V>)internalMap).squash() : new HashMap<>(internalMap);
+        Map<K, V> res = internalMap instanceof PatchedMapView ? ((PatchedMapView<K, V>) internalMap).squash() : new HashMap<>(internalMap);
 
-        if (added != null)
+        if (added != null) {
             res.put(added.getKey(), added.getValue());
-        else if (replaced != null)
+        } else if (replaced != null) {
             res.put(replaced.getKey(), replaced.getValue());
-        else if (removed != null)
+        } else if (removed != null) {
             res.remove(removed);
-        else if (isCleared)
+        } else if (isCleared) {
             res.clear();
+        }
 
         return res;
     }
 
+    /**
+     * Builder for {@link PatchedMapView}.
+     */
     public static class PatchedMapViewBuilder<K, V> {
         private final Map<K, V> map;
 
-        public PatchedMapViewBuilder(Map<K, V> map) {
+        private PatchedMapViewBuilder(Map<K, V> map) {
             this(map, DEFAULT_MAX_DEPTH);
         }
 
-        public PatchedMapViewBuilder(Map<K, V> map, int maxDepth) {
-            if (map instanceof PatchedMapView && ((PatchedMapView<K, V>)map).depth() >= maxDepth)
-                this.map = ((PatchedMapView<K, V>)map).squash();
+        private PatchedMapViewBuilder(Map<K, V> map, int maxDepth) {
+            if (map instanceof PatchedMapView && ((PatchedMapView<K, V>) map).depth() >= maxDepth)
+                this.map = ((PatchedMapView<K, V>) map).squash();
             else
                 this.map = map;
         }
@@ -200,7 +237,7 @@ public class PatchedMapView<K, V> implements Map<K, V> {
         }
 
         public Map<K, V> map() {
-            return map instanceof PatchedMapView ? ((PatchedMapView)map).squash() : map;
+            return map instanceof PatchedMapView ? ((PatchedMapView) map).squash() : map;
         }
     }
 }
