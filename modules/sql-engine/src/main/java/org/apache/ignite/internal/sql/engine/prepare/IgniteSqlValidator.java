@@ -153,8 +153,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateInsertFields(insert);
 
         super.validateInsert(insert);
-
-        //validateInsertFields(insert);
     }
 
     private Iterator<ColumnDescriptor> getKeysColumns(final SqlNodeList cols, SqlValidatorNamespace ns) {

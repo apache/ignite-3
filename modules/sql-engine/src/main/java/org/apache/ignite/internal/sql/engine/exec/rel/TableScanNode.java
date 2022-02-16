@@ -224,7 +224,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        int received = 0; // HB defenced here.
+        private int received = 0; // HB defenced here.
 
         /** {@inheritDoc} */
         @Override
