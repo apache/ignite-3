@@ -17,11 +17,22 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Threading.Tasks;
+    using NUnit.Framework;
+
     /// <summary>
-    /// Tests client behavior with different <see cref="IgniteClientConfiguration.RetryPolicy"/> settings.
+    /// Tests that <see cref="FakeServer"/> works as expected.
     /// </summary>
-    public class RetryPolicyTests
+    public class FakeServerTests
     {
-        // TODO
+        [Test]
+        public async Task TestConnectToFakeServerAndGetTablesReturnsEmptyList()
+        {
+            using var server = new FakeServer();
+            using var client = await server.ConnectClientAsync();
+
+            var tables = await client.Tables.GetTablesAsync();
+            Assert.AreEqual(0, tables.Count);
+        }
     }
 }

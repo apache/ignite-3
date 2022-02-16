@@ -29,8 +29,6 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public sealed class FakeServer : IDisposable
     {
-        public const int Port = 11222;
-
         private readonly Socket _listener;
 
         private readonly CancellationTokenSource _cts = new();
@@ -39,7 +37,7 @@ namespace Apache.Ignite.Tests
         {
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-            _listener.Bind(new IPEndPoint(IPAddress.Loopback, Port));
+            _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
 
             Task.Run(() =>
@@ -74,12 +72,20 @@ namespace Apache.Ignite.Tests
                         }
                         else
                         {
-                            handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                            handler.Send(new byte[] { 0, requestId, 1, 192 }); // Error with null message.
+                            // Fake error message for any other op code.
+                            handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
+                            handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)'F', (byte)'A', (byte)'K', (byte)'E', });
                         }
                     }
                 }
             });
+        }
+
+        public async Task<IIgniteClient> ConnectClientAsync()
+        {
+            var port = ((IPEndPoint)_listener.LocalEndPoint).Port;
+
+            return await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + port));
         }
 
         public void Dispose()
