@@ -30,6 +30,9 @@ namespace Apache.Ignite.Tests
         {
             using var srv = new FakeServer();
             using var client = await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + FakeServer.Port));
+
+            var tables = await client.Tables.GetTablesAsync();
+            Assert.AreEqual(0, tables.Count);
         }
     }
 }
