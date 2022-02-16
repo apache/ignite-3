@@ -210,7 +210,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await stream.ReadAsync(responseMagic.AsMemory(0, ProtoCommon.MagicBytes.Length)).ConfigureAwait(false);
+                await ReceiveBytes(stream, responseMagic, ProtoCommon.MagicBytes.Length, CancellationToken.None).ConfigureAwait(false);
 
                 for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
@@ -272,7 +272,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
+                await ReceiveBytes(stream, bytes, size, cancellationToken).ConfigureAwait(false);
 
                 return new PooledBuffer(bytes, 0, size);
             }
@@ -292,9 +292,34 @@ namespace Apache.Ignite.Internal
             const int messageSizeByteCount = 4;
             Debug.Assert(buffer.Length >= messageSizeByteCount, "buffer.Length >= messageSizeByteCount");
 
-            await stream.ReadAsync(buffer.AsMemory(0, messageSizeByteCount), cancellationToken).ConfigureAwait(false);
+            await ReceiveBytes(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
 
             return GetMessageSize(buffer);
+        }
+
+        /// <summary>
+        /// Receives the specified number of bytes.
+        /// </summary>
+        private static async Task ReceiveBytes(
+            NetworkStream stream,
+            byte[] buffer,
+            int size,
+            CancellationToken cancellationToken)
+        {
+            int received = 0;
+
+            while (received < size)
+            {
+                var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
+
+                if (res == 0)
+                {
+                    // Disconnected.
+                    throw new IgniteClientException("Connection lost (failed to read data from socket)");
+                }
+
+                received += res;
+            }
         }
 
         private static unsafe int GetMessageSize(byte[] responseLenBytes)
