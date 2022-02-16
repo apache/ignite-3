@@ -357,11 +357,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            int colIdx = columnToIndex.getOrDefault(colDesc.name(), -1);
-
-            if (colIdx == -1) {
-                colIdx = colDesc.logicalIndex() + offset;
-            }
+            int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
 
             Object val = hnd.get(colIdx, row);
 
@@ -380,11 +376,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
             assert !colDesc.physicalType().spec().fixedLength();
 
-            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), -1);
-
-            if (colIdInRow == -1) {
-                colIdInRow = colDesc.logicalIndex() + offset;
-            }
+            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
 
             if (hnd.get(colIdInRow, row) != null) {
                 nonNullCols++;
