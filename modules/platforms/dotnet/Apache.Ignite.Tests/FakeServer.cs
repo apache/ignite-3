@@ -49,6 +49,14 @@ namespace Apache.Ignite.Tests
                 {
                     Socket handler = listener.Accept();
 
+                    // Read handshake.
+                    ReceiveBytes(handler, 4); // Magic.
+                    var msgSize = BitConverter.ToInt32(ReceiveBytes(handler, 4));
+                    var msg = ReceiveBytes(handler, msgSize);
+
+                    // Write handshake response.
+
+
                     while (_cts.IsCancellationRequested)
                     {
                         var bytesRec = handler.Receive(buf);
@@ -74,6 +82,26 @@ namespace Apache.Ignite.Tests
             _listenTask.Wait();
             _listenTask.Dispose();
             _cts.Dispose();
+        }
+
+        private static byte[] ReceiveBytes(Socket socket, int size)
+        {
+            int received = 0;
+            var buf = new byte[size];
+
+            while (received < size)
+            {
+                var res = socket.Receive(buf, received, size - received, SocketFlags.None);
+
+                if (res == 0)
+                {
+                    throw new Exception("Connection lost");
+                }
+
+                received += res;
+            }
+
+            return buf;
         }
     }
 }

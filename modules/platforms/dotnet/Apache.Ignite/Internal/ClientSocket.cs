@@ -210,7 +210,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await ReceiveBytes(stream, responseMagic, ProtoCommon.MagicBytes.Length, CancellationToken.None).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, CancellationToken.None).ConfigureAwait(false);
 
                 for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
@@ -272,7 +272,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await ReceiveBytes(stream, bytes, size, cancellationToken).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, bytes, size, cancellationToken).ConfigureAwait(false);
 
                 return new PooledBuffer(bytes, 0, size);
             }
@@ -292,15 +292,12 @@ namespace Apache.Ignite.Internal
             const int messageSizeByteCount = 4;
             Debug.Assert(buffer.Length >= messageSizeByteCount, "buffer.Length >= messageSizeByteCount");
 
-            await ReceiveBytes(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
+            await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
 
             return GetMessageSize(buffer);
         }
 
-        /// <summary>
-        /// Receives the specified number of bytes.
-        /// </summary>
-        private static async Task ReceiveBytes(
+        private static async Task ReceiveBytesAsync(
             NetworkStream stream,
             byte[] buffer,
             int size,
