@@ -29,6 +29,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VersionedValue<T> {
     /** Last applied casualty token. */
-    private volatile long actualToken;
+    private volatile long actualToken = -1;
 
     /** Size of stored history. */
     private final int historySize;
@@ -76,7 +77,7 @@ public class VersionedValue<T> {
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
             Consumer<Consumer<Long>> observableRevisionUpdater,
             int historySize,
-            @Nullable Supplier<T> defaultVal
+            @NotNull Supplier<T> defaultVal
     ) {
         this.storageRevisionUpdating = storageRevisionUpdating;
 
@@ -297,9 +298,21 @@ public class VersionedValue<T> {
     private void completeRelatedFuture(long causalityToken) {
         Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
 
-        assert entry != null : IgniteStringFormatter.format("No future for token [token={}]", causalityToken);
+        CompletableFuture<T> future;
+        if (entry == null) {
+            future = CompletableFuture.completedFuture(defaultVal.get());
 
-        if (!entry.getValue().isDone()) {
+            CompletableFuture<T> f = history.putIfAbsent(causalityToken, future);
+
+            if (f != null)
+                future = f;
+        } else {
+            future = entry.getValue();
+        }
+
+        final CompletableFuture<T> future0 = future;
+
+        if (!future0.isDone()) {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
             assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
@@ -307,9 +320,9 @@ public class VersionedValue<T> {
 
             entryBefore.getValue().whenComplete((t, throwable) -> {
                 if (throwable != null) {
-                    entry.getValue().completeExceptionally(throwable);
+                    future0.completeExceptionally(throwable);
                 } else {
-                    entry.getValue().complete(t);
+                    future0.complete(t);
                 }
             });
         }
