@@ -16,7 +16,7 @@ set -o nounset; set -o errexit; set -o pipefail; set -o errtrace; set -o functra
 
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/../.."
-find ${ROOT} -name "pom.xml" | \
+find "${ROOT}" -name "pom.xml" | \
   grep -v parent | \
   while read -r pom; do
     if grep '<properties>' "${pom}" &>/dev/null; then
