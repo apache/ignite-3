@@ -19,7 +19,12 @@ ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )/../.."
 find ${ROOT} -name "pom.xml" | \
   grep -v parent | \
   while read -r pom; do
-      if grep '<properties>' "${pom}"; then
-          echo "[ERROR] Found <properties> section: ${pom}"
-      fi
+    if grep '<properties>' "${pom}" &>/dev/null; then
+        xpath -q -e "project/properties/*" "${pom}" | \
+          { grep -vE '(root\.directory)' || true; } | \
+          while read -r property; do
+            property="$(sed -r 's|.*</(.*)>|\1|' <<< "${property}")"
+            echo "[ERROR] Found forbidden property '${property}' in '$(sed -r "s|${ROOT}/||" <<< "${pom}")'"
+        done
+    fi
 done
