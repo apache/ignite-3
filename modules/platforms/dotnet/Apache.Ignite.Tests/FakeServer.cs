@@ -31,48 +31,45 @@ namespace Apache.Ignite.Tests
     {
         public const int Port = 11222;
 
-        private readonly Task _listenTask;
+        private readonly Socket _listener;
 
         private readonly CancellationTokenSource _cts = new();
 
         public FakeServer()
         {
-            var listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-            listener.Bind(new IPEndPoint(IPAddress.Loopback, Port));
-            listener.Listen(backlog: 1);
+            _listener.Bind(new IPEndPoint(IPAddress.Loopback, Port));
+            _listener.Listen(backlog: 1);
 
-            _listenTask = Task.Run(() =>
+            Task.Run(() =>
             {
                 while (!_cts.IsCancellationRequested)
                 {
-                    Socket handler = listener.Accept();
+                    using Socket handler = _listener.Accept();
 
                     // Read handshake.
                     ReceiveBytes(handler, 4); // Magic.
-                    var msgSize = BitConverter.ToInt32(ReceiveBytes(handler, 4));
+                    var msgSize = ReceiveMessageSize(handler);
                     ReceiveBytes(handler, msgSize);
 
                     // Write handshake response.
                     handler.Send(ProtoCommon.MagicBytes);
-                    handler.Send(new byte[] { 7, 0, 0, 0 }); // Size.
+                    handler.Send(new byte[] { 0, 0, 0, 7 }); // Size.
                     handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
 
                     while (_cts.IsCancellationRequested)
                     {
-                        msgSize = BitConverter.ToInt32(ReceiveBytes(handler, 4));
+                        msgSize = ReceiveMessageSize(handler);
                         var msg = ReceiveBytes(handler, msgSize);
 
                         // Assume fixint8.
                         // var opCode = msg[0];
                         var requestId = msg[1];
 
-                        handler.Send(new byte[] { 4, 0, 0, 0 }); // Size.
+                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
                         handler.Send(new byte[] { 0, requestId, 1, 192 }); // Error with null message.
                     }
-
-                    handler.Shutdown(SocketShutdown.Both);
-                    handler.Close();
                 }
             });
         }
@@ -80,10 +77,13 @@ namespace Apache.Ignite.Tests
         public void Dispose()
         {
             _cts.Cancel();
-            _listenTask.Wait();
-            _listenTask.Dispose();
+            _listener.Disconnect(true);
+            _listener.Dispose();
             _cts.Dispose();
         }
+
+        private static int ReceiveMessageSize(Socket handler) =>
+            IPAddress.NetworkToHostOrder(BitConverter.ToInt32(ReceiveBytes(handler, 4)));
 
         private static byte[] ReceiveBytes(Socket socket, int size)
         {
