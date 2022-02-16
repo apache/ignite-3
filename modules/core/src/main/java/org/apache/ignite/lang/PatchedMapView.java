@@ -38,6 +38,7 @@ public class PatchedMapView<K, V> implements Map<K, V> {
     private final IgniteBiTuple<K, V> replaced;
 
     private PatchedMapView(Map<K, V> map, boolean isCleared, K removed, IgniteBiTuple<K, V> added, IgniteBiTuple<K, V> replaced) {
+        assert isCleared || removed != null || added != null || replaced != null;
         internalMap = map;
         this.isCleared = isCleared;
         this.removed = removed;
@@ -52,8 +53,10 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             return internalMap.size();
         else if (removed != null)
             return internalMap.size() - 1;
-        else // If cleared.
+        else if (isCleared)
             return 0;
+        else
+            throw new AssertionError();
     }
 
     @Override public boolean isEmpty() {
@@ -67,8 +70,10 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             return internalMap.containsKey(key);
         else if (removed != null)
             return internalMap.containsKey(key) && !removed.equals(key);
-        else // If cleared.
+        else if (isCleared)
             return false;
+        else
+            throw new AssertionError();
     }
 
     @Override public boolean containsValue(Object value) {
@@ -82,8 +87,10 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             return (replaced.containsKey(key)) ? replaced.getValue() : internalMap.get(key);
         else if (removed != null)
             return (removed.equals(key)) ? null : internalMap.get(key);
-        else // If cleared.
+        else if (isCleared)
             return null;
+        else
+            throw new AssertionError();
     }
 
     @Nullable @Override public V put(K key, V value) {
@@ -135,7 +142,7 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             res.put(replaced.getKey(), replaced.getValue());
         else if (removed != null)
             res.remove(removed);
-        else // If cleared.
+        else if (isCleared)
             res.clear();
 
         return res;
