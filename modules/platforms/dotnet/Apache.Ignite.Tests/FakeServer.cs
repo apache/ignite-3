@@ -58,17 +58,25 @@ namespace Apache.Ignite.Tests
                     handler.Send(new byte[] { 0, 0, 0, 7 }); // Size.
                     handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
 
-                    while (_cts.IsCancellationRequested)
+                    while (!_cts.IsCancellationRequested)
                     {
                         msgSize = ReceiveMessageSize(handler);
                         var msg = ReceiveBytes(handler, msgSize);
 
                         // Assume fixint8.
-                        // var opCode = msg[0];
+                        var opCode = (ClientOp)msg[0];
                         var requestId = msg[1];
 
-                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 1, 192 }); // Error with null message.
+                        if (opCode == ClientOp.TablesGet)
+                        {
+                            handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
+                            handler.Send(new byte[] { 0, requestId, 0, 128 }); // Empty map.
+                        }
+                        else
+                        {
+                            handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
+                            handler.Send(new byte[] { 0, requestId, 1, 192 }); // Error with null message.
+                        }
                     }
                 }
             });
