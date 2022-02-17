@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.idx;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -51,6 +53,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -58,7 +61,6 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -74,6 +76,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     /** Indexes by canonical name. */
     private final Map<String, InternalSortedIndex> idxsByName = new ConcurrentHashMap<>();
 
+    /** Indexes by id. */
+    private final Map<UUID, InternalSortedIndex> idxsById = new ConcurrentHashMap<>();
+
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -83,7 +88,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     /**
      * Constructor.
      *
-     * @param tablesCfg      Tables configuration.
+     * @param tablesCfg Tables configuration.
      */
     public IndexManagerImpl(
             TableManager tblMgr,
@@ -98,16 +103,15 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         tablesCfg.tables().any().indices().listenElements(
                 new ConfigurationNamedListListener<>() {
                     @Override
-                    public @NotNull CompletableFuture<?> onCreate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableIndexView> ctx) {
                         TableConfiguration tbl = ctx.config(TableConfiguration.class);
                         String tblName = tbl.name().value();
+                        UUID idxId = ctx.newValue().id();
                         String idxName = ctx.newValue().name();
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.CREATE,
-                                    new IndexEventParameters(
-                                            idxName,
-                                            tblName),
+                                    new IndexEventParameters(idxId, idxName, tblName),
                                     new NodeStoppingException());
 
                             return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -115,9 +119,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         try {
                             onIndexCreate(ctx);
                         } catch (Exception e) {
-                            fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxName, tblName), e);
+                            fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxId, idxName, tblName), e);
 
-                            LOG.error("Internal error, index creation failed [name={}, table={}]", e, idxName, tblName);
+                            LOG.error("Internal error, index creation failed [name={}, table={}]", e, ctx.newValue().name(), tblName);
 
                             return CompletableFuture.completedFuture(e);
                         } finally {
@@ -128,24 +132,22 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onRename(@NotNull String oldName, @NotNull String newName,
-                            @NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+                    public CompletableFuture<?> onRename(String oldName, String newName,
+                            ConfigurationNotificationEvent<TableIndexView> ctx) {
                         // TODO: IGNITE-16196 Supports index rename
                         return ConfigurationNamedListListener.super.onRename(oldName, newName, ctx);
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onDelete(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+                    public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableIndexView> ctx) {
                         TableConfiguration tbl = ctx.config(TableConfiguration.class);
                         String tblName = tbl.name().value();
                         String idxName = ctx.oldValue().name();
+                        UUID idxId = ctx.oldValue().id();
 
                         if (!busyLock.enterBusy()) {
                             fireEvent(IndexEvent.DROP,
-                                    new IndexEventParameters(
-                                            idxName,
-                                            tblName
-                                    ),
+                                    new IndexEventParameters(idxId, idxName, tblName),
                                     new NodeStoppingException());
 
                             return CompletableFuture.completedFuture(new NodeStoppingException());
@@ -160,7 +162,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     }
 
                     @Override
-                    public @NotNull CompletableFuture<?> onUpdate(@NotNull ConfigurationNotificationEvent<TableIndexView> ctx) {
+                    public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableIndexView> ctx) {
                         assert false : "Index cannot be updated [ctx=" + ctx + ']';
 
                         return CompletableFuture.completedFuture(null);
@@ -172,11 +174,19 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         TableConfiguration tbl = ctx.config(TableConfiguration.class);
         String tblName = tbl.name().value();
 
-        InternalSortedIndex idx = idxsByName.remove(ctx.oldValue().name());
+        String idxName = ctx.oldValue().name();
+        UUID idxId = ctx.oldValue().id();
+
+        InternalSortedIndex idx = idxsByName.remove(idxName);
+
+        assert idx != null : "Index wasn't found: indexName=" + idxName;
+
+        idxsById.remove(idxId);
 
         idx.drop();
 
         fireEvent(IndexEvent.DROP, new IndexEventParameters(
+                idxId,
                 idx.name(),
                 tblName
         ), null);
@@ -234,7 +244,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         try {
             CompletableFuture<Void> idxFut = new CompletableFuture<>();
 
-            indexAsyncInternal(idxCanonicalName).thenAccept((idx) -> {
+            indexAsync(IgniteObjectName.parseCanonicalName(idxCanonicalName)).thenAccept((idx) -> {
                 if (idx == null) {
                     idxFut.completeExceptionally(new IndexNotFoundException(idxCanonicalName));
                     return;
@@ -245,9 +255,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                     tblFut.thenAccept(tbl -> {
                         tablesCfg.tables().change(ch -> ch.createOrUpdate(
-                                        tbl.name(),
-                                        tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
-                                ))
+                                tbl.name(),
+                                tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
+                        ))
                                 .whenComplete((res, t) -> {
                                     if (t != null) {
                                         Throwable ex = getRootCause(t);
@@ -283,6 +293,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
+
+        String idxName = IgniteObjectName.parseCanonicalName(idxCanonicalName);
+
         try {
             CompletableFuture<InternalSortedIndex> idxFut = new CompletableFuture<>();
 
@@ -291,17 +304,17 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                     idxFut.completeExceptionally(new TableNotFoundException(tblCanonicalName));
                 }
 
-                indexAsyncInternal(idxCanonicalName).thenAccept((idx) -> {
+                indexAsync(idxName).thenAccept((idx) -> {
                     if (idx != null) {
                         idxFut.completeExceptionally(new IndexAlreadyExistsException(idxCanonicalName));
                     }
 
                     tblMgr.alterTableAsync(tblCanonicalName, chng -> chng.changeIndices(idxes -> {
-                                if (idxes.get(idxCanonicalName) != null) {
+                                if (idxes.get(idxName) != null) {
                                     idxFut.completeExceptionally(new IndexAlreadyExistsException(idxCanonicalName));
                                 }
 
-                                idxes.create(idxCanonicalName, idxChange::accept);
+                                idxes.create(idxName, idxChange::accept);
                             }
                     )).whenComplete((res, t) -> {
                         if (t != null) {
@@ -313,7 +326,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                             idxFut.completeExceptionally(ex);
                         } else {
-                            idxFut.complete(idxsByName.get(idxCanonicalName));
+                            idxFut.complete(idxsByName.get(idxName));
                         }
                     });
                 });
@@ -338,14 +351,22 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            return indexAsyncInternal(idxCanonicalName);
+            String idxName = IgniteObjectName.parseCanonicalName(idxCanonicalName);
+
+            UUID idxId = directIndexId(idxName);
+
+            if (idxId == null) { // If not configured.
+                return CompletableFuture.completedFuture(null);
+            }
+
+            return indexAsyncInternal(idxId);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<InternalSortedIndex> indexAsyncInternal(String idxCanonicalName) {
-        var idx = idxsByName.get(idxCanonicalName);
+    private CompletableFuture<InternalSortedIndex> indexAsyncInternal(UUID idxId) {
+        InternalSortedIndex idx = idxsById.get(idxId);
 
         if (idx != null) {
             return CompletableFuture.completedFuture(idx);
@@ -355,8 +376,8 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         EventListener<IndexEventParameters> clo = new EventListener<>() {
             @Override
-            public boolean notify(@NotNull IndexEventParameters parameters, @Nullable Throwable e) {
-                if (!idxCanonicalName.equals(parameters.indexName())) {
+            public boolean notify(IndexEventParameters parameters, @Nullable Throwable e) {
+                if (!idxId.equals(parameters.indexId())) {
                     return false;
                 }
 
@@ -370,16 +391,16 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             }
 
             @Override
-            public void remove(@NotNull Throwable e) {
+            public void remove(Throwable e) {
                 getIdxFut.completeExceptionally(e);
             }
         };
 
         listen(IndexEvent.CREATE, clo);
 
-        idx = idxsByName.get(idxCanonicalName);
+        idx = idxsById.get(idxId);
 
-        if (idx != null && getIdxFut.complete(idx) || !isIndexConfigured(idxCanonicalName) && getIdxFut.complete(null)) {
+        if (idx != null && getIdxFut.complete(idx) || !isIndexConfigured(idxId) && getIdxFut.complete(null)) {
             removeListener(IndexEvent.CREATE, clo, null);
         } else {
             getIdxFut.thenRun(() -> removeListener(IndexEvent.CREATE, clo, null));
@@ -391,10 +412,34 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
     /**
      * Checks that the index is configured with specific name.
      *
-     * @param idxName Index name.
+     * @param idxId Index id.
      * @return True when the table is configured into cluster, false otherwise.
      */
-    private boolean isIndexConfigured(String idxName) {
+    private boolean isIndexConfigured(UUID idxId) {
+        try {
+            NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
+
+            // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
+            // Probably, it won't be required getting configuration of all tables from Metastore.
+            for (String name : directTablesCfg.namedListKeys()) {
+                TableView tableView = directTablesCfg.get(name);
+
+                getByInternalId(tableView.indices(), idxId);
+            }
+
+            return true;
+        } catch (NoSuchElementException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Gets direct id of index with {@code idxName}.
+     *
+     * @param idxName Index name.
+     * @return TableIndexView.
+     */
+    private @Nullable UUID directIndexId(String idxName) {
         NamedListView<TableView> directTablesCfg = directProxy(tablesCfg.tables()).value();
 
         // TODO: IGNITE-15721 Need to review this approach after the ticket would be fixed.
@@ -403,15 +448,15 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
             TableView tableView = directTablesCfg.get(name);
 
             if (tableView != null) {
-                if (tableView.indices().get(idxName) != null) {
-                    return true;
+                TableIndexView tableIndexView = tableView.indices().get(idxName);
+
+                if (tableIndexView != null) {
+                    return tableIndexView.id();
                 }
             }
         }
-
-        return false;
+        return null;
     }
-
 
     /**
      * Waits for future result and return, or unwraps {@link CompletionException} to {@link IgniteException} if failed.
@@ -454,7 +499,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
      * @return A root exception which will be acceptable to throw for public API.
      */
     //TODO: IGNITE-16051 Implement exception converter for public API.
-    private @NotNull IgniteException getRootCause(Throwable t) {
+    private IgniteException getRootCause(Throwable t) {
         Throwable ex;
 
         if (t instanceof CompletionException) {
@@ -479,10 +524,10 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         //        ).collect(Collectors.toMap(Column::name, Function.identity()));
 
         List<SortedIndexColumnDescriptor> idxCols = Stream.concat(
-                        idxView.columns().namedListKeys().stream(),
-                        Arrays.stream(tblSchema.keyColumns().columns())
-                                .map(Column::name)
-                )
+                idxView.columns().namedListKeys().stream(),
+                Arrays.stream(tblSchema.keyColumns().columns())
+                        .map(Column::name)
+        )
                 .distinct()
                 .map(colName -> {
                     IndexColumnView idxCol = idxView.columns().get(colName);
@@ -493,12 +538,13 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 .collect(Collectors.toList());
 
         SortedIndexDescriptor idxDesc = new SortedIndexDescriptor(
-                idxView.name(),
+                idxView.id().toString(),
                 idxCols,
                 tblSchema.keyColumns().columns()
         );
 
         InternalSortedIndexImpl idx = new InternalSortedIndexImpl(
+                idxView.id(),
                 idxView.name(),
                 tbl.internalTable().storage().createSortedIndex(idxDesc),
                 tbl
@@ -506,7 +552,8 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
         tbl.addRowListener(idx);
 
-        idxsByName.put(idx.name(), idx);
+        idxsById.put(idxView.id(), idx);
+        idxsByName.put(idxView.name(), idx);
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(tbl.name(), idx), null);
     }

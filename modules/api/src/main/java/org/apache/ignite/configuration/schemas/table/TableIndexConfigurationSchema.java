@@ -17,6 +17,8 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
+import java.util.UUID;
+import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
@@ -39,6 +41,10 @@ public class TableIndexConfigurationSchema {
     /** Index type name. */
     @PolymorphicId
     public String type;
+
+    /** Index id. **/
+    @InternalId
+    public UUID id;
 
     /** Index name. */
     @Value

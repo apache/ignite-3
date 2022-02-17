@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.idx.event;
 
+import java.util.UUID;
 import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.manager.EventParameters;
 import org.jetbrains.annotations.Nullable;
@@ -25,6 +26,9 @@ import org.jetbrains.annotations.Nullable;
  * Table event parameters. There are properties which associate with a concrete table.
  */
 public class IndexEventParameters implements EventParameters {
+    /** Index id. */
+    private final UUID idxId;
+
     /** Index name. */
     private final String idxName;
 
@@ -41,30 +45,37 @@ public class IndexEventParameters implements EventParameters {
      * @param idx Index instance.
      */
     public IndexEventParameters(String tblName, InternalSortedIndex idx) {
-        this(idx.name(), tblName, idx);
+        this(idx.id(), idx.name(), tblName, idx);
     }
 
     /**
      * Constructor.
      *
+     * @param idxId Index id.
      * @param idxName Index name.
      * @param tblName Table name.
      */
-    public IndexEventParameters(String idxName, String tblName) {
-        this(idxName, tblName, null);
+    public IndexEventParameters(UUID idxId, String idxName, String tblName) {
+        this(idxId, idxName, tblName, null);
     }
 
     /**
      * Constructor.
      *
+     * @param idxId Index id.
      * @param idxName Index name.
      * @param tblName Table name.
-     * @param idx     Index.
+     * @param idx Index.
      */
-    private IndexEventParameters(String idxName, String tblName, @Nullable InternalSortedIndex idx) {
+    private IndexEventParameters(UUID idxId, String idxName, String tblName, @Nullable InternalSortedIndex idx) {
+        this.idxId = idxId;
         this.idxName = idxName;
         this.tblName = tblName;
         this.idx = idx;
+    }
+
+    public UUID indexId() {
+        return idxId;
     }
 
     public String indexName() {

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+//@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
     @Test
     public void indexBasic() {

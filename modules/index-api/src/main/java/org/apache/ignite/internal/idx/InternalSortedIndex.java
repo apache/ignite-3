@@ -46,6 +46,13 @@ public interface InternalSortedIndex {
     String name();
 
     /**
+     * Return index id.
+     *
+     * @return Index id.
+     */
+    UUID id();
+
+    /**
      * Return indexed table.
      *
      * @return Indexed table identifier.
