@@ -255,7 +255,8 @@ public class VersionedValue<T> {
      * the final result.
      *
      * @param causalityToken Causality token.
-     * @param updater Updater function.
+     * @param complete Updater function for successful future.
+     * @param fail Updater function for failed future.
      * @return Previous value.
      */
     public CompletableFuture<T> update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {

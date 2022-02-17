@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,11 +30,8 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
@@ -42,9 +40,6 @@ import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSc
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -167,7 +162,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(testRevisionRegister, cs, tblManager, () -> CompletableFuture.completedFuture(0L));
+        queryProc = new SqlQueryProcessor(testRevisionRegister, cs, tblManager, () -> completedFuture(0L));
 
         queryProc.start();
 
@@ -184,7 +179,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(testRevisionRegister, () -> {}, () -> CompletableFuture.completedFuture(0L));
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(testRevisionRegister, () -> {}, () -> completedFuture(0L));
         UUID tblId = UUID.randomUUID();
 
         testRevisionRegister.moveRevision.accept(0L);
@@ -482,7 +477,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(

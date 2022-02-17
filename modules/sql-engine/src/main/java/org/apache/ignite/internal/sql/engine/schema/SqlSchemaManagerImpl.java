@@ -144,14 +144,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public void registerExternalCatalog(String name, ExternalCatalog catalog, long causalityToken) {
         CompletableFuture.allOf(
-            catalog.schemaNames().stream()
-                .map(schemaName -> registerExternalSchema(name, schemaName, catalog.schema(schemaName), causalityToken))
-                .toArray(a -> new CompletableFuture[catalog.schemaNames().size()])
+                catalog.schemaNames().stream()
+                    .map(schemaName -> registerExternalSchema(name, schemaName, catalog.schema(schemaName), causalityToken))
+                    .toArray(a -> new CompletableFuture[catalog.schemaNames().size()])
         ).thenCompose(v -> {
             try {
                 return rebuild(causalityToken);
-            }
-            catch (OutdatedTokenException e) {
+            } catch (OutdatedTokenException e) {
                 throw new IgniteInternalException(e);
             }
         });
@@ -182,7 +181,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 .thenCompose(t ->
                     externalCatalogsVv.update(causalityToken,
                         catalogs -> {
-                            Map<String, Schema> res = PatchedMapView.of(catalogs).computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
+                            Map<String, Schema> res = PatchedMapView.of(catalogs)
+                                .computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
 
                             SchemaPlus schemaPlus = (SchemaPlus) res.get(catalogName);
                             schemaPlus.add(schemaName, new ExternalSchemaHolder(t));
