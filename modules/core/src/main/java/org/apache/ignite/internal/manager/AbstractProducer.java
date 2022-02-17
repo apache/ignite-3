@@ -57,7 +57,7 @@ public abstract class AbstractProducer<T extends Event, P extends EventParameter
      * @param params Event parameters.
      * @param err    Exception when it was happened, or {@code null} otherwise.
      */
-    protected void fireEvent(T evt, P params, Throwable err) {
+    protected void fireEvent(T evt, P params, @Nullable Throwable err) {
         ConcurrentLinkedQueue<EventListener<P>> queue = listeners.get(evt);
 
         if (queue == null) {

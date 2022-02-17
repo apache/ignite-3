@@ -24,6 +24,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /**
  * Heap byte buffer-based row.
@@ -196,13 +197,9 @@ public class ByteBufferRow implements BinaryRow {
     }
 
     /** {@inheritDoc} */
-    @Override public byte[] bytes() {
+    @Override
+    public byte[] bytes() {
         // TODO IGNITE-15934 avoid copy.
-        byte[] tmp = new byte[buf.limit()];
-
-        buf.get(tmp);
-        buf.rewind();
-
-        return tmp;
+        return Arrays.copyOf(buf.array(), buf.limit());
     }
 }

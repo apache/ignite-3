@@ -46,6 +46,8 @@ import org.jetbrains.annotations.Nullable;
  * Internal index manager facade provides low-level methods for indexes operations.
  */
 public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowListener {
+    private final UUID id;
+
     private final String name;
 
     private final TableImpl tbl;
@@ -57,7 +59,8 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     /**
      * Create sorted index.
      */
-    public InternalSortedIndexImpl(String name, SortedIndexStorage store, TableImpl tbl) {
+    public InternalSortedIndexImpl(UUID id, String name, SortedIndexStorage store, TableImpl tbl) {
+        this.id = id;
         this.name = name;
         this.store = store;
         this.tbl = tbl;
@@ -69,6 +72,11 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
     @Override
     public String name() {
         return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override public UUID id() {
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -109,7 +117,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     @Override
     public void drop() {
-        tbl.internalTable().storage().dropIndex(name);
+        tbl.internalTable().storage().dropIndex(id.toString());
     }
 
     /** {@inheritDoc} */
