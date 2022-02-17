@@ -40,45 +40,7 @@ namespace Apache.Ignite.Tests
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
 
-            Task.Run(() =>
-            {
-                while (!_cts.IsCancellationRequested)
-                {
-                    using Socket handler = _listener.Accept();
-
-                    // Read handshake.
-                    ReceiveBytes(handler, 4); // Magic.
-                    var msgSize = ReceiveMessageSize(handler);
-                    ReceiveBytes(handler, msgSize);
-
-                    // Write handshake response.
-                    handler.Send(ProtoCommon.MagicBytes);
-                    handler.Send(new byte[] { 0, 0, 0, 7 }); // Size.
-                    handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
-
-                    while (!_cts.IsCancellationRequested)
-                    {
-                        msgSize = ReceiveMessageSize(handler);
-                        var msg = ReceiveBytes(handler, msgSize);
-
-                        // Assume fixint8.
-                        var opCode = (ClientOp)msg[0];
-                        var requestId = msg[1];
-
-                        if (opCode == ClientOp.TablesGet)
-                        {
-                            handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
-                            handler.Send(new byte[] { 0, requestId, 0, 128 }); // Empty map.
-                        }
-                        else
-                        {
-                            // Fake error message for any other op code.
-                            handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                            handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)'F', (byte)'A', (byte)'K', (byte)'E', });
-                        }
-                    }
-                }
-            });
+            Task.Run(ListenLoop);
         }
 
         public async Task<IIgniteClient> ConnectClientAsync()
@@ -117,6 +79,46 @@ namespace Apache.Ignite.Tests
             }
 
             return buf;
+        }
+
+        private void ListenLoop()
+        {
+            while (!_cts.IsCancellationRequested)
+            {
+                using Socket handler = _listener.Accept();
+
+                // Read handshake.
+                ReceiveBytes(handler, 4); // Magic.
+                var msgSize = ReceiveMessageSize(handler);
+                ReceiveBytes(handler, msgSize);
+
+                // Write handshake response.
+                handler.Send(ProtoCommon.MagicBytes);
+                handler.Send(new byte[] { 0, 0, 0, 7 }); // Size.
+                handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
+
+                while (!_cts.IsCancellationRequested)
+                {
+                    msgSize = ReceiveMessageSize(handler);
+                    var msg = ReceiveBytes(handler, msgSize);
+
+                    // Assume fixint8.
+                    var opCode = (ClientOp)msg[0];
+                    var requestId = msg[1];
+
+                    if (opCode == ClientOp.TablesGet)
+                    {
+                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0, 128 }); // Empty map.
+                    }
+                    else
+                    {
+                        // Fake error message for any other op code.
+                        handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)'F', (byte)'A', (byte)'K', (byte)'E', });
+                    }
+                }
+            }
         }
     }
 }
