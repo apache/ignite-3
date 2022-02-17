@@ -227,15 +227,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
-        }
-
-        try {
-            return query0(QueryContext.of(), schemaName, qry, params);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return query(QueryContext.of(), schemaName, qry, params);
     }
 
     /** {@inheritDoc} */
@@ -306,9 +298,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         List<RootQuery<Object[]>> qrys = new ArrayList<>(qryList.size());
 
         for (final SqlNode sqlNode : qryList) {
-            context.maybeUnwrap(QueryValidator.class)
-                    .ifPresent(queryValidator -> queryValidator.validateParsedQuery(sqlNode));
-
             RootQuery<Object[]> qry = new RootQuery<>(
                     sqlNode.toString(),
                     schemaManager.schema(schemaName), // Update schema for each query in multiple statements.
@@ -330,6 +319,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 } else {
                     plan = prepareSvc.prepareSingle(sqlNode, qry.planningContext());
                 }
+
+                final QueryPlan finalPlan = plan;
+
+                context.maybeUnwrap(QueryValidator.class)
+                        .ifPresent(queryValidator -> queryValidator.validatePlan(finalPlan));
 
                 cursors.add(executionSrvc.executePlan(qry, plan));
             } catch (Exception e) {

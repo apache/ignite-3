@@ -24,5 +24,13 @@ import org.apache.ignite.lang.IgniteInternalException;
  *
  * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
  */
-public class StatementMismatchException extends IgniteInternalException {
+public class QueryValidationException extends IgniteInternalException {
+    /**
+     * Creates a new exception with the given error message.
+     *
+     * @param msg Error message.
+     */
+    public QueryValidationException(String msg) {
+        super(msg);
+    }
 }

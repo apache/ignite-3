@@ -17,16 +17,55 @@
 
 package org.apache.ignite.client.proto.query;
 
+import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
+
+import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 /**
  * JDBC statement type.
  */
 public enum JdbcStatementType {
     /** Any statement type. */
-    ANY_STATEMENT_TYPE,
+    ANY_STATEMENT_TYPE((byte) 0),
 
     /** Select statement type. */
-    SELECT_STATEMENT_TYPE,
+    SELECT_STATEMENT_TYPE((byte) 1),
 
     /** DML / DDL statement type. */
-    UPDATE_STATEMENT_TYPE;
+    UPDATE_STATEMENT_TYPE((byte) 2);
+
+    private static final Map<Byte, JdbcStatementType> STATEMENT_TYPE_IDX;
+
+    static {
+        STATEMENT_TYPE_IDX = Arrays.stream(values()).collect(
+                Collectors.toMap(JdbcStatementType::getId, Function.identity()));
+    }
+
+    /**
+     * Gets statement type value from its id.
+     *
+     * @param id Ordinal value.
+     * @return JdbcStatementType value.
+     * @throws IllegalArgumentException If statement is not found.
+     */
+    public static JdbcStatementType getStatement(byte id) {
+        JdbcStatementType value = STATEMENT_TYPE_IDX.get(id);
+
+        checkArgument(value != null, "Unknown jdbcStatementType %s", id);
+
+        return value;
+    }
+
+    private final byte id;
+
+    JdbcStatementType(byte id) {
+        this.id = id;
+    }
+
+    public byte getId() {
+        return id;
+    }
 }

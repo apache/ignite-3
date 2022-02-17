@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.plan.Context;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * User query context.

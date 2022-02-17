@@ -58,7 +58,9 @@ import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
-import org.apache.ignite.internal.sql.engine.exec.StatementMismatchException;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -107,9 +109,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             cursors = queryCursors.stream()
                     .map(cursor -> new JdbcQueryCursor<>(req.maxRows(), cursor))
                     .collect(Collectors.toList());
-        } catch (StatementMismatchException e) {
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Given statement type does not match that declared by JDBC driver."));
         } catch (Exception e) {
             StringWriter sw = getWriterWithStackTrace(e);
 
@@ -143,7 +142,19 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         if (stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
             return QueryContext.of();
         }
-        QueryValidator validator = () -> stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE;
+
+        QueryValidator validator = (QueryPlan plan) -> {
+            if (plan.type() == Type.QUERY || plan.type() == Type.EXPLAIN) {
+                if (stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE) {
+                    return;
+                }
+                throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
+            }
+            if (stmtType == JdbcStatementType.UPDATE_STATEMENT_TYPE) {
+                return;
+            }
+            throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
+        };
 
         return QueryContext.of(validator);
     }
