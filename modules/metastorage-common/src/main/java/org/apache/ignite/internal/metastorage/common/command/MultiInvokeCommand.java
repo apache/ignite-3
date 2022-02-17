@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Represents invoke command with nested conditions and execution branches.
  */
-public class MultiInvokeCommand implements Command {
+public class MultiInvokeCommand implements WriteCommand {
     /** If statement to invoke. */
     private final IfInfo iif;
 
