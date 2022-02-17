@@ -17,11 +17,35 @@
 
 namespace Apache.Ignite.Tests
 {
+    using NUnit.Framework;
+
     /// <summary>
     /// Tests client behavior with different <see cref="IgniteClientConfiguration.RetryPolicy"/> settings.
     /// </summary>
     public class RetryPolicyTests
     {
-        // TODO
+        [Test]
+        public void TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
+        {
+            // TODO
+        }
+
+        [Test]
+        public void TestFailoverWithRetryPolicyCompletesOperationWithoutException()
+        {
+            // TODO
+        }
+
+        [Test]
+        public void TestFailoverWithRetryPolicyThrowsOnRetryCountExceeded()
+        {
+            // TODO
+        }
+
+        [Test]
+        public void TestCustomRetryPolicyIsInvokedWithCorrectContext()
+        {
+            // TODO
+        }
     }
 }
