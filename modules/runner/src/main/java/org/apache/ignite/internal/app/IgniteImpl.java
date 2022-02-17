@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -79,8 +81,6 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Ignite internal implementation.

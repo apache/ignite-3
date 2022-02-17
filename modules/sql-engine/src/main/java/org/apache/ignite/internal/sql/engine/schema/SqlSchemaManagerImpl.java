@@ -182,7 +182,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     externalCatalogsVv.update(causalityToken,
                         catalogs -> {
                             Map<String, Schema> res = PatchedMapView.of(catalogs)
-                                .computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
+                                    .computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
 
                             SchemaPlus schemaPlus = (SchemaPlus) res.get(catalogName);
                             schemaPlus.add(schemaName, new ExternalSchemaHolder(t));
