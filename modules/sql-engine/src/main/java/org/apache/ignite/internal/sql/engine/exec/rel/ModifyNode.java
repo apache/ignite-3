@@ -32,7 +32,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.ModifyTuple;
+import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -51,7 +51,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final InternalTable tableView;
 
-    private List<ModifyTuple> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
+    private List<ModifyRow> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
 
@@ -192,10 +192,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     }
 
     /** Returns mapping of modifications per modification action. */
-    private Map<Operation, Collection<BinaryRow>> getOperationsPerAction(List<ModifyTuple> rows) {
+    private Map<Operation, Collection<BinaryRow>> getOperationsPerAction(List<ModifyRow> rows) {
         Map<Operation, Collection<BinaryRow>> store = new EnumMap<>(Operation.class);
 
-        for (ModifyTuple tuple : rows) {
+        for (ModifyRow tuple : rows) {
             store.computeIfAbsent(tuple.getOp(), k -> new ArrayList<>()).add(tuple.getRow());
         }
 
@@ -207,7 +207,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             return;
         }
 
-        List<ModifyTuple> rows = this.rows;
+        List<ModifyRow> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
         Map<Operation, Collection<BinaryRow>> operations = getOperationsPerAction(rows);

@@ -253,7 +253,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> ModifyTuple toBinaryRow(
+    public <RowT> ModifyRow toBinaryRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,
@@ -273,7 +273,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         }
     }
 
-    private <RowT> ModifyTuple insertTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
         int nonNullVarlenValCols = 0;
 
@@ -301,10 +301,10 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return new ModifyTuple(rowAssembler.build(), TableModify.Operation.INSERT);
+        return new ModifyRow(rowAssembler.build(), TableModify.Operation.INSERT);
     }
 
-    private <RowT> ModifyTuple mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         int rowColumnsCnt = hnd.columnCount(row);
@@ -324,7 +324,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         }
     }
 
-    private <RowT> ModifyTuple updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
@@ -364,7 +364,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return new ModifyTuple(rowAssembler.build(), Operation.UPDATE);
+        return new ModifyRow(rowAssembler.build(), Operation.UPDATE);
     }
 
     private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
@@ -386,7 +386,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return nonNullCols;
     }
 
-    private <RowT> ModifyTuple deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
 
         RowHandler<RowT> hnd = ectx.rowHandler();
@@ -417,7 +417,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return new ModifyTuple(rowAssembler.build(), Operation.DELETE);
+        return new ModifyRow(rowAssembler.build(), Operation.DELETE);
     }
 
     private ColocationGroup partitionedGroup() {
