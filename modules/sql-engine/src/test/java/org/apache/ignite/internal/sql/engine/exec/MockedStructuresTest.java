@@ -283,7 +283,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", newTblSql);
 
+        testRevisionRegister.moveRevision.accept(1L);
+
         queryProc.query("PUBLIC", "DROP TABLE " + curMethodName);
+
+        testRevisionRegister.moveRevision.accept(2L);
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
@@ -317,13 +321,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", newTblSql);
 
+        testRevisionRegister.moveRevision.accept(1L);
+
         String alterCmd = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName);
 
         queryProc.query("PUBLIC", alterCmd);
 
+        testRevisionRegister.moveRevision.accept(2L);
+
         String alterCmd1 = String.format("ALTER TABLE %s ADD COLUMN c5 int NOT NULL DEFAULT 1", curMethodName);
 
         queryProc.query("PUBLIC", alterCmd1);
+
+        testRevisionRegister.moveRevision.accept(3L);
 
         assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
 
@@ -339,11 +349,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         finalQueryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
 
+        testRevisionRegister.moveRevision.accept(4L);
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName));
+
+        testRevisionRegister.moveRevision.accept(5L);
 
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c3", curMethodName));
 
+        testRevisionRegister.moveRevision.accept(6L);
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS c3", curMethodName));
+
+        testRevisionRegister.moveRevision.accept(7L);
 
         assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN (c3, c4)", curMethodName)));
@@ -361,12 +379,20 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName));
 
+        testRevisionRegister.moveRevision.accept(1L);
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 varchar)", curMethodName));
+
+        testRevisionRegister.moveRevision.accept(2L);
 
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar)", curMethodName));
 
+        testRevisionRegister.moveRevision.accept(3L);
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar, c5 varchar)",
                 curMethodName));
+
+        testRevisionRegister.moveRevision.accept(4L);
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
@@ -384,14 +410,22 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s "
                 + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName));
 
+        testRevisionRegister.moveRevision.accept(1L);
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
 
+        testRevisionRegister.moveRevision.accept(2L);
+
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS (c3, c4, c5)", curMethodName));
+
+        testRevisionRegister.moveRevision.accept(3L);
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
         assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
+
+        testRevisionRegister.moveRevision.accept(4L);
     }
 
     /**

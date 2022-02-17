@@ -96,9 +96,6 @@ public class StopCalciteModuleTest {
     @Mock
     InternalTable tbl;
 
-    @Mock
-    ConfigurationManager cfgMgr;
-
     SchemaRegistry schemaReg;
 
     TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
@@ -131,7 +128,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(1, UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
+            clo.notify(new TableEventParameters(0, UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
                     null);
 
             return null;
@@ -175,6 +172,7 @@ public class StopCalciteModuleTest {
     }
 
     @Test
+    // TODO fix this test after merge with IGNITE-16377
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(testRevisionRegister, clusterSrvc, tableManager, () -> CompletableFuture.completedFuture(0L));
 

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.causality;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -201,7 +203,7 @@ public class VersionedValue<T> {
 
         if (histEntry == null) {
             if (history.isEmpty() && defaultVal != null) {
-                history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(defaultVal.get()));
+                history.putIfAbsent(causalityToken, completedFuture(defaultVal.get()));
                 return history.get(causalityToken);
             }
 
@@ -224,7 +226,7 @@ public class VersionedValue<T> {
         assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
                 + "[token={}, actual={}]", causalityToken, actualToken0);
 
-        CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(value));
+        CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
 
         if (res == null || res.isCompletedExceptionally()) {
             return;
@@ -256,8 +258,78 @@ public class VersionedValue<T> {
      * @param updater Updater function.
      * @return Previous value.
      */
-    public T update(long causalityToken, Function<T, T> updater) {
-        return null;
+    public CompletableFuture<T> update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
+        long  actualToken0 = actualToken;
+
+        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
+            + "[token={}, actual={}]", causalityToken, actualToken0);
+
+        Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
+
+        assert histEntry == null || histEntry.getValue().isDone() : "Previous value should be ready, if it is present.";
+
+        // TODO thread safety
+        CompletableFuture<T> current = histEntry == null ? completedFuture(defaultVal.get()) : histEntry.getValue();
+
+        CompletableFuture<T> res = new CompletableFuture<>();
+
+        try {
+            current.thenAccept(previousValue -> {
+                setValueInternal(causalityToken, complete.apply(previousValue));
+
+                res.complete(previousValue);
+            }).exceptionally(throwable -> {
+                setValueInternal(causalityToken, fail.apply(throwable));
+
+                res.completeExceptionally(throwable);
+
+                return null;
+            });
+        } catch (Throwable th) {
+            failInternal(causalityToken, th);
+
+            res.completeExceptionally(th);
+        }
+
+        return res;
+    }
+
+    /**
+     * This internal method assigns value according to specific token without additional checks.
+     *
+     * @param causalityToken Causality token.
+     * @param value          Value to set.
+     */
+    private void setValueInternal(long causalityToken, T value) {
+        CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
+
+        if (res == null || res.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert !res.isDone() : IgniteStringFormatter.format("Different values associated with the token "
+            + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
+
+        res.complete(value);
+    }
+
+    /**
+     * Fails a future associated with this causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param throwable      An exception.
+     */
+    private void failInternal(long causalityToken, Throwable throwable) {
+        CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.failedFuture(throwable));
+
+        if (res == null || res.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert !res.isDone() : IgniteStringFormatter.format("A value already has associated with the token "
+            + "[token={}, ex={}, value={}]", causalityToken, throwable, res.join());
+
+        res.completeExceptionally(throwable);
     }
 
     /**
@@ -300,7 +372,7 @@ public class VersionedValue<T> {
 
         CompletableFuture<T> future;
         if (entry == null) {
-            future = CompletableFuture.completedFuture(defaultVal.get());
+            future = completedFuture(defaultVal.get());
 
             CompletableFuture<T> f = history.putIfAbsent(causalityToken, future);
 
@@ -316,10 +388,13 @@ public class VersionedValue<T> {
         if (!future0.isDone()) {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
-            assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
+            assert entryBefore == null || entryBefore.getValue().isDone() : IgniteStringFormatter.format(
                     "No future for token [token={}]", causalityToken);
 
-            entryBefore.getValue().whenComplete((t, throwable) -> {
+            // TODO thread safety
+            CompletableFuture<T> f = entryBefore == null ? completedFuture(defaultVal.get()) : entryBefore.getValue();
+
+            f.whenComplete((t, throwable) -> {
                 if (throwable != null) {
                     future0.completeExceptionally(throwable);
                 } else {
