@@ -380,18 +380,31 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any exception in receive loop should be handled.")]
         private async Task RunReceiveLoop(CancellationToken cancellationToken)
         {
             // Reuse the same array for all responses.
             var messageSizeBytes = new byte[4];
 
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
-                // Invoke response handler in another thread to continue the receive loop.
-                // Response buffer should be disposed by the task handler.
-                ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                    // Invoke response handler in another thread to continue the receive loop.
+                    // Response buffer should be disposed by the task handler.
+                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                }
+            }
+            catch (Exception e)
+            {
+                _logger?.Error("Exception while reading from socket. Connection closed.", e);
+
+                Dispose();
             }
         }
 
