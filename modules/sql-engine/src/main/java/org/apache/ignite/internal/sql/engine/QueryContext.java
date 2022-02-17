@@ -41,7 +41,7 @@ public class QueryContext implements Context {
 
     /** {@inheritDoc} */
     @Override
-    public <C> C unwrap(Class<C> cls) {
+    public <C> @Nullable C unwrap(Class<C> cls) {
         if (Object[].class == cls) {
             return cls.cast(params);
         }
