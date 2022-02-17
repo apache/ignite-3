@@ -26,6 +26,8 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.schema.row.ExpandableByteBuf;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * ExpandableByteBufTest.
@@ -36,12 +38,13 @@ public class ExpandableByteBufTest {
      * AllTypesDirectOrder.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    @Test
-    public void allTypesDirectOrder() throws Exception {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 7})
+    public void allTypesDirectOrder(int strLen) throws Exception {
         ExpandableByteBuf buf = new ExpandableByteBuf(5);
 
         byte[] targetBytes = {1, 2, 3, 4, 5, 6, 7};
-        String targetStr = "abcdefg";
+        String targetStr = String.valueOf(new char[strLen]);
 
         buf.put(0, (byte) 1);
         buf.putShort(1, (short) 2);
@@ -53,7 +56,11 @@ public class ExpandableByteBufTest {
         buf.putString(34, targetStr, StandardCharsets.UTF_8.newEncoder());
 
         byte[] arr = buf.toArray();
-        assertEquals(41, arr.length);
+        assertEquals(34 + strLen, arr.length);
+
+        // check correctness of rewindability after unwrap.
+        ByteBuffer bb = buf.unwrap();
+        assertEquals(0, bb.position());
 
         ByteBuffer b = ByteBuffer.wrap(arr);
         b.order(ByteOrder.LITTLE_ENDIAN);
@@ -71,10 +78,12 @@ public class ExpandableByteBufTest {
 
         assertArrayEquals(targetBytes, bytes);
 
-        b.position(34);
-        b.get(bytes);
+        if (strLen > 0) {
+            b.position(34);
+            b.get(bytes);
 
-        assertEquals(targetStr, new String(bytes, StandardCharsets.UTF_8));
+            assertEquals(targetStr, new String(bytes, StandardCharsets.UTF_8));
+        }
     }
 
     /**

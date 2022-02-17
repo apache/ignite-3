@@ -697,10 +697,6 @@ public class RowTest {
             }
         }
 
-        BinaryRow row0 = asm.build();
-
-        assert vals.length > 0 && row0.bytes().length > 0;
-
         byte[] data = asm.toBytes();
 
         Row row = new Row(schema, new ByteBufferRow(data));
