@@ -33,8 +33,11 @@ namespace Apache.Ignite.Tests
 
         private readonly CancellationTokenSource _cts = new();
 
-        public FakeServer()
+        private readonly int _requestCountBeforeClientDrop;
+
+        public FakeServer(int requestCountBeforeClientDrop = int.MaxValue)
         {
+            _requestCountBeforeClientDrop = requestCountBeforeClientDrop;
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
@@ -97,6 +100,8 @@ namespace Apache.Ignite.Tests
                 handler.Send(new byte[] { 0, 0, 0, 7 }); // Size.
                 handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
 
+                int requestCount = 0;
+
                 while (!_cts.IsCancellationRequested)
                 {
                     msgSize = ReceiveMessageSize(handler);
@@ -117,7 +122,14 @@ namespace Apache.Ignite.Tests
                         handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
                         handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)'F', (byte)'A', (byte)'K', (byte)'E', });
                     }
+
+                    if (++requestCount >= _requestCountBeforeClientDrop)
+                    {
+                        break;
+                    }
                 }
+
+                handler.Disconnect(true);
             }
         }
     }

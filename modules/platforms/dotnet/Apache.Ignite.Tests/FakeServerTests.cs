@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -43,6 +44,19 @@ namespace Apache.Ignite.Tests
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("t"));
             Assert.AreEqual("FAKE", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestFakeServerDropsConnectionOnSpecifiedRequestCount()
+        {
+            using var server = new FakeServer(requestCountBeforeClientDrop: 2);
+            using var client = await server.ConnectClientAsync();
+
+            // 2 requests succeed, 3rd fails.
+            await client.Tables.GetTablesAsync();
+            await client.Tables.GetTablesAsync();
+
+            Assert.CatchAsync(async () => await client.Tables.GetTablesAsync());
         }
     }
 }
