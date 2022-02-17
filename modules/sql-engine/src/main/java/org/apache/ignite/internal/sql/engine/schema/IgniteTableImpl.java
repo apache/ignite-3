@@ -253,7 +253,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> ModifyRow toBinaryRow(
+    public <RowT> ModifyRow toModifyRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,

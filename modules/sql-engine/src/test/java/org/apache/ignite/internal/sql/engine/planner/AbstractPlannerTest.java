@@ -774,7 +774,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> ModifyRow toBinaryRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
+        public <RowT> ModifyRow toModifyRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
             throw new AssertionError();
         }
     }

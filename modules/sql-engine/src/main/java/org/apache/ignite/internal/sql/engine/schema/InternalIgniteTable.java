@@ -106,7 +106,7 @@ public interface InternalIgniteTable extends IgniteTable {
      * @param arg  Operation specific argument.
      * @return Cache key-value tuple with modify operation info;
      */
-    <RowT> ModifyRow toBinaryRow(
+    <RowT> ModifyRow toModifyRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,

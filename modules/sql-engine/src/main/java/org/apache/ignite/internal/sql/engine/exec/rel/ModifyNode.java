@@ -120,7 +120,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             case UPDATE:
             case INSERT:
             case MERGE:
-                rows.add(table.toBinaryRow(context(), row, modifyOp, cols));
+                rows.add(table.toModifyRow(context(), row, modifyOp, cols));
 
                 flushTuples(false);
 
