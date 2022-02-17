@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -84,7 +85,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
-    private final ConfigurationManager configurationManager;
+    private final Consumer<Consumer<Long>> revisionUpdater;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -119,12 +120,12 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
-            ConfigurationManager configurationManager,
+            Consumer<Consumer<Long>> revisionUpdater,
             ClusterService clusterSrvc,
             TableManager tableManager,
             Supplier<CompletableFuture<Long>> directMsRevision
     ) {
-        this.configurationManager = configurationManager;
+        this.revisionUpdater = revisionUpdater;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.directMsRevision = directMsRevision;
@@ -164,7 +165,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
         SqlSchemaManagerImpl schemaManager =
-                new SqlSchemaManagerImpl(configurationManager, planCache::clear, directMsRevision);
+                new SqlSchemaManagerImpl(revisionUpdater, planCache::clear, directMsRevision);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),

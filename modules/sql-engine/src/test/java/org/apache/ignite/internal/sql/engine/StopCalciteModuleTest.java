@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -99,6 +100,8 @@ public class StopCalciteModuleTest {
     ConfigurationManager cfgMgr;
 
     SchemaRegistry schemaReg;
+
+    TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
     /**
      * Before.
@@ -173,11 +176,13 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(cfgMgr, clusterSrvc, tableManager, () -> CompletableFuture.completedFuture(0L));
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(testRevisionRegister, clusterSrvc, tableManager, () -> CompletableFuture.completedFuture(0L));
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
         qryProc.start();
+
+        testRevisionRegister.moveRevision.accept(0L);
 
         List<SqlCursor<List<?>>> cursors = qryProc.query(
                 "PUBLIC",
@@ -218,6 +223,25 @@ public class StopCalciteModuleTest {
 
         return Arrays.stream(infos)
                 .anyMatch((ti) -> ti.getThreadName().contains(nodeName));
+    }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+
+        /** Revision consumer. */
+        Consumer<Long> moveRevision;
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            if (moveRevision == null) {
+                moveRevision = consumer;
+            } else {
+                moveRevision = moveRevision.andThen(consumer);
+            }
+        }
     }
 }
 

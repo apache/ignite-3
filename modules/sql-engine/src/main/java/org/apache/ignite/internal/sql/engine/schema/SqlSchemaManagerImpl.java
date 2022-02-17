@@ -73,16 +73,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public SqlSchemaManagerImpl(
-            ConfigurationManager configurationManager,
+            Consumer<Consumer<Long>> revisionUpdater,
             Runnable onSchemaUpdatedCallback,
             Supplier<CompletableFuture<Long>> directMsRevision
     ) {
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
-        this.storageRevisionUpdater = c -> configurationManager.configurationRegistry().listenUpdateStorageRevision(rev -> {
-            c.accept(rev);
-
-            return completedFuture(null);
-        });
+        this.storageRevisionUpdater = revisionUpdater;
 
         schemasVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
         tablesVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);

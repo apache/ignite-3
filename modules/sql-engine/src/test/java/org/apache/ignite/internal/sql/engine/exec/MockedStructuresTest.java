@@ -29,9 +29,12 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -41,6 +44,7 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -111,10 +115,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private TxManager tm;
 
-    /** Configuration manager. */
-    @Mock
-    private ConfigurationManager cfgMgr;
-
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -132,6 +132,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     TableManager tblManager;
 
     SqlQueryProcessor queryProc;
+
+    TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
@@ -165,23 +167,27 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cfgMgr, cs, tblManager, () -> CompletableFuture.completedFuture(0L));
+        queryProc = new SqlQueryProcessor(testRevisionRegister, cs, tblManager, () -> CompletableFuture.completedFuture(0L));
 
         queryProc.start();
+
+        testRevisionRegister.moveRevision.accept(0L);
     }
 
     /**
      * Checks that appropriate methods called form table manager on rel node construction.
      */
     @Test
+    //TODO fix after merge with IGNITE-16377
     void checkAppropriateTableFound() throws Exception {
         TableManager tableManager = mock(TableManager.class);
-        ConfigurationManager cfgMgr = mock(ConfigurationManager.class);
 
-        when(cfgMgr.configurationRegistry()).thenReturn(mock(ConfigurationRegistry.class));
+        TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(cfgMgr, () -> {}, () -> CompletableFuture.completedFuture(0L));
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(testRevisionRegister, () -> {}, () -> CompletableFuture.completedFuture(0L));
         UUID tblId = UUID.randomUUID();
+
+        testRevisionRegister.moveRevision.accept(0L);
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
                 .getMessage().contains("Table not found"));
@@ -478,10 +484,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
-        ConfigurationRegistry configurationRegistry = mock(ConfigurationRegistry.class);
-
-        when(cfgMgr.configurationRegistry()).thenReturn(configurationRegistry);
-
         TableManager tableManager = createTableManager();
 
         return tableManager;
@@ -507,5 +509,24 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         tableManager.start();
 
         return tableManager;
+    }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+
+        /** Revision consumer. */
+        Consumer<Long> moveRevision;
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            if (moveRevision == null) {
+                moveRevision = consumer;
+            } else {
+                moveRevision = moveRevision.andThen(consumer);
+            }
+        }
     }
 }

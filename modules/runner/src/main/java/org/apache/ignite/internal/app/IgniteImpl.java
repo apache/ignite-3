@@ -27,6 +27,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -78,6 +79,8 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Ignite internal implementation.
@@ -219,6 +222,12 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
+        Consumer<Consumer<Long>> storageRevisionUpdater = c -> clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(rev -> {
+            c.accept(rev);
+
+            return completedFuture(null);
+        });
+
         Supplier<CompletableFuture<Long>> directMsRevisionSup = cfgStorage::lastRevision;
 
         baselineMgr = new BaselineManager(
@@ -238,7 +247,7 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
-                clusterCfgMgr,
+                storageRevisionUpdater,
                 clusterSvc,
                 distributedTblMgr,
                 directMsRevisionSup
