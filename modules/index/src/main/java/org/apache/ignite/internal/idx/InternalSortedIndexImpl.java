@@ -117,7 +117,7 @@ public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowL
 
     @Override
     public void drop() {
-        tbl.internalTable().storage().dropIndex(id.toString());
+        tbl.internalTable().storage().dropIndex(name);
     }
 
     /** {@inheritDoc} */

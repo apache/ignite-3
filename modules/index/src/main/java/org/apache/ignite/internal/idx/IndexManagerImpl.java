@@ -244,7 +244,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         try {
             CompletableFuture<Void> idxFut = new CompletableFuture<>();
 
-            indexAsync(IgniteObjectName.parseCanonicalName(idxCanonicalName)).thenAccept((idx) -> {
+            indexAsync(idxCanonicalName).thenAccept((idx) -> {
                 if (idx == null) {
                     idxFut.completeExceptionally(new IndexNotFoundException(idxCanonicalName));
                     return;
@@ -255,9 +255,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
                     tblFut.thenAccept(tbl -> {
                         tablesCfg.tables().change(ch -> ch.createOrUpdate(
-                                tbl.name(),
-                                tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
-                        ))
+                                        tbl.name(),
+                                        tblCh -> tblCh.changeIndices(idxes -> idxes.delete(idxCanonicalName))
+                                ))
                                 .whenComplete((res, t) -> {
                                     if (t != null) {
                                         Throwable ex = getRootCause(t);
