@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.junit.jupiter.api.AfterEach;
@@ -1618,69 +1620,233 @@ public abstract class AbstractKeyValueStorageTest {
         assertArrayEquals(key3, e3.key());
     }
 
+    /**
+     * <pre>
+     *   if (key1.value == val1 || exist(key2))
+     *       if (key3.revision == 3):
+     *           put(key1, rval1) <------ TEST FOR THIS BRANCH
+     *           return 1
+     *       else
+     *           put(key1, rval1)
+     *           remove(key2)
+     *           return 2
+     *   else
+     *       put(key3, rval3)
+     *       return 3
+     * </pre>
+     */
     @Test
-    public void compact() {
+    public void multiInvokeOperationsBranch1() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] rval1 = keyValue(1, 4);
+
+        final byte[] key2 = key(2);
+        final byte[] val2 = keyValue(2, 2);
+
+        final byte[] key3 = key(3);
+        final byte[] val3 = keyValue(3, 3);
+        final byte[] rval3 = keyValue(2, 6);
+
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
 
-        // Compact empty.
-        storage.compact();
-
-        assertEquals(0, storage.revision());
-        assertEquals(0, storage.updateCounter());
-
-        // Compact non-empty.
-        fill(storage, 1, 1);
+        storage.put(key1, val1);
 
         assertEquals(1, storage.revision());
         assertEquals(1, storage.updateCounter());
 
-        fill(storage, 2, 2);
+        storage.put(key2, val2);
+
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        storage.put(key3, val3);
 
         assertEquals(3, storage.revision());
         assertEquals(3, storage.updateCounter());
 
-        fill(storage, 3, 3);
+        If iif = new If(
+                new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
+                new Statement(
+                        new If(
+                                new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                                new Statement(
+                                        new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                                new Statement(
+                                        new Update(
+                                                List.of(new Operation(OperationType.PUT, key1, rval1),
+                                                        new Operation(OperationType.REMOVE, key2, null)),
+                                                new StatementResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3)))
+        );
 
-        assertEquals(6, storage.revision());
+        StatementResult branch = storage.invoke(iif);
+
+        assertEquals(1, ByteBuffer.wrap(branch.bytes()).getInt());
+
+        assertEquals(4, storage.revision());
+        assertEquals(4, storage.updateCounter());
+
+        Entry e1 = storage.get(key1);
+        assertEquals(4, e1.revision());
+        assertArrayEquals(rval1, e1.value());
+
+        Entry e2 = storage.get(key2);
+        assertEquals(2, e2.revision());
+
+        Entry e3 = storage.get(key3);
+        assertEquals(3, e3.revision());
+        assertArrayEquals(val3, e3.value());
+    }
+
+    /**
+     * <pre>
+     *   if (key1.value == val1 || exist(key2))
+     *       if (key3.revision == 3):
+     *           put(key1, rval1)
+     *           return 1
+     *       else
+     *           put(key1, rval1) <------ TEST FOR THIS BRANCH
+     *           remove(key2)
+     *           return 2
+     *   else
+     *       put(key3, rval3)
+     *       return 3
+     * </pre>
+     */
+    @Test
+    public void multiInvokeOperationsBranch2() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] rval1 = keyValue(1, 4);
+
+        final byte[] key2 = key(2);
+        final byte[] val2 = keyValue(2, 2);
+
+        final byte[] key3 = key(3);
+        final byte[] val3 = keyValue(3, 3);
+        final byte[] rval3 = keyValue(2, 6);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        storage.put(key1, val1);
+
+        assertEquals(1, storage.revision());
+        assertEquals(1, storage.updateCounter());
+
+        storage.put(key2, val2);
+
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        storage.put(key3, val3);
+
+        assertEquals(3, storage.revision());
+        assertEquals(3, storage.updateCounter());
+
+        storage.put(key3, val3);
+
+        assertEquals(4, storage.revision());
+        assertEquals(4, storage.updateCounter());
+
+        If iif = new If(
+                new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
+                new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                        new Statement(new Update(
+                                List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
+                                new StatementResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
+
+        StatementResult branch = storage.invoke(iif);
+
+        assertEquals(2, ByteBuffer.wrap(branch.bytes()).getInt());
+
+        assertEquals(5, storage.revision());
         assertEquals(6, storage.updateCounter());
 
-        storage.getAndRemove(key(3));
+        Entry e1 = storage.get(key1);
+        assertEquals(5, e1.revision());
+        assertArrayEquals(rval1, e1.value());
 
-        assertEquals(7, storage.revision());
-        assertEquals(7, storage.updateCounter());
-        assertTrue(storage.get(key(3)).tombstone());
+        Entry e2 = storage.get(key2);
+        assertEquals(5, e2.revision());
+        assertTrue(e2.tombstone());
 
-        storage.compact();
+        Entry e3 = storage.get(key3);
+        assertEquals(4, e3.revision());
+        assertArrayEquals(val3, e3.value());
+    }
 
-        assertEquals(7, storage.revision());
-        assertEquals(7, storage.updateCounter());
+    /**
+     * <pre>
+     *   if (key1.value == val1 || exist(key2))
+     *       if (key3.revision == 3):
+     *           put(key1, rval1)
+     *           return 1
+     *       else
+     *           put(key1, rval1)
+     *           remove(key2)
+     *           return 2
+     *   else
+     *       put(key3, rval3) <------ TEST FOR THIS BRANCH
+     *       return 3
+     * </pre>
+     */
+    @Test
+    public void multiInvokeOperationsBranch3() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] rval1 = keyValue(1, 4);
 
-        Entry e1 = storage.get(key(1));
+        final byte[] key2 = key(2);
+        final byte[] val2 = keyValue(2, 2);
 
-        assertFalse(e1.empty());
-        assertFalse(e1.tombstone());
-        assertArrayEquals(key(1), e1.key());
-        assertArrayEquals(keyValue(1, 1), e1.value());
+        final byte[] key3 = key(3);
+        final byte[] val3 = keyValue(3, 3);
+        final byte[] rval3 = keyValue(2, 6);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        storage.put(key1, val2);
+
+        assertEquals(1, storage.revision());
+        assertEquals(1, storage.updateCounter());
+
+        storage.put(key3, val3);
+
+        assertEquals(2, storage.revision());
+        assertEquals(2, storage.updateCounter());
+
+        If iif = new If(
+                new OrCondition(new ValueCondition(Type.EQUAL, key1, val1), new ExistenceCondition(ExistenceCondition.Type.EXISTS, key2)),
+                new Statement(new If(new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                        new Statement(new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                        new Statement(new Update(
+                                List.of(new Operation(OperationType.PUT, key1, rval1), new Operation(OperationType.REMOVE, key2, null)),
+                                new StatementResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3))));
+
+        StatementResult branch = storage.invoke(iif);
+
+        assertEquals(3, ByteBuffer.wrap(branch.bytes()).getInt());
+
+        assertEquals(3, storage.revision());
+        assertEquals(3, storage.updateCounter());
+
+        Entry e1 = storage.get(key1);
         assertEquals(1, e1.revision());
-        assertEquals(1, e1.updateCounter());
+        assertArrayEquals(val2, e1.value());
 
-        Entry e2 = storage.get(key(2));
+        Entry e2 = storage.get(key2);
+        assertTrue(e2.empty());
 
-        assertFalse(e2.empty());
-        assertFalse(e2.tombstone());
-        assertArrayEquals(key(2), e2.key());
-        assertArrayEquals(keyValue(2, 2), e2.value());
-        assertTrue(storage.get(key(2), 2).empty());
-        assertEquals(3, e2.revision());
-        assertEquals(3, e2.updateCounter());
-
-        Entry e3 = storage.get(key(3));
-
-        assertTrue(e3.empty());
-        assertTrue(storage.get(key(3), 5).empty());
-        assertTrue(storage.get(key(3), 6).empty());
-        assertTrue(storage.get(key(3), 7).empty());
+        Entry e3 = storage.get(key3);
+        assertEquals(3, e3.revision());
+        assertArrayEquals(rval3, e3.value());
     }
 
     @Test
