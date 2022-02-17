@@ -304,8 +304,9 @@ public class VersionedValue<T> {
 
             CompletableFuture<T> f = history.putIfAbsent(causalityToken, future);
 
-            if (f != null)
+            if (f != null) {
                 future = f;
+            }
         } else {
             future = entry.getValue();
         }

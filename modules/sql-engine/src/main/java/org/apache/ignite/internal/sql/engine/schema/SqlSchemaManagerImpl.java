@@ -153,8 +153,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         try {
             rebuild(causalityToken);
-        }
-        catch (OutdatedTokenException e) {
+        } catch (OutdatedTokenException e) {
             throw new IgniteInternalException(e);
         }
     }
@@ -185,7 +184,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
     }
 
-    /** */
+    /**
+     * Schema creation handler.
+     *
+     * @param schemaName Schema name.
+     * @param causalityToken Causality token.
+     */
     public synchronized void onSchemaCreated(String schemaName, long causalityToken) {
         schemasVv.update(
                 causalityToken,
@@ -199,7 +203,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
-    /** */
+    /**
+     * Schema drop handler.
+     *
+     * @param schemaName Schema name.
+     * @param causalityToken Causality token.
+     */
     public synchronized void onSchemaDropped(String schemaName, long causalityToken) {
         schemasVv.update(
                 causalityToken,

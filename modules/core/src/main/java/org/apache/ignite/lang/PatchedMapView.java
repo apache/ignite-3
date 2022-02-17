@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * This map view is constructed from a map and a single change applied to it, like put, remove or clear.
+ * It is not thread-safe.
  */
 public class PatchedMapView<K, V> implements Map<K, V> {
     private static final int DEFAULT_MAX_DEPTH = 5;
@@ -193,16 +194,27 @@ public class PatchedMapView<K, V> implements Map<K, V> {
         }
 
         private PatchedMapViewBuilder(Map<K, V> map, int maxDepth) {
-            if (map instanceof PatchedMapView && ((PatchedMapView<K, V>) map).depth() >= maxDepth)
-                this.map = ((PatchedMapView<K, V>) map).squash();
-            else
+            if (map instanceof PatchedMapView && ((PatchedMapView<K, V>) map).depth() >= maxDepth) {
+                this.map = ((PatchedMapView<K, V>)map).squash();
+            } else {
                 this.map = map;
+            }
         }
 
+        /**
+         * Create a map view with clearing update.
+         *
+         * @return Map view.
+         */
         public Map<K, V> clear() {
             return new PatchedMapView<>(map, true, null, null, null);
         }
 
+        /**
+         * Create a map view with one key-value pair added to it or replaced in it.
+         *
+         * @return Map view.
+         */
         public Map<K, V> put(K k, V v) {
             boolean contains = map.containsKey(k);
             return new PatchedMapView<>(
@@ -214,10 +226,21 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             );
         }
 
+        /**
+         * Create a map view with put update, or returns the original map if the key is present and not mapped to {@code null}.
+         *
+         * @return Map view.
+         */
         public Map<K, V> putIfAbsent(K k, V v) {
             return map.get(k) == null ? new PatchedMapView<>(map, false, null, new IgniteBiTuple<>(k, v), null) : map;
         }
 
+        /**
+         * Create a map view with put update using mapping function, or returns the original map if the key is present and not
+         * mapped to {@code null}.
+         *
+         * @return Map view.
+         */
         public Map<K, V> computeIfAbsent(K k, Function<? super K, ? extends V> mappingFunction) {
             Objects.requireNonNull(mappingFunction);
             if ((map.get(k)) == null) {
@@ -229,15 +252,27 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             return map;
         }
 
+        /**
+         * Create a map view with one key-value pair removed from it.
+         *
+         * @return Map view.
+         */
         public Map<K, V> remove(K k) {
-            if (map.containsKey(k))
+            if (map.containsKey(k)) {
                 return new PatchedMapView<>(map, true, k, null, null);
-            else
+            } else {
                 return map;
+            }
         }
 
+        /**
+         * Returns original map, or squashed map view, if the original map is {@link PatchedMapView}. Squashed map view is
+         * {@link PatchedMapView} where the original map is not a {@link PatchedMapView}.
+         *
+         * @return Map view.
+         */
         public Map<K, V> map() {
-            return map instanceof PatchedMapView ? ((PatchedMapView) map).squash() : map;
+            return map instanceof PatchedMapView ? ((PatchedMapView<K, V>) map).squash() : map;
         }
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -67,8 +69,6 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
 /**
  *  SqlQueryProcessor.
