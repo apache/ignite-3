@@ -49,4 +49,9 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
         );
     }
 
+    @Test
+    public void dbg() {
+        sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID))");
+    }
+
 }

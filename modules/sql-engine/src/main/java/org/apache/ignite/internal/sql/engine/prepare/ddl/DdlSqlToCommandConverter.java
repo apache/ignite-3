@@ -191,9 +191,9 @@ public class DdlSqlToCommandConverter {
                 throw new IgniteException("Primary key cannot contain nullable column [col=" + name + "]");
             }
 
-            dedupSetPk.remove(name);
-
             RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
+
+            dedupSetPk.remove(name);
 
             Object dflt = null;
             if (col.expression != null) {
