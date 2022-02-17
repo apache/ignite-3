@@ -501,6 +501,8 @@ public class JdbcStatement implements Statement {
     public void addBatch(String sql) throws SQLException {
         ensureNotClosed();
 
+        Objects.requireNonNull(sql);
+
         if (batch == null) {
             batch = new ArrayList<>();
         }
@@ -527,7 +529,7 @@ public class JdbcStatement implements Statement {
             return INT_EMPTY_ARRAY;
         }
 
-        BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
+        BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch);
 
         try {
             BatchExecuteResult res = conn.handler().batchAsync(req).join();

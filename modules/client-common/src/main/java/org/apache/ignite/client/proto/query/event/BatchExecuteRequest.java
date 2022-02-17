@@ -35,9 +35,6 @@ public class BatchExecuteRequest implements ClientMessage {
     /** Sql queries. */
     private List<String> queries;
 
-    /** Client auto commit flag state. */
-    private boolean autoCommit;
-
     /**
      * Default constructor.
      */
@@ -49,14 +46,12 @@ public class BatchExecuteRequest implements ClientMessage {
      *
      * @param schemaName Schema name.
      * @param queries    Queries.
-     * @param autoCommit Client auto commit flag state.
      */
-    public BatchExecuteRequest(String schemaName, List<String> queries, boolean autoCommit) {
+    public BatchExecuteRequest(String schemaName, List<String> queries) {
         assert !CollectionUtils.nullOrEmpty(queries);
 
         this.schemaName = schemaName;
         this.queries = queries;
-        this.autoCommit = autoCommit;
     }
 
     /**
@@ -77,15 +72,6 @@ public class BatchExecuteRequest implements ClientMessage {
         return queries;
     }
 
-    /**
-     * Get the auto commit flag.
-     *
-     * @return Auto commit flag.
-     */
-    boolean autoCommit() {
-        return autoCommit;
-    }
-
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -94,7 +80,7 @@ public class BatchExecuteRequest implements ClientMessage {
         packer.packArrayHeader(queries.size());
 
         for (String q : queries) {
-            ClientMessageUtils.writeStringNullable(packer, q);
+            packer.packString(q);
         }
     }
 
@@ -108,7 +94,7 @@ public class BatchExecuteRequest implements ClientMessage {
         queries = new ArrayList<>(n);
 
         for (int i = 0; i < n; ++i) {
-            queries.add(ClientMessageUtils.readStringNullable(unpacker));
+            queries.add(unpacker.unpackString());
         }
     }
 
