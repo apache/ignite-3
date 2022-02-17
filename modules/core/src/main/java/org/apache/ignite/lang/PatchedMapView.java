@@ -195,7 +195,7 @@ public class PatchedMapView<K, V> implements Map<K, V> {
 
         private PatchedMapViewBuilder(Map<K, V> map, int maxDepth) {
             if (map instanceof PatchedMapView && ((PatchedMapView<K, V>) map).depth() >= maxDepth) {
-                this.map = ((PatchedMapView<K, V>)map).squash();
+                this.map = ((PatchedMapView<K, V>) map).squash();
             } else {
                 this.map = map;
             }
@@ -245,8 +245,9 @@ public class PatchedMapView<K, V> implements Map<K, V> {
             Objects.requireNonNull(mappingFunction);
             if ((map.get(k)) == null) {
                 V v;
-                if ((v = mappingFunction.apply(k)) != null)
+                if ((v = mappingFunction.apply(k)) != null) {
                     return new PatchedMapView<>(map, false, null, new IgniteBiTuple<>(k, v), null);
+                }
             }
 
             return map;
