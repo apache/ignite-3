@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Collections.Generic;
+    using System.Threading.Tasks;
     using NUnit.Framework;
 
     /// <summary>
@@ -43,9 +45,37 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public void TestCustomRetryPolicyIsInvokedWithCorrectContext()
+        public async Task TestCustomRetryPolicyIsInvokedWithCorrectContext()
         {
-            // TODO
+            var testRetryPolicy = new TestRetryPolicy();
+
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryLimit = 3,
+                RetryPolicy = testRetryPolicy
+            };
+
+            using var server = new FakeServer(requestCountBeforeClientDrop: 1);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            await client.Tables.GetTablesAsync();
+            await client.Tables.GetTablesAsync();
+
+            Assert.AreEqual(1, testRetryPolicy.Invocations.Count);
+        }
+
+        private class TestRetryPolicy : IRetryPolicy
+        {
+            private readonly List<IRetryPolicyContext> _invocations = new();
+
+            public IReadOnlyList<IRetryPolicyContext> Invocations => _invocations;
+
+            public bool ShouldRetry(IRetryPolicyContext context)
+            {
+                _invocations.Add(context);
+
+                return true;
+            }
         }
     }
 }

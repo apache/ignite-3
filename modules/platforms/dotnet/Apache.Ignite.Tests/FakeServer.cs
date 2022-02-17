@@ -46,11 +46,16 @@ namespace Apache.Ignite.Tests
             Task.Run(ListenLoop);
         }
 
-        public async Task<IIgniteClient> ConnectClientAsync()
+        public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
             var port = ((IPEndPoint)_listener.LocalEndPoint).Port;
 
-            return await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + port));
+            cfg ??= new IgniteClientConfiguration();
+
+            cfg.Endpoints.Clear();
+            cfg.Endpoints.Add("127.0.0.1:" + port);
+
+            return await IgniteClient.StartAsync(cfg);
         }
 
         public void Dispose()
