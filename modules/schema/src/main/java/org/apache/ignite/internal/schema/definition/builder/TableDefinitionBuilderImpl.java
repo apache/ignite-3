@@ -126,6 +126,7 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
         assert primaryKeyDefinition != null : "Primary key index must be configured.";
         assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
 
+        validatePrimaryKey(primaryKeyDefinition.columns(), columns);
         validateIndices(indices.values(), columns.values(), primaryKeyDefinition.affinityColumns());
 
         return new TableDefinitionImpl(
@@ -135,6 +136,21 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
                 primaryKeyDefinition,
                 Collections.unmodifiableMap(indices)
         );
+    }
+
+    /**
+     * Validate primary key.
+     *
+     * @param pkColNames Primary key columns.
+     * @param cols       Table columns.
+     */
+    private static void validatePrimaryKey(Set<String> pkColNames, final Map<String, ColumnDefinition> cols) {
+        pkColNames.stream()
+                .filter(pkCol -> cols.get(pkCol).nullable())
+                .findAny()
+                .ifPresent((pkCol) -> {
+                    throw new IllegalStateException("Primary key cannot contain nullable column [col=" + pkCol + "].");
+                });
     }
 
     /**

@@ -177,10 +177,12 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
      * Converts a SQL data type specification to a relational data type.
      *
      * @param typeSpec Spec to convert from.
+     * @param nullable Whether the type is nullable if the type specification
+     *      does not explicitly state.
      * @return Relational type representation of given SQL type.
      */
-    public RelDataType convert(SqlDataTypeSpec typeSpec) {
-        return typeSpec.deriveType(validator());
+    public RelDataType convert(SqlDataTypeSpec typeSpec, boolean nullable) {
+        return typeSpec.deriveType(validator(), nullable);
     }
 
     /** {@inheritDoc} */

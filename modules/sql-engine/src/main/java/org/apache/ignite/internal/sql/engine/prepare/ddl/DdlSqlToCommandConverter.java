@@ -143,6 +143,32 @@ public class DdlSqlToCommandConverter {
             }
         }
 
+        List<SqlKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
+                .filter(SqlKeyConstraint.class::isInstance)
+                .map(SqlKeyConstraint.class::cast)
+                .collect(Collectors.toList());
+
+        if (nullOrEmpty(pkConstraints)) {
+            throw new IgniteException("Table without PRIMARY KEY is not supported");
+        } else if (pkConstraints.size() > 1) {
+            throw new IgniteException("Unexpected amount of primary key constraints ["
+                    + "expected at most one, but was " + pkConstraints.size() + "; "
+                    + "querySql=\"" + ctx.query() + "\"]");
+        }
+
+        Set<String> dedupSetPk = new HashSet<>();
+
+        List<String> pkCols = pkConstraints.stream()
+                .map(pk -> pk.getOperandList().get(1))
+                .map(SqlNodeList.class::cast)
+                .flatMap(l -> l.getList().stream())
+                .map(SqlIdentifier.class::cast)
+                .map(SqlIdentifier::getSimple)
+                .filter(dedupSetPk::add)
+                .collect(Collectors.toList());
+
+        createTblCmd.primaryKeyColumns(pkCols);
+
         List<SqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
                 .filter(SqlColumnDeclaration.class::isInstance)
                 .map(SqlColumnDeclaration.class::cast)
@@ -160,7 +186,14 @@ public class DdlSqlToCommandConverter {
             }
 
             String name = col.name.getSimple();
-            RelDataType relType = planner.convert(col.dataType);
+
+            if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
+                throw new IgniteException("Primary key cannot contain nullable column [col=" + name + "]");
+            }
+
+            dedupSetPk.remove(name);
+
+            RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
 
             Object dflt = null;
             if (col.expression != null) {
@@ -170,33 +203,11 @@ public class DdlSqlToCommandConverter {
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
 
+        if (!dedupSetPk.isEmpty()) {
+            throw new IgniteException("Primary key constrain contains undefined columns: [cols=" + dedupSetPk + "]");
+        }
+
         createTblCmd.columns(cols);
-
-        List<SqlKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
-                .filter(SqlKeyConstraint.class::isInstance)
-                .map(SqlKeyConstraint.class::cast)
-                .collect(Collectors.toList());
-
-        if (pkConstraints.size() > 1) {
-            throw new IgniteException("Unexpected amount of primary key constraints ["
-                    + "expected at most one, but was " + pkConstraints.size() + "; "
-                    + "querySql=\"" + ctx.query() + "\"]");
-        }
-
-        if (!nullOrEmpty(pkConstraints)) {
-            Set<String> dedupSet = new HashSet<>();
-
-            List<String> pkCols = pkConstraints.stream()
-                    .map(pk -> pk.getOperandList().get(1))
-                    .map(SqlNodeList.class::cast)
-                    .flatMap(l -> l.getList().stream())
-                    .map(SqlIdentifier.class::cast)
-                    .map(SqlIdentifier::getSimple)
-                    .filter(dedupSet::add)
-                    .collect(Collectors.toList());
-
-            createTblCmd.primaryKeyColumns(pkCols);
-        }
 
         return createTblCmd;
     }
@@ -230,7 +241,7 @@ public class DdlSqlToCommandConverter {
             }
 
             String name = col.name.getSimple();
-            RelDataType relType = ctx.planner().convert(col.dataType);
+            RelDataType relType = ctx.planner().convert(col.dataType, true);
 
             cols.add(new ColumnDefinition(name, relType, dflt));
         }
