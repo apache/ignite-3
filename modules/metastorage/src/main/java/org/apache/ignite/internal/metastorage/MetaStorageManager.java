@@ -178,11 +178,6 @@ public class MetaStorageManager implements IgniteComponent {
         if (metastorageNodes.contains(thisNode)) {
             clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
                 @Override
-                public void onAppeared(ClusterNode member) {
-                    // No-op.
-                }
-
-                @Override
                 public void onDisappeared(ClusterNode member) {
                     metaStorageSvcFut.thenAccept(svc -> svc.closeCursors(member.id()));
                 }
@@ -900,13 +895,6 @@ public class MetaStorageManager implements IgniteComponent {
             } finally {
                 busyLock.leaveBusy();
             }
-        }
-
-        /** {@inheritDoc} */
-        @NotNull
-        @Override
-        public Iterator<T> iterator() {
-            return it;
         }
 
         /** {@inheritDoc} */

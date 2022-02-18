@@ -27,7 +27,6 @@ import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -282,12 +281,8 @@ public abstract class VaultServiceTest {
      * Exctracts the given range of values from the Vault.
      */
     private List<VaultEntry> range(ByteArray from, ByteArray to) throws Exception {
-        var result = new ArrayList<VaultEntry>();
-
         try (Cursor<VaultEntry> cursor = vaultService.range(from, to)) {
-            cursor.forEach(result::add);
+            return cursor.stream().collect(toList());
         }
-
-        return result;
     }
 }

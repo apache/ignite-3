@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.cluster.management.RestClusterInitializer.DEFAULT_REST_ADDR;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.cluster.management.RestClusterInitializer;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -95,25 +101,38 @@ public class PlatformTestNodeRunner {
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
-        List<Ignite> startedNodes = new ArrayList<>();
+        CompletableFuture<Ignite>[] igniteFutures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> {
+                    String nodeName = e.getKey();
+                    String config = e.getValue();
 
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
-        );
+                    return supplyAsync(() -> IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName)));
+                })
+                .toArray(CompletableFuture[]::new);
 
-        IgniteImpl metastorageNode = (IgniteImpl) startedNodes.get(0);
+        String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        var initializer = new RestClusterInitializer();
+
+        initializer.init(DEFAULT_REST_ADDR, List.of(metaStorageNodeName));
+
+        System.out.println("Initialization complete");
+
+        CompletableFuture.allOf(igniteFutures).join();
+
+        System.out.println("Ignite nodes started");
 
         var keyCol = "key";
         var valCol = "val";
+
+        List<Ignite> startedNodes = Arrays.stream(igniteFutures).map(CompletableFuture::join).collect(toList());
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(keyCol, ColumnType.INT64).build(),
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        metastorageNode.tables().createTable(schTbl.canonicalName(), tblCh ->
+        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)

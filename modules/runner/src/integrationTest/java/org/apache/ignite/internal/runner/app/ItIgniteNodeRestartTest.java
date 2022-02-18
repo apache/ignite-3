@@ -46,6 +46,7 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbRaftStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -206,14 +207,20 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
-        var cmgManager = new ClusterManagementGroupManager(clusterSvc, raftMgr, mock(RestComponent.class));
+        var cmgManager = new ClusterManagementGroupManager(
+                vault,
+                clusterSvc,
+                raftMgr,
+                mock(RestComponent.class),
+                new RocksDbRaftStorage(dir.resolve("cmg"))
+        );
 
         var metaStorageMgr = new MetaStorageManager(
                 vault,
                 clusterSvc,
                 cmgManager,
                 raftMgr,
-                new RocksDbKeyValueStorage(dir.resolve(Paths.get("metastorage")))
+                new RocksDbKeyValueStorage(dir.resolve("metastorage"))
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);

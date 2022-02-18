@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
-
-import java.util.Collection;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Test class for {@link ConcurrentMapRaftStorage}.
  */
-@Transferable(CmgMessageGroup.CMG_INIT)
-public interface CmgInitMessage extends NetworkMessage {
-    /**
-     * Consistent IDs of nodes that host the CMG.
-     */
-    Collection<String> cmgNodes();
-
-    Collection<String> metaStorageNodes();
+public class ConcurrentMapRaftStorageTest extends AbstractRaftStorageTest {
+    @Override
+    RaftStorage createStorage() {
+        return new ConcurrentMapRaftStorage();
+    }
 }

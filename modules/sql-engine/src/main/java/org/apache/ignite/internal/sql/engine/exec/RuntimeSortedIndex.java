@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -30,7 +29,6 @@ import java.util.function.Supplier;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -181,12 +179,6 @@ public class RuntimeSortedIndex<RowT> implements RuntimeIndex<RowT>, TreeIndex<R
         @Override
         public void close() throws Exception {
             // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        @NotNull public Iterator<RowT> iterator() {
-            return this;
         }
     }
 

@@ -15,19 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import java.util.Collection;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Message for initializing the Meta Storage.
+ * Command sent by a node that wants to enter the logical topology.
  */
-@Transferable(CmgMessageGroup.CLUSTER_STATE)
-public interface ClusterStateMessage extends NetworkMessage {
+public class NodeJoinCommand implements WriteCommand {
+    private final ClusterNode node;
+
     /**
-     * Consistent IDs of nodes that host the Meta Storage.
+     * Creates a new command.
+     *
+     * @param node Node that wants to enter the logical topology.
      */
-    Collection<String> metastorageNodes();
+    public NodeJoinCommand(ClusterNode node) {
+        this.node = node;
+    }
+
+    /**
+     * Returns the node that wants to enter the logical topology.
+     *
+     * @return Node that wants to enter the logical topology.
+     */
+    public ClusterNode node() {
+        return node;
+    }
 }

@@ -38,7 +38,8 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbRaftStorage;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -109,6 +110,11 @@ public class IgniteImpl implements Ignite {
      * Path to the persistent storage used by the {@link MetaStorageManager} component.
      */
     private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
+
+    /**
+     * Path to the persistent storage used by the {@link ClusterManagementGroupManager} component.
+     */
+    private static final Path CMG_DB_PATH = Paths.get("cmg");
 
     /**
      * Path for the partitions persistent storage.
@@ -228,7 +234,13 @@ public class IgniteImpl implements Ignite {
 
         txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
-        cmgMgr = new ClusterManagementGroupManager(clusterSvc, raftMgr, restComponent);
+        cmgMgr = new ClusterManagementGroupManager(
+                vaultMgr,
+                clusterSvc,
+                raftMgr,
+                restComponent,
+                new RocksDbRaftStorage(workDir.resolve(CMG_DB_PATH))
+        );
 
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,

@@ -15,18 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management.raft.responses;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import java.io.Serializable;
+import java.util.Collection;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Message signaling that the init process has failed and needs to be aborted.
+ * Response containing the current logical topology.
  */
-@Transferable(CmgMessageGroup.CANCEL_INIT)
-public interface CancelInitMessage extends NetworkMessage {
+public class LogicalTopologyResponse implements Serializable {
+    private final Collection<ClusterNode> topology;
+
     /**
-     * Textual representation of the cause of init failure.
+     * Creates a new response.
+     *
+     * @param topology Logical topology.
      */
-    String reason();
+    public LogicalTopologyResponse(Collection<ClusterNode> topology) {
+        this.topology = topology;
+    }
+
+    /**
+     * Returns the logical topology.
+     *
+     * @return Logical topology.
+     */
+    public Collection<ClusterNode> logicalTopology() {
+        return topology;
+    }
 }

@@ -15,37 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Message Group for cluster initialization and CMG management.
+ * Command that gets executed when a node needs to be removed from the logical topology.
  */
-@MessageGroup(groupType = 7, groupName = "CmgMessages")
-public class CmgMessageGroup {
-    /**
-     * Message type for {@link CmgInitMessage}.
-     */
-    public static final short CMG_INIT = 1;
+public class NodeLeaveCommand implements WriteCommand {
+    private final ClusterNode node;
 
     /**
-     * Message type for {@link ClusterStateMessage}.
+     * Creates a new command.
+     *
+     * @param node Node that needs to be removed from the logical topology.
      */
-    public static final short CLUSTER_STATE = 2;
+    public NodeLeaveCommand(ClusterNode node) {
+        this.node = node;
+    }
 
     /**
-     * Message type for {@link InitCompleteMessage}.
+     * Returns the node that needs to be removed from the logical topology.
+     *
+     * @return Node that needs to be removed from the logical topology.
      */
-    public static final short INIT_COMPLETE = 3;
-
-    /**
-     * Message type for {@link InitErrorMessage}.
-     */
-    public static final short INIT_ERROR = 4;
-
-    /**
-     * Message type for {@link CancelInitMessage}.
-     */
-    public static final short CANCEL_INIT = 5;
+    public ClusterNode node() {
+        return node;
+    }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.runner.app;
+package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,13 +51,17 @@ public class ItClusterInitTest extends IgniteAbstractTest {
      */
     @Test
     void testDoubleInit(TestInfo testInfo) throws NodeStoppingException {
-        createCluster(testInfo, 1);
+        createCluster(testInfo, 2);
 
         IgniteImpl node = nodes.get(0);
 
         node.init(List.of(node.name()));
 
-        assertThrows(IgniteInternalException.class, () -> node.init(List.of(node.name())));
+        // init is idempotent
+        node.init(List.of(node.name()));
+
+        // init should fail if the list of nodes is different
+        assertThrows(IgniteInternalException.class, () -> node.init(List.of(nodes.get(1).name())));
     }
 
     /**

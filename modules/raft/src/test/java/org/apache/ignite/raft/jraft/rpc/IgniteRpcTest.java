@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -67,8 +66,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
         ClusterService service = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 endpoint.getPort(),
-                new StaticNodeFinder(Collections.emptyList()),
-                new TestScaleCubeClusterServiceFactory()
+                new StaticNodeFinder(Collections.emptyList())
         );
 
         NodeOptions nodeOptions = new NodeOptions();
@@ -95,8 +93,7 @@ public class IgniteRpcTest extends AbstractRpcTest {
         ClusterService service = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 endpoint.getPort() - i,
-                new StaticNodeFinder(List.of(addressFromEndpoint(endpoint))),
-                new TestScaleCubeClusterServiceFactory()
+                new StaticNodeFinder(List.of(addressFromEndpoint(endpoint)))
         );
 
         IgniteRpcClient client = new IgniteRpcClient(service) {

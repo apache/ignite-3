@@ -340,12 +340,6 @@ class ItScaleCubeNetworkMessagingTest {
         bob.topologyService().addEventHandler(new TopologyEventHandler() {
             /** {@inheritDoc} */
             @Override
-            public void onAppeared(ClusterNode member) {
-                // No-op.
-            }
-
-            /** {@inheritDoc} */
-            @Override
             public void onDisappeared(ClusterNode member) {
                 if (aliceName.equals(member.name())) {
                     aliceShutdownLatch.countDown();
@@ -398,9 +392,6 @@ class ItScaleCubeNetworkMessagingTest {
      * Wrapper for a cluster.
      */
     private static final class Cluster {
-        /** Network factory. */
-        private final TestScaleCubeClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
-
         /** Members of the cluster. */
         final List<ClusterService> members;
 
@@ -443,12 +434,7 @@ class ItScaleCubeNetworkMessagingTest {
         private ClusterService startNode(
                 TestInfo testInfo, NetworkAddress addr, boolean initial
         ) {
-            ClusterService clusterSvc = ClusterServiceTestUtils.clusterService(
-                    testInfo,
-                    addr.port(),
-                    nodeFinder,
-                    networkFactory
-            );
+            ClusterService clusterSvc = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
 
             if (initial) {
                 clusterSvc.topologyService().addEventHandler(new TopologyEventHandler() {
@@ -456,11 +442,6 @@ class ItScaleCubeNetworkMessagingTest {
                     @Override
                     public void onAppeared(ClusterNode member) {
                         startupLatch.countDown();
-                    }
-
-                    /** {@inheritDoc} */
-                    @Override
-                    public void onDisappeared(ClusterNode member) {
                     }
                 });
             }

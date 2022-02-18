@@ -44,12 +44,7 @@ public class ItClusterServiceTest {
     void testShutdown(TestInfo testInfo) {
         var addr = new NetworkAddress("localhost", 10000);
 
-        ClusterService service = clusterService(
-                testInfo,
-                addr.port(),
-                new StaticNodeFinder(List.of(addr)),
-                new TestScaleCubeClusterServiceFactory()
-        );
+        ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
         service.start();
 

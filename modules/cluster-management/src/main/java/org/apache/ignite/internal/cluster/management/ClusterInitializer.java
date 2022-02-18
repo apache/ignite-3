@@ -23,11 +23,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.cluster.management.messages.InitCompleteMessage;
-import org.apache.ignite.internal.cluster.management.messages.InitErrorMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -51,10 +51,10 @@ public class ClusterInitializer {
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage. Cannot be empty.
-     * @param cmgNodeNames names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
      * metaStorageNodeNames} will be used instead.
-     * @return future that resolves into leader node IDs if completed successfully.
+     * @return Future that represents the state of the operation.
      */
     public CompletableFuture<Void> initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
         try {

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -49,9 +50,6 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"node\": {\n"
-            + "    \"metastorageNodes\":[ {} ]\n"
-            + "  },\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
@@ -73,21 +71,21 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
      * @param testInfo Test information oject.
      */
     @BeforeEach
-    void startNodes(TestInfo testInfo) {
-        //TODO: IGNITE-16034 Here we assume that Metastore consists of one node, and it starts first.
-        String metastorageNodes = '\"' + IgniteTestUtils.testNodeName(testInfo, 0) + '\"';
-
+    void startNodes(TestInfo testInfo) throws NodeStoppingException {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         for (int i = 0; i < nodes(); i++) {
             String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
 
             clusterNodes.add(IgnitionManager.start(curNodeName, IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
-                    metastorageNodes,
                     BASE_PORT + i,
                     connectNodeAddr
             ), WORK_DIR.resolve(curNodeName)));
         }
+
+        IgniteImpl metaStorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metaStorageNode.init(List.of(metaStorageNode.name()));
     }
 
     /**

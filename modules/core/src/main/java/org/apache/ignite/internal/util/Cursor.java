@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.util;
 
 import java.util.Iterator;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * Closeable cursor.
@@ -60,5 +62,14 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
                 return it.next();
             }
         };
+    }
+
+    /**
+     * Returns a sequential Stream over the elements covered by this cursor.
+     *
+     * @return Sequential Stream over the elements covered by this cursor.
+     */
+    default Stream<T> stream() {
+        return StreamSupport.stream(spliterator(), false);
     }
 }

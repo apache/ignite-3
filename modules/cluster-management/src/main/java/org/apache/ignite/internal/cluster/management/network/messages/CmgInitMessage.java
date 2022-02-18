@@ -15,18 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
+import java.util.Collection;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Message that represents an error condition that has occurred during cluster initialization.
+ * Message for initializing the Cluster Management Group.
  */
-@Transferable(CmgMessageGroup.INIT_ERROR)
-public interface InitErrorMessage extends NetworkMessage {
+@Transferable(CmgMessageGroup.CMG_INIT)
+public interface CmgInitMessage extends NetworkMessage {
     /**
-     * Text representation of the occurred error.
+     * Consistent IDs of nodes that host the CMG.
      */
-    String cause();
+    Collection<String> cmgNodes();
+
+    /**
+     * Consistent IDs of nodes that host the Meta Storage.
+     */
+    Collection<String> metaStorageNodes();
 }

@@ -511,6 +511,13 @@
             <!-- Test dependencies -->
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-cluster-management</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-configuration</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>

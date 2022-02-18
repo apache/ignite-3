@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
@@ -98,11 +97,5 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
     @Override
     public ResultSetMetadata metadata() {
         return cur.metadata();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Iterator<T> iterator() {
-        return cur.iterator();
     }
 }
