@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -35,8 +41,10 @@ import org.apache.ignite.internal.metastorage.client.Operations;
 import org.apache.ignite.internal.metastorage.client.SimpleCondition;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -99,6 +107,10 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private final AtomicLong changeId = new AtomicLong(0L);
 
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg"));
+
+    private final InFlightFutures futureTracker = new InFlightFutures();
+
     /**
      * Constructor.
      *
@@ -111,88 +123,100 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         this.vaultMgr = vaultMgr;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public Map<String, Serializable> readAllLatest(String prefix) {
-        var data = new HashMap<String, Serializable>();
+    public void close() throws Exception {
+        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
-        var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
-
-        var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
-
-        try (Cursor<Entry> entries = metaStorageMgr.range(rangeStart, rangeEnd)) {
-            for (Entry entry : entries) {
-                ByteArray key = entry.key();
-                byte[] value = entry.value();
-
-                if (entry.tombstone()) {
-                    continue;
-                }
-
-                // Meta Storage should not return nulls as values
-                assert value != null;
-
-                if (key.equals(MASTER_KEY)) {
-                    continue;
-                }
-
-                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
-
-                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
-            }
-        } catch (Exception e) {
-            throw new StorageException("Exception when closing a Meta Storage cursor", e);
-        }
-
-        return data;
+        futureTracker.cancelInFlightFutures();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Serializable readLatest(String key) throws StorageException {
-        try {
-            Entry entry = metaStorageMgr.get(new ByteArray(DISTRIBUTED_PREFIX + key)).join();
+    public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
+        return registerFuture(supplyAsync(() -> {
+            var data = new HashMap<String, Serializable>();
 
-            return entry.value() == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value());
-        } catch (Exception e) {
-            throw new StorageException("Exception while reading data from Meta Storage", e);
-        }
+            var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
+
+            var rangeEnd = new ByteArray(incrementLastChar(DISTRIBUTED_PREFIX + prefix));
+
+            try (Cursor<Entry> entries = metaStorageMgr.range(rangeStart, rangeEnd)) {
+                for (Entry entry : entries) {
+                    ByteArray key = entry.key();
+                    byte[] value = entry.value();
+
+                    if (entry.tombstone()) {
+                        continue;
+                    }
+
+                    // Meta Storage should not return nulls as values
+                    assert value != null;
+
+                    if (key.equals(MASTER_KEY)) {
+                        continue;
+                    }
+
+                    String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+
+                    data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
+                }
+            } catch (Exception e) {
+                throw new StorageException("Exception when closing a Meta Storage cursor", e);
+            }
+
+            return data;
+        }, threadPool));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Data readAll() throws StorageException {
-        var data = new HashMap<String, Serializable>();
+    public CompletableFuture<Serializable> readLatest(String key) {
+        return metaStorageMgr.get(new ByteArray(DISTRIBUTED_PREFIX + key))
+                .thenApply(entry -> {
+                    byte[] value = entry.value();
 
-        VaultEntry appliedRevEntry = vaultMgr.get(MetaStorageManager.APPLIED_REV).join();
+                    return value == null ? null : ConfigurationSerializationUtil.fromBytes(value);
+                })
+                .exceptionally(e -> {
+                    throw new StorageException("Exception while reading data from Meta Storage", e);
+                });
+    }
 
-        long appliedRevision = appliedRevEntry.value() == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Data> readAll() throws StorageException {
+        return registerFuture(vaultMgr.get(MetaStorageManager.APPLIED_REV)
+                .thenApplyAsync(appliedRevEntry -> {
+                    long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
-        try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
-            for (VaultEntry entry : entries) {
-                ByteArray key = entry.key();
-                byte[] value = entry.value();
+                    var data = new HashMap<String, Serializable>();
 
-                // vault iterator should not return nulls as values
-                assert value != null;
+                    try (Cursor<VaultEntry> entries = storedDistributedConfigKeys()) {
+                        for (VaultEntry entry : entries) {
+                            ByteArray key = entry.key();
+                            byte[] value = entry.value();
 
-                if (key.equals(MASTER_KEY)) {
-                    continue;
-                }
+                            // vault iterator should not return nulls as values
+                            assert value != null;
 
-                String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
+                            if (key.equals(MASTER_KEY)) {
+                                continue;
+                            }
 
-                data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
-            }
-        } catch (Exception e) {
-            throw new StorageException("Exception when closing a Vault cursor", e);
-        }
+                            String dataKey = key.toString().substring(DISTRIBUTED_PREFIX.length());
 
-        assert data.isEmpty() || appliedRevision > 0;
+                            data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
+                        }
+                    } catch (Exception e) {
+                        throw new StorageException("Exception when closing a Vault cursor", e);
+                    }
 
-        changeId.set(data.isEmpty() ? 0 : appliedRevision);
+                    assert data.isEmpty() || appliedRevision > 0;
 
-        return new Data(data, appliedRevision);
+                    changeId.set(data.isEmpty() ? 0 : appliedRevision);
+
+                    return new Data(data, appliedRevision);
+                }, threadPool));
     }
 
     /** {@inheritDoc} */
@@ -324,7 +348,6 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      *
      * @return Iterator built upon all distributed configuration entries stored in vault.
      */
-    @NotNull
     private Cursor<VaultEntry> storedDistributedConfigKeys() {
         return vaultMgr.range(DST_KEYS_START_RANGE, DST_KEYS_END_RANGE);
     }
@@ -336,5 +359,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         char lastChar = str.charAt(str.length() - 1);
 
         return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
+    }
+
+    private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {
+        futureTracker.registerFuture(future);
+
+        return future;
     }
 }

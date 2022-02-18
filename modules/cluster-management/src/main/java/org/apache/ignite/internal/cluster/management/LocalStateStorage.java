@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 
@@ -46,8 +45,7 @@ class LocalStateStorage {
      */
     CompletableFuture<Collection<String>> cmgNodeNames() {
         return vault.get(CMG_NODES_VAULT_KEY)
-                .thenApply(VaultEntry::value)
-                .thenApply(value -> value == null ? List.of() : (Collection<String>) ByteUtils.fromBytes(value));
+                .thenApply(entry -> entry == null ? List.of() : (Collection<String>) ByteUtils.fromBytes(entry.value()));
     }
 
     /**

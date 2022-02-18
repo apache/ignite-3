@@ -96,7 +96,7 @@ public class ConfigurationPresentationTest {
      * After all.
      */
     @AfterAll
-    static void afterAll() {
+    static void afterAll() throws Exception {
         cfgRegistry.stop();
         cfgRegistry = null;
 
