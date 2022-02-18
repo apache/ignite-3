@@ -49,6 +49,9 @@ public interface BinaryRow {
     /** Key chunk field offset. */
     int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + HASH_FLD_SIZE;
 
+    /** Size of chunk header (offset for nullmap or vartable or data). */
+    int CHUNK_HEADER_SIZE = CHUNK_LEN_FLD_SIZE + FLAGS_FLD_SIZE;
+
     /** Row header size. */
     int HEADER_SIZE = KEY_CHUNK_OFFSET;
 

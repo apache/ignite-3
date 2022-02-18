@@ -53,10 +53,6 @@ abstract class VarTableFormat {
      * @return Vartable format helper.
      */
     static VarTableFormat format(int payloadLen, int vartblSize) {
-        if (vartblSize == 0) {
-            return SKIPPED;
-        }
-
         if (payloadLen > 0) {
             if (payloadLen < 256 && vartblSize < 256) {
                 return TINY;
@@ -185,7 +181,7 @@ abstract class VarTableFormat {
         /** {@inheritDoc} */
         @Override
         int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
-            return 0;
+            throw new IllegalStateException("Offset must be calculated by chunk when vartable is skipped");
         }
 
         /** {@inheritDoc} */
@@ -197,7 +193,7 @@ abstract class VarTableFormat {
         /** {@inheritDoc} */
         @Override
         public int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entres) {
-            return 0;
+            throw new IllegalStateException("Skipped vartable must not be compacted");
         }
     }
 

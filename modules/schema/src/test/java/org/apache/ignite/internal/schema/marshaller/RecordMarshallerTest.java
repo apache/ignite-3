@@ -422,7 +422,7 @@ public class RecordMarshallerTest {
     private Column[] keyColumns() {
         return new Column[]{
                 new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                new Column("intCol".toUpperCase(), INT32, true)
+                new Column("intCol".toUpperCase(), INT32, false)
         };
     }
 
@@ -526,6 +526,8 @@ public class RecordMarshallerTest {
 
         static TestTruncatedObject randomObject(Random rnd) {
             final TestTruncatedObject obj = new TestTruncatedObject();
+
+            obj.intCol = rnd.nextInt();
 
             obj.primitiveIntCol = rnd.nextInt();
             obj.primitiveLongCol = rnd.nextLong();

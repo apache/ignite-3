@@ -567,9 +567,7 @@ public class Row implements BinaryRow, SchemaAware {
 
         int dataOffset = varTableOffset(chunkBaseOff, nullMapLen);
 
-        if (format != null) {
-            dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
-        }
+        dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
 
         return type.fixedLength()
                 ? fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0) :
@@ -677,7 +675,7 @@ public class Row implements BinaryRow, SchemaAware {
             int off = cols.numberOfFixsizeColumns() == 0 ? dataOff
                     : fixedSizeColumnOffset(baseOff, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0);
 
-            long len = format != null
+            long len = format != VarTableFormat.SKIPPED
                     ?
                     // Length is either diff between current offset and next varlen offset or end-of-chunk.
                     dataOff + format.readVarlenOffset(row, varTableOffset(baseOff, nullMapLen), 0) - off :
@@ -724,7 +722,7 @@ public class Row implements BinaryRow, SchemaAware {
      * @return Vartable offset.
      */
     private int varTableOffset(int baseOff, int nullMapLen) {
-        return baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + BinaryRow.FLAGS_FLD_SIZE + nullMapLen;
+        return baseOff + BinaryRow.CHUNK_HEADER_SIZE + nullMapLen;
     }
 
     /**
@@ -738,7 +736,7 @@ public class Row implements BinaryRow, SchemaAware {
         int nullByte = idx >> 3; // Equivalent expression for: idx / 8
         int posInByte = idx & 7; // Equivalent expression for: idx % 8
 
-        int map = row.readByte(baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + nullByte) & 0xFF;
+        int map = row.readByte(baseOff + BinaryRow.CHUNK_HEADER_SIZE + nullByte) & 0xFF;
 
         return (map & (1 << posInByte)) != 0;
     }

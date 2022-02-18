@@ -145,7 +145,7 @@ public class SchemaDescriptorConverterTest {
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(1, tblDscr.keyColumns().length());
-        testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, nullable);
+        testCol(tblDscr.keyColumns(), "ID", NativeTypeSpec.UUID, false);
 
         assertEquals(columns - 1, tblDscr.valueColumns().length());
         testCol(tblDscr.valueColumns(), "INT8", NativeTypeSpec.INT8, nullable);
@@ -177,7 +177,7 @@ public class SchemaDescriptorConverterTest {
 
         TableDefinitionBuilder res = SchemaBuilders.tableBuilder("SCHEMA", "TABLE")
                 .columns(
-                        postProcess.apply(SchemaBuilders.column("ID", ColumnType.UUID)),
+                        SchemaBuilders.column("ID", ColumnType.UUID).build(),
                         postProcess.apply(SchemaBuilders.column("INT8", ColumnType.INT8)),
                         postProcess.apply(SchemaBuilders.column("INT16", ColumnType.INT16)),
                         postProcess.apply(SchemaBuilders.column("INT32", ColumnType.INT32)),

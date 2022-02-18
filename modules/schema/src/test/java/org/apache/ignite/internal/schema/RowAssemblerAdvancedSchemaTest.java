@@ -198,10 +198,10 @@ public class RowAssemblerAdvancedSchemaTest {
     public void mixedTypes() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column("keyCol1", INT8, true),
-                        new Column("keyCol1", INT16, true),
-                        new Column("keyCol2", BYTES, true),
-                        new Column("keyCol3", STRING, true)
+                        new Column("keyCol1", INT8, false),
+                        new Column("keyCol1", INT16, false),
+                        new Column("keyCol2", BYTES, false),
+                        new Column("keyCol3", STRING, false)
                 },
                 new Column[]{
                         new Column("valCol1", INT8, true),
@@ -218,8 +218,8 @@ public class RowAssemblerAdvancedSchemaTest {
                 new RowAssembler(schema, 0, 2)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
-                        .appendNull()
-                        .appendNull()
+                        .appendBytes(new byte[]{})
+                        .appendString("")
                         .appendNull()
                         .appendNull()
                         .appendBytes(new byte[]{77, -88})
@@ -233,7 +233,7 @@ public class RowAssemblerAdvancedSchemaTest {
                         21, 0, 0, 0, 1, 1, 4, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
                         15, 0, 0, 0, 2, 1, 3, 55, 77, -88, 97, 115, 99, 105, 105},
                 new RowAssembler(schema, 2, 2)
-                        .appendNull()
+                        .appendByte((byte) 11)
                         .appendShort((short) 22)
                         .appendBytes(new byte[]{33, -44})
                         .appendString("我愛Java")
@@ -252,7 +252,7 @@ public class RowAssemblerAdvancedSchemaTest {
                 new RowAssembler(schema, 1, 1)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
-                        .appendNull()
+                        .appendBytes(new byte[]{33, -44})
                         .appendString("我愛Java")
                         .appendByte((byte) 55)
                         .appendShort((short) 22)
@@ -268,8 +268,8 @@ public class RowAssemblerAdvancedSchemaTest {
                         9, 0, 0, 0, 9, 22, 0, 77, -88},
                 new RowAssembler(schema, 1, 1)
                         .appendByte((byte) 11)
-                        .appendNull()
-                        .appendNull()
+                        .appendShort((short) 22)
+                        .appendBytes(new byte[]{33, -44})
                         .appendString("我愛Java")
                         .appendNull()
                         .appendShort((short) 22)
