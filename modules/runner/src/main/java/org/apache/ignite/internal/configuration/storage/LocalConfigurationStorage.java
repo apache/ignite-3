@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
@@ -56,6 +63,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** End key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_END_RANGE = ByteArray.fromString(incrementLastChar(LOC_PREFIX));
 
+    private final ExecutorService threadPool = Executors.newCachedThreadPool(new NamedThreadFactory("loc-cfg"));
+
     /**
      * Constructor.
      *
@@ -65,58 +74,60 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         this.vaultMgr = vaultMgr;
     }
 
+    @Override
+    public void close() throws Exception {
+        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
+    }
+
     /** {@inheritDoc} */
     @Override
-    public synchronized Map<String, ? extends Serializable> readAllLatest(String prefix) {
+    public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
         var rangeStart = new ByteArray(LOC_PREFIX + prefix);
 
         var rangeEnd = new ByteArray(incrementLastChar(LOC_PREFIX + prefix));
 
-        return readAll(rangeStart, rangeEnd).values();
+        return readAll(rangeStart, rangeEnd).thenApply(Data::values);
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized Serializable readLatest(String key) throws StorageException {
-        try {
-            VaultEntry vaultEntry = vaultMgr.get(new ByteArray(LOC_PREFIX + key)).join();
-
-            return vaultEntry.empty() ? null : ConfigurationSerializationUtil.fromBytes(vaultEntry.value());
-        } catch (Exception e) {
-            throw new StorageException("Exception while reading vault entry", e);
-        }
+    public CompletableFuture<Serializable> readLatest(String key) {
+        return vaultMgr.get(new ByteArray(LOC_PREFIX + key))
+                .thenApply(entry -> entry == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized Data readAll() throws StorageException {
+    public CompletableFuture<Data> readAll() {
         return readAll(LOC_KEYS_START_RANGE, LOC_KEYS_END_RANGE);
     }
 
     /**
      * Retrieves all data, which keys lie in between {@code [rangeStart, rangeEnd)}.
      */
-    private Data readAll(ByteArray rangeStart, ByteArray rangeEnd) {
-        var data = new HashMap<String, Serializable>();
+    private CompletableFuture<Data> readAll(ByteArray rangeStart, ByteArray rangeEnd) {
+        return supplyAsync(() -> {
+            var data = new HashMap<String, Serializable>();
 
-        try (Cursor<VaultEntry> cursor = vaultMgr.range(rangeStart, rangeEnd)) {
-            for (VaultEntry entry : cursor) {
-                String key = entry.key().toString().substring(LOC_PREFIX.length());
+            try (Cursor<VaultEntry> cursor = vaultMgr.range(rangeStart, rangeEnd)) {
+                for (VaultEntry entry : cursor) {
+                    String key = entry.key().toString().substring(LOC_PREFIX.length());
 
-                byte[] value = entry.value();
+                    byte[] value = entry.value();
 
-                // vault iterator should not return nulls as values
-                assert value != null;
+                    // vault iterator should not return nulls as values
+                    assert value != null;
 
-                data.put(key, ConfigurationSerializationUtil.fromBytes(value));
+                    data.put(key, ConfigurationSerializationUtil.fromBytes(value));
+                }
+            } catch (Exception e) {
+                throw new StorageException("Exception when closing a Vault cursor", e);
             }
-        } catch (Exception e) {
-            throw new StorageException("Exception when closing a Vault cursor", e);
-        }
 
-        // TODO: Need to restore version from pds when restart will be developed
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
-        return new Data(data, ver.get());
+            // TODO: Need to restore version from pds when restart will be developed
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
+            return new Data(data, ver.get());
+        }, threadPool);
     }
 
     /** {@inheritDoc} */

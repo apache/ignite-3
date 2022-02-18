@@ -19,57 +19,61 @@ package org.apache.ignite.internal.vault;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Defines interface for accessing to a vault service.
+ * Defines interface for accessing to the Vault service.
  */
-public interface VaultService extends AutoCloseable, IgniteComponent {
+public interface VaultService extends AutoCloseable {
+    /**
+     * Starts the service.
+     */
+    void start();
+
     /**
      * Retrieves an entry for the given key.
      *
-     * @param key Key. Couldn't be {@code null}.
-     * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key}, then {@code Entry}
-     *      with value that equals to null will be returned.
+     * @param key Key. Cannot be {@code null}.
+     * @return Future that resolves into an entry for the given key, or {@code null} no such mapping exists.
      */
-    @NotNull CompletableFuture<VaultEntry> get(@NotNull ByteArray key);
+    CompletableFuture<VaultEntry> get(ByteArray key);
 
     /**
-     * Write value with key to vault. If value is equal to null, then previous value with key will be deleted if there was any mapping.
+     * Writes a given value to the Vault. If the value is {@code null}, then the previous value under the same key (if any) will
+     * be deleted.
      *
-     * @param key Vault key. Couldn't be {@code null}.
-     * @param val Value. If value is equal to null, then previous value with key will be deleted if there was any mapping.
-     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     * @param key Vault key. Cannot be {@code null}.
+     * @param val Value. If value is equal to {@code null}, then the previous value under the same key (if any) will
+     *      be deleted.
+     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    @NotNull CompletableFuture<Void> put(@NotNull ByteArray key, byte @Nullable [] val);
+    CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val);
 
     /**
-     * Remove value with key from vault.
+     * Removes a value from the vault.
      *
-     * @param key Vault key. Couldn't be {@code null}.
-     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     * @param key Vault key. Cannot be {@code null}.
+     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    @NotNull CompletableFuture<Void> remove(@NotNull ByteArray key);
+    CompletableFuture<Void> remove(ByteArray key);
 
     /**
-     * Returns a view of the portion of vault whose keys range from fromKey, inclusive, to toKey, exclusive.
+     * Returns a view of the portion of the vault whose keys range from {@code fromKey}, inclusive, to {@code toKey}, exclusive.
      *
-     * @param fromKey Start key of range (inclusive). Couldn't be {@code null}.
-     * @param toKey   End key of range (exclusive). Could be {@code null}.
+     * @param fromKey Start key of range (inclusive). Cannot be {@code null}.
+     * @param toKey End key of range (exclusive). Cannot be {@code null}.
      * @return Iterator built upon entries corresponding to the given range.
      */
-    @NotNull Cursor<VaultEntry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey);
+    Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey);
 
     /**
-     * Inserts or updates entries with given keys and given values. If the given value in {@code vals} is null, then corresponding value
-     * with key will be deleted if there was any mapping.
+     * Inserts or updates entries with given keys and given values. If a given value in {@code vals} is {@code null},
+     * then the corresponding key will be deleted.
      *
-     * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
-     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     * @param vals The map of keys and corresponding values. Cannot be {@code null}.
+     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals);
+    CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals);
 }

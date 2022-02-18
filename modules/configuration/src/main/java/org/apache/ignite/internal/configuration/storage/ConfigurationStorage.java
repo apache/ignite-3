@@ -26,32 +26,29 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Common interface for configuration storage.
  */
-public interface ConfigurationStorage {
+public interface ConfigurationStorage extends AutoCloseable {
     /**
      * Read all configuration values and current storage version.
      *
-     * @return Values and version.
-     * @throws StorageException If failed to retrieve data.
+     * @return Future that resolves into extracted values and version or a {@link StorageException} if the data could not be read.
      */
-    Data readAll() throws StorageException;
+    CompletableFuture<Data> readAll();
 
     /**
      * Retrieves the most recent values which keys start with the given prefix, regardless of the current storage version.
      *
      * @param prefix Key prefix.
-     * @return Storage data (keys and values).
-     * @throws StorageException If failed to retrieve data.
+     * @return Future that resolves into extracted values or a {@link StorageException} if the data could not be read.
      */
-    Map<String, ? extends Serializable> readAllLatest(String prefix) throws StorageException;
+    CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix);
 
     /**
      * Retrieves the most recent value associated with the key, regardless of the current storage version.
      *
      * @param key Key.
-     * @return Value from the storage.
-     * @throws StorageException If failed to retrieve data.
+     * @return Future that resolves into extracted value or a {@link StorageException} if the data could not be read.
      */
-    Serializable readLatest(String key) throws StorageException;
+    CompletableFuture<Serializable> readLatest(String key);
 
     /**
      * Write key-value pairs into the storage with last known version.

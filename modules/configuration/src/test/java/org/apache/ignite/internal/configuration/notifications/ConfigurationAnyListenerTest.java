@@ -228,7 +228,7 @@ public class ConfigurationAnyListenerTest {
     }
 
     @AfterEach
-    public void after() {
+    public void after() throws Exception {
         registry.stop();
     }
 

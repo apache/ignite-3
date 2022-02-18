@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ConfigurationRegistryTest {
     @Test
-    void testValidationInternalConfigurationExtensions() {
+    void testValidationInternalConfigurationExtensions() throws Exception {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new ConfigurationRegistry(
@@ -68,7 +68,7 @@ public class ConfigurationRegistryTest {
     }
 
     @Test
-    void testValidationPolymorphicConfigurationExtensions() {
+    void testValidationPolymorphicConfigurationExtensions() throws Exception {
         // There is a polymorphic extension that is missing from the schema.
         assertThrows(
                 IllegalArgumentException.class,
