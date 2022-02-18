@@ -539,7 +539,8 @@ public class Row implements BinaryRow, SchemaAware {
             chunkBaseOff = KEY_CHUNK_OFFSET;
 
             flags = keyFlags();
-        } else {        // Adjust the column index according to the number of key columns.
+        } else {
+            // Adjust the column index according to the number of key columns.
             if (!hasValue()) {
                 throw new IllegalStateException("Row has no value.");
             }
