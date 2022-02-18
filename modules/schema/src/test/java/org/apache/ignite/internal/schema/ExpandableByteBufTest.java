@@ -128,6 +128,11 @@ public class ExpandableByteBufTest {
         b.get(bytes);
 
         assertArrayEquals(targetBytes, bytes);
+
+        b.position(34);
+        b.get(bytes);
+
+        assertEquals(targetStr, new String(bytes, StandardCharsets.UTF_8));
     }
 
     /**
