@@ -68,9 +68,6 @@ public class ExpandableByteBufTest {
                     buf.putDouble(0, 1d);
                     break;
 
-                case UUID:
-                    break;
-
                 case STRING:
                     String targetStr = String.valueOf(new char[strLen]);
                     try {
