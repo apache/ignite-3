@@ -145,11 +145,9 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void pojoWithFieldsOfAllTypes(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = columnsAllTypes();
+        SchemaDescriptor schema = new SchemaDescriptor(1, columnsAllTypes(false), columnsAllTypes(true));
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
-
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomObject(rnd);
+        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomKey(rnd);
         final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
 
         KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
@@ -181,7 +179,7 @@ public class KvMarshallerTest {
                 new Column("uuidCol".toUpperCase(), UUID, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes());
+        SchemaDescriptor schema = new SchemaDescriptor(1, cols, columnsAllTypes(true));
         KvMarshaller<TestTruncatedObject, TestTruncatedObject> marshaller =
                 factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class);
 
@@ -206,7 +204,7 @@ public class KvMarshallerTest {
         Column[] cols = new Column[]{
                 new Column("primitiveLongCol".toUpperCase(), INT64, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
-                new Column("stringCol".toUpperCase(), STRING, true),
+                new Column("stringCol".toUpperCase(), STRING, false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -289,12 +287,16 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithWrongFieldType(MarshallerFactory factory) {
-        Column[] cols = new Column[]{
+        Column[] keyCols = new Column[]{
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), false),
+                new Column("shortCol".toUpperCase(), UUID, false)
+        };
+        Column[] valCols = new Column[]{
                 new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
                 new Column("shortCol".toUpperCase(), UUID, true)
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
 
         KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
                 factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
@@ -335,7 +337,7 @@ public class KvMarshallerTest {
     public void classWithIncorrectBitmaskSize(MarshallerFactory factory) {
         Column[] cols = new Column[]{
                 new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), true),
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(9), false),
         };
 
         SchemaDescriptor schema = new SchemaDescriptor(1, cols, cols);
@@ -622,7 +624,7 @@ public class KvMarshallerTest {
                 .defineClass(classDef, Object.class);
     }
 
-    private Column[] columnsAllTypes() {
+    private Column[] columnsAllTypes(boolean nullable) {
         Column[] cols = new Column[]{
                 new Column("primitiveByteCol".toUpperCase(), INT8, false, () -> (byte) 0x42),
                 new Column("primitiveShortCol".toUpperCase(), INT16, false, () -> (short) 0x4242),
@@ -631,26 +633,26 @@ public class KvMarshallerTest {
                 new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
 
-                new Column("byteCol".toUpperCase(), INT8, true),
-                new Column("shortCol".toUpperCase(), INT16, true),
-                new Column("intCol".toUpperCase(), INT32, true),
-                new Column("longCol".toUpperCase(), INT64, true),
-                new Column("nullLongCol".toUpperCase(), INT64, true),
-                new Column("floatCol".toUpperCase(), FLOAT, true),
-                new Column("doubleCol".toUpperCase(), DOUBLE, true),
+                new Column("byteCol".toUpperCase(), INT8, nullable),
+                new Column("shortCol".toUpperCase(), INT16, nullable),
+                new Column("intCol".toUpperCase(), INT32, nullable),
+                new Column("longCol".toUpperCase(), INT64, nullable),
+                new Column("nullLongCol".toUpperCase(), INT64, nullable),
+                new Column("floatCol".toUpperCase(), FLOAT, nullable),
+                new Column("doubleCol".toUpperCase(), DOUBLE, nullable),
 
-                new Column("dateCol".toUpperCase(), DATE, true),
-                new Column("timeCol".toUpperCase(), time(), true),
-                new Column("dateTimeCol".toUpperCase(), datetime(), true),
-                new Column("timestampCol".toUpperCase(), timestamp(), true),
+                new Column("dateCol".toUpperCase(), DATE, nullable),
+                new Column("timeCol".toUpperCase(), time(), nullable),
+                new Column("dateTimeCol".toUpperCase(), datetime(), nullable),
+                new Column("timestampCol".toUpperCase(), timestamp(), nullable),
 
-                new Column("uuidCol".toUpperCase(), UUID, true),
-                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), true),
-                new Column("stringCol".toUpperCase(), STRING, true),
-                new Column("nullBytesCol".toUpperCase(), BYTES, true),
-                new Column("bytesCol".toUpperCase(), BYTES, true),
-                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), true),
-                new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), true),
+                new Column("uuidCol".toUpperCase(), UUID, nullable),
+                new Column("bitmaskCol".toUpperCase(), NativeTypes.bitmaskOf(42), nullable),
+                new Column("stringCol".toUpperCase(), STRING, nullable),
+                new Column("nullBytesCol".toUpperCase(), BYTES, nullable),
+                new Column("bytesCol".toUpperCase(), BYTES, nullable),
+                new Column("numberCol".toUpperCase(), NativeTypes.numberOf(12), nullable),
+                new Column("decimalCol".toUpperCase(), NativeTypes.decimalOf(19, 3), nullable),
         };
         // Validate all types are tested.
         Set<NativeTypeSpec> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())

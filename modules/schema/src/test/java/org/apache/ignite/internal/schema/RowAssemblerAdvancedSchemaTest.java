@@ -39,9 +39,7 @@ public class RowAssemblerAdvancedSchemaTest {
     public void fixedNullableColumns() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column("keyCol2", INT8, true),
-                        new Column("keyCol1", INT16, true),
-                        new Column("keyCol3", INT32, true)
+                        new Column("keyCol", INT8, false),
                 },
                 new Column[]{
                         new Column("valCol2", INT8, true),
@@ -51,11 +49,9 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // Last col null
         assertRowBytesEquals(
-                new byte[]{42, 0, 0, -120, -33, 125, 61, -59, 8, 0, 0, 0, 4, 11, 22, 0, 8, 0, 0, 0, 4, -44, -66, -1},
+                new byte[]{42, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22, 9, 0, 0, 0, 0, 4, -44, -66, -1},
                 new RowAssembler(schema, 0, 0)
-                        .appendByte((byte) 11)
-                        .appendShort((short) 22)
-                        .appendNull()
+                        .appendByte((byte) 22)
                         .appendByte((byte) -44)
                         .appendShort((short) -66)
                         .appendNull()
@@ -63,11 +59,9 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // First col null.
         assertRowBytesEquals(
-                new byte[]{42, 0, 0, -120, 16, 127, 101, 23, 11, 0, 0, 0, 1, 22, 0, 33, 0, 0, 0, 11, 0, 0, 0, 1, -55, -1, -66, -1, -1, -1},
+                new byte[]{42, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22, 12, 0, 0, 0, 0, 1, -55, -1, -66, -1, -1, -1},
                 new RowAssembler(schema, 0, 0)
-                        .appendNull()
-                        .appendShort((byte) 22)
-                        .appendInt(33)
+                        .appendByte((byte) 22)
                         .appendNull()
                         .appendShort((short) -55)
                         .appendInt(-66)
@@ -75,33 +69,27 @@ public class RowAssemblerAdvancedSchemaTest {
 
         // Middle col null.
         assertRowBytesEquals(
-                new byte[]{42, 0, 0, -120, 118, -103, 67, -88, 10, 0, 0, 0, 2, 11, 33, 0, 0, 0, 10, 0, 0, 0, 2, -44, -66, -1, -1, -1},
+                new byte[]{42, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22, 11, 0, 0, 0, 0, 2, -44, -66, -1, -1, -1},
                 new RowAssembler(schema, 0, 0)
-                        .appendByte((byte) 11)
-                        .appendNull()
-                        .appendInt(33)
+                        .appendByte((byte) 22)
                         .appendByte((byte) -44)
                         .appendNull()
                         .appendInt(-66)
                         .toBytes());
 
-        // Null both.
-        assertRowBytesEquals(new byte[]{42, 0, 0, -120, 32, 107, -95, -27, 5, 0, 0, 0, 7, 5, 0, 0, 0, 7},
+        // All null.
+        assertRowBytesEquals(new byte[]{42, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22, 6, 0, 0, 0, 0, 7},
                 new RowAssembler(schema, 0, 0)
-                        .appendNull()
-                        .appendNull()
-                        .appendNull()
+                        .appendByte((byte) 22)
                         .appendNull()
                         .appendNull()
                         .appendNull()
                         .toBytes());
 
         // No value.
-        assertRowBytesEquals(new byte[]{42, 0, 1, 8, -36, 35, -107, -93, 12, 0, 0, 0, 0, 11, 22, 0, 33, 0, 0, 0},
+        assertRowBytesEquals(new byte[]{0, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22},
                 new RowAssembler(schema, 0, 0)
-                        .appendByte((byte) 11)
-                        .appendShort((short) 22)
-                        .appendInt(33)
+                        .appendByte((byte) 22)
                         .toBytes());
     }
 
@@ -112,9 +100,7 @@ public class RowAssemblerAdvancedSchemaTest {
     public void varlenNullableColumns() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column("keyCol1", STRING, true),
-                        new Column("keyCol2", BYTES, true),
-                        new Column("keyCol3", STRING, true)
+                        new Column("keyCol", INT8, false),
                 },
                 new Column[]{
                         new Column("valCol1", STRING, true),
@@ -125,13 +111,11 @@ public class RowAssemblerAdvancedSchemaTest {
         // Last col null
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, 17, 61, 77, -80, -16,
-                        15, 0, 0, 0, 4, 1, 3, 33, -77, 120, 97, 115, 99, 105, 105,
-                        19, 0, 0, 0, 4, 1, 2, 33, -77, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97},
-                new RowAssembler(schema, 2, 2)
-                        .appendBytes(new byte[]{33, -77, 120})
-                        .appendString("ascii")
-                        .appendNull()
+                        42, 0, 125, 64, 31, -9,
+                        6, 0, 0, 0, 0, 22,
+                        20, 0, 0, 0, 1, 4, 1, 2, 33, -77, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97},
+                new RowAssembler(schema, 0, 2)
+                        .appendByte((byte) 22)
                         .appendBytes(new byte[]{33, -77})
                         .appendString("我愛Java")
                         .appendNull()
@@ -140,13 +124,11 @@ public class RowAssemblerAdvancedSchemaTest {
         // Fist col null.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, 17, 0, 64, 66, -87,
-                        22, 0, 0, 0, 1, 1, 5, 97, 115, 99, 105, 105, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                        22, 0, 0, 0, 1, 1, 10, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
-                new RowAssembler(schema, 2, 2)
-                        .appendNull()
-                        .appendString("ascii")
-                        .appendString("我愛Java")
+                        42, 0, 125, 64, 31, -9,
+                        6, 0, 0, 0, 0, 22,
+                        23, 0, 0, 0, 1, 1, 1, 10, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
+                new RowAssembler(schema, 0, 2)
+                        .appendByte((byte) 22)
                         .appendNull()
                         .appendString("我愛Java")
                         .appendString("ascii")
@@ -155,39 +137,30 @@ public class RowAssemblerAdvancedSchemaTest {
         // Middle col null.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, 17, -25, 3, 9, 42,
-                        20, 0, 0, 0, 2, 1, 3, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                        14, 0, 0, 0, 2, 1, 2, 33, -77, 97, 115, 99, 105, 105},
-                new RowAssembler(schema, 2, 2)
-                        .appendBytes(new byte[]{33, -77, 120})
-                        .appendNull()
-                        .appendString("我愛Java")
+                        42, 0, 125, 64, 31, -9,
+                        6, 0, 0, 0, 0, 22,
+                        15, 0, 0, 0, 1, 2, 1, 2, 33, -77, 97, 115, 99, 105, 105},
+                new RowAssembler(schema, 0, 2)
+                        .appendByte((byte) 22)
                         .appendBytes(new byte[]{33, -77})
                         .appendNull()
                         .appendString("ascii")
                         .toBytes());
 
-        // Null both.
+        // All null.
         assertRowBytesEquals(
-                new byte[]{42, 0, 0, -120, 32, 107, -95, -27, 5, 0, 0, 0, 7, 5, 0, 0, 0, 7},
+                new byte[]{42, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22, 6, 0, 0, 0, 0, 7},
                 new RowAssembler(schema, 0, 0)
-                        .appendNull()
-                        .appendNull()
-                        .appendNull()
+                        .appendByte((byte) 22)
                         .appendNull()
                         .appendNull()
                         .appendNull()
                         .toBytes());
 
         // No value.
-        assertRowBytesEquals(
-                new byte[]{
-                        42, 0, 1, 1, 88, -7, -74, 65,
-                        26, 0, 0, 0, 0, 2, 3, 13, 33, -77, 120, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97, 97, 115, 99, 105, 105},
-                new RowAssembler(schema, 3, 0)
-                        .appendBytes(new byte[]{33, -77, 120})
-                        .appendString("我愛Java")
-                        .appendString("ascii")
+        assertRowBytesEquals(new byte[]{0, 0, 125, 64, 31, -9, 6, 0, 0, 0, 0, 22},
+                new RowAssembler(schema, 0, 0)
+                        .appendByte((byte) 22)
                         .toBytes());
     }
 
@@ -230,9 +203,9 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check null/non-null fixlen.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, 17, -38, 25, 105, 63,
-                        21, 0, 0, 0, 1, 1, 4, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                        15, 0, 0, 0, 2, 1, 3, 55, 77, -88, 97, 115, 99, 105, 105},
+                        42, 0, 121, 23, 75, 100,
+                        22, 0, 0, 0, 1, 1, 5, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                        16, 0, 0, 0, 1, 2, 1, 3, 55, 77, -88, 97, 115, 99, 105, 105},
                 new RowAssembler(schema, 2, 2)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
@@ -247,10 +220,10 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check null/non-null varlen.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, -120, -100, -126, 68, -19,
-                        18, 0, 0, 0, 4, 11, 22, 0, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                        10, 0, 0, 0, 8, 55, 22, 0, 77, -88},
-                new RowAssembler(schema, 1, 1)
+                        42, 0, 121, 23, 75, 100,
+                        22, 0, 0, 0, 1, 1, 5, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                        11, 0, 0, 0, 0, 8, 55, 22, 0, 77, -88},
+                new RowAssembler(schema, 2, 1)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
                         .appendBytes(new byte[]{33, -44})
@@ -264,10 +237,10 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check null/non-null mixed.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, -120, -73, -70, 36, -16,
-                        16, 0, 0, 0, 6, 11, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                        9, 0, 0, 0, 9, 22, 0, 77, -88},
-                new RowAssembler(schema, 1, 1)
+                        42, 0, 121, 23, 75, 100,
+                        22, 0, 0, 0, 1, 1, 5, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                        10, 0, 0, 0, 0, 9, 22, 0, 77, -88},
+                new RowAssembler(schema, 2, 1)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
                         .appendBytes(new byte[]{33, -44})
@@ -281,9 +254,9 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check all null/non-null.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, -127, -4, -82, 126, -69,
-                        22, 0, 0, 0, 0, 1, 5, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
-                        5, 0, 0, 0, 15},
+                        42, 0, 121, 23, 75, 100,
+                        22, 0, 0, 0, 1, 1, 5, 11, 22, 0, 33, -44, -26, -120, -111, -26, -124, -101, 74, 97, 118, 97,
+                        6, 0, 0, 0, 0, 15},
                 new RowAssembler(schema, 2, 0)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
