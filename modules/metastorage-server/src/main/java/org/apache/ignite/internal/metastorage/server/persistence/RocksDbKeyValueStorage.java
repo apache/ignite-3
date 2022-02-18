@@ -100,7 +100,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     private static final String TMP_SUFFIX = ".tmp";
 
     /** A revision to store with system entries. */
-    private static final long SYSTEM_REVISION_MARKER_VALUE = -1;
+    private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
     /** Revision key. */
     private static final byte[] REVISION_KEY = keyToRocksKey(

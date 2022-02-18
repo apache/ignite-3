@@ -1913,7 +1913,6 @@ public abstract class AbstractKeyValueStorageTest {
 
             fail();
         } catch (NoSuchElementException e) {
-            System.out.println();
             // No-op.
         }
 
@@ -1951,8 +1950,45 @@ public abstract class AbstractKeyValueStorageTest {
 
             fail();
         } catch (NoSuchElementException e) {
-            System.out.println();
             // No-op.
+        }
+    }
+
+    @Test
+    public void watchCursorLexicographicTest() {
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        byte[] key = key(0);
+        byte[] val = keyValue(0, 0);
+
+        int count = 1000; // Exceeds 1 byte
+
+        for (int i = 0; i < count; i++) {
+            storage.put(key, val);
+        }
+
+        assertEquals(count, storage.revision());
+        assertEquals(count, storage.updateCounter());
+
+        Cursor<WatchEvent> cur = storage.watch(key, 1);
+
+        Iterator<WatchEvent> it = cur.iterator();
+
+        int i = 1;
+
+        while (it.hasNext()) {
+            WatchEvent event = it.next();
+
+            assertTrue(event.single());
+
+            Entry entry = event.entryEvent().entry();
+
+            byte[] entryKey = entry.key();
+
+            assertEquals(i++, entry.revision());
+
+            assertArrayEquals(key, entryKey);
         }
     }
 
@@ -2165,6 +2201,63 @@ public abstract class AbstractKeyValueStorageTest {
         assertArrayEquals(val1_2, newEntry1.value());
 
         assertFalse(it.hasNext());
+    }
+
+    @Test
+    public void watchCursorForKeySkipNonMatchingEntries() {
+        byte[] key1 = key(1);
+        final byte[] val1_1 = keyValue(1, 11);
+        final byte[] val1_2 = keyValue(1, 12);
+
+        final byte[] key2 = key(2);
+        final byte[] val2 = keyValue(2, 21);
+
+        assertEquals(0, storage.revision());
+        assertEquals(0, storage.updateCounter());
+
+        Cursor<WatchEvent> cur = storage.watch(key2, 1);
+
+        Iterator<WatchEvent> it = cur.iterator();
+
+        assertFalse(it.hasNext());
+        assertNull(it.next());
+
+        storage.put(key1, val1_1);
+
+        assertFalse(it.hasNext());
+        assertNull(it.next());
+
+        storage.put(key1, val1_2);
+
+        assertFalse(it.hasNext());
+        assertNull(it.next());
+
+        storage.put(key2, val2);
+
+        assertEquals(3, storage.revision());
+        assertEquals(3, storage.updateCounter());
+
+        assertTrue(it.hasNext());
+
+        WatchEvent watchEvent = it.next();
+
+        assertTrue(watchEvent.single());
+
+        EntryEvent e1 = watchEvent.entryEvent();
+
+        Entry oldEntry1 = e1.oldEntry();
+
+        assertTrue(oldEntry1.empty());
+        assertFalse(oldEntry1.tombstone());
+
+        Entry newEntry1 = e1.entry();
+
+        assertFalse(newEntry1.empty());
+        assertFalse(newEntry1.tombstone());
+        assertEquals(3, newEntry1.revision());
+        assertEquals(3, newEntry1.updateCounter());
+        assertArrayEquals(key2, newEntry1.key());
+        assertArrayEquals(val2, newEntry1.value());
     }
 
     @Test
