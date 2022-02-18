@@ -836,11 +836,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             return rowType.getFieldCount();
         }
 
-        @Override
-        public int keysCount() {
-            throw new IllegalAccessError("not implemented");
-        }
-
         /** {@inheritDoc} */
         @Override
         public boolean isGeneratedAlways(RelOptTable table, int idxColumn) {
