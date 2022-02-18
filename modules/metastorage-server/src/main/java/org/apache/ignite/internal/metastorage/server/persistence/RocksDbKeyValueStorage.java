@@ -53,8 +53,12 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Operation;
+import org.apache.ignite.internal.metastorage.server.Statement;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
+import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -606,21 +610,69 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
         rwLock.writeLock().lock();
 
-        try (WriteBatch batch = new WriteBatch()) {
-            Entry e = get(condition.key());
+        try {
+            Entry[] entries = getAll(Arrays.asList(condition.keys())).toArray(new Entry[]{});
 
-            boolean branch = condition.test(e);
+            boolean branch = condition.test(entries);
 
             Collection<Operation> ops = branch ? success : failure;
 
-            long curRev = rev + 1;
+            applyOperations(ops);
 
-            boolean modified = false;
+            return branch;
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
 
-            long counter = updCntr;
+    @Override
+    public StatementResult invoke(If iif) {
+        rwLock.writeLock().lock();
 
-            List<byte[]> updatedKeys = new ArrayList<>();
+        try {
+            If currIf = iif;
 
+            byte maximumNumOfNestedBranch = 100;
+
+            while (true) {
+                if (maximumNumOfNestedBranch-- <= 0) {
+                    throw new IgniteInternalException(
+                            "Too many nested (" + maximumNumOfNestedBranch + ") statements in multi-invoke command.");
+                }
+
+                Entry[] entries = getAll(Arrays.asList(currIf.cond().keys())).toArray(new Entry[]{});
+
+                Statement branch = (currIf.cond().test(entries)) ? currIf.andThen() : currIf.orElse();
+
+                if (branch.isTerminal()) {
+                    Update update = branch.update();
+
+                    applyOperations(update.operations());
+
+                    return update.result();
+                } else {
+                    currIf = branch.iif();
+                }
+            }
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    private void applyOperations(Collection<Operation> ops) throws RocksDBException {
+        long curRev = rev + 1;
+
+        boolean modified = false;
+
+        long counter = updCntr;
+
+        List<byte[]> updatedKeys = new ArrayList<>();
+
+        try (WriteBatch batch = new WriteBatch()) {
             for (Operation op : ops) {
                 byte[] key = op.key();
 
@@ -666,12 +718,6 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
                 fillAndWriteBatch(batch, curRev, counter);
             }
-
-            return branch;
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 

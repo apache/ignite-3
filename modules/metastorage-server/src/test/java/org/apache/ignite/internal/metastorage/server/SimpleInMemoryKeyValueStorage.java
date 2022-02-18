@@ -263,9 +263,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure) {
         synchronized (mux) {
-            Entry e = get(condition.key());
+            Collection<Entry> e = getAll(Arrays.asList(condition.keys()));
 
-            boolean branch = condition.test(e);
+            boolean branch = condition.test(e.toArray(new Entry[]{}));
 
             Collection<Operation> ops = branch ? success : failure;
 
@@ -300,6 +300,54 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             }
 
             return branch;
+        }
+    }
+
+    @Override
+    public StatementResult invoke(If iif) {
+        synchronized (mux) {
+            If currIf = iif;
+            while (true) {
+                Collection<Entry> e = getAll(Arrays.asList(currIf.cond().keys()));
+
+                Statement branch = (currIf.cond().test(e.toArray(new Entry[]{}))) ? currIf.andThen() : currIf.orElse();
+
+                if (branch.isTerminal()) {
+                    long curRev = rev + 1;
+
+                    boolean modified = false;
+
+                    for (Operation op : branch.update().operations()) {
+                        switch (op.type()) {
+                            case PUT:
+                                doPut(op.key(), op.value(), curRev);
+
+                                modified = true;
+
+                                break;
+
+                            case REMOVE:
+                                modified |= doRemove(op.key(), curRev);
+
+                                break;
+
+                            case NO_OP:
+                                break;
+
+                            default:
+                                throw new IllegalArgumentException("Unknown operation type: " + op.type());
+                        }
+                    }
+
+                    if (modified) {
+                        rev = curRev;
+                    }
+
+                    return branch.update().result();
+                } else {
+                    currIf = branch.iif();
+                }
+            }
         }
     }
 

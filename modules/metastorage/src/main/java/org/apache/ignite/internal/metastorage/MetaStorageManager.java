@@ -39,10 +39,12 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
+import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.MetaStorageService;
 import org.apache.ignite.internal.metastorage.client.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
+import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
@@ -679,6 +681,23 @@ public class MetaStorageManager implements IgniteComponent {
 
         try {
             return metaStorageSvcFut.thenCompose(svc -> svc.invoke(cond, success, failure));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Invoke, which supports nested conditional statements.
+     *
+     * @see MetaStorageService#invoke(org.apache.ignite.internal.metastorage.client.If)
+     */
+    public @NotNull CompletableFuture<StatementResult> invoke(@NotNull If iif) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return metaStorageSvcFut.thenCompose(svc -> svc.invoke(iif));
         } finally {
             busyLock.leaveBusy();
         }
