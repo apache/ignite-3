@@ -29,6 +29,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
+import org.apache.ignite.internal.metastorage.common.UpdateInfo;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -36,7 +40,9 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
+import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
@@ -44,6 +50,7 @@ import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
@@ -194,6 +201,13 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     /** {@inheritDoc} */
     @Override
+    public @NotNull CompletableFuture<StatementResult> invoke(@NotNull If iif) {
+        return metaStorageRaftGrpSvc.run(new MultiInvokeCommand(toIfInfo(iif)))
+                .thenApply(bi -> new StatementResult(((StatementResultInfo) bi).result()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public @NotNull Cursor<Entry> range(@NotNull ByteArray keyFrom, @Nullable ByteArray keyTo, long revUpperBound) {
         return new CursorImpl<>(
                 metaStorageRaftGrpSvc,
@@ -311,29 +325,54 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         return res;
     }
 
+    private static UpdateInfo toUpdateInfo(Update update) {
+        return new UpdateInfo(toOperationInfos(update.operations()), new StatementResultInfo(update.result().bytes()));
+    }
+
+    private static StatementInfo toIfBranchInfo(Statement statement) {
+        if (statement.isTerminal()) {
+            return new StatementInfo(toUpdateInfo(statement.update()));
+        } else {
+            return new StatementInfo(toIfInfo(statement.iif()));
+        }
+    }
+
+    private static IfInfo toIfInfo(If iif) {
+        return new IfInfo(toConditionInfo(iif.condition()), toIfBranchInfo(iif.andThen()), toIfBranchInfo(iif.orElse()));
+    }
+
     private static ConditionInfo toConditionInfo(@NotNull Condition condition) {
         ConditionInfo cnd = null;
+        if (condition instanceof SimpleCondition) {
+            Object obj = ((SimpleCondition) condition).inner();
 
-        Object obj = condition.inner();
+            if (obj instanceof SimpleCondition.ExistenceCondition) {
+                SimpleCondition.ExistenceCondition inner = (SimpleCondition.ExistenceCondition) obj;
 
-        if (obj instanceof Condition.ExistenceCondition) {
-            Condition.ExistenceCondition inner = (Condition.ExistenceCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, 0);
+            } else if (obj instanceof SimpleCondition.TombstoneCondition) {
+                SimpleCondition.TombstoneCondition inner = (SimpleCondition.TombstoneCondition) obj;
 
-            cnd = new ConditionInfo(inner.key(), inner.type(), null, 0);
-        } else if (obj instanceof Condition.TombstoneCondition) {
-            Condition.TombstoneCondition inner = (Condition.TombstoneCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, 0);
+            } else if (obj instanceof SimpleCondition.RevisionCondition) {
+                SimpleCondition.RevisionCondition inner = (SimpleCondition.RevisionCondition) obj;
 
-            cnd = new ConditionInfo(inner.key(), inner.type(), null, 0);
-        } else if (obj instanceof Condition.RevisionCondition) {
-            Condition.RevisionCondition inner = (Condition.RevisionCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), null, inner.revision());
+            } else if (obj instanceof SimpleCondition.ValueCondition) {
+                SimpleCondition.ValueCondition inner = (SimpleCondition.ValueCondition) obj;
 
-            cnd = new ConditionInfo(inner.key(), inner.type(), null, inner.revision());
-        } else if (obj instanceof Condition.ValueCondition) {
-            Condition.ValueCondition inner = (Condition.ValueCondition) obj;
+                cnd = new SimpleConditionInfo(inner.key(), inner.type(), inner.value(), 0);
+            } else {
+                assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
+            }
 
-            cnd = new ConditionInfo(inner.key(), inner.type(), inner.value(), 0);
+        } else if (condition instanceof CompoundCondition) {
+            CompoundCondition cond = (CompoundCondition) condition;
+
+            cnd = new CompoundConditionInfo(toConditionInfo(cond.leftCondition()), toConditionInfo(cond.rightCondition()),
+                    cond.compoundConditionType());
         } else {
-            assert false : "Unknown condition type: " + obj.getClass().getSimpleName();
+            assert false : "Unknown condition type: " + condition.getClass().getSimpleName();
         }
 
         return cnd;

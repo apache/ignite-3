@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -18,26 +18,43 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.util.Collection;
-import org.jetbrains.annotations.NotNull;
 
 /**
- * Defines interface for boolean condition which could be applied to an array of entries.
- *
- * @see KeyValueStorage#invoke(Condition, Collection, Collection)
+ * Simple operations + result wrapper to describe the terminal branch of {@link If} execution.
  */
-public interface Condition {
-    /**
-     * Returns the keys which identifies an entries which condition will be applied to.
-     *
-     * @return The keys which identifies an entries which condition will be applied to.
-     */
-    @NotNull byte[][] keys();
+public class Update {
+    /** Operations. */
+    private final Collection<Operation> ops;
+
+    /** Result. */
+    private final StatementResult result;
 
     /**
-     * Tests the given entries on condition.
+     * Constructs new update object.
      *
-     * @param entries Array of entries which will be tested on the condition. Can't be {@code null}.
-     * @return {@code True} if the given entries satisfies to the condition, otherwise - {@code false}.
+     * @param ops operations
+     * @param result result
      */
-    boolean test(@NotNull Entry... entries);
+    public Update(Collection<Operation> ops, StatementResult result) {
+        this.ops = ops;
+        this.result = result;
+    }
+
+    /**
+     * Returns operations.
+     *
+     * @return operations.
+     */
+    public Collection<Operation> operations() {
+        return ops;
+    }
+
+    /**
+     * Returns result.
+     *
+     * @return result.
+     */
+    public StatementResult result() {
+        return result;
+    }
 }

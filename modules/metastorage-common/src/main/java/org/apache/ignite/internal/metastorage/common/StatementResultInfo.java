@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,31 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.server;
+package org.apache.ignite.internal.metastorage.common;
 
-import org.jetbrains.annotations.NotNull;
+import java.io.Serializable;
 
 /**
- * An abstract condition which could be applied to an entry identified by the key.
+ * Simple result definition of statement execution, backed by byte[] array.
  */
-public abstract class AbstractCondition implements Condition {
-    /** Entry key. */
-    @NotNull
-    private final byte[] key;
+public class StatementResultInfo implements Serializable {
+    /** Result data. */
+    private final byte[] res;
 
     /**
-     * Constructs a condition with the given entry key.
+     * Constructs result definition from the byte array.
      *
-     * @param key Key identifies an entry which the condition will applied to.
+     * @param res byte array.
      */
-    public AbstractCondition(@NotNull byte[] key) {
-        this.key = key;
+    public StatementResultInfo(byte[] res) {
+        this.res = res;
     }
 
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public byte[] key() {
-        return key;
+    /**
+     * Returns result as row byte array.
+     *
+     * @return result as row byte array.
+     */
+    public byte[] result() {
+        return res;
     }
+
 }

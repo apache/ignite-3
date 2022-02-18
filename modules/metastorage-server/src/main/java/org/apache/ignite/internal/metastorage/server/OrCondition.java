@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,15 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.common.command;
-
-import java.io.Serializable;
+package org.apache.ignite.internal.metastorage.server;
 
 /**
- * Interface for condition definition.
- *
- * @see SimpleConditionInfo
- * @see CompoundConditionInfo
+ * Compound condition, which implements logical OR of left and right sub-condition.
  */
-public interface ConditionInfo extends Serializable {
+public class OrCondition extends AbstractCompoundCondition {
+    /**
+     * Constructs new or condition.
+     *
+     * @param leftCondition left condition.
+     * @param rightCondition right condition.
+     */
+    public OrCondition(Condition leftCondition, Condition rightCondition) {
+        super(leftCondition, rightCondition);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected boolean combine(boolean left, boolean right) {
+        return left || right;
+    }
 }

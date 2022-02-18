@@ -157,6 +157,17 @@ public interface KeyValueStorage extends AutoCloseable {
     boolean invoke(Condition condition, Collection<Operation> success, Collection<Operation> failure);
 
     /**
+     * Invoke, which supports nested conditional statements with left and right branches of execution.
+     *
+     * @param iif {@link If} statement to invoke
+     * @return execution result
+     *
+     * @see If
+     * @see StatementResult
+     */
+    @NotNull StatementResult invoke(@NotNull If iif);
+
+    /**
      * Returns cursor by entries which correspond to the given keys range.
      *
      * @param keyFrom Start key of range (inclusive).

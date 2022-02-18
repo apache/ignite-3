@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -17,13 +17,30 @@
 
 package org.apache.ignite.internal.metastorage.common.command;
 
-import java.io.Serializable;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Interface for condition definition.
- *
- * @see SimpleConditionInfo
- * @see CompoundConditionInfo
+ * Represents invoke command with nested conditions and execution branches.
  */
-public interface ConditionInfo extends Serializable {
+public class MultiInvokeCommand implements WriteCommand {
+    /** If statement to invoke. */
+    private final IfInfo iif;
+
+    /**
+     * Constructs new multi-invoke command.
+     *
+     * @param iif if statement.
+     */
+    public MultiInvokeCommand(IfInfo iif) {
+        this.iif = iif;
+    }
+
+    /**
+     * Returns if statement.
+     *
+     * @return if statement.
+     */
+    public IfInfo iif() {
+        return iif;
+    }
 }
