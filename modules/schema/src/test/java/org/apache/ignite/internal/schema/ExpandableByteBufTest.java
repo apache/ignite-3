@@ -79,6 +79,9 @@ public class ExpandableByteBufTest {
                         fail(e);
                     }
                     break;
+
+                default:
+                    // no op.
             }
 
             checkBufState(buf);

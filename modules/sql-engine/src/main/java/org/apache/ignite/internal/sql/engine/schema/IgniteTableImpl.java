@@ -35,7 +35,6 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelReferentialConstraint;
 import org.apache.calcite.rel.core.TableModify;
-import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
@@ -53,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -301,7 +301,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return new ModifyRow(rowAssembler.build(), ModifyRow.Operation.INSERT);
+        return new ModifyRow(rowAssembler.build(), Operation.INSERT_ROW);
     }
 
     private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
@@ -364,7 +364,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return new ModifyRow(rowAssembler.build(), ModifyRow.Operation.UPDATE);
+        return new ModifyRow(rowAssembler.build(), Operation.UPDATE_ROW);
     }
 
     private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
@@ -417,7 +417,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return new ModifyRow(rowAssembler.build(), ModifyRow.Operation.DELETE);
+        return new ModifyRow(rowAssembler.build(), Operation.DELETE_ROW);
     }
 
     private ColocationGroup partitionedGroup() {

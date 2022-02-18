@@ -21,6 +21,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 
 /** POJO to store row and modify operation. */
 public class ModifyRow {
+    /** Operation state representation. */
     public enum Operation {
         INSERT_ROW, UPDATE_ROW, DELETE_ROW
     }

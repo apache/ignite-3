@@ -680,7 +680,6 @@ public class RowTest {
                         break;
 
                     case TIME:
-
                         asm.appendTime((LocalTime) vals[i]);
                         break;
 
