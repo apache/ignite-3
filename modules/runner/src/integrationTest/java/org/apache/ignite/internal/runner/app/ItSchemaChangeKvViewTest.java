@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
 import org.apache.ignite.schema.SchemaBuilders;
