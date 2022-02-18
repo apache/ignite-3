@@ -248,20 +248,20 @@ public class ItBaselineManagerTest {
      */
     @Test
     void testSetBaseline() throws Exception {
-        assertThat(firstNode.baselineManager.nodes(), is(empty()));
+        assertThat(firstNode.baselineManager.baselineNodes(), is(empty()));
 
-        assertThat(secondNode.baselineManager.nodes(), is(empty()));
+        assertThat(secondNode.baselineManager.baselineNodes(), is(empty()));
 
         // set firstNode as a set of baseline nodes
         ClusterNode firstClusterNode = firstNode.clusterService.topologyService().localMember();
         firstNode.baselineManager.setBaseline(Set.of(firstClusterNode.name()));
 
-        assertThat(firstNode.baselineManager.nodes(), containsInAnyOrder(firstClusterNode));
+        assertThat(firstNode.baselineManager.baselineNodes(), containsInAnyOrder(firstClusterNode));
 
         // check that new baseline is available on a new node.
         assertTrue(waitForCondition(() -> {
             try {
-                return secondNode.baselineManager.nodes().equals(List.of(firstClusterNode));
+                return secondNode.baselineManager.baselineNodes().equals(List.of(firstClusterNode));
             } catch (NodeStoppingException e) {
                 fail();
             }
@@ -275,9 +275,9 @@ public class ItBaselineManagerTest {
      */
     @Test
     void testBaselineListener() throws Exception {
-        assertThat(firstNode.baselineManager.nodes(), is(empty()));
+        assertThat(firstNode.baselineManager.baselineNodes(), is(empty()));
 
-        assertThat(secondNode.baselineManager.nodes(), is(empty()));
+        assertThat(secondNode.baselineManager.baselineNodes(), is(empty()));
 
         ClusterNode firstClusterNode = firstNode.clusterService.topologyService().localMember();
 

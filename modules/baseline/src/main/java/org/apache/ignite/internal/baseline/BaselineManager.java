@@ -84,8 +84,19 @@ public class BaselineManager implements IgniteComponent {
      * Gets all nodes which participant in baseline and may process user data.
      *
      * @return All nodes which were in baseline.
+     * TODO: delete this when main functionality of the rebalance will be implemented
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-16011
      */
-    public Collection<ClusterNode> nodes() throws NodeStoppingException {
+    public Collection<ClusterNode> nodes() {
+        return clusterSvc.topologyService().allMembers();
+    }
+
+    /**
+     * Gets all nodes which participant in baseline and may process user data.
+     *
+     * @return All nodes which were in baseline.
+     */
+    public Collection<ClusterNode> baselineNodes() throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }

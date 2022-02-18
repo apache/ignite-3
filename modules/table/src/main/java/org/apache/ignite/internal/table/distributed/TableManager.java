@@ -710,36 +710,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     change.create(name, (ch) -> {
                                 tableInitChange.accept(ch);
 
-                                try {
-                                    ((ExtendedTableChange) ch)
-                                            // Affinity assignments calculation.
-                                            .changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
-                                                    baselineMgr.nodes(),
-                                                    ch.partitions(),
-                                                    ch.replicas())))
-                                            // Table schema preparation.
-                                            .changeSchemas(schemasCh -> schemasCh.create(
-                                                    String.valueOf(INITIAL_SCHEMA_VERSION),
-                                                    schemaCh -> {
-                                                        SchemaDescriptor schemaDesc;
+                                ((ExtendedTableChange) ch)
+                                        // Affinity assignments calculation.
+                                        .changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
+                                                baselineMgr.nodes(),
+                                                ch.partitions(),
+                                                ch.replicas())))
+                                        // Table schema preparation.
+                                        .changeSchemas(schemasCh -> schemasCh.create(
+                                                String.valueOf(INITIAL_SCHEMA_VERSION),
+                                                schemaCh -> {
+                                                    SchemaDescriptor schemaDesc;
 
-                                                        //TODO IGNITE-15747 Remove try-catch and force configuration
-                                                        // validation here to ensure a valid configuration passed to
-                                                        // prepareSchemaDescriptor() method.
-                                                        try {
-                                                            schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                                                    ((ExtendedTableView) ch).schemas().size(),
-                                                                    ch);
-                                                        } catch (IllegalArgumentException ex) {
-                                                            throw new ConfigurationValidationException(ex.getMessage());
-                                                        }
-
-                                                        schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                                                    //TODO IGNITE-15747 Remove try-catch and force configuration
+                                                    // validation here to ensure a valid configuration passed to
+                                                    // prepareSchemaDescriptor() method.
+                                                    try {
+                                                        schemaDesc = SchemaUtils.prepareSchemaDescriptor(
+                                                                ((ExtendedTableView) ch).schemas().size(),
+                                                                ch);
+                                                    } catch (IllegalArgumentException ex) {
+                                                        throw new ConfigurationValidationException(ex.getMessage());
                                                     }
-                                            ));
-                                } catch (NodeStoppingException e) {
-                                    throw new IgniteException(e);
-                                }
+
+                                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                                                }
+                                        ));
+
                             }
                     );
                 }).whenComplete((res, t) -> {
