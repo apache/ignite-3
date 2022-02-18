@@ -289,8 +289,6 @@ public class VersionedValue<T> {
         res.completeExceptionally(throwable);
     }
 
-    static IgniteLogger LOG = IgniteLogger.forClass(VersionedValue.class);
-
     /**
      * Should be called on a storage revision update. This also triggers completion of a future created for the given causality token. It
      * implies that all possible updates associated with this token have been already applied to the component.
@@ -299,8 +297,6 @@ public class VersionedValue<T> {
      */
     private void onStorageRevisionUpdate(long causalityToken) {
         long actualToken0 = actualToken;
-
-        LOG.info("Update token from {} to {}", actualToken0, causalityToken);
 
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
                 "New token should be greater than current [current={}, new={}]", actualToken0, causalityToken);
