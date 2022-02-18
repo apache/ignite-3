@@ -266,7 +266,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /** {@inheritDoc} */
     @Override
     public Charset getDefaultCharset() {
-        // Use JVM default charset rather then Calcite default charset (ISO-8859-1).
+        // Use JVM default charset rather than Calcite default charset (ISO-8859-1).
         Charset jvmDefault = Charset.defaultCharset();
 
         if (SqlUtil.translateCharacterSetName(jvmDefault.name().toUpperCase(Locale.ROOT)) == null) {

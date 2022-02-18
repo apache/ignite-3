@@ -16,10 +16,32 @@
  */
 
 /** Check correctness of query validations. */
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.sql.engine.planner;
 
-public class IgniteSqlValidatorTest {
-    
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTable;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.junit.jupiter.api.Test;
+
+public class IgniteSqlValidatorTest extends AbstractAggregatePlannerTest {
+    @Test
+    public void simple() throws Exception {
+        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "val0_val1");
+
+        IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
+
+        publicSchema.addTable("TEST", tbl);
+
+        String sql = "SELECT DISTINCT val0, val1 FROM test";
+
+        IgniteRel phys = physicalPlan(
+                sql,
+                publicSchema
+        );
+    }
+
     /*@Test
     public void testMergeKeysConflict() {
         sql("DROP TABLE IF EXISTS test1 ");
