@@ -108,4 +108,11 @@ public interface TableDescriptor extends RelProtoDataType, InitializerExpression
      * @return Actual count of columns.
      */
     int columnsCount();
+
+    /**
+     * Returns count of key columns in the table.
+     *
+     * @return Key columns count.
+     */
+    int keysCount();
 }
