@@ -257,17 +257,5 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
         assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
-
-        sql("DROP TABLE IF EXISTS test1 ");
-        sql("DROP TABLE IF EXISTS test2 ");
-        sql("CREATE TABLE test1 (k1 int, k2 int, a int, b int, CONSTRAINT PK PRIMARY KEY (k1, k2))");
-        sql("CREATE TABLE test2 (k1 int, k2 int, a int, b int, CONSTRAINT PK PRIMARY KEY (k1, k2))");
-
-        IgniteInternalException exi = assertThrows(IgniteInternalException.class, () -> sql(
-                "MERGE INTO test2 USING test1 ON test1.a = test2.a "
-                        + "WHEN MATCHED THEN UPDATE SET b = test1.b + 1 "
-                        + "WHEN NOT MATCHED THEN INSERT (k1, a, b) VALUES (0, a, b)"));
-
-        assertTrue(exi.getCause().getMessage().contains("Attempt to update primary keys partially."));
     }
 }
