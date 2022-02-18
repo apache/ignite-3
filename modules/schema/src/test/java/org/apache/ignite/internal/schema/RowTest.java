@@ -258,6 +258,31 @@ public class RowTest {
     }
 
     /**
+     * Check row serialization when all varlen columns are empty (zero size).
+     */
+    @Test
+    public void emptyVarlenColumns() {
+        Column[] keyCols = new Column[]{
+                new Column("keyInt8Col", INT8, false),
+                new Column("keyInt32Col", INT16, false),
+                new Column("keyBytesCol", BYTES, false),
+                new Column("keyStringCol", STRING, false),
+        };
+
+        Column[] valCols = new Column[]{
+                new Column("keyInt8Col", INT8, true),
+                new Column("valBytesCol", BYTES, true),
+                new Column("valStringCol", STRING, true),
+        };
+
+        SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
+
+        Object[] checkArr = new Object[]{(byte) 11, (short) 22, new byte[]{}, "", (byte) 78, new byte[]{}, ""};
+
+        checkValues(sch, checkArr);
+    }
+
+    /**
      * Check row serialization for a schema with large varlen columns (64Kb+).
      */
     @Test

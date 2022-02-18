@@ -213,9 +213,10 @@ public class RowAssemblerAdvancedSchemaTest {
         // Check null/non-null all fixlen/varlen.
         assertRowBytesEquals(
                 new byte[]{
-                        42, 0, 0, 24, 30, 38, -36, 31, 8, 0, 0, 0, 12, 11, 22, 0,
-                        14, 0, 0, 0, 3, 1, 2, 77, -88, 97, 115, 99, 105, 105},
-                new RowAssembler(schema, 0, 2)
+                        42, 0, -108, -41, -56, 26,
+                        10, 0, 0, 0, 1, 1, 3, 11, 22, 0,
+                        15, 0, 0, 0, 1, 3, 1, 2, 77, -88, 97, 115, 99, 105, 105},
+                new RowAssembler(schema, 2, 2)
                         .appendByte((byte) 11)
                         .appendShort((short) 22)
                         .appendBytes(new byte[]{})
