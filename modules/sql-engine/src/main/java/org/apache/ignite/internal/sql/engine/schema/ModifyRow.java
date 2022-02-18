@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.calcite.rel.core.TableModify;
 import org.apache.ignite.internal.schema.BinaryRow;
 
 /** POJO to store row and modify operation. */
 public class ModifyRow {
+    public enum Operation {
+        INSERT_ROW, UPDATE_ROW, DELETE_ROW
+    }
+
     private final BinaryRow row;
 
-    private final TableModify.Operation op;
+    private final Operation op;
 
-    public ModifyRow(BinaryRow row, TableModify.Operation op) {
+    public ModifyRow(BinaryRow row, Operation op) {
         this.row = row;
         this.op = op;
     }
@@ -35,7 +38,7 @@ public class ModifyRow {
         return row;
     }
 
-    public TableModify.Operation getOp() {
+    public Operation getOp() {
         return op;
     }
 }

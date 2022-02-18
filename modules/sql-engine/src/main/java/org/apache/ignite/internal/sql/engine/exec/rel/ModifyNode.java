@@ -192,8 +192,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     }
 
     /** Returns mapping of modifications per modification action. */
-    private Map<Operation, Collection<BinaryRow>> getOperationsPerAction(List<ModifyRow> rows) {
-        Map<Operation, Collection<BinaryRow>> store = new EnumMap<>(Operation.class);
+    private Map<ModifyRow.Operation, Collection<BinaryRow>> getOperationsPerAction(List<ModifyRow> rows) {
+        Map<ModifyRow.Operation, Collection<BinaryRow>> store = new EnumMap<>(ModifyRow.Operation.class);
 
         for (ModifyRow tuple : rows) {
             store.computeIfAbsent(tuple.getOp(), k -> new ArrayList<>()).add(tuple.getRow());
@@ -210,12 +210,12 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         List<ModifyRow> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
-        Map<Operation, Collection<BinaryRow>> operations = getOperationsPerAction(rows);
+        Map<ModifyRow.Operation, Collection<BinaryRow>> operations = getOperationsPerAction(rows);
 
         // TODO: IGNITE-15087 Implement support for transactional SQL
-        for (Map.Entry<Operation, Collection<BinaryRow>> op : operations.entrySet()) {
+        for (Map.Entry<ModifyRow.Operation, Collection<BinaryRow>> op : operations.entrySet()) {
             switch (op.getKey()) {
-                case INSERT:
+                case INSERT_ROW:
                     Collection<BinaryRow> conflictKeys = tableView.insertAll(op.getValue(), null).join();
 
                     if (!conflictKeys.isEmpty()) {
@@ -234,12 +234,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                     }
 
                     break;
-                case MERGE:
-                case UPDATE:
+                case UPDATE_ROW:
                     tableView.upsertAll(op.getValue(), null).join();
 
                     break;
-                case DELETE:
+                case DELETE_ROW:
                     tableView.deleteAll(op.getValue(), null).join();
 
                     break;
