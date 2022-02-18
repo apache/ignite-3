@@ -144,7 +144,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     public static final String CONC_DESTROY_MSG = "Tree is being concurrently destroyed: ";
 
     /** Number of repetitions to capture a lock in the B+Tree. */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+    // TODO: IGNITE-16350 Delete or move to configuration.
     public static final String IGNITE_BPLUS_TREE_LOCK_RETRIES = "IGNITE_BPLUS_TREE_LOCK_RETRIES";
 
     /** Number of retries. */
@@ -162,10 +162,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
     private boolean canGetRowFromInner;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+    // TODO: IGNITE-16350 Make it final.
     private IoVersions<? extends BplusInnerIo<L>> innerIos;
 
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+    // TODO: IGNITE-16350 Make it final.
     private IoVersions<? extends BplusLeafIo<L>> leafIos;
 
     private final AtomicLong globalRmvId;
@@ -927,7 +927,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     ) {
         super(name, grpId, grpName, pageMem, lockLsnr, defaultPageFlag);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO: IGNITE-16350 Move to config.
         minFill = 0f; // Testing worst case when merge happens only on empty page.
         maxFill = 0f; // Avoiding random effects on testing.
 
@@ -963,7 +963,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         assert innerIos != null;
         assert leafIos != null;
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-16350
+        // TODO IGNITE-16350 Refactor and make it always true.
         this.canGetRowFromInner = innerIos.latest().canGetRow();
         this.innerIos = innerIos;
         this.leafIos = leafIos;

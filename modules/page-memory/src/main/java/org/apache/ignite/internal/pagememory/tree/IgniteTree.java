@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <L> Type of keys maintained by this tree.
  * @param <T> Type of mapped values.
  */
+// TODO: IGNITE-16350 Check if the interface is needed and remove if not needed.
 public interface IgniteTree<L, T> {
     /**
      * Put value in this tree.
