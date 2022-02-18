@@ -36,7 +36,7 @@ public class Value {
      * Constructs value.
      *
      * @param bytes   Value bytes or {@code #TOMBSTONE}.
-     * @param updCntr Update cpunter.
+     * @param updCntr Update counter.
      */
     public Value(@NotNull byte[] bytes, long updCntr) {
         this.bytes = bytes;

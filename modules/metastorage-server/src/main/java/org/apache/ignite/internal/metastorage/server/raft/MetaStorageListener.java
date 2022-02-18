@@ -28,6 +28,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.metastorage.common.ConditionType;
+import org.apache.ignite.internal.metastorage.common.StatementInfo;
+import org.apache.ignite.internal.metastorage.common.StatementResultInfo;
+import org.apache.ignite.internal.metastorage.common.UpdateInfo;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionInfo;
+import org.apache.ignite.internal.metastorage.common.command.CompoundConditionType;
 import org.apache.ignite.internal.metastorage.common.command.ConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.GetAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndPutAllCommand;
@@ -35,7 +40,9 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
+import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
+import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultipleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.OperationInfo;
 import org.apache.ignite.internal.metastorage.common.command.PutAllCommand;
@@ -43,6 +50,7 @@ import org.apache.ignite.internal.metastorage.common.command.PutCommand;
 import org.apache.ignite.internal.metastorage.common.command.RangeCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.RemoveCommand;
+import org.apache.ignite.internal.metastorage.common.command.SimpleConditionInfo;
 import org.apache.ignite.internal.metastorage.common.command.SingleEntryResponse;
 import org.apache.ignite.internal.metastorage.common.command.WatchExactKeysCommand;
 import org.apache.ignite.internal.metastorage.common.command.WatchRangeKeysCommand;
@@ -50,14 +58,20 @@ import org.apache.ignite.internal.metastorage.common.command.cursor.CursorCloseC
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorHasNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorNextCommand;
 import org.apache.ignite.internal.metastorage.common.command.cursor.CursorsCloseCommand;
+import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
+import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.Operation;
+import org.apache.ignite.internal.metastorage.server.OrCondition;
 import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.Statement;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
+import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
@@ -224,6 +238,12 @@ public class MetaStorageListener implements RaftGroupListener {
                 );
 
                 clo.result(res);
+            } else if (command instanceof MultiInvokeCommand) {
+                MultiInvokeCommand cmd = (MultiInvokeCommand) command;
+
+                StatementResult res = storage.invoke(toIf(cmd.iif()));
+
+                clo.result(new StatementResultInfo(res.bytes()));
             } else if (command instanceof RangeCommand) {
                 RangeCommand rangeCmd = (RangeCommand) command;
 
@@ -397,35 +417,67 @@ public class MetaStorageListener implements RaftGroupListener {
         return storage;
     }
 
-    private static Condition toCondition(ConditionInfo info) {
-        byte[] key = info.key();
+    private static If toIf(IfInfo iif) {
+        return new If(toCondition(iif.cond()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
+    }
 
-        ConditionType type = info.type();
+    private static Update toUpdate(UpdateInfo updateInfo) {
+        return new Update(toOperations(new ArrayList<>(updateInfo.operations())), new StatementResult(updateInfo.result().result()));
+    }
 
-        if (type == ConditionType.KEY_EXISTS) {
-            return new ExistenceCondition(ExistenceCondition.Type.EXISTS, key);
-        } else if (type == ConditionType.KEY_NOT_EXISTS) {
-            return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key);
-        } else if (type == ConditionType.TOMBSTONE) {
-            return new TombstoneCondition(key);
-        } else if (type == ConditionType.VAL_EQUAL) {
-            return new ValueCondition(ValueCondition.Type.EQUAL, key, info.value());
-        } else if (type == ConditionType.VAL_NOT_EQUAL) {
-            return new ValueCondition(ValueCondition.Type.NOT_EQUAL, key, info.value());
-        } else if (type == ConditionType.REV_EQUAL) {
-            return new RevisionCondition(RevisionCondition.Type.EQUAL, key, info.revision());
-        } else if (type == ConditionType.REV_NOT_EQUAL) {
-            return new RevisionCondition(RevisionCondition.Type.NOT_EQUAL, key, info.revision());
-        } else if (type == ConditionType.REV_GREATER) {
-            return new RevisionCondition(RevisionCondition.Type.GREATER, key, info.revision());
-        } else if (type == ConditionType.REV_GREATER_OR_EQUAL) {
-            return new RevisionCondition(RevisionCondition.Type.GREATER_OR_EQUAL, key, info.revision());
-        } else if (type == ConditionType.REV_LESS) {
-            return new RevisionCondition(RevisionCondition.Type.LESS, key, info.revision());
-        } else if (type == ConditionType.REV_LESS_OR_EQUAL) {
-            return new RevisionCondition(RevisionCondition.Type.LESS_OR_EQUAL, key, info.revision());
+    private static Statement toConditionBranch(StatementInfo statementInfo) {
+        if (statementInfo.isTerminal()) {
+            return new Statement(toUpdate(statementInfo.update()));
         } else {
-            throw new IllegalArgumentException("Unknown condition type: " + type);
+            return new Statement(toIf(statementInfo.iif()));
+        }
+    }
+
+    private static Condition toCondition(ConditionInfo info) {
+        if (info instanceof SimpleConditionInfo) {
+            SimpleConditionInfo inf = (SimpleConditionInfo) info;
+            byte[] key = inf.key();
+
+            ConditionType type = inf.type();
+
+            if (type == ConditionType.KEY_EXISTS) {
+                return new ExistenceCondition(ExistenceCondition.Type.EXISTS, key);
+            } else if (type == ConditionType.KEY_NOT_EXISTS) {
+                return new ExistenceCondition(ExistenceCondition.Type.NOT_EXISTS, key);
+            } else if (type == ConditionType.TOMBSTONE) {
+                return new TombstoneCondition(key);
+            } else if (type == ConditionType.VAL_EQUAL) {
+                return new ValueCondition(ValueCondition.Type.EQUAL, key, inf.value());
+            } else if (type == ConditionType.VAL_NOT_EQUAL) {
+                return new ValueCondition(ValueCondition.Type.NOT_EQUAL, key, inf.value());
+            } else if (type == ConditionType.REV_EQUAL) {
+                return new RevisionCondition(RevisionCondition.Type.EQUAL, key, inf.revision());
+            } else if (type == ConditionType.REV_NOT_EQUAL) {
+                return new RevisionCondition(RevisionCondition.Type.NOT_EQUAL, key, inf.revision());
+            } else if (type == ConditionType.REV_GREATER) {
+                return new RevisionCondition(RevisionCondition.Type.GREATER, key, inf.revision());
+            } else if (type == ConditionType.REV_GREATER_OR_EQUAL) {
+                return new RevisionCondition(RevisionCondition.Type.GREATER_OR_EQUAL, key, inf.revision());
+            } else if (type == ConditionType.REV_LESS) {
+                return new RevisionCondition(RevisionCondition.Type.LESS, key, inf.revision());
+            } else if (type == ConditionType.REV_LESS_OR_EQUAL) {
+                return new RevisionCondition(RevisionCondition.Type.LESS_OR_EQUAL, key, inf.revision());
+            } else {
+                throw new IllegalArgumentException("Unknown condition type: " + type);
+            }
+        } else if (info instanceof CompoundConditionInfo) {
+            CompoundConditionInfo inf = (CompoundConditionInfo) info;
+
+            if (inf.type() == CompoundConditionType.AND) {
+                return new AndCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
+
+            } else if (inf.type() == CompoundConditionType.OR) {
+                return new OrCondition(toCondition(inf.leftConditionInfo()), toCondition(inf.rightConditionInfo()));
+            } else {
+                throw new IllegalArgumentException("Unknown compound condition " + inf.type());
+            }
+        } else {
+            throw new IllegalArgumentException("Unknown condition info type " + info);
         }
     }
 
