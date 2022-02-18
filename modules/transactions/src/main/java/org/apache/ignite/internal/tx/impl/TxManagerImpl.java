@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
@@ -79,7 +80,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      *
      * <p>TODO IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
      */
-    private final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -171,7 +172,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, BinaryRow row, Timestamp ts) {
         // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         TxState state = state(ts);
 
@@ -181,7 +182,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         // Should rollback tx on lock error.
-        LockKey key = new LockKey(lockId, keyData);
+        LockKey key = new LockKey(lockId, row);
 
         return lockManager.tryAcquire(key, ts)
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
@@ -189,7 +190,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, BinaryRow row, Timestamp ts) {
         TxState state = state(ts);
 
         if (state != null && state != TxState.PENDING) {
@@ -197,7 +198,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     "The operation is attempted for completed transaction"));
         }
 
-        LockKey key = new LockKey(lockId, keyData);
+        LockKey key = new LockKey(lockId, row);
 
         return lockManager.tryAcquireShared(key, ts)
                 .thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
@@ -287,12 +288,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /**
      * Lock key.
      */
-    private static class LockKey {
+    protected static class LockKey {
         /** The id. */
         private final IgniteUuid id;
 
+        private final BinaryRow row;
+
+        private final int keyHash;
+
         /** The key. */
-        private final ByteBuffer key;
+        private final ByteBuffer keySlice;
 
         /**
          * The constructor.
@@ -300,9 +305,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
          * @param id The id.
          * @param key The key.
          */
-        LockKey(IgniteUuid id, ByteBuffer key) {
+        LockKey(IgniteUuid id, BinaryRow row) {
             this.id = id;
-            this.key = key;
+            this.row = row;
+            this.keyHash = row.hash();
+            this.keySlice = row.keySlice();
+        }
+
+        public BinaryRow row() {
+            return row;
         }
 
         /** {@inheritDoc} */
@@ -315,13 +326,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 return false;
             }
             LockKey key1 = (LockKey) o;
-            return id.equals(key1.id) && key.equals(key1.key);
+            return id.equals(key1.id) && keyHash == key1.keyHash && keySlice.equals(key1.keySlice);
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(id, key);
+            return Objects.hash(id, keyHash);
         }
     }
 

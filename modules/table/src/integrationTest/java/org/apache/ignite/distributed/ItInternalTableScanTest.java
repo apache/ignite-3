@@ -160,7 +160,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager) {
+                new PartitionListener(0, tblId, new VersionedRowStore(mockStorage, txManager) {
                     @Override
                     protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp timestamp) {
                         return new Pair<>(new ByteBufferRow(row.valueBytes()), null); // Return as is.

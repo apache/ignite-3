@@ -17,23 +17,33 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.util.stream.Stream.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -41,10 +51,12 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.RowListener;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactCommand;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndDeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.GetAndReplaceCommand;
@@ -60,11 +72,13 @@ import org.apache.ignite.internal.table.distributed.command.response.MultiRowsRe
 import org.apache.ignite.internal.table.distributed.command.response.SingleRowResponse;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
+import org.apache.ignite.raft.client.WriteCommand;
 import org.apache.ignite.raft.client.service.CommandClosure;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -88,6 +102,8 @@ public class PartitionCommandListenerTest {
     /** Table command listener. */
     private PartitionListener commandListener;
 
+    private TxManager txManager;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -97,8 +113,9 @@ public class PartitionCommandListenerTest {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
-        commandListener = new PartitionListener(UUID.randomUUID(),
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(clusterService, new HeapLockManager())));
+        txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+        commandListener = new PartitionListener(0, UUID.randomUUID(),
+                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
     }
 
     /**
@@ -246,6 +263,160 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * The very simple case where two rows are inserted.
+     */
+    @Test
+    public void testTxFinish1() {
+        RowListener mock = mock(RowListener.class);
+
+        commandListener.rowListener(mock);
+
+        List<BinaryRow> rows = List.of(
+                getTestRow(0, 0),
+                getTestRow(1, 1)
+        );
+
+        Timestamp ts = txManager.begin().timestamp();
+
+        insertAll(ts, rows);
+        executeFinishTxCommand(new FinishTxCommand(ts, true, rows));
+
+        verify(mock).onUpdate(
+                isNull(),
+                argThat(arg -> Arrays.equals(rows.get(0).bytes(), arg.bytes())),
+                anyInt()
+        );
+        verify(mock).onUpdate(
+                isNull(),
+                argThat(arg -> Arrays.equals(rows.get(1).bytes(), arg.bytes())),
+                anyInt()
+        );
+        verifyNoMoreInteractions(mock);
+    }
+
+    /**
+     * A transaction contains rows which does not belong to the partition, so rowListener should not be invoked for them.
+     */
+    @Test
+    public void testTxFinish2() {
+        RowListener mock = mock(RowListener.class);
+
+        commandListener.rowListener(mock);
+
+        List<BinaryRow> rows = List.of(
+                getTestRow(0, 0),
+                getTestRow(1, 1)
+        );
+
+        Timestamp ts = txManager.begin().timestamp();
+
+        insertAll(ts, rows);
+        executeFinishTxCommand(new FinishTxCommand(ts, true, List.of(
+                getTestRow(1, 1),
+                getTestRow(2, 2)
+        )));
+
+        verify(mock).onUpdate(
+                isNull(),
+                argThat(arg -> Arrays.equals(getTestRow(1, 1).bytes(), arg.bytes())),
+                anyInt()
+        );
+        verifyNoMoreInteractions(mock);
+    }
+
+    /**
+     * A transaction updates rows which were inserted by another transaction, so we need to verify that proper oldRow will be passed to
+     * the listener.
+     */
+    @Test
+    public void testTxFinish3() {
+        RowListener mock = mock(RowListener.class);
+
+        commandListener.rowListener(mock);
+
+        insertAll(Timestamp.nextVersion(), List.of(getTestRow(0, 0)));
+
+        Timestamp ts = txManager.begin().timestamp();
+        List<BinaryRow> rows = List.of(
+                getTestRow(0, 10),
+                getTestRow(1, 1),
+                getTestRow(1, 11)
+        );
+        upsertAll(ts, rows);
+
+        executeFinishTxCommand(new FinishTxCommand(ts, true, List.of(
+                getTestRow(0, 10),
+                getTestRow(1, 11)
+        )));
+
+        // The 0th row was inserted by the previous transaction, thus we expect the oldRow argument is passed
+        verify(mock).onUpdate(
+                argThat(oldRow -> oldRow != null && Arrays.equals(getTestRow(0, 0).bytes(), oldRow.bytes())),
+                argThat(newRow -> Arrays.equals(getTestRow(0, 10).bytes(), newRow.bytes())),
+                anyInt()
+        );
+
+        // The 1th row were inserted and updated by the same transaction, thus we expect the oldRow argument is null, and the newRow
+        // argument is set to the latest value
+        verify(mock).onUpdate(
+                isNull(),
+                argThat(arg -> Arrays.equals(getTestRow(1, 11).bytes(), arg.bytes())),
+                anyInt()
+        );
+        verifyNoMoreInteractions(mock);
+    }
+
+    /**
+     * A row that have been inserted by another transaction is deleted by the current, so the listener should be notified.
+     */
+    @Test
+    public void testTxFinish4() {
+        RowListener mock = mock(RowListener.class);
+
+        commandListener.rowListener(mock);
+
+        List<BinaryRow> rows = List.of(
+                getTestRow(0, 0)
+        );
+
+        insertAll(Timestamp.nextVersion(), rows);
+
+        Timestamp ts = txManager.begin().timestamp();
+        deleteAll(ts, rows);
+
+        executeFinishTxCommand(new FinishTxCommand(ts, true, rows));
+
+        verify(mock).onRemove(
+                argThat(row -> Arrays.equals(rows.get(0).bytes(), row.bytes())),
+                anyInt()
+        );
+        verifyNoMoreInteractions(mock);
+    }
+
+    /**
+     * A row have been inserted and deleted by the same transaction, thus the listener should not be notified.
+     */
+    @Test
+    public void testTxFinish5() {
+        RowListener mock = mock(RowListener.class);
+
+        commandListener.rowListener(mock);
+
+        List<BinaryRow> rows = List.of(
+                getTestRow(0, 0)
+        );
+
+        Timestamp ts = txManager.begin().timestamp();
+
+        insertAll(ts, rows);
+        deleteAll(ts, rows);
+
+        executeFinishTxCommand(new FinishTxCommand(ts, true, rows));
+
+        verifyNoMoreInteractions(mock);
+    }
+
+    /**
      * Prepares a closure iterator for a specific batch operation.
      *
      * @param func The function prepare a closure for the operation.
@@ -345,6 +516,21 @@ public class PartitionCommandListenerTest {
     }
 
     /**
+     * Inserts the given rows with a given timestamp.
+     *
+     * @param ts The timestamp.
+     * @param rows The rows.
+     */
+    private void insertAll(Timestamp ts, Collection<BinaryRow> rows) {
+        var cmd = new InsertAllCommand(rows, ts);
+
+        CommandClosure<WriteCommand> clo = mock(CommandClosure.class);
+        when(clo.command()).thenReturn(cmd);
+
+        commandListener.onWrite(Stream.of(clo).iterator());
+    }
+
+    /**
      * Upserts values from the listener in the batch operation.
      */
     private void upsertAll() {
@@ -363,6 +549,21 @@ public class PartitionCommandListenerTest {
 
             when(clo.command()).thenReturn(new UpsertAllCommand(rows, Timestamp.nextVersion()));
         }));
+    }
+
+    /**
+     * Upserts the given rows with a given timestamp.
+     *
+     * @param ts The timestamp.
+     * @param rows The rows.
+     */
+    private void upsertAll(Timestamp ts, Collection<BinaryRow> rows) {
+        var cmd = new UpsertAllCommand(rows, ts);
+
+        CommandClosure<WriteCommand> clo = mock(CommandClosure.class);
+        when(clo.command()).thenReturn(cmd);
+
+        commandListener.onWrite(Stream.of(clo).iterator());
     }
 
     /**
@@ -400,6 +601,21 @@ public class PartitionCommandListenerTest {
 
             when(clo.command()).thenReturn(new DeleteAllCommand(keyRows, Timestamp.nextVersion()));
         }));
+    }
+
+    /**
+     * Deletes the given rows with a given timestamp.
+     *
+     * @param ts The timestamp.
+     * @param rows The rows.
+     */
+    private void deleteAll(Timestamp ts, Collection<BinaryRow> rows) {
+        var cmd = new DeleteAllCommand(rows, ts);
+
+        CommandClosure<WriteCommand> clo = mock(CommandClosure.class);
+        when(clo.command()).thenReturn(cmd);
+
+        commandListener.onWrite(Stream.of(clo).iterator());
     }
 
     /**
@@ -530,6 +746,20 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(!existed);
         }));
+    }
+
+    private void executeFinishTxCommand(FinishTxCommand cmd) {
+        CommandClosure<WriteCommand> commandMock = mock(CommandClosure.class);
+
+        when(commandMock.command()).thenReturn(cmd);
+
+        doAnswer(invocation -> {
+            assertTrue((boolean) invocation.getArgument(0));
+
+            return null;
+        }).when(commandMock).result(any());
+
+        commandListener.onWrite(of(commandMock).iterator());
     }
 
     /**

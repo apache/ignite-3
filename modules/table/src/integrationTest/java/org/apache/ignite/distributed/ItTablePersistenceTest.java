@@ -202,6 +202,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                     txManager.start(); // Init listener.
 
                     PartitionListener listener = new PartitionListener(
+                            0,
                             UUID.randomUUID(),
                             new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
 

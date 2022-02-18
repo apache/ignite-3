@@ -23,19 +23,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Listen storage changes.
  */
-public interface StorageRowListener {
-    StorageRowListener NO_OP = new StorageRowListener() {
-        @Override
-        public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
-            // No-op.
-        }
-
-        @Override
-        public void onRemove(BinaryRow row, int partId) {
-            // No-op.
-        }
-    };
-
+public interface RowListener {
     /**
      * Called when row is updated.
      *

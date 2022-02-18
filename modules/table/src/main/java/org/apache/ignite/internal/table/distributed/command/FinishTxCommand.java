@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 
@@ -28,15 +32,25 @@ public class FinishTxCommand implements WriteCommand {
     /** Commit or rollback state. */
     private final boolean finish;
 
+    /** Rows that were updated in any way by current transaction. */
+    private transient Collection<BinaryRow> writeRows;
+
+    /** Serialized {@link #writeRows}. */
+    private final byte[] rowsBytes;
+
     /**
      * The constructor.
      *
      * @param timestamp The timestamp.
      * @param finish    Commit or rollback state {@code True} to commit.
+     * @param rows Rows which were updated by current transaction.
      */
-    public FinishTxCommand(Timestamp timestamp, boolean finish) {
+    public FinishTxCommand(Timestamp timestamp, boolean finish, Collection<BinaryRow> rows) {
         this.timestamp = timestamp;
         this.finish = finish;
+        this.writeRows = rows;
+
+        rowsBytes = CommandUtils.rowsToBytes(rows);
     }
 
     /**
@@ -55,5 +69,24 @@ public class FinishTxCommand implements WriteCommand {
      */
     public boolean finish() {
         return finish;
+    }
+
+    /**
+     * Returns collection of rows which were updated by current transaction.
+     *
+     * @return Collection of rows which were updated by current transaction.
+     */
+    public Collection<BinaryRow> writeRows() {
+        if (writeRows == null && rowsBytes != null) {
+            writeRows = new ArrayList<>();
+
+            CommandUtils.readRows(rowsBytes, writeRows::add);
+        }
+
+        if (writeRows == null) {
+            writeRows = Collections.emptyList();
+        }
+
+        return writeRows;
     }
 }

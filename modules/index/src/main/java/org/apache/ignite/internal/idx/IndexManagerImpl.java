@@ -504,7 +504,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                 tbl
         );
 
-        tbl.addRowListener(idx);
+        tbl.internalTable().addRowListener(idx);
 
         idxsByName.put(idx.name(), idx);
 

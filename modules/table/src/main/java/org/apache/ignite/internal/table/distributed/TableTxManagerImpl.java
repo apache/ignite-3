@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -34,7 +38,7 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 public class TableTxManagerImpl extends TxManagerImpl {
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    private static final int FINISH_TIMEOUT = 1000;
+    private static final int FINISH_TIMEOUT = 5_000;
 
     /**
      * The constructor.
@@ -49,7 +53,15 @@ public class TableTxManagerImpl extends TxManagerImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
-        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(ts, commit)).groupId(groupId).readOnlySafe(true).build();
+        Map<LockKey, Boolean> locksOfTx = locks.get(ts);
+
+        Set<BinaryRow> writeRows = locksOfTx.entrySet().stream()
+                .filter(e -> !e.getValue()) // Exclude read locks
+                .map(e -> e.getKey().row())
+                .collect(Collectors.toSet());
+
+        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(ts, commit, writeRows))
+                .groupId(groupId).readOnlySafe(true).build();
 
         return clusterService.messagingService().invoke(clusterService.topologyService().localMember(), req, FINISH_TIMEOUT);
     }

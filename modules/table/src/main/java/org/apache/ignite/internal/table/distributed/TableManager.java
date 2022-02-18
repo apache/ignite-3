@@ -74,8 +74,8 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.RowListener;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableStorageRowListener;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
@@ -330,8 +330,14 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
                                         raftGroupName(tblId, partId),
                                         newPartitionAssignment,
                                         toAdd,
-                                        () -> new PartitionListener(tblId,
-                                                new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager, tbl))
+                                        () -> {
+                                            var partitionListener = new PartitionListener(partId, tblId,
+                                                    new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager));
+
+                                            partitionListener.rowListener(((RowListener) internalTable));
+
+                                            return partitionListener;
+                                        }
                                 ).thenAccept(
                                         updatedRaftGroupService -> ((InternalTableImpl) internalTable).updateInternalTableRaftGroupService(
                                                 partId, updatedRaftGroupService)
@@ -479,7 +485,7 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
 
         tableStorage.start();
 
-        TableStorageRowListener storageUpdLsnr = new TableStorageRowListener();
+        var partitionListeners = new ArrayList<PartitionListener>();
 
         for (int p = 0; p < partitions; p++) {
             int partId = p;
@@ -489,8 +495,14 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
                         raftMgr.prepareRaftGroup(
                                 raftGroupName(tblId, p),
                                 assignment.get(p),
-                                () -> new PartitionListener(tblId,
-                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager, storageUpdLsnr))
+                                () -> {
+                                    var partitionListener = new PartitionListener(partId, tblId,
+                                            new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager));
+
+                                    partitionListeners.add(partitionListener);
+
+                                    return partitionListener;
+                                }
                         )
                 );
             } catch (NodeStoppingException e) {
@@ -514,6 +526,8 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
 
                 InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver,
                         txManager, tableStorage);
+
+                partitionListeners.forEach(pl -> pl.rowListener(internalTable));
 
                 var schemaRegistry = new SchemaRegistryImpl(v -> {
                     if (!busyLock.enterBusy()) {
@@ -543,8 +557,6 @@ public class TableManager extends AbstractProducer<TableEvent, TableEventParamet
                         internalTable,
                         schemaRegistry
                 );
-
-                storageUpdLsnr.listen(table);
 
                 tables.put(name, table);
                 tablesById.put(tblId, table);

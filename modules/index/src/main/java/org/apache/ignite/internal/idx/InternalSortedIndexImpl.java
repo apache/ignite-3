@@ -33,7 +33,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
-import org.apache.ignite.internal.table.StorageRowListener;
+import org.apache.ignite.internal.table.RowListener;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -45,7 +45,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Internal index manager facade provides low-level methods for indexes operations.
  */
-public class InternalSortedIndexImpl implements InternalSortedIndex, StorageRowListener {
+public class InternalSortedIndexImpl implements InternalSortedIndex, RowListener {
     private final String name;
 
     private final TableImpl tbl;

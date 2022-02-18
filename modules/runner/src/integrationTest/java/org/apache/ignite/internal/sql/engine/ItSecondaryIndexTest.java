@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyProject;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
@@ -67,7 +66,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 )
                 .withIndex(
                         SchemaBuilders.sortedIndex(NAME_CITY_IDX)
-                                .addIndexColumn("DEPID").desc().done()
+                                .addIndexColumn("NAME").desc().done()
                                 .addIndexColumn("CITY").desc().done()
                                 .build()
                 )
@@ -82,7 +81,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
         Table dev0 = CLUSTER_NODES.get(0).tables().createTable(schema0.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schema0, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
 
@@ -91,7 +90,7 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {2, "Beethoven", 2, "Vienna", 44},
                 {3, "Bach", 1, "Leipzig", 55},
                 {4, "Strauss", 2, "Munich", 66},
-                {5, "Vagner", 4, "Leipzig", 70},
+                {5, "Vagner", 4, "Leipzig", 71},
                 {6, "Chaikovsky", 5, "Votkinsk", 53},
                 {7, "Verdy", 6, "Rankola", 88},
                 {8, "Stravinsky", 7, "Spt", 89},
@@ -732,13 +731,13 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testOrderByNoIndexedColumn() {
-        assertQuery("SELECT * FROM Developer ORDER BY age DESC")
-                .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
+        assertQuery("SELECT * FROM Developer WHERE age >= 0 ORDER BY age DESC")
+                .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
                 .matches(containsSubPlan("IgniteSort"))
                 .returns(8, "Stravinsky", 7, "Spt", 89)
                 .returns(7, "Verdy", 6, "Rankola", 88)
+                .returns(5, "Vagner", 4, "Leipzig", 71)
                 .returns(9, "Rahmaninov", 8, "Starorussky ud", 70)
-                .returns(5, "Vagner", 4, "Leipzig", 70)
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
@@ -746,18 +745,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(10, "Shubert", 9, "Vienna", 31)
-                .returns(14, "Rihter", 13, "", -1)
-                .returns(13, "Glass", 12, "", -1)
-                .returns(12, "Einaudi", 11, "", -1)
-                .returns(20, "O'Halloran", 19, "", -1)
-                .returns(23, "Musorgskii", 22, "", -1)
-                .returns(19, "Yiruma", 18, "", -1)
-                .returns(21, "Cacciapaglia", 20, "", -1)
-                .returns(22, "Prokofiev", 21, "", -1)
-                .returns(16, "Zimmer", 15, "", -1)
-                .returns(18, "Arnalds", 17, "", -1)
-                .returns(17, "Hasaishi", 16, "", -1)
-                .returns(15, "Marradi", 14, "", -1)
                 .ordered()
                 .check();
     }

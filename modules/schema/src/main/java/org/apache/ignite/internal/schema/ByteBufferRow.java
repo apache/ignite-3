@@ -149,12 +149,13 @@ public class ByteBufferRow implements BinaryRow {
     public ByteBuffer keySlice() {
         final int off = KEY_CHUNK_OFFSET;
         final int len = readInteger(off);
+        final int limit = buf.limit();
 
         try {
             return buf.limit(off + len).position(off).slice();
         } finally {
             buf.position(0); // Reset bounds.
-            buf.limit(buf.capacity());
+            buf.limit(limit);
         }
     }
 
@@ -163,12 +164,13 @@ public class ByteBufferRow implements BinaryRow {
     public ByteBuffer valueSlice() {
         int off = KEY_CHUNK_OFFSET + readInteger(KEY_CHUNK_OFFSET);
         int len = hasValue() ? readInteger(off) : 0;
+        final int limit = buf.limit();
 
         try {
             return buf.limit(off + len).position(off).slice();
         } finally {
             buf.position(0); // Reset bounds.
-            buf.limit(buf.capacity());
+            buf.limit(limit);
         }
     }
 
@@ -177,6 +179,7 @@ public class ByteBufferRow implements BinaryRow {
     public BinaryRow keyRow() {
         final int off = KEY_CHUNK_OFFSET;
         final int len = readInteger(off);
+        final int limit = buf.limit();
 
         try {
             byte[] tmp = new byte[off + len];
@@ -191,7 +194,7 @@ public class ByteBufferRow implements BinaryRow {
             return new ByteBufferRow(res);
         } finally {
             buf.position(0); // Reset bounds.
-            buf.limit(buf.capacity());
+            buf.limit(limit);
         }
     }
 

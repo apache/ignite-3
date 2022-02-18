@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
-import java.util.Collections;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -34,20 +30,17 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table view implementation for binary objects.
  */
-public class TableImpl implements Table, StorageRowListener {
+public class TableImpl implements Table {
     /** Internal table. */
     private final InternalTable tbl;
 
     /** Schema registry. */
     private final SchemaRegistry schemaReg;
-
-    private final Set<StorageRowListener> rowLstns = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /**
      * Constructor.
@@ -129,23 +122,5 @@ public class TableImpl implements Table, StorageRowListener {
         } catch (TupleMarshallerException e) {
             throw new IgniteInternalException(e);
         }
-    }
-
-    public void addRowListener(StorageRowListener lsnr) {
-        rowLstns.add(lsnr);
-    }
-
-    public void removeRowListener(StorageRowListener lsnr) {
-        rowLstns.remove(lsnr);
-    }
-
-    @Override
-    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
-        rowLstns.forEach(l -> l.onUpdate(oldRow, newRow, partId));
-    }
-
-    @Override
-    public void onRemove(BinaryRow row, int partId) {
-        rowLstns.forEach(l -> l.onRemove(row, partId));
     }
 }

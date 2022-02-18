@@ -270,7 +270,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 raftServers.get(node).prepareRaftGroup(
                         grpId,
                         partNodes,
-                        () -> new PartitionListener(tblId,
+                        () -> new PartitionListener(0, tblId,
                                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManagers.get(node)))
                 );
             }

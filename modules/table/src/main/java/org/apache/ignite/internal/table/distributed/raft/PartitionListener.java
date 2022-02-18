@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.file.Path;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
+import org.apache.ignite.internal.table.RowListener;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.Command;
@@ -80,6 +83,9 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
+    /** An id of the partition served by this listener. */
+    private final int partitionId;
+
     /** Lock id. */
     private final IgniteUuid lockId;
 
@@ -92,17 +98,31 @@ public class PartitionListener implements RaftGroupListener {
     /** Transaction manager. */
     private final TxManager txManager;
 
+    /** A listener that listens for update of rows owned by current partition. */
+    private volatile RowListener rowListener;
+
     /**
      * The constructor.
      *
+     * @param partitionId An id of the partition served by this listener.
      * @param tableId Table id.
      * @param store  The storage.
      */
-    public PartitionListener(UUID tableId, VersionedRowStore store) {
+    public PartitionListener(int partitionId, UUID tableId, VersionedRowStore store) {
+        this.partitionId = partitionId;
         this.lockId = new IgniteUuid(tableId, 0);
         this.storage = store;
         this.txManager = store.txManager();
         this.cursors = new ConcurrentHashMap<>();
+    }
+
+    /**
+     * Register a listener to notify if any row belonging to current partition has been updated.
+     *
+     * @param rowListener A listener for the rows update events.
+     */
+    public void rowListener(RowListener rowListener) {
+        this.rowListener = rowListener;
     }
 
     /** {@inheritDoc} */
@@ -403,6 +423,29 @@ public class PartitionListener implements RaftGroupListener {
         Timestamp ts = cmd.timestamp();
         boolean commit = cmd.finish();
 
+        RowListener rowListener = this.rowListener;
+
+        if (rowListener != null) {
+            Collection<BinaryRow> writeRows = cmd.writeRows();
+
+            if (!nullOrEmpty(writeRows)) {
+                for (BinaryRow row : writeRows) {
+                    Pair<BinaryRow, BinaryRow> rowPair = storage.getVersioned(row, ts);
+
+                    if (rowPair.getFirst() == null && rowPair.getSecond() == null) {
+                        // the key doesn't belong to this partition
+                        continue;
+                    }
+
+                    if (rowPair.getFirst() == null) {
+                        rowListener.onRemove(rowPair.getSecond(), partitionId);
+                    } else {
+                        rowListener.onUpdate(rowPair.getSecond(), rowPair.getFirst(), partitionId);
+                    }
+                }
+            }
+        }
+
         return txManager.changeState(ts, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED);
     }
 
@@ -534,8 +577,8 @@ public class PartitionListener implements RaftGroupListener {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
-            return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp()) :
-                    txManager.writeLock(lockId, cmd0.getRow().keySlice(), cmd0.getTimestamp());
+            return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow(), cmd0.getTimestamp()) :
+                    txManager.writeLock(lockId, cmd0.getRow(), cmd0.getTimestamp());
         } else if (command instanceof MultiKeyCommand) {
             MultiKeyCommand cmd0 = (MultiKeyCommand) command;
 
@@ -547,8 +590,8 @@ public class PartitionListener implements RaftGroupListener {
             boolean read = cmd0 instanceof ReadCommand;
 
             for (BinaryRow row : rows) {
-                futs[i++] = read ? txManager.readLock(lockId, row.keySlice(), cmd0.getTimestamp()) :
-                        txManager.writeLock(lockId, row.keySlice(), cmd0.getTimestamp());
+                futs[i++] = read ? txManager.readLock(lockId, row, cmd0.getTimestamp()) :
+                        txManager.writeLock(lockId, row, cmd0.getTimestamp());
             }
 
             return CompletableFuture.allOf(futs);

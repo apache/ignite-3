@@ -29,6 +29,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.RowListener;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.NotNull;
@@ -62,6 +63,18 @@ public class FakeInternalTable implements InternalTable {
     @Override
     public @NotNull TableStorage storage() {
         throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addRowListener(RowListener lsnr) {
+        throw new AssertionError("Should not be called");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void removeRowListener(RowListener lsnr) {
+        throw new AssertionError("Should not be called");
     }
 
     /** {@inheritDoc} */

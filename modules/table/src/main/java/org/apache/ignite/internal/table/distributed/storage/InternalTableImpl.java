@@ -23,11 +23,14 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
@@ -39,6 +42,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.RowListener;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -76,7 +80,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Storage of table rows.
  */
-public class InternalTableImpl implements InternalTable {
+public class InternalTableImpl implements InternalTable, RowListener {
     /** Log. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(InternalTableImpl.class);
 
@@ -104,6 +108,8 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final TableStorage tableStorage;
 
+    private final CompoundRowListener compoundListener;
+
     /**
      * Constructor.
      *
@@ -130,6 +136,8 @@ public class InternalTableImpl implements InternalTable {
         this.netAddrResolver = netAddrResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
+
+        this.compoundListener = new CompoundRowListener();
     }
 
     /** {@inheritDoc} */
@@ -154,6 +162,30 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public String name() {
         return tableName;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void addRowListener(RowListener lsnr) {
+        compoundListener.addListener(lsnr);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void removeRowListener(RowListener lsnr) {
+        compoundListener.removeListener(lsnr);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
+        compoundListener.onUpdate(oldRow, newRow, partId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onRemove(BinaryRow row, int partId) {
+        compoundListener.onRemove(row, partId);
     }
 
     /**
@@ -651,6 +683,30 @@ public class InternalTableImpl implements InternalTable {
     public void close() throws Exception {
         for (RaftGroupService srv : partitionMap.values()) {
             srv.shutdown();
+        }
+    }
+
+    private static class CompoundRowListener implements RowListener {
+        private final Set<RowListener> delegates = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+        /** {@inheritDoc} */
+        @Override
+        public void onUpdate(@Nullable BinaryRow oldRow, BinaryRow newRow, int partId) {
+            delegates.forEach(delegate -> delegate.onUpdate(oldRow, newRow, partId));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onRemove(BinaryRow row, int partId) {
+            delegates.forEach(delegate -> delegate.onRemove(row, partId));
+        }
+
+        public void addListener(RowListener lsnr) {
+            delegates.add(lsnr);
+        }
+
+        public void removeListener(RowListener lsnr) {
+            delegates.remove(lsnr);
         }
     }
 }

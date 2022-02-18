@@ -42,6 +42,20 @@ public interface InternalTable extends AutoCloseable {
     @NotNull TableStorage storage();
 
     /**
+     * Register a listener for events fired by every partition of this table.
+     *
+     * @param lsnr Listener to register.
+     */
+    void addRowListener(RowListener lsnr);
+
+    /**
+     * Removes the listener if it was registered, otherwise do nothing.
+     *
+     * @param lsnr Listener to unregister.
+     */
+    void removeRowListener(RowListener lsnr);
+
+    /**
      * Gets a table id.
      *
      * @return Table id as UUID.

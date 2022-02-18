@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.tx;
 
-import java.nio.ByteBuffer;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -82,23 +82,23 @@ public interface TxManager extends IgniteComponent {
      * Acqures a write lock.
      *
      * @param lockId  Table ID.
-     * @param keyData The key data.
+     * @param row The row we acquire a lock for.
      * @param ts      The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, BinaryRow row, Timestamp ts);
 
     /**
      * Acqures a read lock.
      *
      * @param lockId  Lock id.
-     * @param keyData The key data.
+     * @param row The row we acquire a lock for.
      * @param ts      The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, BinaryRow row, Timestamp ts);
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.

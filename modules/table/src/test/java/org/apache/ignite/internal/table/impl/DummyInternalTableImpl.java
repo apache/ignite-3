@@ -137,7 +137,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 }
         ).when(svc).run(any());
 
-        partitionListener = new PartitionListener(UUID.randomUUID(), store);
+        partitionListener = new PartitionListener(0, UUID.randomUUID(), store);
     }
 
     /** {@inheritDoc} */

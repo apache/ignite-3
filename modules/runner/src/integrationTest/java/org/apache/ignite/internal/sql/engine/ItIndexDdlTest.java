@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 public class ItIndexDdlTest extends AbstractBasicIntegrationTest {
     @Test
     public void indexBasic() {
-        sql("create table test_tbl (id int primary key, val0 int, val1 varchar, val2 int)");
+        sql("create table test_tbl (id int primary key, val0 int, val1 varchar, val2 int) with replicas = 1");
 
         sql("create index TEST_IDX on test_tbl (val1, val0)");
 

@@ -34,7 +34,6 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
-import org.apache.ignite.internal.table.StorageRowListener;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -52,9 +51,6 @@ public class VersionedRowStore {
     /** Storage delegate. */
     private final PartitionStorage storage;
 
-    /** Update listener. */
-    private final StorageRowListener lsnr;
-
     /** Transaction manager. */
     private TxManager txManager;
 
@@ -65,19 +61,8 @@ public class VersionedRowStore {
      * @param txManager The TX manager.
      */
     public VersionedRowStore(@NotNull PartitionStorage storage, @NotNull TxManager txManager) {
-        this(storage, txManager, StorageRowListener.NO_OP);
-    }
-
-    /**
-     * The constructor.
-     *
-     * @param storage The storage.
-     * @param txManager The TX manager.
-     */
-    public VersionedRowStore(@NotNull PartitionStorage storage, @NotNull TxManager txManager, StorageRowListener lsnr) {
         this.storage = Objects.requireNonNull(storage);
         this.txManager = Objects.requireNonNull(txManager);
-        this.lsnr = lsnr;
     }
 
     /**
@@ -93,6 +78,22 @@ public class VersionedRowStore {
     }
 
     /**
+     * Returns a pair of rows where the first row is an actual value (visible to a current transaction) and the second is an old value
+     * used for rollback.
+     *
+     * @param row The search row.
+     * @param timestamp The timestamp.
+     * @return The result pair of rows.
+     */
+    public Pair<BinaryRow, BinaryRow> getVersioned(@NotNull BinaryRow row, Timestamp timestamp) {
+        var key = new BinarySearchRow(row);
+
+        DataRow readValue = storage.read(key);
+
+        return versionedRow(readValue, timestamp);
+    }
+
+    /**
      * Gets a row.
      *
      * @param row The search row.
@@ -100,13 +101,7 @@ public class VersionedRowStore {
      * @return The result row.
      */
     public BinaryRow get(@NotNull BinaryRow row, Timestamp ts) {
-        assert row != null;
-
-        var key = new BinarySearchRow(row);
-
-        DataRow readValue = storage.read(key);
-
-        return versionedRow(readValue, ts).getFirst();
+        return getVersioned(row, ts).getFirst();
     }
 
     /**
@@ -142,8 +137,6 @@ public class VersionedRowStore {
         Pair<BinaryRow, BinaryRow> pair = resolve(unpack(storage.read(key)), ts);
 
         storage.write(pack(key, new Value(row, pair.getSecond(), ts)));
-
-        lsnr.onUpdate(pair.getSecond(), row, storage.partitionId());
     }
 
     /**
@@ -185,8 +178,6 @@ public class VersionedRowStore {
         // Write a tombstone.
         storage.write(pack(key, new Value(null, pair.getSecond(), ts)));
 
-        lsnr.onRemove(pair.getSecond(), storage.partitionId());
-
         return true;
     }
 
@@ -223,8 +214,6 @@ public class VersionedRowStore {
         }
 
         storage.write(pack(key, new Value(row, null, ts)));
-
-        lsnr.onUpdate(null, row, storage.partitionId());
 
         return true;
     }
