@@ -38,6 +38,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.lang.IgniteLogger;
@@ -94,6 +95,8 @@ public class TestCluster {
     private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
 
     private LinkedHashSet<PeerId> learners;
+
+    private RaftGroupEventsListener raftGrpEvtsLsnr;
 
     public JRaftServiceFactory getRaftServiceFactory() {
         return this.raftServiceFactory;
@@ -240,6 +243,8 @@ public class TestCluster {
             MockStateMachine fsm = new MockStateMachine(listenAddr);
             nodeOptions.setFsm(fsm);
 
+            nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+
             if (!emptyPeers)
                 nodeOptions.setInitialConf(new Configuration(this.peers, this.learners));
 
@@ -355,6 +360,14 @@ public class TestCluster {
         Path path = Paths.get(this.dataPath, listenAddr.toString().replace(':', '_'));
         LOG.info("Clean dir: {}", path);
         IgniteUtils.deleteIfExists(path);
+    }
+
+    public RaftGroupEventsListener getRaftGrpEvtsLsnr() {
+        return raftGrpEvtsLsnr;
+    }
+
+    public void setRaftGrpEvtsLsnr(RaftGroupEventsListener raftGrpEvtsLsnr) {
+        this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 
     public Node getLeader() {

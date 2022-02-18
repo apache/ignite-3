@@ -431,14 +431,27 @@ public class NodeImpl implements Node, RaftServerService {
                 this.node.stopReplicator(this.oldPeers, this.newPeers);
                 this.node.stopReplicator(this.oldLearners, this.newLearners);
             }
+
+            // must be copied before clearing
+            final List<PeerId> resultPeers = new ArrayList<>(this.newPeers);
+
             clearPeers();
             clearLearners();
 
             this.version++;
             this.stage = Stage.STAGE_NONE;
             this.nchanges = 0;
+
+            Closure oldDoneClosure = done;
+
             if (this.done != null) {
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), this.done, st != null ? st :
+                this.done = (Status status) -> {
+                    if (status.isOk() && node.getOptions().getRaftGrpEvtsLsnr() != null) {
+                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeers);
+                    }
+                    oldDoneClosure.run(status);
+                };
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, st != null ? st :
                     new Status(RaftError.EPERM, "Leader stepped down."));
                 this.done = null;
             }
@@ -1357,6 +1370,10 @@ public class NodeImpl implements Node, RaftServerService {
             throw new IllegalStateException();
         }
         this.confCtx.flush(this.conf.getConf(), this.conf.getOldConf());
+
+        if (options.getRaftGrpEvtsLsnr() != null)
+            options.getRaftGrpEvtsLsnr().onLeaderElected();
+
         resetElectionTimeoutToInitial();
         this.stepDownTimer.start();
     }

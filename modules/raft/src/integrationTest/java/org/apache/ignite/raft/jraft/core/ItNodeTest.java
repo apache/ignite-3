@@ -31,6 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
@@ -56,6 +61,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
@@ -3032,6 +3038,88 @@ public class ItNodeTest {
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());
         }
+    }
+
+    @Test
+    public void testNewPeersConfigurationAppliedListener() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+
+        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
+
+        cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+
+        cluster.waitLeader();
+
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+
+        for (int i = 1; i < 5; i++) {
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
+            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
+        }
+
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any());
+
+        for (int i = 0; i < 4; i++) {
+            leader = cluster.getLeader();
+            assertNotNull(leader);
+            PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
+            assertEquals(peer, leader.getNodeId().getPeerId());
+            PeerId newPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
+
+            ChangePeersAsyncStatus status = leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
+                    leader.getCurrentTerm());
+            assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
+            assertTrue(waitForCondition(() -> {
+                if (cluster.getLeader() != null) {
+                    return newPeer.equals(cluster.getLeader().getLeaderId());
+                }
+                return false;
+            }, 10_000));
+
+            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(Collections.singletonList(newPeer));
+        }
+
+        cluster.waitLeader();
+    }
+
+    @Test
+    public void testChangePeersOnLeaderElected() throws Exception {
+        List<PeerId> peers = Arrays.asList(
+                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT),
+                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1),
+                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 2),
+                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3),
+                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 4),
+                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 5)
+        );
+        cluster = new TestCluster("testChangePeers", dataPath, peers, testInfo);
+
+        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
+
+        cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+
+        for (PeerId p: peers) {
+            assertTrue(cluster.start(p.getEndpoint(), false, 300));
+        }
+
+        cluster.waitLeader();
+
+        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected();
+
+        cluster.stop(cluster.getLeader().getLeaderId().getEndpoint());
+
+        cluster.waitLeader();
+
+        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected();
+
+        cluster.stop(cluster.getLeader().getLeaderId().getEndpoint());
+
+        cluster.waitLeader();
+
+        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected();
     }
 
     @Test
