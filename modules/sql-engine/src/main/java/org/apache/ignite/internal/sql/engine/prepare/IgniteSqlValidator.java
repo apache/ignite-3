@@ -21,8 +21,12 @@ import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
@@ -52,6 +56,7 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -100,6 +105,44 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         this.parameters = parameters;
     }
 
+    private void validateInsertFields(SqlInsert insert) {
+        if (insert.getTargetColumnList() == null) {
+            return;
+        }
+
+        final SqlValidatorNamespace ns = validatedNamespace(insert, unknownType);
+
+        final SqlValidatorTable table = table(ns);
+
+        final TableDescriptor desc = table.unwrap(TableDescriptor.class);
+
+        if (desc == null) {
+            return;
+        }
+
+        int keyCols = 0;
+
+        Iterator<ColumnDescriptor> it = getKeysColumns(insert.getTargetColumnList(), ns);
+
+        while (it.hasNext()) {
+            keyCols++;
+            it.next();
+        }
+
+        if (keyCols > 0 && desc.keysCount() != keyCols) {
+            List<String> keyColsColl = new ArrayList<>(keyCols);
+
+            it = getKeysColumns(insert.getTargetColumnList(), ns);
+
+            while (it.hasNext()) {
+                keyColsColl.add(it.next().name());
+            }
+
+            throw newValidationError(insert,
+                    IgniteResource.INSTANCE.cannotUpdatePkPartially(keyColsColl.toString()));
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void validateInsert(SqlInsert insert) {
@@ -107,7 +150,80 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             insert.setOperand(3, inferColumnList(insert));
         }
 
+        validateInsertFields(insert);
+
         super.validateInsert(insert);
+    }
+
+    private Iterator<ColumnDescriptor> getKeysColumns(final SqlNodeList cols, SqlValidatorNamespace ns) {
+        final SqlValidatorTable table = table(ns);
+
+        if (table == null) {
+            Collections.emptyIterator();
+        }
+
+        final TableDescriptor desc = table.unwrap(TableDescriptor.class);
+
+        if (desc == null) {
+            Collections.emptyIterator();
+        }
+
+        final RelDataType baseType = table.getRowType();
+        final RelOptTable relOptTable = relOptTable(ns);
+
+        return new Iterator<>() {
+            final Iterator<SqlNode> it = cols.iterator();
+            ColumnDescriptor colDesc = advance();
+
+            @Override
+            public boolean hasNext() {
+                return colDesc != null;
+            }
+
+            @Override
+            public ColumnDescriptor next() {
+                ColumnDescriptor tmp = colDesc;
+
+                if (tmp == null) {
+                    throw new NoSuchElementException();
+                }
+
+                advance();
+
+                return tmp;
+            }
+
+            @Nullable
+            private ColumnDescriptor advance() {
+                while (it.hasNext()) {
+                    SqlNode node = it.next();
+
+                    SqlIdentifier id = (SqlIdentifier) node;
+
+                    RelDataTypeField target = SqlValidatorUtil.getTargetField(
+                            baseType, typeFactory(), id, getCatalogReader(), relOptTable);
+
+                    if (target == null) {
+                        throw newValidationError(id,
+                                RESOURCE.unknownTargetColumn(id.toString()));
+                    }
+
+                    ColumnDescriptor colDesc0 = desc.columnDescriptor(target.getIndex());
+
+                    if (colDesc0 == null) {
+                        throw newValidationError(id,
+                                RESOURCE.columnNotFoundInTable(target.getName(), table.getQualifiedName().toString()));
+                    }
+
+                    if (colDesc0.key()) {
+                        colDesc = desc.columnDescriptor(target.getIndex());
+                        return colDesc;
+                    }
+                }
+
+                return colDesc = null;
+            }
+        };
     }
 
     /** {@inheritDoc} */
