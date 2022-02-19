@@ -156,6 +156,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
+        if (table == null || table.schemaView() == null) {
+            System.out.println("");
+        }
+
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()

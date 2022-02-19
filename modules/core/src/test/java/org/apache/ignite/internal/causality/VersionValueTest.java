@@ -53,17 +53,17 @@ public class VersionValueTest {
                 2
         );
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(1);
+        CompletableFuture<Integer> fut = longVersionedValue.get(0);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.accept(0L);
 
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut, longVersionedValue.get(1));
+        assertSame(fut, longVersionedValue.get(0));
     }
 
     /**
@@ -75,17 +75,17 @@ public class VersionValueTest {
     public void testExplicitlySetValue() throws OutdatedTokenException {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(1);
+        CompletableFuture<Integer> fut = longVersionedValue.get(0);
 
         assertFalse(fut.isDone());
 
-        longVersionedValue.set(1, TEST_VALUE);
+        longVersionedValue.set(0, TEST_VALUE);
 
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut, longVersionedValue.get(1));
+        assertSame(fut, longVersionedValue.get(0));
     }
 
     /**
@@ -98,21 +98,21 @@ public class VersionValueTest {
     public void testMissValueUpdateBeforeReady() throws OutdatedTokenException {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
-        longVersionedValue.set(1, TEST_VALUE);
+        longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.accept(0L);
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(2);
+        CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.accept(2L);
+        REGISTER.moveRevision.accept(1L);
 
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut.join(), longVersionedValue.get(1).join());
+        assertSame(fut.join(), longVersionedValue.get(0).join());
     }
 
     /**
@@ -125,18 +125,18 @@ public class VersionValueTest {
     public void testMissValueUpdate() throws OutdatedTokenException {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
-        longVersionedValue.set(1, TEST_VALUE);
+        longVersionedValue.set(0, TEST_VALUE);
 
+        REGISTER.moveRevision.accept(0L);
         REGISTER.moveRevision.accept(1L);
-        REGISTER.moveRevision.accept(2L);
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(2);
+        CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut, longVersionedValue.get(1));
+        assertSame(fut, longVersionedValue.get(0));
     }
 
     /**
@@ -146,16 +146,16 @@ public class VersionValueTest {
     public void testObsoleteToken() {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
+        longVersionedValue.set(0, TEST_VALUE);
+
+        REGISTER.moveRevision.accept(0L);
+
         longVersionedValue.set(1, TEST_VALUE);
 
         REGISTER.moveRevision.accept(1L);
-
-        longVersionedValue.set(2, TEST_VALUE);
-
         REGISTER.moveRevision.accept(2L);
-        REGISTER.moveRevision.accept(3L);
 
-        assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(1));
+        assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(0));
     }
 
     /**
@@ -166,19 +166,65 @@ public class VersionValueTest {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
         }, REGISTER);
 
-        longVersionedValue.set(1, TEST_VALUE);
+        longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.accept(0L);
 
-        CompletableFuture<Integer> fut = longVersionedValue.get(2);
+        CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
+        REGISTER.moveRevision.accept(1L);
         REGISTER.moveRevision.accept(2L);
-        REGISTER.moveRevision.accept(3L);
 
         assertTrue(fut.isDone());
-        assertTrue(longVersionedValue.get(3).isDone());
+        assertTrue(longVersionedValue.get(2).isDone());
+    }
+
+    /**
+     * Checks that the update method work as expected when the previous value is known.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testUpdate() throws Exception {
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
+        }, REGISTER);
+
+        longVersionedValue.set(0, TEST_VALUE);
+
+        REGISTER.moveRevision.accept(0L);
+
+        CompletableFuture<Integer> fut = longVersionedValue.get(1);
+
+        assertFalse(fut.isDone());
+
+        longVersionedValue.update(1, previous -> ++previous, ex -> null);
+
+        assertTrue(fut.isDone());
+
+        assertEquals(TEST_VALUE + 1, fut.get());
+    }
+
+    /**
+     * Checks that the update method work as expected when the previous value does not assign.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testUpdatePredefined() throws Exception {
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
+        }, REGISTER);
+
+        CompletableFuture<Integer> fut = longVersionedValue.get(0);
+
+        assertFalse(fut.isDone());
+
+        longVersionedValue.update(0, previous -> TEST_VALUE, ex -> null);
+
+        assertTrue(fut.isDone());
+
+        assertEquals(TEST_VALUE, fut.get());
     }
 
     /**

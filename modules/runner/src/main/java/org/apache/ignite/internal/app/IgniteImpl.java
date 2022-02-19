@@ -27,6 +27,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -211,7 +212,18 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
+        Consumer<Consumer<Long>> registry = (c) -> {
+            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
+                LOG.info("Node: " + name);
+
+                c.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
         distributedTblMgr = new TableManager(
+                registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,

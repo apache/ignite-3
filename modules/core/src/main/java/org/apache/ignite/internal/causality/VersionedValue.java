@@ -25,6 +25,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VersionedValue<T> {
     /** Last applied casualty token. */
-    private volatile long actualToken;
+    private volatile long actualToken = -1L;
 
     /** Size of stored history. */
     private final int historySize;
@@ -74,6 +75,9 @@ public class VersionedValue<T> {
         observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
 
         this.historySize = historySize;
+
+        //TODO: IGNITE-16553 Added a possibility to set any start value (not only null).
+        history.put(actualToken, CompletableFuture.completedFuture(null));
     }
 
     /**
@@ -145,6 +149,19 @@ public class VersionedValue<T> {
     }
 
     /**
+     * Gets the latest completed future or {@code null} if there is nothing.
+     */
+    public CompletableFuture<T> get() {
+        for (CompletableFuture<T> fut : history.descendingMap().values()) {
+            if (fut.isDone()) {
+                return fut;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Gets a value for less or equal token than the actual {@link #actualToken}.
      *
      * @param causalityToken Causality token.
@@ -174,6 +191,72 @@ public class VersionedValue<T> {
         assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
                 + "[token={}, actual={}]", causalityToken, actualToken0);
 
+        setValueInternal(causalityToken, value);
+    }
+
+    /**
+     * Comparisons an exception to the causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param throwable An exception.
+     */
+    public void fail(long causalityToken, Throwable throwable) {
+        long actualToken0 = actualToken;
+
+        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
+                + "[token={}, actual={}]", causalityToken, actualToken0);
+
+        failInternal(causalityToken, throwable);
+    }
+
+    /**
+     * Updates a previous value to a new one.
+     * TODO: IGNITE-16543 The method shouldn't complete the token, because it may invoke several times in one revision.
+     *
+     * @param causalityToken Causality token.
+     * @param complete       The function is invoked if the previous future completed successfully.
+     * @param fail           The function is invoked if the previous future completed with an exception.
+     */
+    public CompletableFuture<T> update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
+        long  actualToken0 = actualToken;
+
+        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
+                + "[token={}, actual={}]", causalityToken, actualToken0);
+
+        Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
+
+        assert histEntry.getValue().isDone() : "Previous value should be ready.";
+
+        CompletableFuture<T> res = new CompletableFuture<>();
+
+        try {
+            histEntry.getValue().thenAccept(previousValue -> {
+                setValueInternal(causalityToken, complete.apply(previousValue));
+
+                res.complete(previousValue);
+            }).exceptionally(throwable -> {
+                setValueInternal(causalityToken, fail.apply(throwable));
+
+                res.completeExceptionally(throwable);
+
+                return null;
+            });
+        } catch (Throwable th) {
+            failInternal(causalityToken, th);
+
+            res.completeExceptionally(th);
+        }
+
+        return res;
+    }
+
+    /**
+     * This internal method assigns value according to specific token without additional checks.
+     *
+     * @param causalityToken Causality token.
+     * @param value          Value to set.
+     */
+    private void setValueInternal(long causalityToken, T value) {
         CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(value));
 
         if (res == null || res.isCompletedExceptionally()) {
@@ -184,6 +267,25 @@ public class VersionedValue<T> {
                 + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
 
         res.complete(value);
+    }
+
+    /**
+     * Fails a future associated with this causality token.
+     *
+     * @param causalityToken Causality token.
+     * @param throwable      An exception.
+     */
+    private void failInternal(long causalityToken, Throwable throwable) {
+        CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.failedFuture(throwable));
+
+        if (res == null || res.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert !res.isDone() : IgniteStringFormatter.format("A value already has associated with the token "
+                + "[token={}, ex={}, value={}]", causalityToken, throwable, res.join());
+
+        res.completeExceptionally(throwable);
     }
 
     /**
