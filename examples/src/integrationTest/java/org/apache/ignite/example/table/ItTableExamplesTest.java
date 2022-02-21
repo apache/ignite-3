@@ -32,7 +32,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testRecordViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, new String[0],
+        ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -46,7 +46,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testRecordViewPojoExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(RecordViewPojoExample::main, new String[0],
+        ExampleTestUtils.assertConsoleOutputContains(RecordViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -60,7 +60,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testKeyValueViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, new String[0],
+        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -74,7 +74,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testKeyValueViewPojoExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewPojoExample::main, new String[0],
+        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"

@@ -40,7 +40,7 @@ class Utils {
                     ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
 
                     if (node == null) {
-                        throw new InitException("Node " + consistentId + " is not present in the physical topology");
+                        throw new InitException(String.format("Node \"%s\" is not present in the physical topology", consistentId));
                     }
 
                     return node;

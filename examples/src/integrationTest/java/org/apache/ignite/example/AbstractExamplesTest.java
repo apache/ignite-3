@@ -34,6 +34,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class AbstractExamplesTest {
     private static final String TEST_NODE_NAME = "ignite-node";
 
+    /** Empty argument to invoke an example. */
+    protected static final String[] EMPTY_ARGS = new String[0];
+
     /**
      * Starts a node.
      *

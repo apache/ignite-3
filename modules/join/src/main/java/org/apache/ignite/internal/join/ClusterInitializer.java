@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.join;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.join.Utils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 import org.apache.ignite.internal.join.messages.CancelInitMessage;
 import org.apache.ignite.internal.join.messages.CmgInitMessage;
 import org.apache.ignite.internal.join.messages.InitErrorMessage;
@@ -89,17 +90,30 @@ public class ClusterInitializer {
 
             return metaStorageInitFuture
                     .thenCombine(cmgInitFuture, Leaders::new)
-                    .whenComplete((leaders, e) -> {
-                        if (e != null) {
+                    .handle((leaders, e) -> {
+                        if (e == null) {
+                            return CompletableFuture.completedFuture(leaders);
+                        } else {
                             log.error("Initialization failed, rolling back", e);
 
                             CancelInitMessage cancelMessage = msgFactory.cancelInitMessage()
                                     .reason(e.getMessage())
                                     .build();
 
-                            cancelInit(allMembers, cancelMessage);
+                            return cancelInit(allMembers, cancelMessage)
+                                    .handle((v, nestedEx) -> {
+                                        if (nestedEx != null) {
+                                            log.error("Error when canceling init", nestedEx);
+
+                                            e.addSuppressed(nestedEx);
+                                        }
+
+                                        return CompletableFuture.<Leaders>failedFuture(e);
+                                    })
+                                    .thenCompose(Function.identity());
                         }
-                    });
+                    })
+                    .thenCompose(Function.identity());
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
@@ -115,7 +129,7 @@ public class ClusterInitializer {
     private CompletableFuture<String> invokeMessage(Collection<ClusterNode> nodes, NetworkMessage message) {
         List<CompletableFuture<String>> futures = nodes.stream()
                 .map(node -> invokeMessage(node, message))
-                .collect(Collectors.toList());
+                .collect(toList()); // not using toArray, because it's an unchecked cast
 
         return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
                 // all futures should return the same response, unless they fail
@@ -142,11 +156,11 @@ public class ClusterInitializer {
                 });
     }
 
-    private void cancelInit(Collection<ClusterNode> nodes, NetworkMessage message) {
+    private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, NetworkMessage message) {
         CompletableFuture<?>[] futures = nodes.stream()
                 .map(node -> clusterService.messagingService().send(node, message))
                 .toArray(CompletableFuture[]::new);
 
-        CompletableFuture.allOf(futures).whenComplete((v, e) -> log.error("Error when canceling init", e));
+        return CompletableFuture.allOf(futures);
     }
 }

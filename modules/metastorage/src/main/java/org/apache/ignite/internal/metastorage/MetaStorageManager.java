@@ -223,7 +223,7 @@ public class MetaStorageManager implements IgniteComponent {
                     ClusterNode node = topologyService.getByConsistentId(nodeId);
 
                     if (node == null) {
-                        throw new InitException("Node " + nodeId + " is not present in the physical topology");
+                        throw new InitException(String.format("Node \"%s\" is not present in the physical topology", nodeId));
                     }
 
                     return node;
@@ -376,10 +376,7 @@ public class MetaStorageManager implements IgniteComponent {
      * @param lsnr Listener which will be notified for each update.
      * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
      */
-    public synchronized CompletableFuture<Long> registerWatch(
-            @Nullable ByteArray key,
-            @NotNull WatchListener lsnr
-    ) {
+    public synchronized CompletableFuture<Long> registerWatch(ByteArray key, WatchListener lsnr) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -400,10 +397,7 @@ public class MetaStorageManager implements IgniteComponent {
      * @param lsnr Listener which will be notified for each update.
      * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
      */
-    public synchronized CompletableFuture<Long> registerWatch(
-            @NotNull Collection<ByteArray> keys,
-            @NotNull WatchListener lsnr
-    ) {
+    public synchronized CompletableFuture<Long> registerWatch(Collection<ByteArray> keys, WatchListener lsnr) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -450,10 +444,7 @@ public class MetaStorageManager implements IgniteComponent {
      * @param lsnr Listener which will be notified for each update.
      * @return Subscription identifier. Could be used in {@link #unregisterWatch} method in order to cancel subscription
      */
-    public synchronized CompletableFuture<Long> registerWatchByPrefix(
-            @Nullable ByteArray key,
-            @NotNull WatchListener lsnr
-    ) {
+    public synchronized CompletableFuture<Long> registerWatchByPrefix(ByteArray key, WatchListener lsnr) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(new NodeStoppingException());
         }
@@ -912,6 +903,8 @@ public class MetaStorageManager implements IgniteComponent {
 
     /**
      * Stop current batch of consolidated watches and register new one from current {@link WatchAggregator}.
+     *
+     * <p>This method MUST always be called under a {@code synchronized} block.
      *
      * @return Ignite UUID of new consolidated watch.
      */

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.join.rest;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * REST command for initializing a cluster.
@@ -34,8 +35,8 @@ public class InitCommand {
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
             @JsonProperty("cmgNodes") Collection<String> cmgNodes
     ) {
-        this.metaStorageNodes = metaStorageNodes;
-        this.cmgNodes = cmgNodes;
+        this.metaStorageNodes = List.copyOf(metaStorageNodes);
+        this.cmgNodes = List.copyOf(cmgNodes);
     }
 
     @JsonProperty

@@ -21,11 +21,11 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,11 +48,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 /**
  * Tests for {@link ClusterInitializer}.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class ClusterInitializerTest {
     @Mock
     private MessagingService messagingService;
@@ -117,18 +120,51 @@ public class ClusterInitializerTest {
         var expectedLeaders = new Leaders(metastorageNode.name(), cmgNode.name());
 
         assertThat(leaders, willBe(equalTo(expectedLeaders)));
+    }
 
-        clearInvocations(messagingService);
+    /**
+     * Tests the happy-case scenario of cluster initialization when only Meta Storage are provided.
+     */
+    @Test
+    void testNormalInitSingleNodeList() {
+        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+
+        when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
+        when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
+        when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
+
+        when(messagingService.invoke(any(ClusterNode.class), any(MetastorageInitMessage.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    MetastorageInitMessage message = invocation.getArgument(1);
+
+                    NetworkMessage response = msgFactory.leaderElectedMessage()
+                            .leaderName(message.metastorageNodes()[0])
+                            .build();
+
+                    return CompletableFuture.completedFuture(response);
+                });
+
+        when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    CmgInitMessage message = invocation.getArgument(1);
+
+                    NetworkMessage response = msgFactory.leaderElectedMessage()
+                            .leaderName(message.cmgNodes()[0])
+                            .build();
+
+                    return CompletableFuture.completedFuture(response);
+                });
 
         // check that leaders are the same in case CMG node list is empty
-        leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of());
+        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of());
 
         verify(messagingService).invoke(eq(metastorageNode), any(MetastorageInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(cmgNode), any(MetastorageInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
 
-        expectedLeaders = new Leaders(metastorageNode.name(), metastorageNode.name());
+        var expectedLeaders = new Leaders(metastorageNode.name(), metastorageNode.name());
 
         assertThat(leaders, willBe(equalTo(expectedLeaders)));
     }
@@ -174,13 +210,46 @@ public class ClusterInitializerTest {
                     return CompletableFuture.completedFuture(response);
                 });
 
+        when(messagingService.send(any(ClusterNode.class), any(CancelInitMessage.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
         CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
 
-        ExecutionException e = assertThrows(ExecutionException.class, () -> leaders.get(1, TimeUnit.SECONDS));
+        InitException e = assertFutureThrows(InitException.class, leaders);
 
-        assertThat(e.getCause().getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
+        assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
 
         verify(messagingService).send(eq(metastorageNode), any(CancelInitMessage.class));
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
+    }
+
+    /**
+     * Tests that providing no nodes for the initialization throws an error.
+     */
+    @Test
+    void testEmptyInit() {
+        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(), List.of());
+
+        assertFutureThrows(IllegalArgumentException.class, leaders);
+    }
+
+    /**
+     * Tests that if some nodes are not present in the topology, an error is thrown.
+     */
+    @Test
+    void testUnresolvableNode() {
+        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of("foo"), List.of("bar"));
+
+        InitException e = assertFutureThrows(InitException.class, leaders);
+
+        assertThat(e.getMessage(), containsString("Node \"foo\" is not present in the physical topology"));
+    }
+
+    private static <T extends Throwable> T assertFutureThrows(Class<T> expected, CompletableFuture<?> future) {
+        ExecutionException e = assertThrows(ExecutionException.class, () -> future.get(1, TimeUnit.SECONDS));
+
+        assertThat(e.getCause(), isA(expected));
+
+        return expected.cast(e.getCause());
     }
 }

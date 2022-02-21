@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.join;
 
+import org.apache.ignite.lang.IgniteInternalException;
+
 /**
  * Exception thrown when cluster initialization fails for some reason.
  */
-public class InitException extends RuntimeException {
+public class InitException extends IgniteInternalException {
     public InitException(String message) {
         super(message);
     }

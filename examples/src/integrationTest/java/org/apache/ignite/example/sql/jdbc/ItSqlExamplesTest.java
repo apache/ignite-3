@@ -32,7 +32,7 @@ public class ItSqlExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testSqlJdbcExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(SqlJdbcExample::main, new String[0],
+        ExampleTestUtils.assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
                         + "    John, Doe, Forest Hill\n"
                         + "    Jane, Roe, Forest Hill\n"

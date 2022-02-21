@@ -32,7 +32,7 @@ public class ItTransactionsExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testTransactionsExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(TransactionsExample::main, new String[0],
+        ExampleTestUtils.assertConsoleOutputContains(TransactionsExample::main, EMPTY_ARGS,
                 "Initial balance: 1000.0",
                 "Balance after the sync transaction: 1200.0",
                 "Balance after the async transaction: 1500.0");
