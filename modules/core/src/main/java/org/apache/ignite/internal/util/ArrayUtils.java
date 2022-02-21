@@ -373,4 +373,39 @@ public final class ArrayUtils {
 
         return res;
     }
+
+    /**
+     * Set element to the array at the given index. Grows the array if needed.
+     *
+     * @param arr Array.
+     * @param idx Index.
+     * @param o Object.
+     * @return The given or grown array.
+     */
+    public static <T> T[] set(T[] arr, int idx, T o) {
+        int len = arr.length;
+
+        if (idx >= len) {
+            len += len >>> 1; // len *= 1.5
+            len = Math.max(len, idx + 1);
+            arr = Arrays.copyOf(arr, len);
+        }
+
+        arr[idx] = o;
+
+        return arr;
+    }
+
+    /**
+     * Nullify array elements from the given index until the first {@code null} element
+     * (assuming that after the first {@code null} tail is already cleared).
+     *
+     * @param arr Array.
+     * @param fromIdx From index (including).
+     */
+    public static void clearTail(Object[] arr, int fromIdx) {
+        while (fromIdx < arr.length && arr[fromIdx] != null) {
+            arr[fromIdx++] = null;
+        }
+    }
 }
