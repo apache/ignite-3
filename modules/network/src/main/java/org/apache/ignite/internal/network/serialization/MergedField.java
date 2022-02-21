@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.serialization;
 
 import java.util.Objects;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains information about a field, both from local and remote classes. Any of the parts (local/remote) might be absent.
@@ -52,14 +53,10 @@ public class MergedField {
      * @param localField  local part
      * @param remoteField remote part
      */
-    public MergedField(FieldDescriptor localField, FieldDescriptor remoteField) {
-        if (localField == null && remoteField == null) {
-            throw new IllegalArgumentException("Both descriptors are null");
-        }
-        if (localField != null && remoteField != null && !localField.name().equals(remoteField.name())) {
-            throw new IllegalArgumentException("Field descriptors with different names: " + localField.name()
-                    + " and " + remoteField.name());
-        }
+    public MergedField(@Nullable FieldDescriptor localField, @Nullable FieldDescriptor remoteField) {
+        assert localField != null || remoteField != null : "Both descriptors are null";
+        assert localField == null || remoteField == null || localField.name().equals(remoteField.name())
+                : "Field descriptors with different names: " + localField.name() + " and " + remoteField.name();
 
         this.localField = localField;
         this.remoteField = remoteField;
