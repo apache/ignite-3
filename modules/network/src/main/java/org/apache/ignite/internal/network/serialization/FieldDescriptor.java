@@ -60,7 +60,7 @@ public class FieldDescriptor implements DeclaredType {
     }
 
     /**
-     * Creates a {@link FieldDescriptor} from a field defined by name, but having local class.
+     * Creates a {@link FieldDescriptor} from a field defined by name, but defined locally.
      */
     public static FieldDescriptor local(
             String fieldName,
@@ -80,7 +80,7 @@ public class FieldDescriptor implements DeclaredType {
     }
 
     /**
-     * Creates a {@link FieldDescriptor} from a possibly remote field.
+     * Creates a {@link FieldDescriptor} for a remote field.
      */
     public static FieldDescriptor remote(
             String fieldName,
