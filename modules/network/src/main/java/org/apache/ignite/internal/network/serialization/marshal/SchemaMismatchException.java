@@ -17,17 +17,12 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-
 /**
- * Thrown when unmarshalling fails.
+ * Thrown when a schema mismatch is found during unmarshalling an object. This means that the remote class of the object
+ * is different from the local class.
  */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
+public class SchemaMismatchException extends UnmarshalException {
+    public SchemaMismatchException(String message) {
         super(message);
-    }
-
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
     }
 }

@@ -74,9 +74,7 @@ public final class IgniteTestUtils {
                 throw new IgniteInternalException("Modification of static final field through reflection.");
             }
 
-            boolean accessible = field.isAccessible();
-
-            if (!accessible) {
+            if (!field.isAccessible()) {
                 field.setAccessible(true);
             }
 
@@ -101,9 +99,7 @@ public final class IgniteTestUtils {
         try {
             Field field = cls.getDeclaredField(fieldName);
 
-            boolean accessible = field.isAccessible();
-
-            if (!accessible) {
+            if (!field.isAccessible()) {
                 field.setAccessible(true);
             }
 
@@ -131,6 +127,33 @@ public final class IgniteTestUtils {
             field.set(obj, val);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new IgniteInternalException("Failed to set object field [obj=" + obj + ", field=" + fieldName + ']', e);
+        }
+    }
+
+    /**
+     * Returns field value.
+     *
+     * @param target        target object from which to get field value ({@code null} for static methods)
+     * @param declaredClass class on which the field is declared
+     * @param fieldName     name of the field
+     * @return field value
+     */
+    public static Object getFieldValue(Object target, Class<?> declaredClass, String fieldName) {
+        Field field;
+        try {
+            field = declaredClass.getDeclaredField(fieldName);
+        } catch (NoSuchFieldException e) {
+            throw new IgniteInternalException("Did not find a field", e);
+        }
+
+        if (!field.isAccessible()) {
+            field.setAccessible(true);
+        }
+
+        try {
+            return field.get(target);
+        } catch (IllegalAccessException e) {
+            throw new IgniteInternalException("Cannot get field value", e);
         }
     }
 

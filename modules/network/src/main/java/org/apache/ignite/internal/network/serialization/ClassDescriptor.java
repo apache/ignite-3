@@ -17,29 +17,29 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMaps;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class descriptor for the user object serialization.
  */
-public class ClassDescriptor {
+public class ClassDescriptor implements DeclaredType {
     /**
-     * Class.
+     * Class. It is local to the current JVM; the descriptor could
+     * be created on a remote JVM/machine where a class with same name could represent a different class.
      */
-    @NotNull
-    private final Class<?> clazz;
+    private final Class<?> localClass;
 
     /**
      * Descriptor id.
@@ -53,9 +53,19 @@ public class ClassDescriptor {
     private final ClassDescriptor superClassDescriptor;
 
     /**
+     * Component type descriptor (only present for arrays).
+     */
+    @Nullable
+    private final ClassDescriptor componentTypeDescriptor;
+
+    private final boolean isPrimitive;
+    private final boolean isArray;
+    private final boolean isRuntimeEnum;
+    private final boolean isRuntimeTypeKnownUpfront;
+
+    /**
      * List of the declared class fields' descriptors.
      */
-    @NotNull
     private final List<FieldDescriptor> fields;
 
     /**
@@ -63,10 +73,7 @@ public class ClassDescriptor {
      */
     private final Serialization serialization;
 
-    /**
-     * Whether the class is final.
-     */
-    private final boolean isFinal;
+    private final List<MergedField> mergedFields;
 
     /** Total number of bytes needed to store all primitive fields. */
     private final int primitiveFieldsDataSize;
@@ -106,21 +113,105 @@ public class ClassDescriptor {
     private final SpecialSerializationMethods serializationMethods;
 
     /**
-     * Constructor.
+     * Creates a descriptor describing a local (i.e. residing in this JVM) class.
      */
-    public ClassDescriptor(
-            @NotNull Class<?> clazz,
+    public static ClassDescriptor local(
+            Class<?> localClass,
             int descriptorId,
             @Nullable ClassDescriptor superClassDescriptor,
-            @NotNull List<FieldDescriptor> fields,
+            @Nullable ClassDescriptor componentTypeDescriptor,
+            List<FieldDescriptor> fields,
             Serialization serialization
     ) {
-        this.clazz = clazz;
+        return new ClassDescriptor(localClass, descriptorId, superClassDescriptor, componentTypeDescriptor, fields, serialization);
+    }
+
+    /**
+     * Creates a descriptor describing a remote class.
+     */
+    public static ClassDescriptor remote(
+            Class<?> localClass,
+            int descriptorId,
+            @Nullable ClassDescriptor superClassDescriptor,
+            @Nullable ClassDescriptor componentTypeDescriptor,
+            boolean isPrimitive,
+            boolean isArray,
+            boolean isRuntimeEnum,
+            boolean isRuntimeTypeKnownUpfront,
+            List<FieldDescriptor> fields,
+            Serialization serialization,
+            ClassDescriptor localDescriptor
+    ) {
+        return new ClassDescriptor(
+                localClass,
+                descriptorId,
+                superClassDescriptor,
+                componentTypeDescriptor,
+                isPrimitive,
+                isArray,
+                isRuntimeEnum,
+                isRuntimeTypeKnownUpfront,
+                fields,
+                serialization,
+                ClassDescriptorMerger.mergeFields(localDescriptor.fields(), fields)
+        );
+    }
+
+    /**
+     * Constructor for the local class case.
+     */
+    private ClassDescriptor(
+            Class<?> localClass,
+            int descriptorId,
+            @Nullable ClassDescriptor superClassDescriptor,
+            @Nullable ClassDescriptor componentTypeDescriptor,
+            List<FieldDescriptor> fields,
+            Serialization serialization
+    ) {
+        this(
+                localClass,
+                descriptorId,
+                superClassDescriptor,
+                componentTypeDescriptor,
+                localClass.isPrimitive(),
+                localClass.isArray(),
+                Classes.isRuntimeEnum(localClass),
+                Classes.isRuntimeTypeKnownUpfront(localClass),
+                fields,
+                serialization,
+                fields.stream().map(field -> new MergedField(field, field)).collect(toList())
+        );
+    }
+
+    /**
+     * Constructor.
+     */
+    private ClassDescriptor(
+            Class<?> localClass,
+            int descriptorId,
+            @Nullable ClassDescriptor superClassDescriptor,
+            @Nullable ClassDescriptor componentTypeDescriptor,
+            boolean isPrimitive,
+            boolean isArray,
+            boolean isRuntimeEnum,
+            boolean isRuntimeTypeKnownUpfront,
+            List<FieldDescriptor> fields,
+            Serialization serialization,
+            List<MergedField> mergedFields
+    ) {
+        this.localClass = localClass;
         this.descriptorId = descriptorId;
         this.superClassDescriptor = superClassDescriptor;
+        this.componentTypeDescriptor = componentTypeDescriptor;
+        this.isPrimitive = isPrimitive;
+        this.isArray = isArray;
+        this.isRuntimeEnum = isRuntimeEnum;
+        this.isRuntimeTypeKnownUpfront = isRuntimeTypeKnownUpfront;
+
         this.fields = List.copyOf(fields);
         this.serialization = serialization;
-        this.isFinal = Modifier.isFinal(clazz.getModifiers());
+
+        this.mergedFields = List.copyOf(mergedFields);
 
         primitiveFieldsDataSize = computePrimitiveFieldsDataSize(fields);
         objectFieldsCount = computeObjectFieldsCount(fields);
@@ -137,7 +228,7 @@ public class ClassDescriptor {
         int accumulatedBytes = 0;
         for (FieldDescriptor fieldDesc : fields) {
             if (fieldDesc.isPrimitive()) {
-                accumulatedBytes += Primitives.widthInBytes(fieldDesc.clazz());
+                accumulatedBytes += fieldDesc.primitiveWidthInBytes();
             }
         }
         return accumulatedBytes;
@@ -226,11 +317,50 @@ public class ClassDescriptor {
     }
 
     /**
+     * Returns descriptor of the component type (only non-{@code null} for array types).
+     *
+     * @return descriptor of the component type (only non-{@code null} for array types)
+     */
+    @Nullable
+    public ClassDescriptor componentTypeDescriptor() {
+        return componentTypeDescriptor;
+    }
+
+    /**
+     * Returns descriptor ID of the component type (only non-{@code null} for array types).
+     *
+     * @return descriptor ID of the component type (only non-{@code null} for array types)
+     */
+    @Nullable
+    public Integer componentTypeDescriptorId() {
+        return componentTypeDescriptor == null ? null : componentTypeDescriptor.descriptorId();
+    }
+
+    /**
+     * Returns name of the component type (only non-{@code null} for array types).
+     *
+     * @return name of the component type (only non-{@code null} for array types)
+     */
+    @Nullable
+    public String componentTypeName() {
+        return componentTypeDescriptor == null ? null : componentTypeDescriptor.className();
+    }
+
+    /**
+     * Returns {@code true} if the array component type is known upfront.
+     *
+     * @return {@code true} if the array component type is known upfront
+     * @see #isRuntimeTypeKnownUpfront()
+     */
+    public boolean isComponentRuntimeTypeKnownUpfront() {
+        return componentTypeDescriptor != null && componentTypeDescriptor.isRuntimeTypeKnownUpfront();
+    }
+
+    /**
      * Returns declared fields' descriptors.
      *
      * @return Fields' descriptors.
      */
-    @NotNull
     public List<FieldDescriptor> fields() {
         return fields;
     }
@@ -240,19 +370,18 @@ public class ClassDescriptor {
      *
      * @return Class' name.
      */
-    @NotNull
     public String className() {
-        return clazz.getName();
+        return localClass.getName();
     }
 
     /**
-     * Returns descriptor's class.
+     * Returns descriptor's class (represented by a local class). Local means 'on this machine', but the descriptor could
+     * be created on a remote machine where a class with same name could represent a different class.
      *
      * @return Class.
      */
-    @NotNull
-    public Class<?> clazz() {
-        return clazz;
+    public Class<?> localClass() {
+        return localClass;
     }
 
     /**
@@ -274,12 +403,12 @@ public class ClassDescriptor {
     }
 
     /**
-     * Returns {@code true} if class is final, {@code false} otherwise.
+     * Returns local and remote field descriptors merged together.
      *
-     * @return {@code true} if class is final, {@code false} otherwise.
+     * @return local and remote field descriptors merged together
      */
-    public boolean isFinal() {
-        return isFinal;
+    public List<MergedField> mergedFields() {
+        return mergedFields;
     }
 
     /**
@@ -308,6 +437,34 @@ public class ClassDescriptor {
      */
     public boolean isBuiltIn() {
         return serializationType() == SerializationType.BUILTIN;
+    }
+
+    /**
+     * Returns {@code true} if this field has a primitive type.
+     *
+     * @return {@code true} if this field has a primitive type
+     */
+    public boolean isPrimitive() {
+        return isPrimitive;
+    }
+
+    /**
+     * Returns {@code true} if the described class is an array class.
+     *
+     * @return {@code true} if the described class is an array class
+     */
+    public boolean isArray() {
+        return isArray;
+    }
+
+    /**
+     * Returns {@code true} if the descriptor describes an enum class that can have instances at runtime (i.e. it's an enum,
+     * but not exactly @{code Enum.class}).
+     *
+     * @return {@code true} if the descriptor describes an enum class that can have instances at runtime
+     */
+    public boolean isRuntimeEnum() {
+        return isRuntimeEnum;
     }
 
     /**
@@ -409,7 +566,7 @@ public class ClassDescriptor {
      * @return {@code true} if this descriptor describes same class as the given descriptor
      */
     public boolean describesSameClass(ClassDescriptor other) {
-        return other.clazz() == clazz();
+        return localClass == other.localClass;
     }
 
     /**
@@ -463,16 +620,14 @@ public class ClassDescriptor {
      * These are different from the offsets used in the context of {@link sun.misc.Unsafe}.
      *
      * @param fieldName    primitive field name
-     * @param requiredType field type
+     * @param requiredTypeName type name that we expect to see for the field
      * @return offset into primitive fields data
      */
-    public int primitiveFieldDataOffset(String fieldName, Class<?> requiredType) {
-        assert requiredType.isPrimitive();
-
+    public int primitiveFieldDataOffset(String fieldName, String requiredTypeName) {
         FieldDescriptor fieldDesc = requiredFieldByName(fieldName);
-        if (fieldDesc.clazz() != requiredType) {
-            throw new IllegalStateException("Field " + fieldName + " has type " + fieldDesc.clazz()
-                    + ", but it was used as " + requiredType);
+        if (!Objects.equals(fieldDesc.typeName(), requiredTypeName)) {
+            throw new IllegalStateException("Field " + fieldName + " has type " + fieldDesc.typeName()
+                    + ", but it was used as " + requiredTypeName);
         }
 
         if (primitiveFieldDataOffsets == null) {
@@ -509,7 +664,7 @@ public class ClassDescriptor {
         for (FieldDescriptor fieldDesc : fields) {
             if (fieldDesc.isPrimitive()) {
                 map.put(fieldDesc.name(), accumulatedOffset);
-                accumulatedOffset += Primitives.widthInBytes(fieldDesc.clazz());
+                accumulatedOffset += fieldDesc.primitiveWidthInBytes();
             }
         }
 
@@ -558,15 +713,6 @@ public class ClassDescriptor {
     }
 
     /**
-     * Returns {@code true} if the descriptor describes an enum class.
-     *
-     * @return {@code true} if the descriptor describes an enum class
-     */
-    public boolean isEnum() {
-        return Classes.isRuntimeEnum(clazz);
-    }
-
-    /**
      * Returns {@code true} if the descriptor describes a String that is represented with Latin-1 internally.
      * Needed to apply an optimization.
      *
@@ -576,16 +722,16 @@ public class ClassDescriptor {
         return descriptorId == BuiltInType.STRING_LATIN1.descriptorId();
     }
 
-    /**
-     * Returns {@code true} if a field (or array item) of the described class can only host (at runtime) instances of this type
-     * (and not subtypes), so the runtime marshalling type is known upfront. This is also true for enums, even though technically
-     * their values might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
-     *
-     * @return {@code true} if a field (or array item) of the described class can only host (at runtime) instances of the concrete type
-     *     that is known upfront
-     */
+    /** {@inheritDoc} */
+    @Override
+    public int typeDescriptorId() {
+        return descriptorId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean isRuntimeTypeKnownUpfront() {
-        return Classes.isRuntimeTypeKnownUpfront(clazz);
+        return isRuntimeTypeKnownUpfront;
     }
 
     /** {@inheritDoc} */

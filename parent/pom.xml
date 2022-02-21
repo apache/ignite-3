@@ -87,6 +87,7 @@
         <caffeine.version>3.0.4</caffeine.version>
         <fastutil.version>8.5.6</fastutil.version>
         <kryo.version>4.0.1</kryo.version>
+        <bytebuddy.version>1.12.8</bytebuddy.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -648,6 +649,12 @@
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil-core</artifactId>
                 <version>${fastutil.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${bytebuddy.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

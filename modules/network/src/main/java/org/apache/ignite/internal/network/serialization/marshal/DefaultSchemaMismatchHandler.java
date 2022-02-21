@@ -17,17 +17,8 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
-
 /**
- * Thrown when unmarshalling fails.
+ * Defines the default behavior for the cases when a schema mismatch is detected.
  */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
-        super(message);
-    }
-
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
-    }
+class DefaultSchemaMismatchHandler implements SchemaMismatchHandler<Object> {
 }

@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
+package org.apache.ignite.internal.network.serialization;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
-/**
- * Thrown when unmarshalling fails.
- */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
-        super(message);
-    }
+import org.junit.jupiter.api.Test;
 
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
+class BuiltInTypeTest {
+    @Test
+    void shouldFindBuiltInTypeByDescriptorId() {
+        assertThat(BuiltInType.findByDescriptorId(BuiltInType.BYTE.descriptorId()), is(BuiltInType.BYTE));
     }
 }

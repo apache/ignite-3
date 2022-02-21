@@ -17,17 +17,16 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Thrown when unmarshalling fails.
- */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
-        super(message);
-    }
+class DescribedObject {
+    @Nullable
+    final Object object;
+    final ClassDescriptor descriptor;
 
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
+    DescribedObject(@Nullable Object object, ClassDescriptor descriptor) {
+        this.object = object;
+        this.descriptor = descriptor;
     }
 }

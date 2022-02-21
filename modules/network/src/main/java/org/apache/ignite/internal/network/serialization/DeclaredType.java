@@ -15,19 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.serialization.marshal;
-
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+package org.apache.ignite.internal.network.serialization;
 
 /**
- * Thrown when unmarshalling fails.
+ * A representation of a declared type.
  */
-public class UnmarshalException extends IgniteInternalCheckedException {
-    public UnmarshalException(String message) {
-        super(message);
-    }
+public interface DeclaredType {
+    /**
+     * Returns type descriptor id.
+     *
+     * @return type descriptor id.
+     */
+    int typeDescriptorId();
 
-    public UnmarshalException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    /**
+     * Returns {@code true} if the type slot can only host (at runtime) instances of its declared type (and not subtypes),
+     * so the runtime marshalling type is known upfront. This is also true for enums, even though technically their values might
+     * have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
+     *
+     * @return {@code true} if the type slot can only host (at runtime) instances of the declared type that is known upfront
+     */
+    boolean isRuntimeTypeKnownUpfront();
 }
