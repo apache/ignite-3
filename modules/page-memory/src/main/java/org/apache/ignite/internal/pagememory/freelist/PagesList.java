@@ -180,8 +180,8 @@ public abstract class PagesList extends DataStructure {
     /**
      * Constructor.
      *
-     * @param grpId Group ID.
      * @param name Structure name (for debug purpose).
+     * @param grpId Group ID.
      * @param pageMem Page memory.
      * @param lockLsnr Page lock listener.
      * @param defaultPageFlag Default flag value for allocated pages. One of {@link PageIdAllocator#FLAG_DATA} or {@link
@@ -191,8 +191,8 @@ public abstract class PagesList extends DataStructure {
      * @param metaPageId Metadata page ID.
      */
     protected PagesList(
-            int grpId,
             String name,
+            int grpId,
             PageMemory pageMem,
             PageLockListener lockLsnr,
             byte defaultPageFlag,

@@ -68,7 +68,7 @@ public class IgniteUnsafeDataOutput extends OutputStream implements IgniteDataOu
     private int maxOff;
 
     /** Last length check timestamp. */
-    private long lastAutoShrinkCheckTimestamp = FastTimestamps.coarseCurrentTimeMillis();
+    private long lastAutoShrinkCheckTimestamp;
 
     /**
      * Creates a new output with auto-shrinking disabled and no internal buffer allocated.

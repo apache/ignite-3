@@ -33,11 +33,8 @@ abstract class VarTableFormat {
     /** First two flag bits reserved for format code. */
     public static final int FORMAT_CODE_MASK = 0x03;
 
-    /** Flag indicates key chunk omits vartable. */
-    public static final int OMIT_NULL_MAP_FLAG = 1 << 2;
-
-    /** Flag indicates value chunk omits null map. */
-    public static final int OMIT_VARTBL_FLAG = 1 << 3;
+    /** Writer factory for skip vartable. */
+    static final VarTableFormat SKIPPED = new SkipFormat();
 
     /** Writer factory for tiny-sized chunks. */
     static final VarTableFormat TINY = new TinyFormat();
@@ -79,6 +76,8 @@ abstract class VarTableFormat {
         int formatId = chunkFlags & FORMAT_CODE_MASK;
 
         switch (formatId) {
+            case SkipFormat.FORMAT_ID:
+                return SKIPPED;
             case TinyFormat.FORMAT_ID:
                 return TINY;
             case MediumFormat.FORMAT_ID:
@@ -165,6 +164,38 @@ abstract class VarTableFormat {
      * @return Number of bytes vartable was shrinked by.
      */
     public abstract int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entries);
+
+    /**
+     * Vartable format for skipped vartable.
+     */
+    private static class SkipFormat extends VarTableFormat {
+        private static final byte FORMAT_ID = 0;
+
+        /**
+         * Creates chunk format.
+         */
+        SkipFormat() {
+            super(0, 0, FORMAT_ID);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
+            throw new IllegalStateException("Offset must be calculated by chunk when vartable is skipped");
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        int readVartableSize(BinaryRow row, int vartblOff) {
+            return 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int compactVarTable(ExpandableByteBuf buf, int vartblOff, int entres) {
+            throw new IllegalStateException("Skipped vartable must not be compacted");
+        }
+    }
 
     /**
      * Chunk format for small rows (with payload size less 256 bytes).
@@ -258,7 +289,7 @@ abstract class VarTableFormat {
      * Chunk format for large rows (with payload size 64+Kb).
      */
     private static class LargeFormat extends VarTableFormat {
-        private static byte FORMAT_ID = 0;
+        private static byte FORMAT_ID = 3;
 
         /**
          * Creates chunk format.

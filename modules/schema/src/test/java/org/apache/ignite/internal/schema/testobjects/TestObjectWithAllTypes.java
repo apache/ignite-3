@@ -82,6 +82,18 @@ public class TestObjectWithAllTypes {
         return obj;
     }
 
+    /**
+     * Creates an object with random data.
+     */
+    public static TestObjectWithAllTypes randomKey(Random rnd) {
+        final TestObjectWithAllTypes obj = randomObject(rnd);
+
+        obj.nullLongCol = rnd.nextLong();
+        obj.nullBytesCol = IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
+
+        return obj;
+    }
+
     // Primitive typed
     private byte primitiveByteCol;
 
@@ -154,8 +166,8 @@ public class TestObjectWithAllTypes {
                 && Objects.equals(shortCol, object.shortCol)
                 && Objects.equals(intCol, object.intCol)
                 && Objects.equals(longCol, object.longCol)
-                && Objects.isNull(nullBytesCol) && Objects.isNull(object.nullBytesCol)
-                && Objects.isNull(nullLongCol) && Objects.isNull(object.nullLongCol)
+                && Arrays.equals(nullBytesCol, object.nullBytesCol)
+                && Objects.equals(nullLongCol, object.nullLongCol)
                 && Objects.equals(floatCol, object.floatCol)
                 && Objects.equals(doubleCol, object.doubleCol)
                 && Objects.equals(dateCol, object.dateCol)

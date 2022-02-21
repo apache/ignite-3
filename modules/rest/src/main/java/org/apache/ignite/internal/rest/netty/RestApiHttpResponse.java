@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.rest.netty;
 
-import com.google.gson.Gson;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Simple wrapper of HTTP response with some helper methods for filling it with headers and content.
  */
 public class RestApiHttpResponse {
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+            .setVisibility(PropertyAccessor.FIELD, Visibility.ANY);
+
     /** Response. */
     private final HttpResponse res;
 
@@ -83,9 +88,14 @@ public class RestApiHttpResponse {
      * @return Updated response.
      */
     public RestApiHttpResponse json(Object content) {
-        // TODO: IGNITE-14344 Gson object should not be created on every response
-        this.content = new Gson().toJson(content).getBytes(StandardCharsets.UTF_8);
+        try {
+            this.content = objectMapper.writeValueAsBytes(content);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Unable to serialize JSON content", e);
+        }
+
         headers().set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON.toString());
+
         return this;
     }
 

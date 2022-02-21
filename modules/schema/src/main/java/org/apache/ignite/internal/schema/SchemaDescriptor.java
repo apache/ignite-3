@@ -79,6 +79,8 @@ public class SchemaDescriptor {
         this.keyCols = new Columns(0, keyCols);
         this.valCols = new Columns(keyCols.length, valCols);
 
+        assert this.keyCols.nullMapSize() == 0 : "Primary key cannot contain nullable column [cols=" + this.keyCols + ']';
+
         colMap = new LinkedHashMap<>(keyCols.length + valCols.length);
 
         Stream.concat(Arrays.stream(this.keyCols.columns()), Arrays.stream(this.valCols.columns()))

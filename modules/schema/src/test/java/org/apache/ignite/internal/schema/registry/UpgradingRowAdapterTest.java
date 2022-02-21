@@ -80,7 +80,7 @@ public class UpgradingRowAdapterTest {
     @Test
     public void testVariousColumnTypes() {
         SchemaDescriptor schema = new SchemaDescriptor(1,
-                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, true)},
+                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
                 new Column[]{
                         new Column("valByteCol", INT8, true),
                         new Column("valShortCol", INT16, true),
@@ -101,7 +101,7 @@ public class UpgradingRowAdapterTest {
         );
 
         SchemaDescriptor schema2 = new SchemaDescriptor(2,
-                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, true)},
+                new Column[]{new Column("keyUuidCol", NativeTypes.UUID, false)},
                 new Column[]{
                         new Column("added", INT8, true),
                         new Column("valByteCol", INT8, true),

@@ -17,9 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -34,6 +37,7 @@ import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
@@ -193,8 +197,59 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        return CompletableFuture.completedFuture(new BatchExecuteResult(UNSUPPORTED_OPERATION,
-                "ExecuteBatch operation is not implemented yet."));
+        List<String> queries = req.queries();
+
+        IntList res = new IntArrayList(queries.size());
+
+        for (String query : queries) {
+            try {
+                executeAndCollectUpdateCount(req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
+            } catch (Exception e) {
+                return handleBatchException(e, query, res);
+            }
+        }
+
+        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
+        IntList res = new IntArrayList(req.getArgs().size());
+
+        try {
+            for (Object[] arg : req.getArgs()) {
+                executeAndCollectUpdateCount(req.schemaName(), req.getQuery(), arg, res);
+            }
+        } catch (Exception e) {
+            return handleBatchException(e, req.getQuery(), res);
+        }
+
+        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+    }
+
+    private void executeAndCollectUpdateCount(String schema, String sql, Object[] arg, IntList res) {
+        List<SqlCursor<List<?>>> cursors = processor.query(schema, sql, arg);
+        for (SqlCursor<List<?>> cursor : cursors) {
+            long updatedRows = (long) cursor.next().get(0);
+            res.add((int) updatedRows);
+        }
+    }
+
+    private CompletableFuture<BatchExecuteResult> handleBatchException(Exception e, String query, IntList res) {
+        StringWriter sw = getWriterWithStackTrace(e);
+
+        String error;
+
+        if (e instanceof ClassCastException) {
+            error = "Unexpected result after query:" + query + ". Not an upsert statement? " + sw;
+        } else {
+            error = sw.toString();
+        }
+
+        return CompletableFuture.completedFuture(
+                new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, res.toIntArray())
+        );
     }
 
     /** {@inheritDoc} */
