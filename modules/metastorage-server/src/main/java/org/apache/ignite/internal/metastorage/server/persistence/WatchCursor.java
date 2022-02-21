@@ -36,8 +36,6 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
@@ -121,7 +119,6 @@ class WatchCursor implements Cursor<WatchEvent> {
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
     public WatchEvent next() {
         storage.lock().readLock().lock();
@@ -188,7 +185,6 @@ class WatchCursor implements Cursor<WatchEvent> {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public Iterator<WatchEvent> iterator() {
         return this;
