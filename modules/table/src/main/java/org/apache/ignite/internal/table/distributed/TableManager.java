@@ -249,7 +249,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         if (!busyLock.enterBusy()) {
                                             fireEvent(
                                                     TableEvent.ALTER,
-                                                    new TableEventParameters(schemasCtx.storageRevision(), tblId, tblName),
+                                                    new TableEventParameters(causalityToken, tblId, tblName),
                                                     new NodeStoppingException()
                                             );
 
@@ -268,7 +268,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                                     SchemaSerializerImpl.INSTANCE.deserialize(
                                                                             (schemasCtx.newValue().schema())));
 
-                                                    fireEvent(TableEvent.ALTER, new TableEventParameters(schemasCtx.storageRevision(),
+                                                    fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken,
                                                             table), null);
 
                                                 });
@@ -276,7 +276,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                             return CompletableFuture.completedFuture(null);
                                         } catch (Exception e) {
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(schemasCtx.storageRevision(), tblId,
+                                            fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken, tblId,
                                                     tblName), e);
 
                                             return CompletableFuture.failedFuture(e);
@@ -838,6 +838,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         LOG.error(IgniteStringFormatter.format("Table wasn't created [name={}]", name), ex);
 
                         tblFut.completeExceptionally(ex);
+
+                        tableCreateFuts.values().removeIf(fut -> fut == tblFut);
                     }
 
                     return null;

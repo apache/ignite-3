@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
  * Tests of causality token implementation based on versioned value.
  * {@link VersionedValue}
  */
-public class VersionValueTest {
+public class VersionedValueTest {
     /** Test value. */
     public static final int TEST_VALUE = 1;
 
