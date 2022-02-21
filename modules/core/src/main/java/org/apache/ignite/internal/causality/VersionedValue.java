@@ -79,7 +79,7 @@ public class VersionedValue<T> {
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
             Consumer<Consumer<Long>> observableRevisionUpdater,
             int historySize,
-            @NotNull Supplier<T> defaultVal
+            Supplier<T> defaultVal
     ) {
         this.storageRevisionUpdating = storageRevisionUpdating;
 
@@ -223,7 +223,7 @@ public class VersionedValue<T> {
     public void set(long causalityToken, T value) {
         long actualToken0 = actualToken;
 
-        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
+        assert actualToken0 == -1 || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
                 + "[token={}, actual={}]", causalityToken, actualToken0);
 
         CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
