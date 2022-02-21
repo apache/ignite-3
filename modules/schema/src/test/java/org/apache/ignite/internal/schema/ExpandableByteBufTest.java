@@ -20,18 +20,76 @@ package org.apache.ignite.internal.schema;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.schema.row.ExpandableByteBuf;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * ExpandableByteBufTest.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExpandableByteBufTest {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 7})
+    public void correctUnwrap(int strLen) {
+        for (NativeTypeSpec type : NativeTypeSpec.values()) {
+            ExpandableByteBuf buf = new ExpandableByteBuf(ThreadLocalRandom.current().nextInt(10));
+
+            switch (type) {
+                case INT8:
+                    buf.put(0, (byte) 1);
+                    break;
+
+                case INT16:
+                    buf.putShort(0, (short) 1);
+                    break;
+
+                case INT32:
+                    buf.putInt(0, 1);
+                    break;
+
+                case INT64:
+                    buf.putLong(0, 1L);
+                    break;
+
+                case FLOAT:
+                    buf.putFloat(0, 1f);
+                    break;
+
+                case DOUBLE:
+                    buf.putDouble(0, 1d);
+                    break;
+
+                case STRING:
+                    String targetStr = String.valueOf(new char[strLen]);
+                    try {
+                        buf.putString(0, targetStr, StandardCharsets.UTF_8.newEncoder());
+                    } catch (CharacterCodingException e) {
+                        fail(e);
+                    }
+                    break;
+
+                default:
+                    // no op.
+            }
+
+            checkBufState(buf);
+        }
+    }
+
+    private void checkBufState(ExpandableByteBuf buf) {
+        ByteBuffer bb = buf.unwrap();
+        assertEquals(0, bb.position());
+    }
+
     /**
      * AllTypesDirectOrder.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -53,7 +111,7 @@ public class ExpandableByteBufTest {
         buf.putString(34, targetStr, StandardCharsets.UTF_8.newEncoder());
 
         byte[] arr = buf.toArray();
-        assertEquals(41, arr.length);
+        assertEquals(34 + targetStr.length(), arr.length);
 
         ByteBuffer b = ByteBuffer.wrap(arr);
         b.order(ByteOrder.LITTLE_ENDIAN);
