@@ -207,7 +207,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(final Runnable task) {
+    public static CompletableFuture<?> runAsync(final RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -217,9 +217,13 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(final Runnable task, String threadName) {
+    public static CompletableFuture<?> runAsync(final RunnableX task, String threadName) {
         return runAsync(() -> {
-            task.run();
+            try {
+                task.run();
+            } catch (Throwable e) {
+                throw new Exception(e);
+            }
 
             return null;
         }, threadName);
@@ -317,6 +321,23 @@ public final class IgniteTestUtils {
         }
 
         return time;
+    }
+
+    /**
+     * Runs callable tasks in specified number of threads.
+     *
+     * @param call Callable.
+     * @param threadNum Number of threads.
+     * @param threadName Thread names.
+     * @return Execution time in milliseconds.
+     * @throws Exception If failed.
+     */
+    public static long runMultiThreaded(Callable<?> call, int threadNum, String threadName) throws Exception {
+        List<Callable<?>> calls = Collections.nCopies(threadNum, call);
+
+        NamedThreadFactory threadFactory = new NamedThreadFactory(threadName);
+
+        return runMultiThreaded(calls, threadFactory);
     }
 
     /**
