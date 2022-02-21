@@ -29,15 +29,15 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(NetworkMessageTypes.CLASS_DESCRIPTOR_MESSAGE)
 public interface ClassDescriptorMessage extends NetworkMessage {
     int IS_PRIMITIVE_MASK = 1;
-    int IS_ARRAY_MASK = 2;
-    int IS_RUNTIME_ENUM_MASK = 4;
-    int IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK = 8;
+    int IS_ARRAY_MASK = 1 << 1;
+    int IS_RUNTIME_ENUM_MASK = 1 << 2;
+    int IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK = 1 << 3;
 
     int HAS_WRITE_OBJECT_MASK = 1;
-    int HAS_READ_OBJECT_MASK = 2;
-    int HAS_READ_OBJECT_NO_DATA_MASK = 4;
-    int HAS_WRITE_REPLACE_MASK = 8;
-    int HAS_READ_RESOLVE_MASK = 16;
+    int HAS_READ_OBJECT_MASK = 1 << 1;
+    int HAS_READ_OBJECT_NO_DATA_MASK = 1 << 2;
+    int HAS_WRITE_REPLACE_MASK = 1 << 3;
+    int HAS_READ_RESOLVE_MASK = 1 << 4;
 
     /**
      * Class name.
