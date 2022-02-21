@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -1955,7 +1956,7 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
-    public void watchCursorLexicographicTest() {
+    public void watchCursorLexicographicTest() throws Exception {
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
 
@@ -1971,25 +1972,26 @@ public abstract class AbstractKeyValueStorageTest {
         assertEquals(count, storage.revision());
         assertEquals(count, storage.updateCounter());
 
-        Cursor<WatchEvent> cur = storage.watch(key, 1);
-
-        Iterator<WatchEvent> it = cur.iterator();
-
         int i = 1;
+        int countSeen = 0;
 
-        while (it.hasNext()) {
-            WatchEvent event = it.next();
+        try (Cursor<WatchEvent> cur = storage.watch(key, 1)) {
+            for (WatchEvent event : cur) {
+                assertTrue(event.single());
 
-            assertTrue(event.single());
+                Entry entry = event.entryEvent().entry();
 
-            Entry entry = event.entryEvent().entry();
+                byte[] entryKey = entry.key();
 
-            byte[] entryKey = entry.key();
+                assertEquals(i++, entry.revision());
 
-            assertEquals(i++, entry.revision());
+                assertArrayEquals(key, entryKey);
 
-            assertArrayEquals(key, entryKey);
+                countSeen++;
+            }
         }
+
+        assertEquals(count, countSeen);
     }
 
     @Test
@@ -2013,7 +2015,7 @@ public abstract class AbstractKeyValueStorageTest {
         Iterator<WatchEvent> it = cur.iterator();
 
         assertFalse(it.hasNext());
-        assertNull(it.next());
+        assertThrows(NoSuchElementException.class, it::next);
 
         storage.putAll(List.of(key1, key2), List.of(val1_1, val2_1));
 
@@ -2022,7 +2024,7 @@ public abstract class AbstractKeyValueStorageTest {
 
         // Revision is less than 2.
         assertFalse(it.hasNext());
-        assertNull(it.next());
+        assertThrows(NoSuchElementException.class, it::next);
 
         storage.putAll(List.of(key2, key3), List.of(val2_2, val3_1));
 
@@ -2137,7 +2139,7 @@ public abstract class AbstractKeyValueStorageTest {
         Iterator<WatchEvent> it = cur.iterator();
 
         assertFalse(it.hasNext());
-        assertNull(it.next());
+        assertThrows(NoSuchElementException.class, it::next);
 
         storage.putAll(List.of(key1, key2), List.of(val1_1, val2_1));
 
@@ -2204,60 +2206,58 @@ public abstract class AbstractKeyValueStorageTest {
     }
 
     @Test
-    public void watchCursorForKeySkipNonMatchingEntries() {
+    public void watchCursorForKeySkipNonMatchingEntries() throws Exception {
         byte[] key1 = key(1);
-        final byte[] val1_1 = keyValue(1, 11);
-        final byte[] val1_2 = keyValue(1, 12);
+        byte[] val1v1 = keyValue(1, 11);
+        byte[] val1v2 = keyValue(1, 12);
 
-        final byte[] key2 = key(2);
-        final byte[] val2 = keyValue(2, 21);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 21);
 
         assertEquals(0, storage.revision());
         assertEquals(0, storage.updateCounter());
 
-        Cursor<WatchEvent> cur = storage.watch(key2, 1);
+        try (Cursor<WatchEvent> cur = storage.watch(key2, 1)) {
+            assertFalse(cur.hasNext());
+            assertThrows(NoSuchElementException.class, cur::next);
 
-        Iterator<WatchEvent> it = cur.iterator();
+            storage.put(key1, val1v1);
 
-        assertFalse(it.hasNext());
-        assertNull(it.next());
+            assertFalse(cur.hasNext());
+            assertThrows(NoSuchElementException.class, cur::next);
 
-        storage.put(key1, val1_1);
+            storage.put(key1, val1v2);
 
-        assertFalse(it.hasNext());
-        assertNull(it.next());
+            assertFalse(cur.hasNext());
+            assertThrows(NoSuchElementException.class, cur::next);
 
-        storage.put(key1, val1_2);
+            storage.put(key2, val2);
 
-        assertFalse(it.hasNext());
-        assertNull(it.next());
+            assertEquals(3, storage.revision());
+            assertEquals(3, storage.updateCounter());
 
-        storage.put(key2, val2);
+            assertTrue(cur.hasNext());
 
-        assertEquals(3, storage.revision());
-        assertEquals(3, storage.updateCounter());
+            WatchEvent watchEvent = cur.next();
 
-        assertTrue(it.hasNext());
+            assertTrue(watchEvent.single());
 
-        WatchEvent watchEvent = it.next();
+            EntryEvent e1 = watchEvent.entryEvent();
 
-        assertTrue(watchEvent.single());
+            Entry oldEntry1 = e1.oldEntry();
 
-        EntryEvent e1 = watchEvent.entryEvent();
+            assertTrue(oldEntry1.empty());
+            assertFalse(oldEntry1.tombstone());
 
-        Entry oldEntry1 = e1.oldEntry();
+            Entry newEntry1 = e1.entry();
 
-        assertTrue(oldEntry1.empty());
-        assertFalse(oldEntry1.tombstone());
-
-        Entry newEntry1 = e1.entry();
-
-        assertFalse(newEntry1.empty());
-        assertFalse(newEntry1.tombstone());
-        assertEquals(3, newEntry1.revision());
-        assertEquals(3, newEntry1.updateCounter());
-        assertArrayEquals(key2, newEntry1.key());
-        assertArrayEquals(val2, newEntry1.value());
+            assertFalse(newEntry1.empty());
+            assertFalse(newEntry1.tombstone());
+            assertEquals(3, newEntry1.revision());
+            assertEquals(3, newEntry1.updateCounter());
+            assertArrayEquals(key2, newEntry1.key());
+            assertArrayEquals(val2, newEntry1.value());
+        }
     }
 
     @Test
@@ -2281,7 +2281,7 @@ public abstract class AbstractKeyValueStorageTest {
         Iterator<WatchEvent> it = cur.iterator();
 
         assertFalse(it.hasNext());
-        assertNull(it.next());
+        assertThrows(NoSuchElementException.class, it::next);
 
         storage.putAll(List.of(key1, key2, key3), List.of(val1_1, val2_1, val3_1));
 

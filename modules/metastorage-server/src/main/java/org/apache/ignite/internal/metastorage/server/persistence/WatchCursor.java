@@ -26,11 +26,13 @@ import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.EntryEvent;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -50,9 +52,6 @@ class WatchCursor implements Cursor<WatchEvent> {
 
     /** Key predicate. */
     private final Predicate<byte[]> predicate;
-
-    /** Iterator for this cursor. */
-    private final Iterator<WatchEvent> it;
 
     /** Options for {@link #nativeIterator}. */
     private final ReadOptions options = new ReadOptions();
@@ -81,21 +80,105 @@ class WatchCursor implements Cursor<WatchEvent> {
 
         this.nativeIterator = storage.newDataIterator(options);
         this.nativeIterator.seek(longToBytes(rev));
-
-        this.it = createIterator();
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasNext() {
-        return it.hasNext();
+        storage.lock().readLock().lock();
+
+        try {
+            if (currentHasNext) {
+                return true;
+            }
+
+            if (!nativeIterator.isValid()) {
+                nativeIterator.refresh();
+
+                nativeIterator.seek(longToBytes(currentRevision));
+            }
+
+            // Check all keys to see if any one of them match the predicate.
+            currentHasNext = RocksUtils.find(nativeIterator, (rocksKey, value) -> {
+                byte[] key = rocksKeyToBytes(rocksKey);
+
+                if (predicate.test(key)) {
+                    // We may have jumped to the next revision if there were no matching keys in previous.
+                    currentRevision = revisionFromRocksKey(rocksKey);
+
+                    return true;
+                }
+
+                return false;
+            });
+
+            return currentHasNext;
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(e);
+        } finally {
+            storage.lock().readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
     @Nullable
     @Override
     public WatchEvent next() {
-        return it.next();
+        storage.lock().readLock().lock();
+
+        try {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+
+            List<EntryEvent> evts = new ArrayList<>();
+
+            long lastSeenRevision = currentRevision;
+
+            // Iterate over the keys of the current revision and get all matching entries.
+            for (; nativeIterator.isValid(); nativeIterator.next()) {
+                byte[] rocksKey = nativeIterator.key();
+                byte[] rocksValue = nativeIterator.value();
+
+                long revision = revisionFromRocksKey(rocksKey);
+
+                lastSeenRevision = revision;
+
+                if (revision > currentRevision) {
+                    // There are no more keys for the current revision
+                    break;
+                }
+
+                byte[] key = rocksKeyToBytes(rocksKey);
+
+                if (predicate.test(key)) {
+                    Value val = bytesToValue(rocksValue);
+
+                    Entry newEntry;
+
+                    if (val.tombstone()) {
+                        newEntry = Entry.tombstone(key, revision, val.updateCounter());
+                    } else {
+                        newEntry = new Entry(key, val.bytes(), revision, val.updateCounter());
+                    }
+
+                    Entry oldEntry = storage.doGet(key, revision - 1, false);
+
+                    evts.add(new EntryEvent(oldEntry, newEntry));
+                }
+            }
+
+            currentHasNext = false;
+
+            // Go to the next revision
+            currentRevision = lastSeenRevision > currentRevision ? lastSeenRevision : currentRevision + 1;
+
+            checkIterator(nativeIterator);
+
+            return new WatchEvent(evts);
+        } finally {
+            storage.lock().readLock().unlock();
+        }
     }
 
     /** {@inheritDoc} */
@@ -108,119 +191,6 @@ class WatchCursor implements Cursor<WatchEvent> {
     @NotNull
     @Override
     public Iterator<WatchEvent> iterator() {
-        return it;
-    }
-
-    /**
-     * Creates an iterator for this cursor.
-     *
-     * @return Iterator.
-     */
-    @NotNull
-    private Iterator<WatchEvent> createIterator() {
-        return new Iterator<>() {
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                storage.lock().readLock().lock();
-
-                try {
-                    if (currentHasNext) {
-                        return true;
-                    }
-
-                    if (!nativeIterator.isValid()) {
-                        try {
-                            nativeIterator.refresh();
-
-                            nativeIterator.seek(longToBytes(currentRevision));
-                        } catch (RocksDBException e) {
-                            throw new IgniteInternalException(e);
-                        }
-                    }
-
-                    // Check all keys to see if any one of them match the predicate.
-                    for (; nativeIterator.isValid(); nativeIterator.next()) {
-                        byte[] rocksKey = nativeIterator.key();
-
-                        byte[] key = rocksKeyToBytes(rocksKey);
-
-                        if (predicate.test(key)) {
-                            checkIterator(nativeIterator);
-
-                            // We may have jumped to the next revision if there were no matching keys in previous.
-                            currentRevision = revisionFromRocksKey(rocksKey);
-
-                            currentHasNext = true;
-
-                            return true;
-                        }
-                    }
-
-                    checkIterator(nativeIterator);
-
-                    return false;
-                } finally {
-                    storage.lock().readLock().unlock();
-                }
-            }
-
-            /** {@inheritDoc} */
-            @Nullable
-            @Override
-            public WatchEvent next() {
-                storage.lock().readLock().lock();
-
-                try {
-                    if (!hasNext()) {
-                        return null;
-                    }
-
-                    List<EntryEvent> evts = new ArrayList<>();
-
-                    // Iterate over the keys of the current revision and get all matching entries.
-                    for (; nativeIterator.isValid(); nativeIterator.next()) {
-                        byte[] rocksKey = nativeIterator.key();
-                        byte[] rocksValue = nativeIterator.value();
-
-                        long revision = revisionFromRocksKey(rocksKey);
-
-                        if (revision > currentRevision) {
-                            // There are no more keys for the current revision
-                            break;
-                        }
-
-                        byte[] key = rocksKeyToBytes(rocksKey);
-
-                        Value val = bytesToValue(rocksValue);
-
-                        if (predicate.test(key)) {
-                            Entry newEntry;
-
-                            if (val.tombstone()) {
-                                newEntry = Entry.tombstone(key, revision, val.updateCounter());
-                            } else {
-                                newEntry = new Entry(key, val.bytes(), revision, val.updateCounter());
-                            }
-
-                            Entry oldEntry = storage.doGet(key, revision - 1, false);
-
-                            evts.add(new EntryEvent(oldEntry, newEntry));
-                        }
-                    }
-
-                    currentHasNext = false;
-
-                    // Go to the next revision
-                    currentRevision++;
-
-                    checkIterator(nativeIterator);
-
-                    return new WatchEvent(evts);
-                } finally {
-                    storage.lock().readLock().unlock();
-                }
-            }
-        };
+        return this;
     }
 }
