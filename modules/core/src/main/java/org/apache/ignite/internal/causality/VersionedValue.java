@@ -31,7 +31,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -223,7 +222,8 @@ public class VersionedValue<T> {
     public void set(long causalityToken, T value) {
         long actualToken0 = actualToken;
 
-        assert actualToken0 == -1 || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
+        assert actualToken0 == -1 || actualToken0 + 1 == causalityToken
+                : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
                 + "[token={}, actual={}]", causalityToken, actualToken0);
 
         CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
