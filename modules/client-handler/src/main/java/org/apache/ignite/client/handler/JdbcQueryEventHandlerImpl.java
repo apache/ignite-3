@@ -201,9 +201,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         IntList res = new IntArrayList(queries.size());
 
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
         for (String query : queries) {
             try {
-                executeAndCollectUpdateCount(req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
+                executeAndCollectUpdateCount(context, req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
             } catch (Exception e) {
                 return handleBatchException(e, query, res);
             }
@@ -217,9 +219,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
         IntList res = new IntArrayList(req.getArgs().size());
 
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
         try {
             for (Object[] arg : req.getArgs()) {
-                executeAndCollectUpdateCount(req.schemaName(), req.getQuery(), arg, res);
+                executeAndCollectUpdateCount(context, req.schemaName(), req.getQuery(), arg, res);
             }
         } catch (Exception e) {
             return handleBatchException(e, req.getQuery(), res);
@@ -228,8 +232,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
     }
 
-    private void executeAndCollectUpdateCount(String schema, String sql, Object[] arg, IntList res) {
-        List<SqlCursor<List<?>>> cursors = processor.query(schema, sql, arg);
+    private void executeAndCollectUpdateCount(QueryContext context, String schema, String sql, Object[] arg, IntList res) {
+        List<SqlCursor<List<?>>> cursors = processor.query(context, schema, sql, arg);
         for (SqlCursor<List<?>> cursor : cursors) {
             long updatedRows = (long) cursor.next().get(0);
             res.add((int) updatedRows);
