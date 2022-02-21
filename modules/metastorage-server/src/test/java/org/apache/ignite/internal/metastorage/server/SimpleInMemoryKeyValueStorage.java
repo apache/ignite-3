@@ -848,7 +848,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
                                 NavigableMap<byte[], Value> entries = revsIdx.get(nextRetRev);
 
                                 if (entries == null) {
-                                    return null;
+                                    throw new NoSuchElementException();
                                 }
 
                                 List<EntryEvent> evts = new ArrayList<>(entries.size());
@@ -883,7 +883,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
 
                                 return new WatchEvent(evts);
                             } else if (!hasNext()) {
-                                return null;
+                                throw new NoSuchElementException();
                             }
                         }
                     }

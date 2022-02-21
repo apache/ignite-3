@@ -177,7 +177,7 @@ public interface KeyValueStorage extends AutoCloseable {
     Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo);
 
     /**
-     * Returns cursor by entries which correspond to the given keys range and bounded by revision number..
+     * Returns cursor by entries which correspond to the given keys range and bounded by revision number.
      *
      * @param keyFrom       Start key of range (inclusive).
      * @param keyTo         Last key of range (exclusive).
