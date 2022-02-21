@@ -20,6 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.FETCH_FORWARD;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
+import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;
@@ -35,7 +36,6 @@ import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.Query;
 import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
 import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
 import org.apache.ignite.client.proto.query.event.QuerySingleResult;
@@ -50,7 +50,7 @@ public class JdbcStatement implements Statement {
     private static final int DFLT_PAGE_SIZE = 1024;
 
     /** JDBC Connection implementation. */
-    private final JdbcConnection conn;
+    protected final JdbcConnection conn;
 
     /** Result set holdability. */
     private final int resHoldability;
@@ -74,7 +74,7 @@ public class JdbcStatement implements Statement {
     private volatile List<JdbcResultSet> resSets;
 
     /** Batch. */
-    private List<Query> batch;
+    private List<String> batch;
 
     /** Close on completion. */
     private boolean closeOnCompletion;
@@ -501,28 +501,13 @@ public class JdbcStatement implements Statement {
     public void addBatch(String sql) throws SQLException {
         ensureNotClosed();
 
+        Objects.requireNonNull(sql);
+
         if (batch == null) {
             batch = new ArrayList<>();
         }
 
-        batch.add(new Query(sql, null));
-    }
-
-    /**
-     * Adds a set of parameters to batch of commands.
-     *
-     * @throws SQLException If statement is closed.
-     */
-    protected void addBatch(String sql, ArrayList<Object> args) throws SQLException {
-        ensureNotClosed();
-
-        if (batch == null) {
-            batch = new ArrayList<>();
-
-            batch.add(new Query(sql, args.toArray()));
-        } else {
-            batch.add(new Query(null, args.toArray()));
-        }
+        batch.add(sql);
     }
 
     /** {@inheritDoc} */
@@ -541,18 +526,18 @@ public class JdbcStatement implements Statement {
         closeResults();
 
         if (CollectionUtils.nullOrEmpty(batch)) {
-            return new int[0];
+            return INT_EMPTY_ARRAY;
         }
 
-        BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch, conn.getAutoCommit());
+        BatchExecuteRequest req = new BatchExecuteRequest(conn.getSchema(), batch);
 
         try {
             BatchExecuteResult res = conn.handler().batchAsync(req).join();
 
             if (!res.hasResults()) {
                 throw new BatchUpdateException(res.err(),
-                        IgniteQueryErrorCode.codeToSqlState(res.status()),
-                        res.status(),
+                        IgniteQueryErrorCode.codeToSqlState(res.getErrorCode()),
+                        res.getErrorCode(),
                         res.updateCounts());
             }
 
@@ -673,7 +658,7 @@ public class JdbcStatement implements Statement {
      *
      * @throws SQLException On error.
      */
-    private void closeResults() throws SQLException {
+    protected void closeResults() throws SQLException {
         if (resSets != null) {
             for (JdbcResultSet rs : resSets) {
                 rs.close0();
