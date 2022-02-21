@@ -87,7 +87,7 @@
         <caffeine.version>3.0.4</caffeine.version>
         <fastutil.version>8.5.6</fastutil.version>
         <kryo.version>4.0.1</kryo.version>
-        <byte.buddy.version>1.12.8</byte.buddy.version>
+        <bytebuddy.version>1.12.8</bytebuddy.version>
 
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
@@ -654,7 +654,7 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>${byte.buddy.version}</version>
+                <version>${bytebuddy.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
