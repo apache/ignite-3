@@ -27,6 +27,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -151,14 +152,14 @@ public class VersionedValue<T> {
     /**
      * Gets the latest completed future or {@code null} if there is nothing.
      */
-    public CompletableFuture<T> get() {
+    public @NotNull CompletableFuture<T> get() {
         for (CompletableFuture<T> fut : history.descendingMap().values()) {
             if (fut.isDone()) {
                 return fut;
             }
         }
 
-        return null;
+        throw new AssertionError("History should never be empty.");
     }
 
     /**
