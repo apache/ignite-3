@@ -354,7 +354,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
         }
 
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
     }
@@ -479,7 +479,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
 
             assert !isAcquired(absPtr) :
                     "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr)
@@ -792,8 +792,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             copyMemory(absPtr + PAGE_OVERHEAD, tmpPtr, pageSize());
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
-            assert getCrc(tmpPtr) == 0; //TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
+            assert getCrc(tmpPtr) == 0; //TODO IGNITE-16612
         } else {
             byte[] arr = tmpBuf.array();
 
@@ -1015,7 +1015,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     private long postWriteLockPage(long absPtr, FullPageId fullId) {
         writeTimestamp(absPtr, coarseCurrentTimeMillis());
 
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
     }
@@ -1034,7 +1034,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 changeTracker.apply(page, fullId, this);
             }
 
-            assert getCrc(page + PAGE_OVERHEAD) == 0; //TODO GG-11480
+            assert getCrc(page + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
 
             if (markDirty) {
                 setDirty(fullId, page, true, false);
