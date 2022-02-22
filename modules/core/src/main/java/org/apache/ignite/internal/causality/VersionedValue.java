@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -71,7 +70,7 @@ public class VersionedValue<T> {
      *                                   on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                   concurrently with {@link #set(long, T)} operations.
      * @param historySize                Size of the history of changes to store, including last applied token.
-     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, BiFunction)} to evaluate
+     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, Function, Function)} to evaluate
      *                                   the default value if the value is not initialized yet.
      */
     public VersionedValue(
@@ -154,40 +153,6 @@ public class VersionedValue<T> {
         } finally {
             trimHistoryLock.readLock().unlock();
         }
-    }
-
-    /**
-     * Locks the given causality token to prevent its deletion from history of every {@link VersionedValue}
-     * that share the same {@link CausalityTokensLockManager} as this.
-     * This method works like read lock in read-write lock concept, allowing multiple {@link VersionedValue} to
-     * acquire lock on same token.
-     *
-     * @param causalityToken Causality token.
-     * @throws OutdatedTokenException If outdated token is passed as an argument.
-     */
-    public void lock(long causalityToken) throws OutdatedTokenException {
-
-    }
-
-    /**
-     * Locks the token and gets the value (see {@link #lock(long)} and {@link #get(long)}).
-     *
-     * @param causalityToken Causality token,
-     * @return The future, see {@link #get(long)}.
-     * @throws OutdatedTokenException If outdated token is passed as an argument.
-     */
-    public CompletableFuture<T> lockAndGet(long causalityToken) throws OutdatedTokenException {
-        return null;
-    }
-
-    /**
-     * Unlocks the token, previously locked using {@link #lock(long)}.
-     *
-     * @param causalityToken Causality token.
-     * @throws OutdatedTokenException If outdated token is passed as an argument.
-     */
-    public void unlock(long causalityToken) throws OutdatedTokenException {
-
     }
 
     /**
