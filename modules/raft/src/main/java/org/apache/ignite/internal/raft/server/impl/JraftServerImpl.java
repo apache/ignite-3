@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -301,6 +302,13 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
+        return startRaftGroup(groupId, null, lsnr, initialConf);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public synchronized boolean startRaftGroup(String groupId, RaftGroupEventsListener evLsnr,
+            RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId)) {
             return false;
         }
@@ -321,6 +329,8 @@ public class JraftServerImpl implements RaftServer {
         nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 
         nodeOptions.setFsm(new DelegatingStateMachine(lsnr));
+
+        nodeOptions.setRaftGrpEvtsLsnr(evLsnr);
 
         if (initialConf != null) {
             List<PeerId> mapped = initialConf.stream().map(PeerId::fromPeer).collect(Collectors.toList());
