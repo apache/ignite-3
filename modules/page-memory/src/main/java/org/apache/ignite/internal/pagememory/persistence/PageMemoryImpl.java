@@ -199,7 +199,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         this.pmPageMgr = pmPageMgr;
         this.changeTracker = changeTracker;
 
-        int pageSize = this.pageSize();
+        int pageSize = this.dataRegionCfg.pageSize();
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
