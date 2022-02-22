@@ -236,7 +236,18 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
+        Consumer<Consumer<Long>> registry = (c) -> {
+            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
+                LOG.info("Node: " + name);
+
+                c.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
         distributedTblMgr = new TableManager(
+                registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,
