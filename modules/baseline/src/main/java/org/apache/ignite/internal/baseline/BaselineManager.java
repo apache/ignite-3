@@ -124,9 +124,7 @@ public class BaselineManager implements IgniteComponent {
         }
 
         try {
-            clusterConfiguration.change(clusterChange -> {
-                clusterChange.changeBaselineNodes(baselineNodes.toArray(new String[0]));
-            }).join();
+            clusterConfiguration.change(clusterChange -> clusterChange.changeBaselineNodes(baselineNodes.toArray(new String[0]))).join();
         } finally {
             busyLock.leaveBusy();
         }
