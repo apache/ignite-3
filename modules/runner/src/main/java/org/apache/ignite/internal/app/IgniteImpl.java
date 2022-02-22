@@ -335,7 +335,7 @@ public class IgniteImpl implements Ignite {
 
             baselineMgr.listenBaselineChange(ctx -> {
                 // TODO: Multi invoke supposed to be here https://issues.apache.org/jira/browse/IGNITE-16063
-                metaStorageMgr.put(new ByteArray("some key"), null);
+                metaStorageMgr.put(new ByteArray("some key"), new byte[0]);
 
                 return CompletableFuture.completedFuture(null);
             });
