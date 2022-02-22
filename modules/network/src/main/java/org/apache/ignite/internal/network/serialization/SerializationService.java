@@ -35,7 +35,7 @@ public class SerializationService {
     private final MessageSerializationRegistry messageRegistry;
 
     /** Descriptor registry. */
-    private final ClassDescriptorRegistry descriptorRegistry;
+    private final ClassDescriptorRegistry localDescriptorRegistry;
 
     /** Descriptor factory. */
     private final ClassDescriptorFactory descriptorFactory;
@@ -54,7 +54,7 @@ public class SerializationService {
             UserObjectSerializationContext userObjectSerializationContext
     ) {
         this.messageRegistry = messageRegistry;
-        this.descriptorRegistry = userObjectSerializationContext.descriptorRegistry();
+        this.localDescriptorRegistry = userObjectSerializationContext.descriptorRegistry();
         this.descriptorFactory = userObjectSerializationContext.descriptorFactory();
         this.marshaller = userObjectSerializationContext.marshaller();
     }
@@ -113,20 +113,13 @@ public class SerializationService {
     }
 
     /**
-     * Gets a class descriptor for the class specified by a name.
+     * Gets a class descriptor for a class.
      *
-     * @param typeName Class' name.
+     * @param clazz the class
      * @return Class descriptor.
      */
-    public ClassDescriptor getOrCreateDescriptor(String typeName) {
-        Class<?> clazz;
-        try {
-            clazz = Class.forName(typeName);
-        } catch (ClassNotFoundException e) {
-            throw new SerializationException("Class " + typeName + " is not found", e);
-        }
-
-        ClassDescriptor descriptor = descriptorRegistry.getDescriptor(clazz);
+    public ClassDescriptor getOrCreateLocalDescriptor(Class<?> clazz) {
+        ClassDescriptor descriptor = localDescriptorRegistry.getDescriptor(clazz);
         if (descriptor != null) {
             return descriptor;
         } else {
@@ -134,11 +127,11 @@ public class SerializationService {
         }
     }
 
-    public ClassDescriptor getDescriptor(int descriptorId) {
-        return descriptorRegistry.getDescriptor(descriptorId);
+    public ClassDescriptor getLocalDescriptor(int descriptorId) {
+        return localDescriptorRegistry.getDescriptor(descriptorId);
     }
 
-    public ClassDescriptorRegistry getDescriptorRegistry() {
-        return descriptorRegistry;
+    public ClassDescriptorRegistry getLocalDescriptorRegistry() {
+        return localDescriptorRegistry;
     }
 }

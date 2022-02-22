@@ -104,13 +104,13 @@ public interface InternalIgniteTable extends IgniteTable {
      * @param row  Relational node row.
      * @param op   Operation.
      * @param arg  Operation specific argument.
-     * @return Cache key-value tuple;
+     * @return Cache key-value tuple with modify operation info;
      */
-    <RowT> BinaryRow toBinaryRow(
+    <RowT> ModifyRow toModifyRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,
-            @Nullable Object arg
+            @Nullable List<String> arg
     );
 
     /**

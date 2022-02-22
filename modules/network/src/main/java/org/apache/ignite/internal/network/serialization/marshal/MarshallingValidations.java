@@ -77,7 +77,7 @@ class MarshallingValidations {
     }
 
     private boolean isInnerClass(Class<?> objectClass) {
-        return objectClass.getDeclaringClass() != null && !Modifier.isStatic(objectClass.getModifiers());
+        return !Modifier.isStatic(objectClass.getModifiers()) && objectClass.getDeclaringClass() != null;
     }
 
     private boolean isCapturingClosure(Class<?> objectClass) {

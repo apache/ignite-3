@@ -123,19 +123,19 @@ public class RowTest {
     @Test
     public void fixSizedColumns() {
         Column[] keyCols = new Column[]{
-                new Column("keyByteCol", INT8, true),
-                new Column("keyShortCol", INT16, true),
-                new Column("keyIntCol", INT32, true),
-                new Column("keyLongCol", INT64, true),
-                new Column("keyFloatCol", FLOAT, true),
-                new Column("keyDoubleCol", DOUBLE, true),
-                new Column("keyUuidCol", UUID, true),
-                new Column("keyDateCol", DATE, true),
-                new Column("keyTimeCol", time(), true),
-                new Column("keyDateTimeCol", datetime(), true),
-                new Column("keyTimeStampCol", timestamp(), true),
-                new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), true),
-                new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), true),
+                new Column("keyByteCol", INT8, false),
+                new Column("keyShortCol", INT16, false),
+                new Column("keyIntCol", INT32, false),
+                new Column("keyLongCol", INT64, false),
+                new Column("keyFloatCol", FLOAT, false),
+                new Column("keyDoubleCol", DOUBLE, false),
+                new Column("keyUuidCol", UUID, false),
+                new Column("keyDateCol", DATE, false),
+                new Column("keyTimeCol", time(), false),
+                new Column("keyDateTimeCol", datetime(), false),
+                new Column("keyTimeStampCol", timestamp(), false),
+                new Column("keyBitmask1Col", NativeTypes.bitmaskOf(4), false),
+                new Column("keyBitmask2Col", NativeTypes.bitmaskOf(22), false),
         };
 
         Column[] valCols = new Column[]{
@@ -243,8 +243,8 @@ public class RowTest {
     @Test
     public void nullableVarlenColumns() {
         Column[] keyCols = new Column[]{
-                new Column("keyBytesCol", BYTES, true),
-                new Column("keyStringCol", STRING, true),
+                new Column("keyBytesCol", BYTES, false),
+                new Column("keyStringCol", STRING, false),
         };
 
         Column[] valCols = new Column[]{
@@ -255,6 +255,31 @@ public class RowTest {
         };
 
         checkSchema(keyCols, valCols);
+    }
+
+    /**
+     * Check row serialization when all varlen columns are empty (zero size).
+     */
+    @Test
+    public void emptyVarlenColumns() {
+        Column[] keyCols = new Column[]{
+                new Column("keyInt8Col", INT8, false),
+                new Column("keyInt32Col", INT16, false),
+                new Column("keyBytesCol", BYTES, false),
+                new Column("keyStringCol", STRING, false),
+        };
+
+        Column[] valCols = new Column[]{
+                new Column("keyInt8Col", INT8, true),
+                new Column("valBytesCol", BYTES, true),
+                new Column("valStringCol", STRING, true),
+        };
+
+        SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
+
+        Object[] checkArr = new Object[]{(byte) 11, (short) 22, new byte[]{}, "", (byte) 78, new byte[]{}, ""};
+
+        checkValues(sch, checkArr);
     }
 
     /**
@@ -359,14 +384,13 @@ public class RowTest {
      * Parametrized test for correctness of empty string insertion.
      *
      * @param emptyKey If {@code true} then probes with empty key string.
-     * @param nullableKey If {@code true} then probes with nullable key string.
      * @param emptyVal  If {@code true} then probes with empty value string.
      * @param nullableVal If {@code true} then probes with nullable value string.
      */
     @ParameterizedTest
     @MethodSource("provideStrOrderingAndNulls")
-    public void testSingleStringInsertion(boolean emptyKey, boolean nullableKey, boolean emptyVal, boolean nullableVal) {
-        Column[] keyCol = {new Column("keyCol", STRING, nullableKey)};
+    public void testSingleStringInsertion(boolean emptyKey, boolean emptyVal, boolean nullableVal) {
+        Column[] keyCol = {new Column("keyCol", STRING, false)};
 
         Column[] valColsMulti =
                 new Column[]{new Column("valCol1", STRING, nullableVal), new Column("valCol2", STRING, nullableVal)};
@@ -384,25 +408,15 @@ public class RowTest {
 
     private static Stream<Arguments> provideStrOrderingAndNulls() {
         return Stream.of(
-                Arguments.of(true, true, true, true), //1111
-                Arguments.of(true, true, true, false), //1110
-                Arguments.of(true, true, false, true), //1101
-                Arguments.of(true, true, false, false), //1100
+                Arguments.of(true, true, true), //111
+                Arguments.of(true, true, false), //110
+                Arguments.of(true, false, true), //101
+                Arguments.of(true, false, false), //100
 
-                Arguments.of(true, false, true, true), //1011
-                Arguments.of(true, false, true, false), //1010
-                Arguments.of(true, false, false, true), //1001
-                Arguments.of(true, false, false, false), //1000
-
-                Arguments.of(false, true, true, true), //0111
-                Arguments.of(false, true, true, false), //0110
-                Arguments.of(false, true, false, true), //0101
-                Arguments.of(false, true, false, false), //0100
-
-                Arguments.of(false, false, true, true), //0011
-                Arguments.of(false, false, true, false), //0010
-                Arguments.of(false, false, false, true), //0001
-                Arguments.of(false, false, false, false) //0000
+                Arguments.of(false, true, true), //011
+                Arguments.of(false, true, false), //010
+                Arguments.of(false, false, true), //001
+                Arguments.of(false, false, false) //000
         );
     }
 
@@ -446,7 +460,7 @@ public class RowTest {
     }
 
     /**
-     * Checks schema is independent from prodived column order.
+     * Checks schema is independent of provided column order.
      *
      * @param keyCols Key columns.
      * @param valCols Value columns.
@@ -505,9 +519,9 @@ public class RowTest {
         for (int i = 0; i < res.length; i++) {
             NativeType type = schema.column(i).type();
 
-            if (emptyKey && i == 0) {
+            if (emptyKey && (i == 0)) {
                 res[i] = "";
-            } else if (emptyVal && i == 1) {
+            } else if (emptyVal && (i == 1)) {
                 res[i] = "";
             } else {
                 res[i] = rnd.apply(type);
