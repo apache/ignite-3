@@ -21,17 +21,14 @@ import java.nio.file.Path;
 import java.util.List;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for creating tests for examples.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractExamplesTest {
+public abstract class AbstractExamplesTest extends IgniteAbstractTest {
     private static final String TEST_NODE_NAME = "ignite-node";
 
     /** Empty argument to invoke an example. */
@@ -39,11 +36,9 @@ public abstract class AbstractExamplesTest {
 
     /**
      * Starts a node.
-     *
-     * @param workDir Work directory for the started node. Must not be {@code null}.
      */
     @BeforeEach
-    public void startNode(@WorkDirectory Path workDir) throws Exception {
+    public void startNode() throws Exception {
         IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(
                 TEST_NODE_NAME,
                 Path.of("config", "ignite-config.json"),
@@ -55,7 +50,7 @@ public abstract class AbstractExamplesTest {
     }
 
     /**
-     * Stop node.
+     * Stops the node.
      */
     @AfterEach
     public void stopNode() {

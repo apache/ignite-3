@@ -31,11 +31,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.join.InitException;
-import org.apache.ignite.internal.join.messages.CancelInitMessage;
-import org.apache.ignite.internal.join.messages.InitMessageGroup;
-import org.apache.ignite.internal.join.messages.InitMessagesFactory;
-import org.apache.ignite.internal.join.messages.MetastorageInitMessage;
+import org.apache.ignite.internal.cluster.management.InitException;
+import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.messages.InitMessageGroup;
+import org.apache.ignite.internal.cluster.management.messages.InitMessagesFactory;
+import org.apache.ignite.internal.cluster.management.messages.MetastorageInitMessage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
@@ -136,17 +136,11 @@ public class MetaStorageManager implements IgniteComponent {
      */
     private boolean areWatchesDeployed = false;
 
-    /**
-     * Flag that indicates that the Meta Storage has been initialized.
-     */
+    /** Flag that indicates that the component has been initialized. */
     private final AtomicBoolean isInitialized = new AtomicBoolean();
 
-    /**
-     * Prevents double stopping the component.
-     *
-     * <p>Multithreaded access is guarded by {@code this}.
-     */
-    private boolean isStopped = false;
+    /** Prevents double stopping the component. */
+    private final AtomicBoolean isStopped = new AtomicBoolean();
 
     /**
      * The constructor.
@@ -198,7 +192,7 @@ public class MetaStorageManager implements IgniteComponent {
                     initializeMetaStorage(clusterService, (MetastorageInitMessage) msg)
                             .whenComplete((leaderId, e) -> {
                                 if (e == null) {
-                                    messagingService.respond(addr, leaderElectedResponse(msgFactory, leaderId), correlationId);
+                                    messagingService.respond(addr, successResponse(msgFactory, leaderId), correlationId);
                                 } else {
                                     messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
                                 }
@@ -289,10 +283,10 @@ public class MetaStorageManager implements IgniteComponent {
                 .build();
     }
 
-    private static NetworkMessage leaderElectedResponse(InitMessagesFactory msgFactory, String leaderId) {
+    private static NetworkMessage successResponse(InitMessagesFactory msgFactory, String leaderId) {
         LOG.info("Meta Storage leader elected " + leaderId);
 
-        return msgFactory.leaderElectedMessage()
+        return msgFactory.initCompleteMessage()
                 .leaderName(leaderId)
                 .build();
     }
@@ -309,12 +303,10 @@ public class MetaStorageManager implements IgniteComponent {
      * {@inheritDoc}
      */
     @Override
-    public synchronized void stop() throws Exception {
-        if (isStopped) {
+    public void stop() throws Exception {
+        if (!isStopped.compareAndSet(false, true)) {
             return;
         }
-
-        isStopped = true;
 
         busyLock.block();
 
@@ -324,11 +316,13 @@ public class MetaStorageManager implements IgniteComponent {
             return;
         }
 
-        IgniteUtils.closeAll(
-                this::stopDeployedWatches,
-                () -> raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME),
-                storage
-        );
+        synchronized (this) {
+            IgniteUtils.closeAll(
+                    this::stopDeployedWatches,
+                    () -> raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME),
+                    storage
+            );
+        }
     }
 
     private void stopDeployedWatches() throws Exception {

@@ -42,9 +42,9 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
-import org.apache.ignite.internal.join.ClusterManagementGroupManager;
-import org.apache.ignite.internal.join.Leaders;
-import org.apache.ignite.internal.join.messages.InitMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.Leaders;
+import org.apache.ignite.internal.cluster.management.messages.InitMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -153,14 +153,10 @@ public class IgniteImpl implements Ignite {
      *
      * @param name Ignite node name.
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
-     * null} if the system class loader (or, failing that the bootstrap class loader) is to be used
+     * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
+     *      {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(
-            String name,
-            Path workDir,
-            ClassLoader serviceProviderClassLoader
-    ) {
+    IgniteImpl(String name, Path workDir, ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
         vaultMgr = createVault(workDir);
@@ -273,9 +269,8 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts ignite node.
      *
-     * @param cfg Optional node configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema} and
-     *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for applying the
-     *      configuration properties:
+     * @param cfg Optional node configuration based on {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     *      Following rules are used for applying the configuration properties:
      *      <ol>
      *      <li>Specified property overrides existing one or just applies itself if it wasn't
      *      previously specified.</li>
@@ -321,8 +316,8 @@ public class IgniteImpl implements Ignite {
                     clusterSvc,
                     raftMgr,
                     txManager,
-                    metaStorageMgr,
                     clusterCfgMgr,
+                    metaStorageMgr,
                     baselineMgr,
                     distributedTblMgr,
                     qryEngine,
@@ -359,7 +354,7 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
-            doStopNode(List.of(nettyBootstrapFactory, vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr,
+            doStopNode(List.of(nettyBootstrapFactory, vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, clusterCfgMgr, metaStorageMgr,
                     baselineMgr, distributedTblMgr, qryEngine, restModule, cmgMgr, clientHandlerModule));
         }
     }
@@ -425,6 +420,8 @@ public class IgniteImpl implements Ignite {
 
     /**
      * Returns the local address of REST endpoints.
+     *
+     * @throws IgniteInternalException if the REST module is not started.
      */
     public NetworkAddress restAddress() {
         return NetworkAddress.from(restModule.localAddress());
@@ -432,6 +429,8 @@ public class IgniteImpl implements Ignite {
 
     /**
      * Returns the local address of the Thin Client.
+     *
+     * @throws IgniteInternalException if the Client module is not started.
      */
     public NetworkAddress clientAddress() {
         return NetworkAddress.from(clientHandlerModule.localAddress());
