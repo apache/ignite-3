@@ -443,10 +443,12 @@ public class JraftServerImpl implements RaftServer {
                 });
             } catch (Exception err) {
                 Status st;
-                if (err.getMessage() != null)
+
+                if (err.getMessage() != null) {
                     st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
-                else
+                } else {
                     st = new Status(RaftError.ESTATEMACHINE, "Unknown state machine error.");
+                }
 
                 if (iter.done() != null) {
                     iter.done().run(st);
