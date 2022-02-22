@@ -18,6 +18,7 @@ package org.apache.ignite.raft.jraft.option;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.raft.jraft.util.TimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.NoopTimeoutStrategy;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -104,6 +105,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // The specific StateMachine implemented your business logic, which must be
     // a valid instance.
     private StateMachine fsm;
+
+    private RaftGroupEventsListener raftGrpEvtsLsnr;
 
     // Describe a specific LogStorage in format ${type}://${parameters}
     private String logUri;
@@ -427,6 +430,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setInitialConf(final Configuration initialConf) {
         this.initialConf = initialConf;
+    }
+
+    public RaftGroupEventsListener getRaftGrpEvtsLsnr() {
+        return raftGrpEvtsLsnr;
+    }
+
+    public void setRaftGrpEvtsLsnr(RaftGroupEventsListener raftGrpEvtsLsnr) {
+        this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 
     public StateMachine getFsm() {
