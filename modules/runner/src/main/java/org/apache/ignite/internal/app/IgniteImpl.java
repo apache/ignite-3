@@ -296,7 +296,8 @@ public class IgniteImpl implements Ignite {
                 baselineMgr,
                 clusterSvc.topologyService(),
                 txManager,
-                dataStorageMgr
+                dataStorageMgr,
+                metaStorageMgr
         );
 
         qryEngine = new SqlQueryProcessor(

@@ -272,7 +272,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 Mockito.mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
-                dataStorageManager
+                dataStorageManager,
+                metaStorageMgr
         );
 
         // Preparing the result map.

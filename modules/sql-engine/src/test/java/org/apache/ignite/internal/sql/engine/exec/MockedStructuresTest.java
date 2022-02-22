@@ -54,6 +54,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -137,6 +138,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Revision updater. */
     private Consumer<Consumer<Long>> revisionUpdater;
+
+    /** Meta storage manager. */
+    @Mock
+    MetaStorageManager msm;
 
     /** Tables configuration. */
     @InjectConfiguration(
@@ -668,7 +673,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dataStorageManager
+                dataStorageManager,
+                msm
         );
 
         tableManager.start();
