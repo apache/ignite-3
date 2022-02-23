@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.DATE;
 import static org.apache.ignite.internal.schema.NativeTypes.DOUBLE;
@@ -36,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isA;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -54,10 +57,12 @@ import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorag
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -352,7 +357,14 @@ public class KeyValueViewOperationsTest {
         Mockito.when(clusterService.topologyService().localMember().address())
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
-        TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+        TxManagerImpl txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
+        Mockito.when(clusterService.messagingService().invoke(isA(NetworkAddress.class), isA(TxFinishRequest.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    txManager.onReceived(invocation.getArgument(1), invocation.getArgument(0), null);
+
+                    return completedFuture(new TxMessagesFactory().txFinishResponse().build());
+                });
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
