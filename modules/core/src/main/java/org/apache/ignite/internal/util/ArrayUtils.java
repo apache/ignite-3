@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -330,16 +329,12 @@ public final class ArrayUtils {
 
         if (idx == len - 1) {
             return Arrays.copyOfRange(arr, 0, len - 1);
-        }
-
-        if (idx == 0) {
+        } else if (idx == 0) {
             return Arrays.copyOfRange(arr, 1, len);
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
-        T[] res = (T[]) Array.newInstance(arr.getClass().getComponentType(), len - 1);
+        T[] res = Arrays.copyOf(arr, arr.length - 1);
 
-        System.arraycopy(arr, 0, res, 0, idx);
         System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
 
         return res;
@@ -359,16 +354,12 @@ public final class ArrayUtils {
 
         if (idx == len - 1) {
             return Arrays.copyOfRange(arr, 0, len - 1);
-        }
-
-        if (idx == 0) {
+        } else if (idx == 0) {
             return Arrays.copyOfRange(arr, 1, len);
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
-        long[] res = new long[len - 1];
+        long[] res = Arrays.copyOf(arr, arr.length - 1);
 
-        System.arraycopy(arr, 0, res, 0, idx);
         System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
 
         return res;
