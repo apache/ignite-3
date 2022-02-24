@@ -44,9 +44,9 @@ public enum JdbcStatementType {
     }
 
     /**
-     * Gets statement type value from its id.
+     * Gets statement type value by its id.
      *
-     * @param id Ordinal value.
+     * @param id The id.
      * @return JdbcStatementType value.
      * @throws IllegalArgumentException If statement is not found.
      */
