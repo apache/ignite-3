@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
@@ -100,7 +101,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        execute0(Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.SELECT_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
 
         ResultSet rs = getResultSet();
 
@@ -118,7 +119,7 @@ public class JdbcStatement implements Statement {
      * @param args Query parameters.
      * @throws SQLException Onj error.
      */
-    protected void execute0(String sql, List<Object> args) throws SQLException {
+    protected void execute0(JdbcStatementType stmtType, String sql, List<Object> args) throws SQLException {
         ensureNotClosed();
 
         closeResults();
@@ -127,7 +128,7 @@ public class JdbcStatement implements Statement {
             throw new SQLException("SQL query is empty.");
         }
 
-        QueryExecuteRequest req = new QueryExecuteRequest(schema, pageSize, maxRows, sql,
+        QueryExecuteRequest req = new QueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
                 args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
         QueryExecuteResult res = conn.handler().queryAsync(req).join();
@@ -156,7 +157,7 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        execute0(Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.UPDATE_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
 
         int res = getUpdateCount();
 
@@ -320,7 +321,7 @@ public class JdbcStatement implements Statement {
     public boolean execute(String sql) throws SQLException {
         ensureNotClosed();
 
-        execute0(Objects.requireNonNull(sql), null);
+        execute0(JdbcStatementType.ANY_STATEMENT_TYPE, Objects.requireNonNull(sql), null);
 
         return isQuery();
     }

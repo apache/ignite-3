@@ -46,6 +46,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
@@ -81,7 +82,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public ResultSet executeQuery() throws SQLException {
-        executeWithArguments();
+        executeWithArguments(JdbcStatementType.SELECT_STATEMENT_TYPE);
 
         ResultSet rs = getResultSet();
 
@@ -132,7 +133,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public int executeUpdate() throws SQLException {
-        executeWithArguments();
+        executeWithArguments(JdbcStatementType.UPDATE_STATEMENT_TYPE);
 
         int res = getUpdateCount();
 
@@ -174,7 +175,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /** {@inheritDoc} */
     @Override
     public boolean execute() throws SQLException {
-        executeWithArguments();
+        executeWithArguments(JdbcStatementType.ANY_STATEMENT_TYPE);
 
         return isQuery();
     }
@@ -649,10 +650,11 @@ public class JdbcPreparedStatement extends JdbcStatement implements PreparedStat
     /**
      * Execute query with arguments and nullify them afterwards.
      *
+     * @param JdbcStatementType Expected statement type.
      * @throws SQLException If failed.
      */
-    private void executeWithArguments() throws SQLException {
-        execute0(sql, currentArgs);
+    private void executeWithArguments(JdbcStatementType statementType) throws SQLException {
+        execute0(statementType, sql, currentArgs);
 
         currentArgs = null;
     }

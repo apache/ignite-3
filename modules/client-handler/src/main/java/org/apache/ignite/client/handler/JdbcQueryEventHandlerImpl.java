@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.sql.JdbcQueryCursor;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
 import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
@@ -55,10 +56,15 @@ import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 import org.apache.ignite.client.proto.query.event.QuerySingleResult;
 import org.apache.ignite.client.proto.query.event.Response;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -99,7 +105,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            List<SqlCursor<List<?>>> queryCursors = processor.query(req.schemaName(), req.sqlQuery(),
+            QueryContext context = createQueryContext(req.getStmtType());
+
+            List<SqlCursor<List<?>>> queryCursors = processor.query(context, req.schemaName(), req.sqlQuery(),
                     req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
 
             cursors = queryCursors.stream()
@@ -132,6 +140,27 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return CompletableFuture.completedFuture(new QueryExecuteResult(results));
+    }
+
+    private QueryContext createQueryContext(JdbcStatementType stmtType) {
+        if (stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
+            return QueryContext.of();
+        }
+
+        QueryValidator validator = (QueryPlan plan) -> {
+            if (plan.type() == Type.QUERY || plan.type() == Type.EXPLAIN) {
+                if (stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE) {
+                    return;
+                }
+                throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
+            }
+            if (stmtType == JdbcStatementType.UPDATE_STATEMENT_TYPE) {
+                return;
+            }
+            throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
+        };
+
+        return QueryContext.of(validator);
     }
 
     /** {@inheritDoc} */
@@ -172,9 +201,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         IntList res = new IntArrayList(queries.size());
 
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
         for (String query : queries) {
             try {
-                executeAndCollectUpdateCount(req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
+                executeAndCollectUpdateCount(context, req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
             } catch (Exception e) {
                 return handleBatchException(e, query, res);
             }
@@ -188,9 +219,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
         IntList res = new IntArrayList(req.getArgs().size());
 
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
         try {
             for (Object[] arg : req.getArgs()) {
-                executeAndCollectUpdateCount(req.schemaName(), req.getQuery(), arg, res);
+                executeAndCollectUpdateCount(context, req.schemaName(), req.getQuery(), arg, res);
             }
         } catch (Exception e) {
             return handleBatchException(e, req.getQuery(), res);
@@ -199,8 +232,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
     }
 
-    private void executeAndCollectUpdateCount(String schema, String sql, Object[] arg, IntList res) {
-        List<SqlCursor<List<?>>> cursors = processor.query(schema, sql, arg);
+    private void executeAndCollectUpdateCount(QueryContext context, String schema, String sql, Object[] arg, IntList res) {
+        List<SqlCursor<List<?>>> cursors = processor.query(context, schema, sql, arg);
         for (SqlCursor<List<?>> cursor : cursors) {
             long updatedRows = (long) cursor.next().get(0);
             res.add((int) updatedRows);
