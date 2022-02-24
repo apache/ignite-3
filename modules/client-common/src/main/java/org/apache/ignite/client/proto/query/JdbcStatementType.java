@@ -17,10 +17,9 @@
 
 package org.apache.ignite.client.proto.query;
 
-import static com.facebook.presto.bytecode.BytecodeUtils.checkArgument;
-
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -54,7 +53,7 @@ public enum JdbcStatementType {
     public static JdbcStatementType getStatement(byte id) {
         JdbcStatementType value = STATEMENT_TYPE_IDX.get(id);
 
-        checkArgument(value != null, "Unknown jdbcStatementType %s", id);
+        Objects.requireNonNull(value, String.format("Unknown jdbcStatementType %s", id));
 
         return value;
     }
