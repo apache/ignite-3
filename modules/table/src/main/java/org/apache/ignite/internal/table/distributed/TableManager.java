@@ -1110,9 +1110,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException {
+    public CompletableFuture<TableImpl> tableAsync(UUID id) {
         if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
+            throw new IgniteException(new NodeStoppingException());
         }
         try {
             return tableAsyncInternal(id, true);

@@ -295,8 +295,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         UUID fakeTblId = UUID.randomUUID();
 
-        assertThrows(NodeStoppingException.class, () -> tableManager.table(fakeTblId));
-        assertThrows(NodeStoppingException.class, () -> tableManager.tableAsync(fakeTblId));
+        assertThrows(IgniteException.class, () -> tableManager.table(fakeTblId));
+        assertThrows(IgniteException.class, () -> tableManager.tableAsync(fakeTblId));
 
         assertThrows(NodeStoppingException.class, () -> tableManager.setBaseline(Collections.singleton("fakeNode0")));
     }
