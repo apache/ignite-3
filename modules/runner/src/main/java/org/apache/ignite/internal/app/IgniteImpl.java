@@ -212,12 +212,6 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        Consumer<Consumer<Long>> storageRevisionUpdater = c -> clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(rev -> {
-            c.accept(rev);
-
-            return completedFuture(null);
-        });
-
         Supplier<CompletableFuture<Long>> directMsRevisionSup = cfgStorage::lastRevision;
 
         baselineMgr = new BaselineManager(
@@ -248,7 +242,7 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
-                storageRevisionUpdater,
+                registry,
                 clusterSvc,
                 distributedTblMgr,
                 directMsRevisionSup

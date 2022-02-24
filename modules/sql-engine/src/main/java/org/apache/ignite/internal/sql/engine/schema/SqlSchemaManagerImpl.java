@@ -284,8 +284,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     }
         );
 
-        tablesVv
-                .update(
+        tablesVv.update(
                     causalityToken,
                     tables -> {
                         Map<UUID, IgniteTable> res = new HashMap<>(tables);
@@ -370,13 +369,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
-        Map<String, IgniteSchema> schemas = schemasVv.update(causalityToken, s -> s, e -> {
-            throw new IgniteInternalException(e);
-        });
+        // TODO rewrite with VersionedValue#update to get the current (maybe temporary) value for current token
+        // TODO https://issues.apache.org/jira/browse/IGNITE-16543
+        Map<String, IgniteSchema> schemas = schemasVv.get().join();
 
-        Map<String, Schema> externalCatalogs = externalCatalogsVv.update(causalityToken, c -> c, e -> {
-            throw new IgniteInternalException(e);
-        });
+        // TODO rewrite with VersionedValue#update to get the current (maybe temporary) value for current token
+        // TODO https://issues.apache.org/jira/browse/IGNITE-16543
+        Map<String, Schema> externalCatalogs = externalCatalogsVv.get().join();
 
         schemas.forEach(newCalciteSchema::add);
         externalCatalogs.forEach(newCalciteSchema::add);
