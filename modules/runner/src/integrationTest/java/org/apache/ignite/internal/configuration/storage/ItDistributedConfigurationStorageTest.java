@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
-import org.apache.ignite.lang.Constants;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -182,7 +182,7 @@ public class ItDistributedConfigurationStorageTest {
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
 
-            waitForCondition(() -> Objects.nonNull(node.vaultManager.get(Constants.APPLIED_REV).join().value()), 3000);
+            waitForCondition(() -> Objects.nonNull(node.vaultManager.get(APPLIED_REV).join().value()), 3000);
         } finally {
             node.stop();
         }
