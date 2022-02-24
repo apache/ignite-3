@@ -317,16 +317,16 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         if (tableRef.get() != null) {
             tablesVv.update(causalityToken,
-                tables -> {
-                    Map<UUID, IgniteTable> res = new HashMap<>(tables);
+                    tables -> {
+                        Map<UUID, IgniteTable> res = new HashMap<>(tables);
 
-                    res.remove(tableRef.get().id());
+                        res.remove(tableRef.get().id());
 
-                    return res;
-                },
-                e -> {
-                    throw new IgniteInternalException(e);
-                }
+                        return res;
+                    },
+                    e -> {
+                        throw new IgniteInternalException(e);
+                    }
             );
         }
 

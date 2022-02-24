@@ -151,8 +151,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         loader.reload();
 
-        SqlSchemaManagerImpl schemaManager =
-            new SqlSchemaManagerImpl(revisionUpdater, planCache::clear);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(revisionUpdater, planCache::clear);
 
         extensions = emptyMap();
 
