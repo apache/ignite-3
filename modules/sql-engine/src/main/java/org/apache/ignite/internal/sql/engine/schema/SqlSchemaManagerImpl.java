@@ -166,7 +166,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     e -> {
                         throw new IgniteInternalException(e);
                     }
-                );
+        );
 
         externalCatalogsVv.update(causalityToken,
                 catalogs -> {
@@ -202,7 +202,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     e -> {
                         throw new IgniteInternalException(e);
                     }
-                );
+        );
 
         rebuild(causalityToken);
     }
@@ -226,7 +226,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     e -> {
                         throw new IgniteInternalException(e);
                     }
-                );
+        );
 
         rebuild(causalityToken);
     }
@@ -282,7 +282,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     e -> {
                         throw new IgniteInternalException(e);
                     }
-                );
+        );
 
         tablesVv
                 .update(
@@ -347,7 +347,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     e -> {
                         throw new IgniteInternalException(e);
                     }
-                );
+        );
 
         tablesVv.update(causalityToken,
                 tables -> {

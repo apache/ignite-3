@@ -373,6 +373,7 @@ public class IgniteImpl implements Ignite {
             throw new IgniteException(errMsg, e);
         }
     }
+
     /**
      * Stops ignite node.
      */

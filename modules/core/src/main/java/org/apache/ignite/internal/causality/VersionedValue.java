@@ -70,8 +70,8 @@ public class VersionedValue<T> {
      *                                   on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                   concurrently with {@link #set(long, T)} operations.
      * @param historySize                Size of the history of changes to store, including last applied token.
-     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, Function, Function)} to evaluate
-     *                                   the default value if the value is not initialized yet.
+     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
+     *                                   evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
