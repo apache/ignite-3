@@ -27,6 +27,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * These tests check that all table examples pass correctly.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16543")
 public class TableExamplesTest {
     /** Empty argument to invoke an example. */
     protected static final String[] EMPTY_ARGS = new String[0];
