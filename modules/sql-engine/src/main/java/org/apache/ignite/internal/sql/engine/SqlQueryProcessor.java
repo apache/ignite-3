@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.Collections.emptyMap;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
 import java.util.ArrayList;
@@ -24,10 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
@@ -92,8 +90,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
 
-    private final Supplier<CompletableFuture<Long>> directMsRevision;
-
     private final List<LifecycleAware> services = new ArrayList<>();
 
     /** Keeps queries plans to avoid expensive planning of the same queries. */
@@ -121,13 +117,11 @@ public class SqlQueryProcessor implements QueryProcessor {
     public SqlQueryProcessor(
             Consumer<Consumer<Long>> revisionUpdater,
             ClusterService clusterSrvc,
-            TableManager tableManager,
-            Supplier<CompletableFuture<Long>> directMsRevision
+            TableManager tableManager
     ) {
         this.revisionUpdater = revisionUpdater;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
-        this.directMsRevision = directMsRevision;
     }
 
     /** {@inheritDoc} */
@@ -140,44 +134,40 @@ public class SqlQueryProcessor implements QueryProcessor {
         mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
 
         msgSrvc = registerService(new MessageServiceImpl(
-                clusterSrvc.topologyService(),
-                clusterSrvc.messagingService(),
-                taskExecutor
+            clusterSrvc.topologyService(),
+            clusterSrvc.messagingService(),
+            taskExecutor
         ));
 
         exchangeService = registerService(new ExchangeServiceImpl(
-                clusterSrvc.topologyService().localMember().id(),
-                taskExecutor,
-                mailboxRegistry,
-                msgSrvc,
-                queryRegistry
+            clusterSrvc.topologyService().localMember().id(),
+            taskExecutor,
+            mailboxRegistry,
+            msgSrvc,
+            queryRegistry
         ));
-
-        List<SqlExtension> extensionList = new ArrayList<>();
 
         ServiceLoader<SqlExtension> loader = ServiceLoader.load(SqlExtension.class);
 
         loader.reload();
 
-        loader.forEach(extensionList::add);
-
-        extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
-
         SqlSchemaManagerImpl schemaManager =
-                new SqlSchemaManagerImpl(revisionUpdater, planCache::clear, directMsRevision);
+            new SqlSchemaManagerImpl(revisionUpdater, planCache::clear);
+
+        extensions = emptyMap();
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
-                clusterSrvc.topologyService(),
-                msgSrvc,
-                planCache,
-                schemaManager,
-                tableManager,
-                taskExecutor,
-                ArrayRowHandler.INSTANCE,
-                mailboxRegistry,
-                exchangeService,
-                queryRegistry,
-                extensions
+            clusterSrvc.topologyService(),
+            msgSrvc,
+            planCache,
+            schemaManager,
+            tableManager,
+            taskExecutor,
+            ArrayRowHandler.INSTANCE,
+            mailboxRegistry,
+            exchangeService,
+            queryRegistry,
+            extensions
         ));
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
@@ -187,12 +177,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
 
         services.forEach(LifecycleAware::start);
-
-        extensionList.forEach(ext -> ext.init(
-                catalog -> directMsRevision.get().thenAccept(
-                    revision -> schemaManager.registerExternalCatalog(ext.name(), catalog, revision)
-                )
-        ));
     }
 
     private <T extends LifecycleAware> T registerService(T service) {

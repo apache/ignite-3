@@ -163,7 +163,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(testRevisionRegister, cs, tblManager, () -> completedFuture(0L));
+        queryProc = new SqlQueryProcessor(testRevisionRegister, cs, tblManager);
 
         queryProc.start();
 
@@ -180,7 +180,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(testRevisionRegister, () -> {}, () -> completedFuture(0L));
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(testRevisionRegister, () -> {});
         UUID tblId = UUID.randomUUID();
 
         testRevisionRegister.moveRevision.accept(0L);

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -212,8 +209,6 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        Supplier<CompletableFuture<Long>> directMsRevisionSup = cfgStorage::lastRevision;
-
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
                 metaStorageMgr,
@@ -222,8 +217,6 @@ public class IgniteImpl implements Ignite {
 
         Consumer<Consumer<Long>> registry = (c) -> {
             clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                LOG.info("Node: " + name);
-
                 c.accept(newStorageRevision);
 
                 return CompletableFuture.completedFuture(null);
@@ -244,8 +237,7 @@ public class IgniteImpl implements Ignite {
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
-                distributedTblMgr,
-                directMsRevisionSup
+                distributedTblMgr
         );
 
         restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);
