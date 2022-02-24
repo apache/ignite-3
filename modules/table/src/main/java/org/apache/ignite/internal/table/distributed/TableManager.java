@@ -717,7 +717,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         th);
             });
 
-            CompletableFuture<Map<UUID, TableImpl>> tablesByIdFut = tablesByIdVv.update(causalityToken, previousVal -> {
+            Map<UUID, TableImpl> tablesByIdFut = tablesByIdVv.update(causalityToken, previousVal -> {
                 var map = new HashMap<>(previousVal);
 
                 map.remove(tblId);
@@ -728,7 +728,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         th);
             });
 
-            TableImpl table = tablesByIdFut.join().get(tblId);
+            TableImpl table = tablesByIdFut.get(tblId);
 
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 

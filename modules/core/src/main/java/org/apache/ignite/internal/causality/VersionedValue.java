@@ -20,7 +20,9 @@ package org.apache.ignite.internal.causality;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Map.Entry;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -233,7 +235,7 @@ public class VersionedValue<T> {
      * @param complete       The function is invoked if the previous future completed successfully.
      * @param fail           The function is invoked if the previous future completed with an exception.
      */
-    public CompletableFuture<T> update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
+    public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
         long  actualToken0 = actualToken;
 
         assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
@@ -241,29 +243,21 @@ public class VersionedValue<T> {
 
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
 
-        assert histEntry.getValue().isDone() : "Previous value should be ready.";
+        CompletableFuture<T> previousFuture = histEntry.getValue();
 
-        CompletableFuture<T> res = new CompletableFuture<>();
+        assert previousFuture.isDone() : "Previous value should be ready.";
 
         try {
-            histEntry.getValue().thenAccept(previousValue -> {
-                setValueInternal(causalityToken, complete.apply(previousValue));
+            T previousValue = previousFuture.join();
 
-                res.complete(previousValue);
-            }).exceptionally(throwable -> {
-                setValueInternal(causalityToken, fail.apply(throwable));
+            setValueInternal(causalityToken, complete.apply(previousValue));
 
-                res.completeExceptionally(throwable);
+            return previousValue;
+        } catch (CancellationException | CompletionException e) {
+            failInternal(causalityToken, e);
 
-                return null;
-            });
-        } catch (Throwable th) {
-            failInternal(causalityToken, th);
-
-            res.completeExceptionally(th);
+            return fail.apply(e);
         }
-
-        return res;
     }
 
     /**
