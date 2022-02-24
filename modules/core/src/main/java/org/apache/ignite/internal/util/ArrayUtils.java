@@ -327,17 +327,19 @@ public final class ArrayUtils {
 
         assert idx >= 0 && idx < len : idx + " < " + len;
 
-        if (idx == len - 1) {
-            return Arrays.copyOfRange(arr, 0, len - 1);
-        } else if (idx == 0) {
-            return Arrays.copyOfRange(arr, 1, len);
+        if (idx < len >>> 1) {
+            T[] res = Arrays.copyOfRange(arr, 1, len);
+
+            System.arraycopy(arr, 0, res, 0, idx);
+
+            return res;
+        } else {
+            T[] res = Arrays.copyOf(arr, len - 1);
+
+            System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
+
+            return res;
         }
-
-        T[] res = Arrays.copyOf(arr, arr.length - 1);
-
-        System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
-
-        return res;
     }
 
     /**
@@ -352,17 +354,19 @@ public final class ArrayUtils {
 
         assert idx >= 0 && idx < len : idx + " < " + len;
 
-        if (idx == len - 1) {
-            return Arrays.copyOfRange(arr, 0, len - 1);
-        } else if (idx == 0) {
-            return Arrays.copyOfRange(arr, 1, len);
+        if (idx < len >>> 1) {
+            long[] res = Arrays.copyOfRange(arr, 1, len);
+
+            System.arraycopy(arr, 0, res, 0, idx);
+
+            return res;
+        } else {
+            long[] res = Arrays.copyOf(arr, len - 1);
+
+            System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
+
+            return res;
         }
-
-        long[] res = Arrays.copyOf(arr, arr.length - 1);
-
-        System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
-
-        return res;
     }
 
     /**
