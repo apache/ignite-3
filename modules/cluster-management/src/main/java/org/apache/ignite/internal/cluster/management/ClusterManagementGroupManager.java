@@ -21,15 +21,14 @@ import static org.apache.ignite.internal.cluster.management.Utils.resolveNodes;
 
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.InitMessageGroup;
-import org.apache.ignite.internal.cluster.management.messages.InitMessagesFactory;
+import org.apache.ignite.internal.cluster.management.messages.CmgMessageGroup;
+import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.rest.InitCommandHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -81,9 +80,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         MessagingService messagingService = clusterService.messagingService();
 
-        var msgFactory = new InitMessagesFactory();
+        var msgFactory = new CmgMessagesFactory();
 
-        messagingService.addMessageHandler(InitMessageGroup.class, (msg, addr, correlationId) -> {
+        messagingService.addMessageHandler(CmgMessageGroup.class, (msg, addr, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 if (correlationId != null) {
                     messagingService.respond(addr, errorResponse(msgFactory, new NodeStoppingException()), correlationId);
@@ -102,9 +101,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 } else if (msg instanceof CmgInitMessage) {
                     assert correlationId != null;
 
-                    String[] nodeIds = ((CmgInitMessage) msg).cmgNodes();
+                    Collection<String> nodeIds = ((CmgInitMessage) msg).cmgNodes();
 
-                    List<ClusterNode> nodes = resolveNodes(clusterService, Arrays.asList(nodeIds));
+                    List<ClusterNode> nodes = resolveNodes(clusterService, nodeIds);
 
                     raftManager.prepareRaftGroup(CMG_RAFT_GROUP_NAME, nodes, CmgRaftGroupListener::new)
                             .whenComplete((service, e) -> {
@@ -137,13 +136,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames names of nodes that will host the Cluster Management Group.
      */
-    public Leaders initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
+    public void initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames).get();
+            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -155,7 +154,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
     }
 
-    private static NetworkMessage errorResponse(InitMessagesFactory msgFactory, Throwable e) {
+    private static NetworkMessage errorResponse(CmgMessagesFactory msgFactory, Throwable e) {
         log.error("Exception when starting the CMG", e);
 
         return msgFactory.initErrorMessage()
@@ -163,16 +162,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .build();
     }
 
-    private NetworkMessage leaderElectedResponse(InitMessagesFactory msgFactory, Peer leader) {
+    private NetworkMessage leaderElectedResponse(CmgMessagesFactory msgFactory, Peer leader) {
         ClusterNode leaderNode = clusterService.topologyService().getByAddress(leader.address());
 
         assert leaderNode != null;
 
         log.info("CMG leader elected: " + leaderNode.name());
 
-        return msgFactory.initCompleteMessage()
-                .leaderName(leaderNode.name())
-                .build();
+        return msgFactory.initCompleteMessage().build();
     }
 
     @Override

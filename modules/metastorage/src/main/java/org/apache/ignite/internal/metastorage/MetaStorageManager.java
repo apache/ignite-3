@@ -32,10 +32,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.InitException;
-import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.InitMessageGroup;
+import org.apache.ignite.internal.cluster.management.messages.ClusterStateMessage;
+import org.apache.ignite.internal.cluster.management.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.messages.InitMessagesFactory;
-import org.apache.ignite.internal.cluster.management.messages.MetastorageInitMessage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
@@ -69,7 +68,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -164,7 +162,7 @@ public class MetaStorageManager implements IgniteComponent {
 
         var msgFactory = new InitMessagesFactory();
 
-        messagingService.addMessageHandler(InitMessageGroup.class, (msg, addr, correlationId) -> {
+        messagingService.addMessageHandler(CmgMessageGroup.class, (msg, addr, correlationId) -> {
             if (!busyLock.enterBusy()) {
                 if (correlationId != null) {
                     messagingService.respond(addr, errorResponse(msgFactory, new NodeStoppingException()), correlationId);
@@ -174,41 +172,33 @@ public class MetaStorageManager implements IgniteComponent {
             }
 
             try {
-                if (msg instanceof CancelInitMessage) {
-                    LOG.info("Meta Storage initialization cancelled, reason: " + ((CancelInitMessage) msg).reason());
-
-                    raftMgr.stopRaftGroup(METASTORAGE_RAFT_GROUP_NAME);
-
-                    // TODO: drop the Raft storage as well, https://issues.apache.org/jira/browse/IGNITE-16471
-                } else if (msg instanceof MetastorageInitMessage) {
-                    assert correlationId != null;
-
-                    if (!isInitialized.compareAndSet(false, true)) {
-                        messagingService.respond(addr, errorResponse(msgFactory, "Node has already been initialized"), correlationId);
-
-                        return;
-                    }
-
-                    initializeMetaStorage(clusterService, (MetastorageInitMessage) msg)
-                            .whenComplete((leaderId, e) -> {
-                                if (e == null) {
-                                    messagingService.respond(addr, successResponse(msgFactory, leaderId), correlationId);
-                                } else {
-                                    messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
-                                }
-                            });
+                if (!(msg instanceof ClusterStateMessage)) {
+                    return;
                 }
+
+                assert correlationId != null;
+
+                if (!isInitialized.compareAndSet(false, true)) {
+                    messagingService.respond(addr, errorResponse(msgFactory, "Node has already been initialized"), correlationId);
+
+                    return;
+                }
+
+                initializeMetaStorage(clusterService, (ClusterStateMessage) msg)
+                        .whenComplete((v, e) -> {
+                            NetworkMessage response = e == null ? successResponse(msgFactory) : errorResponse(msgFactory, e);
+
+                            messagingService.respond(addr, response, correlationId);
+                        });
             } catch (Exception e) {
-                if (correlationId != null) {
-                    messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
-                }
+                messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
             } finally {
                 busyLock.leaveBusy();
             }
         });
     }
 
-    private CompletableFuture<String> initializeMetaStorage(ClusterService clusterService, MetastorageInitMessage initMsg)
+    private CompletableFuture<Void> initializeMetaStorage(ClusterService clusterService, ClusterStateMessage initMsg)
             throws NodeStoppingException {
         TopologyService topologyService = clusterService.topologyService();
 
@@ -228,22 +218,6 @@ public class MetaStorageManager implements IgniteComponent {
 
         storage.start();
 
-        CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
-                METASTORAGE_RAFT_GROUP_NAME,
-                metastorageNodes,
-                () -> new MetaStorageListener(storage)
-        );
-
-        raftServiceFuture
-                .thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()))
-                .whenComplete((service, ex) -> {
-                    if (ex == null) {
-                        metaStorageSvcFut.complete(service);
-                    } else {
-                        metaStorageSvcFut.completeExceptionally(ex);
-                    }
-                });
-
         if (metastorageNodes.contains(thisNode)) {
             topologyService.addEventHandler(new TopologyEventHandler() {
                 @Override
@@ -258,17 +232,23 @@ public class MetaStorageManager implements IgniteComponent {
             });
         }
 
-        return raftServiceFuture.thenApply(service -> {
-            Peer leader = service.leader();
+        CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
+                METASTORAGE_RAFT_GROUP_NAME,
+                metastorageNodes,
+                () -> new MetaStorageListener(storage)
+        );
 
-            assert leader != null;
+        return raftServiceFuture
+                .thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()))
+                .handle((service, ex) -> {
+                    if (ex == null) {
+                        metaStorageSvcFut.complete(service);
+                    } else {
+                        metaStorageSvcFut.completeExceptionally(ex);
+                    }
 
-            ClusterNode leaderNode = topologyService.getByAddress(leader.address());
-
-            assert leaderNode != null;
-
-            return leaderNode.name();
-        });
+                    return null;
+                });
     }
 
     private static NetworkMessage errorResponse(InitMessagesFactory msgFactory, Throwable e) {
@@ -278,17 +258,11 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     private static NetworkMessage errorResponse(InitMessagesFactory msgFactory, String message) {
-        return msgFactory.initErrorMessage()
-                .cause(message)
-                .build();
+        return msgFactory.initErrorMessage().cause(message).build();
     }
 
-    private static NetworkMessage successResponse(InitMessagesFactory msgFactory, String leaderId) {
-        LOG.info("Meta Storage leader elected " + leaderId);
-
-        return msgFactory.initCompleteMessage()
-                .leaderName(leaderId)
-                .build();
+    private static NetworkMessage successResponse(InitMessagesFactory msgFactory) {
+        return msgFactory.initCompleteMessage().build();
     }
 
     /**

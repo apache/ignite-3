@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Message that represents an error condition that has occurred during cluster initialization.
  */
-@Transferable(InitMessageGroup.INIT_ERROR)
+@Transferable(CmgMessageGroup.INIT_ERROR)
 public interface InitErrorMessage extends NetworkMessage {
     /**
      * Text representation of the occurred error.

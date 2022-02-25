@@ -22,17 +22,17 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message Group for cluster initialization and CMG management.
  */
-@MessageGroup(groupType = 6, groupName = "InitMessages")
-public class InitMessageGroup {
+@MessageGroup(groupType = 6, groupName = "CmgMessages")
+public class CmgMessageGroup {
     /**
      * Message type for {@link CmgInitMessage}.
      */
     public static final short CMG_INIT = 1;
 
     /**
-     * Message type for {@link MetastorageInitMessage}.
+     * Message type for {@link ClusterStateMessage}.
      */
-    public static final short METASTORAGE_INIT = 2;
+    public static final short CLUSTER_STATE = 2;
 
     /**
      * Message type for {@link InitCompleteMessage}.

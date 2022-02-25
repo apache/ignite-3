@@ -34,9 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.messages.InitMessagesFactory;
-import org.apache.ignite.internal.cluster.management.messages.MetastorageInitMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -87,9 +87,9 @@ public class ClusterInitializerTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(MetastorageInitMessage.class), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ClusterStateMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    MetastorageInitMessage message = invocation.getArgument(1);
+                    ClusterStateMessage message = invocation.getArgument(1);
 
                     NetworkMessage response = msgFactory.initCompleteMessage()
                             .leaderName(message.metastorageNodes()[0])
@@ -112,8 +112,8 @@ public class ClusterInitializerTest {
         // check that leaders are different in case different node IDs are provided
         CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
 
-        verify(messagingService).invoke(eq(metastorageNode), any(MetastorageInitMessage.class), anyLong());
-        verify(messagingService).invoke(eq(cmgNode), any(MetastorageInitMessage.class), anyLong());
+        verify(messagingService).invoke(eq(metastorageNode), any(ClusterStateMessage.class), anyLong());
+        verify(messagingService).invoke(eq(cmgNode), any(ClusterStateMessage.class), anyLong());
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
 
@@ -134,9 +134,9 @@ public class ClusterInitializerTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(MetastorageInitMessage.class), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ClusterStateMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    MetastorageInitMessage message = invocation.getArgument(1);
+                    ClusterStateMessage message = invocation.getArgument(1);
 
                     NetworkMessage response = msgFactory.initCompleteMessage()
                             .leaderName(message.metastorageNodes()[0])
@@ -159,8 +159,8 @@ public class ClusterInitializerTest {
         // check that leaders are the same in case CMG node list is empty
         CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of());
 
-        verify(messagingService).invoke(eq(metastorageNode), any(MetastorageInitMessage.class), anyLong());
-        verify(messagingService).invoke(eq(cmgNode), any(MetastorageInitMessage.class), anyLong());
+        verify(messagingService).invoke(eq(metastorageNode), any(ClusterStateMessage.class), anyLong());
+        verify(messagingService).invoke(eq(cmgNode), any(ClusterStateMessage.class), anyLong());
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
 
@@ -181,9 +181,9 @@ public class ClusterInitializerTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(MetastorageInitMessage.class), anyLong()))
+        when(messagingService.invoke(any(ClusterNode.class), any(ClusterStateMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    MetastorageInitMessage message = invocation.getArgument(1);
+                    ClusterStateMessage message = invocation.getArgument(1);
 
                     NetworkMessage response = msgFactory.initCompleteMessage()
                             .leaderName(message.metastorageNodes()[0])

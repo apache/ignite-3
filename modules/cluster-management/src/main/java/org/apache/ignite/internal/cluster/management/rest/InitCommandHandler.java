@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
-import org.apache.ignite.internal.cluster.management.Leaders;
 import org.apache.ignite.internal.rest.ErrorResult;
 import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
 import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
@@ -63,7 +62,7 @@ public class InitCommandHandler implements RequestHandler {
             }
 
             return clusterInitializer.initCluster(command.metaStorageNodes(), command.cmgNodes())
-                    .thenApply(leaders -> successResponse(response, leaders))
+                    .thenApply(v -> successResponse(response))
                     .exceptionally(e -> errorResponse(response, e));
         } catch (Exception e) {
             return CompletableFuture.completedFuture(errorResponse(response, e));
@@ -78,19 +77,8 @@ public class InitCommandHandler implements RequestHandler {
         }
     }
 
-    private static RestApiHttpResponse successResponse(RestApiHttpResponse response, Leaders leaders) {
-        if (log.isInfoEnabled()) {
-            log.info(
-                    "Init command executed successfully.\n\tMeta Storage leader ID: {}\n\tCMG leader ID: {}",
-                    leaders.metaStorageLeader(),
-                    leaders.cmgLeader()
-            );
-        }
-
-        response.json(Map.of(
-                "metaStorageLeaderId", leaders.metaStorageLeader(),
-                "cmgLeaderId", leaders.cmgLeader()
-        ));
+    private static RestApiHttpResponse successResponse(RestApiHttpResponse response) {
+        log.info("Init command executed successfully");
 
         return response;
     }

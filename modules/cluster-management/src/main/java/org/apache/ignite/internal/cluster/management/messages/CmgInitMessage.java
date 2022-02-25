@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.cluster.management.messages;
 
+import java.util.Collection;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
  * Message for initializing the Cluster Management Group.
  */
-@Transferable(InitMessageGroup.CMG_INIT)
+@Transferable(CmgMessageGroup.CMG_INIT)
 public interface CmgInitMessage extends NetworkMessage {
     /**
      * Consistent IDs of nodes that host the CMG.
      */
-    String[] cmgNodes();
+    Collection<String> cmgNodes();
+
+    Collection<String> metaStorageNodes();
 }

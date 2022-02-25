@@ -23,7 +23,7 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Message signaling that the init process has failed and needs to be aborted.
  */
-@Transferable(InitMessageGroup.CANCEL_INIT)
+@Transferable(CmgMessageGroup.CANCEL_INIT)
 public interface CancelInitMessage extends NetworkMessage {
     /**
      * Textual representation of the cause of init failure.

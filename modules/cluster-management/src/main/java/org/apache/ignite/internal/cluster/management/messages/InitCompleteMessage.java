@@ -23,10 +23,6 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Successful response for initializing a Raft group.
  */
-@Transferable(InitMessageGroup.INIT_COMPLETE)
+@Transferable(CmgMessageGroup.INIT_COMPLETE)
 public interface InitCompleteMessage extends NetworkMessage {
-    /**
-     * Raft leader consistent ID.
-     */
-    String leaderName();
 }

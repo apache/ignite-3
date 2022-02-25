@@ -23,8 +23,8 @@ import org.apache.ignite.network.annotations.Transferable;
 /**
  * Message for initializing the Meta Storage.
  */
-@Transferable(InitMessageGroup.METASTORAGE_INIT)
-public interface MetastorageInitMessage extends NetworkMessage {
+@Transferable(CmgMessageGroup.CLUSTER_STATE)
+public interface ClusterStateMessage extends NetworkMessage {
     /**
      * Consistent IDs of nodes that host the Meta Storage.
      */
