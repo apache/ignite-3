@@ -15,21 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.routes;
-
-import io.netty.handler.codec.http.HttpRequest;
-import java.util.Optional;
-import org.apache.ignite.rest.Route;
-
 /**
- * Dispatcher of http requests.
+ * Contains a base interface that provides the ability to convert representation to other formats.
  */
-public interface Router {
-    /**
-     * Finds the route by request.
-     *
-     * @param req Request.
-     * @return Route if founded.
-     */
-    Optional<Route> route(HttpRequest req);
-}
+
+package org.apache.ignite.internal.configuration.rest.presentation;

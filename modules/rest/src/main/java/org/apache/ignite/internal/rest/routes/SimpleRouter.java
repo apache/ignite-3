@@ -18,18 +18,63 @@
 package org.apache.ignite.internal.rest.routes;
 
 import io.netty.handler.codec.http.HttpRequest;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.apache.ignite.rest.Route;
+import org.apache.ignite.rest.Routes;
 
 /**
  * Dispatcher of http requests.
+ *
+ * <p>Example:
+ * <pre>
+ * {@code
+ * var router = new SimpleRouter();
+ * router.get("/user", (req, resp) -> {
+ *     resp.status(HttpResponseStatus.OK);
+ * });
+ * }
+ * </pre>
  */
-public interface Router {
+public class SimpleRouter implements Router, Routes {
+    /** Routes. */
+    private final List<Route> routes;
+
+    /**
+     * Creates a new router with the given list of {@code routes}.
+     *
+     * @param routes Routes.
+     */
+    public SimpleRouter(List<Route> routes) {
+        this.routes = List.copyOf(routes);
+    }
+
+    /**
+     * Creates a new empty router.
+     */
+    public SimpleRouter() {
+        routes = new ArrayList<>();
+    }
+
+    /**
+     * Adds the route to router chain.
+     *
+     * @param route Route
+     */
+    @Override
+    public void addRoute(Route route) {
+        routes.add(route);
+    }
+
     /**
      * Finds the route by request.
      *
      * @param req Request.
      * @return Route if founded.
      */
-    Optional<Route> route(HttpRequest req);
+    @Override
+    public Optional<Route> route(HttpRequest req) {
+        return routes.stream().filter(r -> r.match(req)).findFirst();
+    }
 }

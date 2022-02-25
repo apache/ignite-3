@@ -17,68 +17,44 @@
 
 package org.apache.ignite.internal.rest;
 
-import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
-import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.net.BindException;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
-import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
-import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
 import org.apache.ignite.internal.rest.netty.RestApiInitializer;
-import org.apache.ignite.internal.rest.presentation.ConfigurationPresentation;
-import org.apache.ignite.internal.rest.presentation.hocon.HoconPresentation;
 import org.apache.ignite.internal.rest.routes.Router;
+import org.apache.ignite.internal.rest.routes.SimpleRouter;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.rest.RestHandlersRegister;
+import org.apache.ignite.rest.Routes;
 
 /**
  * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
  *
- * <p>It is started on port 10300 by default but it is possible to change this in configuration itself. Refer to default config file in
+ * <p>It is started on port 10300 by default, but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
  */
-public class RestModule implements IgniteComponent {
-    /** Default port. */
-    public static final int DFLT_PORT = 10300;
-
-    /** Node configuration route. */
-    private static final String NODE_CFG_URL = "/management/v1/configuration/node/";
-
-    /** Cluster configuration route. */
-    private static final String CLUSTER_CFG_URL = "/management/v1/configuration/cluster/";
-
-    /** Path parameter. */
-    private static final String PATH_PARAM = "selector";
-
+public class RestModule implements RestHandlersRegister, IgniteComponent {
     /** Ignite logger. */
     private final IgniteLogger log = IgniteLogger.forClass(RestModule.class);
 
     /** Node configuration register. */
     private final ConfigurationRegistry nodeCfgRegistry;
 
-    /** Presentation of node configuration. */
-    private final ConfigurationPresentation<String> nodeCfgPresentation;
-
-    /** Presentation of cluster configuration. */
-    private final ConfigurationPresentation<String> clusterCfgPresentation;
-
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
+
+    private final SimpleRouter router = new SimpleRouter();
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -87,19 +63,18 @@ public class RestModule implements IgniteComponent {
      * Creates a new instance of REST module.
      *
      * @param nodeCfgMgr       Node configuration manager.
-     * @param clusterCfgMgr    Cluster configuration manager.
      * @param bootstrapFactory Netty bootstrap factory.
      */
-    public RestModule(
-            ConfigurationManager nodeCfgMgr,
-            ConfigurationManager clusterCfgMgr,
-            NettyBootstrapFactory bootstrapFactory) {
+    public RestModule(ConfigurationManager nodeCfgMgr, NettyBootstrapFactory bootstrapFactory) {
         nodeCfgRegistry = nodeCfgMgr.configurationRegistry();
 
-        nodeCfgPresentation = new HoconPresentation(nodeCfgMgr.configurationRegistry());
-        clusterCfgPresentation = new HoconPresentation(clusterCfgMgr.configurationRegistry());
-
         this.bootstrapFactory = bootstrapFactory;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void registerHandlers(Consumer<Routes> registerAction) {
+        registerAction.accept(router);
     }
 
     /** {@inheritDoc} */
@@ -108,44 +83,6 @@ public class RestModule implements IgniteComponent {
         if (channel != null) {
             throw new IgniteException("RestModule is already started.");
         }
-
-        var router = new Router();
-
-        router
-                .get(
-                        NODE_CFG_URL,
-                        (req, resp) -> {
-                            resp.json(nodeCfgPresentation.represent());
-
-                            return CompletableFuture.completedFuture(resp);
-                        }
-                )
-                .get(
-                        CLUSTER_CFG_URL,
-                        (req, resp) -> {
-                            resp.json(clusterCfgPresentation.represent());
-
-                            return CompletableFuture.completedFuture(resp);
-                        }
-                )
-                .get(
-                        NODE_CFG_URL + ":" + PATH_PARAM,
-                        (req, resp) -> handleRepresentByPath(req, resp, nodeCfgPresentation)
-                )
-                .get(
-                        CLUSTER_CFG_URL + ":" + PATH_PARAM,
-                        (req, resp) -> handleRepresentByPath(req, resp, clusterCfgPresentation)
-                )
-                .patch(
-                        NODE_CFG_URL,
-                        APPLICATION_JSON,
-                        (req, resp) -> handleUpdate(req, resp, nodeCfgPresentation)
-                )
-                .patch(
-                        CLUSTER_CFG_URL,
-                        APPLICATION_JSON,
-                        (req, resp) -> handleUpdate(req, resp, clusterCfgPresentation)
-                );
 
         channel = startRestEndpoint(router).channel();
     }
@@ -164,17 +101,14 @@ public class RestModule implements IgniteComponent {
         int portRange = restConfigurationView.portRange();
 
         int port = 0;
-
         Channel ch = null;
 
-        var hnd = new RestApiInitializer(router);
-
-        ServerBootstrap b = bootstrapFactory.createServerBootstrap()
+        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap()
                 .handler(new LoggingHandler(LogLevel.INFO))
-                .childHandler(hnd);
+                .childHandler(new RestApiInitializer(router));
 
         for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
-            ChannelFuture bindRes = b.bind(portCandidate).awaitUninterruptibly();
+            ChannelFuture bindRes = bootstrap.bind(portCandidate).awaitUninterruptibly();
 
             if (bindRes.isSuccess()) {
                 ch = bindRes.channel();
@@ -209,71 +143,5 @@ public class RestModule implements IgniteComponent {
 
             channel = null;
         }
-    }
-
-    /**
-     * Handle a request to get the configuration by {@link #PATH_PARAM path}.
-     *
-     * @param req          Rest request.
-     * @param res          Rest response.
-     * @param presentation Configuration presentation.
-     */
-    private static CompletableFuture<RestApiHttpResponse> handleRepresentByPath(
-            RestApiHttpRequest req,
-            RestApiHttpResponse res,
-            ConfigurationPresentation<String> presentation
-    ) {
-        try {
-            String cfgPath = req.queryParams().get(PATH_PARAM);
-
-            res.json(presentation.representByPath(cfgPath));
-        } catch (IllegalArgumentException pathE) {
-            ErrorResult errRes = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", pathE.getMessage());
-
-            res.status(BAD_REQUEST);
-            res.json(Map.of("error", errRes));
-        }
-
-        return CompletableFuture.completedFuture(res);
-    }
-
-    /**
-     * Handle a configuration update request as json.
-     *
-     * @param req          Rest request.
-     * @param res          Rest response.
-     * @param presentation Configuration presentation.
-     */
-    private static CompletableFuture<RestApiHttpResponse> handleUpdate(
-            RestApiHttpRequest req,
-            RestApiHttpResponse res,
-            ConfigurationPresentation<String> presentation
-    ) {
-        String updateReq = req.request().content().toString(StandardCharsets.UTF_8);
-
-        return presentation.update(updateReq)
-                .thenApply(v -> res)
-                .exceptionally(e -> {
-                    if (e instanceof CompletionException) {
-                        e = e.getCause();
-                    }
-
-                    ErrorResult errRes;
-
-                    if (e instanceof IllegalArgumentException) {
-                        errRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
-                    } else if (e instanceof ConfigurationValidationException) {
-                        errRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
-                    } else if (e instanceof IgniteException) {
-                        errRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
-                    } else {
-                        throw new CompletionException(e);
-                    }
-
-                    res.status(BAD_REQUEST);
-                    res.json(Map.of("error", errRes));
-
-                    return res;
-                });
     }
 }

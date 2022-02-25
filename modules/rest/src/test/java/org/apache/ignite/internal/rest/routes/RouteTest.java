@@ -28,6 +28,8 @@ import io.netty.handler.codec.http.DefaultHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.rest.RequestHandler;
+import org.apache.ignite.rest.Route;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -41,6 +41,7 @@ import io.netty.handler.codec.http.HttpVersion;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.rest.RestApiHttpResponse;
 
 /**
  * Main handler of REST HTTP chain. It receives http request, process it by {@link Router} and produce http response.

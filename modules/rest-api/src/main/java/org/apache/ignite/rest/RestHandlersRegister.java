@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.routes;
+package org.apache.ignite.rest;
 
-import io.netty.handler.codec.http.HttpRequest;
-import java.util.Optional;
-import org.apache.ignite.rest.Route;
+import java.util.function.Consumer;
 
 /**
- * Dispatcher of http requests.
+ * Register for REST handlers.
  */
-public interface Router {
+public interface RestHandlersRegister {
     /**
-     * Finds the route by request.
+     * Registers handlers on the provided {@link Routes}.
      *
-     * @param req Request.
-     * @return Route if founded.
+     * @param registerAction registration action
      */
-    Optional<Route> route(HttpRequest req);
+    void registerHandlers(Consumer<Routes> registerAction);
 }
