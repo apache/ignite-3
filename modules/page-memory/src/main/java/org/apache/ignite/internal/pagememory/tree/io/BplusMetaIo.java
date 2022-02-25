@@ -20,22 +20,14 @@ package org.apache.ignite.internal.pagememory.tree.io;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getByte;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * IO routines for B+Tree meta pages.
+ * Abstract IO routines for B+Tree meta pages.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-16534
-public class BplusMetaIo extends PageIo {
-    /** Page IO type. */
-    public static final int T_BPLUS_META = 3;
-
-    /** I/O versions. */
-    public static final IoVersions<BplusMetaIo> VERSIONS = new IoVersions<>(new BplusMetaIo(1));
-
+public abstract class BplusMetaIo extends PageIo {
     /** Offset where the number of levels is stored. */
     private static final int LVLS_OFFSET = COMMON_HEADER_END;
 
@@ -45,10 +37,11 @@ public class BplusMetaIo extends PageIo {
     /**
      * Constructor.
      *
+     * @param type Page type.
      * @param ver Page format version.
      */
-    private BplusMetaIo(int ver) {
-        super(T_BPLUS_META, ver, FLAG_AUX);
+    protected BplusMetaIo(int type, int ver) {
+        super(type, ver, FLAG_AUX);
     }
 
     /**
