@@ -38,8 +38,10 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
 import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalSchema;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +57,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final Runnable onSchemaUpdatedCallback;
 
+    private final TableManager tableManager;
+
     private final VersionedValue<SchemaPlus> calciteSchemaVv;
 
     /**
@@ -62,11 +66,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public SqlSchemaManagerImpl(
+            TableManager tableManager,
             Consumer<Consumer<Long>> storageRevisionUpdater,
             Runnable onSchemaUpdatedCallback
     ) {
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
 
+        this.tableManager = tableManager;
         schemasVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
         tablesVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
         externalCatalogsVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
@@ -90,9 +96,22 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     @NotNull
     public IgniteTable tableById(UUID id) {
-        CompletableFuture<Map<UUID, IgniteTable>> fut = tablesVv.get();
+        Map<UUID, IgniteTable> tablesById = tablesVv.get().join();
 
-        IgniteTable table = fut.join().get(id);
+        IgniteTable table = tablesById.get(id);
+
+        // there is a chance that someone tries to resolve table before
+        // the distributed event of that table creation has been processed
+        // by TableManager, so we need to get in sync with the TableManager
+        if (table == null) {
+            ensureTableStructuresCreated(id);
+
+            tablesById = tablesVv.get().join();
+
+            // at this point the table is either null means no such table
+            // really exists or the table itself
+            table = tablesById.get(id);
+        }
 
         if (table == null) {
             throw new IgniteInternalException(
@@ -100,6 +119,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         return table;
+    }
+
+    private void ensureTableStructuresCreated(UUID tableId) {
+        try {
+            tableManager.table(tableId);
+        } catch (NodeStoppingException e) {
+            // Discard the exception
+        }
     }
 
     /**
