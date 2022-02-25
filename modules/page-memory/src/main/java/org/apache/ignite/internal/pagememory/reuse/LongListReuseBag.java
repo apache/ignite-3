@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.reuse;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.io.Externalizable;
-import org.apache.ignite.internal.util.IgniteLongList;
 
 /**
- * {@link IgniteLongList}-based reuse bag.
+ * {@link LongArrayList}-based reuse bag.
  */
-public final class LongListReuseBag extends IgniteLongList implements ReuseBag {
+public final class LongListReuseBag extends LongArrayList implements ReuseBag {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
 
@@ -35,13 +35,15 @@ public final class LongListReuseBag extends IgniteLongList implements ReuseBag {
     }
 
     /** {@inheritDoc} */
-    @Override public void addFreePage(long pageId) {
+    @Override
+    public void addFreePage(long pageId) {
         add(pageId);
     }
 
     /** {@inheritDoc} */
-    @Override public long pollFreePage() {
-        return isEmpty() ? 0 : remove();
+    @Override
+    public long pollFreePage() {
+        return isEmpty() ? 0 : removeLong(size - 1);
     }
 }
 

@@ -33,6 +33,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.set;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrays;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,7 +66,6 @@ import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteCursor;
-import org.apache.ignite.internal.util.IgniteLongList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringBuilder;
@@ -4550,10 +4551,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 return 0L;
             }
 
-            if (freePages.getClass() == IgniteLongList.class) {
-                IgniteLongList list = ((IgniteLongList) freePages);
+            if (freePages.getClass() == LongArrayList.class) {
+                LongArrayList list = ((LongArrayList) freePages);
 
-                return list.isEmpty() ? 0L : list.remove();
+                return list.isEmpty() ? 0L : list.removeLong(list.size() - 1);
             }
 
             long res = (long) freePages;
@@ -4571,14 +4572,14 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (freePages == null) {
                 freePages = pageId;
             } else {
-                IgniteLongList list;
+                LongArrayList list;
 
-                if (freePages.getClass() == IgniteLongList.class) {
-                    list = (IgniteLongList) freePages;
+                if (freePages.getClass() == LongArrayList.class) {
+                    list = (LongArrayList) freePages;
                 } else {
-                    list = new IgniteLongList(4);
+                    list = new LongArrayList(4);
 
-                    list.add((Long) freePages);
+                    list.add((long) freePages);
                     freePages = list;
                 }
 
@@ -4593,8 +4594,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 return true;
             }
 
-            if (freePages.getClass() == IgniteLongList.class) {
-                IgniteLongList list = ((IgniteLongList) freePages);
+            if (freePages.getClass() == LongArrayList.class) {
+                LongArrayList list = ((LongArrayList) freePages);
 
                 return list.isEmpty();
             }
@@ -6386,7 +6387,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Array of page ids.
      */
     private long[] pages(boolean empty, Supplier<long[]> pages) {
-        return empty ? IgniteLongList.EMPTY_ARRAY : pages.get();
+        return empty ? LongArrays.EMPTY_ARRAY : pages.get();
     }
 
     /**
