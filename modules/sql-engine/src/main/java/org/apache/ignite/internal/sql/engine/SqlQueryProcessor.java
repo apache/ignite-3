@@ -22,9 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.ServiceLoader;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
@@ -42,7 +39,6 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.CacheKey;
@@ -98,8 +94,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile QueryTaskExecutor taskExecutor;
 
-    private volatile Map<String, SqlExtension> extensions;
-
     private volatile PrepareService prepareSvc;
 
     private volatile MailboxRegistry mailboxRegistry;
@@ -141,16 +135,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryRegistry
         ));
 
-        List<SqlExtension> extensionList = new ArrayList<>();
-
-        ServiceLoader<SqlExtension> loader = ServiceLoader.load(SqlExtension.class);
-
-        loader.reload();
-
-        loader.forEach(extensionList::add);
-
-        extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
-
         SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, planCache::clear);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
@@ -163,8 +147,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
-                queryRegistry,
-                extensions
+                queryRegistry
         ));
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
@@ -174,8 +157,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.schemaManager = schemaManager;
 
         services.forEach(LifecycleAware::start);
-
-        extensionList.forEach(ext -> ext.init(catalog -> schemaManager.registerExternalCatalog(ext.name(), catalog)));
     }
 
     private <T extends LifecycleAware> T registerService(T service) {
@@ -195,17 +176,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized void stop() throws Exception {
         busyLock.block();
 
-        List<AutoCloseable> toClose = new ArrayList<>();
-
-        Map<String, SqlExtension> extensions = this.extensions;
-        if (extensions != null) {
-            toClose.addAll(
-                    extensions.values().stream()
-                            .map(ext -> (AutoCloseable) ext::stop)
-                            .collect(Collectors.toList())
-            );
-        }
-
         List<LifecycleAware> services = new ArrayList<>(this.services);
 
         this.services.clear();
@@ -217,11 +187,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
                 .map((p) -> () -> tableManager.removeListener(p.left, p.right));
 
-        toClose.addAll(
-                Stream.concat(closableComponents, closableListeners).collect(Collectors.toList())
-        );
-
-        IgniteUtils.closeAll(toClose);
+        IgniteUtils.closeAll(Stream.concat(closableComponents, closableListeners).collect(Collectors.toList()));
     }
 
     /** {@inheritDoc} */

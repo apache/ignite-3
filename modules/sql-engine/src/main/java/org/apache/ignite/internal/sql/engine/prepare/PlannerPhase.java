@@ -254,8 +254,6 @@ public enum PlannerPhase {
     public RuleSet getRules(PlanningContext ctx) {
         List<RelOptRule> rules = new ArrayList<>(this.rules);
 
-        ctx.extensions().forEach(p -> rules.addAll(p.getOptimizerRules(this)));
-
         return ctx.rules(RuleSets.ofList(rules));
     }
 

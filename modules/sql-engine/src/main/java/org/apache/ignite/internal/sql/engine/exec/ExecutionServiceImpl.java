@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
@@ -116,8 +114,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
 
     private final RowHandler<RowT> handler;
 
-    private final Map<String, SqlExtension> extensions;
-
     private final DdlCommandHandler ddlCmdHnd;
 
     /**
@@ -133,15 +129,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
-            QueryRegistry queryRegistry,
-            Map<String, SqlExtension> extensions
+            QueryRegistry queryRegistry
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
-        this.extensions = extensions;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSrvc = exchangeSrvc;
         this.queryRegistry = queryRegistry;
@@ -172,7 +166,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
             MultiStepPlan plan
     ) {
         qry.mapping();
-        plan.init(mappingSrvc, new MappingQueryContext(qry.context(), locNodeId, topologyVersion()));
+        plan.init(mappingSrvc, new MappingQueryContext(locNodeId, topologyVersion()));
 
         List<Fragment> fragments = plan.fragments();
 
@@ -271,7 +265,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
                                 .build()
                 )
                 .logger(LOG)
-                .extensions(extensions)
                 .build();
     }
 
