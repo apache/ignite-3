@@ -207,8 +207,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(tbl.internalTable()).thenReturn(internalTbl);
         when(internalTbl.tableId()).thenReturn(tblId);
 
-        // TODO
-        schemaManager.onTableCreated("TEST_SCHEMA", tbl, 0L);
+        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
+        schemaManager.onTableCreated("TEST_SCHEMA", tbl, 1L);
 
         schemaManager.tableById(tblId);
         Mockito.verify(tableManager, never()).table(any(UUID.class));
