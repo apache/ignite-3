@@ -129,8 +129,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     SqlQueryProcessor queryProc;
 
-    TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
-
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
             UUID.randomUUID().toString(),
@@ -163,29 +161,20 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(testRevisionRegister, cs, tblManager);
+        queryProc = new SqlQueryProcessor((Consumer<Long> consumer) -> {}, cs, tblManager);
 
         queryProc.start();
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(0L);
     }
 
     /**
      * Checks that appropriate methods called form table manager on rel node construction.
      */
     @Test
-    //TODO fix after merge with IGNITE-16377
     void checkAppropriateTableFound() throws Exception {
         TableManager tableManager = mock(TableManager.class);
 
-        TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
-
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, testRevisionRegister, () -> {});
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, (Consumer<Long> consumer) -> {}, () -> {});
         UUID tblId = UUID.randomUUID();
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(0L);
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
                 .getMessage().contains("Table not found"));
@@ -207,7 +196,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(tbl.internalTable()).thenReturn(internalTbl);
         when(internalTbl.tableId()).thenReturn(tblId);
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
         schemaManager.onTableCreated("TEST_SCHEMA", tbl, 1L);
 
         schemaManager.tableById(tblId);
@@ -281,13 +269,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", newTblSql);
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(1L);
-
         queryProc.query("PUBLIC", "DROP TABLE " + curMethodName);
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(2L);
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
@@ -321,22 +303,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", newTblSql);
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(1L);
-
         String alterCmd = String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 int)", curMethodName);
 
         queryProc.query("PUBLIC", alterCmd);
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(2L);
-
         String alterCmd1 = String.format("ALTER TABLE %s ADD COLUMN c5 int NOT NULL DEFAULT 1", curMethodName);
 
         queryProc.query("PUBLIC", alterCmd1);
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(3L);
 
         assertThrows(ColumnAlreadyExistsException.class, () -> finalQueryProc.query("PUBLIC", alterCmd));
 
@@ -352,23 +325,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         finalQueryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(4L);
-
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS c3 varchar", curMethodName));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(5L);
 
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c3", curMethodName));
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(6L);
-
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS c3", curMethodName));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(7L);
 
         assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN (c3, c4)", curMethodName)));
@@ -386,24 +347,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varchar(255))", curMethodName));
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(1L);
-
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN (c3 varchar, c4 varchar)", curMethodName));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(2L);
 
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar)", curMethodName));
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(3L);
-
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s ADD COLUMN IF NOT EXISTS (c3 varchar, c4 varchar, c5 varchar)",
                 curMethodName));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(4L);
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
@@ -419,28 +368,16 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         String curMethodName = getCurrentMethodName();
 
         queryProc.query("PUBLIC", String.format("CREATE TABLE %s "
-                + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(1L);
+            + "(c1 int PRIMARY KEY, c2 decimal(10), c3 varchar, c4 varchar, c5 varchar)", curMethodName));
 
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName));
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(2L);
-
         queryProc.query("PUBLIC", String.format("ALTER TABLE %s DROP COLUMN IF EXISTS (c3, c4, c5)", curMethodName));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(3L);
 
         SqlQueryProcessor finalQueryProc = queryProc;
 
         assertThrows(ColumnNotFoundException.class, () -> finalQueryProc.query("PUBLIC",
                 String.format("ALTER TABLE %s DROP COLUMN c4", curMethodName)));
-
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-        testRevisionRegister.moveRevision.accept(4L);
     }
 
     /**
@@ -546,7 +483,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @NotNull
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
-                testRevisionRegister,
+                (Consumer<Long> consumer) -> {},
                 tblsCfg,
                 dataStorageCfg,
                 rm,
@@ -559,25 +496,5 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         tableManager.start();
 
         return tableManager;
-    }
-
-    // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
-    /**
-     * Test revision register.
-     */
-    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
-
-        /** Revision consumer. */
-        Consumer<Long> moveRevision;
-
-        /** {@inheritDoc} */
-        @Override
-        public void accept(Consumer<Long> consumer) {
-            if (moveRevision == null) {
-                moveRevision = consumer;
-            } else {
-                moveRevision = moveRevision.andThen(consumer);
-            }
-        }
     }
 }
