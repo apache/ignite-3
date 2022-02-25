@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.Externalizable;
 import java.io.IOException;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * (Um)marshalling specific to EXTERNALIZABLE serialization type.
@@ -49,14 +49,14 @@ class ExternalizableMarshaller {
         this.defaultFieldsReaderWriter = defaultFieldsReaderWriter;
     }
 
-    void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException {
         externalizeTo(externalizable, output, context);
 
         context.addUsedDescriptor(descriptor);
     }
 
-    private void externalizeTo(Externalizable externalizable, DataOutputStream output, MarshallingContext context)
+    private void externalizeTo(Externalizable externalizable, IgniteDataOutput output, MarshallingContext context)
             throws IOException {
         // Do not close the stream yet!
         UosObjectOutputStream oos = context.objectOutputStream(output, valueWriter, unsharedWriter, defaultFieldsReaderWriter);
@@ -75,13 +75,13 @@ class ExternalizableMarshaller {
     @SuppressWarnings("unchecked")
     <T extends Externalizable> T preInstantiateExternalizable(ClassDescriptor descriptor) throws UnmarshalException {
         try {
-            return (T) instantiation.newInstance(descriptor.clazz());
+            return (T) instantiation.newInstance(descriptor.localClass());
         } catch (InstantiationException e) {
-            throw new UnmarshalException("Cannot instantiate " + descriptor.clazz(), e);
+            throw new UnmarshalException("Cannot instantiate " + descriptor.className(), e);
         }
     }
 
-    <T extends Externalizable> void fillExternalizableFrom(DataInputStream input, T object, UnmarshallingContext context)
+    <T extends Externalizable> void fillExternalizableFrom(IgniteDataInput input, T object, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         // Do not close the stream yet!
         UosObjectInputStream ois = context.objectInputStream(input, valueReader, unsharedReader, defaultFieldsReaderWriter);

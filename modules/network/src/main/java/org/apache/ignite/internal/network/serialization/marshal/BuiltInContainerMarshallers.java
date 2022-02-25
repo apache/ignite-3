@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.unmodifiable;
 import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.network.serialization.marshal.ProtocolMarshalling.writeLength;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.DataInput;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -35,8 +36,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
+import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.network.serialization.Classes;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Utility to (un)marshal built-in collections and maps.
@@ -47,11 +50,13 @@ class BuiltInContainerMarshallers {
      * them eligible for a generic unmarshal algorithm: read length, create an empty collection, then read N elements
      * and add each of them into the collection.
      */
-    private final Map<Class<?>, IntFunction<? extends Collection<?>>> mutableBuiltInCollectionFactories = Map.of(
-            ArrayList.class, ArrayList::new,
-            LinkedList.class, size -> new LinkedList<>(),
-            HashSet.class, HashSet::new,
-            LinkedHashSet.class, LinkedHashSet::new
+    private final Int2ObjectMap<IntFunction<? extends Collection<?>>> mutableBuiltInCollectionFactories = unmodifiable(
+            new Int2ObjectOpenHashMap<>(Map.of(
+                    BuiltInType.ARRAY_LIST.descriptorId(), ArrayList::new,
+                    BuiltInType.LINKED_LIST.descriptorId(), size -> new LinkedList<>(),
+                    BuiltInType.HASH_SET.descriptorId(), HashSet::new,
+                    BuiltInType.LINKED_HASH_SET.descriptorId(), LinkedHashSet::new
+            ))
     );
 
     /**
@@ -59,10 +64,12 @@ class BuiltInContainerMarshallers {
      * them eligible for a generic unmarshal algorithm: read length, create an empty map, then read N entries
      * and put each of them into the map.
      */
-    private final Map<Class<?>, IntFunction<? extends Map<?, ?>>> mutableBuiltInMapFactories = Map.of(
-            HashMap.class, HashMap::new,
-            LinkedHashMap.class, LinkedHashMap::new
-    );
+    private final Int2ObjectMap<IntFunction<? extends Map<?, ?>>> mutableBuiltInMapFactories = unmodifiable(new Int2ObjectOpenHashMap<>(
+            Map.of(
+                    BuiltInType.HASH_MAP.descriptorId(), HashMap::new,
+                    BuiltInType.LINKED_HASH_MAP.descriptorId(), LinkedHashMap::new
+            )
+    ));
 
     /**
      * Used to write elements.
@@ -78,14 +85,14 @@ class BuiltInContainerMarshallers {
         this.typedReader = typedReader;
     }
 
-    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, DataOutputStream output, MarshallingContext context)
+    void writeGenericRefArray(Object[] array, ClassDescriptor arrayDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         Class<?> componentType = array.getClass().getComponentType();
 
         BuiltInMarshalling.writeClass(componentType, output);
         writeLength(array.length, output);
 
-        if (array.length > 0 && Classes.isRuntimeTypeKnownUpfront(componentType)) {
+        if (array.length > 0 && arrayDescriptor.isComponentRuntimeTypeKnownUpfront()) {
             BitSet nullsBitSet = new BitSet(array.length);
 
             for (int i = 0; i < array.length; i++) {
@@ -98,7 +105,7 @@ class BuiltInContainerMarshallers {
         }
 
         for (Object object : array) {
-            typedWriter.write(object, componentType, output, context);
+            typedWriter.write(object, arrayDescriptor.componentTypeDescriptor(), output, context);
         }
 
         context.addUsedDescriptor(arrayDescriptor);
@@ -109,35 +116,40 @@ class BuiltInContainerMarshallers {
     }
 
     @SuppressWarnings("unchecked")
-    <T> void fillGenericRefArray(DataInputStream input, T[] array, UnmarshallingContext context)
+    <T> void fillGenericRefArrayFrom(IgniteDataInput input, T[] array, ClassDescriptor arrayDescriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         if (array.length == 0) {
             return;
         }
 
-        if (Classes.isRuntimeTypeKnownUpfront(array.getClass().getComponentType())) {
+        if (arrayDescriptor.isComponentRuntimeTypeKnownUpfront()) {
             BitSet nullsBitSet = BuiltInMarshalling.readBitSet(input);
 
             for (int i = 0; i < array.length; i++) {
                 if (!nullsBitSet.get(i)) {
-                    array[i] = (T) typedReader.read(input, array.getClass().getComponentType(), context);
+                    array[i] = (T) typedReader.read(input, arrayDescriptor.componentTypeDescriptor(), context);
                 }
             }
         } else {
             for (int i = 0; i < array.length; i++) {
-                array[i] = (T) typedReader.read(input, array.getClass().getComponentType(), context);
+                array[i] = (T) typedReader.read(input, arrayDescriptor.componentTypeDescriptor(), context);
             }
         }
     }
 
-    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    boolean supportsCollection(ClassDescriptor descriptor) {
+        return descriptor.isSingletonList() || supportsAsMutableBuiltInCollection(descriptor);
+    }
+
+    void writeBuiltInCollection(Collection<?> object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
         if (supportsAsMutableBuiltInCollection(descriptor)) {
             writeCollection(object, descriptor, output, context);
         } else if (descriptor.isSingletonList()) {
             writeSingletonList((List<?>) object, descriptor, output, context);
         } else {
-            throw new IllegalStateException("Marshalling of " + descriptor.clazz() + " is not supported, but it's marked as a built-in");
+            throw new IllegalStateException("Marshalling of " + descriptor.className()
+                    + " is not supported, but it's marked as a built-in");
         }
     }
 
@@ -150,18 +162,18 @@ class BuiltInContainerMarshallers {
      * @return {@code true} if the given descriptor is supported as a built-in mutable collection
      */
     private boolean supportsAsMutableBuiltInCollection(ClassDescriptor descriptor) {
-        return mutableBuiltInCollectionFactories.containsKey(descriptor.clazz());
+        return mutableBuiltInCollectionFactories.containsKey(descriptor.descriptorId());
     }
 
     private void writeCollection(
             Collection<?> collection,
             ClassDescriptor collectionDescriptor,
-            DataOutputStream output,
+            IgniteDataOutput output,
             MarshallingContext context
     ) throws IOException, MarshalException {
-        context.addUsedDescriptor(collectionDescriptor);
-
         BuiltInMarshalling.writeCollection(collection, output, untypedWriter(), context);
+
+        context.addUsedDescriptor(collectionDescriptor);
     }
 
     @SuppressWarnings("unchecked")
@@ -169,7 +181,7 @@ class BuiltInContainerMarshallers {
         return (ValueWriter<T>) untypedWriter;
     }
 
-    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, DataOutputStream output, MarshallingContext context)
+    private void writeSingletonList(List<?> list, ClassDescriptor listDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         assert list.size() == 1;
 
@@ -182,10 +194,10 @@ class BuiltInContainerMarshallers {
 
     @SuppressWarnings("unchecked")
     private <T, C extends Collection<T>> IntFunction<C> requiredCollectionFactory(ClassDescriptor collectionDescriptor) {
-        IntFunction<C> collectionFactory = (IntFunction<C>) mutableBuiltInCollectionFactories.get(collectionDescriptor.clazz());
+        IntFunction<C> collectionFactory = (IntFunction<C>) mutableBuiltInCollectionFactories.get(collectionDescriptor.descriptorId());
 
         if (collectionFactory == null) {
-            throw new IllegalStateException("Did not find a collection factory for " + collectionDescriptor.clazz()
+            throw new IllegalStateException("Did not find a collection factory for " + collectionDescriptor.className()
                     + " even though it is marked as a built-in");
         }
 
@@ -194,7 +206,6 @@ class BuiltInContainerMarshallers {
 
     Object preInstantiateBuiltInMutableCollection(ClassDescriptor collectionDescriptor, DataInput input, UnmarshallingContext context)
             throws IOException {
-        // TODO: IGNITE-16229 - proper immutable collections unmarshalling?
         if (collectionDescriptor.isSingletonList()) {
             return singletonList(null);
         }
@@ -219,13 +230,12 @@ class BuiltInContainerMarshallers {
     }
 
     <T, C extends Collection<T>> void fillBuiltInCollectionFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             C collection,
             ClassDescriptor collectionDescriptor,
             ValueReader<T> elementReader,
             UnmarshallingContext context
     ) throws UnmarshalException, IOException {
-        // TODO: IGNITE-16229 - proper immutable collections unmarshalling?
         if (collectionDescriptor.isSingletonList()) {
             BuiltInMarshalling.fillSingletonCollectionFrom(input, collection, elementReader, context);
             return;
@@ -234,10 +244,11 @@ class BuiltInContainerMarshallers {
         BuiltInMarshalling.fillCollectionFrom(input, collection, elementReader, context);
     }
 
-    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltInMap(Map<?, ?> map, ClassDescriptor mapDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
         if (!supportsAsBuiltInMap(mapDescriptor)) {
-            throw new IllegalStateException("Marshalling of " + mapDescriptor.clazz() + " is not supported, but it's marked as a built-in");
+            throw new IllegalStateException("Marshalling of " + mapDescriptor.className()
+                    + " is not supported, but it's marked as a built-in");
         }
 
         context.addUsedDescriptor(mapDescriptor);
@@ -245,8 +256,8 @@ class BuiltInContainerMarshallers {
         BuiltInMarshalling.writeMap(map, output, untypedWriter(), untypedWriter(), context);
     }
 
-    private boolean supportsAsBuiltInMap(ClassDescriptor mapDescriptor) {
-        return mutableBuiltInMapFactories.containsKey(mapDescriptor.clazz());
+    boolean supportsAsBuiltInMap(ClassDescriptor mapDescriptor) {
+        return mutableBuiltInMapFactories.containsKey(mapDescriptor.descriptorId());
     }
 
     <K, V, M extends Map<K, V>> M preInstantiateBuiltInMutableMap(
@@ -267,17 +278,17 @@ class BuiltInContainerMarshallers {
 
     private <K, V, M extends Map<K, V>> IntFunction<M> requiredMapFactory(ClassDescriptor mapDescriptor) {
         @SuppressWarnings("unchecked")
-        IntFunction<M> mapFactory = (IntFunction<M>) mutableBuiltInMapFactories.get(mapDescriptor.clazz());
+        IntFunction<M> mapFactory = (IntFunction<M>) mutableBuiltInMapFactories.get(mapDescriptor.descriptorId());
 
         if (mapFactory == null) {
-            throw new IllegalStateException("Did not find a map factory for " + mapDescriptor.clazz()
+            throw new IllegalStateException("Did not find a map factory for " + mapDescriptor.className()
                     + " even though it is marked as a built-in");
         }
         return mapFactory;
     }
 
     <K, V, M extends Map<K, V>> void fillBuiltInMapFrom(
-            DataInputStream input,
+            IgniteDataInput input,
             M map,
             ValueReader<K> keyReader,
             ValueReader<V> valueReader,

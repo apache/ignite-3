@@ -230,7 +230,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
                                 IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
 
-                        // TODO: IGNITE-15409 Listener with any placeholder should be used instead.
+                        // TODO: IGNITE-16369 Listener with any placeholder should be used instead.
                         ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
                                 .listenElements(new ConfigurationNamedListListener<>() {
                                     @Override
@@ -247,7 +247,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                         try {
                                             // Avoid calling listener immediately after the listener completes to create the current table.
-                                            // FIXME: https://issues.apache.org/jira/browse/IGNITE-16231
+                                            // FIXME: https://issues.apache.org/jira/browse/IGNITE-16369
                                             if (ctx.storageRevision() != schemasCtx.storageRevision()) {
                                                 ((SchemaRegistryImpl) tables.get(tblName).schemaView())
                                                         .onSchemaRegistered(
@@ -274,7 +274,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                     try {
                                         // Avoid calling listener immediately after the listener completes to create the current table.
-                                        // FIXME: https://issues.apache.org/jira/browse/IGNITE-16231
+                                        // FIXME: https://issues.apache.org/jira/browse/IGNITE-16369
                                         if (ctx.storageRevision() == assignmentsCtx.storageRevision()) {
                                             return CompletableFuture.completedFuture(null);
                                         } else {
@@ -698,7 +698,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Table> createTableAsyncInternal(String name, Consumer<TableChange> tableInitChange) {
         CompletableFuture<Table> tblFut = new CompletableFuture<>();
 
-        tableAsync(name).thenAccept(tbl -> {
+        tableAsyncInternal(name).thenAccept(tbl -> {
             if (tbl != null) {
                 tblFut.completeExceptionally(new TableAlreadyExistsException(name));
             } else {
@@ -923,7 +923,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<Void> dropTableAsyncInternal(String name) {
         CompletableFuture<Void> dropTblFut = new CompletableFuture<>();
 
-        tableAsync(name).thenAccept(tbl -> {
+        tableAsyncInternal(name).thenAccept(tbl -> {
             // In case of drop it's an optimization that allows not to fire drop-change-closure if there's no such
             // distributed table and the local config has lagged behind.
             if (tbl == null) {
@@ -1105,30 +1105,41 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
+        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<TableImpl> tableAsync(UUID id) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
         try {
-            UUID tableId = directTableId(IgniteObjectName.parseCanonicalName(name));
+            return tableAsyncInternal(id, true);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Gets a table by name, if it was created before. Doesn't parse canonical name.
+     *
+     * @param name Table name.
+     * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
+     * */
+    @NotNull
+    private CompletableFuture<Table> tableAsyncInternal(String name) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+        try {
+            UUID tableId = directTableId(name);
 
             if (tableId == null) {
                 return CompletableFuture.completedFuture(null);
             }
 
             return (CompletableFuture) tableAsyncInternal(tableId, false);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-        try {
-            return tableAsyncInternal(id, true);
         } finally {
             busyLock.leaveBusy();
         }

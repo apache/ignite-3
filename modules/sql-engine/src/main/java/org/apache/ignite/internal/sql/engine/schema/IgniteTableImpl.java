@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -251,11 +253,11 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> BinaryRow toBinaryRow(
+    public <RowT> ModifyRow toModifyRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,
-            Object arg
+            List<String> arg
     ) {
         switch (op) {
             case INSERT:
@@ -263,15 +265,15 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             case DELETE:
                 return deleteTuple(row, ectx);
             case UPDATE:
-                return updateTuple(row, (List<String>) arg, ectx);
+                return updateTuple(row, arg, 0, ectx);
             case MERGE:
-                throw new UnsupportedOperationException();
+                return mergeTuple(row, arg, ectx);
             default:
                 throw new AssertionError();
         }
     }
 
-    private <RowT> BinaryRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
         int nonNullVarlenValCols = 0;
 
@@ -299,51 +301,92 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return rowAssembler.build();
+        return new ModifyRow(rowAssembler.build(), Operation.INSERT_ROW);
     }
 
-    private <RowT> BinaryRow updateTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        int rowColumnsCnt = hnd.columnCount(row);
+
+        if (desc.columnsCount() == rowColumnsCnt) { // Only WHEN NOT MATCHED clause in MERGE.
+            return insertTuple(row, ectx);
+        } else if (desc.columnsCount() + updateColList.size() == rowColumnsCnt) { // Only WHEN MATCHED clause in MERGE.
+            return updateTuple(row, updateColList, 0, ectx);
+        } else { // Both WHEN MATCHED and WHEN NOT MATCHED clauses in MERGE.
+            int off = columnsOrderedByPhysSchema.size();
+
+            if (hnd.get(off, row) == null) {
+                return insertTuple(row, ectx);
+            } else {
+                return updateTuple(row, updateColList, off, ectx);
+            }
+        }
+    }
+
+    private <RowT> ModifyRow updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
+
+        for (int i = 0; i < updateColList.size(); i++) {
+            columnToIndex.put(updateColList.get(i), i + desc.columnsCount() + offset);
+        }
+
         int nonNullVarlenKeyCols = 0;
         int nonNullVarlenValCols = 0;
 
-        RowHandler<RowT> hnd = ectx.rowHandler();
-        int offset = desc.columnsCount();
-        Set<String> toUpdate = new HashSet<>(updateColList);
+        int keyOffset = schemaDescriptor.keyColumns().firstVarlengthColumn();
 
-        for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            if (colDesc.physicalType().spec().fixedLength()) {
-                continue;
-            }
+        if (keyOffset > -1) {
+            nonNullVarlenKeyCols = countNotNullColumns(
+                    keyOffset,
+                    schemaDescriptor.keyColumns().length(),
+                    columnToIndex, offset, hnd, row);
+        }
 
-            Object val = toUpdate.contains(colDesc.name())
-                    ? hnd.get(colDesc.logicalIndex() + offset, row)
-                    : hnd.get(colDesc.logicalIndex(), row);
+        int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
 
-            if (val != null) {
-                if (colDesc.key()) {
-                    nonNullVarlenKeyCols++;
-                } else {
-                    nonNullVarlenValCols++;
-                }
-            }
+        if (valOffset > -1) {
+            nonNullVarlenValCols = countNotNullColumns(
+                    schemaDescriptor.keyColumns().length() + valOffset,
+                    schemaDescriptor.length(),
+                    columnToIndex, offset, hnd, row);
         }
 
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            RowAssembler.writeValue(
-                    rowAssembler,
-                    colDesc.physicalType(),
-                    toUpdate.contains(colDesc.name())
-                            ? hnd.get(colDesc.logicalIndex() + offset, row)
-                            : hnd.get(colDesc.logicalIndex(), row)
-            );
+            int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
+
+            Object val = hnd.get(colIdx, row);
+
+            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return rowAssembler.build();
+        return new ModifyRow(rowAssembler.build(), Operation.UPDATE_ROW);
     }
 
-    private <RowT> BinaryRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
+            RowHandler<RowT> hnd, RowT row) {
+        int nonNullCols = 0;
+
+        for (int i = start; i < end; i++) {
+            ColumnDescriptor colDesc = Objects.requireNonNull(columnsOrderedByPhysSchema.get(i));
+
+            assert !colDesc.physicalType().spec().fixedLength();
+
+            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
+
+            if (hnd.get(colIdInRow, row) != null) {
+                nonNullCols++;
+            }
+        }
+
+        return nonNullCols;
+    }
+
+    private <RowT> ModifyRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
 
         RowHandler<RowT> hnd = ectx.rowHandler();
@@ -374,7 +417,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return rowAssembler.build();
+        return new ModifyRow(rowAssembler.build(), Operation.DELETE_ROW);
     }
 
     private ColocationGroup partitionedGroup() {

@@ -18,32 +18,23 @@
 package org.apache.ignite.internal.network.serialization;
 
 import java.lang.reflect.Field;
+import java.util.Objects;
 import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
- * {@link FieldAccessor} implementation.
+ * {@link FieldAccessor} implementation using {@link sun.misc.Unsafe} under the hood to avoid boxing when working with primitives.
  */
 class UnsafeFieldAccessor implements FieldAccessor {
     private final Field field;
     private final Class<?> fieldType;
     private final long fieldOffset;
 
-    UnsafeFieldAccessor(String fieldName, Class<?> declaringClass) {
-        this(findField(fieldName, declaringClass));
-    }
-
     UnsafeFieldAccessor(Field field) {
+        Objects.requireNonNull(field, "field is null");
+
         this.field = field;
         fieldType = field.getType();
         fieldOffset = GridUnsafe.objectFieldOffset(field);
-    }
-
-    private static Field findField(String fieldName, Class<?> declaringClass) {
-        try {
-            return declaringClass.getDeclaredField(fieldName);
-        } catch (NoSuchFieldException e) {
-            throw new ReflectionException("Cannot find field", e);
-        }
     }
 
     /** {@inheritDoc} */
@@ -189,4 +180,5 @@ class UnsafeFieldAccessor implements FieldAccessor {
 
         GridUnsafe.putBooleanField(target, fieldOffset, fieldValue);
     }
+
 }

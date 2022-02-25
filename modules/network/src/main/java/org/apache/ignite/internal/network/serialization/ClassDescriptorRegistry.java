@@ -36,6 +36,8 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
     /** Sequential id generator for class descriptors. */
     private final AtomicInteger idGenerator = new AtomicInteger(BUILTIN_DESCRIPTORS_OFFSET_COUNT);
 
+    // TODO: IGNITE-16464 - do not keep references to classes forever
+
     /** Map class -> descriptor id. */
     private final ConcurrentMap<Class<?>, Integer> idMap = new ConcurrentHashMap<>();
 
@@ -123,8 +125,10 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
      *
      * @param descriptor Descriptor.
      */
-    public void addDescriptor(ClassDescriptor descriptor) {
-        Integer descriptorId = idMap.get(descriptor.clazz());
+    void addDescriptor(Class<?> clazz, ClassDescriptor descriptor) {
+        assert clazz.getName().equals(descriptor.className());
+
+        Integer descriptorId = idMap.get(clazz);
 
         assert descriptorId != null : "Attempting to store an unregistered descriptor";
 

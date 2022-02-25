@@ -18,21 +18,21 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.network.serialization.DeclaredType;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.internal.network.serialization.Primitives;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link ObjectInputStream} specialization used by User Object Serialization.
  */
 class UosObjectInputStream extends ObjectInputStream {
-    private final DataInputStream input;
+    private final IgniteDataInput input;
     private final TypedValueReader valueReader;
     private final TypedValueReader unsharedReader;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
@@ -41,7 +41,7 @@ class UosObjectInputStream extends ObjectInputStream {
     private UosGetField currentGet;
 
     UosObjectInputStream(
-            DataInputStream input,
+            IgniteDataInput input,
             TypedValueReader valueReader,
             TypedValueReader unsharedReader,
             DefaultFieldsReaderWriter defaultFieldsReaderWriter,
@@ -71,6 +71,11 @@ class UosObjectInputStream extends ObjectInputStream {
     @Override
     public int read(byte[] buf, int off, int len) throws IOException {
         return input.read(buf, off, len);
+    }
+
+    @Override
+    public byte[] readAllBytes() throws IOException {
+        return super.readAllBytes();
     }
 
     /** {@inheritDoc} */
@@ -168,7 +173,7 @@ class UosObjectInputStream extends ObjectInputStream {
         return doReadObjectOf(null);
     }
 
-    private Object doReadObjectOf(@Nullable Class<?> declaredType) throws IOException {
+    private Object doReadObjectOf(@Nullable DeclaredType declaredType) throws IOException {
         try {
             return valueReader.read(input, declaredType, context);
         } catch (UnmarshalException e) {
@@ -186,7 +191,7 @@ class UosObjectInputStream extends ObjectInputStream {
         return doReadUnsharedOf(null);
     }
 
-    private Object doReadUnsharedOf(@Nullable Class<?> declaredType) throws IOException {
+    private Object doReadUnsharedOf(@Nullable DeclaredType declaredType) throws IOException {
         try {
             return unsharedReader.read(input, declaredType, context);
         } catch (UnmarshalException e) {
@@ -264,22 +269,24 @@ class UosObjectInputStream extends ObjectInputStream {
         /** {@inheritDoc} */
         @Override
         public ObjectStreamClass getObjectStreamClass() {
-            return ObjectStreamClass.lookupAny(descriptor.clazz());
+            // TODO: IGNITE-16572 - make it support schema changes
+
+            return ObjectStreamClass.lookupAny(descriptor.localClass());
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean defaulted(String name) throws IOException {
-            // TODO: IGNITE-15948 - actually take into account whether it's defaulted or not
+            // TODO: IGNITE-16571 - actually take into account whether it's defaulted or not
             return false;
         }
 
-        // TODO: IGNITE-15948 - return default values if the field exists locally but not in the stream being parsed
+        // TODO: IGNITE-16571 - return default values if the field exists locally but not in the stream being parsed
 
         /** {@inheritDoc} */
         @Override
         public boolean get(String name, boolean val) throws IOException {
-            return Bits.getBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class));
+            return LittleEndianBits.getBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class));
         }
 
         /** {@inheritDoc} */
@@ -291,37 +298,37 @@ class UosObjectInputStream extends ObjectInputStream {
         /** {@inheritDoc} */
         @Override
         public char get(String name, char val) throws IOException {
-            return Bits.getChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class));
+            return LittleEndianBits.getChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public short get(String name, short val) throws IOException {
-            return Bits.getShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class));
+            return LittleEndianBits.getShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public int get(String name, int val) throws IOException {
-            return Bits.getInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class));
+            return LittleEndianBits.getInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public long get(String name, long val) throws IOException {
-            return Bits.getLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class));
+            return LittleEndianBits.getLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public float get(String name, float val) throws IOException {
-            return Bits.getFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class));
+            return LittleEndianBits.getFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class));
         }
 
         /** {@inheritDoc} */
         @Override
         public double get(String name, double val) throws IOException {
-            return Bits.getDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class));
+            return LittleEndianBits.getDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class));
         }
 
         /** {@inheritDoc} */
@@ -331,7 +338,7 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private int primitiveFieldDataOffset(String fieldName, Class<?> requiredType) {
-            return descriptor.primitiveFieldDataOffset(fieldName, requiredType);
+            return descriptor.primitiveFieldDataOffset(fieldName, requiredType.getName());
         }
 
         private void readFields() throws IOException {
@@ -353,8 +360,8 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private void readPrimitive(FieldDescriptor fieldDesc) throws IOException {
-            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
-            int length = Primitives.widthInBytes(fieldDesc.clazz());
+            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.typeName());
+            int length = fieldDesc.primitiveWidthInBytes();
             input.readFully(primitiveFieldsData, offset, length);
         }
 
@@ -362,9 +369,9 @@ class UosObjectInputStream extends ObjectInputStream {
             if (!StructuredObjectMarshaller.nullWasSkippedWhileWriting(fieldDesc, descriptor, nullsBitSet)) {
                 Object readObject;
                 if (fieldDesc.isUnshared()) {
-                    readObject = doReadUnsharedOf(fieldDesc.clazz());
+                    readObject = doReadUnsharedOf(fieldDesc);
                 } else {
-                    readObject = doReadObjectOf(fieldDesc.clazz());
+                    readObject = doReadObjectOf(fieldDesc);
                 }
 
                 objectFieldVals[objectFieldIndex] = readObject;

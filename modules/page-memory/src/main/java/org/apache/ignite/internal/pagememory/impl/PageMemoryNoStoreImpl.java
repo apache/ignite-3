@@ -761,7 +761,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         }
 
         /**
-         * Acquires a page from the segment..
+         * Acquires a page from the segment.
          *
          * @param pageIdx Page index.
          * @return Page absolute pointer.

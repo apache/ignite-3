@@ -30,6 +30,7 @@ for xpath in "project/dependencyManagement/dependencies/dependency[not(scope='im
             fi
         done
         for parent_xpath in "project/build/plugins" \
+                            "project/profiles/profile/build/plugins" \
                             "project/dependencies"; do
             if xpath -q -e "${parent_xpath}" ${ROOT}/parent/pom.xml 2>&1 | \
               grep -E "<artifactId>${declaration}</artifactId>" 2>&1 1>/dev/null; then

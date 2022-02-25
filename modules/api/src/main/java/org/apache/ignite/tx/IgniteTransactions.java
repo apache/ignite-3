@@ -20,9 +20,42 @@ package org.apache.ignite.tx;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.table.Table;
 
 /**
- * Ignite Transactions facade.
+ * Ignite Transactions facade that allows to perform distributed transactions when working with tables.
+ * This interface provides the ability to perform transactions in both synchronous and asynchronous ways.
+ * <pre><code>
+ *     // Synchronous transactional API to update the balance.
+ *     client.transactions().runInTransaction(tx -&gt; {
+ *          Account account = accounts.get(tx, key);
+ *
+ *          account.balance += 200.0d;
+ *
+ *          accounts.put(tx, key, account);
+ *      });
+ * </code></pre>
+ * There is no need to call {@link Transaction#commit()} explicitly.
+ * The transaction is automatically committed when the closure is successfully executed.
+ *
+ * <pre><code>
+ *     // Using asynchronous transactional API to update the balance.
+ *     CompletableFuture&lt;Void&gt; fut = client.transactions().beginAsync().thenCompose(tx -&gt;
+ *             accounts
+ *                 .getAsync(tx, key)
+ *                 .thenCompose(account -&gt; {
+ *                     account.balance += 200.0d;
+ *
+ *                     return accounts.putAsync(tx, key, account);
+ *                 })
+ *                 .thenCompose(ignored -&gt; tx.commitAsync())
+ *     );
+ *
+ *     // Wait for completion.
+ *     fut.join();
+ * </code></pre>
+ *
+ * @see Table
  */
 public interface IgniteTransactions {
     /**

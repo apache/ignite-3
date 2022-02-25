@@ -28,7 +28,7 @@ This Alpha release implementation of JDBC driver does not support the following 
 
 == Setting Up
 
-The name of the driver’s class is `org.apache.ignite.IgniteJdbcThinDriver`. For instance, this is how you can open a JDBC connection to the cluster node listening on IP address `192.168.0.50`:
+The name of the driver’s class is `org.apache.ignite.jdbc.IgniteJdbcDriver`. For instance, this is how you can open a JDBC connection to the cluster node listening on IP address `192.168.0.50`:
 
 [source, java]
 ----
@@ -36,7 +36,7 @@ The name of the driver’s class is `org.apache.ignite.IgniteJdbcThinDriver`. Fo
 ServiceLoader.load(java.sql.Driver.class);
 
 // Open the JDBC connection.
-Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.1.1:10800");
+Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800");
 ----
 
 The driver connects to one of the cluster nodes and forwards all the queries to it for final execution. The node handles the query distribution and the result’s aggregations. Then the result is sent back to the client application.

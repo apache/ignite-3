@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.direct.stream;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.ArrayUtils.BOOLEAN_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.CHAR_ARRAY;
@@ -484,7 +485,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public void writeString(String val) {
         if (val != null) {
             if (curStrBackingArr == null) {
-                curStrBackingArr = val.getBytes();
+                curStrBackingArr = val.getBytes(UTF_8);
             }
 
             writeByteArray(curStrBackingArr);
@@ -1045,7 +1046,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     public String readString() {
         byte[] arr = readByteArray();
 
-        return arr != null ? new String(arr) : null;
+        return arr != null ? new String(arr, UTF_8) : null;
     }
 
     /** {@inheritDoc} */
@@ -1380,7 +1381,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                     MarshalledObject res = serializationService.writeMarshallable(object);
                     marshallable = res.bytes();
                     // Get descriptors that were not previously sent to the remote node
-                    descriptors = serializationService.createClassDescriptorsMessages(res.usedDescriptors());
+                    descriptors = serializationService.createClassDescriptorsMessages(res.usedDescriptorIds());
                 }
 
                 writeCollection(descriptors, MessageCollectionItemType.MSG, writer);

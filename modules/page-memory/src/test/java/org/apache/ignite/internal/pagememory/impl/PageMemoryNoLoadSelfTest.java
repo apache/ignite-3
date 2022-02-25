@@ -383,7 +383,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      *
      * @param mem Memory.
      * @return Page.
-     * @throws IgniteCheckedException If failed.
+     * @throws IgniteInternalCheckedException If failed.
      */
     public static FullPageId allocatePage(PageIdAllocator mem) throws IgniteInternalCheckedException {
         return new FullPageId(mem.allocatePage(-1, 1, PageIdAllocator.FLAG_DATA), -1);

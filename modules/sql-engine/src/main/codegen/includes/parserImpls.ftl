@@ -69,7 +69,7 @@ void CreateTableOption(List<SqlNode> list) :
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
-    final boolean nullable;
+    final Boolean nullable;
     final SqlNodeList columnList;
     final Span s = Span.of();
     final ColumnStrategy strategy;
@@ -77,7 +77,7 @@ void TableElement(List<SqlNode> list) :
     SqlIdentifier id = null;
 }
 {
-    id = SimpleIdentifier() type = DataType() nullable = NullableOptDefaultTrue()
+    id = SimpleIdentifier() type = DataType() nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); } dflt = Literal() {
             strategy = ColumnStrategy.DEFAULT;
@@ -85,8 +85,11 @@ void TableElement(List<SqlNode> list) :
     |
         {
             dflt = null;
-            strategy = nullable ? ColumnStrategy.NULLABLE
-                : ColumnStrategy.NOT_NULLABLE;
+            strategy = nullable == null
+                ? null
+                : nullable
+                    ? ColumnStrategy.NULLABLE
+                    : ColumnStrategy.NOT_NULLABLE;
         }
     )
     [
@@ -108,7 +111,22 @@ void TableElement(List<SqlNode> list) :
     }
 }
 
-SqlNodeList TableElementList() :
+/**
+* Parse a nullable option, default is null.
+*/
+Boolean NullableOptDefaultNull() :
+{
+}
+{
+    <NULL> { return true; }
+    |
+    <NOT> <NULL> { return false; }
+    |
+    { return null; }
+}
+
+
+                SqlNodeList TableElementList() :
 {
     final Span s;
     final List<SqlNode> list = new ArrayList<SqlNode>();

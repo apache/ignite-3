@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
@@ -208,13 +207,12 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         assertEquals(1, rows.size());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
     @Test
     public void testSequentialInserts() {
-        sql("CREATE TABLE t(x INTEGER)");
+        sql("CREATE TABLE t(x INTEGER PRIMARY KEY, y int)");
 
         for (int i = 0; i < 10_000; i++) {
-            sql("INSERT INTO t VALUES (?)", i);
+            sql("INSERT INTO t VALUES (?,?)", i, i);
         }
 
         assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));
@@ -224,6 +222,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16558")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -306,31 +305,14 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * 2) result set returned will be sorted as expected.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15107")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-14925")
     public void testSelectWithOrdering() {
         // sql("drop table if exists test_tbl", true);
         // sql("create table test_tbl (c1 int)", true);
         // sql("insert into test_tbl values (1), (2), (3), (null)", true);
 
-        // TODO: support indexes. https://issues.apache.org/jira/browse/IGNITE-14925
         // sql("create index idx_asc on test_tbl (c1)", true);
         // sql("create index idx_desc on test_tbl (c1 desc)", true);
-
-        createTable(
-                SchemaBuilders.tableBuilder("PUBLIC", "TEST_TBL").columns(
-                        SchemaBuilders.column("ID", ColumnType.INT32).build(),
-                        SchemaBuilders.column("C1", ColumnType.INT32).asNullable(true).build()
-                ).withPrimaryKey("ID")
-        );
-
-        insertData(
-                "PUBLIC.TEST_TBL",
-                new String[] {"ID", "C1"},
-                new Object[] {0, 1},
-                new Object[] {0, 2},
-                new Object[] {0, 3},
-                new Object[] {0, null}
-        );
 
         assertQuery("select c1 from test_tbl ORDER BY c1")
                 // .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
@@ -403,7 +385,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
     }

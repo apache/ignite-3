@@ -97,8 +97,8 @@ public class Classes {
 
     /**
      * Returns {@code true} if a field (or array item) of the described class can only host (at runtime) instances of this type
-     * (and not subtypes), so the runtime type is known upfront. This is also true for enums, even though technically their values
-     * might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
+     * (and not subtypes), so the runtime marshalling type is known upfront. This is also true for enums, even though technically
+     * their values might have subtypes; but we serialize them using their names, so we still treat the type as known upfront.
      *
      * @return {@code true} if a field (or array item) of the described class can only host (at runtime) instances of the concrete type
      *     that is known upfront
@@ -106,6 +106,11 @@ public class Classes {
     public static boolean isRuntimeTypeKnownUpfront(Class<?> clazz) {
         if (clazz.isArray()) {
             return isRuntimeTypeKnownUpfront(clazz.getComponentType());
+        }
+
+        if (clazz == String.class) {
+            // a String may be represented with more than one built-in type, so sd don't know the type upfront
+            return false;
         }
 
         return clazz.isPrimitive() || Modifier.isFinal(clazz.getModifiers()) || isRuntimeEnum(clazz);

@@ -40,5 +40,5 @@ public final class SqlQueryMessageGroup {
 
     public static final short INBOX_CLOSE_MESSAGE = 5;
 
-    public static final short OUTBOX_CLOSE_MESSAGE = 6;
+    public static final short QUERY_CLOSE_MESSAGE = 6;
 }

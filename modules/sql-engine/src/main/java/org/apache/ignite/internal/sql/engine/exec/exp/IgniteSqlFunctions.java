@@ -193,10 +193,10 @@ public class IgniteSqlFunctions {
                 throw new IllegalArgumentException("Increment can't be 0");
             }
 
-            return new AbstractEnumerable<@Nullable Object[]>() {
+            return new AbstractEnumerable<>() {
                 @Override
                 public Enumerator<@Nullable Object[]> enumerator() {
-                    return new Enumerator<Object[]>() {
+                    return new Enumerator<>() {
                         long cur = rangeStart - increment;
 
                         @Override

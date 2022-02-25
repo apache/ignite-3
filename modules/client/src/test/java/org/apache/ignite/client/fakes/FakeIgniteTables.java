@@ -240,7 +240,7 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
                 new Column[]{
                         new Column("num".toUpperCase(), NativeTypes.INT8, true, () -> (byte) 42),
                         new Column("str".toUpperCase(), NativeTypes.STRING, true, () -> "def_str"),
-                        new Column("str_non_null".toUpperCase(), NativeTypes.STRING, false, () -> "def_str2"),
+                        new Column("strNonNull".toUpperCase(), NativeTypes.STRING, false, () -> "def_str2"),
                 });
     }
 

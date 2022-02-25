@@ -43,8 +43,8 @@ public class ConfigurationClient {
     /** Url for getting configuration from REST endpoint of the node. */
     private static final String GET_URL = "/management/v1/configuration/";
 
-    /** Url for setting configuration with REST endpoint of the node. */
-    private static final String SET_URL = "/management/v1/configuration/";
+    /** Url for patching configuration with REST endpoint of the node. */
+    private static final String PATCH_URL = "/management/v1/configuration/";
 
     /** Http client. */
     private final HttpClient httpClient;
@@ -119,9 +119,9 @@ public class ConfigurationClient {
     public void set(String host, int port, String rawHoconData, PrintWriter out, ColorScheme cs, String type) {
         var req = HttpRequest
                 .newBuilder()
-                .PUT(HttpRequest.BodyPublishers.ofString(renderJsonFromHocon(rawHoconData)))
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(renderJsonFromHocon(rawHoconData)))
                 .header("Content-Type", "application/json")
-                .uri(URI.create("http://" + host + ":" + port + SET_URL + type + "/"))
+                .uri(URI.create("http://" + host + ":" + port + PATCH_URL + type + "/"))
                 .build();
 
         try {
@@ -152,7 +152,7 @@ public class ConfigurationClient {
         var errorMsg = mapper.writerWithDefaultPrettyPrinter()
                 .writeValueAsString(mapper.readValue(res.body(), JsonNode.class));
 
-        return new IgniteCliException(msg + "\n\n" + errorMsg);
+        return new IgniteCliException(msg + System.lineSeparator().repeat(2) + errorMsg);
     }
 
     /**

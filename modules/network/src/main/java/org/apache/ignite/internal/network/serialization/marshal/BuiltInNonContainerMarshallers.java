@@ -17,90 +17,122 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BARE_OBJECT;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BIT_SET;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BOOLEAN;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BOOLEAN_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BOOLEAN_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BYTE;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BYTE_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.BYTE_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.CHAR;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.CHAR_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.CHAR_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.CLASS;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.DATE;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.DECIMAL;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.DOUBLE;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.DOUBLE_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.DOUBLE_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.FLOAT;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.FLOAT_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.FLOAT_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.IGNITE_UUID;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.INT;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.INT_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.INT_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.LONG;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.LONG_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.LONG_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.NULL;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT_ARRAY;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.SHORT_BOXED;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.STRING;
+import static org.apache.ignite.internal.network.serialization.BuiltInType.UUID;
+
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.BitSet;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
+import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.network.serialization.Null;
-import org.apache.ignite.lang.IgniteUuid;
+import org.apache.ignite.internal.util.io.IgniteDataInput;
+import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
  * Encapsulates (un)marshalling logic for built-in types.
  */
 class BuiltInNonContainerMarshallers {
-    private final Map<Class<?>, BuiltInMarshaller<?>> builtInMarshallers = createBuiltInMarshallers();
+    private final Int2ObjectMap<BuiltInMarshaller<?>> builtInMarshallers = createBuiltInMarshallers();
 
-    private static Map<Class<?>, BuiltInMarshaller<?>> createBuiltInMarshallers() {
-        Map<Class<?>, BuiltInMarshaller<?>> map = new HashMap<>();
+    private static Int2ObjectMap<BuiltInMarshaller<?>> createBuiltInMarshallers() {
+        Map<Integer, BuiltInMarshaller<?>> map = new HashMap<>();
 
-        addPrimitiveAndWrapper(map, byte.class, Byte.class, (obj, dos) -> dos.writeByte(obj), DataInput::readByte);
-        addPrimitiveAndWrapper(map, short.class, Short.class, (obj, dos) -> dos.writeShort(obj), DataInput::readShort);
-        addPrimitiveAndWrapper(map, int.class, Integer.class, (obj, dos) -> dos.writeInt(obj), DataInput::readInt);
-        addPrimitiveAndWrapper(map, float.class, Float.class, (obj, dos) -> dos.writeFloat(obj), DataInput::readFloat);
-        addPrimitiveAndWrapper(map, long.class, Long.class, (obj, dos) -> dos.writeLong(obj), DataInput::readLong);
-        addPrimitiveAndWrapper(map, double.class, Double.class, (obj, dos) -> dos.writeDouble(obj), DataInput::readDouble);
-        addPrimitiveAndWrapper(map, boolean.class, Boolean.class, (obj, dos) -> dos.writeBoolean(obj), DataInput::readBoolean);
-        addPrimitiveAndWrapper(map, char.class, Character.class, (obj, dos) -> dos.writeChar(obj), DataInput::readChar);
-        addSingle(map, Object.class, (obj, dos) -> {}, BuiltInMarshalling::readBareObject);
-        addSingle(map, String.class, BuiltInMarshalling::writeString, BuiltInMarshalling::readString);
-        addSingle(map, UUID.class, BuiltInMarshalling::writeUuid, BuiltInMarshalling::readUuid);
-        addSingle(map, IgniteUuid.class, BuiltInMarshalling::writeIgniteUuid, BuiltInMarshalling::readIgniteUuid);
-        addSingle(map, Date.class, BuiltInMarshalling::writeDate, BuiltInMarshalling::readDate);
-        addSingle(map, byte[].class, BuiltInMarshalling::writeByteArray, BuiltInMarshalling::readByteArray);
-        addSingle(map, short[].class, BuiltInMarshalling::writeShortArray, BuiltInMarshalling::readShortArray);
-        addSingle(map, int[].class, BuiltInMarshalling::writeIntArray, BuiltInMarshalling::readIntArray);
-        addSingle(map, float[].class, BuiltInMarshalling::writeFloatArray, BuiltInMarshalling::readFloatArray);
-        addSingle(map, long[].class, BuiltInMarshalling::writeLongArray, BuiltInMarshalling::readLongArray);
-        addSingle(map, double[].class, BuiltInMarshalling::writeDoubleArray, BuiltInMarshalling::readDoubleArray);
-        addSingle(map, boolean[].class, BuiltInMarshalling::writeBooleanArray, BuiltInMarshalling::readBooleanArray);
-        addSingle(map, char[].class, BuiltInMarshalling::writeCharArray, BuiltInMarshalling::readCharArray);
-        addSingle(map, BigDecimal.class, BuiltInMarshalling::writeBigDecimal, BuiltInMarshalling::readBigDecimal);
-        addSingle(map, BitSet.class, BuiltInMarshalling::writeBitSet, BuiltInMarshalling::readBitSet);
-        addSingle(map, Null.class, (obj, output) -> {}, input -> null);
-        addSingle(map, Class.class, (obj, out, ctx) -> BuiltInMarshalling.writeClass(obj, out), BuiltInMarshalling::readClass);
+        addPrimitiveAndWrapper(map, BYTE, BYTE_BOXED, (obj, dos) -> dos.writeByte(obj), DataInput::readByte);
+        addPrimitiveAndWrapper(map, SHORT, SHORT_BOXED, (obj, dos) -> dos.writeShort(obj), DataInput::readShort);
+        addPrimitiveAndWrapper(map, INT, INT_BOXED, (obj, dos) -> dos.writeInt(obj), DataInput::readInt);
+        addPrimitiveAndWrapper(map, FLOAT, FLOAT_BOXED, (obj, dos) -> dos.writeFloat(obj), DataInput::readFloat);
+        addPrimitiveAndWrapper(map, LONG, LONG_BOXED, (obj, dos) -> dos.writeLong(obj), DataInput::readLong);
+        addPrimitiveAndWrapper(map, DOUBLE, DOUBLE_BOXED, (obj, dos) -> dos.writeDouble(obj), DataInput::readDouble);
+        addPrimitiveAndWrapper(map, BOOLEAN, BOOLEAN_BOXED, (obj, dos) -> dos.writeBoolean(obj), DataInput::readBoolean);
+        addPrimitiveAndWrapper(map, CHAR, CHAR_BOXED, (obj, dos) -> dos.writeChar(obj), DataInput::readChar);
+        addSingle(map, BARE_OBJECT, (obj, dos) -> {}, BuiltInMarshalling::readBareObject);
+        addSingle(map, STRING, BuiltInMarshalling::writeString, BuiltInMarshalling::readString);
+        addSingle(map, UUID, BuiltInMarshalling::writeUuid, BuiltInMarshalling::readUuid);
+        addSingle(map, IGNITE_UUID, BuiltInMarshalling::writeIgniteUuid, BuiltInMarshalling::readIgniteUuid);
+        addSingle(map, DATE, BuiltInMarshalling::writeDate, BuiltInMarshalling::readDate);
+        addSingle(map, BYTE_ARRAY, BuiltInMarshalling::writeByteArray, BuiltInMarshalling::readByteArray);
+        addSingle(map, SHORT_ARRAY, BuiltInMarshalling::writeShortArray, BuiltInMarshalling::readShortArray);
+        addSingle(map, INT_ARRAY, BuiltInMarshalling::writeIntArray, BuiltInMarshalling::readIntArray);
+        addSingle(map, FLOAT_ARRAY, BuiltInMarshalling::writeFloatArray, BuiltInMarshalling::readFloatArray);
+        addSingle(map, LONG_ARRAY, BuiltInMarshalling::writeLongArray, BuiltInMarshalling::readLongArray);
+        addSingle(map, DOUBLE_ARRAY, BuiltInMarshalling::writeDoubleArray, BuiltInMarshalling::readDoubleArray);
+        addSingle(map, BOOLEAN_ARRAY, BuiltInMarshalling::writeBooleanArray, BuiltInMarshalling::readBooleanArray);
+        addSingle(map, CHAR_ARRAY, BuiltInMarshalling::writeCharArray, BuiltInMarshalling::readCharArray);
+        addSingle(map, DECIMAL, BuiltInMarshalling::writeBigDecimal, BuiltInMarshalling::readBigDecimal);
+        addSingle(map, BIT_SET, BuiltInMarshalling::writeBitSet, BuiltInMarshalling::readBitSet);
+        addSingle(map, NULL, (obj, output) -> {}, input -> null);
+        addSingle(map, CLASS, (obj, out, ctx) -> BuiltInMarshalling.writeClass(obj, out), BuiltInMarshalling::readClass);
 
-        return Map.copyOf(map);
+        return Int2ObjectMaps.unmodifiable(new Int2ObjectOpenHashMap<>(map));
     }
 
     private static <T> void addSingle(
-            Map<Class<?>, BuiltInMarshaller<?>> map,
-            Class<T> objectClass,
+            Map<Integer, BuiltInMarshaller<?>> map,
+            BuiltInType type,
             ValueWriter<T> writer,
             ValueReader<T> reader
     ) {
-        BuiltInMarshaller<T> builtInMarshaller = builtInMarshaller(objectClass, writer, reader);
+        BuiltInMarshaller<T> builtInMarshaller = builtInMarshaller(writer, reader);
 
-        map.put(objectClass, builtInMarshaller);
+        map.put(type.descriptorId(), builtInMarshaller);
     }
 
     private static <T> void addSingle(
-            Map<Class<?>, BuiltInMarshaller<?>> map,
-            Class<T> objectClass,
+            Map<Integer, BuiltInMarshaller<?>> map,
+            BuiltInType type,
             ContextlessValueWriter<T> writer,
             ContextlessValueReader<T> reader
     ) {
-        addSingle(map, objectClass, contextless(writer), contextless(reader));
+        addSingle(map, type, contextless(writer), contextless(reader));
     }
 
     private static <T> void addPrimitiveAndWrapper(
-            Map<Class<?>, BuiltInMarshaller<?>> map,
-            Class<?> primitiveClass,
-            Class<T> wrapperClass,
+            Map<Integer, BuiltInMarshaller<?>> map,
+            BuiltInType primitiveType,
+            BuiltInType wrapperType,
             ContextlessValueWriter<T> writer,
             ContextlessValueReader<T> reader
     ) {
-        BuiltInMarshaller<T> builtInMarshaller = builtInMarshaller(wrapperClass, contextless(writer), contextless(reader));
+        BuiltInMarshaller<T> builtInMarshaller = builtInMarshaller(contextless(writer), contextless(reader));
 
-        map.put(primitiveClass, builtInMarshaller);
-        map.put(wrapperClass, builtInMarshaller);
+        map.put(primitiveType.descriptorId(), builtInMarshaller);
+        map.put(wrapperType.descriptorId(), builtInMarshaller);
     }
 
     private static <T> ValueWriter<T> contextless(ContextlessValueWriter<T> writer) {
@@ -111,8 +143,8 @@ class BuiltInNonContainerMarshallers {
         return (in, ctx) -> reader.read(in);
     }
 
-    private static <T> BuiltInMarshaller<T> builtInMarshaller(Class<T> valueRefClass, ValueWriter<T> writer, ValueReader<T> reader) {
-        return new BuiltInMarshaller<>(valueRefClass, writer, reader);
+    private static <T> BuiltInMarshaller<T> builtInMarshaller(ValueWriter<T> writer, ValueReader<T> reader) {
+        return new BuiltInMarshaller<>(writer, reader);
     }
 
     /**
@@ -122,33 +154,44 @@ class BuiltInNonContainerMarshallers {
      * @return {@code true} if we the given descriptor is a built-in we can handle
      */
     boolean supports(ClassDescriptor descriptor) {
-        return descriptor.isEnum() || builtInMarshallers.containsKey(descriptor.clazz());
+        return descriptor.isRuntimeEnum() || descriptor.isLatin1String()
+                || builtInMarshallers.containsKey(descriptor.descriptorId());
     }
 
-    void writeBuiltIn(Object object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
+    void writeBuiltIn(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws IOException, MarshalException {
-        if (descriptor.isEnum()) {
-            writeEnum((Enum<?>) object, descriptor, output, context);
+        actuallyWrite(object, descriptor, output, context);
+
+        context.addUsedDescriptor(descriptor);
+    }
+
+    private void actuallyWrite(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
+            throws IOException, MarshalException {
+        if (descriptor.isLatin1String()) {
+            BuiltInMarshalling.writeLatin1String((String) object, output);
+            return;
+        }
+        if (descriptor.isRuntimeEnum()) {
+            BuiltInMarshalling.writeEnum((Enum<?>) object, output);
             return;
         }
 
+        writeWithBuiltInMarshaller(object, descriptor, output, context);
+    }
+
+    private void writeWithBuiltInMarshaller(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
+            throws IOException, MarshalException {
         BuiltInMarshaller<?> builtInMarshaller = findBuiltInMarshaller(descriptor);
 
         builtInMarshaller.marshal(object, output, context);
-
-        context.addUsedDescriptor(descriptor);
     }
 
-    private void writeEnum(Enum<?> object, ClassDescriptor descriptor, DataOutputStream output, MarshallingContext context)
-            throws IOException {
-        BuiltInMarshalling.writeEnum(object, output);
-
-        context.addUsedDescriptor(descriptor);
-    }
-
-    Object readBuiltIn(ClassDescriptor descriptor, DataInputStream input, UnmarshallingContext context)
+    Object readBuiltIn(ClassDescriptor descriptor, IgniteDataInput input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        if (descriptor.isEnum()) {
+        if (descriptor.isLatin1String()) {
+            return BuiltInMarshalling.readLatin1String(input);
+        }
+        if (descriptor.isRuntimeEnum()) {
             return readEnum(descriptor, input);
         }
 
@@ -157,34 +200,33 @@ class BuiltInNonContainerMarshallers {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private Object readEnum(ClassDescriptor descriptor, DataInputStream input) throws IOException {
-        return BuiltInMarshalling.readEnum(input, (Class<? extends Enum>) descriptor.clazz());
+    private Object readEnum(ClassDescriptor descriptor, DataInput input) throws IOException {
+        return BuiltInMarshalling.readEnum(input, (Class<? extends Enum>) descriptor.localClass());
     }
 
     private BuiltInMarshaller<?> findBuiltInMarshaller(ClassDescriptor descriptor) {
-        BuiltInMarshaller<?> builtinMarshaller = builtInMarshallers.get(descriptor.clazz());
+        BuiltInMarshaller<?> builtinMarshaller = builtInMarshallers.get(descriptor.descriptorId());
         if (builtinMarshaller == null) {
-            throw new IllegalStateException("No support for (un)marshalling " + descriptor.clazz() + ", but it's marked as built-in");
+            throw new IllegalStateException("No support for (un)marshalling " + descriptor.className() + ", but it's marked as built-in");
         }
         return builtinMarshaller;
     }
 
     private static class BuiltInMarshaller<T> {
-        private final Class<T> valueRefClass;
         private final ValueWriter<T> writer;
         private final ValueReader<T> reader;
 
-        private BuiltInMarshaller(Class<T> valueRefClass, ValueWriter<T> writer, ValueReader<T> reader) {
-            this.valueRefClass = valueRefClass;
+        private BuiltInMarshaller(ValueWriter<T> writer, ValueReader<T> reader) {
             this.writer = writer;
             this.reader = reader;
         }
 
-        private void marshal(Object object, DataOutputStream output, MarshallingContext context) throws IOException, MarshalException {
-            writer.write(valueRefClass.cast(object), output, context);
+        @SuppressWarnings("unchecked")
+        private void marshal(Object object, IgniteDataOutput output, MarshallingContext context) throws IOException, MarshalException {
+            writer.write((T) object, output, context);
         }
 
-        private Object unmarshal(DataInputStream input, UnmarshallingContext context) throws IOException, UnmarshalException {
+        private Object unmarshal(IgniteDataInput input, UnmarshallingContext context) throws IOException, UnmarshalException {
             return reader.read(input, context);
         }
     }
@@ -198,7 +240,7 @@ class BuiltInNonContainerMarshallers {
          * @throws IOException      if an I/O problem occurs
          * @throws MarshalException if another problem occurs
          */
-        void write(T value, DataOutput output) throws IOException, MarshalException;
+        void write(T value, IgniteDataOutput output) throws IOException, MarshalException;
     }
 
 
@@ -211,6 +253,6 @@ class BuiltInNonContainerMarshallers {
          * @throws IOException          if an I/O problem occurs
          * @throws UnmarshalException   if another problem (like {@link ClassNotFoundException}) occurs
          */
-        T read(DataInput input) throws IOException, UnmarshalException;
+        T read(IgniteDataInput input) throws IOException, UnmarshalException;
     }
 }

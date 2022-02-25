@@ -74,5 +74,5 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
      * Returns a registry to obtain {@link PageIo} instances for pages.
      */
-    public PageIoRegistry ioRegistry();
+    PageIoRegistry ioRegistry();
 }

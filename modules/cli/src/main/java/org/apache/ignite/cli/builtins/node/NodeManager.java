@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.builtins.node;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -111,8 +113,15 @@ public class NodeManager {
             var cmdArgs = new ArrayList<String>();
 
             cmdArgs.add("java");
-            cmdArgs.add("--add-opens");
-            cmdArgs.add("java.base/jdk.internal.misc=ALL-UNNAMED");
+
+            addAddOpens(cmdArgs, "java.base/java.lang=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.lang.invoke=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.lang.reflect=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.io=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.nio=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.util=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/jdk.internal.misc=ALL-UNNAMED");
+
             cmdArgs.add("-Dio.netty.tryReflectionSetAccessible=true");
 
             if (javaLogProps != null) {
@@ -156,6 +165,11 @@ public class NodeManager {
         } catch (IOException e) {
             throw new IgniteCliException("Can't load classpath", e);
         }
+    }
+
+    private void addAddOpens(ArrayList<String> cmdArgs, String addOpens) {
+        cmdArgs.add("--add-opens");
+        cmdArgs.add(addOpens);
     }
 
     /**
@@ -238,7 +252,7 @@ public class NodeManager {
 
         Path pidPath = pidsDir.resolve(nodeName + "_" + System.currentTimeMillis() + ".pid");
 
-        try (FileWriter fileWriter = new FileWriter(pidPath.toFile())) {
+        try (FileWriter fileWriter = new FileWriter(pidPath.toFile(), UTF_8)) {
             fileWriter.write(String.valueOf(pid));
         } catch (IOException e) {
             throw new IgniteCliException("Can't write pid file " + pidPath);

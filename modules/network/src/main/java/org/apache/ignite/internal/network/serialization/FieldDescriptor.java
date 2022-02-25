@@ -18,21 +18,21 @@
 package org.apache.ignite.internal.network.serialization;
 
 import java.lang.reflect.Field;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Field descriptor for the user object serialization.
  */
-public class FieldDescriptor {
+public class FieldDescriptor implements DeclaredType {
     /**
      * Name of the field.
      */
     private final String name;
 
     /**
-     * Type of the field.
+     * Type of the field (represented by a local class). Local means 'on this machine', but the descriptor could
+     * be created on a remote machine where a class with same name could represent a different class..
      */
-    private final Class<?> clazz;
+    private final Class<?> localClass;
 
     /**
      * Field type's descriptor id.
@@ -44,35 +44,115 @@ public class FieldDescriptor {
      */
     private final boolean unshared;
 
+    private final boolean isPrimitive;
+    private final boolean isRuntimeTypeKnownUpfront;
+
     /**
      * Accessor for accessing this field.
      */
     private final FieldAccessor accessor;
 
     /**
-     * Constructor.
+     * Creates a {@link FieldDescriptor} from a local {@link Field}.
      */
-    public FieldDescriptor(Field field, int typeDescriptorId) {
-        this(field.getName(), field.getType(), typeDescriptorId, false, new UnsafeFieldAccessor(field));
+    public static FieldDescriptor local(Field field, int typeDescriptorId) {
+        return new FieldDescriptor(field, typeDescriptorId);
+    }
+
+    /**
+     * Creates a {@link FieldDescriptor} from a field defined by name, but defined locally.
+     */
+    public static FieldDescriptor local(
+            String fieldName,
+            Class<?> fieldClazz,
+            int typeDescriptorId,
+            boolean unshared,
+            Class<?> declaringClass) {
+        return new FieldDescriptor(
+                fieldName,
+                fieldClazz,
+                typeDescriptorId,
+                unshared,
+                fieldClazz.isPrimitive(),
+                Classes.isRuntimeTypeKnownUpfront(fieldClazz),
+                declaringClass
+        );
+    }
+
+    /**
+     * Creates a {@link FieldDescriptor} for a remote field.
+     */
+    public static FieldDescriptor remote(
+            String fieldName,
+            Class<?> fieldClazz,
+            int typeDescriptorId,
+            boolean unshared,
+            boolean isPrimitive,
+            boolean isRuntimeTypeKnownUpfront,
+            Class<?> declaringClass) {
+        return new FieldDescriptor(
+                fieldName,
+                fieldClazz,
+                typeDescriptorId,
+                unshared,
+                isPrimitive,
+                isRuntimeTypeKnownUpfront,
+                declaringClass
+        );
     }
 
     /**
      * Constructor.
-     *
-     * @param fieldName         field name
-     * @param fieldClazz        type of the field
-     * @param typeDescriptorId  ID of the descriptor corresponding to field type
-     * @param declaringClass    the class in which the field if declared
      */
-    public FieldDescriptor(String fieldName, Class<?> fieldClazz, int typeDescriptorId, boolean unshared, Class<?> declaringClass) {
-        this(fieldName, fieldClazz, typeDescriptorId, unshared, new UnsafeFieldAccessor(fieldName, declaringClass));
+    private FieldDescriptor(Field field, int typeDescriptorId) {
+        this(
+                field.getName(),
+                field.getType(),
+                typeDescriptorId,
+                false,
+                field.getType().isPrimitive(),
+                Classes.isRuntimeTypeKnownUpfront(field.getType()),
+                FieldAccessor.forField(field)
+        );
     }
 
-    private FieldDescriptor(String fieldName, Class<?> fieldClazz, int typeDescriptorId, boolean unshared, FieldAccessor accessor) {
+    /**
+     * Constructor.
+     */
+    private FieldDescriptor(
+            String fieldName,
+            Class<?> fieldClazz,
+            int typeDescriptorId,
+            boolean unshared,
+            boolean isPrimitive,
+            boolean isRuntimeTypeKnownUpfront,
+            Class<?> declaringClass) {
+        this(
+                fieldName,
+                fieldClazz,
+                typeDescriptorId,
+                unshared,
+                isPrimitive,
+                isRuntimeTypeKnownUpfront,
+                FieldAccessor.forFieldName(fieldName, declaringClass)
+        );
+    }
+
+    private FieldDescriptor(
+            String fieldName,
+            Class<?> fieldClazz,
+            int typeDescriptorId,
+            boolean unshared,
+            boolean isPrimitive,
+            boolean isRuntimeTypeKnownUpfront,
+            FieldAccessor accessor
+    ) {
         this.name = fieldName;
-        this.clazz = fieldClazz;
+        this.localClass = fieldClazz;
         this.typeDescriptorId = typeDescriptorId;
         this.unshared = unshared;
+        this.isPrimitive = isPrimitive;
+        this.isRuntimeTypeKnownUpfront = isRuntimeTypeKnownUpfront;
         this.accessor = accessor;
     }
 
@@ -81,26 +161,31 @@ public class FieldDescriptor {
      *
      * @return Field's name.
      */
-    @NotNull
     public String name() {
         return name;
     }
 
     /**
-     * Returns field's type.
+     * Returns type of the field (represented by a local class). Local means 'on this machine', but the descriptor could
+     * be created on a remote machine where a class with same name could represent a different class..
      *
-     * @return Field's type.
+     * @return Field's type (represented by a local class).
      */
-    @NotNull
-    public Class<?> clazz() {
-        return clazz;
+    public Class<?> localClass() {
+        return localClass;
     }
 
     /**
-     * Returns field's type descriptor id.
+     * Returns the field type name.
      *
-     * @return Field's type descriptor id.
+     * @return field type name
      */
+    public String typeName() {
+        return localClass.getName();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public int typeDescriptorId() {
         return typeDescriptorId;
     }
@@ -120,18 +205,24 @@ public class FieldDescriptor {
      * @return {@code true} if this field has a primitive type
      */
     public boolean isPrimitive() {
-        return clazz.isPrimitive();
+        return isPrimitive;
     }
 
     /**
-     * Returns {@code true} if the field can only host (at runtime) instances of its declared type (and not subtypes),
-     * so the runtime type is known upfront. This is also true for enums, even though technically their values might have subtypes;
-     * but we serialize them using their names, so we still treat the type as known upfront.
+     * Returns number of bytes representing this primitive field type.
      *
-     * @return {@code true} if the field can only host (at runtime) instances of the declared type that is known upfront
+     * @return number of bytes representing this primitive field type
      */
+    public int primitiveWidthInBytes() {
+        assert isPrimitive();
+
+        return Primitives.widthInBytes(localClass);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean isRuntimeTypeKnownUpfront() {
-        return Classes.isRuntimeTypeKnownUpfront(clazz);
+        return isRuntimeTypeKnownUpfront;
     }
 
     /**

@@ -33,6 +33,10 @@
     <version>3.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <properties>
+        <root.directory>${pom.basedir}</root.directory>
+    </properties>
+
     <modules>
         <module>examples</module>
         <module>modules/affinity</module>
@@ -76,7 +80,7 @@
             This profile is used to check the code for coding guidelines.
 
             It runs by default and can be skipped with either
-            -Dmaven.chechstyle.skip or -Dcheckstyle.skip flag.
+            -Dmaven.all-checks.skip or -Dcheckstyle.skip flag.
 
             It executes 2 times - first for generating report and second
             for failing build if errors found.

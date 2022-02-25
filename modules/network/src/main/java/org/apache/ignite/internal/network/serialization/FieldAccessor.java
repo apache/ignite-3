@@ -17,10 +17,50 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import java.lang.reflect.Field;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Accessor for a specific field.
  */
 public interface FieldAccessor {
+    /**
+     * Returns a {@link FieldAccessor} for accessing the given {@link Field}.
+     *
+     * @param field field to access
+     * @return {@link FieldAccessor} for accessing the given {@link Field}
+     */
+    static FieldAccessor forField(Field field) {
+        return new UnsafeFieldAccessor(field);
+    }
+
+    /**
+     * Returns a {@link FieldAccessor} for accessing a field defined by its name and declaring class, or a broken
+     * accessor if the field does not exist.
+     *
+     * @param fieldName      name of the field
+     * @param declaringClass class (presumably) declaring the field
+     * @return a real eccessor if the field exists, or a broken one if it doesn't
+     */
+    static FieldAccessor forFieldName(String fieldName, Class<?> declaringClass) {
+        Field field = findField(fieldName, declaringClass);
+
+        if (field != null) {
+            return new UnsafeFieldAccessor(field);
+        } else {
+            return new BrokenFieldAccessor(fieldName, declaringClass);
+        }
+    }
+
+    @Nullable
+    private static Field findField(String fieldName, Class<?> declaringClass) {
+        try {
+            return declaringClass.getDeclaredField(fieldName);
+        } catch (NoSuchFieldException e) {
+            return null;
+        }
+    }
+
     /**
      * Returns the bound object field value of the given object.
      *

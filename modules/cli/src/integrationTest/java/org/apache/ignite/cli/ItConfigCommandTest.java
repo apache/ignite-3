@@ -17,7 +17,12 @@
 
 package org.apache.ignite.cli;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -115,7 +120,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
         assertEquals(
                 "Configuration was updated successfully." + nl + nl
                         + "Use the ignite config get command to view the updated configuration." + nl,
-                out.toString()
+                out.toString(UTF_8)
         );
 
         resetStreams();
@@ -130,9 +135,46 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         assertEquals(0, exitCode);
 
-        DocumentContext document = JsonPath.parse(removeTrailingQuotes(unescapeQuotes(out.toString())));
+        DocumentContext document = JsonPath.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
 
         assertEquals("localhost1", document.read("$.node.metastorageNodes[0]"));
+    }
+
+    @Test
+    public void setWithWrongData() {
+        int exitCode = cmd(ctx).execute(
+                "config",
+                "set",
+                "--node-endpoint",
+                "localhost:" + restPort,
+                "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+                "node.metastorgeNodes=[\"localhost1\"]"
+        );
+
+        assertEquals(1, exitCode);
+        assertThat(
+                err.toString(UTF_8),
+                both(startsWith("org.apache.ignite.cli.IgniteCliException: Failed to set configuration"))
+                        .and(containsString("'node' configuration doesn't have the 'metastorgeNodes' sub-configuration"))
+        );
+
+        resetStreams();
+
+        exitCode = cmd(ctx).execute(
+                "config",
+                "set",
+                "--node-endpoint",
+                "localhost:" + restPort,
+                "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+                "node.metastorageNodes=abc"
+        );
+
+        assertEquals(1, exitCode);
+        assertThat(
+                err.toString(UTF_8),
+                both(startsWith("org.apache.ignite.cli.IgniteCliException: Failed to set configuration"))
+                        .and(containsString("'String[]' is expected as a type for the 'node.metastorageNodes' configuration value"))
+        );
     }
 
     @Test
@@ -149,7 +191,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         assertEquals(0, exitCode);
 
-        JSONObject outResult = (JSONObject) JSONValue.parse(removeTrailingQuotes(unescapeQuotes(out.toString())));
+        JSONObject outResult = (JSONObject) JSONValue.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
 
         assertTrue(outResult.containsKey("inbound"));
 
@@ -163,7 +205,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
      * @throws IOException if can't allocate port to open socket.
      */
     // TODO: Must be removed after IGNITE-15131.
-    private int getAvailablePort() throws IOException {
+    private static int getAvailablePort() throws IOException {
         ServerSocket s = new ServerSocket(0);
         s.close();
         return s.getLocalPort();
