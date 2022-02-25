@@ -63,7 +63,6 @@ import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -312,10 +311,13 @@ public class ItCliServiceTest {
         }
     }
 
-    @RepeatedTest(500)
+    @Test
     public void testChangePeers() throws Exception {
-        List<PeerId> newPeers = TestUtils.generatePeers(10);
+        List<PeerId> newPeers = TestUtils.generatePeers(6);
         newPeers.removeAll(conf.getPeerSet());
+
+        assertEquals(3, newPeers.size());
+
         for (PeerId peer : newPeers) {
             assertTrue(cluster.start(peer.getEndpoint()));
         }
