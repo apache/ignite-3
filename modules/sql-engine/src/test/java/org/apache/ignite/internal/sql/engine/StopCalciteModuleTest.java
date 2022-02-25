@@ -170,7 +170,6 @@ public class StopCalciteModuleTest {
     }
 
     @Test
-    // TODO fix this test after merge with IGNITE-16377
     public void testStopQueryOnNodeStop() throws Exception {
         SqlQueryProcessor qryProc = new SqlQueryProcessor(testRevisionRegister, clusterSrvc, tableManager);
 
