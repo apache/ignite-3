@@ -320,7 +320,7 @@ public class ItCliServiceTest {
         List<PeerId> newPeers = TestUtils.generatePeers(6);
         newPeers.removeAll(conf.getPeerSet());
 
-        assertEquals(7, newPeers.size());
+        assertEquals(3, newPeers.size());
 
         for (PeerId peer : newPeers) {
             assertTrue(cluster.start(peer.getEndpoint()));
