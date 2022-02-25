@@ -98,6 +98,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
         RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
         cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
+        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
 
         CLUSTER = cluster;
     }
