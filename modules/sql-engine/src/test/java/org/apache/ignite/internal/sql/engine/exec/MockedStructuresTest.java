@@ -545,10 +545,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @NotNull
     private TableManager createTableManager() {
-        TestRevisionRegister register = new TestRevisionRegister();
-
         TableManager tableManager = new TableManager(
-                register,
+                testRevisionRegister,
                 tblsCfg,
                 dataStorageCfg,
                 rm,
