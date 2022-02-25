@@ -59,6 +59,7 @@ public class RelJsonReaderTest {
                 + "  \"rels\" : [ {\n"
                 + "    \"id\" : \"0\",\n"
                 + "    \"relOp\" : \"IgniteTableScan\",\n"
+                + "    \"table\" : [\"PUBLIC\", \"TEST\"],\n"
                 + "    \"tableId\" : \"" + tableId + "\",\n"
                 + "    \"inputs\" : [ ]\n"
                 + "  } ]\n"
