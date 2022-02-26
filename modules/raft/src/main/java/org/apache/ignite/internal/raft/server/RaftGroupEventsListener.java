@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
 /**
@@ -35,4 +36,11 @@ public interface RaftGroupEventsListener {
      * @param peers list of peers, which was applied by raft group membership configuration.
      */
     public void onNewPeersConfigurationApplied(List<PeerId> peers);
+
+    /**
+     * Invoked on the leader, when membership reconfiguration was failed, because of {@link Status}.
+     *
+     * @param status with description of failure.
+     */
+    public void onReconfigurationError(Status status);
 }
