@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.causality;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Map.Entry;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -26,8 +30,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -37,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Type of real value.
  */
 public class VersionedValue<T> {
-    /** Last applied casualty token. */
+    /** Last applied causality token. */
     private volatile long actualToken = -1L;
 
     /** Size of stored history. */
@@ -58,31 +62,34 @@ public class VersionedValue<T> {
     /**
      * Constructor.
      *
-     * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
-     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
-     *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                  concurrently with {@link #set(long, T)} operations.
-     * @param historySize               Size of the history of changes to store, including last applied token.
+     * @param storageRevisionUpdating    Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
+     * @param observableRevisionUpdater  A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
+     *                                   should be able to listen to, for receiving storage revision updates. This closure is called once on
+     *                                   a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
+     *                                   on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                   concurrently with {@link #set(long, T)} operations.
+     * @param historySize                Size of the history of changes to store, including last applied token.
+     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
+     *                                   evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
             Consumer<Consumer<Long>> observableRevisionUpdater,
-            int historySize
+            int historySize,
+            Supplier<T> defaultVal
     ) {
         this.storageRevisionUpdating = storageRevisionUpdating;
-
-        observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
 
         this.historySize = historySize;
 
         //TODO: IGNITE-16553 Added a possibility to set any start value (not only null).
-        history.put(actualToken, CompletableFuture.completedFuture(null));
+        history.put(actualToken, completedFuture(defaultVal == null ? null : defaultVal.get()));
+
+        observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
     }
 
     /**
-     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int)}.
+     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
      *
      * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
@@ -95,11 +102,11 @@ public class VersionedValue<T> {
             @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
             Consumer<Consumer<Long>> observableRevisionUpdater
     ) {
-        this(storageRevisionUpdating, observableRevisionUpdater, 2);
+        this(storageRevisionUpdating, observableRevisionUpdater, 2, null);
     }
 
     /**
-     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiConsumer, Consumer, int)}.
+     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
@@ -126,7 +133,7 @@ public class VersionedValue<T> {
      * @return The future.
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
-    public CompletableFuture<T> get(long causalityToken) throws OutdatedTokenException {
+    public CompletableFuture<T> get(long causalityToken) {
         if (causalityToken <= actualToken) {
             return getValueForPreviousToken(causalityToken);
         }
@@ -146,16 +153,15 @@ public class VersionedValue<T> {
         } finally {
             trimHistoryLock.readLock().unlock();
         }
-
     }
 
     /**
-     * Gets the latest completed future or {@code null} if there is nothing.
+     * Gets the latest value of completed future.
      */
-    public @NotNull CompletableFuture<T> get() {
+    public T latest() {
         for (CompletableFuture<T> fut : history.descendingMap().values()) {
             if (fut.isDone()) {
-                return fut;
+                return fut.join();
             }
         }
 
@@ -169,7 +175,7 @@ public class VersionedValue<T> {
      * @return A completed future that contained a value.
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
-    private CompletableFuture<T> getValueForPreviousToken(long causalityToken) throws OutdatedTokenException {
+    private CompletableFuture<T> getValueForPreviousToken(long causalityToken) {
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
 
         if (histEntry == null) {
@@ -217,8 +223,9 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      * @param complete       The function is invoked if the previous future completed successfully.
      * @param fail           The function is invoked if the previous future completed with an exception.
+     * @return               Updated value.
      */
-    public CompletableFuture<T> update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
+    public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
         long  actualToken0 = actualToken;
 
         assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
@@ -226,29 +233,21 @@ public class VersionedValue<T> {
 
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
 
-        assert histEntry.getValue().isDone() : "Previous value should be ready.";
+        CompletableFuture<T> previousFuture = histEntry.getValue();
 
-        CompletableFuture<T> res = new CompletableFuture<>();
+        assert previousFuture.isDone() : "Previous value should be ready.";
 
         try {
-            histEntry.getValue().thenAccept(previousValue -> {
-                setValueInternal(causalityToken, complete.apply(previousValue));
+            T previousValue = previousFuture.join();
 
-                res.complete(previousValue);
-            }).exceptionally(throwable -> {
-                setValueInternal(causalityToken, fail.apply(throwable));
+            setValueInternal(causalityToken, complete.apply(previousValue));
 
-                res.completeExceptionally(throwable);
+            return previousValue;
+        } catch (CancellationException | CompletionException e) {
+            failInternal(causalityToken, e);
 
-                return null;
-            });
-        } catch (Throwable th) {
-            failInternal(causalityToken, th);
-
-            res.completeExceptionally(th);
+            return fail.apply(e);
         }
-
-        return res;
     }
 
     /**
@@ -265,7 +264,7 @@ public class VersionedValue<T> {
         }
 
         assert !res.isDone() : IgniteStringFormatter.format("Different values associated with the token "
-                + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
+            + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
 
         res.complete(value);
     }
@@ -327,19 +326,21 @@ public class VersionedValue<T> {
     private void completeRelatedFuture(long causalityToken) {
         Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
 
-        assert entry != null : IgniteStringFormatter.format("No future for token [token={}]", causalityToken);
+        CompletableFuture<T> future = entry.getValue();
 
-        if (!entry.getValue().isDone()) {
+        if (!future.isDone()) {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
             assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
                     "No future for token [token={}]", causalityToken);
 
-            entryBefore.getValue().whenComplete((t, throwable) -> {
+            CompletableFuture<T> f =  entryBefore.getValue();
+
+            f.whenComplete((t, throwable) -> {
                 if (throwable != null) {
-                    entry.getValue().completeExceptionally(throwable);
+                    future.completeExceptionally(throwable);
                 } else {
-                    entry.getValue().complete(t);
+                    future.complete(t);
                 }
             });
         }

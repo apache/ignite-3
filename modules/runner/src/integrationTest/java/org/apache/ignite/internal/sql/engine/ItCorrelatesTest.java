@@ -29,6 +29,10 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testCorrelatesAssignedBeforeAccess() {
         sql("create table test_tbl(k INTEGER primary key, v INTEGER)");
+
+        //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
+        CLUSTER_NODES.get(0).tables().tables();
+
         sql("INSERT INTO test_tbl VALUES (1, 1)");
 
         assertQuery("SELECT " + DISABLED_JOIN_RULES + " t0.v, (SELECT t0.v + t1.v FROM test_tbl t1) AS j FROM test_tbl t0")
@@ -41,6 +45,10 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     @Test
     public void testCorrelatesWithTableSpool() {
         sql("CREATE TABLE test(k INTEGER primary key, i1 INT, i2 INT)");
+
+        //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
+        CLUSTER_NODES.get(0).tables().tables();
+
         sql("INSERT INTO test VALUES (1, 1, 1), (2, 2, 2)");
 
         assertQuery("SELECT " + DISABLED_JOIN_RULES + " (SELECT t1.i1 + t1.i2 + t0.i2 FROM test t1 WHERE i1 = 1) FROM test t0")

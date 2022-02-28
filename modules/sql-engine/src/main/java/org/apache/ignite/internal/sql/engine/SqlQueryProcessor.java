@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
@@ -77,6 +78,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
+    private final Consumer<Consumer<Long>> revisionUpdater;
+
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -104,10 +107,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager schemaManager;
 
+    /** Constructor. */
     public SqlQueryProcessor(
+            Consumer<Consumer<Long>> revisionUpdater,
             ClusterService clusterSrvc,
             TableManager tableManager
     ) {
+        this.revisionUpdater = revisionUpdater;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
     }
@@ -122,20 +128,20 @@ public class SqlQueryProcessor implements QueryProcessor {
         mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
 
         msgSrvc = registerService(new MessageServiceImpl(
-                clusterSrvc.topologyService(),
-                clusterSrvc.messagingService(),
-                taskExecutor
+            clusterSrvc.topologyService(),
+            clusterSrvc.messagingService(),
+            taskExecutor
         ));
 
         exchangeService = registerService(new ExchangeServiceImpl(
-                clusterSrvc.topologyService().localMember().id(),
-                taskExecutor,
-                mailboxRegistry,
-                msgSrvc,
-                queryRegistry
+            clusterSrvc.topologyService().localMember().id(),
+            taskExecutor,
+            mailboxRegistry,
+            msgSrvc,
+            queryRegistry
         ));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, planCache::clear);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, revisionUpdater, planCache::clear);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -338,7 +344,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableCreated(
                     "PUBLIC",
-                    parameters.table()
+                    parameters.table(),
+                    parameters.causalityToken()
             );
 
             return false;
@@ -357,7 +364,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableUpdated(
                     "PUBLIC",
-                    parameters.table()
+                    parameters.table(),
+                    parameters.causalityToken()
             );
 
             return false;
@@ -376,7 +384,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableDropped(
                     "PUBLIC",
-                    parameters.tableName()
+                    parameters.tableName(),
+                    parameters.causalityToken()
             );
 
             return false;
