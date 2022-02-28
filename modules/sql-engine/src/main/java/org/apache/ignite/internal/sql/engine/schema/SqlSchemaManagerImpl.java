@@ -24,15 +24,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalSchema;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -48,8 +43,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
 
     private final Map<UUID, IgniteTable> tablesById = new ConcurrentHashMap<>();
-
-    private final Map<String, Schema> externalCatalogs = new HashMap<>();
 
     private final Runnable onSchemaUpdatedCallback;
 
@@ -119,33 +112,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
     }
 
-    /**
-     * Register an external catalog under given name.
-     *
-     * @param name Name of the external catalog.
-     * @param catalog Catalog to register.
-     */
-    public synchronized void registerExternalCatalog(String name, ExternalCatalog catalog) {
-        catalog.schemaNames().forEach(schemaName -> registerExternalSchema(name, schemaName, catalog.schema(schemaName)));
-
-        rebuild();
-    }
-
-    private void registerExternalSchema(String catalogName, String schemaName, ExternalSchema schema) {
-        Map<String, Table> tables = new HashMap<>();
-
-        for (String name : schema.tableNames()) {
-            IgniteTable table = schema.table(name);
-
-            tables.put(name, table);
-            tablesById.put(table.id(), table);
-        }
-
-        SchemaPlus schemaPlus = (SchemaPlus) externalCatalogs.computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
-
-        schemaPlus.add(schemaName, new ExternalSchemaHolder(tables));
-    }
-
     public synchronized void onSchemaCreated(String schemaName) {
         igniteSchemas.putIfAbsent(schemaName, new IgniteSchema(schemaName));
         rebuild();
@@ -211,7 +177,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
         igniteSchemas.forEach(newCalciteSchema::add);
-        externalCatalogs.forEach(newCalciteSchema::add);
 
         calciteSchema = newCalciteSchema;
 
@@ -243,17 +208,5 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private static String removeSchema(String schemaName, String canonicalName) {
         return canonicalName.substring(schemaName.length() + 1);
-    }
-
-    private static class ExternalSchemaHolder extends AbstractSchema {
-        private final Map<String, Table> tables;
-
-        public ExternalSchemaHolder(Map<String, Table> tables) {
-            this.tables = tables;
-        }
-
-        @Override protected Map<String, Table> getTableMap() {
-            return tables;
-        }
     }
 }

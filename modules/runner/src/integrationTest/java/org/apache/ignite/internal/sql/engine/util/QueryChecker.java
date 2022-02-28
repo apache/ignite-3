@@ -71,7 +71,8 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsIndexScan(String schema, String tblName) {
-        return containsSubPlan("IgniteIndexScan(table=[[" + schema + ", " + tblName + "]]");
+        return matchesOnce(".*IgniteIndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
+                + " tableId=\\[.*\\].*\\)");
     }
 
     /**
@@ -83,7 +84,8 @@ public abstract class QueryChecker {
      * @return Matcher.
      */
     public static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
-        return containsSubPlan("IgniteIndexScan(table=[[" + schema + ", " + tblName + "]], index=[" + idxName + ']');
+        return matchesOnce(".*IgniteIndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
+                + " tableId=\\[.*\\], index=\\[" + idxName + "\\].*\\)");
     }
 
     /**
@@ -181,7 +183,8 @@ public abstract class QueryChecker {
     /**
      * Adds plan matchers.
      */
-    public QueryChecker matches(Matcher<String>... planMatcher) {
+    @SafeVarargs
+    public final QueryChecker matches(Matcher<String>... planMatcher) {
         Collections.addAll(planMatchers, planMatcher);
 
         return this;

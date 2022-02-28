@@ -867,6 +867,6 @@ public class PlannerTest extends AbstractPlannerTest {
     }
 
     private static MappingQueryContext mapContext(String locNodeId, long topVer) {
-        return new MappingQueryContext(null, locNodeId, topVer);
+        return new MappingQueryContext(locNodeId, topVer);
     }
 }

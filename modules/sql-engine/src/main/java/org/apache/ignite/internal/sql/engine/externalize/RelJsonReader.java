@@ -159,7 +159,9 @@ public class RelJsonReader {
 
             IgniteTable table = schemaManager.tableById(UUID.fromString(tableId), ver);
 
-            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), List.of(tableId),
+            List<String> tableName = getStringList("table");
+
+            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
                     table, null);
         }
 
