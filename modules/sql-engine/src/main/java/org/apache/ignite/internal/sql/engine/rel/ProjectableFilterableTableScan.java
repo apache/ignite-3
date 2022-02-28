@@ -92,7 +92,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
                 input.getCluster(),
                 input.getTraitSet(),
                 List.of(),
-                ((RelInputEx) input).getTableById("tableId")
+                ((RelInputEx) input).getTableById()
         );
 
         condition = input.getExpression("filters");
@@ -135,6 +135,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return explainTerms0(pw
                 .itemIf("table", table.getQualifiedName(), pw.getDetailLevel() == EXPPLAN_ATTRIBUTES)
                 .itemIf("tableId", table.unwrap(IgniteTable.class).id().toString(),
+                        pw.getDetailLevel() != EXPPLAN_ATTRIBUTES)
+                .itemIf("tableVer", table.unwrap(IgniteTable.class).version(),
                         pw.getDetailLevel() != EXPPLAN_ATTRIBUTES)
         );
     }

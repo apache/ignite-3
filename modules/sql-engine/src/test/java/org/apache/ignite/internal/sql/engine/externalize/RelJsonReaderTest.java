@@ -46,13 +46,14 @@ public class RelJsonReaderTest {
     @Test
     void fromJson() {
         UUID tableId = UUID.randomUUID();
+        int tableVer = 2;
 
         IgniteTable igniteTableMock = mock(IgniteTable.class);
         when(igniteTableMock.getStatistic()).thenReturn(new Statistic() {});
         when(igniteTableMock.getRowType(any())).thenReturn(mock(RelDataType.class));
 
         SqlSchemaManager schemaMock = mock(SqlSchemaManager.class);
-        when(schemaMock.tableById(tableId)).thenReturn(igniteTableMock);
+        when(schemaMock.tableById(tableId, tableVer)).thenReturn(igniteTableMock);
 
         String json = ""
                 + "{\n"
@@ -60,6 +61,7 @@ public class RelJsonReaderTest {
                 + "    \"id\" : \"0\",\n"
                 + "    \"relOp\" : \"IgniteTableScan\",\n"
                 + "    \"tableId\" : \"" + tableId + "\",\n"
+                + "    \"tableVer\" : " + tableVer + ",\n"
                 + "    \"inputs\" : [ ]\n"
                 + "  } ]\n"
                 + "}";
@@ -69,6 +71,6 @@ public class RelJsonReaderTest {
         assertThat(node, isA(IgniteTableScan.class));
         assertThat(node.getTable(), notNullValue());
         assertThat(node.getTable().unwrap(IgniteTable.class), is(igniteTableMock));
-        Mockito.verify(schemaMock).tableById(tableId);
+        Mockito.verify(schemaMock).tableById(tableId, tableVer);
     }
 }

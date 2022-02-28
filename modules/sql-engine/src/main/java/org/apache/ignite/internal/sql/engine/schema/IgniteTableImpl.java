@@ -65,6 +65,8 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
     private final TableDescriptor desc;
 
+    private final int ver;
+
     private final InternalTable table;
 
     private final SchemaRegistry schemaRegistry;
@@ -88,6 +90,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             InternalTable table,
             SchemaRegistry schemaRegistry
     ) {
+        this.ver = schemaRegistry.lastSchemaVersion();
         this.desc = desc;
         this.table = table;
         this.schemaRegistry = schemaRegistry;
@@ -110,6 +113,12 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     @Override
     public UUID id() {
         return table.tableId();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int version() {
+        return ver;
     }
 
     /** {@inheritDoc} */

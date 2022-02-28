@@ -79,18 +79,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     @NotNull
-    public IgniteTable tableById(UUID id) {
+    public IgniteTable tableById(UUID id, int ver) {
         IgniteTable table = tablesById.get(id);
 
         // there is a chance that someone tries to resolve table before
         // the distributed event of that table creation has been processed
         // by TableManager, so we need to get in sync with the TableManager
-        if (table == null) {
-            ensureTableStructuresCreated(id);
-
-            // at this point the table is either null means no such table
-            // really exists or the table itself
-            table = tablesById.get(id);
+        if (table == null || ver > table.version()) {
+            table = awaitLatestTableSchema(id);
         }
 
         if (table == null) {
@@ -98,14 +94,28 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     IgniteStringFormatter.format("Table not found [tableId={}]", id));
         }
 
+        if (table.version() < ver) {
+            throw new IgniteInternalException(
+                    IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={},  latestKnownVer={}]",
+                            id, ver, table.version()));
+        }
+
         return table;
     }
 
-    private void ensureTableStructuresCreated(UUID id) {
+    private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
         try {
-            tableManager.table(id);
+            TableImpl table = tableManager.table(tableId);
+
+            if (table == null) {
+                return null;
+            }
+
+            table.schemaView().waitLatestSchema();
+
+            return convert(table);
         } catch (NodeStoppingException e) {
-            // Discard the exception
+            throw new IgniteInternalException(e);
         }
     }
 
@@ -155,27 +165,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
-
-        SchemaDescriptor descriptor = table.schemaView().schema();
-
-        List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
-                .map(descriptor::column)
-                .sorted(Comparator.comparingInt(Column::columnOrder))
-                .map(col -> new ColumnDescriptorImpl(
-                        col.name(),
-                        descriptor.isKeyColumn(col.schemaIndex()),
-                        col.columnOrder(),
-                        col.schemaIndex(),
-                        col.type(),
-                        col::defaultValue
-                ))
-                .collect(Collectors.toList());
-
-        IgniteTableImpl igniteTable = new IgniteTableImpl(
-                new TableDescriptorImpl(colDescriptors),
-                table.internalTable(),
-                table.schemaView()
-        );
+        IgniteTableImpl igniteTable = convert(table);
 
         schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
         tablesById.put(igniteTable.id(), igniteTable);
@@ -204,6 +194,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     ) {
         IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
 
+        tableName = removeSchema(schemaName, tableName);
+
         InternalIgniteTable table = (InternalIgniteTable) schema.getTable(tableName);
         if (table != null) {
             tablesById.remove(table.id());
@@ -224,6 +216,29 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         calciteSchema = newCalciteSchema;
 
         onSchemaUpdatedCallback.run();
+    }
+
+    private IgniteTableImpl convert(TableImpl table) {
+        SchemaDescriptor descriptor = table.schemaView().schema();
+
+        List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
+                .map(descriptor::column)
+                .sorted(Comparator.comparingInt(Column::columnOrder))
+                .map(col -> new ColumnDescriptorImpl(
+                        col.name(),
+                        descriptor.isKeyColumn(col.schemaIndex()),
+                        col.columnOrder(),
+                        col.schemaIndex(),
+                        col.type(),
+                        col::defaultValue
+                ))
+                .collect(Collectors.toList());
+
+        return new IgniteTableImpl(
+                new TableDescriptorImpl(colDescriptors),
+                table.internalTable(),
+                table.schemaView()
+        );
     }
 
     private static String removeSchema(String schemaName, String canonicalName) {

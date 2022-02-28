@@ -63,7 +63,7 @@ public class TestPhysTableScan extends TableScan implements IgniteRel {
                 input.getCluster(),
                 input.getTraitSet(),
                 List.of(),
-                ((RelInputEx) input).getTableById("tableId")
+                ((RelInputEx) input).getTableById()
         );
     }
 

@@ -60,6 +60,12 @@ class TestTableImpl extends AbstractTable implements IgniteTable {
 
     /** {@inheritDoc} */
     @Override
+    public int version() {
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public TableDescriptor descriptor() {
         return desc;
     }
