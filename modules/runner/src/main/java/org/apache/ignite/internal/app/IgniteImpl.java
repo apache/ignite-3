@@ -40,6 +40,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -198,10 +199,12 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
+        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 modules.distributed().validators(),
-                new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+                cfgStorage,
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
@@ -214,8 +217,6 @@ public class IgniteImpl implements Ignite {
 
         Consumer<Consumer<Long>> registry = (c) -> {
             clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                LOG.info("Node: " + name);
-
                 c.accept(newStorageRevision);
 
                 return CompletableFuture.completedFuture(null);
@@ -234,6 +235,7 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
+                registry,
                 clusterSvc,
                 distributedTblMgr
         );

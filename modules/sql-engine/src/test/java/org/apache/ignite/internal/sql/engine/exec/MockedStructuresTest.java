@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,7 +32,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
@@ -161,7 +161,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void before() throws NodeStoppingException {
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor((Consumer<Long> consumer) -> {}, cs, tblManager);
 
         queryProc.start();
     }
@@ -173,7 +173,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void checkAppropriateTableFound() throws Exception {
         TableManager tableManager = mock(TableManager.class);
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, (Consumer<Long> consumer) -> {}, () -> {});
         UUID tblId = UUID.randomUUID();
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
@@ -196,7 +196,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         when(tbl.internalTable()).thenReturn(internalTbl);
         when(internalTbl.tableId()).thenReturn(tblId);
 
-        schemaManager.onTableCreated("TEST_SCHEMA", tbl);
+        schemaManager.onTableCreated("TEST_SCHEMA", tbl, 1L);
 
         schemaManager.tableById(tblId);
         Mockito.verify(tableManager, never()).table(any(UUID.class));
@@ -434,7 +434,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -485,7 +485,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         TestRevisionRegister register = new TestRevisionRegister();
 
         TableManager tableManager = new TableManager(
-                register,
+                (Consumer<Long> consumer) -> {},
                 tblsCfg,
                 dataStorageCfg,
                 rm,
