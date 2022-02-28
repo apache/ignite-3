@@ -113,12 +113,12 @@ public class StopCalciteModuleTest {
         when(topologySrvc.allMembers()).thenReturn(Collections.singleton(node));
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
-                0,
+                1,
                 new Column[]{new Column(0, "ID", NativeTypes.INT32, false)},
                 new Column[]{new Column(1, "VAL", NativeTypes.INT32, false)}
         );
 
-        schemaReg = new SchemaRegistryImpl(0, (v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION);
+        schemaReg = new SchemaRegistryImpl(1, (v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION);
 
         when(tbl.name()).thenReturn("PUBLIC.TEST");
 
@@ -240,5 +240,3 @@ public class StopCalciteModuleTest {
         }
     }
 }
-
-

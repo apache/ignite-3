@@ -227,12 +227,18 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
+        return query(QueryContext.of(), schemaName, qry, params);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            return query0(schemaName, qry, params);
+            return query0(context, schemaName, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -242,7 +248,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         return queryRegistry;
     }
 
-    private List<SqlCursor<List<?>>> query0(String schemaName, String sql, Object... params) {
+    private List<SqlCursor<List<?>>> query0(QueryContext context, String schemaName, String sql, Object... params) {
         SchemaPlus schema = schemaManager.schema(schemaName);
 
         assert schema != null : "Schema not found: " + schemaName;
@@ -250,6 +256,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         QueryPlan plan = planCache.queryPlan(new CacheKey(schema.getName(), sql));
 
         if (plan != null) {
+            final QueryPlan finalPlan = plan;
+
+            context.maybeUnwrap(QueryValidator.class)
+                    .ifPresent(queryValidator -> queryValidator.validatePlan(finalPlan));
+
             RootQuery<Object[]> qry = new RootQuery<>(
                     sql,
                     schema,
@@ -308,6 +319,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 } else {
                     plan = prepareSvc.prepareSingle(sqlNode, qry.planningContext());
                 }
+
+                final QueryPlan finalPlan = plan;
+
+                context.maybeUnwrap(QueryValidator.class)
+                        .ifPresent(queryValidator -> queryValidator.validatePlan(finalPlan));
 
                 cursors.add(executionSrvc.executePlan(qry, plan));
             } catch (Exception e) {

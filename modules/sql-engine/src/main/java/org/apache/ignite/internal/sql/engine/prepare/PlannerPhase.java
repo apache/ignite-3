@@ -87,6 +87,8 @@ public enum PlannerPhase {
 
     HEP_FILTER_PUSH_DOWN(
             "Heuristic phase to push down filters",
+            FilterScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
+
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
@@ -104,7 +106,6 @@ public enum PlannerPhase {
     HEP_PROJECT_PUSH_DOWN(
             "Heuristic phase to push down and merge projects",
             ProjectScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
-            ProjectScanMergeRule.INDEX_SCAN_SKIP_CORRELATED,
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
@@ -198,10 +199,11 @@ public enum PlannerPhase {
 
             LogicalOrToUnionRule.INSTANCE,
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
+            MergeJoinConverterRule.INSTANCE,
             CorrelatedNestedLoopJoinRule.INSTANCE,
             CorrelateToNestedLoopRule.INSTANCE,
             NestedLoopJoinConverterRule.INSTANCE,
-            MergeJoinConverterRule.INSTANCE,
 
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,

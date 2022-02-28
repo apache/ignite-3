@@ -75,9 +75,9 @@ class ExternalizableMarshaller {
     @SuppressWarnings("unchecked")
     <T extends Externalizable> T preInstantiateExternalizable(ClassDescriptor descriptor) throws UnmarshalException {
         try {
-            return (T) instantiation.newInstance(descriptor.clazz());
+            return (T) instantiation.newInstance(descriptor.localClass());
         } catch (InstantiationException e) {
-            throw new UnmarshalException("Cannot instantiate " + descriptor.clazz(), e);
+            throw new UnmarshalException("Cannot instantiate " + descriptor.className(), e);
         }
     }
 

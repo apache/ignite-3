@@ -57,41 +57,41 @@ class SpecialSerializationMethodsImpl implements SpecialSerializationMethods {
 
     private static Method writeReplaceInvoker(ClassDescriptor descriptor) {
         try {
-            Method method = descriptor.clazz().getDeclaredMethod("writeReplace");
+            Method method = descriptor.localClass().getDeclaredMethod("writeReplace");
             method.setAccessible(true);
             return method;
         } catch (ReflectiveOperationException e) {
-            throw new ReflectionException("Cannot find writeReplace() in " + descriptor.clazz(), e);
+            throw new ReflectionException("Cannot find writeReplace() in " + descriptor.localClass(), e);
         }
     }
 
     private static Method readResolveInvoker(ClassDescriptor descriptor) {
         try {
-            Method method = descriptor.clazz().getDeclaredMethod("readResolve");
+            Method method = descriptor.localClass().getDeclaredMethod("readResolve");
             method.setAccessible(true);
             return method;
         } catch (ReflectiveOperationException e) {
-            throw new ReflectionException("Cannot find readResolve() in " + descriptor.clazz(), e);
+            throw new ReflectionException("Cannot find readResolve() in " + descriptor.localClass(), e);
         }
     }
 
     private static Method writeObjectInvoker(ClassDescriptor descriptor) {
         try {
-            Method method = descriptor.clazz().getDeclaredMethod("writeObject", ObjectOutputStream.class);
+            Method method = descriptor.localClass().getDeclaredMethod("writeObject", ObjectOutputStream.class);
             method.setAccessible(true);
             return method;
         } catch (ReflectiveOperationException e) {
-            throw new ReflectionException("Cannot find writeObject() in " + descriptor.clazz(), e);
+            throw new ReflectionException("Cannot find writeObject() in " + descriptor.localClass(), e);
         }
     }
 
     private static Method readObjectInvoker(ClassDescriptor descriptor) {
         try {
-            Method method = descriptor.clazz().getDeclaredMethod("readObject", ObjectInputStream.class);
+            Method method = descriptor.localClass().getDeclaredMethod("readObject", ObjectInputStream.class);
             method.setAccessible(true);
             return method;
         } catch (ReflectiveOperationException e) {
-            throw new ReflectionException("Cannot find readObject() in " + descriptor.clazz(), e);
+            throw new ReflectionException("Cannot find readObject() in " + descriptor.localClass(), e);
         }
     }
 

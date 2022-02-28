@@ -82,6 +82,11 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public SchemaDescriptor schema(int ver) {
+        if (ver == 0) {
+            // Use last version (any version may be used) for 0 version, that mean row doens't contain value.
+            ver = lastVer;
+        }
+
         SchemaDescriptor desc = schemaCache.get(ver);
 
         if (desc != null) {

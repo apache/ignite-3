@@ -160,7 +160,9 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
 
         checkState();
 
-        if ((waiting <= 0 || activeSubscription == null) && requested > 0 && !inBuff.isEmpty()) {
+        assert waiting >= 0;
+
+        if (requested > 0 && !inBuff.isEmpty()) {
             inLoop = true;
             try {
                 while (requested > 0 && !inBuff.isEmpty()) {
@@ -218,7 +220,7 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
     }
 
     private class SubscriberImpl implements Flow.Subscriber<BinaryRow> {
-        private int received;
+        private int received = 0; // HB guarded here.
 
         /** {@inheritDoc} */
         @Override
@@ -257,11 +259,9 @@ public class TableScanNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         public void onComplete() {
-            int received0 = received;
-
             context().execute(() -> {
                 activeSubscription = null;
-                waiting -= received0;
+                waiting = 0;
 
                 push();
             }, TableScanNode.this::onError);

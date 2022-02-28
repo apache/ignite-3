@@ -18,72 +18,12 @@
 package org.apache.ignite.internal.metastorage.common.command;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.metastorage.common.ConditionType;
 
 /**
- * Defines condition for InvokeCommand.
+ * Interface for condition definition.
+ *
+ * @see SimpleConditionInfo
+ * @see CompoundConditionInfo
  */
-public class ConditionInfo implements Serializable {
-    /** Key. */
-    private final byte[] key;
-
-    /** Type. */
-    private final ConditionType type;
-
-    /** Value. */
-    private final byte[] val;
-
-    /** Revision. */
-    private final long rev;
-
-    /**
-     * Construct condition with given parameters.
-     *
-     * @param key  Key.
-     * @param type Condition type.
-     * @param val  Value.
-     * @param rev  Revision.
-     */
-    public ConditionInfo(byte[] key, ConditionType type, byte[] val, long rev) {
-        this.key = key;
-        this.type = type;
-        this.val = val;
-        this.rev = rev;
-    }
-
-    /**
-     * Returns key.
-     *
-     * @return Key.
-     */
-    public byte[] key() {
-        return key;
-    }
-
-    /**
-     * Returns condition type.
-     *
-     * @return Condition type.
-     */
-    public ConditionType type() {
-        return type;
-    }
-
-    /**
-     * Returns value.
-     *
-     * @return Value.
-     */
-    public byte[] value() {
-        return val;
-    }
-
-    /**
-     * Returns revision.
-     *
-     * @return Revision.
-     */
-    public long revision() {
-        return rev;
-    }
+public interface ConditionInfo extends Serializable {
 }

@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -28,6 +31,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
+import java.util.Map;
 import org.apache.ignite.lang.IgniteUuid;
 
 /**
@@ -90,6 +94,24 @@ public enum BuiltInType {
      */
     private final Class<?> clazz;
 
+    private static final Int2ObjectMap<BuiltInType> descriptorIdToValues;
+    static {
+        Int2ObjectMap<BuiltInType> map = new Int2ObjectOpenHashMap<>();
+        for (BuiltInType type : BuiltInType.values()) {
+            map.put(type.descriptorId, type);
+        }
+        descriptorIdToValues = Int2ObjectMaps.unmodifiable(map);
+    }
+
+    private static final Map<Class<?>, BuiltInType> classToValues;
+    static {
+        Map<Class<?>, BuiltInType> map = new HashMap<>();
+        for (BuiltInType type : BuiltInType.values()) {
+            map.put(type.clazz, type);
+        }
+        classToValues = Map.copyOf(map);
+    }
+
     /**
      * Constructor.
      *
@@ -99,6 +121,21 @@ public enum BuiltInType {
     BuiltInType(int descriptorId, Class<?> clazz) {
         this.descriptorId = descriptorId;
         this.clazz = clazz;
+    }
+
+    /**
+     * Finds a built-in type by a descriptor ID.
+     *
+     * @param descriptorId ID of the corresponding descriptor
+     * @return built-in type
+     * @throws IllegalArgumentException if no built-in type has the specified descriptor ID
+     */
+    public static BuiltInType findByDescriptorId(int descriptorId) {
+        BuiltInType type = descriptorIdToValues.get(descriptorId);
+        if (type == null) {
+            throw new IllegalArgumentException("No build-in with ID " + descriptorId + " is supported");
+        }
+        return type;
     }
 
     /**
@@ -125,10 +162,20 @@ public enum BuiltInType {
      * @return Descriptor.
      */
     public ClassDescriptor asClassDescriptor() {
-        return new ClassDescriptor(
+        ClassDescriptor componentTypeDescriptor = null;
+        if (clazz.isArray()) {
+            BuiltInType componentType = classToValues.get(clazz.getComponentType());
+            if (componentType == null) {
+                throw new IllegalStateException("Component of a built-in array type is not built-in: " + clazz);
+            }
+            componentTypeDescriptor = componentType.asClassDescriptor();
+        }
+
+        return ClassDescriptor.local(
                 clazz,
                 descriptorId,
                 null,
+                componentTypeDescriptor,
                 Collections.emptyList(),
                 new Serialization(SerializationType.BUILTIN)
         );

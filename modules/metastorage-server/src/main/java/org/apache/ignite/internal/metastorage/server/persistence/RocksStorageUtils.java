@@ -34,11 +34,11 @@ import org.jetbrains.annotations.Nullable;
 class RocksStorageUtils {
     /**
      * VarHandle that gives the access to the elements of a {@code byte[]} array viewed as if it were a {@code long[]} array. Byte order
-     * must be little endian for a correct lexicographic order comparison.
+     * must be big endian for a correct lexicographic order comparison.
      */
     private static final VarHandle LONG_ARRAY_HANDLE = MethodHandles.byteArrayViewVarHandle(
             long[].class,
-            ByteOrder.LITTLE_ENDIAN
+            ByteOrder.BIG_ENDIAN
     );
 
     /**
@@ -85,7 +85,7 @@ class RocksStorageUtils {
     }
 
     /**
-     * Gets a key from a key with revision.
+     * Gets a key from a key with a revision.
      *
      * @param rocksKey Key with a revision.
      * @return Key without a revision.
@@ -93,6 +93,16 @@ class RocksStorageUtils {
     static byte[] rocksKeyToBytes(byte[] rocksKey) {
         // Copy bytes of the rocks key ignoring the revision (first 8 bytes)
         return Arrays.copyOfRange(rocksKey, Long.BYTES, rocksKey.length);
+    }
+
+    /**
+     * Gets a revision from a key with a revision.
+     *
+     * @param rocksKey Key with a revision.
+     * @return Revision.
+     */
+    static long revisionFromRocksKey(byte[] rocksKey) {
+        return (long) LONG_ARRAY_HANDLE.get(rocksKey, 0);
     }
 
     /**

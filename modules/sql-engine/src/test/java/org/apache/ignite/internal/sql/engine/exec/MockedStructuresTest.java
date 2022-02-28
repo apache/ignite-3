@@ -482,6 +482,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      */
     @NotNull
     private TableManager createTableManager() {
+        TestRevisionRegister register = new TestRevisionRegister();
+
         TableManager tableManager = new TableManager(
                 (Consumer<Long> consumer) -> {},
                 tblsCfg,
@@ -496,5 +498,24 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         tableManager.start();
 
         return tableManager;
+    }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+
+        /** Revision consumer. */
+        Consumer<Long> moveRevision;
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            if (moveRevision == null) {
+                moveRevision = consumer;
+            } else {
+                moveRevision = moveRevision.andThen(consumer);
+            }
+        }
     }
 }

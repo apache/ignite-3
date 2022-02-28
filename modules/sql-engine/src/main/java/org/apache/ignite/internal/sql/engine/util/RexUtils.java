@@ -492,32 +492,6 @@ public class RexUtils {
     }
 
     /**
-     * Permutation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType, boolean local) {
-        final Mappings.TargetMapping mapping =
-                Mappings.create(MappingType.PARTIAL_FUNCTION, nodes.size(), inputRowType.getFieldCount());
-
-        Class<? extends RexSlot> clazz = local ? RexLocalRef.class : RexInputRef.class;
-
-        for (Ord<RexNode> node : Ord.zip(nodes)) {
-            if (clazz.isInstance(node.e)) {
-                mapping.set(node.i, ((RexSlot) node.e).getIndex());
-            }
-        }
-        return mapping;
-    }
-
-    /**
-     * Permutation.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public static Mappings.TargetMapping permutation(List<RexNode> nodes, RelDataType inputRowType) {
-        return permutation(nodes, inputRowType, false);
-    }
-
-    /**
      * InversePermutation.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */

@@ -86,7 +86,7 @@ public class VersionedValue<T> {
         this.historySize = historySize;
 
         //TODO: IGNITE-16553 Added a possibility to set any start value (not only null).
-        history.put(actualToken, CompletableFuture.completedFuture(defaultVal == null ? null : defaultVal.get()));
+        history.put(actualToken, completedFuture(defaultVal == null ? null : defaultVal.get()));
     }
 
     /**
@@ -196,20 +196,10 @@ public class VersionedValue<T> {
     public void set(long causalityToken, T value) {
         long actualToken0 = actualToken;
 
-        assert actualToken0 == -1 || actualToken0 + 1 == causalityToken
-                : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
+        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
                 + "[token={}, actual={}]", causalityToken, actualToken0);
 
-        CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
-
-        if (res == null || res.isCompletedExceptionally()) {
-            return;
-        }
-
-        assert !res.isDone() : IgniteStringFormatter.format("Different values associated with the token "
-                + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
-
-        res.complete(value);
+        setValueInternal(causalityToken, value);
     }
 
     /**
@@ -345,7 +335,6 @@ public class VersionedValue<T> {
             assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
                     "No future for token [token={}]", causalityToken);
 
-            // TODO thread safety
             CompletableFuture<T> f =  entryBefore.getValue();
 
             f.whenComplete((t, throwable) -> {

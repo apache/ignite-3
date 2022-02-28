@@ -23,8 +23,8 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.network.serialization.DeclaredType;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.internal.network.serialization.Primitives;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.jetbrains.annotations.Nullable;
 
@@ -147,7 +147,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
         doWriteObject(obj, null);
     }
 
-    private void doWriteObject(Object obj, Class<?> declaredClass) throws IOException {
+    private void doWriteObject(Object obj, DeclaredType declaredClass) throws IOException {
         try {
             valueWriter.write(obj, declaredClass, output, context);
         } catch (MarshalException e) {
@@ -305,7 +305,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
         }
 
         private int primitiveFieldDataOffset(String fieldName, Class<?> requiredType) {
-            return descriptor.primitiveFieldDataOffset(fieldName, requiredType);
+            return descriptor.primitiveFieldDataOffset(fieldName, requiredType.getName());
         }
 
         private int objectFieldIndex(String fieldName) {
@@ -342,8 +342,8 @@ class UosObjectOutputStream extends ObjectOutputStream {
         }
 
         private void writePrimitive(ObjectOutput out, FieldDescriptor fieldDesc) throws IOException {
-            int offset = primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
-            int length = Primitives.widthInBytes(fieldDesc.clazz());
+            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.typeName());
+            int length = fieldDesc.primitiveWidthInBytes();
             out.write(primitiveFieldsData, offset, length);
         }
 
@@ -354,7 +354,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
                 if (fieldDesc.isUnshared()) {
                     doWriteUnshared(objectToWrite);
                 } else {
-                    doWriteObject(objectToWrite, fieldDesc.clazz());
+                    doWriteObject(objectToWrite, fieldDesc);
                 }
             }
 
