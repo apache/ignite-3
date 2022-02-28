@@ -17,15 +17,17 @@
 
 package org.apache.ignite.internal.pagememory.reuse;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 import java.io.Externalizable;
 
 /**
- * {@link LongArrayList}-based reuse bag.
+ * Reuse bag based on a list of long.
  */
-public final class LongListReuseBag extends LongArrayList implements ReuseBag {
+public final class LongListReuseBag implements ReuseBag {
     /** Serial version uid. */
     private static final long serialVersionUID = 0L;
+
+    private final LongArrayFIFOQueue pages = new LongArrayFIFOQueue();
 
     /**
      * Default constructor for {@link Externalizable}.
@@ -37,13 +39,26 @@ public final class LongListReuseBag extends LongArrayList implements ReuseBag {
     /** {@inheritDoc} */
     @Override
     public void addFreePage(long pageId) {
-        add(pageId);
+        pages.enqueue(pageId);
     }
 
     /** {@inheritDoc} */
     @Override
     public long pollFreePage() {
-        return isEmpty() ? 0 : removeLong(size - 1);
+        return isEmpty() ? 0 : pages.dequeueLastLong();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isEmpty() {
+        return pages.isEmpty();
+    }
+
+    /**
+     * Returns the number of pages in this reuse bag.
+     */
+    public int size() {
+        return pages.size();
     }
 }
 

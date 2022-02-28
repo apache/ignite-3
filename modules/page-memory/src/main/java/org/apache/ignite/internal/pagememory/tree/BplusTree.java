@@ -33,7 +33,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.set;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 import it.unimi.dsi.fastutil.longs.LongArrays;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -4549,12 +4549,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public long pollFreePage() {
             if (freePages == null) {
                 return 0L;
-            }
+            } else if (freePages instanceof LongArrayFIFOQueue) {
+                LongArrayFIFOQueue pages = ((LongArrayFIFOQueue) freePages);
 
-            if (freePages.getClass() == LongArrayList.class) {
-                LongArrayList list = ((LongArrayList) freePages);
-
-                return list.isEmpty() ? 0L : list.removeLong(list.size() - 1);
+                return pages.isEmpty() ? 0L : pages.dequeueLastLong();
             }
 
             long res = (long) freePages;
@@ -4572,18 +4570,19 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (freePages == null) {
                 freePages = pageId;
             } else {
-                LongArrayList list;
+                LongArrayFIFOQueue pages;
 
-                if (freePages.getClass() == LongArrayList.class) {
-                    list = (LongArrayList) freePages;
+                if (freePages instanceof LongArrayFIFOQueue) {
+                    pages = (LongArrayFIFOQueue) freePages;
                 } else {
-                    list = new LongArrayList(4);
+                    pages = new LongArrayFIFOQueue(4);
 
-                    list.add((long) freePages);
-                    freePages = list;
+                    pages.enqueue((long) freePages);
+
+                    freePages = pages;
                 }
 
-                list.add(pageId);
+                pages.enqueue(pageId);
             }
         }
 
@@ -4592,12 +4591,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public boolean isEmpty() {
             if (freePages == null) {
                 return true;
-            }
-
-            if (freePages.getClass() == LongArrayList.class) {
-                LongArrayList list = ((LongArrayList) freePages);
-
-                return list.isEmpty();
+            } else if (freePages instanceof LongArrayFIFOQueue) {
+                return ((LongArrayFIFOQueue) freePages).isEmpty();
             }
 
             return false;
