@@ -234,6 +234,7 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      * @param complete       The function is invoked if the previous future completed successfully.
      * @param fail           The function is invoked if the previous future completed with an exception.
+     * @return               Updated value.
      */
     public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
         long  actualToken0 = actualToken;
