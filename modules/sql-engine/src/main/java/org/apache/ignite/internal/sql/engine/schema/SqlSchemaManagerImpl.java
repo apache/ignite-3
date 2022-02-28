@@ -89,7 +89,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         if (table.version() < ver) {
             throw new IgniteInternalException(
-                    IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={},  latestKnownVer={}]",
+                    IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
                             id, ver, table.version()));
         }
 
