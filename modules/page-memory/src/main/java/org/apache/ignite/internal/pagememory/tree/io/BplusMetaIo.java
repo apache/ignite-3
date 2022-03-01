@@ -18,37 +18,35 @@
 package org.apache.ignite.internal.pagememory.tree.io;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getByte;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.getUnsignedByte;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putUnsignedByte;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
-import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
- * IO routines for B+Tree meta pages.
+ * Abstract IO routines for B+Tree meta pages.
+ *
+ * <p>NOTE: If there is a need to store additional data, then they should be after the maximum level offset, and also override method {@link
+ * #getMaxLevels}.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-16534
-public class BplusMetaIo extends PageIo {
-    /** Page IO type. */
-    public static final int T_BPLUS_META = 3;
-
-    /** I/O versions. */
-    public static final IoVersions<BplusMetaIo> VERSIONS = new IoVersions<>(new BplusMetaIo(1));
-
+public abstract class BplusMetaIo extends PageIo {
     /** Offset where the number of levels is stored. */
     private static final int LVLS_OFFSET = COMMON_HEADER_END;
 
     /** Offset where each level's page ID starts to be stored. */
-    private static final int REFS_OFFSET = LVLS_OFFSET + 1;
+    private static final int REFS_OFFSET = LVLS_OFFSET + Byte.BYTES;
 
     /**
      * Constructor.
      *
+     * @param type Page type.
      * @param ver Page format version.
      */
-    private BplusMetaIo(int ver) {
-        super(T_BPLUS_META, ver, FLAG_AUX);
+    protected BplusMetaIo(int type, int ver) {
+        super(type, ver, FLAG_AUX);
     }
 
     /**
@@ -71,7 +69,7 @@ public class BplusMetaIo extends PageIo {
      * @param pageAddr Page address.
      */
     public int getLevelsCount(long pageAddr) {
-        return Byte.toUnsignedInt(getByte(pageAddr, LVLS_OFFSET));
+        return getUnsignedByte(pageAddr, LVLS_OFFSET);
     }
 
     /**
@@ -79,8 +77,9 @@ public class BplusMetaIo extends PageIo {
      *
      * @param pageSize Page size.
      */
-    private int getMaxLevels(int pageSize) {
-        return (pageSize - REFS_OFFSET) / 8;
+    protected int getMaxLevels(int pageSize) {
+        // Number of levels is an unsigned byte, so 0xff.
+        return Math.min(0xff, (pageSize - REFS_OFFSET) / 8);
     }
 
     /**
@@ -93,7 +92,7 @@ public class BplusMetaIo extends PageIo {
     private void setLevelsCount(long pageAddr, int lvls, int pageSize) {
         assert lvls >= 0 && lvls <= getMaxLevels(pageSize) : lvls;
 
-        PageUtils.putByte(pageAddr, LVLS_OFFSET, (byte) lvls);
+        putUnsignedByte(pageAddr, LVLS_OFFSET, lvls);
 
         assert getLevelsCount(pageAddr) == lvls;
     }
@@ -114,7 +113,7 @@ public class BplusMetaIo extends PageIo {
      * @param lvl Level.
      */
     public long getFirstPageId(long pageAddr, int lvl) {
-        return PageUtils.getLong(pageAddr, offset(lvl));
+        return getLong(pageAddr, offset(lvl));
     }
 
     /**
@@ -127,7 +126,7 @@ public class BplusMetaIo extends PageIo {
     private void setFirstPageId(long pageAddr, int lvl, long pageId) {
         assert lvl >= 0 && lvl < getLevelsCount(pageAddr) : lvl;
 
-        PageUtils.putLong(pageAddr, offset(lvl), pageId);
+        putLong(pageAddr, offset(lvl), pageId);
 
         assert getFirstPageId(pageAddr, lvl) == pageId;
     }

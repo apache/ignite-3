@@ -168,6 +168,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     // TODO: IGNITE-16350 Make it final.
     private IoVersions<? extends BplusLeafIo<L>> leafIos;
 
+    // TODO: IGNITE-16350 Make it final.
+    private IoVersions<? extends BplusMetaIo> metaIos;
+
     private final AtomicLong globalRmvId;
 
     /** Tree meta data. */
@@ -881,6 +884,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param reuseList Reuse list.
      * @param innerIos Inner IO versions.
      * @param leafIos Leaf IO versions.
+     * @param metaIos Meta IO versions.
      */
     protected BplusTree(
             String name,
@@ -893,11 +897,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long metaPageId,
             @Nullable ReuseList reuseList,
             IoVersions<? extends BplusInnerIo<L>> innerIos,
-            IoVersions<? extends BplusLeafIo<L>> leafIos
+            IoVersions<? extends BplusLeafIo<L>> leafIos,
+            IoVersions<? extends BplusMetaIo> metaIos
     ) {
         this(name, grpId, grpName, pageMem, lockLsnr, defaultPageFlag, globalRmvId, metaPageId, reuseList);
 
-        setIos(innerIos, leafIos);
+        setIos(innerIos, leafIos, metaIos);
     }
 
     /**
@@ -955,18 +960,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *
      * @param innerIos Inner IO versions.
      * @param leafIos Leaf IO versions.
+     * @param metaIos Meta IO versions.
      */
     public void setIos(
             IoVersions<? extends BplusInnerIo<L>> innerIos,
-            IoVersions<? extends BplusLeafIo<L>> leafIos
+            IoVersions<? extends BplusLeafIo<L>> leafIos,
+            IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        assert innerIos != null;
-        assert leafIos != null;
-
         // TODO IGNITE-16350 Refactor and make it always true.
         this.canGetRowFromInner = innerIos.latest().canGetRow();
         this.innerIos = innerIos;
         this.leafIos = leafIos;
+        this.metaIos = metaIos;
     }
 
     /** Flag for enabling single-threaded append-only tree creation. */
@@ -999,8 +1004,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             init(rootId, latestLeafIo());
 
             // Initialize meta page with new root page.
-            Bool res = write(metaPageId, initRoot, BplusMetaIo.VERSIONS.latest(), rootId, inlineSize, FALSE,
-                    statisticsHolder());
+            Bool res = write(metaPageId, initRoot, latestMetaIo(), rootId, inlineSize, FALSE, statisticsHolder());
 
             assert res == TRUE : res;
 
@@ -1045,7 +1049,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
 
             try {
-                BplusMetaIo io = BplusMetaIo.VERSIONS.forPage(pageAddr);
+                BplusMetaIo io = metaIos.forPage(pageAddr);
 
                 int rootLvl = io.getRootLevel(pageAddr);
                 long rootId = io.getFirstPageId(pageAddr, rootLvl);
@@ -1113,7 +1117,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         long pageAddr = metaPageAddr != 0L ? metaPageAddr : readLock(metaId, metaPage); // Meta can't be removed.
 
         try {
-            BplusMetaIo io = BplusMetaIo.VERSIONS.forPage(pageAddr);
+            BplusMetaIo io = metaIos.forPage(pageAddr);
 
             if (lvl < 0) {
                 lvl = io.getRootLevel(pageAddr);
@@ -2802,7 +2806,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     protected Iterable<Long> getFirstPageIds(long pageAddr) {
         List<Long> res = new ArrayList<>();
 
-        BplusMetaIo mio = BplusMetaIo.VERSIONS.forPage(pageAddr);
+        BplusMetaIo mio = metaIos.forPage(pageAddr);
 
         for (int lvl = mio.getRootLevel(pageAddr); lvl >= 0; lvl--) {
             res.add(mio.getFirstPageId(pageAddr, lvl));
@@ -5549,6 +5553,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      */
     public final BplusLeafIo<L> latestLeafIo() {
         return leafIos.latest();
+    }
+
+    /**
+     * Returns the latest version of leaf page IO.
+     */
+    public final BplusMetaIo latestMetaIo() {
+        return metaIos.latest();
     }
 
     /**
