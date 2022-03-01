@@ -97,12 +97,12 @@ public class ConfigurationHttpHandlers {
                 )
                 .patch(
                         NODE_CFG_URL,
-                        APPLICATION_JSON,
+                        APPLICATION_JSON.toString(),
                         (req, resp) -> handleUpdate(req, resp, nodeCfgPresentation)
                 )
                 .patch(
                         CLUSTER_CFG_URL,
-                        APPLICATION_JSON,
+                        APPLICATION_JSON.toString(),
                         (req, resp) -> handleUpdate(req, resp, clusterCfgPresentation)
                 );
     }

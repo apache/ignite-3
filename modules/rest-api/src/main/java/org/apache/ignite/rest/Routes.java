@@ -18,7 +18,6 @@
 package org.apache.ignite.rest;
 
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.util.AsciiString;
 
 /**
  * Allows to configure REST handlers vs routes.
@@ -39,8 +38,8 @@ public interface Routes {
      * @param hnd        Actual handler of the request.
      * @return Router
      */
-    default Routes get(String route, AsciiString acceptType, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.GET, acceptType.toString(), hnd));
+    default Routes get(String route, String acceptType, RequestHandler hnd) {
+        addRoute(new Route(route, HttpMethod.GET, acceptType, hnd));
         return this;
     }
 
@@ -64,8 +63,8 @@ public interface Routes {
      * @param hnd        Actual handler of the request.
      * @return Router
      */
-    default Routes put(String route, AsciiString acceptType, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.PUT, acceptType.toString(), hnd));
+    default Routes put(String route, String acceptType, RequestHandler hnd) {
+        addRoute(new Route(route, HttpMethod.PUT, acceptType, hnd));
         return this;
     }
 
@@ -77,8 +76,8 @@ public interface Routes {
      * @param hnd        Actual handler of the request.
      * @return Router
      */
-    default Routes patch(String route, AsciiString acceptType, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.PATCH, acceptType.toString(), hnd));
+    default Routes patch(String route, String acceptType, RequestHandler hnd) {
+        addRoute(new Route(route, HttpMethod.PATCH, acceptType, hnd));
         return this;
     }
 }
