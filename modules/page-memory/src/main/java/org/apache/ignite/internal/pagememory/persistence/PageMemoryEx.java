@@ -27,6 +27,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * Page memory with some persistence related additions.
  */
 //TODO IGNITE-16350 Improve javadoc in this class.
+//TODO IGNITE-16350 Consider removing this interface.
 public interface PageMemoryEx extends PageMemory {
     /**
      * Acquires a read lock associated with the given page.

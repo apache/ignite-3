@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence;
 import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putLong;
-import static org.apache.ignite.internal.util.GridUnsafe.setMemory;
+import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 
 import java.util.function.LongUnaryOperator;
 
@@ -47,7 +47,7 @@ public class ClockPageReplacementFlags {
         pagesCnt = totalPagesCnt;
         flagsPtr = memPtr;
 
-        setMemory(flagsPtr, (totalPagesCnt + 7) >> 3, (byte) 0);
+        zeroMemory(flagsPtr, (totalPagesCnt + 7) >> 3);
     }
 
     /**

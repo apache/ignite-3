@@ -529,6 +529,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     public long partitionMetaPageId(int grpId, int partId) {
         assert started;
 
+        //TODO IGNITE-16350 Consider reworking in FLAG_AUX.
         return pageId(partId, FLAG_DATA, 0);
     }
 
@@ -703,8 +704,6 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
 
             return absPtr;
-        } catch (IgniteOutOfMemoryException oom) {
-            throw oom;
         } finally {
             seg.writeLock().unlock();
 

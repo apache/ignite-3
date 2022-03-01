@@ -256,7 +256,7 @@ public class IgniteUtils {
      * Returns hex representation of memory region.
      *
      * @param addr Pointer in memory.
-     * @param len How much byte to read (should divide 8).
+     * @param len How much byte to read.
      */
     public static String toHexString(long addr, int len) {
         StringBuilder sb = new StringBuilder(len * 2);
