@@ -63,6 +63,7 @@ import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -82,7 +83,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Configuration registry.
  */
-public class ConfigurationRegistry implements IgniteComponent {
+public class ConfigurationRegistry implements IgniteComponent, ConfigurationStorageRevisionListenerHolder {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ConfigurationRegistry.class);
 
@@ -329,25 +330,14 @@ public class ConfigurationRegistry implements IgniteComponent {
         return CompletableFuture.allOf(resultFutures);
     }
 
-    /**
-     * Adds configuration storage revision change listener.
-     *
-     * <p>NOTE: If this method is called from another listener, then it is guaranteed to be called starting from the next configuration
-     * update only.
-     *
-     * @param listener Listener.
-     */
+    /** {@inheritDoc} */
+    @Override
     public void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
         storageRevisionListeners.addListener(listener, changer.notificationCount());
     }
 
-    /**
-     * Removes configuration storage revision change listener.
-     *
-     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
-     *
-     * @param listener Listener.
-     */
+    /** {@inheritDoc} */
+    @Override
     public void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener) {
         storageRevisionListeners.removeListener(listener);
     }
