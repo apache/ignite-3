@@ -32,7 +32,7 @@ public interface Routes {
     void addRoute(Route route);
 
     /**
-     * GET query helper.
+     * Adds a GET handler.
      *
      * @param route      Route.
      * @param acceptType Accept type.
@@ -45,7 +45,7 @@ public interface Routes {
     }
 
     /**
-     * GET query helper.
+     * Adds a GET handler.
      *
      * @param route Route.
      * @param hnd   Actual handler of the request.
@@ -57,7 +57,7 @@ public interface Routes {
     }
 
     /**
-     * PUT query helper.
+     * Adds a PUT handler.
      *
      * @param route      Route.
      * @param acceptType Accept type.
@@ -70,7 +70,7 @@ public interface Routes {
     }
 
     /**
-     * Defines a PATCH route.
+     * Adds a PATCH handler.
      *
      * @param route      Route.
      * @param acceptType Accept type.
