@@ -39,14 +39,14 @@ import org.apache.ignite.rest.RestHandlersRegister;
 import org.apache.ignite.rest.Routes;
 
 /**
- * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
+ * Rest component is responsible for starting REST endpoints.
  *
  * <p>It is started on port 10300 by default, but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
  */
-public class RestModule implements RestHandlersRegister, IgniteComponent {
+public class RestComponent implements RestHandlersRegister, IgniteComponent {
     /** Ignite logger. */
-    private final IgniteLogger log = IgniteLogger.forClass(RestModule.class);
+    private final IgniteLogger log = IgniteLogger.forClass(RestComponent.class);
 
     /** Node configuration register. */
     private final ConfigurationRegistry nodeCfgRegistry;
@@ -65,7 +65,7 @@ public class RestModule implements RestHandlersRegister, IgniteComponent {
      * @param nodeCfgMgr       Node configuration manager.
      * @param bootstrapFactory Netty bootstrap factory.
      */
-    public RestModule(ConfigurationManager nodeCfgMgr, NettyBootstrapFactory bootstrapFactory) {
+    public RestComponent(ConfigurationManager nodeCfgMgr, NettyBootstrapFactory bootstrapFactory) {
         nodeCfgRegistry = nodeCfgMgr.configurationRegistry();
 
         this.bootstrapFactory = bootstrapFactory;
