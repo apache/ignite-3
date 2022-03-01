@@ -20,7 +20,7 @@ package org.apache.ignite.rest;
 import io.netty.handler.codec.http.HttpMethod;
 
 /**
- * Allows to configure REST handlers vs routes.
+ * Allows to configure routes to REST handlers mapping.
  */
 public interface Routes {
     /**
