@@ -29,7 +29,7 @@ public interface Router {
      * Finds the route by request.
      *
      * @param req Request.
-     * @return Route if founded.
+     * @return Route if found.
      */
     Optional<Route> route(HttpRequest req);
 }
