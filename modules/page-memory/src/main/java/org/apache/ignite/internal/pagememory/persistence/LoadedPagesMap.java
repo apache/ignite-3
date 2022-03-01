@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.util.IgniteLongList;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -102,7 +102,7 @@ public interface LoadedPagesMap {
      * @param keyPred Test predicate for (group ID, page ID).
      * @return List with removed values, value is not added to list for empty cell or if key is not matching to predicate.
      */
-    IgniteLongList removeIf(int startIdxToClear, int endIdxToClear, KeyPredicate keyPred);
+    LongArrayList removeIf(int startIdxToClear, int endIdxToClear, KeyPredicate keyPred);
 
     /**
      * Removes entities matching provided predicate.
@@ -110,7 +110,7 @@ public interface LoadedPagesMap {
      * @param keyPred Test predicate for (group ID, page ID).
      * @return List with removed values, value is not added to list for empty cell or if key is not matching to predicate.
      */
-    default IgniteLongList removeIf(KeyPredicate keyPred) {
+    default LongArrayList removeIf(KeyPredicate keyPred) {
         return removeIf(0, capacity(), keyPred);
     }
 

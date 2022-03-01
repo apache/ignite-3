@@ -24,11 +24,11 @@ import static org.apache.ignite.internal.util.GridUnsafe.putLong;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.lang.IgniteSystemProperties.getFloat;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.function.BiConsumer;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.util.GridUnsafe;
-import org.apache.ignite.internal.util.IgniteLongList;
 
 /**
  * Loaded pages mapping to relative pointer based on Robin Hood hashing: backward shift deletion algorithm.
@@ -410,13 +410,13 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteLongList removeIf(int startIdxToClear, int endIdxToClear, KeyPredicate keyPred) {
+    public LongArrayList removeIf(int startIdxToClear, int endIdxToClear, KeyPredicate keyPred) {
         assert endIdxToClear >= startIdxToClear
                 : "Start and end indexes are not consistent: {" + startIdxToClear + ", " + endIdxToClear + "}";
 
         int sz = endIdxToClear - startIdxToClear;
 
-        IgniteLongList list = new IgniteLongList(sz);
+        LongArrayList list = new LongArrayList(sz);
 
         for (int idx = startIdxToClear; idx < endIdxToClear; idx++) {
             long base = entryBase(idx);
