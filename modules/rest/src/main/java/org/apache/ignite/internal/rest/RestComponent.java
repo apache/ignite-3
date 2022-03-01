@@ -29,14 +29,14 @@ import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.rest.api.RestHandlersRegister;
+import org.apache.ignite.internal.rest.api.Routes;
 import org.apache.ignite.internal.rest.netty.RestApiInitializer;
 import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.internal.rest.routes.SimpleRouter;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.internal.rest.api.RestHandlersRegister;
-import org.apache.ignite.internal.rest.api.Routes;
 
 /**
  * Rest component is responsible for starting REST endpoints.
