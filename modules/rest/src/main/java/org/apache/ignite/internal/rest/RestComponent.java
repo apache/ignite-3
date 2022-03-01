@@ -138,6 +138,8 @@ public class RestComponent implements RestHandlersRegister, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
+
         if (channel != null) {
             channel.close().await();
 
