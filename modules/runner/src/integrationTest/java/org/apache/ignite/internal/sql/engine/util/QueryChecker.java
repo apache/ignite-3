@@ -183,7 +183,8 @@ public abstract class QueryChecker {
     /**
      * Adds plan matchers.
      */
-    public QueryChecker matches(Matcher<String>... planMatcher) {
+    @SafeVarargs
+    public final QueryChecker matches(Matcher<String>... planMatcher) {
         Collections.addAll(planMatchers, planMatcher);
 
         return this;
