@@ -595,6 +595,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
+        public int version() {
+            return 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public IgniteLogicalTableScan toRel(
                 RelOptCluster cluster,
                 RelOptTable relOptTbl,
@@ -939,7 +945,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         @Override
-        public IgniteTable tableById(UUID id) {
+        public IgniteTable tableById(UUID id, int ver) {
             return tablesById.get(id);
         }
     }
