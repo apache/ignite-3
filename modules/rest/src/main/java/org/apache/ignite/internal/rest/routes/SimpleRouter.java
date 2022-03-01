@@ -42,15 +42,6 @@ public class SimpleRouter implements Router, Routes {
     private final List<Route> routes;
 
     /**
-     * Creates a new router with the given list of {@code routes}.
-     *
-     * @param routes Routes.
-     */
-    public SimpleRouter(List<Route> routes) {
-        this.routes = List.copyOf(routes);
-    }
-
-    /**
      * Creates a new empty router.
      */
     public SimpleRouter() {
