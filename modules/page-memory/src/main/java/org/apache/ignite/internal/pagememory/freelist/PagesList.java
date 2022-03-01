@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteLongList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
@@ -224,7 +224,7 @@ public abstract class PagesList extends DataStructure {
             if (initNew) {
                 init(metaPageId, PagesListMetaIo.VERSIONS.latest());
             } else {
-                Map<Integer, IgniteLongList> bucketsData = new HashMap<>();
+                Map<Integer, LongArrayList> bucketsData = new HashMap<>();
 
                 long nextId = metaPageId;
 
@@ -253,14 +253,14 @@ public abstract class PagesList extends DataStructure {
                     }
                 }
 
-                for (Map.Entry<Integer, IgniteLongList> e : bucketsData.entrySet()) {
+                for (Map.Entry<Integer, LongArrayList> e : bucketsData.entrySet()) {
                     int bucket = e.getKey();
                     long bucketSize = 0;
 
                     Stripe[] old = getBucket(bucket);
                     assert old == null;
 
-                    long[] upd = e.getValue().array();
+                    long[] upd = e.getValue().toLongArray();
 
                     Stripe[] tails = new Stripe[upd.length];
 
@@ -374,7 +374,7 @@ public abstract class PagesList extends DataStructure {
                     continue;
                 }
 
-                IgniteLongList pages = pagesCache.flush();
+                LongArrayList pages = pagesCache.flush();
 
                 if (pages != null) {
                     if (log.isDebugEnabled()) {
@@ -383,7 +383,7 @@ public abstract class PagesList extends DataStructure {
                     }
 
                     for (int i = 0; i < pages.size(); i++) {
-                        long pageId = pages.get(i);
+                        long pageId = pages.getLong(i);
 
                         if (log.isDebugEnabled()) {
                             log.debug("Move page from heap to PageMemory [list=" + name() + ", bucket=" + bucket
@@ -1076,7 +1076,7 @@ public abstract class PagesList extends DataStructure {
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
         // TODO: may be unlock right away and do not keep all these pages locked?
-        IgniteLongList locked = null;
+        LongArrayList locked = null;
 
         try {
             while ((nextId = bag.pollFreePage()) != 0L) {
@@ -1093,7 +1093,7 @@ public abstract class PagesList extends DataStructure {
                         assert nextPageAddr != 0L;
 
                         if (locked == null) {
-                            locked = new IgniteLongList(6);
+                            locked = new LongArrayList(6);
                         }
 
                         locked.add(nextId);
@@ -1125,7 +1125,7 @@ public abstract class PagesList extends DataStructure {
 
                 // Release write.
                 for (int i = 0; i < locked.size(); i += 3) {
-                    writeUnlock(locked.get(i), locked.get(i + 1), locked.get(i + 2), true);
+                    writeUnlock(locked.getLong(i), locked.getLong(i + 1), locked.getLong(i + 2), true);
                 }
             }
         }
@@ -1911,7 +1911,7 @@ public abstract class PagesList extends DataStructure {
         private final Object[] stripeLocks = new Object[STRIPES_COUNT];
 
         /** Page lists. */
-        private final IgniteLongList[] stripes = new IgniteLongList[STRIPES_COUNT];
+        private final LongArrayList[] stripes = new LongArrayList[STRIPES_COUNT];
 
         /** Atomic updater for {@link #nextStripeIdx} field. */
         private static final AtomicIntegerFieldUpdater<PagesCache> nextStripeUpdater = newUpdater(PagesCache.class, "nextStripeIdx");
@@ -1957,9 +1957,9 @@ public abstract class PagesList extends DataStructure {
             int stripeIdx = (int) pageId & (STRIPES_COUNT - 1);
 
             synchronized (stripeLocks[stripeIdx]) {
-                IgniteLongList stripe = stripes[stripeIdx];
+                LongArrayList stripe = stripes[stripeIdx];
 
-                boolean rmvd = stripe != null && stripe.removeValue(0, pageId) >= 0;
+                boolean rmvd = stripe != null && stripe.rem(pageId);
 
                 if (rmvd) {
                     if (sizeUpdater.decrementAndGet(this) == 0 && pagesCacheLimit != null) {
@@ -1985,14 +1985,14 @@ public abstract class PagesList extends DataStructure {
                 int stripeIdx = nextStripeUpdater.getAndIncrement(this) & (STRIPES_COUNT - 1);
 
                 synchronized (stripeLocks[stripeIdx]) {
-                    IgniteLongList stripe = stripes[stripeIdx];
+                    LongArrayList stripe = stripes[stripeIdx];
 
                     if (stripe != null && !stripe.isEmpty()) {
                         if (sizeUpdater.decrementAndGet(this) == 0 && pagesCacheLimit != null) {
                             pagesCacheLimit.incrementAndGet();
                         }
 
-                        return stripe.remove();
+                        return stripe.removeLong(stripe.size() - 1);
                     }
                 }
             }
@@ -2003,8 +2003,8 @@ public abstract class PagesList extends DataStructure {
         /**
          * Flush all stripes to one list and clear stripes.
          */
-        public IgniteLongList flush() {
-            IgniteLongList res = null;
+        public LongArrayList flush() {
+            LongArrayList res = null;
 
             if (size == 0) {
                 boolean stripesChanged = false;
@@ -2012,7 +2012,7 @@ public abstract class PagesList extends DataStructure {
                 if (emptyFlushCnt >= 0 && ++emptyFlushCnt >= EMPTY_FLUSH_GC_THRESHOLD) {
                     for (int i = 0; i < STRIPES_COUNT; i++) {
                         synchronized (stripeLocks[i]) {
-                            IgniteLongList stripe = stripes[i];
+                            LongArrayList stripe = stripes[i];
 
                             if (stripe != null) {
                                 if (stripe.isEmpty()) {
@@ -2041,11 +2041,11 @@ public abstract class PagesList extends DataStructure {
 
             for (int i = 0; i < STRIPES_COUNT; i++) {
                 synchronized (stripeLocks[i]) {
-                    IgniteLongList stripe = stripes[i];
+                    LongArrayList stripe = stripes[i];
 
                     if (stripe != null && !stripe.isEmpty()) {
                         if (res == null) {
-                            res = new IgniteLongList(size);
+                            res = new LongArrayList(size);
                         }
 
                         if (sizeUpdater.addAndGet(this, -stripe.size()) == 0 && pagesCacheLimit != null) {
@@ -2084,10 +2084,10 @@ public abstract class PagesList extends DataStructure {
             int stripeIdx = (int) pageId & (STRIPES_COUNT - 1);
 
             synchronized (stripeLocks[stripeIdx]) {
-                IgniteLongList stripe = stripes[stripeIdx];
+                LongArrayList stripe = stripes[stripeIdx];
 
                 if (stripe == null) {
-                    stripes[stripeIdx] = stripe = new IgniteLongList(MAX_SIZE / STRIPES_COUNT);
+                    stripes[stripeIdx] = stripe = new LongArrayList(MAX_SIZE / STRIPES_COUNT);
                 }
 
                 if (stripe.size() >= MAX_SIZE / STRIPES_COUNT) {
