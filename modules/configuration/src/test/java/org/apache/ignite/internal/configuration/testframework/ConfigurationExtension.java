@@ -143,10 +143,10 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
             ParameterContext parameterContext,
             ExtensionContext extensionContext
     ) throws ParameterResolutionException {
-        Class<?> parametrType = parameterContext.getParameter().getType();
+        Class<?> parameterType = parameterContext.getParameter().getType();
 
-        return (parameterContext.isAnnotated(InjectConfiguration.class) && isNameEndsWithConfiguration(parametrType))
-                || (parameterContext.isAnnotated(InjectRevisionListenerHolder.class) && isRevisionListenerHolder(parametrType));
+        return (parameterContext.isAnnotated(InjectConfiguration.class) && supportsAsConfigurationType(parameterType))
+                || (parameterContext.isAnnotated(InjectRevisionListenerHolder.class) && isRevisionListenerHolder(parameterType));
     }
 
     /** {@inheritDoc} */
@@ -296,7 +296,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         return AnnotationSupport.findAnnotatedFields(
                 testClass,
                 InjectConfiguration.class,
-                field -> isNameEndsWithConfiguration(field.getType()),
+                field -> supportsAsConfigurationType(field.getType()),
                 HierarchyTraversalMode.TOP_DOWN
         );
     }
@@ -310,7 +310,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         );
     }
 
-    private static boolean isNameEndsWithConfiguration(Class<?> type) {
+    private static boolean supportsAsConfigurationType(Class<?> type) {
         return type.getCanonicalName().endsWith("Configuration");
     }
 
@@ -341,14 +341,9 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
         }
 
         private Collection<CompletableFuture<?>> notifyStorageRevisionListeners(long storageRevision, long notificationNumber) {
-            // Lazy init.
-            List<CompletableFuture<?>> futures = null;
+            List<CompletableFuture<?>> futures = new ArrayList<>();
 
             for (Iterator<ConfigurationStorageRevisionListener> it = listeners.listeners(notificationNumber); it.hasNext(); ) {
-                if (futures == null) {
-                    futures = new ArrayList<>();
-                }
-
                 ConfigurationStorageRevisionListener listener = it.next();
 
                 try {
@@ -364,7 +359,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
                 }
             }
 
-            return futures == null ? List.of() : futures;
+            return futures;
         }
     }
 }
