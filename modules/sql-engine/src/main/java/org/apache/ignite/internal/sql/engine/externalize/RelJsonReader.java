@@ -153,11 +153,15 @@ public class RelJsonReader {
 
         /** {@inheritDoc} */
         @Override
-        public RelOptTable getTableById(String tag) {
-            String tableId = getString(tag);
-            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId));
+        public RelOptTable getTableById() {
+            String tableId = getString("tableId");
+            int ver = ((Number) get("tableVer")).intValue();
 
-            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), List.of(tableId),
+            IgniteTable table = schemaManager.tableById(UUID.fromString(tableId), ver);
+
+            List<String> tableName = getStringList("table");
+
+            return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
                     table, null);
         }
 

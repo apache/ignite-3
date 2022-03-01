@@ -35,7 +35,9 @@ public interface SqlSchemaManager {
      * Returns a table by given id.
      *
      * @param id An id of required table.
+     * @param ver Minimal required version.
+     *
      * @return The table.
      */
-    IgniteTable tableById(UUID id);
+    IgniteTable tableById(UUID id, int ver);
 }

@@ -33,6 +33,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.set;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
+import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
+import it.unimi.dsi.fastutil.longs.LongArrays;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,7 +66,6 @@ import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.IgniteCursor;
-import org.apache.ignite.internal.util.IgniteLongList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringBuilder;
@@ -167,6 +168,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
     // TODO: IGNITE-16350 Make it final.
     private IoVersions<? extends BplusLeafIo<L>> leafIos;
+
+    // TODO: IGNITE-16350 Make it final.
+    private IoVersions<? extends BplusMetaIo> metaIos;
 
     private final AtomicLong globalRmvId;
 
@@ -881,6 +885,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param reuseList Reuse list.
      * @param innerIos Inner IO versions.
      * @param leafIos Leaf IO versions.
+     * @param metaIos Meta IO versions.
      */
     protected BplusTree(
             String name,
@@ -893,11 +898,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             long metaPageId,
             @Nullable ReuseList reuseList,
             IoVersions<? extends BplusInnerIo<L>> innerIos,
-            IoVersions<? extends BplusLeafIo<L>> leafIos
+            IoVersions<? extends BplusLeafIo<L>> leafIos,
+            IoVersions<? extends BplusMetaIo> metaIos
     ) {
         this(name, grpId, grpName, pageMem, lockLsnr, defaultPageFlag, globalRmvId, metaPageId, reuseList);
 
-        setIos(innerIos, leafIos);
+        setIos(innerIos, leafIos, metaIos);
     }
 
     /**
@@ -955,18 +961,18 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *
      * @param innerIos Inner IO versions.
      * @param leafIos Leaf IO versions.
+     * @param metaIos Meta IO versions.
      */
     public void setIos(
             IoVersions<? extends BplusInnerIo<L>> innerIos,
-            IoVersions<? extends BplusLeafIo<L>> leafIos
+            IoVersions<? extends BplusLeafIo<L>> leafIos,
+            IoVersions<? extends BplusMetaIo> metaIos
     ) {
-        assert innerIos != null;
-        assert leafIos != null;
-
         // TODO IGNITE-16350 Refactor and make it always true.
         this.canGetRowFromInner = innerIos.latest().canGetRow();
         this.innerIos = innerIos;
         this.leafIos = leafIos;
+        this.metaIos = metaIos;
     }
 
     /** Flag for enabling single-threaded append-only tree creation. */
@@ -999,8 +1005,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             init(rootId, latestLeafIo());
 
             // Initialize meta page with new root page.
-            Bool res = write(metaPageId, initRoot, BplusMetaIo.VERSIONS.latest(), rootId, inlineSize, FALSE,
-                    statisticsHolder());
+            Bool res = write(metaPageId, initRoot, latestMetaIo(), rootId, inlineSize, FALSE, statisticsHolder());
 
             assert res == TRUE : res;
 
@@ -1045,7 +1050,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             }
 
             try {
-                BplusMetaIo io = BplusMetaIo.VERSIONS.forPage(pageAddr);
+                BplusMetaIo io = metaIos.forPage(pageAddr);
 
                 int rootLvl = io.getRootLevel(pageAddr);
                 long rootId = io.getFirstPageId(pageAddr, rootLvl);
@@ -1113,7 +1118,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         long pageAddr = metaPageAddr != 0L ? metaPageAddr : readLock(metaId, metaPage); // Meta can't be removed.
 
         try {
-            BplusMetaIo io = BplusMetaIo.VERSIONS.forPage(pageAddr);
+            BplusMetaIo io = metaIos.forPage(pageAddr);
 
             if (lvl < 0) {
                 lvl = io.getRootLevel(pageAddr);
@@ -2802,7 +2807,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     protected Iterable<Long> getFirstPageIds(long pageAddr) {
         List<Long> res = new ArrayList<>();
 
-        BplusMetaIo mio = BplusMetaIo.VERSIONS.forPage(pageAddr);
+        BplusMetaIo mio = metaIos.forPage(pageAddr);
 
         for (int lvl = mio.getRootLevel(pageAddr); lvl >= 0; lvl--) {
             res.add(mio.getFirstPageId(pageAddr, lvl));
@@ -4548,12 +4553,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public long pollFreePage() {
             if (freePages == null) {
                 return 0L;
-            }
+            } else if (freePages instanceof LongArrayFIFOQueue) {
+                LongArrayFIFOQueue pages = ((LongArrayFIFOQueue) freePages);
 
-            if (freePages.getClass() == IgniteLongList.class) {
-                IgniteLongList list = ((IgniteLongList) freePages);
-
-                return list.isEmpty() ? 0L : list.remove();
+                return pages.isEmpty() ? 0L : pages.dequeueLastLong();
             }
 
             long res = (long) freePages;
@@ -4571,18 +4574,19 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (freePages == null) {
                 freePages = pageId;
             } else {
-                IgniteLongList list;
+                LongArrayFIFOQueue pages;
 
-                if (freePages.getClass() == IgniteLongList.class) {
-                    list = (IgniteLongList) freePages;
+                if (freePages instanceof LongArrayFIFOQueue) {
+                    pages = (LongArrayFIFOQueue) freePages;
                 } else {
-                    list = new IgniteLongList(4);
+                    pages = new LongArrayFIFOQueue(4);
 
-                    list.add((Long) freePages);
-                    freePages = list;
+                    pages.enqueue((long) freePages);
+
+                    freePages = pages;
                 }
 
-                list.add(pageId);
+                pages.enqueue(pageId);
             }
         }
 
@@ -4591,12 +4595,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         public boolean isEmpty() {
             if (freePages == null) {
                 return true;
-            }
-
-            if (freePages.getClass() == IgniteLongList.class) {
-                IgniteLongList list = ((IgniteLongList) freePages);
-
-                return list.isEmpty();
+            } else if (freePages instanceof LongArrayFIFOQueue) {
+                return ((LongArrayFIFOQueue) freePages).isEmpty();
             }
 
             return false;
@@ -5552,6 +5552,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     /**
+     * Returns the latest version of leaf page IO.
+     */
+    public final BplusMetaIo latestMetaIo() {
+        return metaIos.latest();
+    }
+
+    /**
      * Returns comparison result as in {@link Comparator#compare(Object, Object)}.
      *
      * @param io IO.
@@ -6386,7 +6393,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @return Array of page ids.
      */
     private long[] pages(boolean empty, Supplier<long[]> pages) {
-        return empty ? IgniteLongList.EMPTY_ARRAY : pages.get();
+        return empty ? LongArrays.EMPTY_ARRAY : pages.get();
     }
 
     /**

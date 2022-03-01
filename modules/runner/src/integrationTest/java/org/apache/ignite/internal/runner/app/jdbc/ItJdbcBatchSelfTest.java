@@ -150,7 +150,33 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertThrows(SQLException.class, pstmt2::executeBatch, "Statement is closed.");
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16268")
+    @Test
+    public void testPreparedStatementBatchException() throws Exception {
+        PreparedStatement preparedStatement = conn.prepareStatement("SELECT * FROM Person;");
+
+        preparedStatement.setString(1, "broken");
+        preparedStatement.addBatch();
+
+        try {
+            preparedStatement.executeBatch();
+
+            fail("BatchUpdateException must be thrown");
+        } catch (BatchUpdateException e) {
+            int[] updCnts = e.getUpdateCounts();
+
+            assertEquals(0, updCnts.length, "Invalid update counts size");
+
+            if (!e.getMessage().contains("Given statement type does not match that declared by JDBC driver")) {
+                log.error("Invalid exception: ", e);
+
+                fail();
+            }
+
+            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
+            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
+        }
+    }
+
     @Test
     public void testBatchException() throws Exception {
         final int successUpdates = 5;

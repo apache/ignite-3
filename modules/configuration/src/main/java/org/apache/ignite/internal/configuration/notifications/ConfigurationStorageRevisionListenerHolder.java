@@ -15,32 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.configuration.notifications;
 
 /**
- * Query mapping context.
+ * Configuration storage revision change listener holder.
  */
-public class MappingQueryContext {
-    private final String locNodeId;
-
-    private final long topVer;
+public interface ConfigurationStorageRevisionListenerHolder {
+    /**
+     * Adds configuration storage revision change listener.
+     *
+     * <p>NOTE: If this method is called from another listener, then it is guaranteed to be called starting from the next configuration
+     * update only.
+     *
+     * @param listener Listener.
+     */
+    void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
 
     /**
-     * Constructor.
+     * Removes configuration storage revision change listener.
      *
-     * @param locNodeId Local node identifier.
-     * @param topVer    Topology version to map.
+     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
+     *
+     * @param listener Listener.
      */
-    public MappingQueryContext(String locNodeId, long topVer) {
-        this.locNodeId = locNodeId;
-        this.topVer = topVer;
-    }
-
-    public String localNodeId() {
-        return locNodeId;
-    }
-
-    public long topologyVersion() {
-        return topVer;
-    }
+    void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
 }

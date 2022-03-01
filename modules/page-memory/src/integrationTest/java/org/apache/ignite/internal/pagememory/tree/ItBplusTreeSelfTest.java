@@ -95,6 +95,7 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -119,6 +120,8 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     private static final short LONG_INNER_IO = 30000;
 
     private static final short LONG_LEAF_IO = 30001;
+
+    private static final short LONG_META_IO = 30002;
 
     protected static final int CPUS = Runtime.getRuntime().availableProcessors();
 
@@ -2580,11 +2583,13 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                     metaPageId,
                     reuseList,
                     new IoVersions<>(new LongInnerIo(canGetRow)),
-                    new IoVersions<>(new LongLeafIo())
+                    new IoVersions<>(new LongLeafIo()),
+                    new IoVersions<>(new LongMetaIo())
             );
 
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongInnerIo(canGetRow)));
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongLeafIo()));
+            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongMetaIo()));
 
             initTree(true);
         }
@@ -3052,5 +3057,14 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      */
     protected void assertNoLocks() {
         assertTrue(TestPageLockListener.checkNoLocks());
+    }
+
+    /**
+     * Long meta.
+     */
+    private static class LongMetaIo extends BplusMetaIo {
+        public LongMetaIo() {
+            super(LONG_META_IO, 1);
+        }
     }
 }

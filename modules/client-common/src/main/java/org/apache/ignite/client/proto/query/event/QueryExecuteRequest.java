@@ -17,7 +17,9 @@
 
 package org.apache.ignite.client.proto.query.event;
 
+import java.util.Objects;
 import org.apache.ignite.client.proto.query.ClientMessage;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.tostring.S;
@@ -26,6 +28,9 @@ import org.apache.ignite.internal.tostring.S;
  * JDBC query execute request.
  */
 public class QueryExecuteRequest implements ClientMessage {
+    /** Expected statement type. */
+    private JdbcStatementType stmtType;
+
     /** Schema name. */
     private String schemaName;
 
@@ -50,14 +55,18 @@ public class QueryExecuteRequest implements ClientMessage {
     /**
      * Constructor.
      *
+     * @param stmtType Expected statement type.
      * @param schemaName Cache name.
      * @param pageSize   Fetch size.
      * @param maxRows    Max rows.
      * @param sqlQry     SQL query.
      * @param args       Arguments list.
      */
-    public QueryExecuteRequest(String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
+    public QueryExecuteRequest(JdbcStatementType stmtType,
+            String schemaName, int pageSize, int maxRows, String sqlQry, Object[] args) {
+        Objects.requireNonNull(stmtType);
 
+        this.stmtType = stmtType;
         this.schemaName = schemaName == null || schemaName.isEmpty() ? null : schemaName;
         this.pageSize = pageSize;
         this.maxRows = maxRows;
@@ -66,7 +75,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the page size.
+     * Returns the page size.
      *
      * @return Page size.
      */
@@ -75,7 +84,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the max rows.
+     * Returns the max rows.
      *
      * @return Max rows.
      */
@@ -84,7 +93,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the sql query.
+     * Returns the sql query.
      *
      * @return Sql query.
      */
@@ -93,7 +102,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the arguments.
+     * Returns the arguments.
      *
      * @return Sql query arguments.
      */
@@ -102,7 +111,7 @@ public class QueryExecuteRequest implements ClientMessage {
     }
 
     /**
-     * Get the schema name.
+     * Returns the schema name.
      *
      * @return Schema name.
      */
@@ -110,9 +119,19 @@ public class QueryExecuteRequest implements ClientMessage {
         return schemaName;
     }
 
+    /**
+     * Returns the expected statement type.
+     *
+     * @return Statement type.
+     */
+    public JdbcStatementType getStmtType() {
+        return stmtType;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
+        packer.packByte(stmtType.getId());
         packer.packString(schemaName);
         packer.packInt(pageSize);
         packer.packInt(maxRows);
@@ -124,6 +143,7 @@ public class QueryExecuteRequest implements ClientMessage {
     /** {@inheritDoc} */
     @Override
     public void readBinary(ClientMessageUnpacker unpacker) {
+        stmtType = JdbcStatementType.getStatement(unpacker.unpackByte());
         schemaName = unpacker.unpackString();
         pageSize = unpacker.unpackInt();
         maxRows = unpacker.unpackInt();

@@ -22,13 +22,11 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IndexConditions;
@@ -52,16 +50,12 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
     ) {
         InternalIgniteTable tbl = table.unwrap(InternalIgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
-        RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
         RelCollation collation = tbl.getIndex(idxName).collation();
 
         if (requiredColumns != null) {
             Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns,
                     tbl.getRowType(typeFactory).getFieldCount());
             collation = collation.apply(targetMapping);
-            if (proj != null) {
-                collation = TraitUtils.projectCollation(collation, proj, rowType);
-            }
         }
 
         IndexConditions idxCond = new IndexConditions();

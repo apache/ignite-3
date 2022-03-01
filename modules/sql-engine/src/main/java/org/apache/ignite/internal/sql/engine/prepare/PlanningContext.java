@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.calcite.plan.Context;
@@ -30,7 +29,6 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.util.CancelFlag;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.jetbrains.annotations.NotNull;
@@ -69,15 +67,6 @@ public final class PlanningContext implements Context {
      */
     public FrameworkConfig config() {
         return unwrap(BaseQueryContext.class).config();
-    }
-
-    /**
-     * Get list of extensions.
-     *
-     * @return List of extensions.
-     */
-    public List<SqlExtension> extensions() {
-        return unwrap(BaseQueryContext.class).extensions();
     }
 
     /**

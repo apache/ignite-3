@@ -88,7 +88,9 @@ class UpgradingRowAdapter extends Row {
     public Object value(int colIdx) {
         int mappedId = mapColumn(colIdx);
 
-        return mappedId < 0 ? mapper.mappedColumn(colIdx).defaultValue() : super.value(mappedId);
+        return mappedId < 0
+                ? mapper.mappedColumn(colIdx).defaultValue()
+                : schema.column(colIdx).type().spec().objectValue(this, colIdx);
     }
 
     /** {@inheritDoc} */

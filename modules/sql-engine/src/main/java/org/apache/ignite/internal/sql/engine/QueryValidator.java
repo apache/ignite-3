@@ -2,11 +2,11 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.extension;
+package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
 /**
- * Listener used to notify {@link SqlSchemaManager} about any changes in the external catalogs.
- */
-public interface CatalogUpdateListener {
+ * The query validator interface. Allows validating query plan.
+ * */
+public interface QueryValidator {
     /**
-     * Notify the {@link SqlSchemaManager} that provided catalog has been updated.
+     * Validate the prepared query plan.
      *
-     * @param catalog Catalog to notify the {@link SqlSchemaManager} about.
+     * @throws QueryValidationException in the case of a validation error.
      */
-    void onCatalogUpdated(ExternalCatalog catalog);
+    void validatePlan(QueryPlan plan) throws QueryValidationException;
 }

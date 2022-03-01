@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.configuration.testframework;
 
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
-import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.io.PageIoModule;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 
 /**
- * {@link PageIoModule} implementation in page-memory module.
+ * Annotation for injecting {@link ConfigurationStorageRevisionListenerHolder} into tests.
+ *
+ * <p>This annotation should be used on either fields or method parameters, one instance per test.
  */
-public class PageMemoryIoModule implements PageIoModule {
-    /** {@inheritDoc} */
-    @Override
-    public Collection<IoVersions<?>> ioVersions() {
-        return List.of(
-                PagesListMetaIo.VERSIONS,
-                PagesListNodeIo.VERSIONS
-        );
-    }
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+public @interface InjectRevisionListenerHolder {
 }

@@ -29,6 +29,8 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.trait.CorrelationTrait;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.util.RexUtils;
 
 /**
@@ -50,14 +52,24 @@ public class FilterConverterRule extends AbstractIgniteConverterRule<LogicalFilt
     @Override
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalFilter rel) {
         RelOptCluster cluster = rel.getCluster();
-        RelTraitSet traits = rel.getTraitSet().replace(IgniteConvention.INSTANCE);
+
+        RelTraitSet traits = cluster
+                .traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single());
 
         Set<CorrelationId> corrIds = RexUtils.extractCorrelationIds(rel.getCondition());
 
         if (!corrIds.isEmpty()) {
-            traits = traits.replace(CorrelationTrait.correlations(corrIds));
+            traits = traits
+                    .replace(CorrelationTrait.correlations(corrIds))
+                    .replace(RewindabilityTrait.REWINDABLE);
         }
 
-        return new IgniteFilter(cluster, traits, rel.getInput(), rel.getCondition());
+        return new IgniteFilter(
+                cluster,
+                traits,
+                convert(rel.getInput(), traits.replace(CorrelationTrait.UNCORRELATED)),
+                rel.getCondition()
+        );
     }
 }

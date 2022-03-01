@@ -15,25 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
-import org.apache.ignite.internal.pagememory.freelist.io.PagesListNodeIo;
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.io.PageIoModule;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * {@link PageIoModule} implementation in page-memory module.
+ * StatementMismatchException is used during query validation.
+ *
+ * <p>The exception is used when the expected query type does not match the actual query type obtained after parsing a sql string.
  */
-public class PageMemoryIoModule implements PageIoModule {
-    /** {@inheritDoc} */
-    @Override
-    public Collection<IoVersions<?>> ioVersions() {
-        return List.of(
-                PagesListMetaIo.VERSIONS,
-                PagesListNodeIo.VERSIONS
-        );
+public class QueryValidationException extends IgniteInternalException {
+    /**
+     * Creates a new exception with the given error message.
+     *
+     * @param msg Error message.
+     */
+    public QueryValidationException(String msg) {
+        super(msg);
     }
 }
