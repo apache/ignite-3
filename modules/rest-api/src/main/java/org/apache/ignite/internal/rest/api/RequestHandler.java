@@ -15,11 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.internal.rest.api;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.rest.RestApiHttpRequest;
-import org.apache.ignite.rest.RestApiHttpResponse;
 
 /**
  * Interface for defining REST API request handlers.

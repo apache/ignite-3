@@ -21,8 +21,8 @@ import io.netty.handler.codec.http.HttpRequest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import org.apache.ignite.rest.Route;
-import org.apache.ignite.rest.Routes;
+import org.apache.ignite.internal.rest.api.Route;
+import org.apache.ignite.internal.rest.api.Routes;
 
 /**
  * Dispatcher of http requests.

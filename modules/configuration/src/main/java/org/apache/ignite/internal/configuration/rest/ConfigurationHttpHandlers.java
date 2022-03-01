@@ -29,11 +29,11 @@ import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.configuration.rest.presentation.hocon.HoconPresentation;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.rest.ErrorResult;
-import org.apache.ignite.rest.RestApiHttpRequest;
-import org.apache.ignite.rest.RestApiHttpResponse;
-import org.apache.ignite.rest.RestHandlersRegister;
-import org.apache.ignite.rest.Routes;
+import org.apache.ignite.internal.rest.api.ErrorResult;
+import org.apache.ignite.internal.rest.api.RestApiHttpRequest;
+import org.apache.ignite.internal.rest.api.RestApiHttpResponse;
+import org.apache.ignite.internal.rest.api.RestHandlersRegister;
+import org.apache.ignite.internal.rest.api.Routes;
 
 /**
  * HTTP handlers for configuration-related REST endpoints.

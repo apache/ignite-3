@@ -19,7 +19,7 @@ package org.apache.ignite.internal.rest.routes;
 
 import io.netty.handler.codec.http.HttpRequest;
 import java.util.Optional;
-import org.apache.ignite.rest.Route;
+import org.apache.ignite.internal.rest.api.Route;
 
 /**
  * Dispatcher of http requests.

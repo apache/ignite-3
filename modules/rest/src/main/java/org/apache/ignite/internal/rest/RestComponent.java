@@ -35,8 +35,8 @@ import org.apache.ignite.internal.rest.routes.SimpleRouter;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.rest.RestHandlersRegister;
-import org.apache.ignite.rest.Routes;
+import org.apache.ignite.internal.rest.api.RestHandlersRegister;
+import org.apache.ignite.internal.rest.api.Routes;
 
 /**
  * Rest component is responsible for starting REST endpoints.

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.rest;
+package org.apache.ignite.internal.rest.api;
 
 /**
  * Error result represent a tuple of error type and user-friendly error message.
