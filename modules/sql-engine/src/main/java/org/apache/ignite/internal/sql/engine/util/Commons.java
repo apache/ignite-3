@@ -96,6 +96,7 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.AbstractMultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -148,7 +149,8 @@ public final class Commons {
             .sqlValidatorConfig(SqlValidator.Config.DEFAULT
                     .withIdentifierExpansion(true)
                     .withDefaultNullCollation(NullCollation.LOW)
-                    .withSqlConformance(IgniteSqlConformance.INSTANCE))
+                    .withSqlConformance(IgniteSqlConformance.INSTANCE)
+                    .withTypeCoercionFactory(IgniteTypeCoercion::new))
             // Dialects support.
             .operatorTable(SqlOperatorTables.chain(
                     SqlLibraryOperatorTableFactory.INSTANCE

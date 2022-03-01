@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
@@ -66,6 +67,7 @@ import org.apache.calcite.runtime.Geometries;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
@@ -512,6 +514,40 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         break;
                     default:
                         // No-Op.
+                }
+                break;
+            case INTERVAL_YEAR:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_MONTH:
+            case INTERVAL_DAY:
+            case INTERVAL_DAY_HOUR:
+            case INTERVAL_DAY_MINUTE:
+            case INTERVAL_DAY_SECOND:
+            case INTERVAL_HOUR:
+            case INTERVAL_HOUR_MINUTE:
+            case INTERVAL_HOUR_SECOND:
+            case INTERVAL_MINUTE:
+            case INTERVAL_MINUTE_SECOND:
+            case INTERVAL_SECOND:
+                switch (sourceType.getSqlTypeName().getFamily()) {
+                    case CHARACTER:
+                        SqlIntervalQualifier intervalQualifier = targetType.getIntervalQualifier();
+
+                        Method method = intervalQualifier.isYearMonth() ?
+                                IgniteBuiltInMethod.PARSE_INTERVAL_YEAR_MONTH.method :
+                                IgniteBuiltInMethod.PARSE_INTERVAL_DAY_TIME.method;
+
+                        convert = Expressions.call(
+                                method,
+                                operand,
+                                Expressions.new_(SqlIntervalQualifier.class,
+                                        Expressions.constant(intervalQualifier.getStartUnit()),
+                                        Expressions.constant(intervalQualifier.getStartPrecisionPreservingDefault()),
+                                        Expressions.constant(intervalQualifier.getEndUnit()),
+                                        Expressions.constant(intervalQualifier.getFractionalSecondPrecisionPreservingDefault()),
+                                        Expressions.field(null, SqlParserPos.class, "ZERO")
+                                )
+                        );
                 }
                 break;
             default:
