@@ -25,7 +25,7 @@ import io.netty.util.AsciiString;
  */
 public interface Routes {
     /**
-     * Adds the route to router chain.
+     * Adds the route to the router chain.
      *
      * @param route Route
      */
