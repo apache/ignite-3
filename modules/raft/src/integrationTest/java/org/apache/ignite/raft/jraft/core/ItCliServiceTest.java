@@ -313,10 +313,12 @@ public class ItCliServiceTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16091")
     public void testChangePeers() throws Exception {
-        List<PeerId> newPeers = TestUtils.generatePeers(10);
+        List<PeerId> newPeers = TestUtils.generatePeers(6);
         newPeers.removeAll(conf.getPeerSet());
+
+        assertEquals(3, newPeers.size());
+
         for (PeerId peer : newPeers) {
             assertTrue(cluster.start(peer.getEndpoint()));
         }

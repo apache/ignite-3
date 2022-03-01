@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.sql.SqlExplainLevel.EXPPLAN_ATTRIBUTES;
+import static org.apache.calcite.sql.SqlExplainLevel.ALL_ATTRIBUTES;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceLocalRefs;
 
@@ -92,7 +92,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
                 input.getCluster(),
                 input.getTraitSet(),
                 List.of(),
-                ((RelInputEx) input).getTableById("tableId")
+                ((RelInputEx) input).getTableById()
         );
 
         condition = input.getExpression("filters");
@@ -135,7 +135,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return explainTerms0(pw
                 .item("table", table.getQualifiedName())
                 .itemIf("tableId", table.unwrap(IgniteTable.class).id().toString(),
-                        pw.getDetailLevel() != EXPPLAN_ATTRIBUTES)
+                        pw.getDetailLevel() == ALL_ATTRIBUTES)
+                .itemIf("tableVer", table.unwrap(IgniteTable.class).version(),
+                        pw.getDetailLevel() == ALL_ATTRIBUTES)
         );
     }
 

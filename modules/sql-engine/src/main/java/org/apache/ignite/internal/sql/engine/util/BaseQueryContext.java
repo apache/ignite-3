@@ -20,10 +20,6 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
@@ -41,7 +37,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -49,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.logger.NullLogger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base query context.
@@ -128,8 +122,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final QueryCancel cancel;
 
-    private final Map<String, SqlExtension> extensions;
-
     private CalciteCatalogReader catalogReader;
 
     /**
@@ -138,8 +130,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
     private BaseQueryContext(
             FrameworkConfig cfg,
             QueryCancel cancel,
-            IgniteLogger log,
-            Map<String, SqlExtension> extensions
+            IgniteLogger log
     ) {
         super(Contexts.chain(cfg.getContext()));
 
@@ -148,7 +139,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         this.log = log;
         this.cancel = cancel;
-        this.extensions = extensions;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
@@ -163,14 +153,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public static BaseQueryContext empty() {
         return EMPTY_CONTEXT;
-    }
-
-    public List<SqlExtension> extensions() {
-        return new ArrayList<>(extensions.values());
-    }
-
-    public @Nullable SqlExtension extension(String name) {
-        return extensions.get(name);
     }
 
     public FrameworkConfig config() {
@@ -238,8 +220,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private IgniteLogger log = new NullLogger();
 
-        private Map<String, SqlExtension> extensions = Collections.emptyMap();
-
         public Builder frameworkConfig(@NotNull FrameworkConfig frameworkCfg) {
             this.frameworkCfg = frameworkCfg;
             return this;
@@ -255,13 +235,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder extensions(Map<String, SqlExtension> extensions) {
-            this.extensions = extensions;
-            return this;
-        }
-
         public BaseQueryContext build() {
-            return new BaseQueryContext(frameworkCfg, cancel, log, extensions);
+            return new BaseQueryContext(frameworkCfg, cancel, log);
         }
     }
 }

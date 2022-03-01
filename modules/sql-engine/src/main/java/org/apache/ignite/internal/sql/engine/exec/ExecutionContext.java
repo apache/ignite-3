@@ -33,7 +33,6 @@ import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -212,15 +211,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     public long topologyVersion() {
         return topVer;
-    }
-
-    /**
-     * Get an extensions by it's name.
-     *
-     * @return An extensions or {@code null} if there is no extension with given name.
-     */
-    public @Nullable SqlExtension extension(String name) {
-        return qctx.extension(name);
     }
 
     /** {@inheritDoc} */

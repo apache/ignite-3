@@ -128,7 +128,7 @@ public class TraitUtils {
         } else if (converter == DistributionTraitDef.INSTANCE) {
             return convertDistribution(planner, (IgniteDistribution) toTrait, rel);
         } else if (converter == RewindabilityTraitDef.INSTANCE) {
-            return convertRewindability(planner, (RewindabilityTrait) toTrait, rel);
+            return convertRewindability((RewindabilityTrait) toTrait, rel);
         } else {
             return convertOther(planner, converter, toTrait, rel);
         }
@@ -203,8 +203,7 @@ public class TraitUtils {
      * Convert rewindability. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     @Nullable
-    public static RelNode convertRewindability(RelOptPlanner planner,
-            RewindabilityTrait toTrait, RelNode rel) {
+    public static RelNode convertRewindability(RewindabilityTrait toTrait, RelNode rel) {
         RewindabilityTrait fromTrait = rewindability(rel);
 
         if (fromTrait.satisfies(toTrait)) {
@@ -212,9 +211,15 @@ public class TraitUtils {
         }
 
         RelTraitSet traits = rel.getTraitSet()
-                .replace(toTrait);
+                .replace(toTrait)
+                .replace(CorrelationTrait.UNCORRELATED);
 
-        return new IgniteTableSpool(rel.getCluster(), traits, Spool.Type.LAZY, rel);
+        return new IgniteTableSpool(
+                rel.getCluster(),
+                traits,
+                Spool.Type.LAZY,
+                RelOptRule.convert(rel, rel.getTraitSet().replace(CorrelationTrait.UNCORRELATED)))
+                ;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
