@@ -46,6 +46,7 @@ import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -66,6 +67,8 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     private static final short PAIR_INNER_IO = 30000;
 
     private static final short PAIR_LEAF_IO = 30001;
+
+    private static final short PAIR_META_IO = 30002;
 
     private static final int GROUP_ID = 100500;
 
@@ -163,11 +166,13 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
                     metaPageId,
                     null,
                     new IoVersions<>(new TestPairInnerIo()),
-                    new IoVersions<>(new TestPairLeafIo())
+                    new IoVersions<>(new TestPairLeafIo()),
+                    new IoVersions<>(new TestPairMetaIo())
             );
 
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new TestPairInnerIo()));
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new TestPairLeafIo()));
+            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new TestPairMetaIo()));
 
             initTree(true);
         }
@@ -463,5 +468,14 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
         tree.putx(new Pair(3, 0));
 
         return tree;
+    }
+
+    /**
+     * Test meta node, for {@link Pair}.
+     */
+    private static class TestPairMetaIo extends BplusMetaIo {
+        public TestPairMetaIo() {
+            super(PAIR_META_IO, 1);
+        }
     }
 }

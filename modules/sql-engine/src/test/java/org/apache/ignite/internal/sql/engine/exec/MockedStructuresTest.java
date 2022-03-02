@@ -23,10 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.util.Objects;
@@ -45,11 +43,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -77,7 +71,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -162,42 +155,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         queryProc = new SqlQueryProcessor(cs, tblManager);
 
         queryProc.start();
-    }
-
-    /**
-     * Checks that appropriate methods called form table manager on rel node construction.
-     */
-    @Test
-    void checkAppropriateTableFound() throws Exception {
-        TableManager tableManager = mock(TableManager.class);
-
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
-        UUID tblId = UUID.randomUUID();
-
-        assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
-                .getMessage().contains("Table not found"));
-        Mockito.verify(tableManager).table(any(UUID.class));
-
-        TableImpl tbl = mock(TableImpl.class);
-        SchemaDescriptor schDesc = mock(SchemaDescriptor.class);
-        SchemaRegistryImpl schReg = mock(SchemaRegistryImpl.class);
-
-        clearInvocations(tableManager);
-
-        when(tbl.name()).thenReturn("TEST_SCHEMA.T");
-        when(tbl.tableId()).thenReturn(tblId);
-        when(tbl.schemaView()).thenReturn(schReg);
-        when(schReg.schema()).thenReturn(schDesc);
-        when(schDesc.isKeyColumn(any(Integer.class))).thenReturn(true);
-
-        InternalTable internalTbl = mock(InternalTable.class);
-        when(tbl.internalTable()).thenReturn(internalTbl);
-        when(internalTbl.tableId()).thenReturn(tblId);
-
-        schemaManager.onTableCreated("TEST_SCHEMA", tbl);
-
-        schemaManager.tableById(tblId);
-        Mockito.verify(tableManager, never()).table(any(UUID.class));
     }
 
     /**

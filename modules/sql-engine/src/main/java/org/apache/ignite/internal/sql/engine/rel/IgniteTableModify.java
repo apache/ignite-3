@@ -77,7 +77,7 @@ public class IgniteTableModify extends TableModify implements InternalIgniteRel 
         this(
                 input.getCluster(),
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
-                ((RelInputEx) input).getTableById("tableId"),
+                ((RelInputEx) input).getTableById(),
                 input.getInput(),
                 input.getEnum("operation", Operation.class),
                 input.getStringList("updateColumnList"),
@@ -117,6 +117,8 @@ public class IgniteTableModify extends TableModify implements InternalIgniteRel 
     public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
                 .itemIf("tableId", getTable().unwrap(InternalIgniteTable.class).id().toString(),
+                        pw.getDetailLevel() == ALL_ATTRIBUTES)
+                .itemIf("tableVer", getTable().unwrap(InternalIgniteTable.class).version(),
                         pw.getDetailLevel() == ALL_ATTRIBUTES);
     }
 }

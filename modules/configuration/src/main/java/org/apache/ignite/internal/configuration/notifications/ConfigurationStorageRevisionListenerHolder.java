@@ -15,29 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.schema;
-
-import java.util.UUID;
-import org.apache.calcite.schema.SchemaPlus;
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.configuration.notifications;
 
 /**
- * SchemaHolder interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Configuration storage revision change listener holder.
  */
-public interface SqlSchemaManager {
+public interface ConfigurationStorageRevisionListenerHolder {
     /**
-     * Returns a required schema if specified, or default schema otherwise.
+     * Adds configuration storage revision change listener.
+     *
+     * <p>NOTE: If this method is called from another listener, then it is guaranteed to be called starting from the next configuration
+     * update only.
+     *
+     * @param listener Listener.
      */
-    SchemaPlus schema(@Nullable String schema);
+    void listenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
 
     /**
-     * Returns a table by given id.
+     * Removes configuration storage revision change listener.
      *
-     * @param id An id of required table.
-     * @param ver Minimal required version.
+     * <p>NOTE: Unpredictable behavior if the method is called inside other listeners.
      *
-     * @return The table.
+     * @param listener Listener.
      */
-    IgniteTable tableById(UUID id, int ver);
+    void stopListenUpdateStorageRevision(ConfigurationStorageRevisionListener listener);
 }
