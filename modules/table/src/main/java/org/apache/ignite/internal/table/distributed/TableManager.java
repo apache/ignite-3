@@ -1360,7 +1360,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param nodes Names of baseline nodes.
      */
-    private void setBaselineInternal(Set<String> nodes) {
+    private void setBaselineInternal(Set<String> nodes) throws NodeStoppingException {
         if (nodes == null || nodes.isEmpty()) {
             throw new IgniteException("New baseline can't be null or empty");
         }
