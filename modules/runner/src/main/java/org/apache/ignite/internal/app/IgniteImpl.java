@@ -32,6 +32,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
+import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInit
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -215,8 +217,7 @@ public class IgniteImpl implements Ignite {
         new ConfigurationHttpHandlers(nodeCfgMgr, clusterCfgMgr).registerHandlers(restComponent);
 
         baselineMgr = new BaselineManager(
-                clusterCfgMgr,
-                metaStorageMgr,
+                clusterCfgMgr.configurationRegistry().getConfiguration(ClusterConfiguration.KEY),
                 clusterSvc
         );
 
@@ -350,6 +351,13 @@ public class IgniteImpl implements Ignite {
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
+            baselineMgr.listenBaselineChange(ctx -> {
+                // TODO: Multi invoke supposed to be here https://issues.apache.org/jira/browse/IGNITE-16063
+                metaStorageMgr.put(new ByteArray("some key"), new byte[0]);
+
+                return CompletableFuture.completedFuture(null);
+            });
+
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
             }
@@ -406,7 +414,11 @@ public class IgniteImpl implements Ignite {
     @Override
     public void setBaseline(Set<String> baselineNodes) {
         try {
+            // TODO: delete this when main functionality of the rebalance will be implemented
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-16011
             distributedTblMgr.setBaseline(baselineNodes);
+
+            baselineMgr.setBaseline(baselineNodes);
         } catch (NodeStoppingException e) {
             throw new IgniteException(e);
         }

@@ -29,4 +29,8 @@ public class ClusterConfigurationSchema {
     /** List of unique names of those cluster nodes that will host distributed metastorage instances. */
     @Value(hasDefault = true)
     public String[] metastorageNodes = new String[0];
+
+    /** List of unique names of cluster nodes, which form a baseline. */
+    @Value(hasDefault = true)
+    public String[] baselineNodes = new String[0];
 }
