@@ -41,6 +41,16 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 // Two different families of intervals: INTERVAL_DAY_TIME and INTERVAL_YEAR_MONTH.
                 return fromType.getSqlTypeName().getFamily() != toType.getSqlTypeName().getFamily();
             }
+        } else if (SqlTypeUtil.isIntType(toType)) {
+            RelDataType fromType = validator.deriveType(scope, node);
+
+            if (fromType == null) {
+                return false;
+            }
+
+            if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
+                return true;
+            }
         }
 
         return super.needToCast(scope, node, toType);
