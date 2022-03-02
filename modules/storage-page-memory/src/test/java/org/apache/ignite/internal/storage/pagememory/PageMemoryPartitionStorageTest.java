@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -26,6 +27,7 @@ import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigu
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -48,7 +50,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
             })
     private DataRegionConfiguration dataRegionCfg;
 
-    private final StorageEngine engine = new PageMemoryStorageEngine();
+    private StorageEngine engine;
 
     private TableStorage table;
 
@@ -56,7 +58,13 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     @BeforeEach
     void setUp() {
-        dataRegion = engine.createDataRegion(dataRegionCfg);
+        PageIoRegistry ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        engine = new PageMemoryStorageEngine(ioRegistry);
+
+        dataRegion = engine.createDataRegion(fixConfiguration(dataRegionCfg));
 
         assertThat(dataRegion, is(instanceOf(PageMemoryDataRegion.class)));
 

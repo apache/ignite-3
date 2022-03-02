@@ -35,12 +35,12 @@ public class PageMemoryStorageEngine implements StorageEngine {
     private final PageIoRegistry ioRegistry;
 
     /**
-     * Default constructor.
+     * Constructor.
+     *
+     * @param ioRegistry IO registry.
      */
-    public PageMemoryStorageEngine() {
-        ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
+    public PageMemoryStorageEngine(PageIoRegistry ioRegistry) {
+        this.ioRegistry = ioRegistry;
     }
 
     /** {@inheritDoc} */
