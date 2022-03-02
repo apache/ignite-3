@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.network.direct.DirectMarshallingUtils;
 import org.apache.ignite.internal.network.direct.DirectMessageReader;
+import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
@@ -107,7 +108,13 @@ public class InboundDecoder extends ByteToMessageDecoder {
                     reader.reset();
                     messageAttr.set(null);
 
-                    out.add(msg.getMessage());
+                    NetworkMessage message = msg.getMessage();
+
+                    if (message instanceof ClassDescriptorListMessage) {
+                        onClassDescriptorMessage((ClassDescriptorListMessage) message);
+                    } else {
+                        out.add(message);
+                    }
                 } else {
                     messageAttr.set(msg);
                 }
@@ -132,5 +139,9 @@ public class InboundDecoder extends ByteToMessageDecoder {
                 throw e;
             }
         }
+    }
+
+    private void onClassDescriptorMessage(ClassDescriptorListMessage msg) {
+        serializationService.mergeDescriptors(msg.messages());
     }
 }

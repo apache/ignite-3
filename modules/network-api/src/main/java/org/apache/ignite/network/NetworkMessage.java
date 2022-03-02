@@ -17,6 +17,8 @@
 
 package org.apache.ignite.network;
 
+import java.util.Set;
+
 /**
  * Message for exchanging information in a cluster.
  */
@@ -41,4 +43,12 @@ public interface NetworkMessage {
      * @return group type.
      */
     short groupType();
+
+    default void prepareMarshal(Set<Integer> ids, Object marshaller) throws Exception {
+        // No-op.
+    }
+
+    default void unmarshal(Object marshaller, Object descriptors) throws Exception {
+        // No-op.
+    }
 }

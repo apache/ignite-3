@@ -60,8 +60,9 @@ class MessageReaderMethodResolver {
         String parameterName = getter.getSimpleName().toString();
 
         if (getter.getAnnotation(Marshallable.class) != null) {
+            parameterName += "ByteArray";
             return CodeBlock.builder()
-                    .add("readMarshallable($S)", parameterName)
+                    .add("readByteArray($S)", parameterName)
                     .build();
         }
 

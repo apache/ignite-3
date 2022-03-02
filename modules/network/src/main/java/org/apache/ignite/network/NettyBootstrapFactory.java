@@ -139,6 +139,27 @@ public class NettyBootstrapFactory implements IgniteComponent {
         clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
     }
 
+    /**
+     * Returns {@code true} if the current thread is a network thread, {@code false} otherwise.
+     *
+     * @return {@code true} if the current thread is a network thread, {@code false} otherwise.
+     */
+    public static boolean isInNetworkThread() {
+        String name = Thread.currentThread().getName();
+
+        if (name.contains("-srv-worker")) {
+            return true;
+        }
+        if (name.contains("-client")) {
+            return true;
+        }
+        if (name.contains("-srv-accept")) {
+            return true;
+        }
+
+        return false;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {

@@ -72,8 +72,9 @@ class MessageWriterMethodResolver {
         String parameterName = getter.getSimpleName().toString();
 
         if (getter.getAnnotation(Marshallable.class) != null) {
+            parameterName += "ByteArray";
             return CodeBlock.builder()
-                    .add("writeMarshallable($S, message.$L())", parameterName, parameterName)
+                    .add("writeByteArray($S, message.$L())", parameterName, parameterName)
                     .build();
         }
 

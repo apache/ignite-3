@@ -24,15 +24,22 @@ import io.netty.handler.codec.MessageToMessageEncoder;
 import io.netty.handler.stream.ChunkedInput;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
+import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.serialization.MessageSerializer;
 
 /**
  * An encoder for the outbound messages that uses {@link DirectMessageWriter}.
  */
-public class OutboundEncoder extends MessageToMessageEncoder<NetworkMessage> {
+public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
+    private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
+
     /** Serialization registry. */
     private final PerSessionSerializationService serializationService;
 
@@ -47,7 +54,7 @@ public class OutboundEncoder extends MessageToMessageEncoder<NetworkMessage> {
 
     /** {@inheritDoc} */
     @Override
-    protected void encode(ChannelHandlerContext ctx, NetworkMessage msg, List<Object> out) throws Exception {
+    protected void encode(ChannelHandlerContext ctx, OutNetworkObject msg, List<Object> out) throws Exception {
         out.add(new NetworkMessageChunkedInput(msg, serializationService));
     }
 
@@ -61,11 +68,17 @@ public class OutboundEncoder extends MessageToMessageEncoder<NetworkMessage> {
         /** Message serializer. */
         private final MessageSerializer<NetworkMessage> serializer;
 
+        private final MessageSerializer<ClassDescriptorListMessage> descriptorSerializer;
+
         /** Message writer. */
         private final DirectMessageWriter writer;
 
+        private final ClassDescriptorListMessage descriptors;
+        private final PerSessionSerializationService serializationService;
+
         /** Whether the message was fully written. */
         private boolean finished = false;
+        private boolean descriptorsFinished = false;
 
         /**
          * Constructor.
@@ -74,10 +87,29 @@ public class OutboundEncoder extends MessageToMessageEncoder<NetworkMessage> {
          * @param serializationService Serialization service.
          */
         private NetworkMessageChunkedInput(
-                NetworkMessage msg,
+                OutNetworkObject object,
                 PerSessionSerializationService serializationService
         ) {
-            this.msg = msg;
+            this.serializationService = serializationService;
+            this.msg = object.networkMessage();
+
+            if (!object.descriptors().isEmpty()) {
+                List<ClassDescriptorMessage> descriptors = object.descriptors();
+
+                descriptors = descriptors.stream()
+                        .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))
+                        .collect(Collectors.toList());
+
+                this.descriptors = MSG_FACTORY.classDescriptorListMessage().messages(descriptors).build();
+                short groupType = this.descriptors.groupType();
+                short messageType = this.descriptors.messageType();
+                descriptorSerializer = serializationService.createMessageSerializer(groupType, messageType);
+            } else {
+                descriptors = null;
+                descriptorSerializer = null;
+                descriptorsFinished = true;
+            }
+
             this.serializer = serializationService.createMessageSerializer(msg.groupType(), msg.messageType());
             this.writer = new DirectMessageWriter(serializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
         }
@@ -113,7 +145,22 @@ public class OutboundEncoder extends MessageToMessageEncoder<NetworkMessage> {
 
             writer.setBuffer(byteBuffer);
 
-            finished = serializer.writeMessage(msg, writer);
+            while (byteBuffer.hasRemaining()) {
+                if (!descriptorsFinished) {
+                    descriptorsFinished = descriptorSerializer.writeMessage(descriptors, writer);
+                    if (descriptorsFinished) {
+                        for (ClassDescriptorMessage classDescriptorMessage : descriptors.messages()) {
+                            serializationService.addSentDescriptor(classDescriptorMessage.descriptorId());
+                        }
+                        writer.reset();
+                    } else {
+                        break;
+                    }
+                } else {
+                    finished = serializer.writeMessage(msg, writer);
+                    break;
+                }
+            }
 
             buffer.writerIndex(byteBuffer.position() - initialPosition);
 

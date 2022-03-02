@@ -25,6 +25,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -33,7 +34,6 @@ import java.util.Map;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
-import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializer;
@@ -110,31 +110,22 @@ public class PerSessionSerializationService {
     }
 
     /**
-     * Serializes a marshallable object to a byte array.
+     * Returns {@code true} if the descriptor was sent, {@code false} otherwise.
      *
-     * @param marshallable Marshallable object to serialize.
-     * @param <T> Object's type.
-     * @throws UserObjectSerializationException If failed to serialize an object.
-     * @see SerializationService#writeMarshallable(Object)
+     * @param descriptorId Descriptor's id.
+     * @return {@code true} if the descriptor was sent, {@code false} otherwise.
      */
-    public <T> MarshalledObject writeMarshallable(T marshallable) throws UserObjectSerializationException {
-        return serializationService.writeMarshallable(marshallable);
+    public boolean isDescriptorSent(int descriptorId) {
+        return sentDescriptors.contains(descriptorId);
     }
 
     /**
-     * Deserializes a marshallable object from a byte array.
+     * Adds sent descriptor.
      *
-     * @param missingDescriptors Descriptors that were received from the remote node.
-     * @param array Byte array that contains a serialized object.
-     * @param <T> Object's type.
-     * @throws UserObjectSerializationException If failed to deserialize an object.
-     * @see SerializationService#readMarshallable(DescriptorRegistry, byte[])
+     * @param descriptorId Descriptor id.
      */
-    public <T> T readMarshallable(List<ClassDescriptorMessage> missingDescriptors, byte[] array)
-            throws UserObjectSerializationException {
-        mergeDescriptors(missingDescriptors);
-
-        return serializationService.readMarshallable(descriptors, array);
+    public void addSentDescriptor(int descriptorId) {
+        sentDescriptors.add(descriptorId);
     }
 
     /**
@@ -144,12 +135,12 @@ public class PerSessionSerializationService {
      * @return List of class descriptor network messages.
      */
     @Nullable
-    public List<ClassDescriptorMessage> createClassDescriptorsMessages(IntSet descriptorIds) {
+    public static List<ClassDescriptorMessage> createClassDescriptorsMessages(IntSet descriptorIds, ClassDescriptorRegistry registry) {
         List<ClassDescriptorMessage> messages = descriptorIds.intStream()
-                .mapToObj(serializationService::getLocalDescriptor)
+                .mapToObj(registry::getDescriptor)
                 .filter(descriptor -> {
                     int descriptorId = descriptor.descriptorId();
-                    return !sentDescriptors.contains(descriptorId) && !shouldBeBuiltIn(descriptorId);
+                    return !shouldBeBuiltIn(descriptorId);
                 })
                 .map(descriptor -> {
                     List<FieldDescriptorMessage> fields = descriptor.fields().stream()
@@ -179,19 +170,17 @@ public class PerSessionSerializationService {
                             .build();
                 }).collect(toList());
 
-        messages.forEach(classDescriptorMessage -> sentDescriptors.add(classDescriptorMessage.descriptorId()));
-
         return messages;
     }
 
-    private byte fieldFlags(FieldDescriptor fieldDescriptor) {
+    private static byte fieldFlags(FieldDescriptor fieldDescriptor) {
         int bits = condMask(fieldDescriptor.isUnshared(), FieldDescriptorMessage.UNSHARED_MASK)
                 | condMask(fieldDescriptor.isPrimitive(), FieldDescriptorMessage.IS_PRIMITIVE)
                 | condMask(fieldDescriptor.isRuntimeTypeKnownUpfront(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT);
         return (byte) bits;
     }
 
-    private byte serializationAttributeFlags(Serialization serialization) {
+    private static byte serializationAttributeFlags(Serialization serialization) {
         int bits = condMask(serialization.hasWriteObject(), ClassDescriptorMessage.HAS_WRITE_OBJECT_MASK)
                 | condMask(serialization.hasReadObject(), ClassDescriptorMessage.HAS_READ_OBJECT_MASK)
                 | condMask(serialization.hasReadObjectNoData(), ClassDescriptorMessage.HAS_READ_OBJECT_NO_DATA_MASK)
@@ -200,11 +189,11 @@ public class PerSessionSerializationService {
         return (byte) bits;
     }
 
-    private int condMask(boolean value, int mask) {
+    private static int condMask(boolean value, int mask) {
         return value ? mask : 0;
     }
 
-    private byte classDescriptorAttributeFlags(ClassDescriptor descriptor) {
+    private static byte classDescriptorAttributeFlags(ClassDescriptor descriptor) {
         int bits = condMask(descriptor.isPrimitive(), ClassDescriptorMessage.IS_PRIMITIVE_MASK)
                 | condMask(descriptor.isArray(), ClassDescriptorMessage.IS_ARRAY_MASK)
                 | condMask(descriptor.isRuntimeEnum(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK)
@@ -212,7 +201,7 @@ public class PerSessionSerializationService {
         return (byte) bits;
     }
 
-    private int superClassDescriptorIdForMessage(ClassDescriptor descriptor) {
+    private static int superClassDescriptorIdForMessage(ClassDescriptor descriptor) {
         Integer id = descriptor.superClassDescriptorId();
 
         if (id == null) {
@@ -222,7 +211,7 @@ public class PerSessionSerializationService {
         return id;
     }
 
-    private int componentTypeDescriptorIdForMessage(ClassDescriptor descriptor) {
+    private static int componentTypeDescriptorIdForMessage(ClassDescriptor descriptor) {
         Integer id = descriptor.componentTypeDescriptorId();
 
         if (id == null) {
@@ -232,7 +221,12 @@ public class PerSessionSerializationService {
         return id;
     }
 
-    private void mergeDescriptors(List<ClassDescriptorMessage> remoteDescriptors) {
+    /**
+     * Merges incoming remote descriptors.
+     *
+     * @param remoteDescriptors Remote descriptors.
+     */
+    public void mergeDescriptors(Collection<ClassDescriptorMessage> remoteDescriptors) {
         List<ClassDescriptorMessage> leftToProcess = remoteDescriptors.stream()
                 .filter(classMessage -> !knownMergedDescriptor(classMessage.descriptorId()))
                 .collect(toCollection(LinkedList::new));
@@ -377,6 +371,11 @@ public class PerSessionSerializationService {
             throw new SerializationException("Class " + className + " is not found", e);
         }
     }
+
+    public CompositeDescriptorRegistry compositeDescriptorRegistry() {
+        return descriptors;
+    }
+
 
     @TestOnly
     Map<Integer, ClassDescriptor> getDescriptorMapView() {

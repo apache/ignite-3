@@ -30,6 +30,7 @@ import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.network.annotations.Marshallable;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageMappingException;
 import org.apache.ignite.network.serialization.MessageReader;
@@ -153,8 +154,14 @@ public class MessageDeserializerGenerator {
     private CodeBlock readMessageCodeBlock(ExecutableElement getter, FieldSpec msgField) {
         var methodResolver = new MessageReaderMethodResolver(processingEnv);
 
+        String name = getter.getSimpleName().toString();
+
+        if (getter.getAnnotation(Marshallable.class) != null) {
+            name += "ByteArray";
+        }
+
         return CodeBlock.builder()
-                .add("$N.$N(reader.", msgField, getter.getSimpleName())
+                .add("$N.$N(reader.", msgField, name)
                 .add(methodResolver.resolveReadMethod(getter))
                 .add(")")
                 .build();

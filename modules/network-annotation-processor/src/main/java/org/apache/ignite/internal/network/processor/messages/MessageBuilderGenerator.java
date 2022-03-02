@@ -17,17 +17,19 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.network.annotations.Marshallable;
 
 /**
  * Class for generating Builder interfaces for Network Messages.
@@ -62,30 +64,45 @@ public class MessageBuilderGenerator {
         processingEnvironment.getMessager()
                 .printMessage(Diagnostic.Kind.NOTE, "Generating " + builderName, message.element());
 
-        // generate a setter for each getter in the original interface
-        List<MethodSpec> setters = message.getters().stream()
-                .map(getter -> {
-                    String getterName = getter.getSimpleName().toString();
+        var setters = new ArrayList<MethodSpec>(message.getters().size());
+        var getters = new ArrayList<MethodSpec>(message.getters().size());
+        message.getters().forEach(getter -> {
+            String getterName = getter.getSimpleName().toString();
 
-                    return MethodSpec.methodBuilder(getterName)
-                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                            .addParameter(TypeName.get(getter.getReturnType()), getterName)
-                            .returns(builderName)
-                            .build();
-                })
-                .collect(Collectors.toList());
+            TypeMirror type = getter.getReturnType();
 
-        // generate a getter for each getter in the original interface
-        List<MethodSpec> getters = message.getters().stream()
-                .map(getter -> {
-                    String getterName = getter.getSimpleName().toString();
+            // generate a setter for each getter in the original interface
+            MethodSpec setterSpec = MethodSpec.methodBuilder(getterName)
+                    .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                    .addParameter(TypeName.get(type), getterName)
+                    .returns(builderName)
+                    .build();
 
-                    return MethodSpec.methodBuilder(getterName)
-                            .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
-                            .returns(TypeName.get(getter.getReturnType()))
-                            .build();
-                })
-                .collect(Collectors.toList());
+            // generate a getter for each getter in the original interface
+            MethodSpec getterSpec = MethodSpec.methodBuilder(getterName)
+                    .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                    .returns(TypeName.get(type))
+                    .build();
+
+            setters.add(setterSpec);
+            getters.add(getterSpec);
+
+            if (getter.getAnnotation(Marshallable.class) != null) {
+                MethodSpec baSetter = MethodSpec.methodBuilder(getterName + "ByteArray")
+                        .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                        .addParameter(ArrayTypeName.of(TypeName.BYTE), getterName + "ByteArray")
+                        .returns(builderName)
+                        .build();
+
+                MethodSpec baGetter = MethodSpec.methodBuilder(getterName + "ByteArray")
+                        .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                        .returns(ArrayTypeName.of(TypeName.BYTE))
+                        .build();
+
+                setters.add(baSetter);
+                getters.add(baGetter);
+            }
+        });
 
         MethodSpec buildMethod = MethodSpec.methodBuilder("build")
                 .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)

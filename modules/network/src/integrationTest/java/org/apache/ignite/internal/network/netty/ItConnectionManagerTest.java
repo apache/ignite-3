@@ -34,6 +34,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +54,7 @@ import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
@@ -108,13 +110,13 @@ public class ItConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.addListener((consistentId, message) -> fut.complete(message));
+        manager2.addListener((obj) -> fut.complete(obj.message()));
 
         NettySender sender = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
         TestMessage testMessage = messageFactory.testMessage().msg(msgText).build();
 
-        sender.send(testMessage).get(3, TimeUnit.SECONDS);
+        sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
 
         NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
@@ -140,7 +142,7 @@ public class ItConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager1.addListener((consistentId, message) -> fut.complete(message));
+        manager1.addListener((obj) -> fut.complete(obj.message()));
 
         NettySender senderFrom1to2 = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
@@ -150,9 +152,9 @@ public class ItConnectionManagerTest {
         var messageReceivedOn2 = new CompletableFuture<Void>();
 
         // If the message is received, that means that the handshake was successfully performed.
-        manager2.addListener((consistentId, message) -> messageReceivedOn2.complete(null));
+        manager2.addListener((message) -> messageReceivedOn2.complete(null));
 
-        senderFrom1to2.send(testMessage);
+        senderFrom1to2.send(new OutNetworkObject(testMessage, Collections.emptyList()));
 
         messageReceivedOn2.get(3, TimeUnit.SECONDS);
 
@@ -164,7 +166,7 @@ public class ItConnectionManagerTest {
 
         assertEquals(clientLocalAddress, clientRemoteAddress);
 
-        senderFrom2to1.send(testMessage).get(3, TimeUnit.SECONDS);
+        senderFrom2to1.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
 
         NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
@@ -231,7 +233,7 @@ public class ItConnectionManagerTest {
 
         assertThrows(ClosedChannelException.class, () -> {
             try {
-                finalSender.send(testMessage).get(3, TimeUnit.SECONDS);
+                finalSender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
             } catch (Exception e) {
                 throw e.getCause();
             }
@@ -241,11 +243,11 @@ public class ItConnectionManagerTest {
 
         var fut = new CompletableFuture<NetworkMessage>();
 
-        manager2.get1().addListener((consistentId, message) -> fut.complete(message));
+        manager2.get1().addListener((obj) -> fut.complete(obj.message()));
 
         sender = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
-        sender.send(testMessage).get(3, TimeUnit.SECONDS);
+        sender.send(new OutNetworkObject(testMessage, Collections.emptyList())).get(3, TimeUnit.SECONDS);
 
         NetworkMessage receivedMessage = fut.get(3, TimeUnit.SECONDS);
 
