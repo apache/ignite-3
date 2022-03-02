@@ -156,7 +156,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
                 rows = 1;
             }
 
-            cost += rows * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST);
+            cost += rows * (IgniteCost.ROW_COMPARISON_COST + IgniteCost.ROW_PASS_THROUGH_COST + IgniteCost.PK_LOOKUP_COST);
         }
 
         // additional tiny cost for preventing equality with table scan.

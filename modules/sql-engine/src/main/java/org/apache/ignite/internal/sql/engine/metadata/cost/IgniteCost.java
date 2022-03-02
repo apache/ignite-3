@@ -42,6 +42,9 @@ public class IgniteCost implements RelOptCost {
     /** Cost of a lookup at the hash. */
     public static final double HASH_LOOKUP_COST = 10;
 
+    /** Cost of a lookup by PK. */
+    public static final double PK_LOOKUP_COST = 20;
+
     /**
      * With broadcast distribution each row will be sent to the each distination node, thus the total bytes amount will
      * be multiplies of the destination nodes count. Right now it's just a const.
