@@ -25,6 +25,7 @@ import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.implicit.TypeCoercionImpl;
 
+/** Implicit type cast implementation. */
 public class IgniteTypeCoercion extends TypeCoercionImpl {
     public IgniteTypeCoercion(RelDataTypeFactory typeFactory, SqlValidator validator) {
         super(typeFactory, validator);

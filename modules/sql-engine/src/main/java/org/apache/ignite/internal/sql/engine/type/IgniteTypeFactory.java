@@ -31,7 +31,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.calcite.avatica.util.ByteString;
@@ -82,8 +81,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         if (SqlUtil.translateCharacterSetName(Charset.defaultCharset().name()) != null) {
             // Use JVM default charset rather then Calcite default charset (ISO-8859-1).
             charset = Charset.defaultCharset();
-        }
-        else {
+        } else {
             // If JVM default charset is not supported by Calcite - use UTF-8.
             charset = StandardCharsets.UTF_8;
         }
@@ -298,12 +296,13 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     /** {@inheritDoc} */
     @Override public RelDataType toSql(RelDataType type) {
         if (type instanceof JavaType) {
-            Class<?> clazz = ((JavaType)type).getJavaClass();
+            Class<?> clazz = ((JavaType) type).getJavaClass();
 
-            if (clazz == Duration.class)
+            if (clazz == Duration.class) {
                 return createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_DAY_TIME), true);
-            else if (clazz == Period.class)
+            } else if (clazz == Period.class) {
                 return createTypeWithNullability(createSqlIntervalType(INTERVAL_QUALIFIER_YEAR_MONTH), true);
+            }
         }
 
         return super.toSql(type);
@@ -311,8 +310,9 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /** {@inheritDoc} */
     @Override public RelDataType createType(Type type) {
-        if (type == Duration.class || type == Period.class)
-            return createJavaType((Class<?>)type);
+        if (type == Duration.class || type == Period.class) {
+            return createJavaType((Class<?>) type);
+        }
 
         return super.createType(type);
     }

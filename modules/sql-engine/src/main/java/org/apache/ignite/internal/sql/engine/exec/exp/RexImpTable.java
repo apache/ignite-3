@@ -1430,7 +1430,7 @@ public class RexImpTable {
 
             // According to SQL standard result for interval data types should have the same sign as the source,
             // but QUARTER is not covered by standard and negative values for QUARTER make no sense.
-            operand = mod(operand, getFactor(unit), unit == TimeUnit.QUARTER || !isIntervalType );
+            operand = mod(operand, getFactor(unit), unit == TimeUnit.QUARTER || !isIntervalType);
 
             if (unit == TimeUnit.QUARTER) {
                 operand = Expressions.subtract(operand, Expressions.constant(1L));

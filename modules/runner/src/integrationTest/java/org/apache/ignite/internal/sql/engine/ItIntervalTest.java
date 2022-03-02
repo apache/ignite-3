@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,6 +31,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+/** Interval coverage tests. */
 public class ItIntervalTest extends AbstractBasicIntegrationTest {
     @Override
     protected int nodes() {
@@ -176,8 +178,8 @@ public class ItIntervalTest extends AbstractBasicIntegrationTest {
 
         sql("UPDATE test SET dt = INTERVAL 3 DAYS WHERE ym = INTERVAL 1 MONTH");
         sql("UPDATE test SET ym = INTERVAL 5 YEARS WHERE dt = INTERVAL 4 HOURS");
-        sql("UPDATE test SET ym = INTERVAL '6-7' YEARS TO MONTHS, dt = INTERVAL '8 9' DAYS TO HOURS " +
-                "WHERE ym = INTERVAL '4-5' YEARS TO MONTHS AND dt = INTERVAL '6:7' HOURS TO MINUTES");
+        sql("UPDATE test SET ym = INTERVAL '6-7' YEARS TO MONTHS, dt = INTERVAL '8 9' DAYS TO HOURS "
+                + "WHERE ym = INTERVAL '4-5' YEARS TO MONTHS AND dt = INTERVAL '6:7' HOURS TO MINUTES");
 
         assertThrowsEx("UPDATE test SET dt = INTERVAL 5 YEARS WHERE ym = INTERVAL 1 MONTH", IgniteInternalException.class,
                 "Cannot assign");
@@ -204,8 +206,8 @@ public class ItIntervalTest extends AbstractBasicIntegrationTest {
 
         sql("ALTER TABLE test ADD (ym2 INTERVAL MONTH, dt2 INTERVAL HOURS)");
 
-        sql("INSERT INTO test(id, ym, ym2, dt, dt2) VALUES (7, INTERVAL 1 YEAR, INTERVAL 2 YEARS, " +
-                "INTERVAL 1 SECOND, INTERVAL 2 MINUTES)");
+        sql("INSERT INTO test(id, ym, ym2, dt, dt2) VALUES (7, INTERVAL 1 YEAR, INTERVAL 2 YEARS, "
+                + "INTERVAL 1 SECOND, INTERVAL 2 MINUTES)");
 
         assertQuery("SELECT ym, ym2, dt, dt2 FROM test")
                 .returns(Period.ofYears(1), Period.ofYears(2), Duration.ofSeconds(1), Duration.ofMinutes(2))

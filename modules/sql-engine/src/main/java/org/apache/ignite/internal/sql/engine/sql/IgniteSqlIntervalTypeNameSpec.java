@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.sql.engine.sql;
 
 import org.apache.calcite.rel.type.RelDataType;
@@ -50,10 +51,11 @@ public class IgniteSqlIntervalTypeNameSpec extends SqlTypeNameSpec {
 
     /** {@inheritDoc} */
     @Override public boolean equalsDeep(SqlTypeNameSpec spec, Litmus litmus) {
-        if (!(spec instanceof IgniteSqlIntervalTypeNameSpec))
+        if (!(spec instanceof IgniteSqlIntervalTypeNameSpec)) {
             return false;
+        }
 
-        IgniteSqlIntervalTypeNameSpec that = (IgniteSqlIntervalTypeNameSpec)spec;
+        IgniteSqlIntervalTypeNameSpec that = (IgniteSqlIntervalTypeNameSpec) spec;
 
         return getTypeName().equalsDeep(that.getTypeName(), litmus);
     }

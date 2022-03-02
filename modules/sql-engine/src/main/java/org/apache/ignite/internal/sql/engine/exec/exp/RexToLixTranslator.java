@@ -533,9 +533,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case CHARACTER:
                         SqlIntervalQualifier intervalQualifier = targetType.getIntervalQualifier();
 
-                        Method method = intervalQualifier.isYearMonth() ?
-                                IgniteBuiltInMethod.PARSE_INTERVAL_YEAR_MONTH.method :
-                                IgniteBuiltInMethod.PARSE_INTERVAL_DAY_TIME.method;
+                        Method method = intervalQualifier.isYearMonth()
+                                ? IgniteBuiltInMethod.PARSE_INTERVAL_YEAR_MONTH.method
+                                : IgniteBuiltInMethod.PARSE_INTERVAL_DAY_TIME.method;
 
                         convert = Expressions.call(
                                 method,
@@ -548,6 +548,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         Expressions.field(null, SqlParserPos.class, "ZERO")
                                 )
                         );
+                        break;
+                    default:
+                        // No-Op.
                 }
                 break;
             default:

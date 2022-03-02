@@ -287,7 +287,7 @@ public class TypeUtils {
      */
     public static boolean isConvertableType(RelDataType type) {
         return type instanceof RelDataTypeFactoryImpl.JavaType
-                && isConvertableType(((RelDataTypeFactoryImpl.JavaType )type).getJavaClass());
+                && isConvertableType(((RelDataTypeFactoryImpl.JavaType) type).getJavaClass());
     }
 
     private static boolean hasConvertableFields(RelDataType resultType) {
