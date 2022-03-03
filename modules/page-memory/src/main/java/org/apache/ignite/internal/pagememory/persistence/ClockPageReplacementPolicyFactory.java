@@ -15,34 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.pagememory.persistence;
 
 /**
- * Event parameters. This type passed to the event listener.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
+ * {@link ClockPageReplacementPolicy} factory.
  */
-public abstract class EventParameters {
-    /** Causality token. */
-    private final long causalityToken;
-
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     */
-    public EventParameters(long causalityToken) {
-        this.causalityToken = causalityToken;
+public class ClockPageReplacementPolicyFactory implements PageReplacementPolicyFactory {
+    /** {@inheritDoc} */
+    @Override
+    public long requiredMemory(int pagesCnt) {
+        return ClockPageReplacementFlags.requiredMemory(pagesCnt);
     }
 
-    /**
-     * Returns a causality token.
-     * The token is required for represent a causality dependency between several events.
-     * The earlier the event occurred, the lower the value of the token.
-     *
-     * @return Causality token.
-     */
-    public long causalityToken() {
-        return causalityToken;
+    /** {@inheritDoc} */
+    @Override
+    public PageReplacementPolicy create(PageMemoryImpl.Segment seg, long ptr, int pagesCnt) {
+        return new ClockPageReplacementPolicy(seg, ptr, pagesCnt);
     }
 }

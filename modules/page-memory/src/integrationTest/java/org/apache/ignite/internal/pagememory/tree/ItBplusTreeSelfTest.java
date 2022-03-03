@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
-import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -135,6 +135,10 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
     private static int RMV_INC = 1;
 
+    protected static final int PAGE_SIZE = 512;
+
+    protected static final long MAX_MEMORY_SIZE = GiB;
+
     /** Forces printing lock/unlock events on the test tree. */
     private static boolean PRINT_LOCKS = false;
 
@@ -146,7 +150,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                     PageMemoryDataRegionConfigurationSchema.class,
                     UnsafeMemoryAllocatorConfigurationSchema.class
             })
-    private DataRegionConfiguration dataRegionCfg;
+    protected DataRegionConfiguration dataRegionCfg;
 
     @Nullable
     protected PageMemory pageMem;
@@ -2724,12 +2728,17 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private PageMemory createPageMemory() throws Exception {
+    /**
+     * Returns page memory.
+     *
+     * @throws Exception If failed.
+     */
+    protected PageMemory createPageMemory() throws Exception {
         dataRegionCfg.change(c ->
                 c.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(512)
-                        .changeInitSize(1024 * MiB)
-                        .changeMaxSize(1024 * MiB)
+                        .changePageSize(PAGE_SIZE)
+                        .changeInitSize(MAX_MEMORY_SIZE)
+                        .changeMaxSize(MAX_MEMORY_SIZE)
         ).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();

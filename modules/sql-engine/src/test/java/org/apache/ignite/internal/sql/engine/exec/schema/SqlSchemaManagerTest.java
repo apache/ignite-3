@@ -30,6 +30,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -76,11 +78,21 @@ public class SqlSchemaManagerTest {
 
     private SqlSchemaManagerImpl schemaManager;
 
+    private TestRevisionRegister testRevisionRegister;
+
     @BeforeEach
     public void setup() throws NodeStoppingException {
         Mockito.reset(tableManager);
 
-        schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
+        testRevisionRegister = new TestRevisionRegister();
+
+        schemaManager = new SqlSchemaManagerImpl(
+                tableManager,
+                testRevisionRegister,
+                () -> {}
+        );
+
+        testRevisionRegister.moveForward();
     }
 
     @Test
@@ -126,7 +138,9 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table);
+        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
+
         IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
 
         assertEquals(tableId, actTable.id());
@@ -146,7 +160,9 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table);
+        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
+
         IgniteTable actTable = schemaManager.tableById(tableId, tableVer - 1);
 
         assertEquals(tableId, actTable.id());
@@ -166,7 +182,8 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer - 1);
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table);
+        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
 
         when(tableManager.table(eq(tableId))).thenReturn(table);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer);
@@ -193,7 +210,8 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table);
+        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
 
         Table schemaTable = schemaManager.schema("TEST_SCHEMA").getTable("T");
 
@@ -201,8 +219,46 @@ public class SqlSchemaManagerTest {
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
         assertEquals(tableId, igniteTable.table().tableId());
 
-        schemaManager.onTableDropped("TEST_SCHEMA", table.name());
+        schemaManager.onTableDropped("TEST_SCHEMA", table.name(), testRevisionRegister.actualToken() + 1);
+        testRevisionRegister.moveForward();
 
         assertNull(schemaManager.schema("TEST_SCHEMA").getTable("T"));
+    }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+        AtomicLong token = new AtomicLong(-1);
+
+
+        /** Revision consumer. */
+        private Consumer<Long> moveRevision;
+
+        /**
+         * Moves forward token.
+         */
+        void moveForward() {
+            moveRevision.accept(token.incrementAndGet());
+        }
+
+        /**
+         * Gets an actual token.
+         *
+         * @return Actual token.
+         */
+        long actualToken() {
+            return token.get();
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            if (moveRevision == null) {
+                moveRevision = consumer;
+            } else {
+                moveRevision = moveRevision.andThen(consumer);
+            }
+        }
     }
 }
