@@ -33,10 +33,8 @@ import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata.FragmentMap
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
-import org.apache.ignite.internal.sql.engine.rel.IgniteGateway;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
@@ -45,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Implementation class for {@link RelMetadataQueryEx#fragmentMapping(RelNode, MappingQueryContext)} method call.
@@ -218,19 +215,6 @@ public class IgniteMdFragmentMapping implements MetadataHandler<FragmentMappingM
      */
     public FragmentMapping fragmentMapping(IgniteValues rel, RelMetadataQuery mq, MappingQueryContext ctx) {
         return FragmentMapping.create();
-    }
-
-    /**
-     * See {@link IgniteMdFragmentMapping#fragmentMapping(RelNode, RelMetadataQuery, MappingQueryContext)}.
-     */
-    public FragmentMapping fragmentMapping(IgniteGateway rel, RelMetadataQuery mq, MappingQueryContext ctx) {
-        var extension = ctx.extension(rel.extensionName());
-
-        if (extension == null) {
-            throw new IgniteInternalException("Unknown SQL extension \"" + rel.extensionName() + "\"");
-        }
-
-        return FragmentMapping.create(rel.sourceId(), extension.colocationGroup((IgniteRel) rel.getInput()));
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.impl;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,7 +59,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     protected static final int PAGE_SIZE = 8 * 1024;
 
-    private static final int MAX_MEMORY_SIZE = 10 * 1024 * 1024;
+    protected static final int MAX_MEMORY_SIZE = 10 * 1024 * 1024;
 
     private static final PageIo PAGE_IO = new TestPageIo();
 
@@ -68,7 +69,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
                 PageMemoryDataRegionConfigurationSchema.class,
                 UnsafeMemoryAllocatorConfigurationSchema.class
             })
-    private DataRegionConfiguration dataRegionCfg;
+    protected DataRegionConfiguration dataRegionCfg;
 
     @Test
     public void testPageTearingInner() throws Exception {
@@ -315,7 +316,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
                         .changePageSize(PAGE_SIZE)
                         .changeInitSize(MAX_MEMORY_SIZE)
                         .changeMaxSize(MAX_MEMORY_SIZE)
-        );
+        ).get(1, SECONDS);
 
         DirectMemoryProvider provider = new UnsafeMemoryProvider(null);
 

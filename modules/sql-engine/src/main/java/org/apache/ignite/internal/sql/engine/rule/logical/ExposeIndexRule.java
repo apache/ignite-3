@@ -40,7 +40,7 @@ import org.immutables.value.Value;
  */
 @Value.Enclosing
 public class ExposeIndexRule extends RelRule<ExposeIndexRule.Config> {
-    public static final RelOptRule INSTANCE = Config.DEFAULT.toRule();
+    public static final RelOptRule INSTANCE = Config.DEFAULT.withDescription("ExposeIndexRule").toRule();
 
     public ExposeIndexRule(Config config) {
         super(config);

@@ -49,7 +49,7 @@ public class IgniteTableModify extends TableModify implements InternalIgniteRel 
      * @param traitSet             Traits of this relational expression.
      * @param table                Target table to modify.
      * @param input                Sub-query or filter condition.
-     * @param operation            Modify operation (INSERT, UPDATE, DELETE).
+     * @param operation            Modify operation (INSERT, UPDATE, DELETE, MERGE).
      * @param updateColumnList     List of column identifiers to be updated (e.g. ident1, ident2); null if not UPDATE.
      * @param sourceExpressionList List of value expressions to be set (e.g. exp1, exp2); null if not UPDATE.
      * @param flattened            Whether set flattens the input row type.
@@ -77,7 +77,7 @@ public class IgniteTableModify extends TableModify implements InternalIgniteRel 
         this(
                 input.getCluster(),
                 input.getTraitSet().replace(IgniteConvention.INSTANCE),
-                ((RelInputEx) input).getTableById("tableId"),
+                ((RelInputEx) input).getTableById(),
                 input.getInput(),
                 input.getEnum("operation", Operation.class),
                 input.getStringList("updateColumnList"),
@@ -117,6 +117,8 @@ public class IgniteTableModify extends TableModify implements InternalIgniteRel 
     public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
                 .itemIf("tableId", getTable().unwrap(InternalIgniteTable.class).id().toString(),
+                        pw.getDetailLevel() == ALL_ATTRIBUTES)
+                .itemIf("tableVer", getTable().unwrap(InternalIgniteTable.class).version(),
                         pw.getDetailLevel() == ALL_ATTRIBUTES);
     }
 }

@@ -24,9 +24,10 @@ import java.util.BitSet;
 import java.util.List;
 import org.apache.ignite.internal.network.serialization.BuiltInTypeIds;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.FieldAccessor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.internal.network.serialization.IdIndexedDescriptors;
+import org.apache.ignite.internal.network.serialization.MergedField;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputStream.UosGetField;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
@@ -39,32 +40,34 @@ import org.jetbrains.annotations.Nullable;
  * (which are not {@link java.io.Externalizable}s) and arbitrary (non-serializable, non-externalizable) objects.
  */
 class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
-    private final IdIndexedDescriptors descriptors;
+    private final DescriptorRegistry localDescriptors;
 
     private final TypedValueWriter valueWriter;
     private final TypedValueWriter unsharedWriter;
     private final TypedValueReader valueReader;
     private final TypedValueReader unsharedReader;
 
-    private final Instantiation instantiation;
+    private final SchemaMismatchHandlers schemaMismatchHandlers;
+
+    private final Instantiation instantiation = new BestEffortInstantiation(
+            new SerializableInstantiation(),
+            new UnsafeInstantiation()
+    );
 
     StructuredObjectMarshaller(
-            IdIndexedDescriptors descriptors,
+            DescriptorRegistry localDescriptors,
             TypedValueWriter valueWriter,
             TypedValueWriter unsharedWriter,
             TypedValueReader valueReader,
-            TypedValueReader unsharedReader
+            TypedValueReader unsharedReader,
+            SchemaMismatchHandlers schemaMismatchHandlers
     ) {
-        this.descriptors = descriptors;
+        this.localDescriptors = localDescriptors;
         this.valueWriter = valueWriter;
         this.unsharedWriter = unsharedWriter;
         this.valueReader = valueReader;
         this.unsharedReader = unsharedReader;
-
-        instantiation = new BestEffortInstantiation(
-                new SerializableInstantiation(),
-                new UnsafeInstantiation()
-        );
+        this.schemaMismatchHandlers = schemaMismatchHandlers;
     }
 
     void writeStructuredObject(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
@@ -154,13 +157,13 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     private void writeField(Object object, FieldDescriptor fieldDescriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
-        if (fieldDescriptor.clazz().isPrimitive()) {
+        if (fieldDescriptor.isPrimitive()) {
             writePrimitiveFieldValue(object, fieldDescriptor, output);
 
-            context.addUsedDescriptor(descriptors.getRequiredDescriptor(fieldDescriptor.typeDescriptorId()));
+            context.addUsedDescriptor(localDescriptors.getRequiredDescriptor(fieldDescriptor.typeDescriptorId()));
         } else {
             Object fieldValue = getFieldValue(object, fieldDescriptor);
-            valueWriter.write(fieldValue, fieldDescriptor.clazz(), output, context);
+            valueWriter.write(fieldValue, fieldDescriptor, output, context);
         }
     }
 
@@ -197,15 +200,15 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
                 output.writeBoolean(fieldAccessor.getBoolean(object));
                 break;
             default:
-                throw new IllegalStateException(fieldDescriptor.clazz() + " is primitive but not covered");
+                throw new IllegalStateException(fieldDescriptor.typeName() + " is primitive but not covered");
         }
     }
 
     Object preInstantiateStructuredObject(ClassDescriptor descriptor) throws UnmarshalException {
         try {
-            return instantiation.newInstance(descriptor.clazz());
+            return instantiation.newInstance(descriptor.localClass());
         } catch (InstantiationException e) {
-            throw new UnmarshalException("Cannot instantiate " + descriptor.clazz(), e);
+            throw new UnmarshalException("Cannot instantiate " + descriptor.className(), e);
         }
     }
 
@@ -256,12 +259,27 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             throws IOException, UnmarshalException {
         @Nullable BitSet nullsBitSet = readNullsBitSet(input, descriptor);
 
-        for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
-            if (nullWasSkippedWhileWriting(fieldDescriptor, descriptor, nullsBitSet)) {
-                setFieldValue(object, fieldDescriptor, null);
+        for (MergedField mergedField : descriptor.mergedFields()) {
+            if (mergedField.hasRemote()) {
+                fillFieldWithNullSkippedCheckFrom(input, object, mergedField, descriptor, nullsBitSet, context);
             } else {
-                fillFieldFrom(input, object, context, fieldDescriptor);
+                schemaMismatchHandlers.onFieldMissed(descriptor.localClass(), object, mergedField.name());
             }
+        }
+    }
+
+    private void fillFieldWithNullSkippedCheckFrom(
+            IgniteDataInput input,
+            Object object,
+            MergedField mergedField,
+            ClassDescriptor layerDescriptor,
+            @Nullable BitSet nullsBitSet,
+            UnmarshallingContext context
+    ) throws IOException, UnmarshalException {
+        if (nullWasSkippedWhileWriting(mergedField.remote(), layerDescriptor, nullsBitSet)) {
+            setFieldValue(object, mergedField, null, layerDescriptor);
+        } else {
+            fillFieldFrom(input, object, context, mergedField, layerDescriptor);
         }
     }
 
@@ -284,50 +302,129 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         return ProtocolMarshalling.readFixedLengthBitSet(descriptor.fieldIndexInNullsBitmapSize(), input);
     }
 
-    private void fillFieldFrom(IgniteDataInput input, Object object, UnmarshallingContext context, FieldDescriptor fieldDescriptor)
-            throws IOException, UnmarshalException {
-        if (fieldDescriptor.clazz().isPrimitive()) {
-            fillPrimitiveFieldFrom(input, object, fieldDescriptor);
+    private void fillFieldFrom(
+            IgniteDataInput input,
+            Object object,
+            UnmarshallingContext context,
+            MergedField mergedField,
+            ClassDescriptor layerDescriptor
+    ) throws IOException, UnmarshalException {
+        if (mergedField.remote().isPrimitive()) {
+            fillPrimitiveFieldFrom(input, object, mergedField, layerDescriptor);
         } else {
-            Object fieldValue = valueReader.read(input, fieldDescriptor.clazz(), context);
-            setFieldValue(object, fieldDescriptor, fieldValue);
+            Object fieldValue = valueReader.read(input, mergedField.remote(), context);
+            setFieldValue(object, mergedField, fieldValue, layerDescriptor);
         }
     }
 
-    private void setFieldValue(Object object, FieldDescriptor fieldDescriptor, Object fieldValue) {
-        fieldDescriptor.accessor().setObject(object, fieldValue);
+    private void setFieldValue(Object object, MergedField mergedField, Object fieldValue, ClassDescriptor layerDescriptor)
+            throws SchemaMismatchException {
+        if (!mergedField.hasLocal()) {
+            fireFieldIgnored(layerDescriptor, object, mergedField, fieldValue);
+            return;
+        }
+        if (mergedField.typesAreDifferent() && !mergedField.typesAreCompatible()) {
+            fireFieldTypeChanged(layerDescriptor, object, mergedField, fieldValue);
+            return;
+        }
+
+        if (mergedField.typesAreDifferent()) {
+            // TODO: IGNITE-16564 - special handling for numeric values
+            fieldValue = mergedField.convertToLocalType(fieldValue);
+        }
+
+        mergedField.local().accessor().setObject(object, fieldValue);
     }
 
-    private void fillPrimitiveFieldFrom(DataInput input, Object object, FieldDescriptor fieldDescriptor) throws IOException {
-        FieldAccessor fieldAccessor = fieldDescriptor.accessor();
+    private void fireFieldIgnored(ClassDescriptor layerDescriptor, Object object, MergedField mergedField, Object fieldValue)
+            throws SchemaMismatchException {
+        schemaMismatchHandlers.onFieldIgnored(layerDescriptor.localClass(), object, mergedField.name(), fieldValue);
+    }
 
+    private void fireFieldTypeChanged(ClassDescriptor layerDescriptor, Object object, MergedField mergedField, Object fieldValue)
+            throws SchemaMismatchException {
+        schemaMismatchHandlers.onFieldTypeChanged(
+                layerDescriptor.localClass(),
+                object,
+                mergedField.name(),
+                mergedField.remote().localClass(),
+                fieldValue
+        );
+    }
+
+    private void fillPrimitiveFieldFrom(
+            DataInput input,
+            Object object,
+            MergedField mergedField,
+            ClassDescriptor layerDescriptor
+    ) throws IOException, SchemaMismatchException {
+        if (!mergedField.hasLocal()) {
+            Object value = readPrimitiveValue(input, mergedField.remote());
+            fireFieldIgnored(layerDescriptor, object, mergedField, value);
+            return;
+        }
+        if (mergedField.typesAreDifferent()) {
+            // TODO: IGNITE-16564 - special handling for numeric values
+            Object value = readPrimitiveValue(input, mergedField.remote());
+            fireFieldTypeChanged(layerDescriptor, object, mergedField, value);
+            return;
+        }
+
+        fillPrimitiveFieldWithAccessorFrom(input, object, mergedField, mergedField.local().accessor());
+    }
+
+    private Object readPrimitiveValue(DataInput input, FieldDescriptor fieldDescriptor) throws IOException {
         switch (fieldDescriptor.typeDescriptorId()) {
             case BuiltInTypeIds.BYTE:
-                fieldAccessor.setByte(object, input.readByte());
+                return input.readByte();
+            case BuiltInTypeIds.SHORT:
+                return input.readShort();
+            case BuiltInTypeIds.INT:
+                return input.readInt();
+            case BuiltInTypeIds.LONG:
+                return input.readLong();
+            case BuiltInTypeIds.FLOAT:
+                return input.readFloat();
+            case BuiltInTypeIds.DOUBLE:
+                return input.readDouble();
+            case BuiltInTypeIds.CHAR:
+                return input.readChar();
+            case BuiltInTypeIds.BOOLEAN:
+                return input.readBoolean();
+            default:
+                throw new IllegalStateException(fieldDescriptor.typeName() + " is primitive but not covered");
+        }
+    }
+
+    private void fillPrimitiveFieldWithAccessorFrom(DataInput input, Object object, MergedField mergedField, FieldAccessor localAccessor)
+            throws IOException {
+        switch (mergedField.remote().typeDescriptorId()) {
+            case BuiltInTypeIds.BYTE:
+                localAccessor.setByte(object, input.readByte());
                 break;
             case BuiltInTypeIds.SHORT:
-                fieldAccessor.setShort(object, input.readShort());
+                localAccessor.setShort(object, input.readShort());
                 break;
             case BuiltInTypeIds.INT:
-                fieldAccessor.setInt(object, input.readInt());
+                localAccessor.setInt(object, input.readInt());
                 break;
             case BuiltInTypeIds.LONG:
-                fieldAccessor.setLong(object, input.readLong());
+                localAccessor.setLong(object, input.readLong());
                 break;
             case BuiltInTypeIds.FLOAT:
-                fieldAccessor.setFloat(object, input.readFloat());
+                localAccessor.setFloat(object, input.readFloat());
                 break;
             case BuiltInTypeIds.DOUBLE:
-                fieldAccessor.setDouble(object, input.readDouble());
+                localAccessor.setDouble(object, input.readDouble());
                 break;
             case BuiltInTypeIds.CHAR:
-                fieldAccessor.setChar(object, input.readChar());
+                localAccessor.setChar(object, input.readChar());
                 break;
             case BuiltInTypeIds.BOOLEAN:
-                fieldAccessor.setBoolean(object, input.readBoolean());
+                localAccessor.setBoolean(object, input.readBoolean());
                 break;
             default:
-                throw new IllegalStateException(fieldDescriptor.clazz() + " is primitive but not covered");
+                throw new IllegalStateException(mergedField.remote().typeName() + " is primitive but not covered");
         }
     }
 }

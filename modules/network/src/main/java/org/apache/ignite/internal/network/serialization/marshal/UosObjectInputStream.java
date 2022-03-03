@@ -23,8 +23,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 import java.util.BitSet;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
+import org.apache.ignite.internal.network.serialization.DeclaredType;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.internal.network.serialization.Primitives;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.jetbrains.annotations.Nullable;
 
@@ -173,7 +173,7 @@ class UosObjectInputStream extends ObjectInputStream {
         return doReadObjectOf(null);
     }
 
-    private Object doReadObjectOf(@Nullable Class<?> declaredType) throws IOException {
+    private Object doReadObjectOf(@Nullable DeclaredType declaredType) throws IOException {
         try {
             return valueReader.read(input, declaredType, context);
         } catch (UnmarshalException e) {
@@ -191,7 +191,7 @@ class UosObjectInputStream extends ObjectInputStream {
         return doReadUnsharedOf(null);
     }
 
-    private Object doReadUnsharedOf(@Nullable Class<?> declaredType) throws IOException {
+    private Object doReadUnsharedOf(@Nullable DeclaredType declaredType) throws IOException {
         try {
             return unsharedReader.read(input, declaredType, context);
         } catch (UnmarshalException e) {
@@ -269,17 +269,19 @@ class UosObjectInputStream extends ObjectInputStream {
         /** {@inheritDoc} */
         @Override
         public ObjectStreamClass getObjectStreamClass() {
-            return ObjectStreamClass.lookupAny(descriptor.clazz());
+            // TODO: IGNITE-16572 - make it support schema changes
+
+            return ObjectStreamClass.lookupAny(descriptor.localClass());
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean defaulted(String name) throws IOException {
-            // TODO: IGNITE-15948 - actually take into account whether it's defaulted or not
+            // TODO: IGNITE-16571 - actually take into account whether it's defaulted or not
             return false;
         }
 
-        // TODO: IGNITE-15948 - return default values if the field exists locally but not in the stream being parsed
+        // TODO: IGNITE-16571 - return default values if the field exists locally but not in the stream being parsed
 
         /** {@inheritDoc} */
         @Override
@@ -336,7 +338,7 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private int primitiveFieldDataOffset(String fieldName, Class<?> requiredType) {
-            return descriptor.primitiveFieldDataOffset(fieldName, requiredType);
+            return descriptor.primitiveFieldDataOffset(fieldName, requiredType.getName());
         }
 
         private void readFields() throws IOException {
@@ -358,8 +360,8 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private void readPrimitive(FieldDescriptor fieldDesc) throws IOException {
-            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.clazz());
-            int length = Primitives.widthInBytes(fieldDesc.clazz());
+            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.typeName());
+            int length = fieldDesc.primitiveWidthInBytes();
             input.readFully(primitiveFieldsData, offset, length);
         }
 
@@ -367,9 +369,9 @@ class UosObjectInputStream extends ObjectInputStream {
             if (!StructuredObjectMarshaller.nullWasSkippedWhileWriting(fieldDesc, descriptor, nullsBitSet)) {
                 Object readObject;
                 if (fieldDesc.isUnshared()) {
-                    readObject = doReadUnsharedOf(fieldDesc.clazz());
+                    readObject = doReadUnsharedOf(fieldDesc);
                 } else {
-                    readObject = doReadObjectOf(fieldDesc.clazz());
+                    readObject = doReadObjectOf(fieldDesc);
                 }
 
                 objectFieldVals[objectFieldIndex] = readObject;

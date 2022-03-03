@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app.jdbc;
 
 import static org.apache.ignite.client.proto.query.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.client.proto.query.SqlStateCode.INVALID_TRANSACTION_LEVEL;
-import static org.apache.ignite.client.proto.query.SqlStateCode.PARSING_EXCEPTION;
 import static org.apache.ignite.client.proto.query.SqlStateCode.UNSUPPORTED_OPERATION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,7 +29,6 @@ import java.sql.BatchUpdateException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -79,7 +77,6 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      * @throws SQLException if failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16201")
     public void testBatchUpdateException() throws SQLException {
         try {
             stmt.executeUpdate("CREATE TABLE test2 (id int primary key, val varchar)");
@@ -92,14 +89,12 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
 
             fail("BatchUpdateException is expected");
         } catch (BatchUpdateException e) {
-            assertEquals(3, e.getUpdateCounts().length);
+            assertEquals(2, e.getUpdateCounts().length);
 
-            assertArrayEquals(new int[] {1, 1, Statement.EXECUTE_FAILED}, e.getUpdateCounts());
-
-            assertEquals(PARSING_EXCEPTION, e.getSQLState());
+            assertArrayEquals(new int[] {1, 1}, e.getUpdateCounts());
 
             assertTrue(e.getMessage() != null
-                            && e.getMessage().contains("Failed to parse query. Column \"ID1\" not found"),
+                            && e.getMessage().contains("Unknown target column 'ID1'"),
                     "Unexpected error message: " + e.getMessage());
         }
     }

@@ -25,20 +25,32 @@ import java.nio.ByteBuffer;
  * Binary row interface. The class contains low-level methods to read row data.
  */
 public interface BinaryRow {
+    /** Size of chunk length field. */
+    int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
+
+    /** Size of flags field. */
+    int FLAGS_FLD_SIZE = Byte.BYTES;
+
+    /** Size of schema version length field. */
+    int SCHEMA_VERSION_FLD_LEN = Short.BYTES;
+
+    /** Size of key hash field. */
+    int HASH_FLD_SIZE = Integer.BYTES;
+
     /** Row schema version field offset. */
     int SCHEMA_VERSION_OFFSET = 0;
 
-    /** Row flags field offset. */
-    int FLAGS_FIELD_OFFSET = SCHEMA_VERSION_OFFSET + 2 /* version length */;
+    /** Row flags field offset from the chunk start. */
+    int FLAGS_FIELD_OFFSET = CHUNK_LEN_FLD_SIZE;
 
     /** Key hash field offset. */
-    int KEY_HASH_FIELD_OFFSET = FLAGS_FIELD_OFFSET + 2 /* flags length */;
+    int KEY_HASH_FIELD_OFFSET = SCHEMA_VERSION_FLD_LEN;
 
     /** Key chunk field offset. */
-    int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + 4 /* hash length */;
+    int KEY_CHUNK_OFFSET = KEY_HASH_FIELD_OFFSET + HASH_FLD_SIZE;
 
-    /** Size of chunk length field. */
-    int CHUNK_LEN_FLD_SIZE = Integer.BYTES;
+    /** Size of chunk header (offset for nullmap or vartable or data). */
+    int CHUNK_HEADER_SIZE = CHUNK_LEN_FLD_SIZE + FLAGS_FLD_SIZE;
 
     /** Row header size. */
     int HEADER_SIZE = KEY_CHUNK_OFFSET;
@@ -153,17 +165,8 @@ public interface BinaryRow {
      * Row flags.
      */
     final class RowFlags {
-        /** Flag indicates row has no value chunk. */
-        public static final int NO_VALUE_FLAG = 1;
-
-        /** Chunk flags mask. */
-        public static final int CHUNK_FLAGS_MASK = 0x0F;
-
-        /** Key specific flags. */
-        public static final int KEY_FLAGS_OFFSET = 8;
-
-        /** Value specific flags. */
-        public static final int VAL_FLAGS_OFFSET = 12;
+        /** First two flag bits reserved for format code. */
+        public static final int VARTABLE_FORMAT_MASK = 0x03;
 
         /** Stub. */
         private RowFlags() {

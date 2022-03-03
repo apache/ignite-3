@@ -20,6 +20,7 @@ package org.apache.ignite.raft.jraft.core;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -104,7 +105,7 @@ public class ItCliServiceTest {
             learners.add(new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + i));
         }
 
-        cluster = new TestCluster(groupId, dataPath.toString(), peers, learners, 300, testInfo);
+        cluster = new TestCluster(groupId, dataPath.toString(), peers, learners, ELECTION_TIMEOUT_MILLIS, testInfo);
         for (PeerId peer : peers) {
             cluster.start(peer.getEndpoint());
         }
@@ -190,7 +191,6 @@ public class ItCliServiceTest {
         assertTrue(latch.await(10, TimeUnit.SECONDS));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15244")
     @Test
     public void testLearnerServices() throws Exception {
         PeerId learner3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + LEARNER_PORT_STEP + 3);
@@ -273,7 +273,6 @@ public class ItCliServiceTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-15157")
     public void testAddPeerRemovePeer() throws Exception {
         PeerId peer3 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3);
         assertTrue(cluster.start(peer3.getEndpoint()));
@@ -313,10 +312,12 @@ public class ItCliServiceTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16091")
     public void testChangePeers() throws Exception {
-        List<PeerId> newPeers = TestUtils.generatePeers(10);
+        List<PeerId> newPeers = TestUtils.generatePeers(6);
         newPeers.removeAll(conf.getPeerSet());
+
+        assertEquals(3, newPeers.size());
+
         for (PeerId peer : newPeers) {
             assertTrue(cluster.start(peer.getEndpoint()));
         }

@@ -17,15 +17,24 @@
 
 package org.apache.ignite.internal.util;
 
+import static org.apache.ignite.internal.util.ArrayUtils.clearTail;
 import static org.apache.ignite.internal.util.ArrayUtils.remove;
+import static org.apache.ignite.internal.util.ArrayUtils.set;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 /**
  * Class to test the {@link ArrayUtils}.
  */
 public class ArrayUtilsSelfTest {
+    private static final String[] EMPTY = {};
+
     @Test
     public void testRemoveLong() {
         long[] arr = {0, 1, 2, 3, 4, 5, 6};
@@ -46,5 +55,83 @@ public class ArrayUtilsSelfTest {
         assertArrayEquals(new Integer[]{0, 1, 2, 3, 5, 6}, remove(arr, 4));
         assertArrayEquals(new Integer[]{0, 1, 2, 3, 4, 5}, remove(arr, 6));
         assertArrayEquals(new Integer[0], remove(new Integer[]{1}, 0));
+    }
+
+    @Test
+    public void testSet() {
+        String[] arr = set(EMPTY, 4, "aa");
+
+        assertNotSame(EMPTY, arr);
+        assertEquals("aa", arr[4]);
+
+        for (int i = 0; i < arr.length; i++) {
+            if (i != 4) {
+                assertNull(arr[i]);
+            }
+        }
+
+        String[] oldArr = arr;
+
+        arr = set(arr, 1, "bb");
+
+        assertSame(oldArr, arr);
+        assertEquals("aa", arr[4]);
+        assertEquals("bb", arr[1]);
+
+        for (int i = 0; i < arr.length; i++) {
+            if (i != 1 && i != 4) {
+                assertNull(arr[i]);
+            }
+        }
+
+        arr = set(arr, 100, "cc");
+
+        assertNotSame(oldArr, arr);
+        assertEquals("aa", arr[4]);
+        assertEquals("bb", arr[1]);
+        assertEquals("cc", arr[100]);
+
+        for (int i = 0; i < arr.length; i++) {
+            if (i != 1 && i != 4 && i != 100) {
+                assertNull(arr[i]);
+            }
+        }
+    }
+
+    @Test
+    public void testClearTail() {
+        String[] arr = new String[10];
+
+        Arrays.fill(arr, "zz");
+
+        clearTail(arr, 11);
+
+        for (String s : arr) {
+            assertEquals("zz", s);
+        }
+
+        clearTail(arr, 10);
+
+        for (String s : arr) {
+            assertEquals("zz", s);
+        }
+
+        clearTail(arr, 9);
+
+        assertNull(arr[9]);
+
+        for (int i = 0; i < 9; i++) {
+            assertEquals("zz", arr[i]);
+        }
+
+        clearTail(arr, 7);
+
+        assertNull(arr[7]);
+        assertNull(arr[8]);
+        assertNull(arr[9]);
+
+        for (int i = 0; i < 7; i++) {
+            assertEquals("zz", arr[i]);
+        }
     }
 }

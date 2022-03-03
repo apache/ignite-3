@@ -28,6 +28,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -201,10 +203,12 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
+        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
                 modules.distributed().validators(),
-                new DistributedConfigurationStorage(metaStorageMgr, vaultMgr),
+                cfgStorage,
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
@@ -215,7 +219,16 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
+        Consumer<Consumer<Long>> registry = (c) -> {
+            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
+                c.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
         distributedTblMgr = new TableManager(
+                registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,
@@ -226,6 +239,7 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
+                registry,
                 clusterSvc,
                 distributedTblMgr
         );

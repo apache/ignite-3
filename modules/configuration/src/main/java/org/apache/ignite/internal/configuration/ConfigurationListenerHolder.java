@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Holder (thread safe) for configuration change listeners.
  */
-class ConfigurationListenerHolder<L> {
+public class ConfigurationListenerHolder<L> {
     private final List<Container<L>> containers = new CopyOnWriteArrayList<>();
 
     /**
@@ -36,7 +36,7 @@ class ConfigurationListenerHolder<L> {
      * @param notificationNumber Configuration notification listener number after which the listener will be called.
      * @see ConfigurationListenerHolder#listeners
      */
-    void addListener(L listener, long notificationNumber) {
+    public void addListener(L listener, long notificationNumber) {
         containers.add(new Container<>(listener, notificationNumber + 1));
     }
 
@@ -48,7 +48,7 @@ class ConfigurationListenerHolder<L> {
      *
      * @param listener Configuration change listener.
      */
-    void removeListener(L listener) {
+    public void removeListener(L listener) {
         containers.remove(new Container<>(listener, -1) {
             /** {@inheritDoc} */
             @Override
@@ -66,7 +66,7 @@ class ConfigurationListenerHolder<L> {
      * @param notificationNumber Configuration notification listener number.
      * @see ConfigurationListenerHolder#addListener
      */
-    Iterator<L> listeners(long notificationNumber) {
+    public Iterator<L> listeners(long notificationNumber) {
         Iterator<Container<L>> it = containers.iterator();
 
         return new Iterator<L>() {

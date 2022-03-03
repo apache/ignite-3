@@ -93,6 +93,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -311,15 +312,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     protected static void createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
-        TestTable table = new TestTable(type) {
+        TestTable table = new TestTable(type, name) {
             @Override
             public IgniteDistribution distribution() {
                 return distr;
-            }
-
-            @Override
-            public String name() {
-                return name;
             }
         };
 
@@ -575,6 +571,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             this(type, 100.0);
         }
 
+        TestTable(RelDataType type, String name) {
+            this(name, type, 100.0);
+        }
+
         TestTable(RelDataType type, double rowCnt) {
             this(UUID.randomUUID().toString(), type, rowCnt);
         }
@@ -591,6 +591,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public UUID id() {
             return id;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int version() {
+            return 0;
         }
 
         /** {@inheritDoc} */
@@ -773,7 +779,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public <RowT> BinaryRow toBinaryRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable Object arg) {
+        public <RowT> ModifyRow toModifyRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
             throw new AssertionError();
         }
     }
@@ -939,7 +945,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         @Override
-        public IgniteTable tableById(UUID id) {
+        public IgniteTable tableById(UUID id, int ver) {
             return tablesById.get(id);
         }
     }

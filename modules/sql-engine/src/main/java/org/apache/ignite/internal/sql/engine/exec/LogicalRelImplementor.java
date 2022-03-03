@@ -70,7 +70,6 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
-import org.apache.ignite.internal.sql.engine.rel.IgniteGateway;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
@@ -103,7 +102,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Implements a query plan.
@@ -349,18 +347,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
     /** {@inheritDoc} */
     @Override
-    public Node<RowT> visit(IgniteGateway rel) {
-        var extension = ctx.extension(rel.extensionName());
-
-        if (extension == null) {
-            throw new IgniteInternalException("Unknown SQL extension \"" + rel.extensionName() + "\"");
-        }
-
-        return extension.<RowT>implementor().implement(ctx, (IgniteRel) rel.getInput());
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Node<RowT> visit(IgniteValues rel) {
         List<RexLiteral> vals = Commons.flat(Commons.cast(rel.getTuples()));
 
@@ -518,6 +504,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
             case INSERT:
             case UPDATE:
             case DELETE:
+            case MERGE:
                 InternalIgniteTable tbl = rel.getTable().unwrap(InternalIgniteTable.class);
 
                 assert tbl != null;
@@ -530,10 +517,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 node.register(input);
 
                 return node;
-            case MERGE:
-                throw new UnsupportedOperationException();
             default:
-                throw new AssertionError();
+                throw new AssertionError("Unsupported operation: " + rel.getOperation());
         }
     }
 
