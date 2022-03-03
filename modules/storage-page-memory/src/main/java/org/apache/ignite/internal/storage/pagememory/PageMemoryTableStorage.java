@@ -17,23 +17,35 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage implementation based on {@link PageMemory}.
  */
+// TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
 public class PageMemoryTableStorage implements TableStorage {
     private final PageMemoryDataRegion dataRegion;
 
     private final TableConfiguration tableCfg;
+
+    private volatile boolean started;
+
+    private volatile AtomicReferenceArray<PartitionStorage> partitions;
 
     /**
      * Constructor.
@@ -64,36 +76,91 @@ public class PageMemoryTableStorage implements TableStorage {
         if (dataRegion.persistent()) {
             throw new UnsupportedOperationException("Persistent case is not supported yet.");
         }
+
+        TableView tableView = tableCfg.value();
+
+        partitions = new AtomicReferenceArray<>(tableView.partitions());
+
+        started = true;
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
+        started = false;
 
+        List<AutoCloseable> autoCloseables = new ArrayList<>();
+
+        for (int i = 0; i < partitions.length(); i++) {
+            PartitionStorage partition = partitions.getAndUpdate(i, p -> null);
+
+            if (partition != null) {
+                autoCloseables.add(partition);
+            }
+
+            autoCloseables.add(partition);
+        }
+
+        Collections.reverse(autoCloseables);
+
+        try {
+            IgniteUtils.closeAll(autoCloseables);
+        } catch (Exception e) {
+            throw new StorageException("Failed to stop PageMemory table storage.", e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void destroy() throws StorageException {
-
+        stop();
     }
 
     /** {@inheritDoc} */
     @Override
     public PartitionStorage getOrCreatePartition(int partId) throws StorageException {
-        return null;
+        PartitionStorage partition = getPartition(partId);
+
+        if (partition != null) {
+            return partition;
+        }
+
+        partition = new PageMemoryPartitionStorage(partId);
+
+        partitions.set(partId, partition);
+
+        return partition;
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable PartitionStorage getPartition(int partId) {
-        return null;
+        assert started : "Storage has not started yet";
+
+        if (partId < 0 || partId >= partitions.length()) {
+            throw new IllegalArgumentException(S.toString(
+                    "Unable to access partition with id outside of configured range",
+                    "table", tableCfg.name().value(), false,
+                    "partitionId", partId, false,
+                    "partitions", partitions.length(), false
+            ));
+        }
+
+        return partitions.get(partId);
     }
 
     /** {@inheritDoc} */
     @Override
     public void dropPartition(int partId) throws StorageException {
+        assert started : "Storage has not started yet";
 
+        PartitionStorage partition = getPartition(partId);
+
+        if (partition != null) {
+            partitions.set(partId, null);
+
+            partition.destroy();
+        }
     }
 
     /** {@inheritDoc} */

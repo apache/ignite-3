@@ -55,9 +55,11 @@ public class PageMemoryDataRegion implements DataRegion {
             throw new UnsupportedOperationException("Persistent case is not supported yet.");
         }
 
-        pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry);
+        PageMemory pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry);
 
         pageMemory.start();
+
+        this.pageMemory = pageMemory;
     }
 
     /** {@inheritDoc} */

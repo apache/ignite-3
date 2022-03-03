@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
+
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
@@ -31,11 +34,27 @@ import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Storage implementation based on a {@link BplusTree}.
+ */
 public class PageMemoryPartitionStorage implements PartitionStorage {
+    private final int partId;
+
+    /**
+     * Constructor.
+     *
+     * @param partId Partition id.
+     */
+    public PageMemoryPartitionStorage(int partId) {
+        assert partId > 0 && partId < MAX_PARTITION_ID : partId;
+
+        this.partId = partId;
+    }
+
     /** {@inheritDoc} */
     @Override
     public int partitionId() {
-        return 0;
+        return partId;
     }
 
     /** {@inheritDoc} */
