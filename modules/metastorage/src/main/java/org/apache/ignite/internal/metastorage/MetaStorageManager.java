@@ -19,8 +19,8 @@ package org.apache.ignite.internal.metastorage;
 
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
+import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -30,11 +30,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.cluster.management.InitException;
 import org.apache.ignite.internal.cluster.management.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.messages.CmgMessageGroup;
-import org.apache.ignite.internal.cluster.management.messages.InitMessagesFactory;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
@@ -64,8 +61,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -115,7 +110,7 @@ public class MetaStorageManager implements IgniteComponent {
      * Future which will be completed with {@link IgniteUuid}, when aggregated watch will be successfully deployed. Can be resolved to
      * {@code null} if no watch deployed at the moment.
      *
-     * <p>Multithreaded access is guarded by {@code this}.
+     * <p>Multi-threaded access is guarded by {@code this}.
      */
     private CompletableFuture<IgniteUuid> deployFut = new CompletableFuture<>();
 
@@ -130,12 +125,19 @@ public class MetaStorageManager implements IgniteComponent {
      *
      * <p>If false - all new watches will be aggregated to one batch for further deploy by {@link MetaStorageManager#deployWatches()}.
      *
-     * <p>Multithreaded access is guarded by {@code this}.
+     * <p>Multi-threaded access is guarded by {@code this}.
      */
     private boolean areWatchesDeployed = false;
 
-    /** Flag that indicates that the component has been initialized. */
-    private final AtomicBoolean isInitialized = new AtomicBoolean();
+    /** Component initialization lock. */
+    private final Object initLock = new Object();
+
+    /**
+     * Flag that indicates that the component has been initialized.
+     *
+     * <p>Multi-threaded access is guarded by the {@code initLock}.
+     */
+    private boolean isInitialized = false;
 
     /** Prevents double stopping the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
@@ -158,61 +160,37 @@ public class MetaStorageManager implements IgniteComponent {
         this.raftMgr = raftMgr;
         this.storage = storage;
 
-        MessagingService messagingService = clusterService.messagingService();
+        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, (msg, addr, correlationId) -> {
+            if (!(msg instanceof ClusterStateMessage)) {
+                return;
+            }
 
-        var msgFactory = new InitMessagesFactory();
-
-        messagingService.addMessageHandler(CmgMessageGroup.class, (msg, addr, correlationId) -> {
             if (!busyLock.enterBusy()) {
-                if (correlationId != null) {
-                    messagingService.respond(addr, errorResponse(msgFactory, new NodeStoppingException()), correlationId);
-                }
-
                 return;
             }
 
             try {
-                if (!(msg instanceof ClusterStateMessage)) {
-                    return;
+                synchronized (initLock) {
+                    if (isInitialized) {
+                        return;
+                    }
+
+                    initializeMetaStorage(clusterService, (ClusterStateMessage) msg);
+
+                    isInitialized = true;
                 }
-
-                assert correlationId != null;
-
-                if (!isInitialized.compareAndSet(false, true)) {
-                    messagingService.respond(addr, errorResponse(msgFactory, "Node has already been initialized"), correlationId);
-
-                    return;
-                }
-
-                initializeMetaStorage(clusterService, (ClusterStateMessage) msg)
-                        .whenComplete((v, e) -> {
-                            NetworkMessage response = e == null ? successResponse(msgFactory) : errorResponse(msgFactory, e);
-
-                            messagingService.respond(addr, response, correlationId);
-                        });
             } catch (Exception e) {
-                messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
+                LOG.error("Unable to initialize the Meta Storage", e);
             } finally {
                 busyLock.leaveBusy();
             }
         });
     }
 
-    private CompletableFuture<Void> initializeMetaStorage(ClusterService clusterService, ClusterStateMessage initMsg)
-            throws NodeStoppingException {
+    private void initializeMetaStorage(ClusterService clusterService, ClusterStateMessage msg) throws NodeStoppingException {
         TopologyService topologyService = clusterService.topologyService();
 
-        List<ClusterNode> metastorageNodes = Arrays.stream(initMsg.metastorageNodes())
-                .map(nodeId -> {
-                    ClusterNode node = topologyService.getByConsistentId(nodeId);
-
-                    if (node == null) {
-                        throw new InitException(String.format("Node \"%s\" is not present in the physical topology", nodeId));
-                    }
-
-                    return node;
-                })
-                .collect(Collectors.toList());
+        List<ClusterNode> metastorageNodes = resolveNodes(clusterService, msg.metastorageNodes());
 
         ClusterNode thisNode = topologyService.localMember();
 
@@ -238,31 +216,15 @@ public class MetaStorageManager implements IgniteComponent {
                 () -> new MetaStorageListener(storage)
         );
 
-        return raftServiceFuture
+        raftServiceFuture
                 .thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()))
-                .handle((service, ex) -> {
+                .whenComplete((service, ex) -> {
                     if (ex == null) {
                         metaStorageSvcFut.complete(service);
                     } else {
                         metaStorageSvcFut.completeExceptionally(ex);
                     }
-
-                    return null;
                 });
-    }
-
-    private static NetworkMessage errorResponse(InitMessagesFactory msgFactory, Throwable e) {
-        LOG.error("Exception when starting the Meta Storage", e);
-
-        return errorResponse(msgFactory, e.getMessage());
-    }
-
-    private static NetworkMessage errorResponse(InitMessagesFactory msgFactory, String message) {
-        return msgFactory.initErrorMessage().cause(message).build();
-    }
-
-    private static NetworkMessage successResponse(InitMessagesFactory msgFactory) {
-        return msgFactory.initCompleteMessage().build();
     }
 
     /**
@@ -284,10 +246,11 @@ public class MetaStorageManager implements IgniteComponent {
 
         busyLock.block();
 
-        if (!isInitialized.get()) {
-            // Stop command was called before the init command was received
-
-            return;
+        synchronized (initLock) {
+            if (!isInitialized) {
+                // Stop command was called before the init command was received
+                return;
+            }
         }
 
         synchronized (this) {
@@ -695,7 +658,7 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Invoke, which supports nested conditional statements.
      *
-     * @see MetaStorageService#invoke(org.apache.ignite.internal.metastorage.client.If)
+     * @see MetaStorageService#invoke(If)
      */
     public @NotNull CompletableFuture<StatementResult> invoke(@NotNull If iif) {
         if (!busyLock.enterBusy()) {

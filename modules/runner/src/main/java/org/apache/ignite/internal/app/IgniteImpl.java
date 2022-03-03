@@ -37,8 +37,7 @@ import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.Leaders;
-import org.apache.ignite.internal.cluster.management.messages.InitMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.messages.CmgMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -177,7 +176,7 @@ public class IgniteImpl implements Ignite {
 
         MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
 
-        InitMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
@@ -428,6 +427,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Returns the id of the current node.
      */
+    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public String id() {
         return clusterSvc.topologyService().localMember().id();
     }
@@ -437,6 +437,7 @@ public class IgniteImpl implements Ignite {
      *
      * @throws IgniteInternalException if the REST module is not started.
      */
+    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress restAddress() {
         return NetworkAddress.from(restModule.localAddress());
     }
@@ -446,6 +447,7 @@ public class IgniteImpl implements Ignite {
      *
      * @throws IgniteInternalException if the Client module is not started.
      */
+    // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress clientAddress() {
         return NetworkAddress.from(clientHandlerModule.localAddress());
     }
@@ -456,8 +458,8 @@ public class IgniteImpl implements Ignite {
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public Leaders init(Collection<String> metaStorageNodeNames) throws NodeStoppingException {
-        return init(metaStorageNodeNames, List.of());
+    public void init(Collection<String> metaStorageNodeNames) throws NodeStoppingException {
+        init(metaStorageNodeNames, List.of());
     }
 
     /**
@@ -467,8 +469,8 @@ public class IgniteImpl implements Ignite {
      * @param cmgNodeNames names of nodes that will host the CMG.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public Leaders init(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
-        return cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames);
+    public void init(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
+        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames);
     }
 
     /**

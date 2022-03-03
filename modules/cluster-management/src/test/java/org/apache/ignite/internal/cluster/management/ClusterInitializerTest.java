@@ -20,12 +20,13 @@ package org.apache.ignite.internal.cluster.management;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -34,9 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.InitMessagesFactory;
+import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -65,7 +65,7 @@ public class ClusterInitializerTest {
 
     private ClusterInitializer clusterInitializer;
 
-    private final InitMessagesFactory msgFactory = new InitMessagesFactory();
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     @BeforeEach
     void setUp(@Mock ClusterService clusterService) {
@@ -87,39 +87,16 @@ public class ClusterInitializerTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(ClusterStateMessage.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    ClusterStateMessage message = invocation.getArgument(1);
-
-                    NetworkMessage response = msgFactory.initCompleteMessage()
-                            .leaderName(message.metastorageNodes()[0])
-                            .build();
-
-                    return CompletableFuture.completedFuture(response);
-                });
-
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    CmgInitMessage message = invocation.getArgument(1);
-
-                    NetworkMessage response = msgFactory.initCompleteMessage()
-                            .leaderName(message.cmgNodes()[0])
-                            .build();
-
-                    return CompletableFuture.completedFuture(response);
-                });
+                .thenReturn(initCompleteMessage());
 
         // check that leaders are different in case different node IDs are provided
-        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
 
-        verify(messagingService).invoke(eq(metastorageNode), any(ClusterStateMessage.class), anyLong());
-        verify(messagingService).invoke(eq(cmgNode), any(ClusterStateMessage.class), anyLong());
-        verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
+        verify(messagingService, never()).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
 
-        var expectedLeaders = new Leaders(metastorageNode.name(), cmgNode.name());
-
-        assertThat(leaders, willBe(equalTo(expectedLeaders)));
+        assertThat(initFuture, willBe(nullValue(Void.class)));
     }
 
     /**
@@ -134,39 +111,15 @@ public class ClusterInitializerTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(ClusterStateMessage.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    ClusterStateMessage message = invocation.getArgument(1);
-
-                    NetworkMessage response = msgFactory.initCompleteMessage()
-                            .leaderName(message.metastorageNodes()[0])
-                            .build();
-
-                    return CompletableFuture.completedFuture(response);
-                });
-
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    CmgInitMessage message = invocation.getArgument(1);
+                .thenReturn(initCompleteMessage());
 
-                    NetworkMessage response = msgFactory.initCompleteMessage()
-                            .leaderName(message.cmgNodes()[0])
-                            .build();
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of());
 
-                    return CompletableFuture.completedFuture(response);
-                });
-
-        // check that leaders are the same in case CMG node list is empty
-        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of());
-
-        verify(messagingService).invoke(eq(metastorageNode), any(ClusterStateMessage.class), anyLong());
-        verify(messagingService).invoke(eq(cmgNode), any(ClusterStateMessage.class), anyLong());
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
-        verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
+        verify(messagingService, never()).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
 
-        var expectedLeaders = new Leaders(metastorageNode.name(), metastorageNode.name());
-
-        assertThat(leaders, willBe(equalTo(expectedLeaders)));
+        assertThat(initFuture, willBe(nullValue(Void.class)));
     }
 
     /**
@@ -181,28 +134,6 @@ public class ClusterInitializerTest {
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
         when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
 
-        when(messagingService.invoke(any(ClusterNode.class), any(ClusterStateMessage.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    ClusterStateMessage message = invocation.getArgument(1);
-
-                    NetworkMessage response = msgFactory.initCompleteMessage()
-                            .leaderName(message.metastorageNodes()[0])
-                            .build();
-
-                    return CompletableFuture.completedFuture(response);
-                });
-
-        when(messagingService.invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong()))
-                .thenAnswer(invocation -> {
-                    CmgInitMessage message = invocation.getArgument(1);
-
-                    NetworkMessage response = msgFactory.initCompleteMessage()
-                            .leaderName(message.cmgNodes()[0])
-                            .build();
-
-                    return CompletableFuture.completedFuture(response);
-                });
-
         when(messagingService.invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
                     NetworkMessage response = msgFactory.initErrorMessage().cause("foobar").build();
@@ -213,14 +144,20 @@ public class ClusterInitializerTest {
         when(messagingService.send(any(ClusterNode.class), any(CancelInitMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
 
-        InitException e = assertFutureThrows(InitException.class, leaders);
+        InitException e = assertFutureThrows(InitException.class, initFuture);
 
         assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
 
-        verify(messagingService).send(eq(metastorageNode), any(CancelInitMessage.class));
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
+        verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
+    }
+
+    private CompletableFuture<NetworkMessage> initCompleteMessage() {
+        NetworkMessage msg = msgFactory.initCompleteMessage().build();
+
+        return CompletableFuture.completedFuture(msg);
     }
 
     /**
@@ -228,9 +165,9 @@ public class ClusterInitializerTest {
      */
     @Test
     void testEmptyInit() {
-        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of(), List.of());
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(), List.of());
 
-        assertFutureThrows(IllegalArgumentException.class, leaders);
+        assertFutureThrows(IllegalArgumentException.class, initFuture);
     }
 
     /**
@@ -238,9 +175,9 @@ public class ClusterInitializerTest {
      */
     @Test
     void testUnresolvableNode() {
-        CompletableFuture<Leaders> leaders = clusterInitializer.initCluster(List.of("foo"), List.of("bar"));
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of("foo"), List.of("bar"));
 
-        InitException e = assertFutureThrows(InitException.class, leaders);
+        IllegalArgumentException e = assertFutureThrows(IllegalArgumentException.class, initFuture);
 
         assertThat(e.getMessage(), containsString("Node \"foo\" is not present in the physical topology"));
     }

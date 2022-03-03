@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.messages;
 
+import java.util.Collection;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
@@ -28,5 +29,5 @@ public interface ClusterStateMessage extends NetworkMessage {
     /**
      * Consistent IDs of nodes that host the Meta Storage.
      */
-    String[] metastorageNodes();
+    Collection<String> metastorageNodes();
 }

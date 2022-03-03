@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management;
+package org.apache.ignite.network.util;
 
 import java.util.Collection;
 import java.util.List;
@@ -24,23 +24,28 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
 /**
- * Various utility methods.
+ * Various utilities related to {@link ClusterService}.
  */
-class Utils {
+public class ClusterServiceUtils {
+    private ClusterServiceUtils() {
+    }
+
     /**
-     * Resolves given node names (consistent IDs) into {@link ClusterNode}s.
+     * Resolves given node names (a.k.a. consistent IDs) into {@link ClusterNode}s.
      *
-     * @param nodeNames node names.
+     * @param consistentIds consistent IDs.
      * @return list of resolved {@code ClusterNode}s.
-     * @throws InitException if any of the given nodes are not present in the physical topology.
+     * @throws IllegalArgumentException if any of the given nodes are not present in the physical topology.
      */
-    static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> nodeNames) {
-        return nodeNames.stream()
+    public static List<ClusterNode> resolveNodes(ClusterService clusterService, Collection<String> consistentIds) {
+        return consistentIds.stream()
                 .map(consistentId -> {
                     ClusterNode node = clusterService.topologyService().getByConsistentId(consistentId);
 
                     if (node == null) {
-                        throw new InitException(String.format("Node \"%s\" is not present in the physical topology", consistentId));
+                        throw new IllegalArgumentException(String.format(
+                                "Node \"%s\" is not present in the physical topology", consistentId
+                        ));
                     }
 
                     return node;

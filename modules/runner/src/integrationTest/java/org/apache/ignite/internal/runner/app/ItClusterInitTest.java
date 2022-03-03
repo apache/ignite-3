@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
@@ -30,7 +27,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.cluster.management.Leaders;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -48,26 +44,6 @@ public class ItClusterInitTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(nodes);
-    }
-
-    /**
-     * Tests the happy case for cluster initialization.
-     */
-    @Test
-    void testNormalInit(TestInfo testInfo) throws NodeStoppingException {
-        createCluster(testInfo, 4);
-
-        List<String> metastorageNodes = List.of(nodes.get(0).name(), nodes.get(1).name());
-
-        List<String> cmgNodes = List.of(nodes.get(2).name(), nodes.get(3).name());
-
-        Leaders leaders = nodes.get(0).init(metastorageNodes, cmgNodes);
-
-        assertThat(metastorageNodes, hasItem(leaders.metaStorageLeader()));
-        assertThat(metastorageNodes, not(hasItem(leaders.cmgLeader())));
-
-        assertThat(cmgNodes, hasItem(leaders.cmgLeader()));
-        assertThat(cmgNodes, not(hasItem(leaders.metaStorageLeader())));
     }
 
     /**

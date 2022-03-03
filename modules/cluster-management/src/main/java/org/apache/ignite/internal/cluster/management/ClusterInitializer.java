@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -63,9 +65,9 @@ public class ClusterInitializer {
             cmgNodeNames = cmgNodeNames.isEmpty() ? metaStorageNodeNames : cmgNodeNames;
 
             // check that provided Meta Storage nodes are present in the topology
-            Utils.resolveNodes(clusterService, metaStorageNodeNames);
+            resolveNodes(clusterService, metaStorageNodeNames);
 
-            List<ClusterNode> cmgNodes = Utils.resolveNodes(clusterService, cmgNodeNames);
+            List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(metaStorageNodeNames)

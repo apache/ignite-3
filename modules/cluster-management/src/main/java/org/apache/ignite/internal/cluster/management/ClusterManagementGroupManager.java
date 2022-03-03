@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static org.apache.ignite.internal.cluster.management.Utils.resolveNodes;
+import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpMethod;
@@ -41,8 +41,10 @@ import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 
 /**
  * Ignite component responsible for cluster initialization and managing the Cluster Management Raft Group.
@@ -71,6 +73,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
 
+    private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
+
     /** Constructor. */
     public ClusterManagementGroupManager(ClusterService clusterService, Loza raftManager, RestModule restModule) {
         this.clusterService = clusterService;
@@ -79,8 +83,6 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         this.clusterInitializer = new ClusterInitializer(clusterService);
 
         MessagingService messagingService = clusterService.messagingService();
-
-        var msgFactory = new CmgMessagesFactory();
 
         messagingService.addMessageHandler(CmgMessageGroup.class, (msg, addr, correlationId) -> {
             if (!busyLock.enterBusy()) {
@@ -93,33 +95,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
             try {
                 if (msg instanceof CancelInitMessage) {
-                    log.info("CMG initialization cancelled, reason: " + ((CancelInitMessage) msg).reason());
-
-                    raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME);
-
-                    // TODO: drop the Raft storage as well, https://issues.apache.org/jira/browse/IGNITE-16471
+                    handleCancelInit((CancelInitMessage) msg);
                 } else if (msg instanceof CmgInitMessage) {
                     assert correlationId != null;
 
-                    Collection<String> nodeIds = ((CmgInitMessage) msg).cmgNodes();
-
-                    List<ClusterNode> nodes = resolveNodes(clusterService, nodeIds);
-
-                    raftManager.prepareRaftGroup(CMG_RAFT_GROUP_NAME, nodes, CmgRaftGroupListener::new)
-                            .whenComplete((service, e) -> {
-                                if (e == null) {
-                                    Peer leader = service.leader();
-
-                                    assert leader != null;
-
-                                    messagingService.respond(addr, leaderElectedResponse(msgFactory, leader), correlationId);
-                                } else {
-                                    messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
-                                }
-                            });
+                    handleInit((CmgInitMessage) msg, addr, correlationId);
                 }
             } catch (Exception e) {
-                log.error("Exception when initializing the CMG", e);
+                log.error("CMG message handling failed", e);
 
                 if (correlationId != null) {
                     messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
@@ -154,6 +137,53 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }
     }
 
+    private void handleInit(CmgInitMessage msg, NetworkAddress addr, long correlationId) throws NodeStoppingException {
+        List<ClusterNode> nodes = resolveNodes(clusterService, msg.cmgNodes());
+
+        raftManager.prepareRaftGroup(CMG_RAFT_GROUP_NAME, nodes, CmgRaftGroupListener::new)
+                .whenComplete((service, e) -> {
+                    MessagingService messagingService = clusterService.messagingService();
+
+                    if (e == null) {
+                        ClusterNode leader = getLeader(service);
+
+                        ClusterNode thisNode = clusterService.topologyService().localMember();
+
+                        messagingService.respond(addr, successResponse(msgFactory), correlationId);
+
+                        if (leader.equals(thisNode)) {
+                            broadcastClusterState(msg.metaStorageNodes());
+                        }
+                    } else {
+                        messagingService.respond(addr, errorResponse(msgFactory, e), correlationId);
+                    }
+                });
+    }
+
+    private void handleCancelInit(CancelInitMessage msg) throws NodeStoppingException {
+        log.info("CMG initialization cancelled, reason: " + msg.reason());
+
+        raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME);
+
+        // TODO: drop the Raft storage as well, https://issues.apache.org/jira/browse/IGNITE-16471
+    }
+
+    private static NetworkMessage successResponse(CmgMessagesFactory msgFactory) {
+        log.info("CMG started successfully");
+
+        return msgFactory.initCompleteMessage().build();
+    }
+
+    private void broadcastClusterState(Collection<String> metaStorageNodes) {
+        NetworkMessage clusterStateMsg = msgFactory.clusterStateMessage()
+                .metastorageNodes(metaStorageNodes)
+                .build();
+
+        clusterService.topologyService()
+                .allMembers()
+                .forEach(node -> clusterService.messagingService().send(node, clusterStateMsg));
+    }
+
     private static NetworkMessage errorResponse(CmgMessagesFactory msgFactory, Throwable e) {
         log.error("Exception when starting the CMG", e);
 
@@ -162,14 +192,16 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 .build();
     }
 
-    private NetworkMessage leaderElectedResponse(CmgMessagesFactory msgFactory, Peer leader) {
+    private ClusterNode getLeader(RaftGroupService raftService) {
+        Peer leader = raftService.leader();
+
+        assert leader != null;
+
         ClusterNode leaderNode = clusterService.topologyService().getByAddress(leader.address());
 
         assert leaderNode != null;
 
-        log.info("CMG leader elected: " + leaderNode.name());
-
-        return msgFactory.initCompleteMessage().build();
+        return leaderNode;
     }
 
     @Override
