@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -34,18 +35,21 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table storage implementation based on {@link PageMemory}.
+ * Abstract table storage implementation based on {@link PageMemory}.
  */
 // TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
-public class PageMemoryTableStorage implements TableStorage {
-    private final PageMemoryDataRegion dataRegion;
+public abstract class PageMemoryTableStorage implements TableStorage {
+    protected final PageMemoryDataRegion dataRegion;
 
-    private final TableConfiguration tableCfg;
+    protected final TableConfiguration tableCfg;
 
-    private volatile boolean started;
+    /** List of objects to be closed on the {@link #stop}. */
+    protected final List<AutoCloseable> autoCloseables = new CopyOnWriteArrayList<>();
 
-    private volatile AtomicReferenceArray<PartitionStorage> partitions;
+    protected volatile boolean started;
+
+    protected volatile AtomicReferenceArray<PartitionStorage> partitions;
 
     /**
      * Constructor.
@@ -73,10 +77,6 @@ public class PageMemoryTableStorage implements TableStorage {
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
-        if (dataRegion.persistent()) {
-            throw new UnsupportedOperationException("Persistent case is not supported yet.");
-        }
-
         TableView tableView = tableCfg.value();
 
         partitions = new AtomicReferenceArray<>(tableView.partitions());
@@ -89,7 +89,7 @@ public class PageMemoryTableStorage implements TableStorage {
     public void stop() throws StorageException {
         started = false;
 
-        List<AutoCloseable> autoCloseables = new ArrayList<>();
+        List<AutoCloseable> autoCloseables = new ArrayList<>(this.autoCloseables);
 
         for (int i = 0; i < partitions.length(); i++) {
             PartitionStorage partition = partitions.getAndUpdate(i, p -> null);
@@ -108,6 +108,9 @@ public class PageMemoryTableStorage implements TableStorage {
         } catch (Exception e) {
             throw new StorageException("Failed to stop PageMemory table storage.", e);
         }
+
+        this.autoCloseables.clear();
+        partitions = null;
     }
 
     /** {@inheritDoc} */
@@ -174,4 +177,6 @@ public class PageMemoryTableStorage implements TableStorage {
     public void dropIndex(String indexName) {
         throw new UnsupportedOperationException("Indexes are not supported yet.");
     }
+
+    protected abstract PartitionStorage createPartitionStorage(int partId);
 }

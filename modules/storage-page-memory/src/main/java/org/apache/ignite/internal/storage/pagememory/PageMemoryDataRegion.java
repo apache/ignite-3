@@ -83,4 +83,10 @@ public class PageMemoryDataRegion implements DataRegion {
     public @Nullable PageMemory pageMemory() {
         return pageMemory;
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return "PageMemoryDataRegion [name=" + cfg.value().name() + "]";
+    }
 }

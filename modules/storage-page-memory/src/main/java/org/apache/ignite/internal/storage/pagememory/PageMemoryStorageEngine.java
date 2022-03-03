@@ -62,6 +62,6 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public TableStorage createTable(Path tablePath, TableConfiguration tableCfg, DataRegion dataRegion) {
-        return new PageMemoryTableStorage(tableCfg, (PageMemoryDataRegion) dataRegion);
+        return new VolatilePageMemoryTableStorage(tableCfg, (PageMemoryDataRegion) dataRegion);
     }
 }

@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -135,7 +134,6 @@ public interface PartitionStorage extends AutoCloseable {
      * @param snapshotPath Directory to store a snapshot.
      * @return Future representing pending completion of the operation. Can not be {@code null}.
      */
-    @NotNull
     CompletableFuture<Void> snapshot(Path snapshotPath);
 
     /**

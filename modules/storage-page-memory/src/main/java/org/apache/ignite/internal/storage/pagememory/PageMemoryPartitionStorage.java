@@ -31,12 +31,12 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage implementation based on a {@link BplusTree}.
  */
+// TODO: IGNITE-16644 Support snapshots.
 public class PageMemoryPartitionStorage implements PartitionStorage {
     private final int partId;
 
@@ -119,14 +119,14 @@ public class PageMemoryPartitionStorage implements PartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
-        return null;
+    public CompletableFuture<Void> snapshot(Path snapshotPath) {
+        throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void restoreSnapshot(Path snapshotPath) {
-
+        throw new UnsupportedOperationException("Snapshots are not supported yet.");
     }
 
     /** {@inheritDoc} */
