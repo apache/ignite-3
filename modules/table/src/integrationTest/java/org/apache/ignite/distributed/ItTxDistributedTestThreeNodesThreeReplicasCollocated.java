@@ -69,8 +69,8 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
                 () -> txManagers.values().stream()
                         .filter(txManager -> txManager.state(txTimestamp) != null && txManager.state(txTimestamp)
                                 .equals(TxState.COMMITED))
-                        .collect(Collectors.toList()).
-                                size() >= 2,
+                        .collect(Collectors.toList())
+                        .size() >= 2,
                 5_000));
     }
 }
