@@ -830,8 +830,4 @@ public final class Commons {
     public static RelOptCluster cluster() {
         return CLUSTER;
     }
-
-    public static RelOptCluster createCluster() {
-        return BaseQueryContext.createCluster();
-    }
 }
