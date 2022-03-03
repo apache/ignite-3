@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 public class ItDmlTest extends AbstractBasicIntegrationTest {
 
     protected int nodes() {
-        return 1;
+        return 3;
     }
 
     @Test

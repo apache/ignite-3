@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +31,7 @@ import static org.mockito.Mockito.when;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -37,9 +39,11 @@ import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSc
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -102,6 +106,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private TxManager tm;
 
+    /**
+     * Revision listener holder. It uses for the test configurations:
+     * <ul>
+     * <li>{@link MockedStructuresTest#tblsCfg},</li>
+     * <li>{@link MockedStructuresTest#dataStorageCfg}.</li>
+     * </ul>
+     */
+    @InjectRevisionListenerHolder
+    private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
+
+    /** Revision updater. */
+    private Consumer<Consumer<Long>> revisionUpdater;
+
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -109,7 +126,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class
             }
     )
-
     private TablesConfiguration tblsCfg;
 
     /** Data storage configuration. */
@@ -150,9 +166,21 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws NodeStoppingException {
+        revisionUpdater = (Consumer<Long> consumer) -> {
+            consumer.accept(0L);
+
+            fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
+                log.info("Notify about revision: {}", newStorageRevision);
+
+                consumer.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor(revisionUpdater, cs, tblManager);
 
         queryProc.start();
     }
@@ -389,7 +417,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -438,6 +466,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @NotNull
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
+                revisionUpdater,
                 tblsCfg,
                 dataStorageCfg,
                 rm,

@@ -253,6 +253,23 @@ public class IgniteUtils {
     }
 
     /**
+     * Returns hex representation of memory region.
+     *
+     * @param addr Pointer in memory.
+     * @param len How much byte to read.
+     */
+    public static String toHexString(long addr, int len) {
+        StringBuilder sb = new StringBuilder(len * 2);
+
+        for (int i = 0; i < len; i++) {
+            // Can not use getLong because on little-endian it produces bs.
+            addByteAsHex(sb, GridUnsafe.getByte(addr + i));
+        }
+
+        return sb.toString();
+    }
+
+    /**
      * Appends {@code byte} in hexadecimal format.
      *
      * @param sb String builder.

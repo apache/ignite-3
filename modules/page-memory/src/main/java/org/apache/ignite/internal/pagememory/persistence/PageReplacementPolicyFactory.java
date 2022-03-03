@@ -15,34 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.manager;
+package org.apache.ignite.internal.pagememory.persistence;
+
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
 
 /**
- * Event parameters. This type passed to the event listener.
- *
- * @see Producer#fireEvent(Event, EventParameters, Throwable)
+ * Page replacement policy factory.
  */
-public abstract class EventParameters {
-    /** Causality token. */
-    private final long causalityToken;
+public interface PageReplacementPolicyFactory {
+    /**
+     * Calculates amount of memory required to service {@code pagesCnt} pages.
+     *
+     * @param pagesCnt Pages count.
+     */
+    long requiredMemory(int pagesCnt);
 
     /**
-     * Constructor.
+     * Create page replacement policy.
      *
-     * @param causalityToken Causality token.
+     * @param seg Page memory segment.
+     * @param ptr Pointer to memory region.
+     * @param pagesCnt Pages count.
      */
-    public EventParameters(long causalityToken) {
-        this.causalityToken = causalityToken;
-    }
-
-    /**
-     * Returns a causality token.
-     * The token is required for represent a causality dependency between several events.
-     * The earlier the event occurred, the lower the value of the token.
-     *
-     * @return Causality token.
-     */
-    public long causalityToken() {
-        return causalityToken;
-    }
+    PageReplacementPolicy create(Segment seg, long ptr, int pagesCnt);
 }
