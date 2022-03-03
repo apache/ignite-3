@@ -19,6 +19,7 @@ package org.apache.ignite.internal.causality;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,12 +47,12 @@ public class VersionedValueTest {
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(
-                (integerVersionedValue, token) -> {
-                    integerVersionedValue.set(token, TEST_VALUE);
-                },
-                REGISTER,
-                2,
-                null
+            (integerVersionedValue, token) -> {
+                integerVersionedValue.set(token, TEST_VALUE);
+            },
+            REGISTER,
+            2,
+            null
         );
 
         CompletableFuture<Integer> fut = longVersionedValue.get(0);
@@ -198,17 +199,21 @@ public class VersionedValueTest {
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
-        assertFalse(fut.isDone());
+        longVersionedValue.update(1, previous -> ++previous, ex -> null);
 
         longVersionedValue.update(1, previous -> ++previous, ex -> null);
 
-        assertTrue(fut.isDone());
+        assertFalse(fut.isDone());
 
-        assertEquals(TEST_VALUE + 1, fut.get());
+        REGISTER.moveRevision.accept(1L);
+
+        assertEquals(TEST_VALUE + 2, fut.get());
+
+        assertTrue(fut.isDone());
     }
 
     /**
-     * Checks that the update method work as expected when the previous value does not assign.
+     * Checks that the update method work as expected when there is no history to calculate previous value.
      *
      * @throws Exception If failed.
      */
@@ -221,7 +226,15 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        longVersionedValue.update(0, previous -> TEST_VALUE, ex -> null);
+        longVersionedValue.update(0, previous -> {
+            assertNull(previous);
+
+            return TEST_VALUE;
+        }, ex -> null);
+
+        assertFalse(fut.isDone());
+
+        REGISTER.moveRevision.accept(0L);
 
         assertTrue(fut.isDone());
 

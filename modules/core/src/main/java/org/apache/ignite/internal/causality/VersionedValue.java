@@ -60,6 +60,15 @@ public class VersionedValue<T> {
      */
     private final ReadWriteLock trimHistoryLock = new ReentrantReadWriteLock();
 
+    /** Temporary value for {@link #update(long, Function, Function)}. */
+    private volatile T tempValue = null;
+
+    /** Whether {@link #update(long, Function, Function)} was called since the last revision update. */
+    private volatile boolean isUpdating = false;
+
+    /** Update mutex. */
+    private final Object updateMutex = new Object();
+
     /**
      * Constructor.
      *
@@ -227,7 +236,7 @@ public class VersionedValue<T> {
      * @return               Updated value.
      */
     public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
-        long  actualToken0 = actualToken;
+        long actualToken0 = actualToken;
 
         assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
                 + "[token={}, actual={}]", causalityToken, actualToken0);
@@ -239,15 +248,31 @@ public class VersionedValue<T> {
         assert previousFuture.isDone() : "Previous value should be ready.";
 
         try {
-            T previousValue = previousFuture.join();
+            synchronized (updateMutex) {
+                T previousValue = isUpdating ? tempValue : previousFuture.join();
 
-            setValueInternal(causalityToken, complete.apply(previousValue));
+                isUpdating = true;
 
-            return previousValue;
+                history.putIfAbsent(causalityToken, new CompletableFuture<>());
+
+                T res = complete.apply(previousValue);
+
+                tempValue = res;
+
+                return res;
+            }
         } catch (CancellationException | CompletionException e) {
-            failInternal(causalityToken, e);
+            synchronized (updateMutex) {
+                isUpdating = true;
 
-            return fail.apply(e);
+                history.putIfAbsent(causalityToken, new CompletableFuture<>());
+
+                T res = fail.apply(e);
+
+                tempValue = res;
+
+                return res;
+            }
         }
     }
 
@@ -330,20 +355,31 @@ public class VersionedValue<T> {
         CompletableFuture<T> future = entry.getValue();
 
         if (!future.isDone()) {
-            Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
+            if (isUpdating) {
+                synchronized (updateMutex) {
+                    isUpdating = false;
 
-            assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
+                    future.complete(tempValue);
+
+                    tempValue = null;
+                }
+            } else {
+                Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
+
+                assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
                     "No future for token [token={}]", causalityToken);
 
-            CompletableFuture<T> f =  entryBefore.getValue();
+                CompletableFuture<T> f = entryBefore.getValue();
 
-            f.whenComplete((t, throwable) -> {
-                if (throwable != null) {
-                    future.completeExceptionally(throwable);
-                } else {
-                    future.complete(t);
-                }
-            });
+                f.whenComplete((t, throwable) -> {
+                    if (throwable != null) {
+                        future.completeExceptionally(throwable);
+                    }
+                    else {
+                        future.complete(t);
+                    }
+                });
+            }
         }
     }
 
