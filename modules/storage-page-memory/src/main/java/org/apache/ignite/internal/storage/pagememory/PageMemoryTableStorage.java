@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.DataRegion;
@@ -25,6 +26,10 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Table storage implementation based on {@link PageMemory}.
+ */
+// TODO: IGNITE-16642 Support indexes.
 public class PageMemoryTableStorage implements TableStorage {
     private final PageMemoryDataRegion dataRegion;
 
@@ -39,6 +44,38 @@ public class PageMemoryTableStorage implements TableStorage {
     public PageMemoryTableStorage(TableConfiguration tableCfg, PageMemoryDataRegion dataRegion) {
         this.dataRegion = dataRegion;
         this.tableCfg = tableCfg;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public TableConfiguration configuration() {
+        return tableCfg;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public DataRegion dataRegion() {
+        return dataRegion;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void start() throws StorageException {
+        if (dataRegion.persistent()) {
+            throw new UnsupportedOperationException("Persistent case is not supported yet.");
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void stop() throws StorageException {
+
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void destroy() throws StorageException {
+
     }
 
     /** {@inheritDoc} */
@@ -62,42 +99,12 @@ public class PageMemoryTableStorage implements TableStorage {
     /** {@inheritDoc} */
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(String indexName) {
-        return null;
+        throw new UnsupportedOperationException("Indexes are not supported yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void dropIndex(String indexName) {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public TableConfiguration configuration() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public DataRegion dataRegion() {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void start() throws StorageException {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void stop() throws StorageException {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void destroy() throws StorageException {
-
+        throw new UnsupportedOperationException("Indexes are not supported yet.");
     }
 }

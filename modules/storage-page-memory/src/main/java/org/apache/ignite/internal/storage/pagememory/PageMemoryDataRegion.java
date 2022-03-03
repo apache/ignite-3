@@ -24,6 +24,7 @@ import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.storage.engine.DataRegion;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data region implementation for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
@@ -50,7 +51,7 @@ public class PageMemoryDataRegion implements DataRegion {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        if (!persistent()) {
+        if (persistent()) {
             throw new UnsupportedOperationException("Persistent case is not supported yet.");
         }
 
@@ -72,5 +73,12 @@ public class PageMemoryDataRegion implements DataRegion {
      */
     public boolean persistent() {
         return ((PageMemoryDataRegionView) cfg.value()).persistent();
+    }
+
+    /**
+     * Returns page memory, {@code null} if not {@link #start started}.
+     */
+    public @Nullable PageMemory pageMemory() {
+        return pageMemory;
     }
 }
