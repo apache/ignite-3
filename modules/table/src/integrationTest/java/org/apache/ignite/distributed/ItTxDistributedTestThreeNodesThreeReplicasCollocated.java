@@ -18,8 +18,15 @@
 package org.apache.ignite.distributed;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.impl.TransactionImpl;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -46,5 +53,23 @@ public class ItTxDistributedTestThreeNodesThreeReplicasCollocated extends ItTxDi
         super.before();
 
         assertSame(accRaftClients.get(0).clusterService(), getLeader(accRaftClients.get(0)).service());
+    }
+
+    @Test
+    public void testTxStateReplication() {
+        TransactionImpl tx = (TransactionImpl) igniteTransactions.begin();
+
+        Timestamp txTimestamp = tx.timestamp();
+
+        accounts.recordView().upsert(tx, makeValue(1, 200.));
+
+        tx.commit();
+
+        assertTrue(TestUtils.waitForCondition(
+                () -> txManagers.values().stream()
+                        .filter(txManager -> txManager.state(txTimestamp) != null && txManager.state(txTimestamp).equals(TxState.COMMITED))
+                        .collect(Collectors.toList()).
+                                size() >= 2,
+                5_000));
     }
 }
