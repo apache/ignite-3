@@ -32,8 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -3038,6 +3040,33 @@ public class ItNodeTest {
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());
         }
+    }
+
+    @Test
+    public void testOnReconfigurationErrorListener() throws Exception {
+        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
+        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+
+        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
+
+        cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+        assertTrue(cluster.start(peer0.getEndpoint()));
+
+        cluster.waitLeader();
+
+        Node leader = cluster.getLeader();
+        sendTestTaskAndWait(leader);
+
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any());
+
+        PeerId newPeer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1);
+
+        ChangePeersAsyncStatus status = leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
+                leader.getCurrentTerm());
+        assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
+
+        verify(raftGrpEvtsLsnr, timeout(10_000))
+                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP));
     }
 
     @Test
