@@ -38,8 +38,7 @@ public interface RelInputEx extends RelInput {
     /**
      * Returns table by its id.
      *
-     * @param tag Tag under which id is serialised.
      * @return A table with given id.
      */
-    RelOptTable getTableById(String tag);
+    RelOptTable getTableById();
 }

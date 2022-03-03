@@ -51,9 +51,11 @@ import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -90,7 +92,6 @@ import org.mockito.quality.Strictness;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-@Disabled("TODO: IGNITE-16545 Subscription to revision update in the test configuration framework")
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is statically configured. */
     private static final String STATIC_TABLE_NAME = "t1";
@@ -130,6 +131,19 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private LockManager lm;
 
+    /**
+     * Revision listener holder. It uses for the test configurations:
+     * <ul>
+     * <li>{@link TableManagerTest#fieldRevisionListenerHolder},</li>
+     * <li>{@link TableManagerTest#tblsCfg}.</li>
+     * </ul>
+     */
+    @InjectRevisionListenerHolder
+    private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
+
+    /** Revision updater. */
+    private Consumer<Consumer<Long>> revisionUpdater;
+
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -156,6 +170,18 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
+        revisionUpdater = (Consumer<Long> consumer) -> {
+            consumer.accept(0L);
+
+            fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
+                log.info("Notify about revision: {}", newStorageRevision);
+
+                consumer.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
         tblManagerFut = new CompletableFuture<>();
     }
 
@@ -174,10 +200,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16433")
     @Test
     public void testStaticTableConfigured() {
-        TestRevisionRegister register = new TestRevisionRegister();
-
         TableManager tableManager = new TableManager(
-                register,
+                revisionUpdater,
                 tblsCfg,
                 dataStorageCfg,
                 rm,
@@ -502,10 +526,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @NotNull
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
-        TestRevisionRegister register = new TestRevisionRegister();
-
         TableManager tableManager = new TableManager(
-                register,
+                revisionUpdater,
                 tblsCfg,
                 dataStorageCfg,
                 rm,
@@ -520,24 +542,5 @@ public class TableManagerTest extends IgniteAbstractTest {
         tblManagerFut.complete(tableManager);
 
         return tableManager;
-    }
-
-    /**
-     * Test revision register.
-     */
-    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
-
-        /** Revision consumer. */
-        Consumer<Long> moveRevision;
-
-        /** {@inheritDoc} */
-        @Override
-        public void accept(Consumer<Long> consumer) {
-            if (moveRevision == null) {
-                moveRevision = consumer;
-            } else {
-                moveRevision = moveRevision.andThen(consumer);
-            }
-        }
     }
 }

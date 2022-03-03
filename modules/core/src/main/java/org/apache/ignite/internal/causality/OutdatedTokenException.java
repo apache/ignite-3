@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.causality;
 
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 
 /**
@@ -27,7 +27,7 @@ import org.apache.ignite.lang.IgniteStringFormatter;
  * <p>{@link VersionedValue} stores a value per the causality token.
  * See {@link VersionedValue#get(long)}.
  */
-public class OutdatedTokenException extends IgniteInternalCheckedException {
+public class OutdatedTokenException extends IgniteInternalException {
 
     /**
      * Constructor.

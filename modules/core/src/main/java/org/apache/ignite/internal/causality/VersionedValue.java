@@ -32,7 +32,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Type of real value.
  */
 public class VersionedValue<T> {
-    /** Last applied casualty token. */
+    /** Last applied causality token. */
     private volatile long actualToken = -1L;
 
     /** Size of stored history. */
@@ -90,12 +89,12 @@ public class VersionedValue<T> {
     ) {
         this.storageRevisionUpdating = storageRevisionUpdating;
 
-        observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
-
         this.historySize = historySize;
 
         //TODO: IGNITE-16553 Added a possibility to set any start value (not only null).
         history.put(actualToken, completedFuture(defaultVal == null ? null : defaultVal.get()));
+
+        observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
     }
 
     /**
@@ -143,7 +142,7 @@ public class VersionedValue<T> {
      * @return The future.
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
-    public CompletableFuture<T> get(long causalityToken) throws OutdatedTokenException {
+    public CompletableFuture<T> get(long causalityToken) {
         if (causalityToken <= actualToken) {
             return getValueForPreviousToken(causalityToken);
         }
@@ -166,12 +165,12 @@ public class VersionedValue<T> {
     }
 
     /**
-     * Gets the latest completed future or {@code null} if there is nothing.
+     * Gets the latest value of completed future.
      */
-    public @NotNull CompletableFuture<T> get() {
+    public T latest() {
         for (CompletableFuture<T> fut : history.descendingMap().values()) {
             if (fut.isDone()) {
-                return fut;
+                return fut.join();
             }
         }
 
@@ -185,7 +184,7 @@ public class VersionedValue<T> {
      * @return A completed future that contained a value.
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
-    private CompletableFuture<T> getValueForPreviousToken(long causalityToken) throws OutdatedTokenException {
+    private CompletableFuture<T> getValueForPreviousToken(long causalityToken) {
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(causalityToken);
 
         if (histEntry == null) {
@@ -374,8 +373,7 @@ public class VersionedValue<T> {
                 f.whenComplete((t, throwable) -> {
                     if (throwable != null) {
                         future.completeExceptionally(throwable);
-                    }
-                    else {
+                    } else {
                         future.complete(t);
                     }
                 });

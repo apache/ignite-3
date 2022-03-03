@@ -47,12 +47,12 @@ public class VersionedValueTest {
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(
-            (integerVersionedValue, token) -> {
-                integerVersionedValue.set(token, TEST_VALUE);
-            },
-            REGISTER,
-            2,
-            null
+                (integerVersionedValue, token) -> {
+                    integerVersionedValue.set(token, TEST_VALUE);
+                },
+                REGISTER,
+                2,
+                null
         );
 
         CompletableFuture<Integer> fut = longVersionedValue.get(0);

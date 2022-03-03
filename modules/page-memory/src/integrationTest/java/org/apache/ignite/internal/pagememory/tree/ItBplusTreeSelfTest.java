@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
-import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.Constants.GiB;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -95,6 +95,7 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -120,6 +121,8 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
     private static final short LONG_LEAF_IO = 30001;
 
+    private static final short LONG_META_IO = 30002;
+
     protected static final int CPUS = Runtime.getRuntime().availableProcessors();
 
     private static final int GROUP_ID = 100500;
@@ -132,6 +135,10 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
     private static int RMV_INC = 1;
 
+    protected static final int PAGE_SIZE = 512;
+
+    protected static final long MAX_MEMORY_SIZE = GiB;
+
     /** Forces printing lock/unlock events on the test tree. */
     private static boolean PRINT_LOCKS = false;
 
@@ -143,7 +150,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                     PageMemoryDataRegionConfigurationSchema.class,
                     UnsafeMemoryAllocatorConfigurationSchema.class
             })
-    private DataRegionConfiguration dataRegionCfg;
+    protected DataRegionConfiguration dataRegionCfg;
 
     @Nullable
     protected PageMemory pageMem;
@@ -2576,11 +2583,13 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                     metaPageId,
                     reuseList,
                     new IoVersions<>(new LongInnerIo(canGetRow)),
-                    new IoVersions<>(new LongLeafIo())
+                    new IoVersions<>(new LongLeafIo()),
+                    new IoVersions<>(new LongMetaIo())
             );
 
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongInnerIo(canGetRow)));
             ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongLeafIo()));
+            ((TestPageIoRegistry) pageMem.ioRegistry()).load(new IoVersions<>(new LongMetaIo()));
 
             initTree(true);
         }
@@ -2719,12 +2728,17 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private PageMemory createPageMemory() throws Exception {
+    /**
+     * Returns page memory.
+     *
+     * @throws Exception If failed.
+     */
+    protected PageMemory createPageMemory() throws Exception {
         dataRegionCfg.change(c ->
                 c.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(512)
-                        .changeInitSize(1024 * MiB)
-                        .changeMaxSize(1024 * MiB)
+                        .changePageSize(PAGE_SIZE)
+                        .changeInitSize(MAX_MEMORY_SIZE)
+                        .changeMaxSize(MAX_MEMORY_SIZE)
         ).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
@@ -3043,5 +3057,14 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      */
     protected void assertNoLocks() {
         assertTrue(TestPageLockListener.checkNoLocks());
+    }
+
+    /**
+     * Long meta.
+     */
+    private static class LongMetaIo extends BplusMetaIo {
+        public LongMetaIo() {
+            super(LONG_META_IO, 1);
+        }
     }
 }

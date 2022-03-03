@@ -177,7 +177,6 @@ public class StopCalciteModuleTest {
 
         qryProc.start();
 
-        // TODO remove after https://issues.apache.org/jira/browse/IGNITE-16545
         testRevisionRegister.moveRevision.accept(0L);
 
         List<SqlCursor<List<?>>> cursors = qryProc.query(
