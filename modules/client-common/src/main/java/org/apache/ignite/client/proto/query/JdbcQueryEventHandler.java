@@ -20,6 +20,7 @@ package org.apache.ignite.client.proto.query;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
 import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
@@ -63,6 +64,14 @@ public interface JdbcQueryEventHandler {
      * @return Result future.
      */
     CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req);
+
+    /**
+     * {@link BatchPreparedStmntRequest} command handler.
+     *
+     * @param req Batch query request.
+     * @return Result future.
+     */
+    CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req);
 
     /**
      * {@link QueryCloseRequest} command handler.

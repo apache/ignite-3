@@ -20,7 +20,6 @@ package org.apache.ignite.internal.network.message;
 import java.util.Collection;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
-import org.apache.ignite.internal.network.serialization.Serialization;
 import org.apache.ignite.internal.network.serialization.SerializationType;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
@@ -29,6 +28,17 @@ import org.jetbrains.annotations.Nullable;
 /** Message for the {@link ClassDescriptor}. */
 @Transferable(NetworkMessageTypes.CLASS_DESCRIPTOR_MESSAGE)
 public interface ClassDescriptorMessage extends NetworkMessage {
+    int IS_PRIMITIVE_MASK = 1;
+    int IS_ARRAY_MASK = 1 << 1;
+    int IS_RUNTIME_ENUM_MASK = 1 << 2;
+    int IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK = 1 << 3;
+
+    int HAS_WRITE_OBJECT_MASK = 1;
+    int HAS_READ_OBJECT_MASK = 1 << 1;
+    int HAS_READ_OBJECT_NO_DATA_MASK = 1 << 2;
+    int HAS_WRITE_REPLACE_MASK = 1 << 3;
+    int HAS_READ_RESOLVE_MASK = 1 << 4;
+
     /**
      * Class name.
      *
@@ -59,6 +69,28 @@ public interface ClassDescriptorMessage extends NetworkMessage {
     int superClassDescriptorId();
 
     /**
+     * Component type name.
+     *
+     * @see ClassDescriptor#componentTypeName()
+     */
+    @Nullable
+    String componentTypeName();
+
+    /**
+     * Component type descriptor ID. {@link Integer#MIN_VALUE} if the described class is not an array class.
+     *
+     * @see ClassDescriptor#componentTypeDescriptorId()
+     */
+    int componentTypeDescriptorId();
+
+    /**
+     * Returns attribute flags.
+     *
+     * @return attribute flags
+     */
+    byte attributes();
+
+    /**
      * List of the class fields' descriptors.
      *
      * @see ClassDescriptor#fields()
@@ -70,47 +102,12 @@ public interface ClassDescriptorMessage extends NetworkMessage {
      *
      * @see SerializationType#value()
      */
-    int serializationType();
+    byte serializationType();
 
     /**
-     * Has writeObject().
+     * Serialization-related flags (hasReadObject, hasWriteReplace and so on).
      *
-     * @see Serialization#hasWriteObject()
+     * @return serialization flags
      */
-    boolean hasWriteObject();
-
-    /**
-     * Has readObject().
-     *
-     * @see Serialization#hasReadObject()
-     */
-    boolean hasReadObject();
-
-    /**
-     * Has readObjectNoData().
-     *
-     * @see Serialization#hasReadObjectNoData()
-     */
-    boolean hasReadObjectNoData();
-
-    /**
-     * Has writeReplace.
-     *
-     * @see Serialization#hasWriteReplace()
-     */
-    boolean hasWriteReplace();
-
-    /**
-     * Has readResolve.
-     *
-     * @see Serialization#hasReadResolve()
-     */
-    boolean hasReadResolve();
-
-    /**
-     * Whether the class is final.
-     *
-     * @see ClassDescriptor#isFinal()
-     */
-    boolean isFinal();
+    byte serializationFlags();
 }

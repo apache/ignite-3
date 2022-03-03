@@ -22,13 +22,13 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getShort;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.ignite.internal.pagememory.freelist.PagesList;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
-import org.apache.ignite.internal.util.IgniteLongList;
 import org.apache.ignite.lang.IgniteStringBuilder;
 
 /**
@@ -164,7 +164,7 @@ public class PagesListMetaIo extends PageIo {
      * @param pageAddr Page address.
      * @param res Results map.
      */
-    public void getBucketsData(long pageAddr, Map<Integer, IgniteLongList> res) {
+    public void getBucketsData(long pageAddr, Map<Integer, LongArrayList> res) {
         int cnt = getCount(pageAddr);
 
         assert cnt >= 0 && cnt <= Short.MAX_VALUE : cnt;
@@ -182,10 +182,10 @@ public class PagesListMetaIo extends PageIo {
             long tailId = PageUtils.getLong(pageAddr, off + 2);
             assert tailId != 0;
 
-            IgniteLongList list = res.get(bucket);
+            LongArrayList list = res.get(bucket);
 
             if (list == null) {
-                res.put(bucket, list = new IgniteLongList());
+                res.put(bucket, list = new LongArrayList());
             }
 
             list.add(tailId);
@@ -221,11 +221,11 @@ public class PagesListMetaIo extends PageIo {
                 .app(",\n\tcount=").app(cnt)
                 .app(",\n\tbucketData={");
 
-        Map<Integer, IgniteLongList> bucketsData = new HashMap<>(cnt);
+        Map<Integer, LongArrayList> bucketsData = new HashMap<>(cnt);
 
         getBucketsData(addr, bucketsData);
 
-        for (Map.Entry<Integer, IgniteLongList> e : bucketsData.entrySet()) {
+        for (Map.Entry<Integer, LongArrayList> e : bucketsData.entrySet()) {
             sb.app("\n\t\tbucket=").app(e.getKey()).app(", list=").app(e.getValue());
         }
 

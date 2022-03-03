@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static io.netty.handler.codec.http.HttpResponseStatus.BAD_REQUEST;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -27,7 +26,10 @@ import io.netty.channel.ChannelFuture;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.net.BindException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -112,11 +114,19 @@ public class RestModule implements IgniteComponent {
         router
                 .get(
                         NODE_CFG_URL,
-                        (req, resp) -> resp.json(nodeCfgPresentation.represent())
+                        (req, resp) -> {
+                            resp.json(nodeCfgPresentation.represent());
+
+                            return CompletableFuture.completedFuture(resp);
+                        }
                 )
                 .get(
                         CLUSTER_CFG_URL,
-                        (req, resp) -> resp.json(clusterCfgPresentation.represent())
+                        (req, resp) -> {
+                            resp.json(clusterCfgPresentation.represent());
+
+                            return CompletableFuture.completedFuture(resp);
+                        }
                 )
                 .get(
                         NODE_CFG_URL + ":" + PATH_PARAM,
@@ -126,12 +136,12 @@ public class RestModule implements IgniteComponent {
                         CLUSTER_CFG_URL + ":" + PATH_PARAM,
                         (req, resp) -> handleRepresentByPath(req, resp, clusterCfgPresentation)
                 )
-                .put(
+                .patch(
                         NODE_CFG_URL,
                         APPLICATION_JSON,
                         (req, resp) -> handleUpdate(req, resp, nodeCfgPresentation)
                 )
-                .put(
+                .patch(
                         CLUSTER_CFG_URL,
                         APPLICATION_JSON,
                         (req, resp) -> handleUpdate(req, resp, clusterCfgPresentation)
@@ -208,7 +218,7 @@ public class RestModule implements IgniteComponent {
      * @param res          Rest response.
      * @param presentation Configuration presentation.
      */
-    private void handleRepresentByPath(
+    private static CompletableFuture<RestApiHttpResponse> handleRepresentByPath(
             RestApiHttpRequest req,
             RestApiHttpResponse res,
             ConfigurationPresentation<String> presentation
@@ -223,6 +233,8 @@ public class RestModule implements IgniteComponent {
             res.status(BAD_REQUEST);
             res.json(Map.of("error", errRes));
         }
+
+        return CompletableFuture.completedFuture(res);
     }
 
     /**
@@ -232,34 +244,36 @@ public class RestModule implements IgniteComponent {
      * @param res          Rest response.
      * @param presentation Configuration presentation.
      */
-    private void handleUpdate(
+    private static CompletableFuture<RestApiHttpResponse> handleUpdate(
             RestApiHttpRequest req,
             RestApiHttpResponse res,
             ConfigurationPresentation<String> presentation
     ) {
-        try {
-            String updateReq = req
-                    .request()
-                    .content()
-                    .readCharSequence(req.request().content().readableBytes(), UTF_8)
-                    .toString();
+        String updateReq = req.request().content().toString(StandardCharsets.UTF_8);
 
-            presentation.update(updateReq);
-        } catch (IllegalArgumentException e) {
-            ErrorResult errRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
+        return presentation.update(updateReq)
+                .thenApply(v -> res)
+                .exceptionally(e -> {
+                    if (e instanceof CompletionException) {
+                        e = e.getCause();
+                    }
 
-            res.status(BAD_REQUEST);
-            res.json(Map.of("error", errRes));
-        } catch (ConfigurationValidationException e) {
-            ErrorResult errRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+                    ErrorResult errRes;
 
-            res.status(BAD_REQUEST);
-            res.json(Map.of("error", errRes));
-        } catch (IgniteException e) {
-            ErrorResult errRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
+                    if (e instanceof IllegalArgumentException) {
+                        errRes = new ErrorResult("INVALID_CONFIG_FORMAT", e.getMessage());
+                    } else if (e instanceof ConfigurationValidationException) {
+                        errRes = new ErrorResult("VALIDATION_EXCEPTION", e.getMessage());
+                    } else if (e instanceof IgniteException) {
+                        errRes = new ErrorResult("APPLICATION_EXCEPTION", e.getMessage());
+                    } else {
+                        throw new CompletionException(e);
+                    }
 
-            res.status(BAD_REQUEST);
-            res.json(Map.of("error", errRes));
-        }
+                    res.status(BAD_REQUEST);
+                    res.json(Map.of("error", errRes));
+
+                    return res;
+                });
     }
 }

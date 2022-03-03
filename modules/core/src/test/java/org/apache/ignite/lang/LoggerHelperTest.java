@@ -26,19 +26,19 @@ import org.junit.jupiter.api.Test;
  */
 public class LoggerHelperTest {
     /** Message parameter 1. */
-    Integer i1 = new Integer(1);
+    Integer i1 = 1;
 
     /** Message parameter 2. */
-    Integer i2 = new Integer(2);
+    Integer i2 = 2;
 
     /** Message parameter 3. */
-    Integer i3 = new Integer(3);
+    Integer i3 = 3;
 
     /** Array message parameter 0. */
     Integer[] ia0 = new Integer[]{i1, i2, i3};
 
     /** Array message parameter 1. */
-    Integer[] ia1 = new Integer[]{new Integer(10), new Integer(20), new Integer(30)};
+    Integer[] ia1 = new Integer[]{10, 20, 30};
 
     /** Variable for the result message. */
     String result;

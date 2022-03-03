@@ -22,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Condition tests an entry's value is tombstone in meta storage. Entry is tombstone if it is not empty and doesn't exists.
  */
-public class TombstoneCondition extends AbstractCondition {
+public class TombstoneCondition extends AbstractSimpleCondition {
     /**
      * Constructs a condition with the given entry key.
      *

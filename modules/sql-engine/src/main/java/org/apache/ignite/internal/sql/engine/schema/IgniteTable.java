@@ -48,6 +48,13 @@ public interface IgniteTable extends TranslatableTable, Wrapper {
     UUID id();
 
     /**
+     * Returns the version of the table's schema.
+     *
+     * @return the version of the table's schema.
+     */
+    int version();
+
+    /**
      * Returns a descriptor of the table.
      *
      * @return A descriptor of the table.

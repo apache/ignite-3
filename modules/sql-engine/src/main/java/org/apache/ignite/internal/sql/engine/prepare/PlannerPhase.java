@@ -23,13 +23,13 @@ import static org.apache.ignite.internal.sql.engine.prepare.IgnitePrograms.hep;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.logical.LogicalSort;
-import org.apache.calcite.rel.rules.AggregateExpandDistinctAggregatesRule;
 import org.apache.calcite.rel.rules.AggregateMergeRule;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule;
@@ -87,6 +87,8 @@ public enum PlannerPhase {
 
     HEP_FILTER_PUSH_DOWN(
             "Heuristic phase to push down filters",
+            FilterScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
+
             CoreRules.FILTER_MERGE,
             CoreRules.FILTER_AGGREGATE_TRANSPOSE,
             CoreRules.FILTER_SET_OP_TRANSPOSE,
@@ -104,7 +106,6 @@ public enum PlannerPhase {
     HEP_PROJECT_PUSH_DOWN(
             "Heuristic phase to push down and merge projects",
             ProjectScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
-            ProjectScanMergeRule.INDEX_SCAN_SKIP_CORRELATED,
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
@@ -132,11 +133,11 @@ public enum PlannerPhase {
             JoinPushExpressionsRule.Config.DEFAULT
                     .withOperandFor(LogicalJoin.class).toRule(),
 
-            JoinConditionPushRule.Config.DEFAULT
+            JoinConditionPushRule.JoinConditionPushRuleConfig.DEFAULT
                     .withOperandSupplier(b -> b.operand(LogicalJoin.class)
                             .anyInputs()).toRule(),
 
-            FilterIntoJoinRule.Config.DEFAULT
+            FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
                     .withOperandSupplier(b0 ->
                             b0.operand(LogicalFilter.class).oneInput(b1 ->
                                     b1.operand(LogicalJoin.class).anyInputs())).toRule(),
@@ -165,7 +166,7 @@ public enum PlannerPhase {
                                                     .predicate(Aggregate::isSimple)
                                                     .anyInputs())).toRule(),
 
-            AggregateExpandDistinctAggregatesRule.Config.JOIN.toRule(),
+            CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES_TO_JOIN,
 
             SortRemoveRule.Config.DEFAULT
                     .withOperandSupplier(b ->
@@ -183,11 +184,9 @@ public enum PlannerPhase {
             // Useful of this rule is not clear now.
             // CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
 
-            PruneEmptyRules.SortFetchZeroRuleConfig.EMPTY
+            ((RelRule<?>) PruneEmptyRules.SORT_FETCH_ZERO_INSTANCE).config
                     .withOperandSupplier(b ->
                             b.operand(LogicalSort.class).anyInputs())
-                    .withDescription("PruneSortLimit0")
-                    .as(PruneEmptyRules.SortFetchZeroRuleConfig.class)
                     .toRule(),
 
             ExposeIndexRule.INSTANCE,
@@ -200,10 +199,11 @@ public enum PlannerPhase {
 
             LogicalOrToUnionRule.INSTANCE,
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
+            MergeJoinConverterRule.INSTANCE,
             CorrelatedNestedLoopJoinRule.INSTANCE,
             CorrelateToNestedLoopRule.INSTANCE,
             NestedLoopJoinConverterRule.INSTANCE,
-            MergeJoinConverterRule.INSTANCE,
 
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,
@@ -253,8 +253,6 @@ public enum PlannerPhase {
      */
     public RuleSet getRules(PlanningContext ctx) {
         List<RelOptRule> rules = new ArrayList<>(this.rules);
-
-        ctx.extensions().forEach(p -> rules.addAll(p.getOptimizerRules(this)));
 
         return ctx.rules(RuleSets.ofList(rules));
     }

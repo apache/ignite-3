@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptUtil;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -89,12 +91,16 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
         IgniteRel phys = physicalPlan(
                 sql,
                 publicSchema,
-                "HashSingleAggregateConverterRule", "HashMapReduceAggregateConverterRule",
-                "LogicalTableScanConverterRule"
+                "NestedLoopJoinConverter",
+                "CorrelatedNestedLoopJoin",
+                "CorrelateToNestedLoopRule",
+                "HashSingleAggregateConverterRule",
+                "HashMapReduceAggregateConverterRule"
         );
 
-        assertNull(
-                findFirstNode(phys, byClass(IgniteSort.class)),
+        assertTrue(
+                findFirstNode(phys, byClass(IgniteSort.class)) == null
+                        && findFirstNode(phys, byClass(IgniteTableScan.class)) == null,
                 "Invalid plan\n" + RelOptUtil.toString(phys)
         );
     }

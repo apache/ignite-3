@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.jdbc;
 
 import java.sql.Statement;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -50,6 +51,13 @@ public abstract class ItJdbcAbstractStatementSelfTest extends AbstractJdbcSelfTe
     public static void createTable() throws Exception {
         try (Statement s = conn.createStatement()) {
             s.execute(CREATE_TABLE_SQL);
+        }
+    }
+
+    @AfterAll
+    public static void drop() throws Exception {
+        try (Statement s = conn.createStatement()) {
+            s.execute("DROP TABLE public.person;");
         }
     }
 }

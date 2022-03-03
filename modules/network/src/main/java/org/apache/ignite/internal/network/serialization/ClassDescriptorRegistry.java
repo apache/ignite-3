@@ -125,8 +125,10 @@ public class ClassDescriptorRegistry implements DescriptorRegistry {
      *
      * @param descriptor Descriptor.
      */
-    public void addDescriptor(ClassDescriptor descriptor) {
-        Integer descriptorId = idMap.get(descriptor.clazz());
+    void addDescriptor(Class<?> clazz, ClassDescriptor descriptor) {
+        assert clazz.getName().equals(descriptor.className());
+
+        Integer descriptorId = idMap.get(clazz);
 
         assert descriptorId != null : "Attempting to store an unregistered descriptor";
 

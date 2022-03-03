@@ -21,6 +21,7 @@ import org.apache.ignite.internal.network.serialization.BuiltInType;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.Classes;
 import org.apache.ignite.internal.util.StringIntrospection;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,7 +37,7 @@ class LocalDescriptors {
         this.descriptorFactory = descriptorFactory;
     }
 
-    ClassDescriptor getOrCreateDescriptor(@Nullable Object object, @Nullable Class<?> declaredClass) {
+    ClassDescriptor getOrCreateDescriptor(@Nullable Object object) {
         if (object == null) {
             return localRegistry.getNullDescriptor();
         }
@@ -44,21 +45,43 @@ class LocalDescriptors {
             return localRegistry.getBuiltInDescriptor(BuiltInType.STRING_LATIN1);
         }
 
-        // For primitives, we need to keep the declaredClass (it differs from object.getClass()).
-        Class<?> classToQueryForOriginalDescriptor = declaredClass != null && declaredClass.isPrimitive()
-                ? declaredClass : object.getClass();
-
-        return getOrCreateDescriptor(classToQueryForOriginalDescriptor);
+        return getOrCreateDescriptor(object.getClass());
     }
 
-    ClassDescriptor getOrCreateDescriptor(Class<?> objectClass) {
-        ClassDescriptor descriptor = DescriptorResolver.resolveDescriptor(objectClass, localRegistry);
+    private ClassDescriptor getOrCreateDescriptor(Class<?> objectClass) {
+        ClassDescriptor descriptor = resolveDescriptor(objectClass);
         if (descriptor != null) {
             return descriptor;
         }
 
-        Class<?> normalizedClass = DescriptorResolver.normalizeClass(objectClass);
+        Class<?> normalizedClass = normalizeClass(objectClass);
 
         return descriptorFactory.create(normalizedClass);
+    }
+
+    /**
+     * Resolves a descriptor by the given class. If it's a built-in, returns the built-in. If it's custom, searches among
+     * the already known descriptors for the exact class. If not found there, returns {@code null}.
+     *
+     * @param objectClass   class for which to obtain a descriptor
+     * @return corresponding descriptor or @{code null} if nothing is found
+     */
+    @Nullable
+    private ClassDescriptor resolveDescriptor(Class<?> objectClass) {
+        if (ProxyMarshaller.isProxyClass(objectClass)) {
+            return localRegistry.getProxyDescriptor();
+        }
+
+        Class<?> normalizedClass = normalizeClass(objectClass);
+
+        return localRegistry.getDescriptor(normalizedClass);
+    }
+
+    private Class<?> normalizeClass(Class<?> objectClass) {
+        if (Classes.isRuntimeEnum(objectClass)) {
+            return Classes.enumClassAsInSourceCode(objectClass);
+        } else {
+            return objectClass;
+        }
     }
 }

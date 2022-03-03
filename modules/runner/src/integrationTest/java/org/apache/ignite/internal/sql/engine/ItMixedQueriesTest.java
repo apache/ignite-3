@@ -38,7 +38,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Group of tests that still has not been sorted out. It’s better to avoid extending this class with new tests.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.
@@ -223,6 +222,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16558")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -385,7 +385,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         return CLUSTER_NODES.get(0).tables().createTable(schTbl1.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl1, tblCh)
-                        .changeReplicas(2)
+                        .changeReplicas(1)
                         .changePartitions(10)
         );
     }

@@ -173,7 +173,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         IgniteDataInput dis = openDataInput(marshalled);
 
         int descriptorId = ProtocolMarshalling.readDescriptorOrCommandId(dis);
-        assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(SimpleEnum.class));
+        assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).className(), is(SimpleEnum.class.getName()));
 
         ProtocolMarshalling.readObjectId(dis);
 
@@ -188,7 +188,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         IgniteDataInput dis = openDataInput(marshalled);
 
         int descriptorId = ProtocolMarshalling.readDescriptorOrCommandId(dis);
-        assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(EnumWithAnonClassesForMembers.class));
+        assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).className(), is(EnumWithAnonClassesForMembers.class.getName()));
 
         ProtocolMarshalling.readObjectId(dis);
 
@@ -341,7 +341,7 @@ class DefaultUserObjectMarshallerWithBuiltinsTest {
         MarshalledObject marshalled = marshaller.marshal(array);
 
         int descriptorId = readDescriptorId(marshalled);
-        assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).clazz(), is(array.getClass()));
+        assertThat(descriptorRegistry.getRequiredDescriptor(descriptorId).className(), is(array.getClass().getName()));
     }
 
     private static Stream<Arguments> objectArrays() {

@@ -119,4 +119,7 @@ public class ClientOp {
 
     /** Rollback transaction. */
     public static final int TX_ROLLBACK = 45;
+
+    /** Execute prepared statement batch query. */
+    public static final int SQL_EXEC_PS_BATCH = 46;
 }

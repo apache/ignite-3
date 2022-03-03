@@ -82,6 +82,7 @@ import org.apache.ignite.schema.definition.index.SortedIndexDefinition;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -195,7 +196,7 @@ public class RocksDbSortedIndexStorageTest {
         );
 
         return allColumnTypes
-                .map(type -> column(type.typeSpec().name(), type).asNullable(true).build())
+                .map(type -> column(type.typeSpec().name(), type).asNullable(false).build())
                 .collect(toUnmodifiableList());
     }
 
@@ -362,6 +363,7 @@ public class RocksDbSortedIndexStorageTest {
 
     @ParameterizedTest
     @VariableSource("ALL_TYPES_COLUMN_DEFINITIONS")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16105") // Null values are forbidden at the key.
     void testNullValues(ColumnDefinition columnDefinition) throws Exception {
         SortedIndexStorage storage = createIndex(List.of(columnDefinition));
 
@@ -401,6 +403,10 @@ public class RocksDbSortedIndexStorageTest {
         List<ColumnDefinition> shuffledDefinitions = ALL_TYPES_COLUMN_DEFINITIONS.stream()
                 .filter(filter)
                 .collect(toList());
+
+        if (shuffledDefinitions.isEmpty()) {
+            shuffledDefinitions = new ArrayList<>(ALL_TYPES_COLUMN_DEFINITIONS);
+        }
 
         Collections.shuffle(shuffledDefinitions, random);
 

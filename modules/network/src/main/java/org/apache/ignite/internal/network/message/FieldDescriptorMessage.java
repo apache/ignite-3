@@ -25,6 +25,10 @@ import org.apache.ignite.network.annotations.Transferable;
 /** Message for the {@link FieldDescriptor}. */
 @Transferable(NetworkMessageTypes.FIELD_DESCRIPTOR_MESSAGE)
 public interface FieldDescriptorMessage extends NetworkMessage {
+    int UNSHARED_MASK = 1;
+    int IS_PRIMITIVE = 1 << 1;
+    int IS_RUNTIME_TYPE_KNOWN_UPFRONT = 1 << 2;
+
     /**
      * Name of the field.
      */
@@ -36,9 +40,9 @@ public interface FieldDescriptorMessage extends NetworkMessage {
     int typeDescriptorId();
 
     /**
-     * Whether the field is serialized as unshared from the point of view of Java Serialization specification.
+     * Packed booleans flags.
      */
-    boolean unshared();
+    byte flags();
 
     /**
      * Field's class name.

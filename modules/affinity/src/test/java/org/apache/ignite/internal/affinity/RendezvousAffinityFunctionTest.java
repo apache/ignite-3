@@ -175,7 +175,7 @@ public class RendezvousAffinityFunctionTest {
             return "[]";
         }
 
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
         sb.append('[');
 
         List<T> l = new ArrayList<>(col);

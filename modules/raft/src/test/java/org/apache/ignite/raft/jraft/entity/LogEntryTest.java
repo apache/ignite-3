@@ -22,6 +22,7 @@ import org.apache.ignite.raft.jraft.entity.codec.DefaultLogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.junit.jupiter.api.Test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -60,7 +61,7 @@ public class LogEntryTest {
 
     @Test
     public void testEncodeDecodeWithData() {
-        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
+        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes(UTF_8));
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setId(new LogId(100, 3));
         entry.setData(buf);
@@ -91,7 +92,7 @@ public class LogEntryTest {
 
     @Test
     public void testChecksum() {
-        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes());
+        ByteBuffer buf = ByteBuffer.wrap("hello".getBytes(UTF_8));
         LogEntry entry = new LogEntry(EnumOutter.EntryType.ENTRY_TYPE_NO_OP);
         entry.setId(new LogId(100, 3));
         entry.setData(buf);
@@ -116,7 +117,7 @@ public class LogEntryTest {
         assertFalse(entry.isCorrupted());
 
         // modify data, detect corrupted
-        entry.setData(ByteBuffer.wrap("hEllo".getBytes()));
+        entry.setData(ByteBuffer.wrap("hEllo".getBytes(UTF_8)));
         assertNotEquals(c, entry.checksum());
         assertTrue(entry.isCorrupted());
     }

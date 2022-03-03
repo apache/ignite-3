@@ -44,6 +44,7 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.mockito.ArgumentCaptor;
 
 import static java.lang.Thread.sleep;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
 import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -104,7 +105,7 @@ public class TestUtils {
         for (int i = 0; i < n; i++) {
             LogEntry entry = mockEntry(i, i);
             if (i > 0)
-                entry.setData(ByteBuffer.wrap(String.valueOf(i).getBytes()));
+                entry.setData(ByteBuffer.wrap(String.valueOf(i).getBytes(UTF_8)));
             entries.add(entry);
         }
         return entries;
