@@ -197,7 +197,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** */
     @Test
     public void testIndexedDateFieldEqualsParameterFilter() {
         assertQuery("SELECT * FROM Birthday WHERE birthday = ?")
@@ -206,7 +205,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** */
     @Test
     public void testIndexedDateFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM Birthday WHERE birthday > DATE '1813-05-22'")
@@ -217,7 +215,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** */
     @Test
     public void testIndexedDateFieldLessThanOrEqualFilter() {
         assertQuery("SELECT * FROM Birthday WHERE birthday <= DATE '1756-01-27'")
@@ -227,7 +224,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** */
     @Test
     public void testIndexedDateFieldBetweenFilter() {
         assertQuery("SELECT * FROM Birthday WHERE birthday BETWEEN DATE '1756-01-27' AND DATE '1813-10-10'")
@@ -238,7 +234,6 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
-    /** */
     @Test
     public void testIndexedNameDateFieldEqualsFilter() {
         assertQuery("SELECT * FROM Birthday WHERE name = 'Vagner' AND birthday = DATE '1813-05-22'")

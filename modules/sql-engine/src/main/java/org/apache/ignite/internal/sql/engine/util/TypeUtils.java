@@ -279,7 +279,7 @@ public class TypeUtils {
      */
     public static boolean isConvertableType(Type type) {
         return type instanceof RelDataTypeFactoryImpl.JavaType
-                && isConvertableType(((RelDataTypeFactoryImpl.JavaType)type).getJavaClass());
+                && isConvertableType(((RelDataTypeFactoryImpl.JavaType) type).getJavaClass());
     }
 
     /**
