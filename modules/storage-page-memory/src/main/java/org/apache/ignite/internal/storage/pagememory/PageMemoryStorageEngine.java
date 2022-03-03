@@ -46,13 +46,11 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() {
-
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
-
     }
 
     /** {@inheritDoc} */
@@ -64,6 +62,6 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public TableStorage createTable(Path tablePath, TableConfiguration tableCfg, DataRegion dataRegion) {
-        return null;
+        return new PageMemoryTableStorage(tableCfg, (PageMemoryDataRegion) dataRegion);
     }
 }

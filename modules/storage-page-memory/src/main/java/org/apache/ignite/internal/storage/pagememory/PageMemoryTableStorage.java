@@ -26,6 +26,21 @@ import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.jetbrains.annotations.Nullable;
 
 public class PageMemoryTableStorage implements TableStorage {
+    private final PageMemoryDataRegion dataRegion;
+
+    private final TableConfiguration tableCfg;
+
+    /**
+     * Constructor.
+     *
+     * @param tableCfg – Table configuration.
+     * @param dataRegion – Data region for the table.
+     */
+    public PageMemoryTableStorage(TableConfiguration tableCfg, PageMemoryDataRegion dataRegion) {
+        this.dataRegion = dataRegion;
+        this.tableCfg = tableCfg;
+    }
+
     /** {@inheritDoc} */
     @Override
     public PartitionStorage getOrCreatePartition(int partId) throws StorageException {

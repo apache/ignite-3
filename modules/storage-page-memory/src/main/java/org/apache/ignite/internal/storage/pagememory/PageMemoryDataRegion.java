@@ -28,6 +28,7 @@ import org.apache.ignite.internal.storage.engine.DataRegion;
 /**
  * Data region implementation for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
+// TODO: IGNITE-16641 Add support for persistent case.
 public class PageMemoryDataRegion implements DataRegion {
     private final PageMemoryDataRegionConfiguration cfg;
 
@@ -49,26 +50,27 @@ public class PageMemoryDataRegion implements DataRegion {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        PageMemoryDataRegionView dataRegionView = (PageMemoryDataRegionView) cfg.value();
-
-        if (dataRegionView.persistent()) {
+        if (!persistent()) {
             throw new UnsupportedOperationException("Persistent case is not supported yet.");
         }
 
-        pageMemory = new PageMemoryNoStoreImpl(
-                new UnsafeMemoryProvider(null),
-                cfg,
-                ioRegistry
-        );
+        pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry);
 
         pageMemory.start();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         if (pageMemory != null) {
             pageMemory.stop(true);
         }
+    }
+
+    /**
+     * Returns {@link true} if the date region is persistent.
+     */
+    public boolean persistent() {
+        return ((PageMemoryDataRegionView) cfg.value()).persistent();
     }
 }

@@ -22,9 +22,12 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -32,6 +35,8 @@ import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +45,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Storage test implementation for {@link PageMemoryPartitionStorage}.
  */
+// TODO: IGNITE-16641 Add test for persistent case.
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(WorkDirectoryExtension.class)
 public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
     @InjectConfiguration(
             value = "mock.type = pagemem",
@@ -49,6 +56,12 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
                     UnsafeMemoryAllocatorConfigurationSchema.class
             })
     private DataRegionConfiguration dataRegionCfg;
+
+    @InjectConfiguration(polymorphicExtensions = HashIndexConfigurationSchema.class)
+    private TableConfiguration tableCfg;
+
+    @WorkDirectory
+    private Path workDir;
 
     private StorageEngine engine;
 
@@ -64,13 +77,15 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         engine = new PageMemoryStorageEngine(ioRegistry);
 
+        engine.start();
+
         dataRegion = engine.createDataRegion(fixConfiguration(dataRegionCfg));
 
         assertThat(dataRegion, is(instanceOf(PageMemoryDataRegion.class)));
 
         dataRegion.start();
 
-        table = engine.createTable(null, null, dataRegion);
+        table = engine.createTable(workDir, tableCfg, dataRegion);
 
         assertThat(table, is(instanceOf(PageMemoryTableStorage.class)));
 
@@ -87,7 +102,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
                 storage,
                 table == null ? null : table::stop,
                 dataRegion == null ? null : dataRegion::stop,
-                engine::stop
+                engine == null ? null : engine::stop
         );
     }
 }
