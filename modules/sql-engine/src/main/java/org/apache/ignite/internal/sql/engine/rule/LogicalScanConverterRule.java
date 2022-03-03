@@ -55,7 +55,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTableScan> extends AbstractIgniteConverterRule<T> {
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteLogicalIndexScan> INDEX_SCAN =
-            new LogicalScanConverterRule<IgniteLogicalIndexScan>(IgniteLogicalIndexScan.class, "LogicalIndexScanConverterRule") {
+            new LogicalScanConverterRule<>(IgniteLogicalIndexScan.class, "LogicalIndexScanConverterRule") {
 
                 /** {@inheritDoc} */
                 @Override
@@ -109,7 +109,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
 
     /** Instance. */
     public static final LogicalScanConverterRule<IgniteLogicalTableScan> TABLE_SCAN =
-            new LogicalScanConverterRule<IgniteLogicalTableScan>(IgniteLogicalTableScan.class, "LogicalTableScanConverterRule") {
+            new LogicalScanConverterRule<>(IgniteLogicalTableScan.class, "LogicalTableScanConverterRule") {
                 /** {@inheritDoc} */
                 @Override protected PhysicalNode convert(
                         RelOptPlanner planner,

@@ -170,7 +170,7 @@ data: {
 #     "CURSOR"
       "CYCLE"
       "DATA"
-#     "DATE"
+      "DATE"
       "DAY"
       "DEALLOCATE"
       "DEC"

@@ -26,6 +26,7 @@ import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -40,6 +41,7 @@ import org.apache.calcite.runtime.Geometries;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.IntervalSqlType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.definition.ColumnType;
 
@@ -152,16 +154,16 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         if (javaType == byte[].class) {
             return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.blobOf() :
-                ColumnType.blobOf(relType.getPrecision());
+                    ColumnType.blobOf(relType.getPrecision());
         } else if (javaType == String.class) {
             return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.string() :
-                ColumnType.stringOf(relType.getPrecision());
+                    ColumnType.stringOf(relType.getPrecision());
         } else if (javaType == BigInteger.class) {
             return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.numberOf() :
-                ColumnType.numberOf(relType.getPrecision());
+                    ColumnType.numberOf(relType.getPrecision());
         } else if (javaType == BigDecimal.class) {
             return relType.getPrecision() == PRECISION_NOT_SPECIFIED ? ColumnType.decimalOf() :
-                ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
+                    ColumnType.decimalOf(relType.getPrecision(), relType.getScale());
         } else {
             return SchemaConfigurationConverter.columnType((Class<?>) javaType);
         }
@@ -274,6 +276,19 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         }
 
         return jvmDefault;
+    }
+
+    /** {@inheritDoc} */
+    @Override public RelDataType toSql(RelDataType type) {
+        if (type instanceof JavaType) {
+            Class<?> clazz = ((JavaType) type).getJavaClass();
+
+            if (clazz == LocalDate.class) {
+                return createSqlType(SqlTypeName.DATE);
+            }
+        }
+
+        return super.toSql(type);
     }
 
     private boolean allEquals(List<RelDataType> types) {

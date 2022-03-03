@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUn
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
+import java.sql.Date;
+import java.time.LocalDate;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -47,6 +49,10 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
     private static final String NAME_CITY_IDX = "NAME_CITY_IDX";
 
     private static final String NAME_DEPID_CITY_IDX = "NAME_DEPID_CITY_IDX";
+
+    private static final String DATE_IDX = "DATE_IDX";
+
+    private static final String NAME_DATE_IDX = "NAME_DATE_IDX";
 
     /**
      * Before all.
@@ -114,8 +120,8 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
         TableDefinition schema1 = SchemaBuilders.tableBuilder("PUBLIC", "UNWRAP_PK")
                 .columns(
-                        SchemaBuilders.column("F1", ColumnType.string()).asNullable(true).build(),
-                        SchemaBuilders.column("F2", ColumnType.INT64).asNullable(true).build(),
+                        SchemaBuilders.column("F1", ColumnType.string()).build(),
+                        SchemaBuilders.column("F2", ColumnType.INT64).build(),
                         SchemaBuilders.column("F3", ColumnType.INT64).asNullable(true).build(),
                         SchemaBuilders.column("F4", ColumnType.INT64).asNullable(true).build()
                 )
@@ -145,6 +151,100 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 {"Ivan4", 24L, 2L, 4L},
                 {"Ivan5", 25L, 2L, 4L},
         });
+
+        TableDefinition schema2 = SchemaBuilders.tableBuilder("PUBLIC", "Birthday")
+                .columns(
+                        SchemaBuilders.column("id", ColumnType.INT32).asNullable(false).build(),
+                        SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build(),
+                        SchemaBuilders.column("birthday", ColumnType.DATE).asNullable(true).build()
+                )
+                .withPrimaryKey("ID")
+                .withIndex(
+                        SchemaBuilders.sortedIndex(DATE_IDX)
+                                .addIndexColumn("birthday").done()
+                                .build()
+                )
+                .withIndex(
+                        SchemaBuilders.sortedIndex(NAME_DATE_IDX)
+                                .addIndexColumn("name").desc().done()
+                                .addIndexColumn("birthday").desc().done()
+                                .build()
+                )
+                .build();
+
+        Table birthTable = CLUSTER_NODES.get(0).tables().createTable(schema2.canonicalName(), tblCh ->
+                SchemaConfigurationConverter.convert(schema2, tblCh)
+                        .changeReplicas(2)
+                        .changePartitions(10)
+        );
+
+        insertData(birthTable, new String[]{"ID", "NAME", "BIRTHDAY"}, new Object[][]{
+                {1, "Mozart", LocalDate.parse("1756-01-27")},
+                {2, "Beethoven", null},
+                {3, "Bach", LocalDate.parse("1685-03-31")},
+                {4, "Strauss", LocalDate.parse("1864-06-11")},
+                {5, "Vagner", LocalDate.parse("1813-05-22")},
+                {6, "Chaikovsky", LocalDate.parse("1840-05-07")},
+                {7, "Verdy", LocalDate.parse("1813-10-10")},
+        });
+    }
+
+    @Test
+    public void testIndexedDateFieldEqualsFilter() {
+        assertQuery("SELECT birthday FROM Birthday WHERE BIRTHDAY = DATE '1813-05-22'")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", DATE_IDX))
+                .returns(5, "Vagner", LocalDate.parse("1813-05-22"))
+                .check();
+    }
+
+    /** */
+    @Test
+    public void testIndexedDateFieldEqualsParameterFilter() {
+        assertQuery("SELECT * FROM Birthday WHERE birthday = ?")
+                .withParams(Date.valueOf("1813-05-22"))
+                .returns(5, "Vagner", Date.valueOf("1813-05-22"))
+                .check();
+    }
+
+    /** */
+    @Test
+    public void testIndexedDateFieldGreaterThanFilter() {
+        assertQuery("SELECT * FROM Birthday WHERE birthday > DATE '1813-05-22'")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", DATE_IDX))
+                .returns(4, "Strauss", Date.valueOf("1864-06-11"))
+                .returns(6, "Chaikovsky", Date.valueOf("1840-05-07"))
+                .returns(7, "Verdy", Date.valueOf("1813-10-10"))
+                .check();
+    }
+
+    /** */
+    @Test
+    public void testIndexedDateFieldLessThanOrEqualFilter() {
+        assertQuery("SELECT * FROM Birthday WHERE birthday <= DATE '1756-01-27'")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", DATE_IDX))
+                .returns(1, "Mozart", Date.valueOf("1756-01-27"))
+                .returns(3, "Bach", Date.valueOf("1685-03-31"))
+                .check();
+    }
+
+    /** */
+    @Test
+    public void testIndexedDateFieldBetweenFilter() {
+        assertQuery("SELECT * FROM Birthday WHERE birthday BETWEEN DATE '1756-01-27' AND DATE '1813-10-10'")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", DATE_IDX))
+                .returns(1, "Mozart", Date.valueOf("1756-01-27"))
+                .returns(5, "Vagner", Date.valueOf("1813-05-22"))
+                .returns(7, "Verdy", Date.valueOf("1813-10-10"))
+                .check();
+    }
+
+    /** */
+    @Test
+    public void testIndexedNameDateFieldEqualsFilter() {
+        assertQuery("SELECT * FROM Birthday WHERE name = 'Vagner' AND birthday = DATE '1813-05-22'")
+                .matches(containsIndexScan("PUBLIC", "BIRTHDAY", NAME_DATE_IDX))
+                .returns(5, "Vagner", Date.valueOf("1813-05-22"))
+                .check();
     }
 
     @Test
@@ -732,13 +832,13 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testOrderByNoIndexedColumn() {
-        assertQuery("SELECT * FROM Developer ORDER BY age DESC")
+        assertQuery("SELECT * FROM Developer ORDER BY age DESC, ID")
                 .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
                 .matches(containsSubPlan("IgniteSort"))
                 .returns(8, "Stravinsky", 7, "Spt", 89)
                 .returns(7, "Verdy", 6, "Rankola", 88)
-                .returns(9, "Rahmaninov", 8, "Starorussky ud", 70)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
+                .returns(9, "Rahmaninov", 8, "Starorussky ud", 70)
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
@@ -746,18 +846,18 @@ public class ItSecondaryIndexTest extends AbstractBasicIntegrationTest {
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(10, "Shubert", 9, "Vienna", 31)
-                .returns(14, "Rihter", 13, "", -1)
-                .returns(13, "Glass", 12, "", -1)
                 .returns(12, "Einaudi", 11, "", -1)
-                .returns(20, "O'Halloran", 19, "", -1)
-                .returns(23, "Musorgskii", 22, "", -1)
+                .returns(13, "Glass", 12, "", -1)
+                .returns(14, "Rihter", 13, "", -1)
+                .returns(15, "Marradi", 14, "", -1)
+                .returns(16, "Zimmer", 15, "", -1)
+                .returns(17, "Hasaishi", 16, "", -1)
+                .returns(18, "Arnalds", 17, "", -1)
                 .returns(19, "Yiruma", 18, "", -1)
+                .returns(20, "O'Halloran", 19, "", -1)
                 .returns(21, "Cacciapaglia", 20, "", -1)
                 .returns(22, "Prokofiev", 21, "", -1)
-                .returns(16, "Zimmer", 15, "", -1)
-                .returns(18, "Arnalds", 17, "", -1)
-                .returns(17, "Hasaishi", 16, "", -1)
-                .returns(15, "Marradi", 14, "", -1)
+                .returns(23, "Musorgskii", 22, "", -1)
                 .ordered()
                 .check();
     }
