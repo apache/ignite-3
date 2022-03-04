@@ -260,6 +260,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         switch (aggFunction.kind) {
             case COUNT:
+                if (call.operandCount() > 1) {
+                    throw newValidationError(call, RESOURCE.invalidArgCount(aggFunction.getName(), 1));
+                }
+
+                return;
             case SUM:
             case AVG:
             case MIN:

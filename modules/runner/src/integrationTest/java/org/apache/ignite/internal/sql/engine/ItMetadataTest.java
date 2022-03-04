@@ -79,9 +79,12 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void infixTypeCast() {
-        assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid from person")
-                .columnNames("ID", "TID", "SID", "VID")
-                .columnTypes(Integer.class, Byte.class, Short.class, String.class)
+        assertQuery("select id, id::tinyint as tid, id::smallint as sid, id::varchar as vid, id::interval hour, "
+                + "id::interval year from person")
+                .columnNames("ID", "TID", "SID", "VID", "ID :: INTERVAL INTERVAL_HOUR", "ID :: INTERVAL INTERVAL_YEAR")
+                // TODO: IGNITE-16635 replace byte arrays for correct types.
+                //.columnTypes(Integer.class, Byte.class, Short.class, String.class, Duration.class, Period.class)
+                .columnTypes(Integer.class, Byte.class, Short.class, String.class, byte[].class, byte[].class)
                 .check();
     }
 
