@@ -23,9 +23,11 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ge
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +66,17 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.common.OperationType;
+import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
+import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.Operation;
+import org.apache.ignite.internal.metastorage.server.OrCondition;
+import org.apache.ignite.internal.metastorage.server.RevisionCondition;
+import org.apache.ignite.internal.metastorage.server.RevisionCondition.Type;
+import org.apache.ignite.internal.metastorage.server.Statement;
+import org.apache.ignite.internal.metastorage.server.StatementResult;
+import org.apache.ignite.internal.metastorage.server.Update;
+import org.apache.ignite.internal.metastorage.server.ValueCondition;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -85,7 +98,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -318,10 +330,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(new NodeStoppingException());
                                     }
                                     try {
-                                        // Multi invoke supposed to be here
-                                        metaStorageMgr.put(new ByteArray("some key"), null);
+                                        if (replicasCtx.oldValue() != null) {
+
+                                            int partCount = tablesCfg.tables().get(tblName).partitions().value();
+
+                                            int newReplicas = replicasCtx.newValue();
+
+                                            for (int i = 0; i < partCount; i++) {
+                                                String partId = raftGroupName(
+                                                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).id().value(), i);
+
+                                                metastorageInvoke(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
+                                                        replicasCtx.storageRevision());
+                                            }
+                                        }
 
                                         return CompletableFuture.completedFuture(null);
+                                    } catch (NodeStoppingException e) {
+                                        return CompletableFuture.completedFuture(new NodeStoppingException());
                                     } finally {
                                         busyLock.leaveBusy();
                                     }
@@ -436,6 +462,52 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
 
         defaultDataRegion.start();
+    }
+
+    private void metastorageInvoke(String partId, Collection<ClusterNode> clusterNodes, int partitions, int replicas, long revision) {
+        byte[] partChangeTriggerKey = (partId + ".change.trigger").getBytes(StandardCharsets.UTF_8);
+
+        String partAssignmentsPendingKey = partId + ".assignments.pending";
+        String partAssignmentsPlannedKey = partId + ".assignments.planned";
+        String partAssignmentsStableKey = partId + ".assignments.stable";
+
+        List<List<ClusterNode>> calcPartAssignments = AffinityUtils.calculateAssignments(clusterNodes, partitions, replicas);
+
+        If iif = new If(
+                new OrCondition(new ExistenceCondition(ExistenceCondition.Type.EXISTS, partChangeTriggerKey), new RevisionCondition(
+                        Type.LESS, key1, val1)),
+                new Statement(
+                        new If(
+                                new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
+                                new Statement(
+                                        new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
+                                new Statement(
+                                        new Update(
+                                                List.of(new Operation(OperationType.PUT, key1, rval1),
+                                                        new Operation(OperationType.REMOVE, key2, null)),
+                                                new StatementResult(2))))),
+                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3)))
+        );
+
+
+
+        if empty(partition.change.trigger.revision) || partition.change.trigger.revision < revision:
+            if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
+                partition.assignments.pending = AffinityUtils.calculateAssignments(
+                        clusterNodes,
+                        partitions,
+                        replicas);
+                partition.change.trigger.revision = revision
+            else:
+                if partition.assignments.pending != calcPartAssignments
+                    partition.assignments.planned = calcPartAssignments()
+                    partition.change.trigger.revision = revision
+                else
+                    remove(partition.assignments.planned)
+        else:
+            skip
+
+
     }
 
     /** {@inheritDoc} */
