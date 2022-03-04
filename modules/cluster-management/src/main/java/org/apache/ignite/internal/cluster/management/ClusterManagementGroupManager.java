@@ -22,9 +22,11 @@ import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory;
@@ -73,6 +75,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
+    private final CompletableFuture<Collection<String>> metastorageNodes = new CompletableFuture<>();
+
     /** Constructor. */
     public ClusterManagementGroupManager(ClusterService clusterService, Loza raftManager, RestComponent restModule) {
         this.clusterService = clusterService;
@@ -98,6 +102,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     assert correlationId != null;
 
                     handleInit((CmgInitMessage) msg, addr, correlationId);
+                } else if (msg instanceof ClusterStateMessage) {
+                    handleClusterState((ClusterStateMessage) msg);
                 }
             } catch (Exception e) {
                 log.error("CMG message handling failed", e);
@@ -166,6 +172,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         // TODO: drop the Raft storage as well, https://issues.apache.org/jira/browse/IGNITE-16471
     }
 
+    private void handleClusterState(ClusterStateMessage msg) {
+        metastorageNodes.complete(msg.metastorageNodes());
+    }
+
     private static NetworkMessage successResponse(CmgMessagesFactory msgFactory) {
         log.info("CMG started successfully");
 
@@ -218,5 +228,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         busyLock.block();
 
         raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME);
+    }
+
+    public CompletableFuture<Collection<String>> metaStorageNodes() {
+        return metastorageNodes;
     }
 }

@@ -30,8 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.cluster.management.messages.ClusterStateMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgMessageGroup;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
@@ -56,13 +55,11 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.TopologyEventHandler;
-import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -78,9 +75,6 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class MetaStorageManager implements IgniteComponent {
-    /** Logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageManager.class);
-
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
@@ -90,6 +84,8 @@ public class MetaStorageManager implements IgniteComponent {
      */
     public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
+    private final ClusterService clusterService;
+
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
 
@@ -97,7 +93,7 @@ public class MetaStorageManager implements IgniteComponent {
     private final Loza raftMgr;
 
     /** Meta storage service. */
-    private final CompletableFuture<MetaStorageService> metaStorageSvcFut = new CompletableFuture<>();
+    private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
     /**
      * Aggregator of multiple watches to deploy them as one batch.
@@ -129,15 +125,10 @@ public class MetaStorageManager implements IgniteComponent {
      */
     private boolean areWatchesDeployed = false;
 
-    /** Component initialization lock. */
-    private final Object initLock = new Object();
-
     /**
      * Flag that indicates that the component has been initialized.
-     *
-     * <p>Multi-threaded access is guarded by the {@code initLock}.
      */
-    private boolean isInitialized = false;
+    private volatile boolean isInitialized = false;
 
     /** Prevents double stopping the component. */
     private final AtomicBoolean isStopped = new AtomicBoolean();
@@ -153,51 +144,39 @@ public class MetaStorageManager implements IgniteComponent {
     public MetaStorageManager(
             VaultManager vaultMgr,
             ClusterService clusterService,
+            ClusterManagementGroupManager cmgManager,
             Loza raftMgr,
             KeyValueStorage storage
     ) {
         this.vaultMgr = vaultMgr;
+        this.clusterService = clusterService;
         this.raftMgr = raftMgr;
         this.storage = storage;
 
-        clusterService.messagingService().addMessageHandler(CmgMessageGroup.class, (msg, addr, correlationId) -> {
-            if (!(msg instanceof ClusterStateMessage)) {
-                return;
-            }
-
-            if (!busyLock.enterBusy()) {
-                return;
-            }
-
-            try {
-                synchronized (initLock) {
-                    if (isInitialized) {
-                        return;
+        this.metaStorageSvcFut = cmgManager.metaStorageNodes()
+                // use default executor to avoid blocking CMG manager threads
+                .thenComposeAsync(metaStorageNodes -> {
+                    if (!busyLock.enterBusy()) {
+                        return CompletableFuture.failedFuture(new NodeStoppingException());
                     }
 
-                    initializeMetaStorage(clusterService, (ClusterStateMessage) msg);
+                    try {
+                        isInitialized = true;
 
-                    isInitialized = true;
-                }
-            } catch (Exception e) {
-                LOG.error("Unable to initialize the Meta Storage", e);
-            } finally {
-                busyLock.leaveBusy();
-            }
-        });
+                        return initializeMetaStorage(metaStorageNodes);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                });
     }
 
-    private void initializeMetaStorage(ClusterService clusterService, ClusterStateMessage msg) throws NodeStoppingException {
-        TopologyService topologyService = clusterService.topologyService();
+    private CompletableFuture<MetaStorageService> initializeMetaStorage(Collection<String> metaStorageNodes) {
+        List<ClusterNode> metastorageNodes = resolveNodes(clusterService, metaStorageNodes);
 
-        List<ClusterNode> metastorageNodes = resolveNodes(clusterService, msg.metastorageNodes());
-
-        ClusterNode thisNode = topologyService.localMember();
-
-        storage.start();
+        ClusterNode thisNode = clusterService.topologyService().localMember();
 
         if (metastorageNodes.contains(thisNode)) {
-            topologyService.addEventHandler(new TopologyEventHandler() {
+            clusterService.topologyService().addEventHandler(new TopologyEventHandler() {
                 @Override
                 public void onAppeared(ClusterNode member) {
                     // No-op.
@@ -210,34 +189,28 @@ public class MetaStorageManager implements IgniteComponent {
             });
         }
 
-        CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
-                METASTORAGE_RAFT_GROUP_NAME,
-                metastorageNodes,
-                () -> new MetaStorageListener(storage)
-        );
+        storage.start();
 
-        raftServiceFuture
-                .thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()))
-                .whenComplete((service, ex) -> {
-                    if (ex == null) {
-                        metaStorageSvcFut.complete(service);
-                    } else {
-                        metaStorageSvcFut.completeExceptionally(ex);
-                    }
-                });
+        try {
+            CompletableFuture<RaftGroupService> raftServiceFuture = raftMgr.prepareRaftGroup(
+                    METASTORAGE_RAFT_GROUP_NAME,
+                    metastorageNodes,
+                    () -> new MetaStorageListener(storage)
+            );
+
+            return raftServiceFuture.thenApply(service -> new MetaStorageServiceImpl(service, thisNode.id()));
+        } catch (NodeStoppingException e) {
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void start() {
         // NO-OP
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         if (!isStopped.compareAndSet(false, true)) {
@@ -246,11 +219,9 @@ public class MetaStorageManager implements IgniteComponent {
 
         busyLock.block();
 
-        synchronized (initLock) {
-            if (!isInitialized) {
-                // Stop command was called before the init command was received
-                return;
-            }
+        if (!isInitialized) {
+            // Stop command was called before the init command was received
+            return;
         }
 
         synchronized (this) {

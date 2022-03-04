@@ -119,6 +119,7 @@ public class ItDistributedConfigurationPropertiesTest {
             metaStorageManager = new MetaStorageManager(
                     vaultManager,
                     clusterService,
+                    cmgManager,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage()
             );

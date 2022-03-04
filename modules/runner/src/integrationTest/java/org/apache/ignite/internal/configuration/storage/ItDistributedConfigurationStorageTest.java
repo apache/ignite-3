@@ -93,6 +93,7 @@ public class ItDistributedConfigurationStorageTest {
             metaStorageManager = new MetaStorageManager(
                     vaultManager,
                     clusterService,
+                    cmgManager,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage()
             );
