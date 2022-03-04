@@ -24,12 +24,14 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.lang.reflect.Type;
 import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Period;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -61,17 +63,13 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class TypeUtils {
-    private static final EnumSet<SqlTypeName> CONVERTABLE_SQL_TYPES = EnumSet.of(
-            SqlTypeName.DATE,
-            SqlTypeName.TIME,
-            SqlTypeName.TIMESTAMP
-    );
-
     private static final Set<Type> CONVERTABLE_TYPES = Set.of(
             java.util.Date.class,
             java.sql.Date.class,
             java.sql.Time.class,
-            java.sql.Timestamp.class
+            java.sql.Timestamp.class,
+            Duration.class,
+            Period.class
     );
 
     /**
@@ -266,10 +264,12 @@ public class TypeUtils {
     }
 
     private static Function<Object, Object> fieldConverter(ExecutionContext<?> ectx, RelDataType fieldType) {
-        if (CONVERTABLE_SQL_TYPES.contains(fieldType.getSqlTypeName())) {
-            Type storageType = ectx.getTypeFactory().getJavaClass(fieldType);
+        Type storageType = ectx.getTypeFactory().getJavaClass(fieldType);
+
+        if (isConvertableType(storageType)) {
             return v -> fromInternal(ectx, v, storageType);
         }
+
         return Function.identity();
     }
 
@@ -286,12 +286,13 @@ public class TypeUtils {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public static boolean isConvertableType(RelDataType type) {
-        return CONVERTABLE_SQL_TYPES.contains(type.getSqlTypeName());
+        return type instanceof RelDataTypeFactoryImpl.JavaType
+                && isConvertableType(((RelDataTypeFactoryImpl.JavaType) type).getJavaClass());
     }
 
     private static boolean hasConvertableFields(RelDataType resultType) {
         return RelOptUtil.getFieldTypeList(resultType).stream()
-                .anyMatch(t -> CONVERTABLE_SQL_TYPES.contains(t.getSqlTypeName()));
+                .anyMatch(TypeUtils::isConvertableType);
     }
 
     /**
@@ -319,6 +320,11 @@ public class TypeUtils {
             return SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx));
         } else if (storageType == java.util.Date.class) {
             return SqlFunctions.toLong((java.util.Date) val, DataContext.Variable.TIME_ZONE.get(ectx));
+        } else if (storageType == Duration.class) {
+            return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
+                    + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
+        } else if (storageType == Period.class) {
+            return (int) ((Period) val).toTotalMonths();
         } else {
             return val;
         }
@@ -340,6 +346,10 @@ public class TypeUtils {
             return new Timestamp((Long) val - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset((Long) val));
         } else if (storageType == java.util.Date.class && val instanceof Long) {
             return new java.util.Date((Long) val - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset((Long) val));
+        } else if (storageType == Duration.class && val instanceof Long) {
+            return Duration.ofMillis((Long) val);
+        } else if (storageType == Period.class && val instanceof Integer) {
+            return Period.of((Integer) val / 12, (Integer) val % 12, 0);
         } else {
             return val;
         }
@@ -385,7 +395,7 @@ public class TypeUtils {
             case OTHER:
                 return NativeTypes.blobOf(type.getPrecision());
             default:
-                assert false : "Unexpected type of result: " + type;
+                assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
         }
     }
