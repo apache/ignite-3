@@ -28,10 +28,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
-import org.apache.ignite.internal.rest.ErrorResult;
-import org.apache.ignite.internal.rest.netty.RestApiHttpRequest;
-import org.apache.ignite.internal.rest.netty.RestApiHttpResponse;
-import org.apache.ignite.internal.rest.routes.RequestHandler;
+import org.apache.ignite.internal.rest.api.ErrorResult;
+import org.apache.ignite.internal.rest.api.RequestHandler;
+import org.apache.ignite.internal.rest.api.RestApiHttpRequest;
+import org.apache.ignite.internal.rest.api.RestApiHttpResponse;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**

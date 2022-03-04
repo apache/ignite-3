@@ -43,6 +43,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.rest.ConfigurationHttpHandlers;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
@@ -50,7 +51,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestModule;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
@@ -139,7 +140,7 @@ public class IgniteImpl implements Ignite {
     private final TableManager distributedTblMgr;
 
     /** Rest module. */
-    private final RestModule restModule;
+    private final RestComponent restComponent;
 
     private final ClusterManagementGroupManager cmgMgr;
 
@@ -185,6 +186,8 @@ public class IgniteImpl implements Ignite {
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
 
+        restComponent = new RestComponent(nodeCfgMgr, nettyBootstrapFactory);
+
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 clusterLocalConfiguration,
                 networkConfiguration,
@@ -211,6 +214,8 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
+
+        new ConfigurationHttpHandlers(nodeCfgMgr, clusterCfgMgr).registerHandlers(restComponent);
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -243,9 +248,7 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
-        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);
-
-        cmgMgr = new ClusterManagementGroupManager(clusterSvc, raftMgr, restModule);
+        cmgMgr = new ClusterManagementGroupManager(clusterSvc, raftMgr, restComponent);
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
@@ -334,7 +337,7 @@ public class IgniteImpl implements Ignite {
                     baselineMgr,
                     distributedTblMgr,
                     qryEngine,
-                    restModule,
+                    restComponent,
                     cmgMgr,
                     clientHandlerModule
             );
@@ -368,7 +371,7 @@ public class IgniteImpl implements Ignite {
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
             doStopNode(List.of(nettyBootstrapFactory, vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, clusterCfgMgr, metaStorageMgr,
-                    baselineMgr, distributedTblMgr, qryEngine, restModule, cmgMgr, clientHandlerModule));
+                    baselineMgr, distributedTblMgr, qryEngine, restComponent, cmgMgr, clientHandlerModule));
         }
     }
 
@@ -439,7 +442,7 @@ public class IgniteImpl implements Ignite {
      */
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress restAddress() {
-        return NetworkAddress.from(restModule.localAddress());
+        return NetworkAddress.from(restComponent.localAddress());
     }
 
     /**

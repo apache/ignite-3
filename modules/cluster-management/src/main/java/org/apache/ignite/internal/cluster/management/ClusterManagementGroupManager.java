@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
-import io.netty.handler.codec.http.HttpHeaderValues;
-import io.netty.handler.codec.http.HttpMethod;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -32,8 +31,7 @@ import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory
 import org.apache.ignite.internal.cluster.management.rest.InitCommandHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestModule;
-import org.apache.ignite.internal.rest.routes.Route;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -68,7 +66,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final Loza raftManager;
 
-    private final RestModule restModule;
+    private final RestComponent restModule;
 
     /** Handles cluster initialization flow. */
     private final ClusterInitializer clusterInitializer;
@@ -76,7 +74,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Constructor. */
-    public ClusterManagementGroupManager(ClusterService clusterService, Loza raftManager, RestModule restModule) {
+    public ClusterManagementGroupManager(ClusterService clusterService, Loza raftManager, RestComponent restModule) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.restModule = restModule;
@@ -206,12 +204,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     @Override
     public void start() {
-        restModule.addRoute(new Route(
-                REST_ENDPOINT,
-                HttpMethod.POST,
-                HttpHeaderValues.APPLICATION_JSON.toString(),
-                new InitCommandHandler(clusterInitializer)
-        ));
+        restModule.registerHandlers(routes ->
+                routes.post(REST_ENDPOINT, APPLICATION_JSON.toString(), new InitCommandHandler(clusterInitializer))
+        );
     }
 
     @Override

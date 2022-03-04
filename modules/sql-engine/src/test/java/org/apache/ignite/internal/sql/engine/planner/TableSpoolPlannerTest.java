@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -79,7 +79,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
                 + "from t0 "
                 + "join t1 on t0.jid > t1.jid";
 
-        RelNode phys = physicalPlan(sql, publicSchema,
+        IgniteRel phys = physicalPlan(sql, publicSchema,
                 "MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeRule");
 
         assertNotNull(phys);
@@ -87,5 +87,7 @@ public class TableSpoolPlannerTest extends AbstractPlannerTest {
         IgniteTableSpool tblSpool = findFirstNode(phys, byClass(IgniteTableSpool.class));
 
         assertNotNull(tblSpool, "Invalid plan:\n" + RelOptUtil.toString(phys));
+
+        checkSplitAndSerialization(phys, publicSchema);
     }
 }

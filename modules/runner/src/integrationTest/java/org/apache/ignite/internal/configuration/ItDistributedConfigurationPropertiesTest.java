@@ -45,7 +45,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestModule;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -114,7 +114,7 @@ public class ItDistributedConfigurationPropertiesTest {
 
             raftManager = new Loza(clusterService, workDir);
 
-            cmgManager = new ClusterManagementGroupManager(clusterService, raftManager, mock(RestModule.class));
+            cmgManager = new ClusterManagementGroupManager(clusterService, raftManager, mock(RestComponent.class));
 
             metaStorageManager = new MetaStorageManager(
                     vaultManager,
