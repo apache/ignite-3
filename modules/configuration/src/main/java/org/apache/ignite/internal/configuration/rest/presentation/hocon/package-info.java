@@ -15,21 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.routes;
-
-import io.netty.handler.codec.http.HttpRequest;
-import java.util.Optional;
-import org.apache.ignite.internal.rest.api.Route;
-
 /**
- * Dispatcher of http requests.
+ * This package contains classes related to HOCON representation.
  */
-public interface Router {
-    /**
-     * Finds the route by request.
-     *
-     * @param req Request.
-     * @return Route if found.
-     */
-    Optional<Route> route(HttpRequest req);
-}
+
+package org.apache.ignite.internal.configuration.rest.presentation.hocon;

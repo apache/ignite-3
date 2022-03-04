@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.routes;
+package org.apache.ignite.internal.rest.api;
 
-import io.netty.handler.codec.http.HttpRequest;
-import java.util.Optional;
-import org.apache.ignite.internal.rest.api.Route;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Dispatcher of http requests.
+ * Interface for defining REST API request handlers.
  */
-public interface Router {
+public interface RequestHandler {
     /**
-     * Finds the route by request.
+     * Handles the given request and writes the response into the provided {@link RestApiHttpResponse}.
      *
-     * @param req Request.
-     * @return Route if found.
+     * @param request REST API request
+     * @param response REST API response
+     * @return Future that resolves as soon as the response is ready to be sent to the caller. It may return either a new response object
+     *         or the same as the provided via the {@code response} parameter.
      */
-    Optional<Route> route(HttpRequest req);
+    CompletableFuture<RestApiHttpResponse> handle(RestApiHttpRequest request, RestApiHttpResponse response);
 }
