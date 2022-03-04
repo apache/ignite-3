@@ -34,7 +34,6 @@ import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
 import org.apache.calcite.rel.metadata.Metadata;
 import org.apache.calcite.rel.metadata.MetadataDef;
 import org.apache.calcite.rel.metadata.MetadataHandler;
@@ -46,8 +45,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
-import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.lang.IgniteLogger;
@@ -132,21 +129,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
         });
 
         CLUSTER = cluster;
-    }
-
-    /**
-     * Creates a new cluster.
-     *
-     * @return New cluster.
-     */
-    public static RelOptCluster createCluster() {
-        RelOptCluster cluster = RelOptCluster.create(new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT), DFLT_REX_BUILDER);
-
-        cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
-                cluster.getPlanner()));
-        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
-
-        return cluster;
     }
 
     private final FrameworkConfig cfg;
