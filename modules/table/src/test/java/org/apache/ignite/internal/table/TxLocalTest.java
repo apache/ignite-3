@@ -29,6 +29,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -54,6 +55,9 @@ public class TxLocalTest extends TxAbstractTest {
         lockManager = new HeapLockManager();
 
         txManager = new TxManagerImpl(clusterService, lockManager);
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
