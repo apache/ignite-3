@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
@@ -40,13 +39,14 @@ public class VolatilePageMemoryTableStorage extends PageMemoryTableStorage {
     public void start() throws StorageException {
         assert !dataRegion.persistent() : "Persistent data region : " + dataRegion;
 
-        // TODO: Add FreeList.
+        // TODO: IGNITE-16280 Add free list.
 
         super.start();
     }
 
+    /** {@inheritDoc} */
     @Override
-    protected PartitionStorage createPartitionStorage(int partId) {
+    protected PageMemoryPartitionStorage createPartitionStorage(int partId) {
         return new PageMemoryPartitionStorage(partId);
     }
 }

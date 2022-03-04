@@ -41,6 +41,7 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageUtils;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -498,20 +499,9 @@ class RocksDbPartitionStorage implements PartitionStorage {
                 .order(ByteOrder.BIG_ENDIAN)
                 .putShort((short) partId)
                 // TODO: use precomputed hash, see https://issues.apache.org/jira/browse/IGNITE-16370
-                .putInt(hashCode(keyBuffer))
+                .putInt(StorageUtils.hashCode(keyBuffer))
                 .put(keyBuffer)
                 .array();
-    }
-
-    /**
-     * Returns byte buffer hash that matches corresponging array hash.
-     */
-    private int hashCode(ByteBuffer buf) {
-        int result = 1;
-        for (int i = buf.position(); i < buf.limit(); i++) {
-            result = 31 * result + buf.get(i);
-        }
-        return result;
     }
 
     /**

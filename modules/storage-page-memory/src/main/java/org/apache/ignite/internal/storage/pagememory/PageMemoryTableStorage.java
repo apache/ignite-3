@@ -178,5 +178,10 @@ public abstract class PageMemoryTableStorage implements TableStorage {
         throw new UnsupportedOperationException("Indexes are not supported yet.");
     }
 
-    protected abstract PartitionStorage createPartitionStorage(int partId);
+    /**
+     * Returns a new instance of {@link PageMemoryPartitionStorage}.
+     *
+     * @param partId Partition id.
+     */
+    protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId);
 }
