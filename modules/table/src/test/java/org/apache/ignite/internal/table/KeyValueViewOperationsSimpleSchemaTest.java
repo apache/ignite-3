@@ -24,11 +24,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
@@ -44,7 +49,11 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
@@ -385,6 +394,26 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         LockManager lockManager = new HeapLockManager();
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
+
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+
+        doAnswer(
+                invocationClose -> {
+                    assert invocationClose.getArgument(1) instanceof TxFinishRequest;
+
+                    TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
+
+                    if (txFinishRequest.commit()) {
+                        txManager.commitAsync(txFinishRequest.timestamp()).get();
+                    } else {
+                        txManager.rollbackAsync(txFinishRequest.timestamp()).get();
+                    }
+
+                    return CompletableFuture.completedFuture(mock(TxFinishResponse.class));
+                }
+        ).when(messagingService)
+                .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),

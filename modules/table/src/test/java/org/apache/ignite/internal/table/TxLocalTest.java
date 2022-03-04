@@ -18,7 +18,12 @@
 package org.apache.ignite.internal.table;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -28,7 +33,11 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.message.TxFinishRequest;
+import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -50,6 +59,26 @@ public class TxLocalTest extends TxAbstractTest {
     public void before() {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
+
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+
+        doAnswer(
+                invocationClose -> {
+                    assert invocationClose.getArgument(1) instanceof TxFinishRequest;
+
+                    TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
+
+                    if (txFinishRequest.commit()) {
+                        txManager.commitAsync(txFinishRequest.timestamp()).get();
+                    } else {
+                        txManager.rollbackAsync(txFinishRequest.timestamp()).get();
+                    }
+
+                    return CompletableFuture.completedFuture(mock(TxFinishResponse.class));
+                }
+        ).when(messagingService)
+                .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
 
         lockManager = new HeapLockManager();
 
