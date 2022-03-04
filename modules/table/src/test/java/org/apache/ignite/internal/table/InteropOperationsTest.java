@@ -24,8 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import java.math.BigDecimal;
@@ -42,7 +40,6 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -56,11 +53,8 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.message.TxFinishRequest;
-import org.apache.ignite.internal.tx.message.TxFinishResponse;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
-import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -125,25 +119,8 @@ public class InteropOperationsTest {
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
         txManager.start();
 
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
-        doAnswer(
-                invocationClose -> {
-                    assert invocationClose.getArgument(1) instanceof TxFinishRequest;
-
-                    TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
-
-                    if (txFinishRequest.commit()) {
-                        txManager.commitAsync(txFinishRequest.timestamp()).get();
-                    } else {
-                        txManager.rollbackAsync(txFinishRequest.timestamp()).get();
-                    }
-
-                    return CompletableFuture.completedFuture(mock(TxFinishResponse.class));
-                }
-        ).when(messagingService)
-                .invoke(any(NetworkAddress.class), any(TxFinishRequest.class), anyLong());
 
         INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
