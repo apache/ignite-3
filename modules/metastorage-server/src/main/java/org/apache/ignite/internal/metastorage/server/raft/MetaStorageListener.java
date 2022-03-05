@@ -73,6 +73,7 @@ import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
+import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -450,6 +451,14 @@ public class MetaStorageListener implements RaftGroupListener {
                 return new ValueCondition(ValueCondition.Type.EQUAL, key, inf.value());
             } else if (type == ConditionType.VAL_NOT_EQUAL) {
                 return new ValueCondition(ValueCondition.Type.NOT_EQUAL, key, inf.value());
+            } else if (type == ConditionType.VAL_GREATER) {
+                return new ValueCondition(ValueCondition.Type.GREATER, key, inf.value());
+            } else if (type == ConditionType.VAL_GREATER_OR_EQUAL) {
+                return new ValueCondition(ValueCondition.Type.GREATER_OR_EQUAL, key, inf.value());
+            } else if (type == ConditionType.VAL_LESS) {
+                return new ValueCondition(ValueCondition.Type.LESS, key, inf.value());
+            } else if (type == ConditionType.VAL_LESS_OR_EQUAL) {
+                return new ValueCondition(ValueCondition.Type.LESS_OR_EQUAL, key, inf.value());
             } else if (type == ConditionType.REV_EQUAL) {
                 return new RevisionCondition(RevisionCondition.Type.EQUAL, key, inf.revision());
             } else if (type == ConditionType.REV_NOT_EQUAL) {

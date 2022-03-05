@@ -18,39 +18,51 @@
 package org.apache.ignite.internal.metastorage.common;
 
 /**
- * Defines possible condition types which can be applied to the revision.
+ * Defines possible condition types, which can be applied to a revision.
  */
 public enum ConditionType {
-    /** Equality condition type for revision. */
+    /** Equality condition type for a revision. */
     REV_EQUAL,
 
-    /** Inequality condition type for revision. */
+    /** Inequality condition type for a revision. */
     REV_NOT_EQUAL,
 
-    /** Greater than condition type for revision. */
+    /** Greater than condition type for a revision. */
     REV_GREATER,
 
-    /** Less than condition type for revision. */
+    /** Less than condition type for a revision. */
     REV_LESS,
 
-    /** Less than or equal to condition type for revision. */
+    /** Less than or equal to condition type for a revision. */
     REV_LESS_OR_EQUAL,
 
-    /** Greater than or equal to condition type for revision. */
+    /** Greater than or equal to condition type for a revision. */
     REV_GREATER_OR_EQUAL,
 
-    /** Equality condition type for value. */
+    /** Equality condition type for a value. */
     VAL_EQUAL,
 
-    /** Inequality condition type for value. */
+    /** Inequality condition type for a value. */
     VAL_NOT_EQUAL,
 
-    /** Existence condition type for key. */
+    /** Greater than condition type for a value. */
+    VAL_GREATER,
+
+    /** Less than condition type for a value. */
+    VAL_LESS,
+
+    /** Less than or equal to condition type for a value. */
+    VAL_LESS_OR_EQUAL,
+
+    /** Greater than or equal to condition type for a value. */
+    VAL_GREATER_OR_EQUAL,
+
+    /** Existence condition type for a key. */
     KEY_EXISTS,
 
-    /** Non-existence condition type for key. */
+    /** Non-existence condition type for a key. */
     KEY_NOT_EXISTS,
 
-    /** Tombstone condition type for key. */
+    /** Tombstone condition type for a key. */
     TOMBSTONE
 }
