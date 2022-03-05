@@ -392,8 +392,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         for (int i = 0; i < partitions; i++) {
             int partId = i;
 
-            List<ClusterNode> oldPartitionAssignment = oldAssignments == null ?
-                    Collections.emptyList() : oldAssignments.get(partId);
+            List<ClusterNode> oldPartitionAssignment = oldAssignments == null ? Collections.emptyList() :
+                    oldAssignments.get(partId);
 
             List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
 
