@@ -200,11 +200,19 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        longVersionedValue.update(1, previous -> ++previous, ex -> null);
+        int incrementCount = 10;
+
+        for (int i = 0; i < incrementCount; i++) {
+            longVersionedValue.update(1, previous -> ++previous, ex -> null);
+
+            assertFalse(fut.isDone());
+        }
+
+        REGISTER.moveRevision.accept(1L);
 
         assertTrue(fut.isDone());
 
-        assertEquals(TEST_VALUE + 1, fut.get());
+        assertEquals(TEST_VALUE + incrementCount, fut.get());
     }
 
     /**
@@ -222,6 +230,10 @@ public class VersionedValueTest {
         assertFalse(fut.isDone());
 
         longVersionedValue.update(0, previous -> TEST_VALUE, ex -> null);
+
+        assertFalse(fut.isDone());
+
+        REGISTER.moveRevision.accept(0L);
 
         assertTrue(fut.isDone());
 

@@ -283,15 +283,19 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         // TODO rewrite with VersionedValue#update to get the current (maybe temporary) value for current token
         // TODO https://issues.apache.org/jira/browse/IGNITE-16543
-        Map<String, IgniteSchema> schemas = schemasVv.latest();
+        schemasVv.update(causalityToken, igniteSchemas -> {
+            igniteSchemas.forEach(newCalciteSchema::add);
 
-        schemas.forEach(newCalciteSchema::add);
+            calciteSchemaVv.update(causalityToken, s -> newCalciteSchema, e -> {
+                throw new IgniteInternalException(e);
+            });
 
-        calciteSchemaVv.update(causalityToken, s -> newCalciteSchema, e -> {
+            return igniteSchemas;
+        }, e -> {
             throw new IgniteInternalException(e);
         });
 
-        onSchemaUpdatedCallback.run();
+        calciteSchemaVv.get(causalityToken).thenRun(onSchemaUpdatedCallback::run);
     }
 
     private IgniteTableImpl convert(TableImpl table) {
