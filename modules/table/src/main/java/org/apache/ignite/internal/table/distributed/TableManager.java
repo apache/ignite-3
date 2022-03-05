@@ -594,9 +594,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 completeApiCreateFuture(table);
 
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+                tablesByIdVv.get(causalityToken).thenRun(() -> {
+                    fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+                });
             } catch (Exception e) {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId, name), e);
+                tablesByIdVv.get(causalityToken).thenRun(() -> {
+                    fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId, name), e);
+                });
             }
         }).join();
     }
@@ -1186,6 +1190,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Override
     public TableImpl table(UUID id) throws NodeStoppingException {
         return join(tableAsync(id));
+    }
+
+    public CompletableFuture<TableImpl> table(String name, long causalityToken) {
+        return tablesVv.get(causalityToken).thenApply(tables -> tables.get(name));
     }
 
     /** {@inheritDoc} */

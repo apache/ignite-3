@@ -168,13 +168,30 @@ public class VersionedValue<T> {
      * Gets the latest value of completed future.
      */
     public T latest() {
-        for (CompletableFuture<T> fut : history.descendingMap().values()) {
-            if (fut.isDone()) {
-                return fut.join();
-            }
-        }
+        synchronized (updateMutex) {
+            /*if (isUpdating)
+                return tempValue;*/
 
-        throw new AssertionError("History should never be empty.");
+            for (CompletableFuture<T> fut : history.descendingMap().values()) {
+                if (fut.isDone()) {
+                    return fut.join();
+                }
+            }
+
+            throw new AssertionError("History should never be empty.");
+        }
+    }
+
+    /**
+     * Gets the latest value of completed future.
+     */
+    public T currentInconsistent() {
+        synchronized (updateMutex) {
+            if (isUpdating)
+                return tempValue;
+            else
+                return latest();
+        }
     }
 
     /**
@@ -248,13 +265,15 @@ public class VersionedValue<T> {
 
         try {
             synchronized (updateMutex) {
-                T previousValue = isUpdating ? tempValue : previousFuture.join();
-
                 isUpdating = true;
 
-                history.putIfAbsent(causalityToken, new CompletableFuture<>());
+                T previousValue = isUpdating ? tempValue : previousFuture.join();
 
                 T res = complete.apply(previousValue);
+
+                //setValueInternal(causalityToken, res);
+
+                history.putIfAbsent(causalityToken, new CompletableFuture<>());
 
                 tempValue = res;
 

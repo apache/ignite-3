@@ -223,9 +223,11 @@ public class IgniteImpl implements Ignite {
             });
         };
 
+        TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+
         distributedTblMgr = new TableManager(
                 registry,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                tablesCfg,
                 clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,
                 baselineMgr,
@@ -235,6 +237,7 @@ public class IgniteImpl implements Ignite {
         );
 
         qryEngine = new SqlQueryProcessor(
+                tablesCfg,
                 registry,
                 clusterSvc,
                 distributedTblMgr
