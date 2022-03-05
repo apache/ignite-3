@@ -892,7 +892,8 @@ public class ItMetaStorageServiceTest {
                         new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)),
                 new StatementResult(false))));
 
-        assertThat(resultIf.andThen().iif().orElse().iif().orElse().update(), upd(new Update(Collections.emptyList(), new StatementResult(true))));
+        assertThat(resultIf.andThen().iif().orElse().iif().orElse().update(),
+                upd(new Update(Collections.emptyList(), new StatementResult(true))));
 
         assertThat(resultIf.orElse().update(), upd(new Update(
                 List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)),

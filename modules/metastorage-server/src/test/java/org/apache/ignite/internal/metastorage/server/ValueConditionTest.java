@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.EQUAL;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.GREATER;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.LESS;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.LESS_OR_EQUAL;
-import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.EQUAL;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.NOT_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

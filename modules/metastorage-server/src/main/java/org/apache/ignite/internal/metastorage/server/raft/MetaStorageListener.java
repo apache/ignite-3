@@ -73,7 +73,6 @@ import org.apache.ignite.internal.metastorage.server.StatementResult;
 import org.apache.ignite.internal.metastorage.server.TombstoneCondition;
 import org.apache.ignite.internal.metastorage.server.Update;
 import org.apache.ignite.internal.metastorage.server.ValueCondition;
-import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
