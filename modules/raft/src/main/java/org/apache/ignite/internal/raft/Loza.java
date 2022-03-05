@@ -273,6 +273,7 @@ public class Loza implements IgniteComponent {
                 clusterNetSvc,
                 FACTORY,
                 RETRY_TIMEOUT,
+                RPC_TIMEOUT,
                 peers,
                 true,
                 DELAY,
