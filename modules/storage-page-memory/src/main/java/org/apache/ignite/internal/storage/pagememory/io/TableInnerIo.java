@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.storage.pagememory.TableTree.RowData.KEY_ONLY;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -35,7 +36,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  *
  * <p>Structure: hash(int) + link(long).
  */
-public class TableInnerIo extends BplusInnerIo<TableSearchRow> {
+public class TableInnerIo extends BplusInnerIo<TableSearchRow> implements RowIo {
     /** Page IO type. */
     public static final short T_TABLE_INNER_IO = 4;
 
@@ -89,29 +90,19 @@ public class TableInnerIo extends BplusInnerIo<TableSearchRow> {
         int hash = hash(pageAddr, idx);
         long link = link(pageAddr, idx);
 
-        // TODO: Кажется тут нам надо загрузить только ключи.
-
-        return null;
+        return ((TableTree) tree).getRowByLink(link, hash, KEY_ONLY);
     }
 
-    /**
-     * Returns the link for the element in the page by index.
-     *
-     * @param pageAddr Page address.
-     * @param idx Index.
-     */
+    /** {@inheritDoc} */
+    @Override
     public long link(long pageAddr, int idx) {
         assert idx < getCount(pageAddr) : idx;
 
         return getLong(pageAddr, offset(idx) + 4 /* hash ahead */);
     }
 
-    /**
-     * Returns the hash for the element in the page by index.
-     *
-     * @param pageAddr Page address.
-     * @param idx Index.
-     */
+    /** {@inheritDoc} */
+    @Override
     public int hash(long pageAddr, int idx) {
         assert idx < getCount(pageAddr) : idx;
 

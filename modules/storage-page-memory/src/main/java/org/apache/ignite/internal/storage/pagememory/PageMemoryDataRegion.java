@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * Data region implementation for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
 // TODO: IGNITE-16641 Add support for persistent case.
-public class PageMemoryDataRegion implements DataRegion {
+class PageMemoryDataRegion implements DataRegion {
     private final PageMemoryDataRegionConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;

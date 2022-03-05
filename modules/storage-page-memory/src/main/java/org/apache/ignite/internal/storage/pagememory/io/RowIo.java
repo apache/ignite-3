@@ -15,13 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory;
-
-import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.storage.DataRow;
+package org.apache.ignite.internal.storage.pagememory.io;
 
 /**
- * {@link DataRow} extension for {@link TableTree}.
+ * Interface for row IO.
  */
-public interface TableDataRow extends TableSearchRow, DataRow, Storable {
+public interface RowIo {
+    /**
+     * Returns the link for the row in the page by index.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index.
+     */
+    long link(long pageAddr, int idx);
+
+    /**
+     * Returns the hash for the row in the page by index.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index.
+     */
+    int hash(long pageAddr, int idx);
 }

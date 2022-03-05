@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
-public abstract class PageMemoryTableStorage implements TableStorage {
+abstract class PageMemoryTableStorage implements TableStorage {
     protected final PageMemoryDataRegion dataRegion;
 
     protected final TableConfiguration tableCfg;
@@ -128,7 +128,7 @@ public abstract class PageMemoryTableStorage implements TableStorage {
             return partition;
         }
 
-        partition = new PageMemoryPartitionStorage(partId);
+        partition = createPartitionStorage(partId);
 
         partitions.set(partId, partition);
 
@@ -182,6 +182,7 @@ public abstract class PageMemoryTableStorage implements TableStorage {
      * Returns a new instance of {@link PageMemoryPartitionStorage}.
      *
      * @param partId Partition id.
+     * @throws StorageException If there is an error while creating the partition storage.
      */
-    protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId);
+    protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
 }

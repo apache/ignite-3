@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
+import static org.apache.ignite.internal.storage.pagememory.TableTree.RowData.KEY_ONLY;
 
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -28,13 +29,14 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
 import org.apache.ignite.internal.storage.pagememory.TableSearchRow;
 import org.apache.ignite.internal.storage.pagememory.TableTree;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * IO routines for {@link TableTree} leaf pages.
  *
  * <p>Structure: hash(int) + link(long).
  */
-public class TableLeafIo extends BplusLeafIo<TableSearchRow> {
+public class TableLeafIo extends BplusLeafIo<TableSearchRow> implements RowIo {
     /** Page IO type. */
     public static final short T_TABLE_LEAF_IO = 5;
 
@@ -84,33 +86,23 @@ public class TableLeafIo extends BplusLeafIo<TableSearchRow> {
 
     /** {@inheritDoc} */
     @Override
-    public TableSearchRow getLookupRow(BplusTree<TableSearchRow, ?> tree, long pageAddr, int idx) {
+    public TableSearchRow getLookupRow(BplusTree<TableSearchRow, ?> tree, long pageAddr, int idx) throws IgniteInternalCheckedException {
         int hash = hash(pageAddr, idx);
         long link = link(pageAddr, idx);
 
-        // TODO: Кажется тут нам надо загрузить только ключи.
-
-        return null;
+        return ((TableTree) tree).getRowByLink(link, hash, KEY_ONLY);
     }
 
-    /**
-     * Returns the link for the element in the page by index.
-     *
-     * @param pageAddr Page address.
-     * @param idx Index.
-     */
+    /** {@inheritDoc} */
+    @Override
     public long link(long pageAddr, int idx) {
         assert idx < getCount(pageAddr) : idx;
 
         return getLong(pageAddr, offset(idx) + 4 /* hash ahead */);
     }
 
-    /**
-     * Returns the hash for the element in the page by index.
-     *
-     * @param pageAddr Page address.
-     * @param idx Index.
-     */
+    /** {@inheritDoc} */
+    @Override
     public int hash(long pageAddr, int idx) {
         assert idx < getCount(pageAddr) : idx;
 

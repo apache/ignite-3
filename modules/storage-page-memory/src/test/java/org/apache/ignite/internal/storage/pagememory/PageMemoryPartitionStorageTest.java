@@ -38,7 +38,9 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
+    private static PageIoRegistry ioRegistry;
+
     @InjectConfiguration(
             value = "mock.type = pagemem",
             polymorphicExtensions = {
@@ -74,12 +78,15 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     private DataRegion dataRegion;
 
-    @BeforeEach
-    void setUp() {
-        PageIoRegistry ioRegistry = new PageIoRegistry();
+    @BeforeAll
+    static void beforeAll() {
+        ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
+    }
 
+    @BeforeEach
+    void setUp() {
         engine = new PageMemoryStorageEngine(ioRegistry);
 
         engine.start();
@@ -109,6 +116,11 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
                 dataRegion == null ? null : dataRegion::stop,
                 engine == null ? null : engine::stop
         );
+    }
+
+    @AfterAll
+    static void afterAll() {
+        ioRegistry = null;
     }
 
     /** {@inheritDoc} */

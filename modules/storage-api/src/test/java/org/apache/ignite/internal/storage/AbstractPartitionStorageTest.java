@@ -467,7 +467,12 @@ public abstract class AbstractPartitionStorageTest {
     public void testReadAll() {
         List<DataRow> rows = insertBulk(100);
 
-        assertThat(storage.readAll(rows), containsInAnyOrder(rows.toArray()));
+        Collection<DataRow> readRows = storage.readAll(rows);
+
+        assertThat(
+                readRows.stream().map(DataRow::value).collect(Collectors.toList()),
+                containsInAnyOrder(rows.stream().map(DataRow::value).toArray(ByteBuffer[]::new))
+        );
     }
 
     /**
