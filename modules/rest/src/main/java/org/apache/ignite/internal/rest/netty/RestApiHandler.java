@@ -39,6 +39,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.rest.api.RestApiHttpResponse;
 import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.lang.IgniteLogger;
 

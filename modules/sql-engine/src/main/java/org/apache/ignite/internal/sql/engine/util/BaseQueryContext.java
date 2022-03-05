@@ -20,6 +20,9 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
+import com.google.common.collect.Multimap;
+import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Properties;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
@@ -30,15 +33,18 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
-import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.metadata.Metadata;
+import org.apache.calcite.rel.metadata.MetadataDef;
+import org.apache.calcite.rel.metadata.MetadataHandler;
+import org.apache.calcite.rel.metadata.RelMetadataProvider;
+import org.apache.calcite.rel.metadata.UnboundMetadata;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
-import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.lang.IgniteLogger;
@@ -80,7 +86,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
         DUMMY_PLANNER = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
             @Override
             public void registerSchema(RelOptSchema schema) {
-                throw new UnsupportedOperationException("Dummy planer. Please use a specific instance.");
+                // This method in VolcanoPlanner stores schema in hash map. It can be invoked during relational
+                // operators cloning, so, can be executed even with empty context. Override it for empty context to
+                // prevent memory leaks.
             }
         };
 
@@ -91,25 +99,36 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
-        cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
-        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+        // Forbid using the empty cluster in any planning or mapping procedures to prevent memory leaks.
+        String cantBeUsedMsg = "Empty cluster can't be used for planning or mapping";
+
+        cluster.setMetadataProvider(
+                new RelMetadataProvider() {
+                    @Override
+                    public <M extends Metadata> UnboundMetadata<M> apply(
+                            Class<? extends RelNode> relCls,
+                            Class<? extends M> metadataCls
+                    ) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+
+                    @Override
+                    public <M extends Metadata> Multimap<Method, MetadataHandler<M>> handlers(MetadataDef<M> def) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+
+                    @Override
+                    public List<MetadataHandler<?>> handlers(Class<? extends MetadataHandler<?>> hndCls) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+                }
+        );
+
+        cluster.setMetadataQuerySupplier(() -> {
+            throw new AssertionError(cantBeUsedMsg);
+        });
 
         CLUSTER = cluster;
-    }
-
-    /**
-     * Creates a new cluster.
-     *
-     * @return New cluster.
-     */
-    public static RelOptCluster createCluster() {
-        RelOptCluster cluster = RelOptCluster.create(new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT), DFLT_REX_BUILDER);
-
-        cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
-                cluster.getPlanner()));
-        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
-
-        return cluster;
     }
 
     private final FrameworkConfig cfg;

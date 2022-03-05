@@ -141,8 +141,8 @@ public class Fragment {
         return !(root instanceof IgniteSender);
     }
 
-    public Fragment copy(RelOptCluster cluster) {
-        return new Cloner(cluster).go(this);
+    public Fragment attach(RelOptCluster cluster) {
+        return root.getCluster() == cluster ? this : new Cloner(cluster).go(this);
     }
 
     /**
