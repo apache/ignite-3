@@ -205,7 +205,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 long causalityToken = schemasCtx.storageRevision();
 
-                ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) schemasCtx.config(TableConfiguration.class);
+                ExtendedTableConfiguration tblCfg = schemasCtx.config(TableConfiguration.class);
 
                 UUID tblId = tblCfg.id().value();
 
@@ -226,50 +226,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    tablesByIdVv.update(causalityToken, tablesById -> {
-                        TableImpl table = tablesById.get(tblId);
-
-                        ((SchemaRegistryImpl) table.schemaView()).onSchemaRegistered(schemaDescriptor);
-
-                        if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
-                            fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken, table), null);
-                        }
-
-                        return tablesById;
-                    }, th -> {
-                        throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a schema for table"
-                                + " [tableId={}, schemaVer={}]", tblId, schemaDescriptor.version()), th);
-                    });
-
-                    return CompletableFuture.completedFuture(null);
-                } catch (Exception e) {
-                    if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
-                        fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken, tblId, tblName), e);
-                    }
-
-                    return CompletableFuture.failedFuture(e);
+                    createSchemaInternal(schemasCtx);
                 } finally {
                     busyLock.leaveBusy();
                 }
+
+                return CompletableFuture.completedFuture(null);
             }
         });
 
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentsCtx -> {
-            long causalityToken = assignmentsCtx.storageRevision();
-
-            ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) assignmentsCtx.config(TableConfiguration.class);
-
-            UUID tblId = tblCfg.id().value();
-
             if (!busyLock.enterBusy()) {
                 return CompletableFuture.failedFuture(new NodeStoppingException());
             }
 
             try {
-                return updateAssignmentInternal(causalityToken, tblId, assignmentsCtx);
+                updateAssignmentInternal(assignmentsCtx);
             } finally {
                 busyLock.leaveBusy();
             }
+
+            return CompletableFuture.completedFuture(null);
         });
 
         tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
@@ -288,34 +265,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 try {
-                    onTableCreateInternal(ctx);
+                    createTableLocally(
+                            ctx.storageRevision(),
+                            ctx.newValue().name(),
+                            ((ExtendedTableView) ctx.newValue()).id(),
+                            ctx.newValue().partitions()
+                    );
                 } finally {
                     busyLock.leaveBusy();
                 }
 
                 return CompletableFuture.completedFuture(null);
-            }
-
-            /**
-             * Method for handle a table configuration event.
-             *
-             * @param ctx Configuration event.
-             */
-            private void onTableCreateInternal(ConfigurationNotificationEvent<TableView> ctx) {
-                String tblName = ctx.newValue().name();
-                UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
-
-                // Empty assignments might be a valid case if tables are created from within cluster init HOCON
-                // configuration, which is not supported now.
-                assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
-                        IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
-
-                createTableLocally(
-                        ctx.storageRevision(),
-                        tblName,
-                        tblId,
-                        ((ExtendedTableView) ctx.newValue()).partitions()
-                );
             }
 
             @Override
@@ -365,22 +325,55 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
+     * Internal method to create a schema.
+     *
+     * @param schemasCtx Create schema configuration event.
+     */
+    private void createSchemaInternal(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+        ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) schemasCtx.config(TableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        long causalityToken = schemasCtx.storageRevision();
+
+        SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
+
+        tablesByIdVv.update(causalityToken, tablesById -> {
+            TableImpl table = tablesById.get(tblId);
+
+            ((SchemaRegistryImpl) table.schemaView()).onSchemaRegistered(schemaDescriptor);
+
+            if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
+                fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken, table), null);
+            }
+
+            return tablesById;
+        }, th -> {
+            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a schema for table"
+                    + " [tableId={}, schemaVer={}]", tblId, schemaDescriptor.version()), th);
+        });
+    }
+
+    /**
      * Updates or creates partition raft groups.
      *
-     * @param causalityToken Causality token.
-     * @param tblId Table id.
      * @param assignmentsCtx Change assignment event.
-     * @return Future which completes when RAFT services started.
      */
-    private CompletableFuture<?> updateAssignmentInternal(
-            long causalityToken,
-            UUID tblId,
-            ConfigurationNotificationEvent<byte[]> assignmentsCtx
-    ) {
+    private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(TableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        long causalityToken = assignmentsCtx.storageRevision();
+
         List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null :
                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
 
         List<List<ClusterNode>> newAssignments = (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
+
+        // Empty assignments might be a valid case if tables are created from within cluster init HOCON
+        // configuration, which is not supported now.
+        assert newAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tblId);
 
         int partitions = newAssignments.size();
 
@@ -433,8 +426,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         CompletableFuture.allOf(futures).join();
-
-        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
@@ -481,14 +472,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param name  Table name.
      * @param tblId Table id.
-     * @param assignment Affinity assignment.
+     * @param partitions Count of partitions.
      */
-    private void createTableLocally(
-            long causalityToken,
-            String name,
-            UUID tblId,
-            int partitions
-    ) {
+    private void createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
         Path storageDir = partitionsStoreDir.resolve(name);
 
         try {
@@ -524,67 +510,58 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorage.start();
 
-        try {
-            InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                    partitions, netAddrResolver, txManager, tableStorage);
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
+                partitions, netAddrResolver, txManager, tableStorage);
 
-            var schemaRegistry = new SchemaRegistryImpl(v -> {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(new NodeStoppingException());
-                }
+        var schemaRegistry = new SchemaRegistryImpl(v -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
 
-                try {
-                    return tableSchema(tblId, v);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }, () -> {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(new NodeStoppingException());
-                }
+            try {
+                return tableSchema(tblId, v);
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }, () -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
 
-                try {
-                    return latestSchemaVersion(tblId);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            });
+            try {
+                return latestSchemaVersion(tblId);
+            } finally {
+                busyLock.leaveBusy();
+            }
+        });
 
-            var table = new TableImpl(
-                    internalTable,
-                    schemaRegistry
-            );
+        var table = new TableImpl(internalTable, schemaRegistry);
 
-            tablesVv.update(causalityToken, previous -> {
-                var val = previous == null ? new HashMap() : new HashMap<>(previous);
+        tablesVv.update(causalityToken, previous -> {
+            var val = previous == null ? new HashMap() : new HashMap<>(previous);
 
-                val.put(name, table);
+            val.put(name, table);
 
-                return val;
-            }, th -> {
-                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
-                        th);
-            });
+            return val;
+        }, th -> {
+            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId), th);
+        });
 
-            tablesByIdVv.update(causalityToken, previous -> {
-                var val = previous == null ? new HashMap() : new HashMap<>(previous);
+        tablesByIdVv.update(causalityToken, previous -> {
+            var val = previous == null ? new HashMap() : new HashMap<>(previous);
 
-                val.put(tblId, table);
+            val.put(tblId, table);
 
-                return val;
-            }, th -> {
-                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
-                        th);
-            });
+            return val;
+        }, th -> {
+            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId), th);
+        });
 
-            CompletableFuture.allOf(tablesByIdVv.get(causalityToken), tablesVv.get(causalityToken)).thenRun(() -> {
-                completeApiCreateFuture(table);
+        CompletableFuture.allOf(tablesByIdVv.get(causalityToken), tablesVv.get(causalityToken)).thenRun(() -> {
+            completeApiCreateFuture(table);
 
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
-            });
-        } catch (Exception e) {
-            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId, name), e);
-        }
+            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+        });
     }
 
     /**
