@@ -110,48 +110,48 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             return connectAsync(endpoint).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-    
+
             LOG.error("Interrupted while connecting to {}, exception: {}.", endpoint, e.getMessage());
         } catch (ExecutionException e) {
             LOG.error("Fail to connect {}, exception: {}.", endpoint, e.getMessage());
         }
-        
+
         return false;
     }
-    
+
     @Override
     public CompletableFuture<Boolean> connectAsync(Endpoint endpoint) {
         final RpcClient rc = this.rpcClient;
         if (rc == null) {
             throw new IllegalStateException("Client service is uninitialized.");
         }
-    
+
         // Remote node is alive and pinged, safe to continue.
         if (readyAddresses.contains(endpoint.toString())) {
             return CompletableFuture.completedFuture(true);
         }
-    
+
         final RpcRequests.PingRequest req = rpcOptions.getRaftMessagesFactory()
                 .pingRequest()
                 .sendTimestamp(System.currentTimeMillis())
                 .build();
-    
+
         CompletableFuture<Message> fut =
                 invokeWithDone(endpoint, req, null, null, rpcOptions.getRpcConnectTimeoutMs(), rpcExecutor);
-    
+
         return fut.thenApply(msg -> {
             ErrorResponse resp = (ErrorResponse) msg;
-        
+
             if (resp != null && resp.errorCode() == 0) {
                 readyAddresses.add(endpoint.toString());
-            
+
                 return true;
             } else {
                 return false;
             }
         });
     }
-    
+
     @Override
     public <T extends Message> CompletableFuture<Message> invokeWithDone(final Endpoint endpoint, final Message request,
         final RpcResponseClosure<T> done, final int timeoutMs) {

@@ -59,6 +59,12 @@ public class VersionedValue<T> {
      */
     private final ReadWriteLock trimHistoryLock = new ReentrantReadWriteLock();
 
+    /** True when the value updated, false otherwise. */
+    private boolean hasUpdatedValue;
+
+    /** Updated value. */
+    private T valueToUpdate;
+
     /**
      * Constructor.
      *
@@ -238,9 +244,11 @@ public class VersionedValue<T> {
         assert previousFuture.isDone() : "Previous value should be ready.";
 
         try {
-            T previousValue = previousFuture.join();
+            T previousValue = hasUpdatedValue ? valueToUpdate : previousFuture.join();
 
-            setValueInternal(causalityToken, complete.apply(previousValue));
+            valueToUpdate = complete.apply(previousValue);
+
+            hasUpdatedValue = true;
 
             return previousValue;
         } catch (CancellationException | CompletionException e) {
@@ -299,6 +307,12 @@ public class VersionedValue<T> {
 
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
                 "New token should be greater than current [current={}, new={}]", actualToken0, causalityToken);
+
+        if (hasUpdatedValue) {
+            setValueInternal(causalityToken, valueToUpdate);
+
+            hasUpdatedValue = false;
+        }
 
         if (storageRevisionUpdating != null) {
             storageRevisionUpdating.accept(this, causalityToken);
