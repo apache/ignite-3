@@ -19,18 +19,19 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
+import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
@@ -81,7 +82,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
         TableView tableView = tableCfg.value();
 
-        int grpId = tableView.name().hashCode();
+        int grpId = groupId(tableView);
 
         try {
             long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX);
@@ -93,14 +94,9 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     metaPageId,
-                    freeList
-            ) {
-                /** {@inheritDoc} */
-                @Override
-                protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-                    return dataRegion.pageMemory().allocatePage(grpId, partId, defaultPageFlag);
-                }
-            };
+                    freeList,
+                    partId
+            );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error occurred while creating the partition storage", e);
         }
@@ -144,7 +140,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         try {
             TableDataRow dataRow = wrap(row);
 
-            freeList.insertDataRow(dataRow, IoStatisticsHolderNoOp.INSTANCE);
+            freeList.insertDataRow(dataRow);
 
             tree.put(dataRow);
         } catch (IgniteInternalCheckedException e) {
@@ -159,7 +155,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
             for (DataRow row : rows) {
                 TableDataRow dataRow = wrap(row);
 
-                freeList.insertDataRow(dataRow, IoStatisticsHolderNoOp.INSTANCE);
+                freeList.insertDataRow(dataRow);
 
                 tree.put(dataRow);
             }
@@ -178,7 +174,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                 TableDataRow dataRow = wrap(row);
 
                 if (tree.findOne(dataRow) == null) {
-                    freeList.insertDataRow(dataRow, IoStatisticsHolderNoOp.INSTANCE);
+                    freeList.insertDataRow(dataRow);
 
                     tree.put(dataRow);
                 } else {
@@ -201,7 +197,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
             TableDataRow removed = tree.remove(searchRow);
 
             if (removed != null) {
-                freeList.removeDataRowByLink(removed.link(), IoStatisticsHolderNoOp.INSTANCE);
+                freeList.removeDataRowByLink(removed.link());
             }
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error removing row", e);
@@ -218,7 +214,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                 TableDataRow removed = tree.remove(wrap(key));
 
                 if (removed != null) {
-                    freeList.removeDataRowByLink(removed.link(), IoStatisticsHolderNoOp.INSTANCE);
+                    freeList.removeDataRowByLink(removed.link());
                 } else {
                     skippedRows.add(key);
                 }
@@ -244,7 +240,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                 if (founded != null && founded.value().equals(dataRow.value())) {
                     tree.remove(founded);
 
-                    freeList.removeDataRowByLink(founded.link(), IoStatisticsHolderNoOp.INSTANCE);
+                    freeList.removeDataRowByLink(founded.link());
                 } else {
                     skipped.add(keyValue);
                 }
@@ -278,7 +274,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                 TableDataRow dataRow = wrap(newRow);
 
                 try {
-                    freeList.insertDataRow(dataRow, IoStatisticsHolderNoOp.INSTANCE);
+                    freeList.insertDataRow(dataRow);
                 } catch (IgniteInternalCheckedException e) {
                     throw new IgniteInternalException(e);
                 }
@@ -310,7 +306,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         try {
             tree.invoke(wrap(key), null, treeClosure);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error invoke closure for row", e);
+            throw new StorageException("Error invoking a closure for a row", e);
         }
 
         return clo.result();
@@ -347,10 +343,14 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                 public DataRow next() {
                     DataRow next = cur;
 
+                    if (next == null) {
+                        throw new NoSuchElementException();
+                    }
+
                     try {
                         cur = advance();
                     } catch (IgniteInternalCheckedException e) {
-                        throw new StorageException("Error getting next element", e);
+                        throw new StorageException("Error getting next row", e);
                     }
 
                     return next;

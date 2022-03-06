@@ -19,10 +19,12 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
+import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -51,7 +53,7 @@ class VolatilePageMemoryTableStorage extends PageMemoryTableStorage {
         TableView tableView = tableCfg.value();
 
         try {
-            int grpId = tableView.name().hashCode();
+            int grpId = groupId(tableView);
 
             long metaPageId = dataRegion.pageMemory().allocatePage(grpId, INDEX_PARTITION, FLAG_AUX);
 
@@ -62,18 +64,13 @@ class VolatilePageMemoryTableStorage extends PageMemoryTableStorage {
                     metaPageId,
                     true,
                     null,
-                    PageEvictionTrackerNoOp.INSTANCE
-            ) {
-                /** {@inheritDoc} */
-                @Override
-                protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
-                    return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
-                }
-            };
+                    PageEvictionTrackerNoOp.INSTANCE,
+                    IoStatisticsHolderNoOp.INSTANCE
+            );
 
             autoCloseables.add(freeList::close);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("", e);
+            throw new StorageException("Error creating a freeList", e);
         }
 
         super.start();

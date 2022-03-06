@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -32,8 +34,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link FreeList} implementation for storage-page-memory module.
  */
-public abstract class TableFreeList extends AbstractFreeList<TableDataRow> {
+public class TableFreeList extends AbstractFreeList<TableDataRow> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableFreeList.class);
+
+    private final IoStatisticsHolder statHolder;
 
     /**
      * Constructor.
@@ -45,6 +49,7 @@ public abstract class TableFreeList extends AbstractFreeList<TableDataRow> {
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
      * @param evictionTracker Page eviction tracker.
+     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
     public TableFreeList(
@@ -54,7 +59,8 @@ public abstract class TableFreeList extends AbstractFreeList<TableDataRow> {
             long metaPageId,
             boolean initNew,
             @Nullable AtomicLong pageListCacheLimit,
-            PageEvictionTracker evictionTracker
+            PageEvictionTracker evictionTracker,
+            IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
         super(
                 grpId,
@@ -69,5 +75,33 @@ public abstract class TableFreeList extends AbstractFreeList<TableDataRow> {
                 pageListCacheLimit,
                 evictionTracker
         );
+
+        this.statHolder = statHolder;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
+        return pageMem.allocatePage(grpId, INDEX_PARTITION, defaultPageFlag);
+    }
+
+    /**
+     * Inserts a row.
+     *
+     * @param row Row.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void insertDataRow(TableDataRow row) throws IgniteInternalCheckedException {
+        super.insertDataRow(row, statHolder);
+    }
+
+    /**
+     * Removes a row by link.
+     *
+     * @param link Row link.
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    public void removeDataRowByLink(long link) throws IgniteInternalCheckedException {
+        super.removeDataRowByLink(link, statHolder);
     }
 }

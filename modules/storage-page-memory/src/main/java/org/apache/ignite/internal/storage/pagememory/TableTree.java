@@ -46,7 +46,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link BplusTree} implementation for storage-page-memory module.
  */
-public abstract class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
+public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
+    private final int partId;
+
     /**
      * Constructor.
      *
@@ -57,6 +59,7 @@ public abstract class TableTree extends BplusTree<TableSearchRow, TableDataRow> 
      * @param globalRmvId Global remove ID.
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
+     * @param partId Partition id.
      */
     public TableTree(
             int grpId,
@@ -65,7 +68,8 @@ public abstract class TableTree extends BplusTree<TableSearchRow, TableDataRow> 
             PageLockListener lockLsnr,
             AtomicLong globalRmvId,
             long metaPageId,
-            @Nullable ReuseList reuseList
+            @Nullable ReuseList reuseList,
+            int partId
     ) throws IgniteInternalCheckedException {
         super(
                 "TableTree_" + grpId,
@@ -79,9 +83,17 @@ public abstract class TableTree extends BplusTree<TableSearchRow, TableDataRow> 
                 reuseList
         );
 
+        this.partId = partId;
+
         setIos(TableInnerIo.VERSIONS, TableLeafIo.VERSIONS, TableMetaIo.VERSIONS);
 
         initTree(true);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected long allocatePageNoReuse() throws IgniteInternalCheckedException {
+        return pageMem.allocatePage(grpId, partId, defaultPageFlag);
     }
 
     /** {@inheritDoc} */
