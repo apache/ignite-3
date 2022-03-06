@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-
 import java.nio.ByteBuffer;
 
 /**
@@ -29,7 +27,7 @@ import java.nio.ByteBuffer;
 class FragmentedByteArray {
     private int arrLen = -1;
 
-    private byte[] arr = BYTE_EMPTY_ARRAY;
+    private byte[] arr = null;
 
     private int off;
 
@@ -39,6 +37,10 @@ class FragmentedByteArray {
      * @param buf Byte buffer from which to read.
      */
     void readData(ByteBuffer buf) {
+        if (buf.remaining() == 0) {
+            return;
+        }
+
         if (arrLen == -1) {
             if (buf.remaining() >= 4) {
                 arrLen = buf.getInt();

@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.nio.file.Path;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
@@ -32,6 +35,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
+import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
@@ -129,5 +133,27 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16644")
     public void testSnapshot(@WorkDirectory Path workDir) throws Exception {
         super.testSnapshot(workDir);
+    }
+
+    /**
+     * Checks that fragments are written and read correctly.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    void testFragments() {
+        int pageSize = ((PageMemoryDataRegion) dataRegion).pageMemory().pageSize();
+
+        DataRow dataRow = dataRow(createRandomString(pageSize), createRandomString(pageSize));
+
+        storage.write(dataRow);
+
+        DataRow read = storage.read(dataRow);
+
+        assertArrayEquals(dataRow.valueBytes(), read.valueBytes());
+    }
+
+    private String createRandomString(int len) {
+        return ThreadLocalRandom.current().ints(len).mapToObj(i -> String.valueOf(Math.abs(i % 10))).collect(joining(""));
     }
 }
