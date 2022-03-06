@@ -139,6 +139,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
      * @param rowData Specifies what data to lookup.
      * @throws IgniteInternalCheckedException If failed.
      */
+    // TODO: IGNITE-16666 Fragment storage optimization.
     public TableDataRow getRowByLink(final long link, int hash, RowData rowData) throws IgniteInternalCheckedException {
         assert link != 0;
 

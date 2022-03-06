@@ -28,6 +28,7 @@ import org.apache.ignite.internal.storage.pagememory.io.TableDataIo;
 /**
  * {@link TableDataRow} implementation.
  */
+// TODO: IGNITE-16666 Fragment storage optimization.
 class TableDataRowImpl implements TableDataRow {
     private long link;
 

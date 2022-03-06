@@ -31,6 +31,7 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 /**
  * Data pages IO for {@link TableTree}.
  */
+// TODO: IGNITE-16666 Fragment storage optimization.
 public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
     /** Page IO type. */
     public static final short T_TABLE_DATA_IO = 6;
