@@ -73,8 +73,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl implements Serializa
                 default:
                     return super.deriveSumType(typeFactory, argumentType);
             }
-        }
-        else {
+        } else {
             switch (argumentType.getSqlTypeName()) {
                 case INTEGER:
                 case TINYINT:

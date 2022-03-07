@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -37,7 +36,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -75,7 +73,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithoutIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "val0_val1");
+        TestTable tbl = createBroadcastTable().addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -112,7 +110,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex(RelCollations.of(ImmutableIntList.of(3, 4)), "grp0_grp1");
+        TestTable tbl = createBroadcastTable().addIndex("grp0_grp1", 3, 4);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -192,7 +190,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void distribution(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(ImmutableIntList.of(3)), "grp0");
+        TestTable tbl = createAffinityTable().addIndex("grp0", 3);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -233,8 +231,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @EnumSource
     public void expandDistinctAggregates(AggregateAlgorithm algo) throws Exception {
         TestTable tbl = createAffinityTable()
-                .addIndex(RelCollations.of(ImmutableIntList.of(3, 1, 0)), "idx_val0")
-                .addIndex(RelCollations.of(ImmutableIntList.of(3, 2, 0)), "idx_val1");
+                .addIndex("idx_val0", 3, 1, 0)
+                .addIndex("idx_val1", 3, 2, 0);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -302,15 +300,15 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 )
         );
 
-        String sql = "SELECT " +
-                "SUM(VAL_TINYINT), " +
-                "SUM(VAL_SMALLINT), " +
-                "SUM(VAL_INT), " +
-                "SUM(VAL_BIGINT), " +
-                "SUM(VAL_DECIMAL), " +
-                "SUM(VAL_FLOAT), " +
-                "SUM(VAL_DOUBLE) " +
-                "FROM test GROUP BY grp";
+        String sql = "SELECT "
+                + "SUM(VAL_TINYINT), "
+                + "SUM(VAL_SMALLINT), "
+                + "SUM(VAL_INT), "
+                + "SUM(VAL_BIGINT), "
+                + "SUM(VAL_DECIMAL), "
+                + "SUM(VAL_FLOAT), "
+                + "SUM(VAL_DOUBLE) "
+                + "FROM test GROUP BY grp";
 
         IgniteRel phys = physicalPlan(
                 sql,

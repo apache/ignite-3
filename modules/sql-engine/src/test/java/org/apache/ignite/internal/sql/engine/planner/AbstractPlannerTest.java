@@ -84,6 +84,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -97,6 +98,7 @@ import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -549,6 +551,30 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
     }
 
+    /**
+     * Predicate builder for "Index scan with given name" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteIndexScan> isIndexScan(String tableName, String idxName) {
+        return isInstanceOf(IgniteIndexScan.class).and(
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
+
+                    if (!tableName.equalsIgnoreCase(scanTableName)) {
+                        lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
+
+                        return false;
+                    }
+
+                    if (!idxName.equals(n.indexName())) {
+                        lastErrorMsg = "Unexpected index name [exp=" + idxName + ", act=" + n.indexName() + ']';
+
+                        return false;
+                    }
+
+                    return true;
+                });
+    }
+
     protected void clearTraits(RelNode rel) {
         IgniteTestUtils.setFieldValue(rel, AbstractRelNode.class, "traitSet", RelTraitSet.createEmpty());
         rel.getInputs().forEach(this::clearTraits);
@@ -741,6 +767,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          */
         public TestTable addIndex(RelCollation collation, String name) {
             indexes.put(name, new IgniteIndex(collation, name, this));
+
+            return this;
+        }
+
+        public TestTable addIndex(String name, int... keys) {
+            addIndex(TraitUtils.createCollation(Arrays.stream(keys).boxed().collect(Collectors.toList())), name);
 
             return this;
         }

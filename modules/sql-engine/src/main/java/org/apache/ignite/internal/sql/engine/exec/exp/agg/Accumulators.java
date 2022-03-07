@@ -399,21 +399,19 @@ public class Accumulators {
     }
 
     private static class Sum implements Accumulator {
-        /** */
         private Accumulator acc;
 
-        /** */
         private boolean empty = true;
 
-        /** */
         public Sum(Accumulator acc) {
             this.acc = acc;
         }
 
         /** {@inheritDoc} */
         @Override public void add(Object... args) {
-            if (args[0] == null)
+            if (args[0] == null) {
                 return;
+            }
 
             empty = false;
             acc.add(args[0]);
@@ -421,10 +419,11 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override public void apply(Accumulator other) {
-            Sum other0 = (Sum)other;
+            Sum other0 = (Sum) other;
 
-            if (other0.empty)
+            if (other0.empty) {
                 return;
+            }
 
             empty = false;
             acc.apply(other0.acc);

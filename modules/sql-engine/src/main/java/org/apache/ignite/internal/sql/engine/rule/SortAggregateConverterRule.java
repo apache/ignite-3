@@ -25,16 +25,15 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 
 /**
@@ -71,7 +70,7 @@ public class SortAggregateConverterRule {
             RelOptCluster cluster = agg.getCluster();
             RelNode input = agg.getInput();
 
-            RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(agg.getGroupSet().asList()));
+            RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
 
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE)
                     .replace(collation)
@@ -113,7 +112,7 @@ public class SortAggregateConverterRule {
             RelOptCluster cluster = agg.getCluster();
             RelNode input = agg.getInput();
 
-            RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(agg.getGroupSet().asList()));
+            RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
 
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);

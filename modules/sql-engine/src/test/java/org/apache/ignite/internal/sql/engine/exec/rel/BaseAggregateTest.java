@@ -555,7 +555,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
 
         assertTrue(root.hasNext());
 
-        assertArrayEquals(row(0, (long)Integer.MAX_VALUE / 2 + (long)Integer.MAX_VALUE / 2 + 11L), root.next());
+        assertArrayEquals(row(0, (long) Integer.MAX_VALUE / 2 + (long) Integer.MAX_VALUE / 2 + 11L), root.next());
 
         assertFalse(root.hasNext());
     }
