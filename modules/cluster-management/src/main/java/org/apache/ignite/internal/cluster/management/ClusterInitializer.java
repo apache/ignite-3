@@ -59,7 +59,7 @@ public class ClusterInitializer {
     public CompletableFuture<Void> initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
         try {
             if (metaStorageNodeNames.isEmpty()) {
-                throw new IllegalArgumentException("List of metastorage nodes must no be empty");
+                throw new IllegalArgumentException("List of metastorage nodes must not be empty");
             }
 
             cmgNodeNames = cmgNodeNames.isEmpty() ? metaStorageNodeNames : cmgNodeNames;
