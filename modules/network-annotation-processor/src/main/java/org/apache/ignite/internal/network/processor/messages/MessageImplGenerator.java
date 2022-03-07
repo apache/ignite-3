@@ -92,7 +92,6 @@ public class MessageImplGenerator {
         List<ExecutableElement> getters = message.getters();
 
         var fields = new ArrayList<FieldSpec>(getters.size());
-        var allFields = new ArrayList<FieldSpec>(getters.size());
         var getterImpls = new ArrayList<MethodSpec>(getters.size());
 
         // create a field and a getter implementation for every getter in the message interface
@@ -106,7 +105,6 @@ public class MessageImplGenerator {
                     .build();
 
             fields.add(field);
-            allFields.add(field);
 
             MethodSpec getterImpl = MethodSpec.overriding(getter)
                     .addStatement("return $N", field)
@@ -121,7 +119,7 @@ public class MessageImplGenerator {
                         .addModifiers(Modifier.PRIVATE)
                         .build();
 
-                allFields.add(marshallableFieldArray);
+                fields.add(marshallableFieldArray);
 
                 MethodSpec baGetterImpl = MethodSpec.methodBuilder(name)
                         .returns(arrayTypeName)
@@ -135,9 +133,9 @@ public class MessageImplGenerator {
         TypeSpec.Builder messageImpl = TypeSpec.classBuilder(messageImplClassName)
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(message.className())
-                .addFields(allFields)
+                .addFields(fields)
                 .addMethods(getterImpls)
-                .addMethod(constructor(allFields));
+                .addMethod(constructor(fields));
 
         // group type constant and getter
         FieldSpec groupTypeField = FieldSpec.builder(short.class, "GROUP_TYPE")
@@ -201,26 +199,26 @@ public class MessageImplGenerator {
         return messageImpl.build();
     }
 
-    private enum Type {
-        OBJECT_ARRAY,
-        COLLECTION,
-        MESSAGE,
-        MAP;
-    }
-
+    /**
+     * Resolves type of an object to a type that may hold a message. Returns {@code null} if the type
+     * can't hold a message.
+     *
+     * @param parameterType Type.
+     * @return {@link MaybeMessageType} or {@code null} if the type can't hold a message.
+     */
     @Nullable
-    private Type resolveType(TypeMirror parameterType) {
+    private MessageImplGenerator.MaybeMessageType resolveType(TypeMirror parameterType) {
         if (parameterType.getKind() == TypeKind.ARRAY) {
             if (!((ArrayType) parameterType).getComponentType().getKind().isPrimitive()) {
-                return Type.OBJECT_ARRAY;
+                return MaybeMessageType.OBJECT_ARRAY;
             }
         } else if (parameterType.getKind() == TypeKind.DECLARED) {
             if (typeUtils.isSameType(parameterType, Collection.class)) {
-                return Type.COLLECTION;
+                return MaybeMessageType.COLLECTION;
             } else if (typeUtils.isSameType(parameterType, Map.class)) {
-                return Type.MAP;
+                return MaybeMessageType.MAP;
             } else if (typeUtils.isSubType(parameterType, NetworkMessage.class)) {
-                return Type.MESSAGE;
+                return MaybeMessageType.MESSAGE;
             }
         }
         return null;
@@ -257,7 +255,7 @@ public class MessageImplGenerator {
                 prepareMarshal.addStatement("set.addAll($N.usedDescriptorIds())", moName);
                 prepareMarshal.addStatement("$N = $N.bytes()", baName, moName).addCode("\n");
             } else {
-                Type objectType = resolveType(type);
+                MaybeMessageType objectType = resolveType(type);
 
                 if (objectType == null) {
                     continue;
@@ -368,7 +366,7 @@ public class MessageImplGenerator {
                 unmarshal.addStatement("$N = marshaller.unmarshal($N, descriptorRegistry)", objectName, baName);
                 unmarshal.addStatement("$N = null", baName);
             } else {
-                Type objectType = resolveType(type);
+                MaybeMessageType objectType = resolveType(type);
 
                 if (objectType == null) {
                     continue;
@@ -609,7 +607,6 @@ public class MessageImplGenerator {
         List<ExecutableElement> messageGetters = message.getters();
 
         var fields = new ArrayList<FieldSpec>(messageGetters.size());
-        var allFields = new ArrayList<FieldSpec>(messageGetters.size());
         var setters = new ArrayList<MethodSpec>(messageGetters.size());
         var getters = new ArrayList<MethodSpec>(messageGetters.size());
 
@@ -623,7 +620,6 @@ public class MessageImplGenerator {
                     .build();
 
             fields.add(field);
-            allFields.add(field);
 
             MethodSpec setter = MethodSpec.methodBuilder(getterName)
                     .addAnnotation(Override.class)
@@ -652,7 +648,7 @@ public class MessageImplGenerator {
                         .addModifiers(Modifier.PRIVATE)
                         .build();
 
-                allFields.add(baField);
+                fields.add(baField);
 
                 MethodSpec baSetter = MethodSpec.methodBuilder(name)
                         .addAnnotation(Override.class)
@@ -679,10 +675,10 @@ public class MessageImplGenerator {
         return TypeSpec.classBuilder("Builder")
                 .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
                 .addSuperinterface(builderName)
-                .addFields(allFields)
+                .addFields(fields)
                 .addMethods(setters)
                 .addMethods(getters)
-                .addMethod(buildMethod(message, messageImplClass, allFields))
+                .addMethod(buildMethod(message, messageImplClass, fields))
                 .build();
     }
 
@@ -701,4 +697,13 @@ public class MessageImplGenerator {
                 .addStatement("return new $T$L", messageImplClass, constructorParameters)
                 .build();
     }
+
+    /** Types that may hold network message. */
+    private enum MaybeMessageType {
+        OBJECT_ARRAY,
+        COLLECTION,
+        MESSAGE,
+        MAP;
+    }
+
 }
