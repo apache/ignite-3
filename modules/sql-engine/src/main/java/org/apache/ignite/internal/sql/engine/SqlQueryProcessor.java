@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -36,7 +35,6 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
-import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -70,8 +68,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  *  SqlQueryProcessor.
@@ -169,10 +165,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryRegistry
         ));
 
-        /*registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaManager));*/
-
         this.schemaManager = schemaManager;
 
         tablesCfg.tables().listenElements(new ConfigurationNamedListListener<TableView>() {
@@ -245,12 +237,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return service;
     }
-
-/*    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
-        evtLsnrs.add(Pair.of(evt, lsnr));
-
-        tableManager.listen(evt, lsnr);
-    }*/
 
     /** {@inheritDoc} */
     @Override
@@ -390,82 +376,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return cursors;
     }
-/*
-    private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
-        protected final SqlSchemaManagerImpl schemaHolder;
-
-        private AbstractTableEventListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
-            this.schemaHolder = schemaHolder;
-        }
-
-        *//** {@inheritDoc} *//*
-        @Override
-        public void remove(@NotNull Throwable exception) {
-            // No-op.
-        }
-    }
-
-    private static class TableCreatedListener extends AbstractTableEventListener {
-        private TableCreatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
-            super(schemaHolder);
-        }
-
-        *//** {@inheritDoc} *//*
-        @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableCreated(
-                    "PUBLIC",
-                    parameters.table(),
-                    parameters.causalityToken()
-            );
-
-            return false;
-        }
-    }
-
-    private static class TableUpdatedListener extends AbstractTableEventListener {
-        private TableUpdatedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
-            super(schemaHolder);
-        }
-
-        *//** {@inheritDoc} *//*
-        @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableUpdated(
-                    "PUBLIC",
-                    parameters.table(),
-                    parameters.causalityToken()
-            );
-
-            return false;
-        }
-    }
-
-    private static class TableDroppedListener extends AbstractTableEventListener {
-        private TableDroppedListener(
-                SqlSchemaManagerImpl schemaHolder
-        ) {
-            super(schemaHolder);
-        }
-
-        *//** {@inheritDoc} *//*
-        @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableDropped(
-                    "PUBLIC",
-                    parameters.tableName(),
-                    parameters.causalityToken()
-            );
-
-            return false;
-        }
-    }*/
 
     @FunctionalInterface
     private interface TableChangeCallback {

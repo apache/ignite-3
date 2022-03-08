@@ -265,13 +265,11 @@ public class VersionedValue<T> {
 
         try {
             synchronized (updateMutex) {
-                isUpdating = true;
-
                 T previousValue = isUpdating ? tempValue : previousFuture.join();
 
-                T res = complete.apply(previousValue);
+                isUpdating = true;
 
-                //setValueInternal(causalityToken, res);
+                T res = complete.apply(previousValue);
 
                 history.putIfAbsent(causalityToken, new CompletableFuture<>());
 

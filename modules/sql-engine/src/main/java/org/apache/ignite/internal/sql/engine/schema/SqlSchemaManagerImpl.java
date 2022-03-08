@@ -281,10 +281,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
-        // TODO rewrite with VersionedValue#update to get the current (maybe temporary) value for current token
-        // TODO https://issues.apache.org/jira/browse/IGNITE-16543
-        //Map<String, IgniteSchema> schemas = schemasVv.latest();
-
         schemas.forEach(newCalciteSchema::add);
 
         calciteSchemaVv.update(causalityToken, s -> newCalciteSchema, e -> {
