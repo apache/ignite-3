@@ -792,53 +792,42 @@ public class ItMetaStorageServiceTest {
             return false
          */
 
-        var iif = If.iif(or(value(key1).eq(val1), value(key2).ne(val2)),
+        var iif1 = If.iif(or(value(key1).eq(val1), value(key2).ne(val2)),
                 iif(revision(key3).eq(3),
                         ops(put(key1, rval1)).yield(true),
                         ops(put(key1, rval1), remove(key2)).yield(false)),
                 ops(put(key2, rval2)).yield(false));
 
-        var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
+        var ifCaptor1 = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
 
         when(mockStorage.invoke(any())).thenReturn(new StatementResult(true));
 
-        assertTrue(metaStorageSvc.invoke(iif).get().getAsBoolean());
+        assertTrue(metaStorageSvc.invoke(iif1).get().getAsBoolean());
 
-        verify(mockStorage).invoke(ifCaptor.capture());
+        verify(mockStorage).invoke(ifCaptor1.capture());
 
-        var resultIf = ifCaptor.getValue();
+        var resultIf1 = ifCaptor1.getValue();
 
-        assertThat(resultIf.cond(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
+        assertThat(resultIf1.cond(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
                 new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
 
-        assertThat(resultIf.andThen().iif().cond(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
+        assertThat(resultIf1.andThen().iif().cond(), cond(new RevisionCondition(RevisionCondition.Type.EQUAL, key3.bytes(), 3)));
 
-        assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(
+        assertThat(resultIf1.andThen().iif().andThen().update(), upd(new Update(
                 List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)),
                 new StatementResult(true))));
 
-        assertThat(resultIf.andThen().iif().orElse().update(), upd(new Update(
+        assertThat(resultIf1.andThen().iif().orElse().update(), upd(new Update(
                 Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1),
                         new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)),
                 new StatementResult(false))));
 
-        assertThat(resultIf.orElse().update(), upd(new Update(
+        assertThat(resultIf1.orElse().update(), upd(new Update(
                 List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)),
                 new StatementResult(false))));
-    }
-
-    @Test
-    public void testMultiInvokeValueConditions() throws Exception {
-        ByteArray key1 = new ByteArray(new byte[]{1});
-        ByteArray key2 = new ByteArray(new byte[]{2});
-
-        var val1 = new byte[]{4};
-        var val2 = new byte[]{5};
-
-        var rval1 = new byte[]{6};
-        var rval2 = new byte[]{7};
 
         /*
+        Other scenarios
         if (key1.value == val1 || key2.value != val2)
             if (key2.value > val1 || key1.value >= val2):
                 put(key1, rval1)
@@ -855,47 +844,46 @@ public class ItMetaStorageServiceTest {
             return false
          */
 
-        var iif = If.iif(or(value(key1).eq(val1), value(key2).ne(val2)),
-                            iif(or(value(key2).gt(val1), value(key1).ge(val2)),
-                                ops(put(key1, rval1)).yield(true),
-                                iif(and(value(key2).lt(val1), value(key1).le(val2)),
-                                    ops(put(key1, rval1), remove(key2)).yield(false),
-                                    ops().yield(true))),
-                        ops(put(key2, rval2)).yield(false));
+        var iif2 = If.iif(or(value(key1).eq(val1), value(key2).ne(val2)),
+                iif(or(value(key2).gt(val1), value(key1).ge(val2)),
+                        ops(put(key1, rval1)).yield(true),
+                        iif(and(value(key2).lt(val1), value(key1).le(val2)),
+                                ops(put(key1, rval1), remove(key2)).yield(false),
+                                ops().yield(true))),
+                ops(put(key2, rval2)).yield(false));
 
-        var ifCaptor = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
+        var ifCaptor2 = ArgumentCaptor.forClass(org.apache.ignite.internal.metastorage.server.If.class);
 
-        when(mockStorage.invoke(any())).thenReturn(new StatementResult(true));
+        assertTrue(metaStorageSvc.invoke(iif2).get().getAsBoolean());
 
-        assertTrue(metaStorageSvc.invoke(iif).get().getAsBoolean());
+        verify(mockStorage, times(2)).invoke(ifCaptor2.capture());
 
-        verify(mockStorage).invoke(ifCaptor.capture());
+        var resultIf2 = ifCaptor2.getValue();
 
-        var resultIf = ifCaptor.getValue();
-
-        assertThat(resultIf.cond(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
+        assertThat(resultIf2.cond(), cond(new OrCondition(new ValueCondition(Type.EQUAL, key1.bytes(), val1),
                 new ValueCondition(Type.NOT_EQUAL, key2.bytes(), val2))));
 
-        assertThat(resultIf.andThen().iif().cond(),
+        assertThat(resultIf2.andThen().iif().cond(),
                 cond(new OrCondition(new ValueCondition(ValueCondition.Type.GREATER, key2.bytes(), val1), new ValueCondition(
                         Type.GREATER_OR_EQUAL, key1.bytes(), val2))));
-        assertThat(resultIf.andThen().iif().orElse().iif().cond(),
+
+        assertThat(resultIf2.andThen().iif().orElse().iif().cond(),
                 cond(new AndCondition(new ValueCondition(ValueCondition.Type.LESS, key2.bytes(), val1), new ValueCondition(
                         Type.LESS_OR_EQUAL, key1.bytes(), val2))));
 
-        assertThat(resultIf.andThen().iif().andThen().update(), upd(new Update(
+        assertThat(resultIf2.andThen().iif().andThen().update(), upd(new Update(
                 List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1)),
                 new StatementResult(true))));
 
-        assertThat(resultIf.andThen().iif().orElse().iif().andThen().update(), upd(new Update(
+        assertThat(resultIf2.andThen().iif().orElse().iif().andThen().update(), upd(new Update(
                 Arrays.asList(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key1.bytes(), rval1),
                         new org.apache.ignite.internal.metastorage.server.Operation(OperationType.REMOVE, key2.bytes(), null)),
                 new StatementResult(false))));
 
-        assertThat(resultIf.andThen().iif().orElse().iif().orElse().update(),
+        assertThat(resultIf2.andThen().iif().orElse().iif().orElse().update(),
                 upd(new Update(Collections.emptyList(), new StatementResult(true))));
 
-        assertThat(resultIf.orElse().update(), upd(new Update(
+        assertThat(resultIf2.orElse().update(), upd(new Update(
                 List.of(new org.apache.ignite.internal.metastorage.server.Operation(OperationType.PUT, key2.bytes(), rval2)),
                 new StatementResult(false))));
     }

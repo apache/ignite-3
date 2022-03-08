@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.LESS;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.LESS_OR_EQUAL;
 import static org.apache.ignite.internal.metastorage.server.ValueCondition.Type.NOT_EQUAL;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ public class ValueConditionTest {
     /** Other entry value. */
     private static final byte[] VAL_2 = new byte[]{22};
 
+    /** Yet another entry value. */
+    private static final byte[] VAL_3 = new byte[]{33};
+
     /**
      * Tests values equality.
      */
@@ -50,6 +54,8 @@ public class ValueConditionTest {
         Condition cond = new ValueCondition(EQUAL, KEY, VAL_1);
 
         assertTrue(cond.test(new Entry(KEY, VAL_1, 1, 1)));
+
+        assertFalse(cond.test(new Entry(KEY, VAL_2, 1, 1)));
     }
 
     /**
@@ -60,6 +66,8 @@ public class ValueConditionTest {
         Condition cond = new ValueCondition(NOT_EQUAL, KEY, VAL_1);
 
         assertTrue(cond.test(new Entry(KEY, VAL_2, 1, 1)));
+
+        assertFalse(cond.test(new Entry(KEY, VAL_1, 1, 1)));
     }
 
     /**
@@ -71,6 +79,9 @@ public class ValueConditionTest {
 
         // byte[]{22} > byte[]{11}.
         assertTrue(cond.test(new Entry(KEY, VAL_2, 1, 1)));
+
+        // byte[]{11} > byte[]{11}.
+        assertFalse(cond.test(new Entry(KEY, VAL_1, 1, 1)));
     }
 
     /**
@@ -78,13 +89,16 @@ public class ValueConditionTest {
      */
     @Test
     public void ge() {
-        Condition cond = new ValueCondition(GREATER_OR_EQUAL, KEY, VAL_1);
+        Condition cond = new ValueCondition(GREATER_OR_EQUAL, KEY, VAL_2);
 
-        // byte[]{22} >= byte[]{11}.
+        // byte[]{33} >= byte[]{22}.
+        assertTrue(cond.test(new Entry(KEY, VAL_3, 1, 1)));
+
+        // byte[]{22} >= byte[]{22}.
         assertTrue(cond.test(new Entry(KEY, VAL_2, 1, 1)));
 
-        // byte[]{11} >= byte[]{11}.
-        assertTrue(cond.test(new Entry(KEY, VAL_1, 1, 1)));
+        // byte[]{11} >= byte[]{22}.
+        assertFalse(cond.test(new Entry(KEY, VAL_1, 1, 1)));
     }
 
     /**
@@ -96,6 +110,9 @@ public class ValueConditionTest {
 
         // byte[]{11} < byte[]{22}
         assertTrue(cond.test(new Entry(KEY, VAL_1, 1, 1)));
+
+        // byte[]{22} < byte[]{22}
+        assertFalse(cond.test(new Entry(KEY, VAL_2, 1, 1)));
     }
 
     /**
@@ -108,7 +125,10 @@ public class ValueConditionTest {
         // byte[]{11} <= byte[]{22}
         assertTrue(cond.test(new Entry(KEY, VAL_1, 1, 1)));
 
-        // byte[]{11} <= byte[]{11}
+        // byte[]{22} <= byte[]{22}
         assertTrue(cond.test(new Entry(KEY, VAL_2, 1, 1)));
+
+        // byte[]{33} <= byte[]{22}
+        assertFalse(cond.test(new Entry(KEY, VAL_3, 1, 1)));
     }
 }
