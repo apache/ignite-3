@@ -36,13 +36,13 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public async Task TestConnectToFakeServerAndGetTableThrowsFakeError()
+        public async Task TestConnectToFakeServerAndGetTableThrowsError()
         {
             using var server = new FakeServer();
             using var client = await server.ConnectClientAsync();
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("t"));
-            Assert.AreEqual("FAKE", ex!.Message);
+            Assert.AreEqual(FakeServer.Err, ex!.Message);
         }
 
         [Test]

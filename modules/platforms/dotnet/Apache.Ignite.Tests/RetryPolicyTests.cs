@@ -27,12 +27,6 @@ namespace Apache.Ignite.Tests
     public class RetryPolicyTests
     {
         [Test]
-        public void TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
-        {
-            // TODO
-        }
-
-        [Test]
         public async Task TestFailoverWithRetryPolicyCompletesOperationWithoutException()
         {
             var cfg = new IgniteClientConfiguration
@@ -48,6 +42,18 @@ namespace Apache.Ignite.Tests
             {
                 await client.Tables.GetTablesAsync();
             }
+        }
+
+        [Test]
+        public async Task TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
+        {
+            var cfg = new IgniteClientConfiguration { RetryPolicy = new TestRetryPolicy() };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("bad-table"));
+            Assert.AreEqual(FakeServer.Err, ex!.Message);
         }
 
         [Test]

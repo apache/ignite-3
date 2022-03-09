@@ -29,6 +29,8 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public sealed class FakeServer : IDisposable
     {
+        public const string Err = "Err!";
+
         private readonly Socket _listener;
 
         private readonly CancellationTokenSource _cts = new();
@@ -130,7 +132,7 @@ namespace Apache.Ignite.Tests
                     {
                         // Fake error message for any other op code.
                         handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)'F', (byte)'A', (byte)'K', (byte)'E', });
+                        handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
                     }
                 }
 
