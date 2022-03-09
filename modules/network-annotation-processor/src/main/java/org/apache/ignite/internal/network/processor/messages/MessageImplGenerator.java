@@ -271,20 +271,20 @@ public class MessageImplGenerator {
 
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
-                        isNeeded = isNeeded || generateUnmarshalObjectArray((ArrayType) type, prepareMarshal, objectName,
-                                "prepareMarshal(usedDescriptors, marshaller)");
+                        isNeeded = generateUnmarshalObjectArray((ArrayType) type, prepareMarshal, objectName,
+                                "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     case COLLECTION:
-                        isNeeded = isNeeded || generateUnmarshalCollection((DeclaredType) type, prepareMarshal, objectName,
-                                "prepareMarshal(usedDescriptors, marshaller)");
+                        isNeeded = generateUnmarshalCollection((DeclaredType) type, prepareMarshal, objectName,
+                                "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     case MESSAGE:
-                        isNeeded = isNeeded || generateUnmarshalMessage(prepareMarshal, objectName,
-                            "prepareMarshal(usedDescriptors, marshaller)");
+                        isNeeded = generateUnmarshalMessage(prepareMarshal, objectName,
+                            "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     case MAP:
-                        isNeeded = isNeeded || generateUnmarshalMap(prepareMarshal, (DeclaredType) type, objectName,
-                            "prepareMarshal(usedDescriptors, marshaller)");
+                        isNeeded = generateUnmarshalMap(prepareMarshal, (DeclaredType) type, objectName,
+                            "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     default:
                         break;
@@ -347,20 +347,20 @@ public class MessageImplGenerator {
 
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
-                        isNeeded = isNeeded || generateUnmarshalObjectArray((ArrayType) type, unmarshal, objectName,
-                                "unmarshal(marshaller, descriptorRegistry)");
+                        isNeeded = generateUnmarshalObjectArray((ArrayType) type, unmarshal, objectName,
+                                "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     case COLLECTION:
-                        isNeeded = isNeeded || generateUnmarshalCollection((DeclaredType) type, unmarshal, objectName,
-                                "unmarshal(marshaller, descriptorRegistry)");
+                        isNeeded = generateUnmarshalCollection((DeclaredType) type, unmarshal, objectName,
+                                "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     case MESSAGE:
-                        isNeeded = isNeeded || generateUnmarshalMessage(unmarshal, objectName,
-                                "unmarshal(marshaller, descriptorRegistry)");
+                        isNeeded = generateUnmarshalMessage(unmarshal, objectName,
+                                "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     case MAP:
-                        isNeeded = isNeeded || generateUnmarshalMap(unmarshal, (DeclaredType) type, objectName,
-                            "unmarshal(marshaller, descriptorRegistry)");
+                        isNeeded = generateUnmarshalMap(unmarshal, (DeclaredType) type, objectName,
+                            "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     default:
                         break;
