@@ -55,13 +55,23 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = testRetryPolicy
             };
 
-            using var server = new FakeServer(requestCountBeforeClientDrop: 1);
+            using var server = new FakeServer(requestCountBeforeClientDrop: 2);
             using var client = await server.ConnectClientAsync(cfg);
 
-            await client.Tables.GetTablesAsync();
-            await client.Tables.GetTablesAsync();
+            for (var i = 0; i < 6; i++)
+            {
+                await client.Tables.GetTablesAsync();
+            }
 
-            Assert.AreEqual(1, testRetryPolicy.Invocations.Count);
+            Assert.AreEqual(2, testRetryPolicy.Invocations.Count);
+
+            var inv = testRetryPolicy.Invocations[0];
+
+            Assert.AreNotSame(cfg, inv.Configuration);
+            Assert.AreSame(testRetryPolicy, inv.Configuration.RetryPolicy);
+            Assert.AreEqual(3, inv.Configuration.RetryLimit);
+            Assert.AreEqual(ClientOperationType.TablesGet, inv.Operation);
+            Assert.AreEqual(0, inv.Iteration);
         }
 
         private class TestRetryPolicy : IRetryPolicy

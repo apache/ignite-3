@@ -312,7 +312,9 @@ namespace Apache.Ignite.Internal
                 if (res == 0)
                 {
                     // Disconnected.
-                    throw new IgniteClientException("Connection lost (failed to read data from socket)");
+                    throw new IgniteClientException(
+                        "Connection lost (failed to read data from socket)",
+                        new SocketException((int) SocketError.ConnectionAborted));
                 }
 
                 received += res;
