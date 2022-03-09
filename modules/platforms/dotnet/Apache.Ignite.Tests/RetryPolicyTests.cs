@@ -39,9 +39,21 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public void TestFailoverWithRetryPolicyThrowsOnRetryCountExceeded()
+        public async Task TestFailoverWithRetryPolicyThrowsOnRetryCountExceeded()
         {
-            // TODO
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryLimit = 5,
+                RetryPolicy = new TestRetryPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            await client.Tables.GetTablesAsync();
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            Assert.AreEqual("Operation failed after 5 retries, examine InnerException for details.", ex!.Message);
         }
 
         [Test]
