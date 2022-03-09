@@ -82,6 +82,8 @@ namespace Apache.Ignite.Internal.Buffers
         /// <returns>Written array.</returns>
         public unsafe ReadOnlyMemory<byte> GetWrittenMemory()
         {
+            Debug.Assert(!_disposed, "!_disposed");
+
             if (_indexBackup > 0)
             {
                 _index = _indexBackup;

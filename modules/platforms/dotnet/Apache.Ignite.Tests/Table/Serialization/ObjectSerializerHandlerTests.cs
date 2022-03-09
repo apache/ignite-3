@@ -54,9 +54,9 @@ namespace Apache.Ignite.Tests.Table.Serialization
         [Test]
         public void TestWriteUnsigned()
         {
-            var pooledWriter = Write(new UnsignedPoco(ulong.MaxValue, "foo"));
+            var bytes = Write(new UnsignedPoco(ulong.MaxValue, "foo"));
 
-            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
+            var resMem = bytes[4..]; // Skip length header.
             var reader = new MessagePackReader(resMem);
 
             Assert.AreEqual(ulong.MaxValue, reader.ReadUInt64());
@@ -132,13 +132,13 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
         private static MessagePackReader WriteAndGetReader(bool keyOnly = false)
         {
-            var pooledWriter = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
+            var bytes = Write(new Poco { Key = 1234, Val = "foo" }, keyOnly);
 
-            var resMem = pooledWriter.GetWrittenMemory()[4..]; // Skip length header.
+            var resMem = bytes[4..]; // Skip length header.
             return new MessagePackReader(resMem);
         }
 
-        private static PooledArrayBufferWriter Write<T>(T obj, bool keyOnly = false)
+        private static byte[] Write<T>(T obj, bool keyOnly = false)
             where T : class
         {
             var handler = new ObjectSerializerHandler<T>();
@@ -148,7 +148,7 @@ namespace Apache.Ignite.Tests.Table.Serialization
 
             handler.Write(ref writer, Schema, obj, keyOnly);
             writer.Flush();
-            return pooledWriter;
+            return pooledWriter.GetWrittenMemory().ToArray();
         }
     }
 }
