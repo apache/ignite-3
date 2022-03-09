@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -31,10 +29,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -57,7 +51,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCacheImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -68,6 +61,8 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  *  SqlQueryProcessor.
@@ -93,8 +88,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
-    private final TablesConfiguration tablesCfg;
-
     /** Keeps queries plans to avoid expensive planning of the same queries. */
     private volatile QueryPlanCache planCache;
 
@@ -116,12 +109,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
-            TablesConfiguration tablesCfg,
             Consumer<Consumer<Long>> revisionUpdater,
             ClusterService clusterSrvc,
             TableManager tableManager
     ) {
-        this.tablesCfg = tablesCfg;
         this.revisionUpdater = revisionUpdater;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
@@ -165,77 +156,25 @@ public class SqlQueryProcessor implements QueryProcessor {
                 queryRegistry
         ));
 
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaManager));
+
         this.schemaManager = schemaManager;
 
-        tablesCfg.tables().listenElements(new ConfigurationNamedListListener<TableView>() {
-            @Override public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableChange(ctx, (schema, table, token) -> {
-                        schemaManager.onTableCreated(schema, table, token);
-
-                        return completedFuture(null);
-                });
-            }
-
-            @Override public CompletableFuture<?> onRename(String oldName, String newName,
-                ConfigurationNotificationEvent<TableView> ctx) {
-                return completedFuture(null);
-            }
-
-            @Override public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableDrop(ctx);
-            }
-
-            @Override public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<TableView> ctx) {
-                return onTableChange(ctx, (schema, table, token) -> {
-                    schemaManager.onTableUpdated(schema, table, token);
-
-                    return completedFuture(null);
-                });
-            }
-        });
-
         services.forEach(LifecycleAware::start);
-    }
-
-    private CompletableFuture<?> onTableChange(ConfigurationNotificationEvent<TableView> ctx, TableChangeCallback callback) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            String tblName = ctx.newValue().name();
-
-            long causalityToken = ctx.storageRevision();
-
-            return tableManager.table(tblName, causalityToken)
-                    .thenApply(table -> callback.onTableChange("PUBLIC", table, causalityToken));
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private CompletableFuture<?> onTableDrop(ConfigurationNotificationEvent<TableView> ctx) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            String tblName = ctx.oldValue().name();
-
-            long causalityToken = ctx.storageRevision();
-
-            ((SqlSchemaManagerImpl) schemaManager).onTableDropped("PUBLIC", tblName, causalityToken);
-
-            return completedFuture(null);
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 
     private <T extends LifecycleAware> T registerService(T service) {
         services.add(service);
 
         return service;
+    }
+
+    private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
+        evtLsnrs.add(Pair.of(evt, lsnr));
+
+        tableManager.listen(evt, lsnr);
     }
 
     /** {@inheritDoc} */
@@ -377,8 +316,79 @@ public class SqlQueryProcessor implements QueryProcessor {
         return cursors;
     }
 
-    @FunctionalInterface
-    private interface TableChangeCallback {
-        CompletableFuture<?> onTableChange(String schemaName, TableImpl table, long causalityToken);
+    private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
+        protected final SqlSchemaManagerImpl schemaHolder;
+
+        private AbstractTableEventListener(
+                SqlSchemaManagerImpl schemaHolder
+        ) {
+            this.schemaHolder = schemaHolder;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void remove(@NotNull Throwable exception) {
+            // No-op.
+        }
+    }
+
+    private static class TableCreatedListener extends AbstractTableEventListener {
+        private TableCreatedListener(
+                SqlSchemaManagerImpl schemaHolder
+        ) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            schemaHolder.onTableCreated(
+                    "PUBLIC",
+                    parameters.table(),
+                    parameters.causalityToken()
+            );
+
+            return false;
+        }
+    }
+
+    private static class TableUpdatedListener extends AbstractTableEventListener {
+        private TableUpdatedListener(
+                SqlSchemaManagerImpl schemaHolder
+        ) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            schemaHolder.onTableUpdated(
+                    "PUBLIC",
+                    parameters.table(),
+                    parameters.causalityToken()
+            );
+
+            return false;
+        }
+    }
+
+    private static class TableDroppedListener extends AbstractTableEventListener {
+        private TableDroppedListener(
+                SqlSchemaManagerImpl schemaHolder
+        ) {
+            super(schemaHolder);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+            schemaHolder.onTableDropped(
+                    "PUBLIC",
+                    parameters.tableName(),
+                    parameters.causalityToken()
+            );
+
+            return false;
+        }
     }
 }

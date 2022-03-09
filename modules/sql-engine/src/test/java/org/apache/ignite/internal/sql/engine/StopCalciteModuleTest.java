@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -98,9 +97,6 @@ public class StopCalciteModuleTest {
     SchemaRegistry schemaReg;
 
     TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
-
-    @Mock
-    TablesConfiguration tablesConfiguration;
 
     /**
      * Before.
@@ -175,7 +171,7 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(tablesConfiguration, testRevisionRegister, clusterSrvc, tableManager);
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(testRevisionRegister, clusterSrvc, tableManager);
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 

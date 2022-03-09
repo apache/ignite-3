@@ -169,9 +169,6 @@ public class VersionedValue<T> {
      */
     public T latest() {
         synchronized (updateMutex) {
-            /*if (isUpdating)
-                return tempValue;*/
-
             for (CompletableFuture<T> fut : history.descendingMap().values()) {
                 if (fut.isDone()) {
                     return fut.join();
@@ -179,18 +176,6 @@ public class VersionedValue<T> {
             }
 
             throw new AssertionError("History should never be empty.");
-        }
-    }
-
-    /**
-     * Gets the latest value of completed future.
-     */
-    public T currentInconsistent() {
-        synchronized (updateMutex) {
-            if (isUpdating)
-                return tempValue;
-            else
-                return latest();
         }
     }
 
@@ -271,8 +256,6 @@ public class VersionedValue<T> {
 
                 T res = complete.apply(previousValue);
 
-                history.putIfAbsent(causalityToken, new CompletableFuture<>());
-
                 tempValue = res;
 
                 return res;
@@ -342,6 +325,14 @@ public class VersionedValue<T> {
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
                 "New token should be greater than current [current={}, new={}]", actualToken0, causalityToken);
 
+        synchronized (updateMutex) {
+            if (isUpdating) {
+                setValueInternal(causalityToken, tempValue);
+
+                isUpdating = false;
+            }
+        }
+
         if (storageRevisionUpdating != null) {
             storageRevisionUpdating.accept(this, causalityToken);
         }
@@ -371,30 +362,20 @@ public class VersionedValue<T> {
         CompletableFuture<T> future = entry.getValue();
 
         if (!future.isDone()) {
-            if (isUpdating) {
-                synchronized (updateMutex) {
-                    isUpdating = false;
+            Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
-                    future.complete(tempValue);
+            assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
+                "No future for token [token={}]", causalityToken);
 
-                    tempValue = null;
+            CompletableFuture<T> f =  entryBefore.getValue();
+
+            f.whenComplete((t, throwable) -> {
+                if (throwable != null) {
+                    future.completeExceptionally(throwable);
+                } else {
+                    future.complete(t);
                 }
-            } else {
-                Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
-
-                assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
-                    "No future for token [token={}]", causalityToken);
-
-                CompletableFuture<T> f = entryBefore.getValue();
-
-                f.whenComplete((t, throwable) -> {
-                    if (throwable != null) {
-                        future.completeExceptionally(throwable);
-                    } else {
-                        future.complete(t);
-                    }
-                });
-            }
+            });
         }
     }
 
