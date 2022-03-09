@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import static org.apache.ignite.internal.network.processor.messages.MessageImplGenerator.getByteArrayFieldName;
+
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -157,7 +159,7 @@ public class MessageDeserializerGenerator {
         String name = getter.getSimpleName().toString();
 
         if (getter.getAnnotation(Marshallable.class) != null) {
-            name += "ByteArray";
+            name = getByteArrayFieldName(name);
         }
 
         return CodeBlock.builder()

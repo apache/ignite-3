@@ -57,6 +57,8 @@ import org.apache.ignite.network.annotations.Marshallable;
  * MessageBuilderGenerator}.
  */
 public class MessageImplGenerator {
+    static final ArrayTypeName BYTE_ARRAY_TYPE = ArrayTypeName.of(TypeName.BYTE);
+
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
@@ -101,34 +103,39 @@ public class MessageImplGenerator {
 
             String getterName = getter.getSimpleName().toString();
 
-            FieldSpec field = FieldSpec.builder(getterReturnType, getterName)
-                    .addModifiers(Modifier.PRIVATE)
-                    .build();
+            FieldSpec.Builder fieldBuilder = FieldSpec.builder(getterReturnType, getterName)
+                    .addModifiers(Modifier.PRIVATE);
 
+            boolean isMarshallable = getter.getAnnotation(Marshallable.class) != null;
+
+            if (!isMarshallable) {
+                fieldBuilder.addModifiers(Modifier.FINAL);
+            }
+
+            FieldSpec field = fieldBuilder.build();
             fields.add(field);
 
-            MethodSpec getterImpl = MethodSpec.overriding(getter)
-                    .addStatement("return $N", field)
-                    .build();
-
-            getterImpls.add(getterImpl);
-
-            if (getter.getAnnotation(Marshallable.class) != null) {
-                ArrayTypeName arrayTypeName = ArrayTypeName.of(TypeName.BYTE);
-                String name = getterName + "ByteArray";
-                FieldSpec marshallableFieldArray = FieldSpec.builder(arrayTypeName, name)
+            if (isMarshallable) {
+                String name = getByteArrayFieldName(getterName);
+                FieldSpec marshallableFieldArray = FieldSpec.builder(BYTE_ARRAY_TYPE, name)
                         .addModifiers(Modifier.PRIVATE)
                         .build();
 
                 fields.add(marshallableFieldArray);
 
                 MethodSpec baGetterImpl = MethodSpec.methodBuilder(name)
-                        .returns(arrayTypeName)
+                        .returns(BYTE_ARRAY_TYPE)
                         .addStatement("return $N", marshallableFieldArray)
                         .build();
 
                 getterImpls.add(baGetterImpl);
             }
+
+            MethodSpec getterImpl = MethodSpec.overriding(getter)
+                    .addStatement("return $N", field)
+                    .build();
+
+            getterImpls.add(getterImpl);
         }
 
         TypeSpec.Builder messageImpl = TypeSpec.classBuilder(messageImplClassName)
@@ -249,7 +256,7 @@ public class MessageImplGenerator {
             if (executableElement.getAnnotation(Marshallable.class) != null) {
                 isNeeded = true;
 
-                String baName = objectName + "ByteArray";
+                String baName = getByteArrayFieldName(objectName);
                 String moName = baName + "mo";
                 prepareMarshal.addStatement("$T $N = marshaller.marshal($N)", marshalledObjectClass, moName, objectName);
                 prepareMarshal.addStatement("usedDescriptors.addAll($N.usedDescriptorIds())", moName);
@@ -264,12 +271,13 @@ public class MessageImplGenerator {
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
                         ArrayType arrayType = (ArrayType) type;
-                        if (typeUtils.isSubType(arrayType.getComponentType(), NetworkMessage.class)) {
+                        TypeMirror componentType = arrayType.getComponentType();
+                        if (typeUtils.isSubType(componentType, NetworkMessage.class)) {
                             isNeeded = true;
 
                             prepareMarshal.beginControlFlow("if ($N != null)", objectName);
-                            prepareMarshal.beginControlFlow("for (int i = 0; i < $N.length; i++)", objectName);
-                            prepareMarshal.addStatement("if ($N[i] != null) $N[i].prepareMarshal(usedDescriptors, marshaller)", objectName,
+                            prepareMarshal.beginControlFlow("for ($T obj : $N)", componentType, objectName);
+                            prepareMarshal.addStatement("if (obj != null) obj.prepareMarshal(usedDescriptors, marshaller)", objectName,
                                     objectName);
                             prepareMarshal.endControlFlow();
                             prepareMarshal.endControlFlow().addCode("\n");
@@ -291,7 +299,8 @@ public class MessageImplGenerator {
                     case MESSAGE:
                         isNeeded = true;
 
-                        prepareMarshal.addStatement("if ($N != null) $N.prepareMarshal(usedDescriptors, marshaller)", objectName, objectName);
+                        prepareMarshal.addStatement("if ($N != null) $N.prepareMarshal(usedDescriptors, marshaller)",
+                                objectName, objectName);
                         break;
                     case MAP:
                         DeclaredType mapType = (DeclaredType) type;
@@ -362,7 +371,7 @@ public class MessageImplGenerator {
             if (executableElement.getAnnotation(Marshallable.class) != null) {
                 isNeeded = true;
 
-                String baName = objectName + "ByteArray";
+                String baName = getByteArrayFieldName(objectName);
                 unmarshal.addStatement("$N = marshaller.unmarshal($N, descriptorRegistry)", objectName, baName);
                 unmarshal.addStatement("$N = null", baName);
             } else {
@@ -375,12 +384,13 @@ public class MessageImplGenerator {
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
                         ArrayType arrayType = (ArrayType) type;
-                        if (typeUtils.isSubType(arrayType.getComponentType(), NetworkMessage.class)) {
+                        TypeMirror componentType = arrayType.getComponentType();
+                        if (typeUtils.isSubType(componentType, NetworkMessage.class)) {
                             isNeeded = true;
 
                             unmarshal.beginControlFlow("if ($N != null)", objectName);
-                            unmarshal.beginControlFlow("for (int i = 0; i < $N.length; i++)", objectName);
-                            unmarshal.addStatement("if ($N[i] != null) $N[i].unmarshal(marshaller, descriptorRegistry)", objectName,
+                            unmarshal.beginControlFlow("for ($T obj : $N)", componentType, objectName);
+                            unmarshal.addStatement("if (obj != null) obj.unmarshal(marshaller, descriptorRegistry)", objectName,
                                     objectName);
                             unmarshal.endControlFlow();
                             unmarshal.endControlFlow().addCode("\n");
@@ -642,9 +652,8 @@ public class MessageImplGenerator {
             getters.add(getter);
 
             if (messageGetter.getAnnotation(Marshallable.class) != null) {
-                String name = getterName + "ByteArray";
-                ArrayTypeName type = ArrayTypeName.of(TypeName.BYTE);
-                FieldSpec baField = FieldSpec.builder(type, name)
+                String name = getByteArrayFieldName(getterName);
+                FieldSpec baField = FieldSpec.builder(BYTE_ARRAY_TYPE, name)
                         .addModifiers(Modifier.PRIVATE)
                         .build();
 
@@ -654,7 +663,7 @@ public class MessageImplGenerator {
                         .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
                         .returns(builderName)
-                        .addParameter(type, name)
+                        .addParameter(BYTE_ARRAY_TYPE, name)
                         .addStatement("this.$N = $L", baField, name)
                         .addStatement("return this")
                         .build();
@@ -664,7 +673,7 @@ public class MessageImplGenerator {
                 MethodSpec baGetter = MethodSpec.methodBuilder(name)
                         .addAnnotation(Override.class)
                         .addModifiers(Modifier.PUBLIC)
-                        .returns(type)
+                        .returns(BYTE_ARRAY_TYPE)
                         .addStatement("return $N", baField)
                         .build();
 
@@ -696,6 +705,10 @@ public class MessageImplGenerator {
                 .returns(message.className())
                 .addStatement("return new $T$L", messageImplClass, constructorParameters)
                 .build();
+    }
+
+    public static String getByteArrayFieldName(String objectName) {
+        return objectName + "ByteArray";
     }
 
     /** Types that may hold network message. */
