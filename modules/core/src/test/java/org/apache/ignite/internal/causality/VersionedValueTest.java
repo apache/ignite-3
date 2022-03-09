@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
@@ -65,11 +66,11 @@ public class VersionedValueTest {
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut, longVersionedValue.get(0));
+        assertSame(fut.join(), longVersionedValue.get(0).join());
     }
 
     /**
-     * The test explicitly sets a value to {@link VersionedValue} without waiting for the revision updaste.
+     * The test explicitly sets a value to {@link VersionedValue} without waiting for the revision update.
      *
      * @throws OutdatedTokenException If failed.
      */
@@ -87,7 +88,7 @@ public class VersionedValueTest {
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut, longVersionedValue.get(0));
+        assertSame(fut.join(), longVersionedValue.get(0).join());
     }
 
     /**
@@ -243,6 +244,32 @@ public class VersionedValueTest {
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.get());
+    }
+
+    /**
+     * Checks a behavior when {@link VersionedValue} has not initialized yet, but someone already tries to get a value.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testInitialization() throws Exception {
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+
+        CompletableFuture<Integer> fut1 = longVersionedValue.get(1);
+        CompletableFuture<Integer> fut2 = longVersionedValue.get(2);
+
+        assertFalse(fut1.isDone());
+        assertFalse(fut2.isDone());
+
+        assertNull(longVersionedValue.latest());
+
+        longVersionedValue.set(2, TEST_VALUE);
+
+        assertTrue(fut1.isDone());
+        assertTrue(fut2.isDone());
+
+        assertThrowsExactly(ExecutionException.class, fut1::get);
+        assertEquals(TEST_VALUE, fut2.get());
     }
 
     /**

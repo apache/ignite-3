@@ -40,6 +40,7 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.rest.ConfigurationHttpHandlers;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -365,15 +366,6 @@ public class IgniteImpl implements Ignite {
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
-            if (!upToDateMetastorageRevisionFut.isDone()) {
-                long metastorageRevision = metaStorageMgr.revision().join();
-                long appliedRevision = vaultMgr.getRevision().join();
-
-                if (appliedRevision == 0 && isMetadataUpToDate(metastorageRevision, 0)) {
-                    upToDateMetastorageRevisionFut.complete(null);
-                }
-            }
-
             upToDateMetastorageRevisionFut.join();
 
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
@@ -420,6 +412,22 @@ public class IgniteImpl implements Ignite {
 
         CompletableFuture<Void> upToDateMetastorageRevisionFut = new CompletableFuture<>();
 
+        ConfigurationStorageRevisionListener listener = cfgUpdateRevision -> {
+            long metastorageRevision = metaStorageMgr.revision().join();
+
+            assert metastorageRevision >= cfgUpdateRevision : IgniteStringFormatter.format(
+                    "Metastorage revision must be greater than local node applied revision [msRev={}, appliedRev={}",
+                    metastorageRevision, cfgUpdateRevision);
+
+            if (isMetadataUpToDate(metastorageRevision, cfgUpdateRevision)) {
+                upToDateMetastorageRevisionFut.complete(null);
+            }
+
+            return CompletableFuture.completedFuture(null);
+        };
+
+        clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(listener);
+
         metaStorageMgr.listen(MetastorageEvent.REVISION_APPLIED, new EventListener<MetastorageEventParameters>() {
             @Override
             public boolean notify(@NotNull MetastorageEventParameters parameters, @Nullable Throwable exception) {
@@ -449,6 +457,8 @@ public class IgniteImpl implements Ignite {
                 upToDateMetastorageRevisionFut.completeExceptionally(exception);
             }
         });
+
+        upToDateMetastorageRevisionFut.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
 
         return upToDateMetastorageRevisionFut;
     }
