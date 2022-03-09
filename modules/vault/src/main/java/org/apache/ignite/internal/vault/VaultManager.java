@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.vault;
 
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.Constants;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,6 +59,19 @@ public class VaultManager implements IgniteComponent {
     public void stop() throws Exception {
         // TODO: IGNITE-15161 Implement component's stop.
         vaultSvc.close();
+    }
+
+    /**
+     * Gets a last applied revision from Vault.
+     *
+     * @return Revision.
+     */
+    public CompletableFuture<Long> getRevision() {
+        return get(Constants.APPLIED_REV).thenApply(vaultEntry -> {
+            byte[] appliedRevisionBytes = vaultEntry.value();
+
+            return appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
+        });
     }
 
     /**

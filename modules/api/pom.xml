@@ -38,11 +38,6 @@
             <artifactId>ignite-configuration-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-configuration</artifactId>
-        </dependency>
-
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>org.jetbrains</groupId>

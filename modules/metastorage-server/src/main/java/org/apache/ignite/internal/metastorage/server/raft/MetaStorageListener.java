@@ -40,6 +40,8 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
+import org.apache.ignite.internal.metastorage.common.command.GetEarliestRevision;
+import org.apache.ignite.internal.metastorage.common.command.GetRevision;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
@@ -154,6 +156,10 @@ public class MetaStorageListener implements RaftGroupListener {
                 CursorMeta cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
 
                 clo.result(!(cursorDesc == null) && cursorDesc.cursor().hasNext());
+            } else if (clo.command() instanceof GetRevision) {
+                clo.result(storage.revision());
+            } else if (clo.command() instanceof GetEarliestRevision) {
+                clo.result(storage.earliestRevision());
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }

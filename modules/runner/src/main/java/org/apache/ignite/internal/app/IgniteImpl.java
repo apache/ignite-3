@@ -40,14 +40,18 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.rest.ConfigurationHttpHandlers;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
+import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.event.MetastorageEvent;
+import org.apache.ignite.internal.metastorage.event.MetastorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestModule;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
@@ -63,6 +67,7 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -96,6 +101,12 @@ public class IgniteImpl implements Ignite {
      * Path for the partitions persistent storage.
      */
     private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
+
+    /**
+     * Difference between the local node applied revision and distributed data storage revision on start.
+     * TODO: IGNITE-16488 Move the property to configuration.
+     */
+    public static final int METADATA_DIFFERENCE = 100;
 
     /** Ignite node name. */
     private final String name;
@@ -134,7 +145,7 @@ public class IgniteImpl implements Ignite {
     private final TableManager distributedTblMgr;
 
     /** Rest module. */
-    private final RestModule restModule;
+    private final RestComponent restComponent;
 
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
@@ -181,6 +192,8 @@ public class IgniteImpl implements Ignite {
 
         nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, clusterLocalConfiguration.getName());
 
+        restComponent = new RestComponent(nodeCfgMgr, nettyBootstrapFactory);
+
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
                 clusterLocalConfiguration,
                 networkConfiguration,
@@ -208,6 +221,8 @@ public class IgniteImpl implements Ignite {
                 modules.distributed().internalSchemaExtensions(),
                 modules.distributed().polymorphicSchemaExtensions()
         );
+
+        new ConfigurationHttpHandlers(nodeCfgMgr, clusterCfgMgr).registerHandlers(restComponent);
 
         baselineMgr = new BaselineManager(
                 clusterCfgMgr,
@@ -242,8 +257,6 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 distributedTblMgr
         );
-
-        restModule = new RestModule(nodeCfgMgr, clusterCfgMgr, nettyBootstrapFactory);
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
@@ -325,6 +338,10 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().initializeDefaults();
             }
 
+            if (!standaloneMode()) {
+                waitForJoinPermission();
+            }
+
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
                     nettyBootstrapFactory,
@@ -336,7 +353,7 @@ public class IgniteImpl implements Ignite {
                     baselineMgr,
                     distributedTblMgr,
                     qryEngine,
-                    restModule,
+                    restComponent,
                     clientHandlerModule
             );
 
@@ -344,10 +361,23 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
+            CompletableFuture<Void> upToDateMetastorageRevisionFut = listenMetastorageRevision();
+
             notifyConfigurationListeners();
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
+
+            if (!upToDateMetastorageRevisionFut.isDone()) {
+                long metastorageRevision = metaStorageMgr.revision().join();
+                long appliedRevision = vaultMgr.getRevision().join();
+
+                if (appliedRevision == 0 && isMetadataUpToDate(metastorageRevision, 0)) {
+                    upToDateMetastorageRevisionFut.complete(null);
+                }
+            }
+
+            upToDateMetastorageRevisionFut.join();
 
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
@@ -364,12 +394,86 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
+     * Whether the node had started in standalone mode (for example, maintenance mode).
+     *
+     * @return Whether the node had started in standalone mode.
+     */
+    private boolean standaloneMode() {
+        return false;
+    }
+
+    /**
+     * Awaits for a permission to join the cluster, i.e. node join response from Cluster Management group.
+     * After the completion of this method, the node is considered as validated.
+     */
+    private void waitForJoinPermission() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-15114
+    }
+
+    /**
+     * Listens Metastorage revision updates.
+     *
+     * @return Future, which completes when the local metadata enough closer to distributed.
+     */
+    private CompletableFuture<Void> listenMetastorageRevision() {
+        //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
+        if (!metaStorageMgr.isMetaStorageInitializedOnStart()) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> upToDateMetastorageRevisionFut = new CompletableFuture<>();
+
+        metaStorageMgr.listen(MetastorageEvent.REVISION_APPLIED, new EventListener<MetastorageEventParameters>() {
+            @Override
+            public boolean notify(@NotNull MetastorageEventParameters parameters, @Nullable Throwable exception) {
+                if (exception != null) {
+                    upToDateMetastorageRevisionFut.completeExceptionally(exception);
+
+                    return true;
+                }
+
+                long metastorageRevision = metaStorageMgr.revision().join();
+
+                assert metastorageRevision >= parameters.getRevision() : IgniteStringFormatter.format(
+                        "Metastorage revision must be greater than local node applied revision [msRev={}, appliedRev={}",
+                        metastorageRevision, parameters.getRevision());
+
+                if (isMetadataUpToDate(metastorageRevision, parameters.getRevision())) {
+                    upToDateMetastorageRevisionFut.complete(null);
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            @Override
+            public void remove(@NotNull Throwable exception) {
+                upToDateMetastorageRevisionFut.completeExceptionally(exception);
+            }
+        });
+
+        return upToDateMetastorageRevisionFut;
+    }
+
+    /**
+     * Checks the node up to date by metadata.
+     *
+     * @param metastorageRevision Metastorage revision.
+     * @param appliedRevision Last applied node revision.
+     * @return True when the applied revision is greater enough to node recovery complete, false otherwise.
+     */
+    private boolean isMetadataUpToDate(long metastorageRevision, long appliedRevision) {
+        return metastorageRevision - METADATA_DIFFERENCE < appliedRevision;
+    }
+
+    /**
      * Stops ignite node.
      */
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
             doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restModule, clientHandlerModule, nettyBootstrapFactory));
+                    distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
         }
     }
 

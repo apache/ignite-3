@@ -17,6 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
+import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+
 /**
  * Query mapping context.
  */
@@ -24,6 +30,8 @@ public class MappingQueryContext {
     private final String locNodeId;
 
     private final long topVer;
+
+    private RelOptCluster cluster;
 
     /**
      * Constructor.
@@ -34,6 +42,18 @@ public class MappingQueryContext {
     public MappingQueryContext(String locNodeId, long topVer) {
         this.locNodeId = locNodeId;
         this.topVer = topVer;
+    }
+
+    /** Creates a cluster. */
+    RelOptCluster cluster() {
+        if (cluster == null) {
+            cluster = RelOptCluster.create(Commons.cluster().getPlanner(), Commons.cluster().getRexBuilder());
+            cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
+                    Commons.cluster().getPlanner()));
+            cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+        }
+
+        return cluster;
     }
 
     public String localNodeId() {

@@ -199,17 +199,21 @@ public class VersionedValueTest {
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
-        longVersionedValue.update(1, previous -> ++previous, ex -> null);
-
-        longVersionedValue.update(1, previous -> ++previous, ex -> null);
-
         assertFalse(fut.isDone());
+
+        int incrementCount = 10;
+
+        for (int i = 0; i < incrementCount; i++) {
+            longVersionedValue.update(1, previous -> ++previous, ex -> null);
+
+            assertFalse(fut.isDone());
+        }
 
         REGISTER.moveRevision.accept(1L);
 
-        assertEquals(TEST_VALUE + 2, fut.get());
-
         assertTrue(fut.isDone());
+
+        assertEquals(TEST_VALUE + incrementCount, fut.get());
     }
 
     /**
