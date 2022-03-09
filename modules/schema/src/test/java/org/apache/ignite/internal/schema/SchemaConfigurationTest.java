@@ -54,7 +54,7 @@ public class SchemaConfigurationTest {
                         SchemaBuilders.primaryKey()  // Declare index column in order.
                                 .withColumns("id", "affId", "name")
                                 .withColocationColumns(
-                                        "affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
+                                        "affId") // Optional colocation declaration. If not set, all PK columns will be colocation cols.
                                 .build()
                 )
 

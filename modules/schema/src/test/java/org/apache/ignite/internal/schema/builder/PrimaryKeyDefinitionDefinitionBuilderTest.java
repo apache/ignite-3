@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 public class PrimaryKeyDefinitionDefinitionBuilderTest {
     /** Test primary key parameters. */
     @Test
-    public void testPrimaryKeyWithAffinityColumns() {
+    public void testPrimaryKeyWithColocationColumns() {
         PrimaryKeyDefinitionBuilder builder = SchemaBuilders.primaryKey();
 
         builder.withColumns("A", "B", "C").withColocationColumns("B").build();
@@ -69,7 +69,7 @@ public class PrimaryKeyDefinitionDefinitionBuilderTest {
 
     /** Test primary key parameters. */
     @Test
-    public void testPrimaryKeyWrongAffinityColumn() {
+    public void testPrimaryKeyWrongColocationColumn() {
         PrimaryKeyDefinitionBuilder builder = SchemaBuilders.primaryKey()
                 .withColumns("A", "B")
                 .withColocationColumns("C");

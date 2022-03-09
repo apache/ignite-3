@@ -63,20 +63,20 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
 
     /** {@inheritDoc} */
     @Override
-    public PrimaryKeyDefinitionBuilderImpl withColocationColumns(String... affinityColumns) {
-        this.colocationColumns = affinityColumns == null
+    public PrimaryKeyDefinitionBuilderImpl withColocationColumns(String... colocationCols) {
+        this.colocationColumns = colocationCols == null
                 ? null
-                : Arrays.stream(affinityColumns).map(IgniteObjectName::parse).collect(Collectors.toList());
+                : Arrays.stream(colocationCols).map(IgniteObjectName::parse).collect(Collectors.toList());
 
         return this;
     }
 
     /** {@inheritDoc} */
     @Override
-    public PrimaryKeyDefinitionBuilderImpl withColocationColumns(List<String> affinityColumns) {
-        this.colocationColumns = affinityColumns == null
+    public PrimaryKeyDefinitionBuilderImpl withColocationColumns(List<String> colocationCols) {
+        this.colocationColumns = colocationCols == null
                 ? null
-                : affinityColumns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
+                : colocationCols.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
 
         return this;
     }
