@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.async.AsyncSession;
 import org.apache.ignite.sql.reactive.ReactiveSession;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,12 +35,6 @@ import org.jetbrains.annotations.Nullable;
  * <p>Closing a session will not affect already running queries.
  */
 public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
-    /** Default schema name. */
-    String DEFAULT_SCHEMA = "PUBLIC";
-
-    /** Default maximal number of rows in a single page. */
-    int DEFAULT_PAGE_SIZE = 1024;
-
     /**
      * Executes single SQL query.
      *
@@ -97,14 +90,6 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     void executeScript(String query, @Nullable Object... arguments);
 
     /**
-     * Sets default query timeout.
-     *
-     * @param timeout Query timeout value.
-     * @param timeUnit Timeunit.
-     */
-    void defaultTimeout(long timeout, TimeUnit timeUnit);
-
-    /**
      * Return default query timeout.
      *
      * @param timeUnit Timeunit to convert timeout to.
@@ -113,50 +98,18 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     long defaultTimeout(TimeUnit timeUnit);
 
     /**
-     * Sets default schema for the session, which the queries will be executed with.
-     *
-     * <p>Default schema is used to resolve schema objects by their simple names, those for which schema is not specified in the query
-     * text, to their canonical names.
-     *
-     * @param schema Default schema.
-     */
-    void defaultSchema(String schema);
-
-    /**
      * Returns session default schema.
      *
-     * <p>Default value is {@link #DEFAULT_SCHEMA}.
-     *
      * @return Session default schema.
-     * @see #defaultSchema(String)
      */
     String defaultSchema();
 
     /**
-     * Sets default page size, which is a maximal amount of results rows that can be fetched once at a time.
-     *
-     * @param pageSize Maximal amount of rows in a page.
-     * @return {@code this} for chaining.
-     */
-    Session defaultPageSize(int pageSize);
-
-    /**
      * Returns default page size, which is a maximal amount of results rows that can be fetched once at a time.
-     *
-     * <p>Default value is {@link #DEFAULT_PAGE_SIZE}.
      *
      * @return Maximal amount of rows in a page.
      */
     int defaultPageSize();
-
-    /**
-     * Sets session property.
-     *
-     * @param name Property name.
-     * @param value Property value.
-     * @return {@code this} for chaining.
-     */
-    Session property(String name, @Nullable Object value);
 
     /**
      * Returns session property.
@@ -165,6 +118,14 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @return Property value.
      */
     @Nullable Object property(String name);
+
+    /**
+     * Releases remote session resources related to given prepared statement without closing the statement itself.
+     * Already started queries will not be affected.
+     *
+     * @param prepared Prepared statement.
+     */
+    void release(Statement prepared);
 
     /**
      * Closes session, cleanup remote session resources, and stops all queries that are running within the current session.

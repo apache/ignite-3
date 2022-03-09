@@ -29,6 +29,13 @@ public interface IgniteSql {
     Session createSession();
 
     /**
+     * Creates an SQL session builder object.
+     *
+     * @return A new session.
+     */
+    SessionBuilder sessionBuilder();
+
+    /**
      * Creates an SQL statement abject, which represents a query and holds a query-specific settings that overrides the session default
      * settings.
      *
@@ -36,4 +43,12 @@ public interface IgniteSql {
      * @return A new statement.
      */
     Statement createStatement(String query);
+
+    /**
+     * Creates an SQL statement builder abject.
+     *
+     * @param query SQL query template.
+     * @return A new statement.
+     */
+    StatementBuilder statementBuilder(String query);
 }
