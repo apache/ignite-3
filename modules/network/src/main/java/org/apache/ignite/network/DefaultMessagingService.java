@@ -44,7 +44,7 @@ import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.CompositeDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.lang.IgniteException;
@@ -286,7 +286,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         NetworkMessage msg = obj.message();
-        CompositeDescriptorRegistry registry = obj.registry();
+        DescriptorRegistry registry = obj.registry();
         String consistentId = obj.consistentId();
         try {
             msg.unmarshal(marshaller, registry);

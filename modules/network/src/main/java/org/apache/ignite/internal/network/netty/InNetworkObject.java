@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
-import org.apache.ignite.internal.network.serialization.CompositeDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Marshallable;
 
@@ -32,10 +32,10 @@ public class InNetworkObject {
     private final String consistentId;
 
     /** DescriptorRegistry that will be used for the deserialization of the message's {@link Marshallable} fields. */
-    private final CompositeDescriptorRegistry registry;
+    private final DescriptorRegistry registry;
 
     /** Constructor. */
-    public InNetworkObject(NetworkMessage message, String consistentId, CompositeDescriptorRegistry registry) {
+    public InNetworkObject(NetworkMessage message, String consistentId, DescriptorRegistry registry) {
         this.message = message;
         this.consistentId = consistentId;
         this.registry = registry;
@@ -64,7 +64,7 @@ public class InNetworkObject {
      *
      * @return Descriptor registry.
      */
-    public CompositeDescriptorRegistry registry() {
+    public DescriptorRegistry registry() {
         return registry;
     }
 }

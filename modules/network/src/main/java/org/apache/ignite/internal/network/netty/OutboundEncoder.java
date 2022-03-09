@@ -83,18 +83,18 @@ public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
         /**
          * Constructor.
          *
-         * @param msg                  Network message.
+         * @param outObject            Out network object.
          * @param serializationService Serialization service.
          */
         private NetworkMessageChunkedInput(
-                OutNetworkObject object,
+                OutNetworkObject outObject,
                 PerSessionSerializationService serializationService
         ) {
             this.serializationService = serializationService;
-            this.msg = object.networkMessage();
+            this.msg = outObject.networkMessage();
 
-            if (!object.descriptors().isEmpty()) {
-                List<ClassDescriptorMessage> descriptors = object.descriptors();
+            if (!outObject.descriptors().isEmpty()) {
+                List<ClassDescriptorMessage> descriptors = outObject.descriptors();
 
                 descriptors = descriptors.stream()
                         .filter(classDescriptorMessage -> !serializationService.isDescriptorSent(classDescriptorMessage.descriptorId()))

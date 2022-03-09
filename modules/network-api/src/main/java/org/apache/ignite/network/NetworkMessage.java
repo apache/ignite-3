@@ -17,7 +17,7 @@
 
 package org.apache.ignite.network;
 
-import java.util.Set;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 /**
  * Message for exchanging information in a cluster.
@@ -44,7 +44,7 @@ public interface NetworkMessage {
      */
     short groupType();
 
-    default void prepareMarshal(Set<Integer> ids, Object marshaller) throws Exception {
+    default void prepareMarshal(IntSet ids, Object marshaller) throws Exception {
         // No-op.
     }
 

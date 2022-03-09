@@ -250,9 +250,9 @@ public class ItTransferableObjectProcessorTest {
      */
     private static List<JavaFileObject> sources(String... sources) {
         return Arrays.stream(sources)
-            .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + '/' + source + ".java")
-            .map(JavaFileObjects::forResource)
-            .collect(Collectors.toList());
+                .map(source -> RESOURCE_PACKAGE_NAME.replace('.', '/') + '/' + source + ".java")
+                .map(JavaFileObjects::forResource)
+                .collect(Collectors.toList());
     }
 
     private static String fileName(String className) {
