@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.causality;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 import java.util.Map.Entry;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -41,8 +39,11 @@ import org.jetbrains.annotations.Nullable;
  * @param <T> Type of real value.
  */
 public class VersionedValue<T> {
+    /** Token until the value is initialized. */
+    private static final long NOT_INITIALIZED = -1L;
+
     /** Last applied causality token. */
-    private volatile long actualToken = -1L;
+    private volatile long actualToken = NOT_INITIALIZED;
 
     /** Size of stored history. */
     private final int historySize;
@@ -58,6 +59,12 @@ public class VersionedValue<T> {
      * #get(long)}.
      */
     private final ReadWriteLock trimHistoryLock = new ReentrantReadWriteLock();
+
+    /** Initial future. The future will be completed when {@link VersionedValue} sets a first value. */
+    private final CompletableFuture<T> initFut = new CompletableFuture<>();
+
+    /** The supplier may provide a value which will used as a default. */
+    private final Supplier<T> defaultVal;
 
     /** True when the value updated, false otherwise. */
     private boolean hasUpdatedValue;
@@ -89,7 +96,7 @@ public class VersionedValue<T> {
         this.historySize = historySize;
 
         //TODO: IGNITE-16553 Added a possibility to set any start value (not only null).
-        history.put(actualToken, completedFuture(defaultVal == null ? null : defaultVal.get()));
+        this.defaultVal = defaultVal;
 
         observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
     }
@@ -140,6 +147,24 @@ public class VersionedValue<T> {
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
     public CompletableFuture<T> get(long causalityToken) {
+        if (initFut.isDone()) {
+            return getInternal(causalityToken);
+        }
+
+        return initFut.thenCompose(o -> getInternal(causalityToken));
+    }
+
+    /**
+     * Gets a future corresponding the token when the {@link VersionedValue} is already initiated.
+     *
+     * @param causalityToken Causality token.
+     * @return The future.
+     */
+    private CompletableFuture<T> getInternal(long causalityToken) {
+        if (history.floorEntry(causalityToken) == null) {
+            throw new OutdatedTokenException(causalityToken, actualToken, historySize);
+        }
+
         if (causalityToken <= actualToken) {
             return getValueForPreviousToken(causalityToken);
         }
@@ -171,7 +196,16 @@ public class VersionedValue<T> {
             }
         }
 
-        throw new AssertionError("History should never be empty.");
+        return getDefault();
+    }
+
+    /**
+     * Returns a default value.
+     *
+     * @return The value.
+     */
+    private T getDefault() {
+        return defaultVal == null ? null : defaultVal.get();
     }
 
     /**
@@ -201,8 +235,12 @@ public class VersionedValue<T> {
     public void set(long causalityToken, T value) {
         long actualToken0 = actualToken;
 
-        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
-                + "[token={}, actual={}]", causalityToken, actualToken0);
+        if (actualToken0 == NOT_INITIALIZED) {
+            history.put(causalityToken, initFut);
+        }
+
+        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
+                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
 
         setValueInternal(causalityToken, value);
     }
@@ -216,8 +254,12 @@ public class VersionedValue<T> {
     public void fail(long causalityToken, Throwable throwable) {
         long actualToken0 = actualToken;
 
-        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
-                + "[token={}, actual={}]", causalityToken, actualToken0);
+        if (actualToken0 == NOT_INITIALIZED) {
+            history.put(causalityToken, initFut);
+        }
+
+        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
+                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
 
         failInternal(causalityToken, throwable);
     }
@@ -234,17 +276,25 @@ public class VersionedValue<T> {
     public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
         long  actualToken0 = actualToken;
 
-        assert actualToken0 + 1 == causalityToken : IgniteStringFormatter.format("Token must be greater than actual by exactly 1 "
-                + "[token={}, actual={}]", causalityToken, actualToken0);
-
-        Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
-
-        CompletableFuture<T> previousFuture = histEntry.getValue();
-
-        assert previousFuture.isDone() : "Previous value should be ready.";
+        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
+                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
 
         try {
-            T previousValue = hasUpdatedValue ? valueToUpdate : previousFuture.join();
+            T previousValue;
+
+            if (hasUpdatedValue) {
+                previousValue = valueToUpdate;
+            } else {
+                Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
+
+                if (histEntry == null) {
+                    previousValue = getDefault();
+                } else {
+                    assert histEntry.getValue().isDone() : "Previous value should be ready.";
+
+                    previousValue = histEntry.getValue().join();
+                }
+            }
 
             valueToUpdate = complete.apply(previousValue);
 
@@ -308,6 +358,10 @@ public class VersionedValue<T> {
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
                 "New token should be greater than current [current={}, new={}]", actualToken0, causalityToken);
 
+        if (actualToken0 == NOT_INITIALIZED) {
+            history.put(causalityToken, initFut);
+        }
+
         if (hasUpdatedValue) {
             setValueInternal(causalityToken, valueToUpdate);
 
@@ -345,12 +399,12 @@ public class VersionedValue<T> {
         if (!future.isDone()) {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
-            assert entryBefore != null && entryBefore.getValue().isDone() : IgniteStringFormatter.format(
-                    "No future for token [token={}]", causalityToken);
+            CompletableFuture<T> previousFuture =
+                    entryBefore == null ? CompletableFuture.completedFuture(getDefault()) : entryBefore.getValue();
 
-            CompletableFuture<T> f =  entryBefore.getValue();
+            assert previousFuture.isDone() : IgniteStringFormatter.format("No future for token [token={}]", causalityToken);
 
-            f.whenComplete((t, throwable) -> {
+            previousFuture.whenComplete((t, throwable) -> {
                 if (throwable != null) {
                     future.completeExceptionally(throwable);
                 } else {
