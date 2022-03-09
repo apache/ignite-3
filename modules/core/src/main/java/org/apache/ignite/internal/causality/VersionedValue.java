@@ -264,8 +264,6 @@ public class VersionedValue<T> {
             synchronized (updateMutex) {
                 isUpdating = true;
 
-                history.putIfAbsent(causalityToken, new CompletableFuture<>());
-
                 T res = fail.apply(e);
 
                 tempValue = res;
