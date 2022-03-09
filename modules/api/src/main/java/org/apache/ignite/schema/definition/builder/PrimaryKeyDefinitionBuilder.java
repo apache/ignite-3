@@ -30,7 +30,7 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
      * @param cols Affinity columns. Must be a valid subset of key columns.
      * @return Primary index builder.
      */
-    PrimaryKeyDefinitionBuilder withAffinityColumns(String... cols);
+    PrimaryKeyDefinitionBuilder withColocationColumns(String... cols);
 
     /**
      * Sets affinity columns.
@@ -38,7 +38,7 @@ public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
      * @param cols Affinity columns. Must be a valid subset of key columns.
      * @return Primary index builder.
      */
-    PrimaryKeyDefinitionBuilder withAffinityColumns(List<String> cols);
+    PrimaryKeyDefinitionBuilder withColocationColumns(List<String> cols);
 
     /**
      * Sets primary key columns.

@@ -37,7 +37,7 @@ public class PrimaryKeyDefinitionDefinitionBuilderTest {
     public void testPrimaryKeyWithAffinityColumns() {
         PrimaryKeyDefinitionBuilder builder = SchemaBuilders.primaryKey();
 
-        builder.withColumns("A", "B", "C").withAffinityColumns("B").build();
+        builder.withColumns("A", "B", "C").withColocationColumns("B").build();
 
         PrimaryKeyDefinition idx = builder.build();
 
@@ -72,7 +72,7 @@ public class PrimaryKeyDefinitionDefinitionBuilderTest {
     public void testPrimaryKeyWrongAffinityColumn() {
         PrimaryKeyDefinitionBuilder builder = SchemaBuilders.primaryKey()
                 .withColumns("A", "B")
-                .withAffinityColumns("C");
+                .withColocationColumns("C");
 
         assertThrows(IllegalStateException.class, builder::build);
     }

@@ -70,7 +70,7 @@ public class SchemaDescriptorConverterTest {
         TableDefinition tblSchm = bldr.withPrimaryKey(
                 SchemaBuilders.primaryKey()
                         .withColumns("INT8", "ID")
-                        .withAffinityColumns("INT8")
+                        .withColocationColumns("INT8")
                         .build()
         ).build();
 
@@ -118,7 +118,7 @@ public class SchemaDescriptorConverterTest {
                 .withPrimaryKey(
                         SchemaBuilders.primaryKey()
                                 .withColumns("INT32", "ID")
-                                .withAffinityColumns("INT32")
+                                .withColocationColumns("INT32")
                                 .build()
                 ).build();
 

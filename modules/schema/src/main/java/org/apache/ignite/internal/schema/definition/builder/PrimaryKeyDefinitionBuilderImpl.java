@@ -38,9 +38,9 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
     @IgniteToStringInclude
     private List<String> columns;
 
-    /** Affinity columns. */
+    /** Colocation columns. */
     @IgniteToStringInclude
-    private List<String> affinityColumns;
+    private List<String> colocationColumns;
 
     /** Builder hints. */
     protected Map<String, String> hints;
@@ -63,8 +63,8 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
 
     /** {@inheritDoc} */
     @Override
-    public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(String... affinityColumns) {
-        this.affinityColumns = affinityColumns == null
+    public PrimaryKeyDefinitionBuilderImpl withColocationColumns(String... affinityColumns) {
+        this.colocationColumns = affinityColumns == null
                 ? null
                 : Arrays.stream(affinityColumns).map(IgniteObjectName::parse).collect(Collectors.toList());
 
@@ -73,8 +73,8 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
 
     /** {@inheritDoc} */
     @Override
-    public PrimaryKeyDefinitionBuilderImpl withAffinityColumns(List<String> affinityColumns) {
-        this.affinityColumns = affinityColumns == null
+    public PrimaryKeyDefinitionBuilderImpl withColocationColumns(List<String> affinityColumns) {
+        this.colocationColumns = affinityColumns == null
                 ? null
                 : affinityColumns.stream().map(IgniteObjectName::parse).collect(Collectors.toList());
 
@@ -98,18 +98,22 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
 
         Set<String> cols = Set.copyOf(columns);
 
-        List<String> affCols;
+        List<String> colocationCols;
 
-        if (CollectionUtils.nullOrEmpty(affinityColumns)) {
-            affCols = List.copyOf(columns);
+        if (CollectionUtils.nullOrEmpty(colocationColumns)) {
+            colocationCols = List.copyOf(columns);
         } else {
-            affCols = List.copyOf(affinityColumns);
+            colocationCols = List.copyOf(colocationColumns);
 
-            if (!cols.containsAll(affCols)) {
-                throw new IllegalStateException("Schema definition error: All affinity columns must be part of key.");
+            if (!cols.containsAll(colocationCols)) {
+                throw new IllegalStateException("Schema definition error: All colocation columns must be part of key.");
+            }
+
+            if (colocationCols.size() != Set.copyOf(colocationCols).size()) {
+                throw new IllegalStateException("Schema definition error: Colocation columns must not be duplicated.");
             }
         }
 
-        return new PrimaryKeyDefinitionImpl(cols, affCols);
+        return new PrimaryKeyDefinitionImpl(cols, colocationCols);
     }
 }

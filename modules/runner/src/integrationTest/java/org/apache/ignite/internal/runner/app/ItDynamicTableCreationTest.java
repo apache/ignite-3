@@ -209,7 +209,7 @@ class ItDynamicTableCreationTest {
         ).withPrimaryKey(
                 SchemaBuilders.primaryKey()
                         .withColumns("key", "affKey")
-                        .withAffinityColumns("affKey")
+                        .withColocationColumns("affKey")
                         .build()
         ).build();
 
