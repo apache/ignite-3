@@ -42,7 +42,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check add a new column to table schema.
      */
     @Test
-    public void testDropColumn() {
+    public void testDropColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -79,7 +79,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check drop column from table schema.
      */
     @Test
-    public void testAddNewColumn() {
+    public void testAddNewColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -116,7 +116,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check column renaming.
      */
     @Test
-    void testRenameColumn() {
+    void testRenameColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -157,7 +157,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Rename column then add a new column with same name.
      */
     @Test
-    void testRenameThenAddColumnWithSameName() {
+    void testRenameThenAddColumnWithSameName() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -198,7 +198,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    public void testMergeChangesAddDropAdd() {
+    public void testMergeChangesAddDropAdd() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -272,7 +272,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check merge column default value changes.
      */
     @Test
-    public void testMergeChangesColumnDefault() {
+    public void testMergeChangesColumnDefault() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -317,7 +317,7 @@ class ItSchemaChangeTableViewTest extends AbstractSchemaChangeTest {
      * Check operation failed if unknown column found.
      */
     @Test
-    public void testStrictSchemaInsertRowOfNewSchema() {
+    public void testStrictSchemaInsertRowOfNewSchema() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);

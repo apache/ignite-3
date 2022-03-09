@@ -25,7 +25,6 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 
 /**
  * {@link ConfigurationModule} for node-local configuration provided by ignite-api.
@@ -42,7 +41,6 @@ public class CoreLocalConfigurationModule implements ConfigurationModule {
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(
                 NetworkConfiguration.KEY,
-                NodeConfiguration.KEY,
                 RestConfiguration.KEY,
                 ClientConnectorConfiguration.KEY,
                 ComputeConfiguration.KEY

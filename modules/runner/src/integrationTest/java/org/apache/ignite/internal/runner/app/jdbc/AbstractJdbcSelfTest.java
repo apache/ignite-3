@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -66,16 +67,18 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
 
     /**
      * Creates a cluster of three nodes.
-     *
+
      * @param testInfo Test info.
      */
     @BeforeAll
-    public static void beforeAll(TestInfo testInfo) throws SQLException {
+    public static void beforeAll(TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, 47500);
 
-        String configStr = "node.metastorageNodes: [ \"" + nodeName + "\" ]";
+        clusterNodes.add(IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName)));
 
-        clusterNodes.add(IgnitionManager.start(nodeName, configStr, WORK_DIR.resolve(nodeName)));
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
 
         conn = DriverManager.getConnection(URL);
 

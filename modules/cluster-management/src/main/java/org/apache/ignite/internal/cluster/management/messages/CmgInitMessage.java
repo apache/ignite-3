@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,8 +15,21 @@
  * limitations under the License.
  */
 
-/**
- * Configuration schemas for Cluster node.
- */
+package org.apache.ignite.internal.cluster.management.messages;
 
-package org.apache.ignite.configuration.schemas.runner;
+import java.util.Collection;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
+
+/**
+ * Message for initializing the Cluster Management Group.
+ */
+@Transferable(CmgMessageGroup.CMG_INIT)
+public interface CmgInitMessage extends NetworkMessage {
+    /**
+     * Consistent IDs of nodes that host the CMG.
+     */
+    Collection<String> cmgNodes();
+
+    Collection<String> metaStorageNodes();
+}

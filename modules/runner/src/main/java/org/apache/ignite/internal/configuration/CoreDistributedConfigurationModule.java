@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -47,10 +46,7 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(
-                ClusterConfiguration.KEY,
-                TablesConfiguration.KEY
-        );
+        return List.of(TablesConfiguration.KEY);
     }
 
     /** {@inheritDoc} */
