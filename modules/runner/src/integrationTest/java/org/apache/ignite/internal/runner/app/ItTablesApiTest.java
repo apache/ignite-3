@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,12 +34,12 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -74,45 +76,22 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
 
     /** Nodes bootstrap configuration. */
-    private final ArrayList<Function<String, String>> nodesBootstrapCfg = new ArrayList<>() {
-        {
-            add((metastorageNodeName) -> "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-                    + "  },\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3344,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                    + "    }\n"
-                    + "  }\n"
-                    + "}");
+    private final List<String> nodesBootstrapCfg = List.of(
+            "{\n"
+                    + "  network.port :3344,\n"
+                    + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "}",
 
-            add((metastorageNodeName) -> "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-                    + "  },\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3345,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                    + "    }\n"
-                    + "  }\n"
-                    + "}");
+            "{\n"
+                    + "  network.port :3345,\n"
+                    + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "}",
 
-            add((metastorageNodeName) -> "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-                    + "  },\n"
-                    + "  \"network\": {\n"
-                    + "    \"port\":3346,\n"
-                    + "    \"nodeFinder\": {\n"
-                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                    + "    }\n"
-                    + "  }\n"
-                    + "}");
-        }
-    };
+            "{\n"
+                    + "  network.port :3346,\n"
+                    + "  network.nodeFinder.netClusterNodes:[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
+                    + "}"
+    );
 
     /** Cluster nodes. */
     private List<Ignite> clusterNodes;
@@ -121,20 +100,23 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeEach
-    void beforeEach(TestInfo testInfo) {
-        String metastorageNodeName = IgniteTestUtils.testNodeName(testInfo, 0);
-
-        clusterNodes = IntStream.range(0, nodesBootstrapCfg.size()).mapToObj(value -> {
+    void beforeEach(TestInfo testInfo) throws Exception {
+        clusterNodes = IntStream.range(0, nodesBootstrapCfg.size())
+                .mapToObj(value -> {
                     String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
 
                     return IgnitionManager.start(
                             nodeName,
-                            nodesBootstrapCfg.get(value).apply(metastorageNodeName),
+                            nodesBootstrapCfg.get(value),
                             // Avoid a long file path name (260 characters) for windows.
                             workDir.resolve(Integer.toString(value))
                     );
-                }
-        ).collect(Collectors.toList());
+                })
+                .collect(Collectors.toList());
+
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
     }
 
     /**
@@ -181,9 +163,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
-        CompletableFuture createTblFut = CompletableFuture.runAsync(() -> createTable(ignite1, SCHEMA, SHORT_TABLE_NAME));
-        CompletableFuture createTblIfNotExistsFut = CompletableFuture
-                .supplyAsync(() -> createTableIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Void> createTblFut = runAsync(() -> createTable(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Table> createTblIfNotExistsFut = supplyAsync(() -> createTableIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
@@ -256,9 +237,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Trys to create an index which is already created.
-     *
-     * @throws Exception If failed.
+     * Tries to create an index which is already created.
      */
     @Test
     public void testAddIndex() {
@@ -297,8 +276,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         addIndex(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
-        CompletableFuture addIndesFut = CompletableFuture.runAsync(() -> addIndex(ignite1, SCHEMA, SHORT_TABLE_NAME));
-        CompletableFuture addIndesIfNotExistsFut = CompletableFuture.runAsync(() -> addIndexIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Void> addIndesFut = runAsync(() -> addIndex(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Void> addIndesIfNotExistsFut = runAsync(() -> addIndexIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
@@ -365,8 +344,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         addColumn(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
-        CompletableFuture addColFut = CompletableFuture.runAsync(() -> addColumn(ignite1, SCHEMA, SHORT_TABLE_NAME));
-        CompletableFuture addColIfNotExistsFut = CompletableFuture.runAsync(() -> addColumnIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Void> addColFut = runAsync(() -> addColumn(ignite1, SCHEMA, SHORT_TABLE_NAME));
+        CompletableFuture<Void> addColIfNotExistsFut = runAsync(() -> addColumnIfNotExists(ignite1, SCHEMA, SHORT_TABLE_NAME));
 
         for (Ignite ignite : clusterNodes) {
             if (ignite != ignite1) {
@@ -394,9 +373,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that if a table would be created/dropped in any cluster node, this action reflects on all others.
-     * Table management operations should pass in linearize order: if an action completed in one node,
-     * the result has to be visible to another one.
+     * Checks that if a table would be created/dropped in any cluster node, this action reflects on all others. Table management operations
+     * should pass in linearize order: if an action completed in one node, the result has to be visible to another one.
      *
      * @throws Exception If failed.
      */
@@ -414,11 +392,9 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         UUID tblId = ((TableImpl) table).tableId();
 
-        CompletableFuture<Table> tableByNameFut = CompletableFuture.supplyAsync(() -> {
-            return ignite1.tables().table(TABLE_NAME);
-        });
+        CompletableFuture<Table> tableByNameFut = supplyAsync(() -> ignite1.tables().table(TABLE_NAME));
 
-        CompletableFuture<Table> tableByIdFut = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<Table> tableByIdFut = supplyAsync(() -> {
             try {
                 return ((IgniteTablesInternal) ignite1.tables()).table(tblId);
             } catch (NodeStoppingException e) {
@@ -466,8 +442,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Creates table.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected Table createTable(Ignite node, String schemaName, String shortTableName) {
@@ -486,8 +462,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Adds an index if it does not exist.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected Table createTableIfNotExists(Ignite node, String schemaName, String shortTableName) {
@@ -495,10 +471,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             return node.tables().createTable(
                     schemaName + "." + shortTableName,
                     tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(Arrays.asList(
-                            SchemaBuilders.column("key", ColumnType.INT64).build(),
-                            SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
-                            SchemaBuilders.column("valStr", ColumnType.string())
-                                    .withDefaultValueExpression("default").build()
+                                    SchemaBuilders.column("key", ColumnType.INT64).build(),
+                                    SchemaBuilders.column("valInt", ColumnType.INT32).asNullable(true).build(),
+                                    SchemaBuilders.column("valStr", ColumnType.string())
+                                            .withDefaultValueExpression("default").build()
                             )).withPrimaryKey("key").build(),
                             tblCh).changeReplicas(2).changePartitions(10)
             );
@@ -508,8 +484,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Drops the table which name is specified.
-     * If the table does not exist, an exception will be thrown.
+     * Drops the table which name is specified. If the table does not exist, an exception will be thrown.
      *
      * @param node Cluster node.
      * @param schemaName Schema name.
@@ -520,8 +495,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     /**
-     * Drops the table which name is specified.
-     * If the table did not exist, a dropping would ignore.
+     * Drops the table which name is specified. If the table did not exist, a dropping would ignore.
      *
      * @param node Cluster node.
      * @param schemaName Schema name.
@@ -538,8 +512,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Adds an index.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void addColumn(Ignite node, String schemaName, String shortTableName) {
@@ -552,10 +526,10 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Adds a column according to the column definition.
      *
-     * @param node           Ignite node.
-     * @param schemaName     Schema name.
+     * @param node Ignite node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
-     * @param colDefinition  Column defenition.
+     * @param colDefinition Column defenition.
      */
     private void addColumnInternal(Ignite node, String schemaName, String shortTableName, ColumnDefinition colDefinition) {
         node.tables().alterTable(
@@ -572,8 +546,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Adds a column if it does not exist.
      *
-     * @param node           Ignite node.
-     * @param schemaName     Schema name.
+     * @param node Ignite node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void addColumnIfNotExists(Ignite node, String schemaName, String shortTableName) {
@@ -590,8 +564,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Adds a column.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void addIndex(Ignite node, String schemaName, String shortTableName) {
@@ -613,8 +587,8 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     /**
      * Creates a table if it does not exist.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void addIndexIfNotExists(Ignite node, String schemaName, String shortTableName) {

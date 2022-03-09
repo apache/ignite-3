@@ -72,7 +72,6 @@ class ItTableCreationTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -160,7 +159,6 @@ class ItTableCreationTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -173,7 +171,6 @@ class ItTableCreationTest {
         nodesBootstrapCfg.put(
                 node2Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"

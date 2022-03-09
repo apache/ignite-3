@@ -33,6 +33,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -42,7 +43,6 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnDefinition;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -83,7 +83,6 @@ abstract class AbstractSchemaChangeTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -96,7 +95,6 @@ abstract class AbstractSchemaChangeTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -109,7 +107,6 @@ abstract class AbstractSchemaChangeTest {
         nodesBootstrapCfg.put(
                 node2Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"
@@ -132,7 +129,7 @@ abstract class AbstractSchemaChangeTest {
      * Check unsupported column type change.
      */
     @Test
-    public void testChangeColumnType() {
+    public void testChangeColumnType() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -163,7 +160,7 @@ abstract class AbstractSchemaChangeTest {
      * Check unsupported nullability change.
      */
     @Test
-    public void testChangeColumnsNullability() {
+    public void testChangeColumnsNullability() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -175,11 +172,14 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Returns grid nodes.
      */
-    @NotNull
-    protected List<Ignite> startGrid() {
+    protected List<Ignite> startGrid() throws Exception {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
+
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
 
         return clusterNodes;
     }
