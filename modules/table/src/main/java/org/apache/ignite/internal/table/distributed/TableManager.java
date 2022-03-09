@@ -203,7 +203,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).schemas().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-
                 long causalityToken = schemasCtx.storageRevision();
 
                 ExtendedTableConfiguration tblCfg = schemasCtx.config(TableConfiguration.class);
