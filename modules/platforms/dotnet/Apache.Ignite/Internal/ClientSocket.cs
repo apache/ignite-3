@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
@@ -183,8 +184,7 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
-            _disposeTokenSource.Cancel();
-            _stream.Dispose();
+            Dispose(new ObjectDisposedException("Connection closed."));
         }
 
         /// <summary>
@@ -402,9 +402,10 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                _logger?.Error("Exception while reading from socket. Connection closed.", e);
+                const string message = "Exception while reading from socket. Connection closed.";
 
-                Dispose();
+                _logger?.Error(message, e);
+                Dispose(new IgniteClientException(message, e));
             }
         }
 
@@ -424,8 +425,9 @@ namespace Apache.Ignite.Internal
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
-                _logger?.Error($"Unexpected response ID ({requestId}) received from the server, closing the socket.");
-                Dispose();
+                var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
+                _logger?.Error(message);
+                Dispose(new IgniteClientException(message));
 
                 return;
             }
@@ -442,6 +444,27 @@ namespace Apache.Ignite.Internal
                 var resultBuffer = response.Slice((int)reader.Consumed);
 
                 taskCompletionSource.SetResult(resultBuffer);
+            }
+        }
+
+        /// <summary>
+        /// Disposes this socket and completes active requests with the specified exception.
+        /// </summary>
+        /// <param name="ex">Exception to set for pending requests.</param>
+        private void Dispose(Exception ex)
+        {
+            _disposeTokenSource.Cancel();
+            _stream.Dispose();
+
+            while (!_requests.IsEmpty)
+            {
+                foreach (var reqId in _requests.Keys.ToArray())
+                {
+                    if (_requests.TryRemove(reqId, out var req) && req != null)
+                    {
+                        req.TrySetException(ex);
+                    }
+                }
             }
         }
     }
