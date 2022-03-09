@@ -89,7 +89,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         appendColumns(desc.keyColumns(), byteBuf);
         appendColumns(desc.valueColumns(), byteBuf);
 
-        Column[] affinityCols = desc.affinityColumns();
+        Column[] affinityCols = desc.colocationColumns();
 
         byteBuf.putInt(affinityCols.length);
 
@@ -133,7 +133,7 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
                 + getColumnsSize(desc.keyColumns())
                 + getColumnsSize(desc.valueColumns())
                 + ARRAY_HEADER_LENGTH          //Affinity columns length
-                + getStringArraySize(desc.affinityColumns())
+                + getStringArraySize(desc.colocationColumns())
                 + getColumnMappingSize(desc.columnMapping(), desc.length());
     }
 

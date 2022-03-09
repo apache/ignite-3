@@ -48,7 +48,7 @@ public interface TableDefinition extends SchemaObject {
      *
      * @return List of columns.
      */
-    Set<String> affinityColumns();
+    List<String> colocationColumns();
 
     /**
      * Returns table columns in user-defined order.

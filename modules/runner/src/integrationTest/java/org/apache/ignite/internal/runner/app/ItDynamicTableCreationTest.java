@@ -353,7 +353,7 @@ class ItDynamicTableCreationTest {
                                     cols.create("1",
                                             col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
                                 })
-                                .changePrimaryKey(pk -> pk.changeAffinityColumns("key"))
+                                .changePrimaryKey(pk -> pk.changeColocationColumns("key"))
                                 .changeReplicas(1)
                                 .changePartitions(10)
                 );
@@ -381,7 +381,7 @@ class ItDynamicTableCreationTest {
 
                                     cols.create("1", col -> colChanger.accept(col.changeName("val").changeNullable(true)));
                                 })
-                                .changePrimaryKey(pk -> pk.changeColumns("key").changeAffinityColumns("key"))
+                                .changePrimaryKey(pk -> pk.changeColumns("key").changeColocationColumns("key"))
                                 .changeReplicas(1)
                                 .changePartitions(10)
                 );

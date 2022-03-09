@@ -98,12 +98,12 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
 
         Set<String> cols = Set.copyOf(columns);
 
-        Set<String> affCols;
+        List<String> affCols;
 
         if (CollectionUtils.nullOrEmpty(affinityColumns)) {
-            affCols = cols;
+            affCols = List.copyOf(columns);
         } else {
-            affCols = Set.copyOf(affinityColumns);
+            affCols = List.copyOf(affinityColumns);
 
             if (!cols.containsAll(affCols)) {
                 throw new IllegalStateException("Schema definition error: All affinity columns must be part of key.");

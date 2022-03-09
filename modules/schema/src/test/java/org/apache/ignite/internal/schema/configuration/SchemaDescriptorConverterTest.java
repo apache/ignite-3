@@ -57,7 +57,7 @@ public class SchemaDescriptorConverterTest {
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
-        assertEquals(2, tblDscr.affinityColumns().length);
+        assertEquals(2, tblDscr.colocationColumns().length);
         assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
 
@@ -77,7 +77,7 @@ public class SchemaDescriptorConverterTest {
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
-        assertEquals(1, tblDscr.affinityColumns().length);
+        assertEquals(1, tblDscr.colocationColumns().length);
         assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
 

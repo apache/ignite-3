@@ -42,13 +42,13 @@ public class PrimaryKeyDefinitionDefinitionBuilderTest {
         PrimaryKeyDefinition idx = builder.build();
 
         assertEquals(3, idx.columns().size());
-        assertEquals(1, idx.affinityColumns().size());
+        assertEquals(1, idx.colocationColumns().size());
 
         assertTrue(idx.columns().containsAll(List.of("A", "B", "C")));
-        assertTrue(idx.affinityColumns().contains("B"));
+        assertTrue(idx.colocationColumns().contains("B"));
 
-        assertFalse(idx.affinityColumns().contains("A"));
-        assertFalse(idx.affinityColumns().contains("C"));
+        assertFalse(idx.colocationColumns().contains("A"));
+        assertFalse(idx.colocationColumns().contains("C"));
     }
 
     /** Test primary key parameters. */
@@ -61,10 +61,10 @@ public class PrimaryKeyDefinitionDefinitionBuilderTest {
         PrimaryKeyDefinition idx = builder.build();
 
         assertEquals(3, idx.columns().size());
-        assertEquals(3, idx.affinityColumns().size());
+        assertEquals(3, idx.colocationColumns().size());
 
         assertTrue(idx.columns().containsAll(List.of("A", "B", "C")));
-        assertTrue(idx.affinityColumns().containsAll(List.of("A", "B", "C")));
+        assertTrue(idx.colocationColumns().containsAll(List.of("A", "B", "C")));
     }
 
     /** Test primary key parameters. */

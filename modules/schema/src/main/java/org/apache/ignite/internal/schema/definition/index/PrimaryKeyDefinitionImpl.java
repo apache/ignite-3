@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.definition.index;
 
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -31,21 +32,21 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
     @IgniteToStringInclude
     private final Set<String> columns;
 
-    /** Affinity columns. */
+    /** Colocation columns. */
     @IgniteToStringInclude
-    private final Set<String> affCols;
+    private final List<String> colocationColumns;
 
     /**
      * Constructor.
      *
      * @param columns         Index columns.
-     * @param affinityColumns Affinity columns.
+     * @param colocationColumns Colocation columns.
      */
-    public PrimaryKeyDefinitionImpl(Set<String> columns, Set<String> affinityColumns) {
+    public PrimaryKeyDefinitionImpl(Set<String> columns, List<String> colocationColumns) {
         super(PrimaryKeyDefinition.PRIMARY_KEY_NAME);
 
         this.columns = columns;
-        this.affCols = affinityColumns;
+        this.colocationColumns = colocationColumns;
     }
 
     /** {@inheritDoc} */
@@ -56,8 +57,8 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
 
     /** {@inheritDoc} */
     @Override
-    public Set<String> affinityColumns() {
-        return affCols;
+    public List<String> colocationColumns() {
+        return colocationColumns;
     }
 
     /** {@inheritDoc} */
@@ -66,6 +67,6 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
         return S.toString(PrimaryKeyDefinitionImpl.class, this,
                 "name", name(),
                 "cols", columns(),
-                "affCols", affinityColumns());
+                "colocationCols", colocationColumns());
     }
 }
