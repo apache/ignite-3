@@ -77,7 +77,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16292")
     @Test
     public void testCheckDefaultsAndNullables() {
-        sql("CREATE TABLE tbl(c1 int primary key, c2 int NOT NULL, c3 int NOT NULL DEFAULT 100)");
+        sql("CREATE TABLE tbl(c1 int PRIMARY KEY, c2 int NOT NULL, c3 int NOT NULL DEFAULT 100)");
 
         sql("INSERT INTO tbl(c1, c2) VALUES (1, 2)");
 
@@ -93,5 +93,67 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
         //todo: correct exception https://issues.apache.org/jira/browse/IGNITE-16095
         assertThrows(IgniteException.class, () -> sql("INSERT INTO tbl(c1, c2) VALUES (2, NULL)"));
+    }
+
+    /**
+     * Tests numeric types mapping on Java types.
+     */
+    @Test
+    public void testNumericRanges() {
+        try {
+            sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
+
+            sql("INSERT INTO tbl VALUES (1, " + Byte.MAX_VALUE + ", " + Short.MAX_VALUE + ", "
+                    + Integer.MAX_VALUE + ", " + Long.MAX_VALUE + ')');
+
+            assertQuery("SELECT tiny FROM tbl").returns(Byte.MAX_VALUE).check();
+            assertQuery("SELECT small FROM tbl").returns(Short.MAX_VALUE).check();
+            assertQuery("SELECT i FROM tbl").returns(Integer.MAX_VALUE).check();
+            assertQuery("SELECT big FROM tbl").returns(Long.MAX_VALUE).check();
+
+            sql("DELETE from tbl");
+
+            sql("INSERT INTO tbl VALUES (1, " + Byte.MIN_VALUE + ", " + Short.MIN_VALUE + ", "
+                    + Integer.MIN_VALUE + ", " + Long.MIN_VALUE + ')');
+
+            assertQuery("SELECT tiny FROM tbl").returns(Byte.MIN_VALUE).check();
+            assertQuery("SELECT small FROM tbl").returns(Short.MIN_VALUE).check();
+            assertQuery("SELECT i FROM tbl").returns(Integer.MIN_VALUE).check();
+            assertQuery("SELECT big FROM tbl").returns(Long.MIN_VALUE).check();
+        } finally {
+            sql("DROP TABLE if exists tbl");
+        }
+    }
+
+    /**
+     * Tests numeric type convertation on equals.
+     */
+    @Test
+    public void testNumericConvertingOnEquals() {
+        try {
+            sql("CREATE TABLE tbl(id int PRIMARY KEY, tiny TINYINT, small SMALLINT, i INTEGER, big BIGINT)");
+
+            sql("INSERT INTO tbl VALUES (-1, 1, 2, 3, 4), (0, 5, 5, 5, 5)");
+
+            assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.small)").returns((byte) 5).check();
+            assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.tiny)").returns((short) 5).check();
+
+            assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.i)").returns((byte) 5).check();
+            assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.tiny)").returns(5).check();
+
+            assertQuery("SELECT t1.tiny FROM tbl t1 JOIN tbl t2 ON (t1.tiny=t2.big)").returns((byte) 5).check();
+            assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.tiny)").returns(5L).check();
+
+            assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.i)").returns((short) 5).check();
+            assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.small)").returns(5).check();
+
+            assertQuery("SELECT t1.small FROM tbl t1 JOIN tbl t2 ON (t1.small=t2.big)").returns((short) 5).check();
+            assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.small)").returns(5L).check();
+
+            assertQuery("SELECT t1.i FROM tbl t1 JOIN tbl t2 ON (t1.i=t2.big)").returns(5).check();
+            assertQuery("SELECT t1.big FROM tbl t1 JOIN tbl t2 ON (t1.big=t2.i)").returns(5L).check();
+        } finally {
+            sql("DROP TABLE if exists tbl");
+        }
     }
 }

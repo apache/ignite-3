@@ -52,6 +52,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -115,6 +116,9 @@ public class InteropOperationsTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
         txManager.start();
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);

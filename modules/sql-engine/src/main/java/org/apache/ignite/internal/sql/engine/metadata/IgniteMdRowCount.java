@@ -20,9 +20,11 @@ package org.apache.ignite.internal.sql.engine.metadata;
 import static org.apache.calcite.util.NumberUtil.multiply;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.Minus;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdRowCount;
 import org.apache.calcite.rel.metadata.RelMdUtil;
@@ -36,7 +38,6 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
-import org.apache.ignite.internal.sql.engine.rel.set.IgniteSetOp;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,9 +65,16 @@ public class IgniteMdRowCount extends RelMdRowCount {
     }
 
     /**
-     * Estimation of row count for set op (MINUS, INTERSECT).
+     * Estimation of row count for Intersect operator.
      */
-    public double getRowCount(IgniteSetOp rel, RelMetadataQuery mq) {
+    @Override public Double getRowCount(Intersect rel, RelMetadataQuery mq) {
+        return rel.estimateRowCount(mq);
+    }
+
+    /**
+     * Estimation of row count for Minus operator.
+     */
+    @Override public Double getRowCount(Minus rel, RelMetadataQuery mq) {
         return rel.estimateRowCount(mq);
     }
 

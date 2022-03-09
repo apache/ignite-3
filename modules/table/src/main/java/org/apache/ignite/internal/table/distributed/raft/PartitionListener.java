@@ -34,7 +34,8 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.basic.BinarySearchRow;
+import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -564,11 +565,7 @@ public class PartitionListener implements RaftGroupListener {
      */
     @NotNull
     private static DataRow extractAndWrapKeyValue(@NotNull BinaryRow row) {
-        byte[] key = new byte[row.keySlice().capacity()];
-
-        row.keySlice().get(key);
-
-        return new SimpleDataRow(key, row.bytes());
+        return new DelegatingDataRow(new BinarySearchRow(row), row.bytes());
     }
 
     /**

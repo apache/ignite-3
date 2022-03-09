@@ -29,6 +29,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequ
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlFetchRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlPreparedStmntBatchRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlPrimaryKeyMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataRequest;
@@ -344,6 +345,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
+
+            case ClientOp.SQL_EXEC_PS_BATCH:
+                return ClientSqlPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_NEXT:
                 return ClientSqlFetchRequest.process(in, out, jdbcQueryEventHandler);

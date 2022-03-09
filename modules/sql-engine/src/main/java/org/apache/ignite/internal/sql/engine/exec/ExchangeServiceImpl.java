@@ -24,13 +24,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.sql.engine.QueryRegistry;
+import org.apache.ignite.internal.sql.engine.RunningQuery;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.InboxCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
-import org.apache.ignite.internal.sql.engine.message.OutboxCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchAcknowledgeMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
+import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
@@ -41,8 +43,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * ExchangeServiceImpl.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * ExchangeServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class ExchangeServiceImpl implements ExchangeService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExchangeServiceImpl.class);
@@ -57,27 +58,30 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private final MessageService msgSrvc;
 
+    private final QueryRegistry queryRegistry;
+
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ExchangeServiceImpl(
             String localNodeId,
             QueryTaskExecutor taskExecutor,
             MailboxRegistry mailboxRegistry,
-            MessageService msgSrvc
+            MessageService msgSrvc,
+            QueryRegistry queryRegistry
     ) {
         this.localNodeId = localNodeId;
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
+        this.queryRegistry = queryRegistry;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (OutboxCloseMessage) m), SqlQueryMessageGroup.OUTBOX_CLOSE_MESSAGE);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
         msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
         msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
@@ -116,13 +120,11 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public void closeOutbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException {
+    public void closeQuery(String nodeId, UUID qryId) throws IgniteInternalCheckedException {
         msgSrvc.send(
                 nodeId,
-                FACTORY.outboxCloseMessage()
+                FACTORY.queryCloseMessage()
                         .queryId(qryId)
-                        .fragmentId(fragmentId)
-                        .exchangeId(exchangeId)
                         .build()
         );
     }
@@ -175,23 +177,14 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    protected void onMessage(String nodeId, OutboxCloseMessage msg) {
-        Collection<Outbox<?>> outboxes = mailboxRegistry.outboxes(msg.queryId(), msg.fragmentId(), msg.exchangeId());
+    protected void onMessage(String nodeId, QueryCloseMessage msg) {
+        RunningQuery qry = queryRegistry.query(msg.queryId());
 
-        if (!nullOrEmpty(outboxes)) {
-            for (Outbox<?> outbox : outboxes) {
-                outbox.context().execute(outbox::close, outbox::onError);
-            }
-
-            for (Outbox<?> outbox : outboxes) {
-                outbox.context().execute(outbox.context()::cancel, outbox::onError);
-            }
-        } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale outbox cancel message received: ["
-                    + "nodeId=" + nodeId
-                    + ", queryId=" + msg.queryId()
-                    + ", fragmentId=" + msg.fragmentId()
-                    + ", exchangeId=" + msg.exchangeId() + "]");
+        if (qry != null) {
+            qry.cancel();
+        } else {
+            LOG.warn("Stale query close message received: ["
+                    + "nodeId=" + nodeId + ", queryId=" + msg.queryId() + "]");
         }
     }
 

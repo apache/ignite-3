@@ -539,7 +539,8 @@ public class Row implements BinaryRow, SchemaAware {
             chunkBaseOff = KEY_CHUNK_OFFSET;
 
             flags = keyFlags();
-        } else {        // Adjust the column index according to the number of key columns.
+        } else {
+            // Adjust the column index according to the number of key columns.
             if (!hasValue()) {
                 throw new IllegalStateException("Row has no value.");
             }
@@ -557,9 +558,9 @@ public class Row implements BinaryRow, SchemaAware {
             throw new InvalidTypeException("Invalid column type requested [requested=" + type + ", column=" + cols.column(colIdx) + ']');
         }
 
-        int nullMapLen = (flags & VarTableFormat.OMIT_NULL_MAP_FLAG) == 0 ? cols.nullMapSize() : 0;
+        int nullMapLen = cols.nullMapSize();
 
-        VarTableFormat format = (flags & VarTableFormat.OMIT_VARTBL_FLAG) == 0 ? VarTableFormat.fromFlags(flags) : null;
+        VarTableFormat format = VarTableFormat.fromFlags(flags);
 
         if (nullMapLen > 0 && isNull(chunkBaseOff, colIdx)) {
             return -1;
@@ -567,9 +568,7 @@ public class Row implements BinaryRow, SchemaAware {
 
         int dataOffset = varTableOffset(chunkBaseOff, nullMapLen);
 
-        if (format != null) {
-            dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
-        }
+        dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
 
         return type.fixedLength()
                 ? fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0) :
@@ -677,7 +676,7 @@ public class Row implements BinaryRow, SchemaAware {
             int off = cols.numberOfFixsizeColumns() == 0 ? dataOff
                     : fixedSizeColumnOffset(baseOff, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0);
 
-            long len = format != null
+            long len = format != VarTableFormat.SKIPPED
                     ?
                     // Length is either diff between current offset and next varlen offset or end-of-chunk.
                     dataOff + format.readVarlenOffset(row, varTableOffset(baseOff, nullMapLen), 0) - off :
@@ -724,7 +723,7 @@ public class Row implements BinaryRow, SchemaAware {
      * @return Vartable offset.
      */
     private int varTableOffset(int baseOff, int nullMapLen) {
-        return baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + nullMapLen;
+        return baseOff + BinaryRow.CHUNK_HEADER_SIZE + nullMapLen;
     }
 
     /**
@@ -738,7 +737,7 @@ public class Row implements BinaryRow, SchemaAware {
         int nullByte = idx >> 3; // Equivalent expression for: idx / 8
         int posInByte = idx & 7; // Equivalent expression for: idx % 8
 
-        int map = row.readByte(baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + nullByte) & 0xFF;
+        int map = row.readByte(baseOff + BinaryRow.CHUNK_HEADER_SIZE + nullByte) & 0xFF;
 
         return (map & (1 << posInByte)) != 0;
     }
@@ -749,10 +748,8 @@ public class Row implements BinaryRow, SchemaAware {
      *
      * @return Key flags.
      */
-    private int keyFlags() {
-        short flags = readShort(FLAGS_FIELD_OFFSET);
-
-        return (flags >> RowFlags.KEY_FLAGS_OFFSET) & RowFlags.CHUNK_FLAGS_MASK;
+    private byte keyFlags() {
+        return readByte(KEY_CHUNK_OFFSET + FLAGS_FIELD_OFFSET);
     }
 
     /**
@@ -761,10 +758,10 @@ public class Row implements BinaryRow, SchemaAware {
      *
      * @return Value flags.
      */
-    private int valueFlags() {
-        short flags = readShort(FLAGS_FIELD_OFFSET);
+    private byte valueFlags() {
+        int keyLen = readInteger(KEY_CHUNK_OFFSET);
 
-        return (flags >> RowFlags.VAL_FLAGS_OFFSET) & RowFlags.CHUNK_FLAGS_MASK;
+        return readByte(KEY_CHUNK_OFFSET + keyLen + FLAGS_FIELD_OFFSET);
     }
 
     /**
@@ -775,7 +772,7 @@ public class Row implements BinaryRow, SchemaAware {
      * @return Null-map offset.
      */
     int nullMapOffset(int baseOff) {
-        return baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE;
+        return baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + BinaryRow.FLAGS_FLD_SIZE;
     }
 
     /**

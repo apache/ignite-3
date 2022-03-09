@@ -21,23 +21,23 @@ import java.util.Collection;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Defines interface for condition which could be applied to an entry.
+ * Defines interface for boolean condition which could be applied to an array of entries.
  *
  * @see KeyValueStorage#invoke(Condition, Collection, Collection)
  */
 public interface Condition {
     /**
-     * Returns the key which identifies an entry which condition will applied to.
+     * Returns the keys which identifies an entries which condition will be applied to.
      *
-     * @return The key which identifies an entry which condition will applied to.
+     * @return The keys which identifies an entries which condition will be applied to.
      */
-    @NotNull byte[] key();
+    @NotNull byte[][] keys();
 
     /**
-     * Tests the given entry on condition.
+     * Tests the given entries on condition.
      *
-     * @param e Entry which will be tested on the condition. Can't be {@code null}.
-     * @return {@code True} if the given entry satisfies to the condition, otherwise - {@code false}.
+     * @param entries Array of entries which will be tested on the condition. Can't be {@code null}.
+     * @return {@code True} if the given entries satisfies to the condition, otherwise - {@code false}.
      */
-    boolean test(@NotNull Entry e);
+    boolean test(@NotNull Entry... entries);
 }

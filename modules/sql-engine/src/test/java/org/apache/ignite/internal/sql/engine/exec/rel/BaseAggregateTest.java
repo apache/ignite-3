@@ -371,7 +371,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest {
         };
 
         if (mustFail) {
-            assertThrowsWithCause(r, IllegalArgumentException.class);
+            assertThrowsWithCause(r::run, IllegalArgumentException.class);
         } else {
             r.run();
         }

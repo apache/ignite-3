@@ -23,7 +23,6 @@ import java.util.LinkedList;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
-import org.apache.ignite.internal.sql.engine.rel.IgniteGateway;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -102,12 +101,6 @@ public class Splitter extends IgniteRelShuttle {
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableScan rel) {
-        return rel.clone(IdGenerator.nextId());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public IgniteRel visit(IgniteGateway rel) {
         return rel.clone(IdGenerator.nextId());
     }
 

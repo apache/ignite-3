@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -95,6 +96,8 @@ public class StopCalciteModuleTest {
 
     SchemaRegistry schemaReg;
 
+    TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
+
     /**
      * Before.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -110,12 +113,12 @@ public class StopCalciteModuleTest {
         when(topologySrvc.allMembers()).thenReturn(Collections.singleton(node));
 
         SchemaDescriptor schemaDesc = new SchemaDescriptor(
-                0,
+                1,
                 new Column[]{new Column(0, "ID", NativeTypes.INT32, false)},
                 new Column[]{new Column(1, "VAL", NativeTypes.INT32, false)}
         );
 
-        schemaReg = new SchemaRegistryImpl(0, (v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION);
+        schemaReg = new SchemaRegistryImpl(1, (v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION);
 
         when(tbl.name()).thenReturn("PUBLIC.TEST");
 
@@ -123,7 +126,7 @@ public class StopCalciteModuleTest {
         doAnswer(invocation -> {
             EventListener<TableEventParameters> clo = (EventListener<TableEventParameters>) invocation.getArguments()[1];
 
-            clo.notify(new TableEventParameters(UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
+            clo.notify(new TableEventParameters(0, UUID.randomUUID(), "TEST", new TableImpl(tbl, schemaReg)),
                     null);
 
             return null;
@@ -168,11 +171,13 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(clusterSrvc, tableManager);
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(testRevisionRegister, clusterSrvc, tableManager);
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 
         qryProc.start();
+
+        testRevisionRegister.moveRevision.accept(0L);
 
         List<SqlCursor<List<?>>> cursors = qryProc.query(
                 "PUBLIC",
@@ -214,6 +219,23 @@ public class StopCalciteModuleTest {
         return Arrays.stream(infos)
                 .anyMatch((ti) -> ti.getThreadName().contains(nodeName));
     }
+
+    /**
+     * Test revision register.
+     */
+    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+
+        /** Revision consumer. */
+        Consumer<Long> moveRevision;
+
+        /** {@inheritDoc} */
+        @Override
+        public void accept(Consumer<Long> consumer) {
+            if (moveRevision == null) {
+                moveRevision = consumer;
+            } else {
+                moveRevision = moveRevision.andThen(consumer);
+            }
+        }
+    }
 }
-
-

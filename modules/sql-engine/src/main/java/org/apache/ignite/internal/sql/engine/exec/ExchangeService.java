@@ -66,10 +66,8 @@ public interface ExchangeService extends LifecycleAware {
      *
      * @param nodeId     Target node ID.
      * @param qryId      Query ID.
-     * @param fragmentId Target fragment ID.
-     * @param exchangeId Exchange ID.
      */
-    void closeOutbox(String nodeId, UUID qryId, long fragmentId, long exchangeId) throws IgniteInternalCheckedException;
+    void closeQuery(String nodeId, UUID qryId) throws IgniteInternalCheckedException;
 
     /**
      * Send error.

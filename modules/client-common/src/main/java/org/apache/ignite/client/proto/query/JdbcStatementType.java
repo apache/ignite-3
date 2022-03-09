@@ -17,29 +17,54 @@
 
 package org.apache.ignite.client.proto.query;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 /**
  * JDBC statement type.
  */
 public enum JdbcStatementType {
     /** Any statement type. */
-    ANY_STATEMENT_TYPE,
+    ANY_STATEMENT_TYPE((byte) 0),
 
     /** Select statement type. */
-    SELECT_STATEMENT_TYPE,
+    SELECT_STATEMENT_TYPE((byte) 1),
 
     /** DML / DDL statement type. */
-    UPDATE_STMT_TYPE;
+    UPDATE_STATEMENT_TYPE((byte) 2);
 
-    /** Enumerated values. */
-    private static final JdbcStatementType[] VALS = values();
+    private static final Map<Byte, JdbcStatementType> STATEMENT_TYPE_IDX;
+
+    static {
+        STATEMENT_TYPE_IDX = Arrays.stream(values()).collect(
+                Collectors.toMap(JdbcStatementType::getId, Function.identity()));
+    }
 
     /**
-     * Efficiently gets enumerated value from its ordinal.
+     * Gets statement type value by its id.
      *
-     * @param ord Ordinal value.
-     * @return Enumerated value or {@code null} if ordinal out of range.
+     * @param id The id.
+     * @return JdbcStatementType value.
+     * @throws IllegalArgumentException If statement is not found.
      */
-    public static JdbcStatementType fromOrdinal(int ord) {
-        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
+    public static JdbcStatementType getStatement(byte id) {
+        JdbcStatementType value = STATEMENT_TYPE_IDX.get(id);
+
+        Objects.requireNonNull(value, String.format("Unknown jdbcStatementType %s", id));
+
+        return value;
+    }
+
+    private final byte id;
+
+    JdbcStatementType(byte id) {
+        this.id = id;
+    }
+
+    public byte getId() {
+        return id;
     }
 }

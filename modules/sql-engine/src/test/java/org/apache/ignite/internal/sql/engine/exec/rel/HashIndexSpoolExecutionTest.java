@@ -67,6 +67,11 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
                                     null,
                                     new Object[]{size / 2 + 1, null, null},
                                     eqCnt
+                            ),
+                            new TestParams(
+                                    r -> ((int) r[2]) == 0,
+                                    new Object[] {size / 2 + 1, null, null},
+                                    1
                             )
                     };
                 }
@@ -98,6 +103,7 @@ public class HashIndexSpoolExecutionTest extends AbstractExecutionTest {
                         ctx,
                         rowType,
                         ImmutableBitSet.of(0),
+                        testFilter,
                         () -> searchRow
                 );
 

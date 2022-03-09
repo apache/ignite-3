@@ -41,6 +41,7 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -120,11 +121,9 @@ class RocksDbPartitionStorage implements PartitionStorage {
     @Nullable
     public DataRow read(SearchRow key) throws StorageException {
         try {
-            byte[] keyBytes = key.keyBytes();
+            byte[] valueBytes = data.get(partitionKey(key));
 
-            byte[] valueBytes = data.get(partitionKey(keyBytes));
-
-            return valueBytes == null ? null : new SimpleDataRow(keyBytes, valueBytes);
+            return valueBytes == null ? null : new DelegatingDataRow(key, valueBytes);
         } catch (RocksDBException e) {
             throw new StorageException("Failed to read data from the storage", e);
         }
@@ -151,7 +150,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
             byte[] value = values.get(i);
 
             if (value != null) {
-                res.add(new SimpleDataRow(keys.get(i).keyBytes(), value));
+                res.add(new DelegatingDataRow(keys.get(i), value));
             }
         }
 
@@ -166,7 +165,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
 
             assert value != null;
 
-            data.put(partitionKey(row.keyBytes()), value);
+            data.put(partitionKey(row), value);
         } catch (RocksDBException e) {
             throw new StorageException("Filed to write data to the storage", e);
         }
@@ -182,7 +181,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
 
                 assert value != null;
 
-                data.put(batch, partitionKey(row.keyBytes()), value);
+                data.put(batch, partitionKey(row), value);
             }
 
             db.write(opts, batch);
@@ -200,7 +199,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
                 var opts = new WriteOptions()) {
 
             for (DataRow row : rows) {
-                byte[] partitionKey = partitionKey(row.keyBytes());
+                byte[] partitionKey = partitionKey(row);
 
                 if (data.get(partitionKey) == null) {
                     byte[] value = row.valueBytes();
@@ -225,7 +224,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
     @Override
     public void remove(SearchRow key) throws StorageException {
         try {
-            data.delete(partitionKey(key.keyBytes()));
+            data.delete(partitionKey(key));
         } catch (RocksDBException e) {
             throw new StorageException("Failed to remove data from the storage", e);
         }
@@ -240,7 +239,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
                 var opts = new WriteOptions()) {
 
             for (SearchRow key : keys) {
-                byte[] partitionKey = partitionKey(key.keyBytes());
+                byte[] partitionKey = partitionKey(key);
 
                 byte[] value = data.get(partitionKey);
 
@@ -297,13 +296,11 @@ class RocksDbPartitionStorage implements PartitionStorage {
     @Override
     public <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
         try {
-            byte[] keyBytes = key.keyBytes();
-
-            byte[] partitionKey = partitionKey(keyBytes);
+            byte[] partitionKey = partitionKey(key);
 
             byte[] existingDataBytes = data.get(partitionKey);
 
-            clo.call(existingDataBytes == null ? null : new SimpleDataRow(keyBytes, existingDataBytes));
+            clo.call(existingDataBytes == null ? null : new DelegatingDataRow(key, existingDataBytes));
 
             switch (clo.operationType()) {
                 case WRITE:
@@ -494,14 +491,27 @@ class RocksDbPartitionStorage implements PartitionStorage {
      * Creates a key used in this partition storage by prepending a partition ID (to distinguish between different partition data)
      * and the key's hash (an optimisation).
      */
-    private byte[] partitionKey(byte[] key) {
-        return ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + key.length)
+    private byte[] partitionKey(SearchRow key) {
+        ByteBuffer keyBuffer = key.key();
+
+        return ByteBuffer.allocate(PARTITION_KEY_PREFIX_SIZE + keyBuffer.limit())
                 .order(ByteOrder.BIG_ENDIAN)
                 .putShort((short) partId)
                 // TODO: use precomputed hash, see https://issues.apache.org/jira/browse/IGNITE-16370
-                .putInt(Arrays.hashCode(key))
-                .put(key)
+                .putInt(hashCode(keyBuffer))
+                .put(keyBuffer)
                 .array();
+    }
+
+    /**
+     * Returns byte buffer hash that matches corresponging array hash.
+     */
+    private int hashCode(ByteBuffer buf) {
+        int result = 1;
+        for (int i = buf.position(); i < buf.limit(); i++) {
+            result = 31 * result + buf.get(i);
+        }
+        return result;
     }
 
     /**
@@ -514,7 +524,7 @@ class RocksDbPartitionStorage implements PartitionStorage {
         List<byte[]> keys = new ArrayList<>(keyValues.size());
 
         for (SearchRow keyValue : keyValues) {
-            keys.add(partitionKey(keyValue.keyBytes()));
+            keys.add(partitionKey(keyValue));
         }
 
         return keys;

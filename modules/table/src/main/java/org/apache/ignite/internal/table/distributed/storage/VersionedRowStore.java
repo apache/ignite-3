@@ -33,7 +33,7 @@ import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
-import org.apache.ignite.internal.storage.basic.SimpleDataRow;
+import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -492,7 +492,7 @@ public class VersionedRowStore {
         buf.putLong(value.timestamp.getTimestamp());
         buf.putLong(value.timestamp.getNodeId());
 
-        return new SimpleDataRow(key.keyBytes(), buf.array());
+        return new DelegatingDataRow(key, buf.array());
     }
 
     /**
