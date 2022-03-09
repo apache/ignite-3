@@ -56,6 +56,9 @@ namespace Apache.Ignite.Tests
             await client.Tables.GetTablesAsync();
 
             Assert.CatchAsync(async () => await client.Tables.GetTablesAsync());
+
+            // Reconnect by FailoverSocket logic.
+            await client.Tables.GetTablesAsync();
         }
     }
 }
