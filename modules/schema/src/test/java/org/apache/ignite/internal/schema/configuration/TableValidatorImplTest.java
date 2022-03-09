@@ -64,7 +64,7 @@ public class TableValidatorImplTest {
             value = "mock.tables.table {\n"
             + "    name = schema.table,\n"
             + "    columns.id {name = id, type.type = STRING, nullable = true},\n"
-            + "    primaryKey {columns = [id], affinityColumns = [id]},\n"
+            + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
             + "    indices.foo {type = HASH, name = foo, colNames = [id]}"
             + "}",
             polymorphicExtensions = {
