@@ -64,9 +64,6 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"node\": {\n"
-            + "    \"metastorageNodes\":[ {} ]\n"
-            + "  },\n"
             + "  \"network\": {\n"
             + "    \"port\":{},\n"
             + "    \"nodeFinder\":{\n"
@@ -85,24 +82,23 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     /**
      * Before all.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      */
     @BeforeAll
-    void startNodes(TestInfo testInfo) {
-        //TODO: IGNITE-16034 Here we assume that Metastore consists into one node, and it starts at first.
-        String metastorageNodes = '\"' + IgniteTestUtils.testNodeName(testInfo, 0) + '\"';
-
+    void startNodes(TestInfo testInfo) throws Exception {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         for (int i = 0; i < nodes(); i++) {
             String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
 
-            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
-                    metastorageNodes,
-                    BASE_PORT + i,
-                    connectNodeAddr
-            ), WORK_DIR.resolve(curNodeName)));
+            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
+
+            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, config, WORK_DIR.resolve(curNodeName)));
         }
+
+        IgniteImpl metastorageNode = (IgniteImpl) CLUSTER_NODES.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
     }
 
     /**

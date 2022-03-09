@@ -29,10 +29,12 @@ import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -41,6 +43,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +51,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Test for baseline changes.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16471")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItBaselineChangesTest {
     /** Start network port for test nodes. */
@@ -66,24 +70,11 @@ public class ItBaselineChangesTest {
      */
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        String node0Name = testNodeName(testInfo, BASE_PORT);
-        String node1Name = testNodeName(testInfo, BASE_PORT + 1);
-        String node2Name = testNodeName(testInfo, BASE_PORT + 2);
+        for (int i = 0; i < 3; ++i) {
+            String nodeName = testNodeName(testInfo, BASE_PORT + i);
 
-        initClusterNodes.put(
-                node0Name,
-                buildConfig(node0Name, 0)
-        );
-
-        initClusterNodes.put(
-                node1Name,
-                buildConfig(node0Name, 1)
-        );
-
-        initClusterNodes.put(
-                node2Name,
-                buildConfig(node0Name, 2)
-        );
+            initClusterNodes.put(nodeName, buildConfig(i));
+        }
     }
 
     /**
@@ -98,12 +89,16 @@ public class ItBaselineChangesTest {
      * Check dynamic table creation.
      */
     @Test
-    void testBaselineExtending(TestInfo testInfo) {
+    void testBaselineExtending(TestInfo testInfo) throws NodeStoppingException {
         initClusterNodes.forEach((nodeName, configStr) ->
                 clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
         assertEquals(3, clusterNodes.size());
+
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
 
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -129,13 +124,11 @@ public class ItBaselineChangesTest {
         var node4Name = testNodeName(testInfo, nodePort(4));
 
         // Start 2 new nodes after
-        var node3 = IgnitionManager.start(
-                node3Name, buildConfig(metaStoreNode.name(), 3), workDir.resolve(node3Name));
+        var node3 = IgnitionManager.start(node3Name, buildConfig(3), workDir.resolve(node3Name));
 
         clusterNodes.add(node3);
 
-        var node4 = IgnitionManager.start(
-                node4Name, buildConfig(metaStoreNode.name(), 4), workDir.resolve(node4Name));
+        var node4 = IgnitionManager.start(node4Name, buildConfig(4), workDir.resolve(node4Name));
 
         clusterNodes.add(node4);
 
@@ -147,14 +140,13 @@ public class ItBaselineChangesTest {
 
         Table tbl4 = node4.tables().table(schTbl1.canonicalName());
 
-        final Tuple keyTuple1 = Tuple.create().set("key", 1L);
+        Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
         assertEquals(1, (Long) tbl4.recordView().get(null, keyTuple1).value("key"));
     }
 
-    private String buildConfig(String metastoreNodeName, int nodeIdx) {
+    private static String buildConfig(int nodeIdx) {
         return "{\n"
-                + "  node.metastorageNodes: [ \"" + metastoreNodeName + "\" ],\n"
                 + "  network: {\n"
                 + "    port: " + nodePort(nodeIdx) + ",\n"
                 + "    nodeFinder: {\n"
@@ -164,7 +156,7 @@ public class ItBaselineChangesTest {
                 + "}";
     }
 
-    private int nodePort(int nodeIdx) {
+    private static int nodePort(int nodeIdx) {
         return BASE_PORT + nodeIdx;
     }
 }

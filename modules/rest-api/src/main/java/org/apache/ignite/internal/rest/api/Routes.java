@@ -80,4 +80,17 @@ public interface Routes {
         addRoute(new Route(route, HttpMethod.PATCH, acceptType, hnd));
         return this;
     }
+
+    /**
+     * Adds a POST handler.
+     *
+     * @param route      Route.
+     * @param acceptType Accept type.
+     * @param hnd        Actual handler of the request.
+     * @return Router
+     */
+    default Routes post(String route, String acceptType, RequestHandler hnd) {
+        addRoute(new Route(route, HttpMethod.POST, acceptType, hnd));
+        return this;
+    }
 }

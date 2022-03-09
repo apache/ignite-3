@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.is;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
@@ -45,11 +44,6 @@ class CoreDistributedConfigurationModuleTest {
     @Test
     void typeIsDistributed() {
         assertThat(module.type(), is(DISTRIBUTED));
-    }
-
-    @Test
-    void hasClusterConfigurationRoot() {
-        assertThat(module.rootKeys(), hasItem(ClusterConfiguration.KEY));
     }
 
     @Test

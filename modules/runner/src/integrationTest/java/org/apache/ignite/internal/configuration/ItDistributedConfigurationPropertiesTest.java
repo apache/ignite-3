@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.configuration;
 
-import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,6 +26,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -39,14 +38,14 @@ import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
-import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -80,15 +79,13 @@ public class ItDistributedConfigurationPropertiesTest {
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
     private static class Node {
-        private final List<String> metaStorageNodes;
-
         private final VaultManager vaultManager;
 
         private final ClusterService clusterService;
 
         private final Loza raftManager;
 
-        private final ConfigurationManager cfgManager;
+        private final ClusterManagementGroupManager cmgManager;
 
         private final MetaStorageManager metaStorageManager;
 
@@ -104,11 +101,8 @@ public class ItDistributedConfigurationPropertiesTest {
                 TestInfo testInfo,
                 Path workDir,
                 NetworkAddress addr,
-                List<NetworkAddress> memberAddrs,
-                List<String> metaStorageNodes
+                List<NetworkAddress> memberAddrs
         ) {
-            this.metaStorageNodes = metaStorageNodes;
-
             vaultManager = new VaultManager(new InMemoryVaultService());
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -120,18 +114,12 @@ public class ItDistributedConfigurationPropertiesTest {
 
             raftManager = new Loza(clusterService, workDir);
 
-            cfgManager = new ConfigurationManager(
-                    List.of(NodeConfiguration.KEY),
-                    Map.of(),
-                    new LocalConfigurationStorage(vaultManager),
-                    List.of(),
-                    List.of()
-            );
+            cmgManager = new ClusterManagementGroupManager(clusterService, raftManager, mock(RestComponent.class));
 
             metaStorageManager = new MetaStorageManager(
                     vaultManager,
-                    cfgManager,
                     clusterService,
+                    cmgManager,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage()
             );
@@ -166,26 +154,13 @@ public class ItDistributedConfigurationPropertiesTest {
         void start() throws Exception {
             vaultManager.start();
 
-            cfgManager.start();
-
-            // metastorage configuration
-            String metaStorageCfg = metaStorageNodes.stream()
-                    .map(Object::toString)
-                    .collect(joining("\", \"", "\"", "\""));
-
-            var config = String.format("{ node: { metastorageNodes : [ %s ] } }", metaStorageCfg);
-
-            cfgManager.bootstrap(config);
-
-            Stream.of(clusterService, raftManager, metaStorageManager)
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
                     .forEach(IgniteComponent::start);
 
             // deploy watches to propagate data from the metastore into the vault
             metaStorageManager.deployWatches();
 
             distributedCfgManager.start();
-
-            distributedCfgManager.configurationRegistry().initializeDefaults();
         }
 
         /**
@@ -193,7 +168,7 @@ public class ItDistributedConfigurationPropertiesTest {
          */
         void stop() throws Exception {
             var components = List.of(
-                    distributedCfgManager, metaStorageManager, raftManager, clusterService, cfgManager, vaultManager
+                    distributedCfgManager, cmgManager, metaStorageManager, raftManager, clusterService, vaultManager
             );
 
             for (IgniteComponent igniteComponent : components) {
@@ -211,6 +186,10 @@ public class ItDistributedConfigurationPropertiesTest {
         void stopReceivingUpdates() {
             receivesUpdates = false;
         }
+
+        String name() {
+            return clusterService.topologyService().localMember().name();
+        }
     }
 
     private Node firstNode;
@@ -224,28 +203,28 @@ public class ItDistributedConfigurationPropertiesTest {
     void setUp(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
         var firstNodeAddr = new NetworkAddress("localhost", 10000);
 
-        String firstNodeName = testNodeName(testInfo, firstNodeAddr.port());
-
         var secondNodeAddr = new NetworkAddress("localhost", 10001);
+
+        List<NetworkAddress> allNodes = List.of(firstNodeAddr, secondNodeAddr);
 
         firstNode = new Node(
                 testInfo,
                 workDir.resolve("firstNode"),
                 firstNodeAddr,
-                List.of(firstNodeAddr, secondNodeAddr),
-                List.of(firstNodeName)
+                allNodes
         );
 
         secondNode = new Node(
                 testInfo,
                 workDir.resolve("secondNode"),
                 secondNodeAddr,
-                List.of(firstNodeAddr, secondNodeAddr),
-                List.of(firstNodeName)
+                allNodes
         );
 
         firstNode.start();
         secondNode.start();
+
+        firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of());
     }
 
     /**

@@ -349,4 +349,3 @@ public interface MetaStorageService {
     @NotNull
     CompletableFuture<Void> closeCursors(@NotNull String nodeId);
 }
-

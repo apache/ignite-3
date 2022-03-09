@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -17,27 +17,14 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.example.ExampleTestUtils;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * These tests check that all SQL JDBC examples pass correctly.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class SqlExamplesTest {
-    /** Empty argument to invoke an example. */
-    protected static final String[] EMPTY_ARGS = new String[0];
-
+public class ItSqlExamplesTest extends AbstractExamplesTest {
     /**
      * Runs SqlJdbcExample and checks its output.
      *
@@ -61,40 +48,5 @@ public class SqlExamplesTest {
                         + "    Mary, Major, Denver\n"
                         + "    Richard, Miles, St. Petersburg\n"
         );
-    }
-
-    /**
-     * Start node.
-     *
-     * @param workDir Work directory for the started node. Must not be {@code null}.
-     */
-    @BeforeEach
-    public void startNode(@WorkDirectory Path workDir) throws IOException {
-        IgnitionManager.start(
-                "my-first-node",
-                Files.readString(Path.of("config", "ignite-config.json")),
-                workDir
-        );
-    }
-
-    /**
-     * Stop node.
-     */
-    @AfterEach
-    public void stopNode() {
-        IgnitionManager.stop("my-first-node");
-    }
-
-    /**
-     * Removes a work directory created by {@link SqlExamplesTest}.
-     */
-    @BeforeEach
-    @AfterEach
-    public void removeWorkDir() {
-        Path workDir = Path.of("work");
-
-        if (Files.exists(workDir)) {
-            IgniteUtils.deleteIfExists(workDir);
-        }
     }
 }

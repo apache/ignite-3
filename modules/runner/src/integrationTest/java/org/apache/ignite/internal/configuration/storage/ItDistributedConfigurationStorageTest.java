@@ -19,11 +19,11 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.metastorage.MetaStorageManager.APPLIED_REV;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.mock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -31,19 +31,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterService;
@@ -64,19 +59,13 @@ public class ItDistributedConfigurationStorageTest {
      * An emulation of an Ignite node, that only contains components necessary for tests.
      */
     private static class Node {
-        private final String name;
-
         private final VaultManager vaultManager;
 
         private final ClusterService clusterService;
 
-        private final LockManager lockManager;
-
-        private final TxManager txManager;
+        private final ClusterManagementGroupManager cmgManager;
 
         private final Loza raftManager;
-
-        private final ConfigurationManager cfgManager;
 
         private final MetaStorageManager metaStorageManager;
 
@@ -88,8 +77,6 @@ public class ItDistributedConfigurationStorageTest {
         Node(TestInfo testInfo, Path workDir) {
             var addr = new NetworkAddress("localhost", 10000);
 
-            name = testNodeName(testInfo, addr.port());
-
             vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -99,26 +86,14 @@ public class ItDistributedConfigurationStorageTest {
                     new TestScaleCubeClusterServiceFactory()
             );
 
-            lockManager = new HeapLockManager();
-
             raftManager = new Loza(clusterService, workDir);
 
-            txManager = new TableTxManagerImpl(clusterService, lockManager);
-
-            List<RootKey<?, ?>> rootKeys = List.of(NodeConfiguration.KEY);
-
-            cfgManager = new ConfigurationManager(
-                    rootKeys,
-                    Map.of(),
-                    new LocalConfigurationStorage(vaultManager),
-                    List.of(),
-                    List.of()
-            );
+            cmgManager = new ClusterManagementGroupManager(clusterService, raftManager, mock(RestComponent.class));
 
             metaStorageManager = new MetaStorageManager(
                     vaultManager,
-                    cfgManager,
                     clusterService,
+                    cmgManager,
                     raftManager,
                     new SimpleInMemoryKeyValueStorage()
             );
@@ -132,14 +107,7 @@ public class ItDistributedConfigurationStorageTest {
         void start() throws Exception {
             vaultManager.start();
 
-            cfgManager.start();
-
-            // metastorage configuration
-            var config = String.format("{\"node\": {\"metastorageNodes\": [ \"%s\" ]}}", name);
-
-            cfgManager.bootstrap(config);
-
-            Stream.of(clusterService, raftManager, txManager, metaStorageManager).forEach(IgniteComponent::start);
+            Stream.of(clusterService, raftManager, cmgManager, metaStorageManager).forEach(IgniteComponent::start);
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> completedFuture(null));
@@ -153,7 +121,7 @@ public class ItDistributedConfigurationStorageTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(metaStorageManager, raftManager, txManager, clusterService, cfgManager, vaultManager);
+                    List.of(metaStorageManager, cmgManager, raftManager, clusterService, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();
@@ -162,6 +130,10 @@ public class ItDistributedConfigurationStorageTest {
             for (IgniteComponent component : components) {
                 component.stop();
             }
+        }
+
+        String name() {
+            return clusterService.topologyService().localMember().name();
         }
     }
 
@@ -179,6 +151,8 @@ public class ItDistributedConfigurationStorageTest {
 
         try {
             node.start();
+
+            node.cmgManager.initCluster(List.of(node.name()), List.of());
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
 
