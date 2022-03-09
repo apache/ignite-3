@@ -112,6 +112,11 @@ namespace Apache.Ignite.Tests
                     msgSize = ReceiveMessageSize(handler);
                     var msg = ReceiveBytes(handler, msgSize);
 
+                    if (++requestCount > _requestCountBeforeClientDrop)
+                    {
+                        break;
+                    }
+
                     // Assume fixint8.
                     var opCode = (ClientOp)msg[0];
                     var requestId = msg[1];
@@ -126,11 +131,6 @@ namespace Apache.Ignite.Tests
                         // Fake error message for any other op code.
                         handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
                         handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)'F', (byte)'A', (byte)'K', (byte)'E', });
-                    }
-
-                    if (++requestCount >= _requestCountBeforeClientDrop)
-                    {
-                        break;
                     }
                 }
 
