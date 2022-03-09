@@ -271,19 +271,19 @@ public class MessageImplGenerator {
 
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
-                        isNeeded = generateUnmarshalObjectArray((ArrayType) type, prepareMarshal, objectName,
+                        isNeeded = generateObjectArrayHandler((ArrayType) type, prepareMarshal, objectName,
                                 "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     case COLLECTION:
-                        isNeeded = generateUnmarshalCollection((DeclaredType) type, prepareMarshal, objectName,
+                        isNeeded = generateCollectionHandler((DeclaredType) type, prepareMarshal, objectName,
                                 "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     case MESSAGE:
-                        isNeeded = generateUnmarshalMessage(prepareMarshal, objectName,
+                        isNeeded = generateMessageHandler(prepareMarshal, objectName,
                             "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     case MAP:
-                        isNeeded = generateUnmarshalMap(prepareMarshal, (DeclaredType) type, objectName,
+                        isNeeded = generateMapHandler(prepareMarshal, (DeclaredType) type, objectName,
                             "prepareMarshal(usedDescriptors, marshaller)") || isNeeded;
                         break;
                     default:
@@ -295,19 +295,6 @@ public class MessageImplGenerator {
         if (isNeeded) {
             messageImplBuild.addMethod(prepareMarshal.build());
         }
-    }
-
-    private boolean generateUnmarshalCollection(DeclaredType type, Builder prepareMarshal, String objectName, String format) {
-        TypeMirror elementType = type.getTypeArguments().get(0);
-        if (typeUtils.isSubType(elementType, NetworkMessage.class)) {
-            prepareMarshal.beginControlFlow("if ($N != null)", objectName);
-            prepareMarshal.beginControlFlow("for ($T obj : $N)", elementType, objectName);
-            prepareMarshal.addStatement("if (obj != null) obj." + format, objectName);
-            prepareMarshal.endControlFlow();
-            prepareMarshal.endControlFlow().addCode("\n");
-            return true;
-        }
-        return false;
     }
 
     private void generateUnmarshalMethod(TypeSpec.Builder messageImplBuild, MessageClass message) {
@@ -347,19 +334,19 @@ public class MessageImplGenerator {
 
                 switch (objectType.get()) {
                     case OBJECT_ARRAY:
-                        isNeeded = generateUnmarshalObjectArray((ArrayType) type, unmarshal, objectName,
+                        isNeeded = generateObjectArrayHandler((ArrayType) type, unmarshal, objectName,
                                 "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     case COLLECTION:
-                        isNeeded = generateUnmarshalCollection((DeclaredType) type, unmarshal, objectName,
+                        isNeeded = generateCollectionHandler((DeclaredType) type, unmarshal, objectName,
                                 "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     case MESSAGE:
-                        isNeeded = generateUnmarshalMessage(unmarshal, objectName,
+                        isNeeded = generateMessageHandler(unmarshal, objectName,
                                 "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     case MAP:
-                        isNeeded = generateUnmarshalMap(unmarshal, (DeclaredType) type, objectName,
+                        isNeeded = generateMapHandler(unmarshal, (DeclaredType) type, objectName,
                             "unmarshal(marshaller, descriptorRegistry)") || isNeeded;
                         break;
                     default:
@@ -373,7 +360,38 @@ public class MessageImplGenerator {
         }
     }
 
-    private boolean generateUnmarshalMap(Builder unmarshal, DeclaredType type, String objectName, String format) {
+    private boolean generateObjectArrayHandler(ArrayType type, Builder methodBuilder, String objectName, String code) {
+        TypeMirror componentType = type.getComponentType();
+        if (typeUtils.isSubType(componentType, NetworkMessage.class)) {
+            methodBuilder.beginControlFlow("if ($N != null)", objectName);
+            methodBuilder.beginControlFlow("for ($T obj : $N)", componentType, objectName);
+            methodBuilder.addStatement("if (obj != null) obj." + code);
+            methodBuilder.endControlFlow();
+            methodBuilder.endControlFlow().addCode("\n");
+            return true;
+        }
+        return false;
+    }
+
+    private boolean generateCollectionHandler(DeclaredType type, Builder methodBuilder, String objectName, String code) {
+        TypeMirror elementType = type.getTypeArguments().get(0);
+        if (typeUtils.isSubType(elementType, NetworkMessage.class)) {
+            methodBuilder.beginControlFlow("if ($N != null)", objectName);
+            methodBuilder.beginControlFlow("for ($T obj : $N)", elementType, objectName);
+            methodBuilder.addStatement("if (obj != null) obj." + code, objectName);
+            methodBuilder.endControlFlow();
+            methodBuilder.endControlFlow().addCode("\n");
+            return true;
+        }
+        return false;
+    }
+
+    private boolean generateMessageHandler(Builder methodBuilder, String objectName, String code) {
+        methodBuilder.addStatement("if ($N != null) $N." + code, objectName, objectName);
+        return true;
+    }
+
+    private boolean generateMapHandler(Builder methodBuilder, DeclaredType type, String objectName, String code) {
         TypeMirror keyType = type.getTypeArguments().get(0);
         boolean keyIsMessage = typeUtils.isSubType(keyType, NetworkMessage.class);
         TypeMirror valueType = type.getTypeArguments().get(1);
@@ -388,37 +406,19 @@ public class MessageImplGenerator {
             ParameterizedTypeName entrySetType = ParameterizedTypeName.get(ClassName.get(Set.class), entryType);
             String entrySetName = objectName + "EntrySet";
 
-            unmarshal.beginControlFlow("if ($N != null)", objectName);
-            unmarshal.addStatement("$T $N = $N.entrySet()", entrySetType, entrySetName, objectName);
-            unmarshal.beginControlFlow("for ($T entry : $N)", entryType, entrySetName);
-            unmarshal.addStatement("$T key = entry.getKey()", keyType);
-            unmarshal.addStatement("$T value = entry.getValue()", valueType);
+            methodBuilder.beginControlFlow("if ($N != null)", objectName);
+            methodBuilder.addStatement("$T $N = $N.entrySet()", entrySetType, entrySetName, objectName);
+            methodBuilder.beginControlFlow("for ($T entry : $N)", entryType, entrySetName);
+            methodBuilder.addStatement("$T key = entry.getKey()", keyType);
+            methodBuilder.addStatement("$T value = entry.getValue()", valueType);
             if (keyIsMessage) {
-                unmarshal.addStatement("if (key != null) key." + format);
+                methodBuilder.addStatement("if (key != null) key." + code);
             }
             if (valueIsMessage) {
-                unmarshal.addStatement("if (value != null) value." + format);
+                methodBuilder.addStatement("if (value != null) value." + code);
             }
-            unmarshal.endControlFlow();
-            unmarshal.endControlFlow().addCode("\n");
-            return true;
-        }
-        return false;
-    }
-
-    private boolean generateUnmarshalMessage(Builder unmarshal, String objectName, String format) {
-        unmarshal.addStatement("if ($N != null) $N." + format, objectName, objectName);
-        return true;
-    }
-
-    private boolean generateUnmarshalObjectArray(ArrayType type, Builder unmarshal, String objectName, String format) {
-        TypeMirror componentType = type.getComponentType();
-        if (typeUtils.isSubType(componentType, NetworkMessage.class)) {
-            unmarshal.beginControlFlow("if ($N != null)", objectName);
-            unmarshal.beginControlFlow("for ($T obj : $N)", componentType, objectName);
-            unmarshal.addStatement("if (obj != null) obj." + format);
-            unmarshal.endControlFlow();
-            unmarshal.endControlFlow().addCode("\n");
+            methodBuilder.endControlFlow();
+            methodBuilder.endControlFlow().addCode("\n");
             return true;
         }
         return false;
