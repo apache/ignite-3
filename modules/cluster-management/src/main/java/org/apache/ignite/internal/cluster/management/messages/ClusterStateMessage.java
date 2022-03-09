@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.runner;
+package org.apache.ignite.internal.cluster.management.messages;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
+import java.util.Collection;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Local node configuration schema.
+ * Message for initializing the Meta Storage.
  */
-@ConfigurationRoot(rootName = "node", type = ConfigurationType.LOCAL)
-public class NodeConfigurationSchema {
-    /** It is a copy of appropriate property from the cluster configuration. */
-    @Value(hasDefault = true)
-    public final String[] metastorageNodes = new String[0];
+@Transferable(CmgMessageGroup.CLUSTER_STATE)
+public interface ClusterStateMessage extends NetworkMessage {
+    /**
+     * Consistent IDs of nodes that host the Meta Storage.
+     */
+    Collection<String> metastorageNodes();
 }

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -45,6 +46,7 @@ import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -203,10 +206,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
+        var cmgManager = new ClusterManagementGroupManager(clusterSvc, raftMgr, mock(RestComponent.class));
+
         var metaStorageMgr = new MetaStorageManager(
                 vault,
-                nodeCfgMgr,
                 clusterSvc,
+                cmgManager,
                 raftMgr,
                 new RocksDbKeyValueStorage(dir.resolve(Paths.get("metastorage")))
         );

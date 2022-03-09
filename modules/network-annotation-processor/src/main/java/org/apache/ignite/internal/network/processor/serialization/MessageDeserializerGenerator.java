@@ -124,28 +124,30 @@ public class MessageDeserializerGenerator {
                 .endControlFlow()
                 .addCode("\n");
 
-        method.beginControlFlow("switch (reader.state())");
+        if (!getters.isEmpty()) {
+            method.beginControlFlow("switch (reader.state())");
 
-        for (int i = 0; i < getters.size(); ++i) {
-            method
-                    .beginControlFlow("case $L:", i)
-                    .addStatement(readMessageCodeBlock(getters.get(i), msgField))
-                    .addCode("\n")
-                    .addCode(CodeBlock.builder()
-                            .beginControlFlow("if (!reader.isLastRead())")
-                            .addStatement("return false")
-                            .endControlFlow()
-                            .build()
-                    )
-                    .addCode("\n")
-                    .addStatement("reader.incrementState()")
-                    .endControlFlow()
-                    .addComment("Falls through");
+            for (int i = 0; i < getters.size(); ++i) {
+                method
+                        .beginControlFlow("case $L:", i)
+                        .addStatement(readMessageCodeBlock(getters.get(i), msgField))
+                        .addCode("\n")
+                        .addCode(CodeBlock.builder()
+                                .beginControlFlow("if (!reader.isLastRead())")
+                                .addStatement("return false")
+                                .endControlFlow()
+                                .build()
+                        )
+                        .addCode("\n")
+                        .addStatement("reader.incrementState()")
+                        .endControlFlow()
+                        .addComment("Falls through");
+            }
+
+            method.endControlFlow().addCode("\n");
         }
 
-        method.endControlFlow();
-
-        method.addCode("\n").addStatement("return reader.afterMessageRead($T.class)", message.className());
+        method.addStatement("return reader.afterMessageRead($T.class)", message.className());
 
         return method.build();
     }

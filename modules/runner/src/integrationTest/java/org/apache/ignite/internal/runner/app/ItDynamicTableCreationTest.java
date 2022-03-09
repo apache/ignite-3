@@ -35,6 +35,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.ItUtils;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -47,9 +48,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -77,48 +76,21 @@ class ItDynamicTableCreationTest {
      */
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        String node0Name = testNodeName(testInfo, PORTS[0]);
-        String node1Name = testNodeName(testInfo, PORTS[1]);
-        String node2Name = testNodeName(testInfo, PORTS[2]);
+        for (int i = 0; i < 3; ++i) {
+            String nodeName = testNodeName(testInfo, PORTS[i]);
 
-        nodesBootstrapCfg.put(
-                node0Name,
-                "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + PORTS[0] + ",\n"
-                        + "    nodeFinder:{\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
-                        + "    }\n"
-                        + "  }\n"
-                        + "}"
-        );
-
-        nodesBootstrapCfg.put(
-                node1Name,
-                "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + PORTS[1] + ",\n"
-                        + "    nodeFinder:{\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "    }\n"
-                        + "  }\n"
-                        + "}"
-        );
-
-        nodesBootstrapCfg.put(
-                node2Name,
-                "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + PORTS[2] + ",\n"
-                        + "    nodeFinder:{\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
-                        + "    }\n"
-                        + "  }\n"
-                        + "}"
-        );
+            nodesBootstrapCfg.put(
+                    nodeName,
+                    "{\n"
+                    + "  network: {\n"
+                    + "    port: " + PORTS[i] + ",\n"
+                    + "    nodeFinder:{\n"
+                    + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}"
+            );
+        }
     }
 
     /**
@@ -132,13 +104,16 @@ class ItDynamicTableCreationTest {
     /**
      * Returns grid nodes.
      */
-    @NotNull
-    protected List<Ignite> startGrid() {
+    protected List<Ignite> startGrid() throws Exception {
         nodesBootstrapCfg.forEach((nodeName, configStr) ->
                 clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
         );
 
         assertEquals(3, clusterNodes.size());
+
+        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+
+        metastorageNode.init(List.of(metastorageNode.name()));
 
         return clusterNodes;
     }
@@ -147,7 +122,7 @@ class ItDynamicTableCreationTest {
      * Check dynamic table creation.
      */
     @Test
-    void testDynamicSimpleTableCreation() {
+    void testDynamicSimpleTableCreation() throws Exception {
         startGrid();
 
         // Create table on node 0.
@@ -175,8 +150,8 @@ class ItDynamicTableCreationTest {
         RecordView<Tuple> recView2 = tbl2.recordView();
         KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
 
-        final Tuple keyTuple1 = Tuple.create().set("key", 1L);
-        final Tuple keyTuple2 = Tuple.create().set("key", 2L);
+        Tuple keyTuple1 = Tuple.create().set("key", 1L);
+        Tuple keyTuple2 = Tuple.create().set("key", 2L);
 
         assertThrows(IllegalArgumentException.class, () -> kvView2.get(null, keyTuple1).value("key"));
         assertThrows(IllegalArgumentException.class, () -> kvView2.get(null, keyTuple2).value("key"));
@@ -196,7 +171,7 @@ class ItDynamicTableCreationTest {
      * Check dynamic table creation.
      */
     @Test
-    void testDynamicTableCreation() {
+    void testDynamicTableCreation() throws Exception {
         startGrid();
 
         // Create table on node 0.
@@ -218,8 +193,8 @@ class ItDynamicTableCreationTest {
                         .changeReplicas(1)
                         .changePartitions(10));
 
-        final UUID uuid = UUID.randomUUID();
-        final UUID uuid2 = UUID.randomUUID();
+        UUID uuid = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
 
         // Put data on node 1.
         Table tbl1 = clusterNodes.get(1).tables().table(scmTbl1.canonicalName());
@@ -234,11 +209,11 @@ class ItDynamicTableCreationTest {
 
         // Get data on node 2.
         Table tbl2 = clusterNodes.get(2).tables().table(scmTbl1.canonicalName());
-        final RecordView<Tuple> recView2 = tbl2.recordView();
+        RecordView<Tuple> recView2 = tbl2.recordView();
         KeyValueView<Tuple, Tuple> kvView2 = tbl2.keyValueView();
 
-        final Tuple keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);
-        final Tuple keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
+        Tuple keyTuple1 = Tuple.create().set("key", uuid).set("affKey", 42L);
+        Tuple keyTuple2 = Tuple.create().set("key", uuid2).set("affKey", 4242L);
 
         // KV view must NOT return key columns in value.
         assertThrows(IllegalArgumentException.class, () -> kvView2.get(null, keyTuple1).value("key"));
@@ -273,7 +248,7 @@ class ItDynamicTableCreationTest {
      * Check unsupported column type change.
      */
     @Test
-    public void testChangeColumnType() {
+    public void testChangeColumnType() throws Exception {
         List<Ignite> grid = startGrid();
 
         assertTableCreationFailed(grid, c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
@@ -297,11 +272,11 @@ class ItDynamicTableCreationTest {
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15747")
     @Test
-    void testMissedPk() {
+    void testMissedPk() throws Exception {
         List<Ignite> grid = startGrid();
 
         // Missed PK.
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+        assertThrows(ConfigurationValidationException.class, () -> {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
@@ -321,7 +296,7 @@ class ItDynamicTableCreationTest {
         });
 
         //Missed affinity cols.
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+        assertThrows(ConfigurationValidationException.class, () -> {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
@@ -342,7 +317,7 @@ class ItDynamicTableCreationTest {
         });
 
         //Missed key cols.
-        Assertions.assertThrows(ConfigurationValidationException.class, () -> {
+        assertThrows(ConfigurationValidationException.class, () -> {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
@@ -370,7 +345,7 @@ class ItDynamicTableCreationTest {
      * @param colChanger Column configuration changer.
      */
     private void assertTableCreationFailed(List<Ignite> grid, Consumer<ColumnChange> colChanger) {
-        Assertions.assertThrows(IgniteException.class, () -> {
+        assertThrows(IgniteException.class, () -> {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",

@@ -41,7 +41,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check add a new column to table schema.
      */
     @Test
-    public void testDropColumn() {
+    public void testDropColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -85,7 +85,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check drop column from table schema.
      */
     @Test
-    public void testAddNewColumn() {
+    public void testAddNewColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -128,7 +128,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check rename column from table schema.
      */
     @Test
-    public void testRenameColumn() {
+    public void testRenameColumn() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -179,7 +179,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    public void testMergeChangesAddDropAdd() {
+    public void testMergeChangesAddDropAdd() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -264,7 +264,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check merge table schema changes.
      */
     @Test
-    public void testMergeChangesColumnDefault() {
+    public void testMergeChangesColumnDefault() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);
@@ -309,7 +309,7 @@ class ItSchemaChangeKvViewTest extends AbstractSchemaChangeTest {
      * Check an operation failed if an unknown column found.
      */
     @Test
-    public void testInsertRowOfDifferentSchema() {
+    public void testInsertRowOfDifferentSchema() throws Exception {
         List<Ignite> grid = startGrid();
 
         createTable(grid);

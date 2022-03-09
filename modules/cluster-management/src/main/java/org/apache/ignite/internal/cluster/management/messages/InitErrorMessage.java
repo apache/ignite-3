@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.runner;
+package org.apache.ignite.internal.cluster.management.messages;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Configuration schema for cluster endpoint subtree.
+ * Message that represents an error condition that has occurred during cluster initialization.
  */
-@ConfigurationRoot(rootName = "cluster", type = ConfigurationType.DISTRIBUTED)
-public class ClusterConfigurationSchema {
-    /** List of unique names of those cluster nodes that will host distributed metastorage instances. */
-    @Value(hasDefault = true)
-    public String[] metastorageNodes = new String[0];
+@Transferable(CmgMessageGroup.INIT_ERROR)
+public interface InitErrorMessage extends NetworkMessage {
+    /**
+     * Text representation of the occurred error.
+     */
+    String cause();
 }

@@ -100,21 +100,23 @@ public class MessageSerializerGenerator {
                 .endControlFlow()
                 .addCode("\n");
 
-        method.beginControlFlow("switch (writer.state())");
+        if (!getters.isEmpty()) {
+            method.beginControlFlow("switch (writer.state())");
 
-        for (int i = 0; i < getters.size(); ++i) {
-            method
-                    .beginControlFlow("case $L:", i)
-                    .addCode(writeMessageCodeBlock(getters.get(i)))
-                    .addCode("\n")
-                    .addStatement("writer.incrementState()")
-                    .endControlFlow()
-                    .addComment("Falls through");
+            for (int i = 0; i < getters.size(); ++i) {
+                method
+                        .beginControlFlow("case $L:", i)
+                        .addCode(writeMessageCodeBlock(getters.get(i)))
+                        .addCode("\n")
+                        .addStatement("writer.incrementState()")
+                        .endControlFlow()
+                        .addComment("Falls through");
+            }
+
+            method.endControlFlow().addCode("\n");
         }
 
-        method.endControlFlow();
-
-        method.addCode("\n").addStatement("return true");
+        method.addStatement("return true");
 
         return method.build();
     }

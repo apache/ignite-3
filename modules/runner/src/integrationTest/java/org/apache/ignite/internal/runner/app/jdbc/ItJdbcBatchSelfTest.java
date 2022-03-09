@@ -61,7 +61,7 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     private PreparedStatement pstmt;
 
     @BeforeAll
-    public static void beforeAll(TestInfo testInfo) throws SQLException {
+    public static void beforeAll(TestInfo testInfo) throws Exception {
         AbstractJdbcSelfTest.beforeAll(testInfo);
 
         try (Statement statement = conn.createStatement()) {

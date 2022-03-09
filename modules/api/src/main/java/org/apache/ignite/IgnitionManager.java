@@ -24,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ServiceLoader;
 import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,40 +35,32 @@ public class IgnitionManager {
     private static Ignition ignition;
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
+     * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * @param nodeName  Name of the node. Must not be {@code null}.
-     * @param configStr Optional node configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema}
-     *                  and {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for
-     *                  applying the configuration properties:
-     *                  <ol>
-     *                      <li>Specified property overrides existing one or just applies itself if it wasn't
-     *                          previously specified.</li>
-     *                      <li>All non-specified properties either use previous value or use default one from
-     *                          corresponding configuration schema.</li>
-     *                  </ol>
-     *                  So that, in case of initial node start (first start ever) specified configuration, supplemented
-     *                  with defaults, is used. If no configuration was provided defaults are used for all
-     *                  configuration properties. In case of node restart, specified properties override existing
-     *                  ones, non specified properties that also weren't specified previously use default values.
-     *                  Please pay attention that previously specified properties are searched in the
-     *                  {@code workDir} specified by the user.
-     * @param workDir   Work directory for the started node. Must not be {@code null}.
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configStr Optional node configuration based on
+     *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     *      Following rules are used for applying the configuration properties:
+     *      <ol>
+     *        <li>Specified property overrides existing one or just applies itself if it wasn't
+     *            previously specified.</li>
+     *        <li>All non-specified properties either use previous value or use default one from
+     *            corresponding configuration schema.</li>
+     *      </ol>
+     *      So that, in case of initial node start (first start ever) specified configuration, supplemented
+     *      with defaults, is used. If no configuration was provided defaults are used for all
+     *      configuration properties. In case of node restart, specified properties override existing
+     *      ones, non specified properties that also weren't specified previously use default values.
+     *      Please pay attention that previously specified properties are searched in the
+     *      {@code workDir} specified by the user.
+     *
+     * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      * @throws IgniteException If error occurs while reading node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static Ignite start(
-            @NotNull String nodeName,
-            @Nullable String configStr,
-            @NotNull Path workDir
-    ) {
-        synchronized (IgnitionManager.class) {
-            if (ignition == null) {
-                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
-                ignition = ldr.iterator().next();
-            }
-        }
+    public static Ignite start(String nodeName, @Nullable String configStr, Path workDir) {
+        loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         if (configStr == null) {
             return ignition.start(nodeName, workDir);
@@ -93,18 +84,8 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static Ignite start(
-            @NotNull String nodeName,
-            @Nullable Path cfgPath,
-            @NotNull Path workDir,
-            @Nullable ClassLoader clsLdr
-    ) {
-        synchronized (IgnitionManager.class) {
-            if (ignition == null) {
-                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
-                ignition = ldr.iterator().next();
-            }
-        }
+    public static Ignite start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
+        loadIgnitionService(clsLdr);
 
         return ignition.start(nodeName, cfgPath, workDir, clsLdr);
     }
@@ -116,13 +97,8 @@ public class IgnitionManager {
      * @param name Node name to stop.
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public static void stop(@NotNull String name) {
-        synchronized (IgnitionManager.class) {
-            if (ignition == null) {
-                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class);
-                ignition = ldr.iterator().next();
-            }
-        }
+    public static void stop(String name) {
+        loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         ignition.stop(name);
     }
@@ -136,14 +112,16 @@ public class IgnitionManager {
      *               class loader (or, failing that, the bootstrap class loader) is to be used
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public static void stop(@NotNull String name, @Nullable ClassLoader clsLdr) {
-        synchronized (IgnitionManager.class) {
-            if (ignition == null) {
-                ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
-                ignition = ldr.iterator().next();
-            }
-        }
+    public static void stop(String name, @Nullable ClassLoader clsLdr) {
+        loadIgnitionService(clsLdr);
 
         ignition.stop(name);
+    }
+
+    private static synchronized void loadIgnitionService(@Nullable ClassLoader clsLdr) {
+        if (ignition == null) {
+            ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
+            ignition = ldr.iterator().next();
+        }
     }
 }
