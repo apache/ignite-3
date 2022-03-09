@@ -22,6 +22,7 @@ import java.util.Set;
 import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 
 /**
@@ -39,11 +40,19 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
     /**
      * Constructor.
      *
-     * @param columns         Index columns.
+     * @param columns Index columns.
      * @param colocationColumns Colocation columns.
      */
     public PrimaryKeyDefinitionImpl(Set<String> columns, List<String> colocationColumns) {
         super(PrimaryKeyDefinition.PRIMARY_KEY_NAME);
+
+        if (CollectionUtils.nullOrEmpty(columns)) {
+            throw new IllegalStateException("Primary key column(s) must be configured.");
+        } else if (!columns.containsAll(colocationColumns)) {
+            throw new IllegalStateException("Schema definition error: All colocation columns must be part of key.");
+        } else if (colocationColumns.size() != Set.copyOf(colocationColumns).size()) {
+            throw new IllegalStateException("Schema definition error: Colocation columns must not be duplicated.");
+        }
 
         this.columns = columns;
         this.colocationColumns = colocationColumns;

@@ -104,14 +104,6 @@ public class PrimaryKeyDefinitionBuilderImpl implements SchemaObjectBuilder, Pri
             colocationCols = List.copyOf(columns);
         } else {
             colocationCols = List.copyOf(colocationColumns);
-
-            if (!cols.containsAll(colocationCols)) {
-                throw new IllegalStateException("Schema definition error: All colocation columns must be part of key.");
-            }
-
-            if (colocationCols.size() != Set.copyOf(colocationCols).size()) {
-                throw new IllegalStateException("Schema definition error: Colocation columns must not be duplicated.");
-            }
         }
 
         return new PrimaryKeyDefinitionImpl(cols, colocationCols);
