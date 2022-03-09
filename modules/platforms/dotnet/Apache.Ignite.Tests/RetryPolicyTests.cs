@@ -33,9 +33,21 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public void TestFailoverWithRetryPolicyCompletesOperationWithoutException()
+        public async Task TestFailoverWithRetryPolicyCompletesOperationWithoutException()
         {
-            // TODO
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryLimit = 1,
+                RetryPolicy = new TestRetryPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (int i = 0; i < 100; i++)
+            {
+                await client.Tables.GetTablesAsync();
+            }
         }
 
         [Test]
@@ -70,12 +82,12 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 3 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            for (var i = 0; i < 6; i++)
+            for (var i = 0; i < 100; i++)
             {
                 await client.Tables.GetTablesAsync();
             }
 
-            Assert.AreEqual(2, testRetryPolicy.Invocations.Count);
+            Assert.AreEqual(49, testRetryPolicy.Invocations.Count);
 
             var inv = testRetryPolicy.Invocations[0];
 
