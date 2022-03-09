@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -44,6 +45,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -57,6 +59,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
@@ -203,10 +206,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
+        var cmgManager = new ClusterManagementGroupManager(clusterSvc, raftMgr, mock(RestComponent.class));
+
         var metaStorageMgr = new MetaStorageManager(
                 vault,
-                nodeCfgMgr,
                 clusterSvc,
+                cmgManager,
                 raftMgr,
                 new RocksDbKeyValueStorage(dir.resolve(Paths.get("metastorage")))
         );
@@ -400,7 +405,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         if (modules.isEmpty()) {
             throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                + "Please make sure that the classloader for loading services is correct.");
+                    + "Please make sure that the classloader for loading services is correct.");
         }
 
         var configModules = new ConfigurationModules(modules);
@@ -473,7 +478,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      * @param idx Node index.
      * @param cfg Optional configuration string.
-     * @param predefinedPort  Predefined port.
+     * @param predefinedPort Predefined port.
      * @return Configuration string.
      */
     private String configurationString(TestInfo testInfo, int idx, @Nullable String cfg, @Nullable Integer predefinedPort) {
@@ -483,8 +488,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         String metastorageNodeName = testNodeName(testInfo, connectPort);
 
         return cfg == null
-            ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
-            : cfg;
+                ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
+                : cfg;
     }
 
     /**
@@ -606,8 +611,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Starts two nodes and checks that the data are storing through restarts.
-     * Nodes restart in the same order when they started at first.
+     * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      *
      * @param testInfo Test information object.
      */
@@ -617,8 +621,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Starts two nodes and checks that the data are storing through restarts.
-     * Nodes restart in reverse order when they started at first.
+     * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      *
      * @param testInfo Test information object.
      */
@@ -676,8 +679,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent.
-     * Also checks that the table created before node stop, is not available when majority if lost.
+     * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent. Also
+     * checks that the table created before node stop, is not available when majority if lost.
      *
      * @param testInfo Test info.
      */
@@ -807,9 +810,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * The test for node restart when there is a gap between the node local configuration and distributed configuration,
-     * and metastorage group stops for some time while restarting node is being recovered. The recovery process should
-     * continue and eventually succeed after metastorage group starts again.
+     * The test for node restart when there is a gap between the node local configuration and distributed configuration, and metastorage
+     * group stops for some time while restarting node is being recovered. The recovery process should continue and eventually succeed after
+     * metastorage group starts again.
      *
      * @param testInfo Test info.
      */
@@ -983,7 +986,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public CompletableFuture<?> onUpdate(long appliedRevision) {
+        @Override
+        public CompletableFuture<?> onUpdate(long appliedRevision) {
             if (revisionCallback != null) {
                 revisionCallback.accept(appliedRevision);
             }

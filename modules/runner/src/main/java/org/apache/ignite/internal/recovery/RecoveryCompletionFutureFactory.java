@@ -40,11 +40,6 @@ public class RecoveryCompletionFutureFactory extends CompletableFuture<Void> {
             ConfigurationManager clusterCfgMgr,
             Function<CompletableFuture<Void>, ConfigurationStorageRevisionListener> listenerProvider
     ) {
-        //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
-        if (!metaStorageMgr.isMetaStorageInitializedOnStart()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
         CompletableFuture<Void> configCatchUpFuture = new CompletableFuture<>();
 
         ConfigurationStorageRevisionListener listener = listenerProvider.apply(configCatchUpFuture);

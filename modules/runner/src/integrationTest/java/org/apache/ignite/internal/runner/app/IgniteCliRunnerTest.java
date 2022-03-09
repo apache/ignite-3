@@ -17,15 +17,34 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager.REST_ENDPOINT;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpRequest.BodyPublishers;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -34,30 +53,72 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class IgniteCliRunnerTest {
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @WorkDirectory
+    private Path workDir;
+
     /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
-    public void runnerArgsSmokeTest(@WorkDirectory Path workDir) throws Exception {
+    public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
 
-        Ignite ign1 = IgniteCliRunner.start(
+        CompletableFuture<Ignite> ign = supplyAsync(() -> IgniteCliRunner.start(
                 new String[]{
                         "--config", configPath.toAbsolutePath().toString(),
-                        "--work-dir", workDir.resolve("node1").toAbsolutePath().toString(),
-                        "node1"
+                        "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
+                        "node"
                 }
-        );
+        ));
 
-        assertNotNull(ign1);
+        var nodeAddr = new NetworkAddress("localhost", 10300);
 
-        Ignite ign2 = IgniteCliRunner.start(
+        init(nodeAddr, "node");
+
+        assertThat(ign, willBe(notNullValue(Ignite.class)));
+
+        ign.join().close();
+    }
+
+    @Test
+    public void smokeTestArgsNullConfig() throws Exception {
+        CompletableFuture<Ignite> ign = supplyAsync(() -> IgniteCliRunner.start(
                 new String[]{
-                        "--work-dir", workDir.resolve("node2").toAbsolutePath().toString(),
-                        "node2"
+                        "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
+                        "node"
                 }
-        );
+        ));
 
-        assertNotNull(ign2);
+        var nodeAddr = new NetworkAddress("localhost", 10300);
 
-        IgniteUtils.closeAll(List.of(ign1, ign2));
+        init(nodeAddr, "node");
+
+        assertThat(ign, willBe(notNullValue(Ignite.class)));
+
+        ign.join().close();
+    }
+
+    private void init(NetworkAddress addr, String metaStorageNodeName) throws Exception {
+        var body = Map.of("metaStorageNodes", List.of(metaStorageNodeName));
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(new URL("http", addr.host(), addr.port(), REST_ENDPOINT).toURI())
+                .header(HttpHeaderNames.CONTENT_TYPE.toString(), APPLICATION_JSON.toString())
+                .POST(BodyPublishers.ofByteArray(objectMapper.writeValueAsBytes(body)))
+                .build();
+
+        assertTrue(waitForCondition(() -> {
+            try {
+                HttpResponse<Void> response = httpClient.send(request, BodyHandlers.discarding());
+
+                return response.statusCode() == 200;
+            } catch (ConnectException ignored) {
+                return false;
+            } catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }, 15000));
     }
 }
