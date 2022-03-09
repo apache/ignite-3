@@ -104,6 +104,12 @@ namespace Apache.Ignite.Tests
             Assert.AreEqual(0, inv.Iteration);
         }
 
+        [Test]
+        public void TestRetryOperationWithPayloadReusesPooledBufferCorrectly()
+        {
+            Assert.Fail("TODO: Retry GetTable");
+        }
+
         private class TestRetryPolicy : IRetryPolicy
         {
             private readonly List<IRetryPolicyContext> _invocations = new();
