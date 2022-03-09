@@ -215,6 +215,23 @@ public class SqlDdlParserTest {
     }
 
     /**
+     * Parsing of CREATE TABLE with specified table options.
+     */
+    @Test
+    public void createTableWithColocation() throws SqlParseException {
+        String query = "create table my_table(id0 int, id1 int, id2 int, val int, primary key (id0, id1, id2)) colocate by (id0, id1)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        System.out.println();
+
+    }
+
+    /**
      * Parses a given statement and returns a resulting AST.
      *
      * @param stmt Statement to parse.
