@@ -48,7 +48,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFakeServerDropsConnectionOnSpecifiedRequestCount()
         {
-            using var server = new FakeServer(requestCountBeforeClientDrop: 2);
+            using var server = new FakeServer(reqId => reqId % 3 == 0);
             using var client = await server.ConnectClientAsync();
 
             // 2 requests succeed, 3rd fails.

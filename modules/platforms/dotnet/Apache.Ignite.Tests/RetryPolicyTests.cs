@@ -55,7 +55,7 @@ namespace Apache.Ignite.Tests
                 RetryPolicy = testRetryPolicy
             };
 
-            using var server = new FakeServer(requestCountBeforeClientDrop: 2);
+            using var server = new FakeServer(reqId => reqId % 3 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (var i = 0; i < 6; i++)
