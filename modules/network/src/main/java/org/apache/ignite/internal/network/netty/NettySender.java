@@ -21,7 +21,7 @@ import io.netty.channel.Channel;
 import io.netty.handler.stream.ChunkedInput;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
-import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.OutNetworkObject;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -53,11 +53,11 @@ public class NettySender {
     /**
      * Sends the message.
      *
-     * @param msg Network message.
+     * @param obj Network message wrapper.
      * @return Future of the send operation.
      */
-    public CompletableFuture<Void> send(NetworkMessage msg) {
-        return NettyUtils.toCompletableFuture(channel.writeAndFlush(msg));
+    public CompletableFuture<Void> send(OutNetworkObject obj) {
+        return NettyUtils.toCompletableFuture(channel.writeAndFlush(obj));
     }
 
     /**

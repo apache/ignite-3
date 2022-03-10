@@ -30,6 +30,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.OutboundView;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup;
+import org.apache.ignite.internal.network.netty.NamedNioEventLoopGroup.NetworkThread;
 
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
@@ -137,6 +138,17 @@ public class NettyBootstrapFactory implements IgniteComponent {
         bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
         workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
         clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
+    }
+
+    /**
+     * Returns {@code true} if the current thread is a network thread, {@code false} otherwise.
+     *
+     * @return {@code true} if the current thread is a network thread, {@code false} otherwise.
+     */
+    public static boolean isInNetworkThread() {
+        Thread thread = Thread.currentThread();
+
+        return thread instanceof NetworkThread;
     }
 
     /** {@inheritDoc} */

@@ -15,29 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.schema.definition;
+package org.apache.ignite.network;
 
 import java.util.List;
-import java.util.Set;
+import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 
 /**
- * Primary key constraint.
+ * Wrapper for the outgoing network message.
  */
-public interface PrimaryKeyDefinition extends SchemaObject {
-    /** Default primary key name. */
-    String PRIMARY_KEY_NAME = "PK";
+public class OutNetworkObject {
+    /** Message. */
+    private final NetworkMessage networkMessage;
+
+    /** List of class descriptor messages. */
+    private final List<ClassDescriptorMessage> descriptors;
 
     /**
-     * Returns key columns.
+     * Constructor.
      *
-     * @return Key columns.
+     * @param networkMessage Network message.
+     * @param descriptors Class descriptors.
      */
-    Set<String> columns();
+    public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors) {
+        this.networkMessage = networkMessage;
+        this.descriptors = descriptors;
+    }
 
-    /**
-     * Returns colocation columns.
-     *
-     * @return Colocation columns.
-     */
-    List<String> colocationColumns();
+    public NetworkMessage networkMessage() {
+        return networkMessage;
+    }
+
+    public List<ClassDescriptorMessage> descriptors() {
+        return descriptors;
+    }
 }

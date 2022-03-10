@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.message.ScaleCubeMessageBuilder;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
@@ -63,7 +65,7 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     private final MonoProcessor<Void> onStop = MonoProcessor.create();
 
     /** Connection manager. */
-    private final ConnectionManager connectionManager;
+    private final MessagingService messagingService;
 
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
@@ -77,20 +79,23 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /**
      * Constructor.
      *
-     * @param connectionManager connection manager
-     * @param topologyService   topology service
-     * @param messageFactory    message factory
+     * @param localAddress Local address.
+     * @param messagingService Messaging service.
+     * @param topologyService Topology service.
+     * @param messageFactory  Message factory.
      */
     ScaleCubeDirectMarshallerTransport(
-            ConnectionManager connectionManager,
+            SocketAddress localAddress,
+            MessagingService messagingService,
             ScaleCubeTopologyService topologyService,
             NetworkMessagesFactory messageFactory
     ) {
-        this.connectionManager = connectionManager;
+        this.address = prepareAddress(localAddress);
+        this.messagingService = messagingService;
         this.topologyService = topologyService;
         this.messageFactory = messageFactory;
 
-        this.connectionManager.addListener(this::onMessage);
+        this.messagingService.addMessageHandler(NetworkMessageTypes.class, (message, senderAddr, correlationId) -> onMessage(message));
         // Setup cleanup
         stop.then(doStop())
                 .doFinally(s -> onStop.onComplete())
@@ -145,8 +150,6 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
     /** {@inheritDoc} */
     @Override
     public Mono<Transport> start() {
-        address = prepareAddress(connectionManager.getLocalAddress());
-
         return Mono.just(this);
     }
 
@@ -171,21 +174,23 @@ class ScaleCubeDirectMarshallerTransport implements Transport {
         var addr = InetSocketAddress.createUnresolved(address.host(), address.port());
 
         return Mono.fromFuture(() -> {
-            ClusterNode node = topologyService.getByAddress(NetworkAddress.from(addr));
+            NetworkAddress networkAddress = NetworkAddress.from(addr);
+            ClusterNode node = topologyService.getByAddress(networkAddress);
 
-            String consistentId = node != null ? node.name() : null;
+            if (node == null) {
+                node = new ClusterNode(null, null, networkAddress);
+            }
 
-            return connectionManager.channel(consistentId, addr).thenCompose(client -> client.send(fromMessage(message)));
+            return messagingService.send(node, fromMessage(message));
         });
     }
 
     /**
      * Handles new network messages from {@link #connectionManager}.
      *
-     * @param senderConsistentId Sender's consistent id.
      * @param msg    Network message.
      */
-    private void onMessage(String senderConsistentId, NetworkMessage msg) {
+    private void onMessage(NetworkMessage msg) {
         Message message = fromNetworkMessage(msg);
 
         if (message != null) {

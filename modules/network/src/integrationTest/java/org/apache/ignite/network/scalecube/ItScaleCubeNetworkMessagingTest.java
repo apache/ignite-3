@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
+import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -294,12 +294,16 @@ class ItScaleCubeNetworkMessagingTest {
         // register a different handle for the second group
         node1.messagingService().addMessageHandler(
                 NetworkMessageTypes.class,
-                (message, senderAddr, correlationId) -> assertTrue(networkMessageFuture.complete(message))
+                (message, senderAddr, correlationId) -> {
+                    if (message instanceof FieldDescriptorMessage) {
+                        assertTrue(networkMessageFuture.complete(message));
+                    }
+                }
         );
 
         var testMessage = messageFactory.testMessage().msg("foo").build();
 
-        ClassDescriptorMessage networkMessage = new NetworkMessagesFactory().classDescriptorMessage().build();
+        FieldDescriptorMessage networkMessage = new NetworkMessagesFactory().fieldDescriptorMessage().build();
 
         // test that a message gets delivered to both handlers
         node2.messagingService()

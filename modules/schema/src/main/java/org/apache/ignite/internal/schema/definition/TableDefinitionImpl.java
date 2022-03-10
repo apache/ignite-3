@@ -50,8 +50,8 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     /** Cached key columns. */
     private final Set<String> keyCols;
 
-    /** Cached key affinity columns. */
-    private final Set<String> affCols;
+    /** Colocation columns. */
+    private final List<String> colocationCols;
 
     /**
      * Constructor.
@@ -76,7 +76,7 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
         this.indices = indices;
 
         keyCols = primaryKeyDefinition.columns();
-        affCols = primaryKeyDefinition.affinityColumns();
+        colocationCols = primaryKeyDefinition.colocationColumns();
     }
 
     /** {@inheritDoc} */
@@ -93,8 +93,8 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
 
     /** {@inheritDoc} */
     @Override
-    public Set<String> affinityColumns() {
-        return affCols;
+    public List<String> colocationColumns() {
+        return colocationCols;
     }
 
     /** {@inheritDoc} */

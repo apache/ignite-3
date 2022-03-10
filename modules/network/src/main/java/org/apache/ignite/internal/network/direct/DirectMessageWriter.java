@@ -387,16 +387,6 @@ public class DirectMessageWriter implements MessageWriter {
         state.reset();
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public <T> boolean writeMarshallable(String name, T object) {
-        DirectByteBufferStream stream = state.item().stream;
-
-        stream.writeMarshallable(object, this);
-
-        return stream.lastFinished();
-    }
-
     /**
      * State item.
      */
