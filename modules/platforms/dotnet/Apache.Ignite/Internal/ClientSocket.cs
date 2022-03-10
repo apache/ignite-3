@@ -149,15 +149,19 @@ namespace Apache.Ignite.Internal
 
             var requestId = Interlocked.Increment(ref _requestId);
 
+            bool shouldDisposeRequest = request == null;
+#pragma warning disable CA2000 // TODO see below
             request ??= new PooledArrayBufferWriter(32);
+#pragma warning restore CA2000
 
+            // TODO: Simplify WritePrefix logic, get rid of PrefixWriter, write prefix to a predefined buffer.
             WritePrefix(request, clientOp, requestId);
 
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
             _requests[requestId] = taskCompletionSource;
 
-            SendRequestAsync(request)
+            SendRequestAsync(request, shouldDisposeRequest)
                 .AsTask()
                 .ContinueWith(
                     (task, state) =>
@@ -367,7 +371,7 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
-        private async ValueTask SendRequestAsync(PooledArrayBufferWriter request)
+        private async ValueTask SendRequestAsync(PooledArrayBufferWriter request, bool disposeRequest)
         {
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
@@ -378,7 +382,11 @@ namespace Apache.Ignite.Internal
             finally
             {
                 _sendLock.Release();
-                request.Dispose(); // Release pooled buffer as soon as possible.
+
+                if (disposeRequest)
+                {
+                    request.Dispose();
+                }
             }
         }
 

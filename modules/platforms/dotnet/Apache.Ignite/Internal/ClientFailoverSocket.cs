@@ -114,6 +114,7 @@ namespace Apache.Ignite.Internal
                 {
                     if (!HandleOpError(e, clientOp, ref attempt, ref errors))
                     {
+                        request?.Dispose();
                         throw;
                     }
                 }
