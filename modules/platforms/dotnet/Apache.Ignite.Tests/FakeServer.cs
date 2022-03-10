@@ -137,17 +137,19 @@ namespace Apache.Ignite.Tests
 
                     if (opCode == ClientOp.TableGet)
                     {
-                        var reader = new MessagePackReader(msg.AsMemory()[1..]);
+                        var reader = new MessagePackReader(msg.AsMemory()[2..]);
                         var tableName = reader.ReadString();
 
                         if (tableName == ExistingTableName)
                         {
-                            handler.Send(new byte[] { 0, 0, 0, 17 }); // Size.
+                            handler.Send(new byte[] { 0, 0, 0, 21 }); // Size.
                             handler.Send(new byte[] { 0, requestId, 0 });
 
                             var arrayBufferWriter = new ArrayBufferWriter<byte>();
                             var writer = new MessagePackWriter(arrayBufferWriter);
                             writer.Write(Guid.Empty);
+                            writer.Flush();
+
                             handler.Send(arrayBufferWriter.WrittenSpan);
 
                             continue;
