@@ -123,8 +123,8 @@ public class VersionedValue<T> {
      *                                  evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
-        Consumer<Consumer<Long>> observableRevisionUpdater,
-        Supplier<T> defaultVal
+            Consumer<Consumer<Long>> observableRevisionUpdater,
+            Supplier<T> defaultVal
     ) {
         this(null, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, defaultVal);
     }
