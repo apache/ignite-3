@@ -37,55 +37,61 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 
+/**
+ * Incremental configuration of the {@link TransferableObjectProcessor}.
+ * Holds data between (re-)compilations.
+ */
 class IncrementalCompilationConfig {
-    private static final String CONFIG_FILE_NAME = "META-INF/messages.file";
+    /** Incremental compilation configuration file name. */
+    static final String CONFIG_FILE_NAME = "META-INF/transferable.messages";
 
-    private final String messageGroupClassName;
+    /** Message group class name. */
+    private ClassName messageGroupClassName;
 
+    /** Messages. */
     private final List<ClassName> messageClasses;
 
-    IncrementalCompilationConfig(String messageGroupClassName, List<ClassName> messageClasses) {
+    IncrementalCompilationConfig(ClassName messageGroupClassName, List<ClassName> messageClasses) {
         this.messageGroupClassName = messageGroupClassName;
         this.messageClasses = messageClasses;
     }
 
+    /**
+     * Saves configuration on disk.
+     *
+     * @param processingEnv Processing environment.
+     */
     void writeConfig(ProcessingEnvironment processingEnv) {
         Filer filer = processingEnv.getFiler();
 
-        FileObject fileObject = null;
+        FileObject fileObject;
         try {
             fileObject = filer.createResource(StandardLocation.CLASS_OUTPUT, "", CONFIG_FILE_NAME);
         } catch (IOException e) {
             throw new ProcessingException(e.getMessage());
         }
+
         try (OutputStream out = fileObject.openOutputStream()) {
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, UTF_8));
-            writer.write(messageGroupClassName);
+            writeClassName(writer, messageGroupClassName);
             writer.newLine();
+
             for (ClassName messageClassName : messageClasses) {
-                writer.write(messageClassName.packageName());
-                writer.write(' ');
-
-                List<String> enclosingSimpleNames = new ArrayList<>();
-                ClassName enclosing = messageClassName;
-                while ((enclosing = enclosing.enclosingClassName()) != null) {
-                    enclosingSimpleNames.add(enclosing.simpleName());
-                }
-                Collections.reverse(enclosingSimpleNames);
-                for (String enclosingSimpleName : enclosingSimpleNames) {
-                    writer.write(enclosingSimpleName);
-                    writer.write(' ');
-                }
-
-                writer.write(messageClassName.simpleName());
+                writeClassName(writer, messageClassName);
                 writer.newLine();
             }
+
             writer.flush();
         } catch (IOException e) {
             throw new ProcessingException(e.getMessage());
         }
     }
 
+    /**
+     * Reads configuration from disk.
+     *
+     * @param processingEnv Processing environment.
+     */
     static IncrementalCompilationConfig readConfig(ProcessingEnvironment processingEnv) {
         Filer filer = processingEnv.getFiler();
 
@@ -99,24 +105,22 @@ class IncrementalCompilationConfig {
 
         try (Reader reader = resource.openReader(true)) {
             BufferedReader bufferedReader = new BufferedReader(reader);
-            String messageClassName = bufferedReader.readLine();
+            String messageClassNameString = bufferedReader.readLine();
 
-            if (messageClassName == null) {
+            if (messageClassNameString == null) {
                 return null;
             }
 
-            String line;
+            ClassName messageClassName = readClassName(messageClassNameString);
+
             List<ClassName> message = new ArrayList<>();
+
+            String line;
             while ((line = bufferedReader.readLine()) != null) {
-                String[] split = line.split(" ");
-                String packageName = split[0];
-                String simpleName = split[1];
-                String[] simpleNames = {};
-                if (split.length > 2) {
-                    simpleNames = Arrays.copyOfRange(split, 2, split.length);
-                }
-                message.add(ClassName.get(packageName, simpleName, simpleNames));
+                ClassName className = readClassName(line);
+                message.add(className);
             }
+
             return new IncrementalCompilationConfig(messageClassName, message);
         } catch (FileNotFoundException | NoSuchFileException e) {
             return null;
@@ -125,8 +129,56 @@ class IncrementalCompilationConfig {
         }
     }
 
-    String messageGroupClassName() {
+    /**
+     * Writes class name with all the enclosing classes.
+     *
+     * @param writer Writer.
+     * @param className Class name.
+     * @throws IOException If failed.
+     */
+    private void writeClassName(BufferedWriter writer, ClassName className) throws IOException {
+        writer.write(className.packageName());
+        writer.write(' ');
+
+        List<String> enclosingSimpleNames = new ArrayList<>();
+        ClassName enclosing = className;
+        while ((enclosing = enclosing.enclosingClassName()) != null) {
+            enclosingSimpleNames.add(enclosing.simpleName());
+        }
+        Collections.reverse(enclosingSimpleNames);
+        for (String enclosingSimpleName : enclosingSimpleNames) {
+            writer.write(enclosingSimpleName);
+            writer.write(' ');
+        }
+
+        writer.write(className.simpleName());
+    }
+
+    /**
+     * Reads class name.
+     *
+     * @param line Line.
+     * @return Class name.
+     */
+    static ClassName readClassName(String line) {
+        String[] split = line.split(" ");
+        String packageName = split[0];
+        String simpleName = split[1];
+        String[] simpleNames = {};
+
+        if (split.length > 2) {
+            simpleNames = Arrays.copyOfRange(split, 2, split.length);
+        }
+
+        return ClassName.get(packageName, simpleName, simpleNames);
+    }
+
+    ClassName messageGroupClassName() {
         return messageGroupClassName;
+    }
+
+    void messageGroupClassName(ClassName messageGroupClassName) {
+        this.messageGroupClassName = messageGroupClassName;
     }
 
     List<ClassName> messageClasses() {

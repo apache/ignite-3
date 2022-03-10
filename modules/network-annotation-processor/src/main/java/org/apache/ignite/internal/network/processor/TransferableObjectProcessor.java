@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
@@ -95,23 +96,31 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                         .map(MessageClass::className)
                         .collect(toList());
 
-                String messageGroupName = messageGroup.element().getQualifiedName().toString();
-
-                currentConfig = new IncrementalCompilationConfig(messageGroupName, messageClassNames);
-
-                currentConfig.writeConfig(processingEnv);
+                currentConfig = new IncrementalCompilationConfig(ClassName.get(messageGroup.element()), messageClassNames);
             } else {
+                List<ClassName> messageClassesFromConfig = currentConfig.messageClasses();
+
+                for (int i = messageClassesFromConfig.size() - 1; i >= 0; i--) {
+                    ClassName className = messageClassesFromConfig.get(i);
+                    Elements elementUtils = processingEnv.getElementUtils();
+
+                    TypeElement elementFromConfig = elementUtils.getTypeElement(className.canonicalName());
+
+                    if (elementFromConfig == null || elementFromConfig.getAnnotation(Transferable.class) == null) {
+                        messageClassesFromConfig.remove(i);
+                    }
+                }
+
                 for (MessageClass message : messages) {
                     ClassName messageClass = message.className();
 
-                    List<ClassName> messageClassesFromConfig = currentConfig.messageClasses();
                     if (!messageClassesFromConfig.contains(messageClass)) {
                         messageClassesFromConfig.add(messageClass);
                     }
                 }
-
-                currentConfig.writeConfig(processingEnv);
             }
+
+            currentConfig.writeConfig(processingEnv);
 
             validateMessages(messages);
 
@@ -264,18 +273,18 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv, @Nullable IncrementalCompilationConfig config) {
         Set<? extends Element> messageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
 
-        if (messageGroupSet.isEmpty()) {
-            Elements elements = processingEnv.getElementUtils();
+        Elements elementUtils = processingEnv.getElementUtils();
 
+        if (messageGroupSet.isEmpty()) {
             if (config != null) {
-                TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(config.messageGroupClassName());
+                TypeElement typeElement = elementUtils.getTypeElement(config.messageGroupClassName().canonicalName());
                 if (typeElement != null) {
                     return new MessageGroupWrapper(typeElement);
                 }
             }
 
             Set<String> packageNames = roundEnv.getRootElements().stream()
-                    .map(elements::getPackageOf)
+                    .map(elementUtils::getPackageOf)
                     .map(PackageElement::getQualifiedName)
                     .map(Name::toString)
                     .collect(Collectors.toSet());
@@ -300,9 +309,18 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             ));
         }
 
-        Element singleElement = messageGroupSet.iterator().next();
+        TypeElement groupElement = (TypeElement) messageGroupSet.iterator().next();
 
-        return new MessageGroupWrapper((TypeElement) singleElement);
+        if (config != null) {
+            TypeElement groupFromConfig = elementUtils.getTypeElement(config.messageGroupClassName().canonicalName());
+
+            // TypeElement is not overriding equals, but same type elements should be equal by pointer
+            if (groupFromConfig != null && !Objects.equals(groupFromConfig, groupElement)) {
+                config.messageGroupClassName(ClassName.get(groupElement));
+            }
+        }
+
+        return new MessageGroupWrapper(groupElement);
     }
 
     /**
