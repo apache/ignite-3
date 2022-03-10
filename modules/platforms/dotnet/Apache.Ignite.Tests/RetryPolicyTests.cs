@@ -105,9 +105,22 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public void TestRetryOperationWithPayloadReusesPooledBufferCorrectly()
+        public async Task TestRetryOperationWithPayloadReusesPooledBufferCorrectly()
         {
-            Assert.Fail("TODO: Retry GetTable");
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryLimit = 1,
+                RetryPolicy = new TestRetryPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (int i = 0; i < 100; i++)
+            {
+                var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+                Assert.IsNotNull(table);
+            }
         }
 
         private class TestRetryPolicy : IRetryPolicy
