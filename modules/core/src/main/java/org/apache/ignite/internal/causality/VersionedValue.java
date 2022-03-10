@@ -314,6 +314,9 @@ public class VersionedValue<T> {
     /**
      * Should be called on a storage revision update. This also triggers completion of a future created for the given causality token. It
      * implies that all possible updates associated with this token have been already applied to the component.
+     * <br>
+     * This method should not be called concurrently with {@link #update(long, Function, Function)} and {@link #set(long, Object)}
+     * methods, as the storage revision update listener is supposed to be called after all other configuration listeners.
      *
      * @param causalityToken Causality token.
      */
@@ -323,12 +326,10 @@ public class VersionedValue<T> {
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
                 "New token should be greater than current [current={}, new={}]", actualToken0, causalityToken);
 
-        synchronized (updateMutex) {
-            if (isUpdating) {
-                setValueInternal(causalityToken, tempValue);
+        if (isUpdating) {
+            setValueInternal(causalityToken, tempValue);
 
-                isUpdating = false;
-            }
+            isUpdating = false;
         }
 
         if (storageRevisionUpdating != null) {
