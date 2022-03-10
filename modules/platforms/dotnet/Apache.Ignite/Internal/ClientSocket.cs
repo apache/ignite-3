@@ -32,8 +32,6 @@ namespace Apache.Ignite.Internal
     using MessagePack;
     using Proto;
 
-    using static Proto.MessagePackUtil;
-
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
     /// </summary>
@@ -149,19 +147,11 @@ namespace Apache.Ignite.Internal
 
             var requestId = Interlocked.Increment(ref _requestId);
 
-            bool shouldDisposeRequest = request == null;
-#pragma warning disable CA2000 // TODO see below
-            request ??= new PooledArrayBufferWriter(32);
-#pragma warning restore CA2000
-
-            // TODO: Simplify WritePrefix logic, get rid of PrefixWriter, write prefix to a predefined buffer.
-            WritePrefix(request, clientOp, requestId);
-
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
             _requests[requestId] = taskCompletionSource;
 
-            SendRequestAsync(request, shouldDisposeRequest)
+            SendRequestAsync(request, clientOp, requestId)
                 .AsTask()
                 .ContinueWith(
                     (task, state) =>
@@ -358,35 +348,54 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
-        private static void WritePrefix(PooledArrayBufferWriter writer, ClientOp clientOp, long requestId)
-        {
-            var writeSize = GetWriteSize((ulong)clientOp) +
-                            GetWriteSize((ulong)requestId);
-
-            var w = writer.GetPrefixWriter(writeSize);
-
-            w.Write((int)clientOp);
-            w.Write(requestId);
-
-            w.Flush();
-        }
-
-        private async ValueTask SendRequestAsync(PooledArrayBufferWriter request, bool disposeRequest)
+        private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
         {
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
             try
             {
-                await _stream.WriteAsync(request.GetWrittenMemory(), _disposeTokenSource.Token).ConfigureAwait(false);
+                // TODO: Optimize prefix handling with a predefined reusable buffer. Remove prefix handling from PooledArrayBufferWriter.
+                var prefixBytes = WritePrefix();
+                var body = request?.GetWrittenMemory().Slice(4);
+
+                var size = prefixBytes.Length + (body?.Length ?? 0);
+
+                var sizeBytes = WriteSize(size);
+
+                await _stream.WriteAsync(sizeBytes, _disposeTokenSource.Token).ConfigureAwait(false);
+                await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
+
+                if (body != null)
+                {
+                    await _stream.WriteAsync(body.Value, _disposeTokenSource.Token).ConfigureAwait(false);
+                }
             }
             finally
             {
                 _sendLock.Release();
+            }
 
-                if (disposeRequest)
+            ReadOnlyMemory<byte> WritePrefix()
+            {
+                var buf = new ArrayBufferWriter<byte>(10);
+                var prefixWriter = new MessagePackWriter(buf);
+                prefixWriter.Write((int)op);
+                prefixWriter.Write(requestId);
+                prefixWriter.Flush();
+
+                return buf.WrittenMemory;
+            }
+
+            static unsafe ReadOnlyMemory<byte> WriteSize(int size)
+            {
+                var b = new byte[4];
+
+                fixed (byte* bufPtr = &b[0])
                 {
-                    request.Dispose();
+                    *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
                 }
+
+                return b;
             }
         }
 
