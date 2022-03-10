@@ -17,6 +17,7 @@
 
 package org.apache.ignite.schema.definition;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -34,9 +35,9 @@ public interface PrimaryKeyDefinition extends SchemaObject {
     Set<String> columns();
 
     /**
-     * Returns affinity columns.
+     * Returns colocation columns.
      *
-     * @return Affinity columns.
+     * @return Colocation columns.
      */
-    Set<String> affinityColumns();
+    List<String> colocationColumns();
 }

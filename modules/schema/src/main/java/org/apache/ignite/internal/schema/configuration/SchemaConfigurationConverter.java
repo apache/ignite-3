@@ -230,7 +230,7 @@ public class SchemaConfigurationConverter {
      * @return TableIn.
      */
     public static PrimaryKeyDefinition convert(PrimaryKeyView primaryKey) {
-        return new PrimaryKeyDefinitionImpl(Set.of(primaryKey.columns()), Set.of(primaryKey.affinityColumns()));
+        return new PrimaryKeyDefinitionImpl(Set.of(primaryKey.columns()), List.of(primaryKey.colocationColumns()));
     }
 
     /**
@@ -401,7 +401,7 @@ public class SchemaConfigurationConverter {
 
         tblChg.changePrimaryKey(pkCng -> {
             pkCng.changeColumns(tbl.keyColumns().toArray(String[]::new))
-                    .changeAffinityColumns(tbl.affinityColumns().toArray(String[]::new));
+                    .changeColocationColumns(tbl.colocationColumns().toArray(String[]::new));
         });
 
         return tblChg;

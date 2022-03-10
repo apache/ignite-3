@@ -109,7 +109,7 @@ public class DdlCommandHandler {
         final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
 
         pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
-        pkeyDef.withAffinityColumns(IgniteObjectName.quoteNames(cmd.affColumns()));
+        pkeyDef.withColocationColumns(IgniteObjectName.quoteNames(cmd.affColumns()));
 
         final IgniteTypeFactory typeFactory = Commons.typeFactory();
 

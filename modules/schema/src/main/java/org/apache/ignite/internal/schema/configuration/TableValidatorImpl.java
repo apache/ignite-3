@@ -55,9 +55,9 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                 TableDefinitionImpl tbl = SchemaConfigurationConverter.convert(newTable);
 
                 assert !tbl.keyColumns().isEmpty();
-                assert !tbl.affinityColumns().isEmpty();
+                assert !tbl.colocationColumns().isEmpty();
 
-                TableDefinitionBuilderImpl.validateIndices(tbl.indices(), tbl.columns(), tbl.affinityColumns());
+                TableDefinitionBuilderImpl.validateIndices(tbl.indices(), tbl.columns(), tbl.colocationColumns());
             } catch (IllegalArgumentException e) {
                 ctx.addIssue(new ValidationIssue("Validator works success by key " + ctx.currentKey() + ". Found "
                         + newTable.columns().size() + " columns"));
