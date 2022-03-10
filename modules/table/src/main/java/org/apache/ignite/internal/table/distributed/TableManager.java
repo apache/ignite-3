@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -675,18 +676,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         th);
             });
 
-            Map<UUID, TableImpl> tablesByIdFut = tablesByIdVv.update(causalityToken, previousVal -> {
+            AtomicReference<TableImpl> tableHolder = new AtomicReference<>();
+
+            tablesByIdVv.update(causalityToken, previousVal -> {
                 var map = new HashMap<>(previousVal);
 
-                map.remove(tblId);
+                TableImpl table = map.remove(tblId);
+
+                tableHolder.set(table);
 
                 return map;
             }, th -> {
                 throw new IgniteInternalException(IgniteStringFormatter.format("Cannot drop a table [name={}, id={}]", name, tblId),
-                        th);
+                    th);
             });
 
-            TableImpl table = tablesByIdFut.get(tblId);
+            TableImpl table = tableHolder.get();
 
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 

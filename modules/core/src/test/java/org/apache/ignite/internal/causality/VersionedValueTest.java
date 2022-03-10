@@ -19,6 +19,7 @@ package org.apache.ignite.internal.causality;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -216,7 +217,7 @@ public class VersionedValueTest {
     }
 
     /**
-     * Checks that the update method work as expected when the previous value does not assign.
+     * Checks that the update method work as expected when there is no history to calculate previous value.
      *
      * @throws Exception If failed.
      */
@@ -229,7 +230,11 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        longVersionedValue.update(0, previous -> TEST_VALUE, ex -> null);
+        longVersionedValue.update(0, previous -> {
+            assertNull(previous);
+
+            return TEST_VALUE;
+        }, ex -> null);
 
         assertFalse(fut.isDone());
 
