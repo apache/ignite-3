@@ -330,6 +330,7 @@ namespace Apache.Ignite.Internal
             using var bufferWriter = new PooledArrayBufferWriter();
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
+            // TODO: prepend size.
             await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
         }
 
@@ -357,7 +358,7 @@ namespace Apache.Ignite.Internal
                 // TODO: Optimize prefix handling with a predefined reusable buffer. Remove prefix handling from PooledArrayBufferWriter.
                 // TODO: If there is a body, we can use it to write prefix and reduce socket calls.
                 var prefixBytes = WritePrefix();
-                var body = request?.GetWrittenMemory().Slice(4);
+                var body = request?.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
 
                 var size = prefixBytes.Length + (body?.Length ?? 0);
 

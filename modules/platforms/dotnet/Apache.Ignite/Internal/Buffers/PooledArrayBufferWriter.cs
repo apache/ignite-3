@@ -40,20 +40,16 @@ namespace Apache.Ignite.Internal.Buffers
     /// </summary>
     internal sealed class PooledArrayBufferWriter : IBufferWriter<byte>, IDisposable
     {
-        /** Reserved prefix size. */
-        private const int ReservedPrefixSize = 4 + 4 + 9; // Size (4 bytes) + OpCode (4 bytes) + RequestId (9 bytes)/
+        /// <summary>
+        /// Reserved prefix size.
+        /// </summary>
+        public const int ReservedPrefixSize = 4 + 4 + 9; // Size (4 bytes) + OpCode (4 bytes) + RequestId (9 bytes)/
 
         /** Underlying pooled array. */
         private byte[] _buffer;
 
         /** Index within the array. */
         private int _index;
-
-        /** Index within the array: backup for prefix writer mode. */
-        private int _indexBackup;
-
-        /** Start index within the array. */
-        private int _startIndex;
 
         /** Disposed flag. */
         private volatile bool _disposed;
@@ -68,7 +64,6 @@ namespace Apache.Ignite.Internal.Buffers
             // https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-6/#buffering
             _buffer = ArrayPool<byte>.Shared.Rent(initialCapacity);
             _index = ReservedPrefixSize;
-            _startIndex = _index;
         }
 
         /// <summary>
@@ -77,31 +72,14 @@ namespace Apache.Ignite.Internal.Buffers
         private int FreeCapacity => _buffer.Length - _index;
 
         /// <summary>
-        /// Gets the written memory.
+        /// Gets the written memory, including reserved prefix (see <see cref="ReservedPrefixSize"/>).
         /// </summary>
         /// <returns>Written array.</returns>
-        public unsafe ReadOnlyMemory<byte> GetWrittenMemory()
+        public ReadOnlyMemory<byte> GetWrittenMemory()
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            if (_indexBackup > 0)
-            {
-                _index = _indexBackup;
-            }
-
-            // Write big-endian message size to the start of the buffer.
-            const int sizeLen = 4;
-            Debug.Assert(_startIndex >= sizeLen, "_startIndex >= 4");
-
-            var messageSize = _index - _startIndex;
-            var startIndex = _startIndex - sizeLen;
-
-            fixed (byte* bufPtr = &_buffer[startIndex])
-            {
-                *(int*)bufPtr = IPAddress.HostToNetworkOrder(messageSize);
-            }
-
-            return new(_buffer, startIndex, _index - startIndex);
+            return new(_buffer, start: 0, length: _index + ReservedPrefixSize);
         }
 
         /// <inheritdoc />
@@ -139,22 +117,6 @@ namespace Apache.Ignite.Internal.Buffers
         /// </summary>
         /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
         public MessagePackWriter GetMessageWriter() => new(this);
-
-        /// <summary>
-        /// Gets the <see cref="MessagePackWriter"/> for this buffer prefix.
-        /// </summary>
-        /// <param name="prefixSize">Prefix size.</param>
-        /// <returns><see cref="MessagePackWriter"/> for this buffer.</returns>
-        public MessagePackWriter GetPrefixWriter(int prefixSize)
-        {
-            Debug.Assert(prefixSize < _startIndex, "prefixSize < _startIndex");
-
-            _indexBackup = _index;
-            _startIndex -= prefixSize;
-            _index = _startIndex;
-
-            return new(this);
-        }
 
         /// <summary>
         /// Reserves space for an int32 value and returns its position.
