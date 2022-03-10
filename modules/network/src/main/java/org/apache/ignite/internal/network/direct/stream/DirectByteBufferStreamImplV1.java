@@ -45,9 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.RandomAccess;
 import java.util.UUID;
-import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
-import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.util.ArrayFactory;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -142,12 +140,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private long uuidLeast;
 
     private long uuidLocId;
-
-    private int marshallableState;
-
-    private byte[] marshallable;
-
-    private List<ClassDescriptorMessage> descriptors;
 
     protected boolean lastFinished;
 
@@ -1359,100 +1351,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         map = null;
 
         return map0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> void writeMarshallable(T object, MessageWriter writer) {
-        switch (marshallableState) {
-            case 0:
-                writeBoolean(object == null);
-
-                if (!lastFinished || object == null) {
-                    return;
-                }
-
-                marshallableState++;
-
-                //noinspection fallthrough
-            case 1:
-                if (marshallable == null) {
-                    // If object was not serialized to a byte array, serialize it
-                    MarshalledObject res = serializationService.writeMarshallable(object);
-                    marshallable = res.bytes();
-                    // Get descriptors that were not previously sent to the remote node
-                    descriptors = serializationService.createClassDescriptorsMessages(res.usedDescriptorIds());
-                }
-
-                writeCollection(descriptors, MessageCollectionItemType.MSG, writer);
-
-                if (!lastFinished) {
-                    return;
-                }
-
-                marshallableState++;
-
-                //noinspection fallthrough
-            case 2:
-                writeByteArray(marshallable);
-
-                if (!lastFinished) {
-                    return;
-                }
-
-                marshallable = null;
-                descriptors = null;
-                marshallableState = 0;
-                break;
-
-            default:
-                throw new IllegalArgumentException("Unknown marshallableState: " + marshallableState);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <T> T readMarshallable(MessageReader reader) {
-        switch (marshallableState) {
-            case 0:
-                boolean isNull = readBoolean();
-
-                if (!lastFinished || isNull) {
-                    return null;
-                }
-
-                marshallableState++;
-
-                //noinspection fallthrough
-            case 1:
-                descriptors = readCollection(MessageCollectionItemType.MSG, reader);
-
-                if (!lastFinished) {
-                    return null;
-                }
-
-                marshallableState++;
-
-                //noinspection fallthrough
-            case 2:
-                marshallable = readByteArray();
-
-                if (!lastFinished) {
-                    return null;
-                }
-
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown marshallableState: " + marshallableState);
-        }
-
-        T read = serializationService.readMarshallable(descriptors, marshallable);
-
-        marshallableState = 0;
-        marshallable = null;
-        descriptors = null;
-
-        return read;
     }
 
     /**

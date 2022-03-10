@@ -27,7 +27,6 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.network.serialization.PerSessionSerializationS
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -58,7 +56,7 @@ public class NettyServer {
     private final SerializationService serializationService;
 
     /** Incoming message listener. */
-    private final BiConsumer<String, NetworkMessage> messageListener;
+    private final Consumer<InNetworkObject> messageListener;
 
     /** Handshake manager. */
     private final Supplier<HandshakeManager> handshakeManager;
@@ -94,7 +92,7 @@ public class NettyServer {
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
             Consumer<NettySender> newConnectionListener,
-            BiConsumer<String, NetworkMessage> messageListener,
+            Consumer<InNetworkObject> messageListener,
             SerializationService serializationService,
             NettyBootstrapFactory bootstrapFactory
     ) {
@@ -139,7 +137,9 @@ public class NettyServer {
                                      */
                                     new InboundDecoder(sessionSerializationService),
                                     // Handshake handler.
-                                    new HandshakeHandler(manager, (consistentId) -> new MessageHandler(messageListener, consistentId)),
+                                    new HandshakeHandler(manager,
+                                            (consistentId) -> new MessageHandler(messageListener, consistentId, sessionSerializationService)
+                                    ),
                                     /*
                                      * Encoder that uses the MessageWriter
                                      * to write chunked data.
