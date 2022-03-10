@@ -18,11 +18,13 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Buffers;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
     using Internal.Proto;
+    using MessagePack;
 
     /// <summary>
     /// Fake Ignite server for test purposes.
@@ -30,6 +32,8 @@ namespace Apache.Ignite.Tests
     public sealed class FakeServer : IDisposable
     {
         public const string Err = "Err!";
+
+        public const string ExistingTableName = "tbl1";
 
         private readonly Socket _listener;
 
@@ -127,13 +131,32 @@ namespace Apache.Ignite.Tests
                     {
                         handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
                         handler.Send(new byte[] { 0, requestId, 0, 128 }); // Empty map.
+
+                        continue;
                     }
-                    else
+
+                    if (opCode == ClientOp.TableGet)
                     {
-                        // Fake error message for any other op code.
-                        handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                        handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
+                        var reader = new MessagePackReader(msg.AsMemory()[1..]);
+                        var tableName = reader.ReadString();
+
+                        if (tableName == ExistingTableName)
+                        {
+                            handler.Send(new byte[] { 0, 0, 0, 17 }); // Size.
+                            handler.Send(new byte[] { 0, requestId, 0 });
+
+                            var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                            var writer = new MessagePackWriter(arrayBufferWriter);
+                            writer.Write(Guid.Empty);
+                            handler.Send(arrayBufferWriter.WrittenSpan);
+
+                            continue;
+                        }
                     }
+
+                    // Fake error message for any other op code.
+                    handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
+                    handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
                 }
 
                 handler.Disconnect(true);
