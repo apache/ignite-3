@@ -355,6 +355,7 @@ namespace Apache.Ignite.Internal
             try
             {
                 // TODO: Optimize prefix handling with a predefined reusable buffer. Remove prefix handling from PooledArrayBufferWriter.
+                // TODO: If there is a body, we can use it to write prefix and reduce socket calls.
                 var prefixBytes = WritePrefix();
                 var body = request?.GetWrittenMemory().Slice(4);
 
