@@ -105,6 +105,20 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
+        public async Task TestTableOperationWithoutTxIsRetried()
+        {
+            await Task.Yield();
+            Assert.Fail("TODO");
+        }
+
+        [Test]
+        public async Task TestTableOperationWithTxIsNotRetried()
+        {
+            await Task.Yield();
+            Assert.Fail("TODO");
+        }
+
+        [Test]
         public async Task TestRetryOperationWithPayloadReusesPooledBufferCorrectly()
         {
             var cfg = new IgniteClientConfiguration
