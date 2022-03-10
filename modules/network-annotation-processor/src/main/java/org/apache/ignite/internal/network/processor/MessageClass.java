@@ -147,7 +147,14 @@ public class MessageClass {
      * @return Class name that the generated Network Message implementation should have.
      */
     public ClassName implClassName() {
-        return ClassName.get(packageName(), simpleName() + "Impl");
+        return implClassName(className);
+    }
+
+    /**
+     * Implementation of the {@link MessageClass#implClassName()}.
+     */
+    public static ClassName implClassName(ClassName className) {
+        return ClassName.get(className.packageName(), className.simpleName() + "Impl");
     }
 
     /**
@@ -156,7 +163,14 @@ public class MessageClass {
      * @return Class name that the generated Builder interface should have.
      */
     public ClassName builderClassName() {
-        return ClassName.get(packageName(), simpleName() + "Builder");
+        return builderClassName(className);
+    }
+
+    /**
+     * Implementation of the {@link MessageClass#builderClassName()}.
+     */
+    public static ClassName builderClassName(ClassName className) {
+        return ClassName.get(className.packageName(), className.simpleName() + "Builder");
     }
 
     /**
@@ -165,7 +179,14 @@ public class MessageClass {
      * @return name of the factory method that should be used by the message factories
      */
     public String asMethodName() {
-        return decapitalize(simpleName());
+        return asMethodName(className);
+    }
+
+    /**
+     * Implementation of the {@link MessageClass#asMethodName()}.
+     */
+    public static String asMethodName(ClassName className) {
+        return decapitalize(className.simpleName());
     }
 
     /**
@@ -191,7 +212,7 @@ public class MessageClass {
      *
      * @return A copy of the given string with the first character converted to lower case.
      */
-    private static String decapitalize(String str) {
+    public static String decapitalize(String str) {
         return Character.toLowerCase(str.charAt(0)) + str.substring(1);
     }
 

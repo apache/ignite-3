@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static java.util.stream.Collectors.toList;
+
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
@@ -50,6 +53,7 @@ import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Annotation processor for working with the {@link Transferable} annotation.
@@ -71,24 +75,56 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
+            IncrementalCompilationConfig currentConfig = IncrementalCompilationConfig.readConfig(processingEnv);
+
             List<MessageClass> messages = annotations.stream()
                     .map(roundEnv::getElementsAnnotatedWith)
                     .flatMap(Collection::stream)
                     .map(TypeElement.class::cast)
                     .map(e -> new MessageClass(processingEnv, e))
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             if (messages.isEmpty()) {
                 return true;
             }
 
-            MessageGroupWrapper messageGroup = getMessageGroup(roundEnv);
+            MessageGroupWrapper messageGroup = getMessageGroup(roundEnv, currentConfig);
+
+            if (currentConfig == null) {
+                List<ClassName> messageClassNames = messages.stream()
+                        .map(MessageClass::className)
+                        .collect(toList());
+
+                String messageGroupName = messageGroup.element().getQualifiedName().toString();
+
+                currentConfig = new IncrementalCompilationConfig(messageGroupName, messageClassNames);
+
+                currentConfig.writeConfig(processingEnv);
+            } else {
+                for (MessageClass message : messages) {
+                    ClassName messageClass = message.className();
+
+                    List<ClassName> messageClassesFromConfig = currentConfig.messageClasses();
+                    if (!messageClassesFromConfig.contains(messageClass)) {
+                        messageClassesFromConfig.add(messageClass);
+                    }
+                }
+
+                currentConfig.writeConfig(processingEnv);
+            }
 
             validateMessages(messages);
 
             generateMessageImpls(messages, messageGroup);
 
             generateSerializers(messages, messageGroup);
+
+            var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
+
+            // generate a factory for all messages inside the current compilation unit
+            TypeSpec messageFactory = messageFactoryGenerator.generateMessageFactory(currentConfig.messageClasses());
+
+            writeToFile(messageGroup.packageName(), messageFactory);
         } catch (ProcessingException e) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.getElement());
         }
@@ -108,7 +144,6 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     private void generateMessageImpls(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
         var messageBuilderGenerator = new MessageBuilderGenerator(processingEnv, messageGroup);
         var messageImplGenerator = new MessageImplGenerator(processingEnv, messageGroup);
-        var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
 
         for (MessageClass message : annotatedMessages) {
             try {
@@ -125,11 +160,6 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
             }
         }
-
-        // generate a factory for all messages inside the current compilation unit
-        TypeSpec messageFactory = messageFactoryGenerator.generateMessageFactory(annotatedMessages);
-
-        writeToFile(messageGroup.packageName(), messageFactory);
     }
 
     /**
@@ -146,7 +176,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     private void generateSerializers(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
         List<MessageClass> serializableMessages = annotatedMessages.stream()
                 .filter(MessageClass::isAutoSerializable)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         if (serializableMessages.isEmpty()) {
             return;
@@ -231,11 +261,18 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     /**
      * Extracts and validates the declared message group types marked with the {@link MessageGroup} annotation.
      */
-    private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
+    private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv, @Nullable IncrementalCompilationConfig config) {
         Set<? extends Element> messageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
 
         if (messageGroupSet.isEmpty()) {
             Elements elements = processingEnv.getElementUtils();
+
+            if (config != null) {
+                TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(config.messageGroupClassName());
+                if (typeElement != null) {
+                    return new MessageGroupWrapper(typeElement);
+                }
+            }
 
             Set<String> packageNames = roundEnv.getRootElements().stream()
                     .map(elements::getPackageOf)
@@ -254,7 +291,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             List<String> sortedNames = messageGroupSet.stream()
                     .map(Object::toString)
                     .sorted()
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             throw new ProcessingException(String.format(
                     "Invalid number of message groups (classes annotated with @%s), only one can be present in a compilation unit: %s",
