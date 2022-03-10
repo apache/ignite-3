@@ -88,6 +88,12 @@ public class IgniteSqlCreateTable extends SqlCreate {
             writer.endList(frame);
         }
 
+        if (colocationColumns != null) {
+            writer.keyword("COLOCATE BY");
+
+            colocationColumns.unparse(writer, 0, 0);
+        }
+
         if (createOptionList != null) {
             writer.keyword("WITH");
 

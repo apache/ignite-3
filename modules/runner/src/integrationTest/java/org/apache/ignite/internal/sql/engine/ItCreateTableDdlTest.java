@@ -25,12 +25,31 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.table.Table;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
 public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
+    /**
+     * Clear tables after each test.
+     *
+     * @param testInfo Test information oject.
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    @Override
+    public void tearDown(TestInfo testInfo) throws Exception {
+        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + t.name());
+        }
+
+        super.tearDownBase(testInfo);
+    }
+
     @Test
     public void pkWithNullableColumns() {
         assertThrows(
@@ -76,7 +95,7 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
                         IgniteException.class,
                         () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
                 ).getMessage(),
-                containsString("Schema definition error: All colocation columns must be part of primary key")
+                containsString("Schema definition error: Colocation columns must not be duplicated")
         );
     }
 
@@ -99,9 +118,9 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void explicitColocationColumns() {
-        sql("CREATE TABLE T1(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (ID0)");
+        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (ID0)");
 
-        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T1")).schemaView().schema().colocationColumns();
+        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
