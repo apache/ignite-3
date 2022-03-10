@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Test SQLSTATE codes propagation with thin client driver.
  */
-
 public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
     /** {@inheritDoc} */
     @Override protected Connection getConnection() throws SQLException {

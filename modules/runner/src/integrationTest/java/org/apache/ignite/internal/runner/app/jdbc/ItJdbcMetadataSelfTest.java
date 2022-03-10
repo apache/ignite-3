@@ -57,7 +57,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Metadata tests.
  */
-
 public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     /** Creates tables. */
     @BeforeAll

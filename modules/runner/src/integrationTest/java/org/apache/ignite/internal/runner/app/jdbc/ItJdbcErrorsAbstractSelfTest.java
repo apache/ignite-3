@@ -45,7 +45,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Test SQLSTATE codes propagation with (any) Ignite JDBC driver.
  */
-
 public abstract class ItJdbcErrorsAbstractSelfTest extends AbstractJdbcSelfTest {
     /**
      * Test that parsing-related error codes get propagated to Ignite SQL exceptions.

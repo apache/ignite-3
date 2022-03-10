@@ -42,7 +42,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Statement test.
  */
-
 public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL query. */
     private static final String SQL = "select * from PERSON where age > 30";
