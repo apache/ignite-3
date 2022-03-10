@@ -338,6 +338,7 @@ namespace Apache.Ignite.Internal
                     return false;
                 }
 
+                errors.Add(exception);
                 var inner = new AggregateException(errors);
 
                 throw new IgniteClientException(
