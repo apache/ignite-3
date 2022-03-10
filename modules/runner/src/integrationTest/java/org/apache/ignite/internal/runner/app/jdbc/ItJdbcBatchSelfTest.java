@@ -272,12 +272,17 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             stmt.addBatch(sql);
 
+            stmt.addBatch("INSERT INTO Person (id, firstName, lastName, age) values " + valuesRow(100));
+
+            stmt.addBatch(sql);
+
             int[] updCnts = stmt.executeBatch();
 
-            assertEquals(1, updCnts.length, "Invalid update counts size");
+            assertEquals(3, updCnts.length, "Invalid update counts size");
 
             // result size is equal to mathematical progression:
             assertEquals((1 + batchSize) * batchSize / 2, updCnts[0], "Invalid update counts");
+            assertEquals((1 + batchSize) * batchSize / 2, updCnts[2], "Invalid update counts");
         } finally {
             try (Statement statement = conn.createStatement()) {
                 statement.executeUpdate("DROP TABLE Src;");
