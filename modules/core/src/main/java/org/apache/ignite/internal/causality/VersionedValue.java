@@ -228,8 +228,28 @@ public class VersionedValue<T> {
     }
 
     /**
-     * Updates a previous value to a new one.
-     * TODO: IGNITE-16543 The method shouldn't complete the token, because it may invoke several times in one revision.
+     * Updates the value using the given updater. The updater receives the value on previous token, or default value
+     * (see constructor) if the value isn't initialized, or current intermediate value, if this method has been already
+     * called for the same token; and returns a new value.<br>
+     * If an exception ({@link CancellationException} or {@link CompletionException}) was thrown when calculating the value for previous token,
+     * then {@code fail} updater is used to process the exception and calculate a new value.<br>
+     * This method can be called multiple times for the same token, and doesn't complete the future created for this token.
+     * The future is supposed to be completed by storage revision update in this case. If this method has been called at least
+     * once on the given token, the updater will receive a value that was evaluated by updater on previous call, as intermediate
+     * result.<br>
+     * As the order of multiple calls of this method on the same token is unknown, operations done by the updater must be
+     * commutative. For example:
+     * <ul>
+     *     <li>this method was called for token N-1 and updater evaluated the value V1;</li>
+     *     <li>a storage revision update happened;</li>
+     *     <li>this method is called for token N, updater receives V1 and evaluates V2;</li>
+     *     <li>this method is called once again for token N, then the updater receives V2 as intermediate result and evaluates V3;</li>
+     *     <li>storage revision update happens and the future for token N completes with value V3.</li>
+     * </ul>
+     * Regardless of order in which this method's calls are made, V3 should be the final result.
+     * <br>
+     * The method should return previous value (previous intermediate value, or a value for previous token, if this method
+     * is called for first time for given token).
      *
      * @param causalityToken Causality token.
      * @param complete       The function is invoked if the previous future completed successfully.
