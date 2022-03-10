@@ -62,7 +62,6 @@ import org.junit.jupiter.api.Test;
  * Connection test.
  */
 @SuppressWarnings("ThrowableNotThrown")
-
 public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
     /**
      * Test JDBC loading via ServiceLoader.
