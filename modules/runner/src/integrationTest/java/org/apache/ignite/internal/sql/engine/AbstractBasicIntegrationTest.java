@@ -236,7 +236,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
 
     protected static List<List<?>> sql(String sql, Object... args) {
         return getAllFromCursor(
-                ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().query("PUBLIC", sql, args).get(0)
+                ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
         );
     }
 }

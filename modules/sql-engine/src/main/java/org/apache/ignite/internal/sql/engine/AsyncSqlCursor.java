@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine;
 
 import java.util.List;
 
 /**
- * ExecutionPlan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Sql query cursor.
+ *
+ * @param <T> Type of elements.
  */
-class ExecutionPlan {
-    private final List<Fragment> fragments;
+public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
+    /**
+     * Get query type.
+     */
+    SqlQueryType queryType();
 
-    ExecutionPlan(List<Fragment> fragments) {
-        this.fragments = List.copyOf(fragments);
-    }
-
-    public List<Fragment> fragments() {
-        return fragments;
+    /**
+     * Get column metadata.
+     */
+    default ResultSetMetadata metadata() {
+        return List::of;
     }
 }

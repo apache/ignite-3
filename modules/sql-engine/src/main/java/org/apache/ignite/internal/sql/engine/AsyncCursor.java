@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 /**
- * ExecutionPlan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Sql query cursor.
+ *
+ * @param <T> Type of elements.
  */
-class ExecutionPlan {
-    private final List<Fragment> fragments;
+public interface AsyncCursor<T> {
+    CompletionStage<List<T>> requestNext(int rows);
 
-    ExecutionPlan(List<Fragment> fragments) {
-        this.fragments = List.copyOf(fragments);
-    }
-
-    public List<Fragment> fragments() {
-        return fragments;
-    }
+    CompletableFuture<Void> close();
 }

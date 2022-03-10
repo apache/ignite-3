@@ -17,60 +17,54 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static java.util.Collections.singletonList;
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
-import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import org.apache.calcite.plan.Context;
-import org.apache.calcite.plan.Contexts;
-import org.apache.calcite.rel.type.RelDataType;
+import java.util.Queue;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.sql.engine.Query;
-import org.apache.ignite.internal.sql.engine.QueryRegistry;
-import org.apache.ignite.internal.sql.engine.QueryState;
-import org.apache.ignite.internal.sql.engine.RootQuery;
-import org.apache.ignite.internal.sql.engine.RunningFragment;
-import org.apache.ignite.internal.sql.engine.RunningQuery;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.RemoteFragmentKey;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
-import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
-import org.apache.ignite.internal.sql.engine.exec.rel.Node;
+import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
+import org.apache.ignite.internal.sql.engine.exec.rel.RootNode;
 import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
+import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
-import org.apache.ignite.internal.sql.engine.prepare.CacheKey;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.FragmentPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
-import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCache;
-import org.apache.ignite.internal.sql.engine.prepare.ResultSetMetadataImpl;
-import org.apache.ignite.internal.sql.engine.prepare.ResultSetMetadataInternal;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NodeLeaveHandler;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
-import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -83,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
+public class ExecutionServiceImpl<RowT> implements ExecutionService {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
@@ -93,8 +87,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
     private final MessageService msgSrvc;
 
     private final String locNodeId;
-
-    private final QueryPlanCache qryPlanCache;
 
     private final SqlSchemaManager sqlSchemaManager;
 
@@ -110,11 +102,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
 
     private final ClosableIteratorsHolder iteratorsHolder;
 
-    private final QueryRegistry queryRegistry;
-
     private final RowHandler<RowT> handler;
 
     private final DdlCommandHandler ddlCmdHnd;
+
+    private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
 
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -122,14 +114,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
     public ExecutionServiceImpl(
             TopologyService topSrvc,
             MessageService msgSrvc,
-            QueryPlanCache planCache,
             SqlSchemaManager sqlSchemaManager,
             TableManager tblManager,
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             MailboxRegistry mailboxRegistry,
-            ExchangeService exchangeSrvc,
-            QueryRegistry queryRegistry
+            ExchangeService exchangeSrvc
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;
@@ -138,12 +128,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.exchangeSrvc = exchangeSrvc;
-        this.queryRegistry = queryRegistry;
 
         ddlCmdHnd = new DdlCommandHandler(tblManager);
 
         locNodeId = topSrvc.localMember().id();
-        qryPlanCache = planCache;
         iteratorsHolder = new ClosableIteratorsHolder(topSrvc.localMember().name(), LOG);
         mappingSrvc = new MappingServiceImpl(topSrvc);
         // TODO: fix this
@@ -158,107 +146,27 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
 
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
+        msgSrvc.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
         msgSrvc.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
-    private SqlCursor<List<?>> mapAndExecutePlan(
-            RootQuery<RowT> qry,
+    private AsyncCursor<List<?>> executeQuery(
+            BaseQueryContext ctx,
             MultiStepPlan plan
     ) {
-        qry.mapping();
-        plan.init(mappingSrvc, new MappingQueryContext(locNodeId, topologyVersion()));
+        DistributedQueryManager queryManager;
 
-        List<Fragment> fragments = plan.fragments();
+        DistributedQueryManager old = queryManagerMap.put(ctx.queryId(), queryManager = new DistributedQueryManager(ctx));
 
-        // Local execution
-        Fragment fragment = first(fragments);
+        assert old == null;
 
-        if (IgniteUtils.assertionsEnabled()) {
-            assert fragment != null;
-
-            FragmentMapping mapping = plan.mapping(fragment);
-
-            assert mapping != null;
-
-            List<String> nodes = mapping.nodeIds();
-
-            assert nodes != null && nodes.size() == 1 && first(nodes).equals(locNodeId);
-        }
-
-        FragmentDescription fragmentDesc = new FragmentDescription(
-                fragment.fragmentId(),
-                plan.mapping(fragment),
-                plan.target(fragment),
-                plan.remotes(fragment));
-
-        ExecutionContext<RowT> ectx = new ExecutionContext<>(
-                qry.context(),
-                taskExecutor,
-                qry.id(),
-                locNodeId,
-                locNodeId,
-                topologyVersion(),
-                fragmentDesc,
-                handler,
-                Commons.parametersMap(qry.parameters()));
-
-        Node<RowT> node = new LogicalRelImplementor<>(ectx, affSrvc, mailboxRegistry,
-                exchangeSrvc).go(fragment.root());
-
-        qry.run(ectx, plan, node);
-
-        // start remote execution
-        for (int i = 1; i < fragments.size(); i++) {
-            fragment = fragments.get(i);
-            fragmentDesc = new FragmentDescription(
-                    fragment.fragmentId(),
-                    plan.mapping(fragment),
-                    plan.target(fragment),
-                    plan.remotes(fragment));
-
-            Throwable ex = null;
-            for (String nodeId : fragmentDesc.nodeIds()) {
-                if (ex != null) {
-                    qry.onResponse(nodeId, fragment.fragmentId(), ex);
-                } else {
-                    try {
-                        QueryStartRequest req = FACTORY.queryStartRequest()
-                                .queryId(qry.id())
-                                .fragmentId(fragment.fragmentId())
-                                .schema(qry.context().schemaName())
-                                .root(fragment.serialized())
-                                .topologyVersion(ectx.topologyVersion())
-                                .fragmentDescription(fragmentDesc)
-                                .parameters(qry.parameters())
-                                .build();
-
-                        msgSrvc.send(nodeId, req);
-                    } catch (Throwable e) {
-                        qry.onResponse(nodeId, fragment.fragmentId(), ex = e);
-                    }
-                }
-            }
-        }
-
-        return Commons.createCursor(new TransformingIterator<>(iteratorsHolder.iterator(qry.iterator()), row -> {
-            int rowSize = ectx.rowHandler().columnCount(row);
-
-            List<Object> res = new ArrayList<>(rowSize);
-
-            for (int i = 0; i < rowSize; i++) {
-                res.add(ectx.rowHandler().get(i, row));
-            }
-
-            return res;
-        }), plan);
+        return new AsyncWrapper<>(queryManager.execute(plan));
     }
 
-    protected long topologyVersion() {
-        return 1L;
-    }
-
-    private BaseQueryContext createQueryContext(Context parent, @Nullable String schema) {
+    private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
         return BaseQueryContext.builder()
+                .queryId(queryId)
+                .parameters(params)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(sqlSchemaManager.schema(schema))
@@ -274,192 +182,383 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public SqlCursor<List<?>> executePlan(
-            RootQuery<RowT> qry,
-            QueryPlan plan
+    public AsyncCursor<List<?>> executePlan(
+            QueryPlan plan, BaseQueryContext ctx
     ) {
         switch (plan.type()) {
             case DML:
                 // TODO a barrier between previous operation and this one
             case QUERY:
-                return mapAndExecutePlan(
-                        qry,
+                return executeQuery(
+                        ctx,
                         (MultiStepPlan) plan
                 );
             case EXPLAIN:
                 return executeExplain((ExplainPlan) plan);
             case DDL:
-                return executeDdl(qry, (DdlPlan) plan);
+                return executeDdl((DdlPlan) plan);
 
             default:
                 throw new AssertionError("Unexpected plan type: " + plan);
         }
     }
 
-    private SqlCursor<List<?>> executeDdl(RootQuery<RowT> qry, DdlPlan plan) {
+    private AsyncCursor<List<?>> executeDdl(DdlPlan plan) {
         try {
             ddlCmdHnd.handle(plan.command());
         } catch (IgniteInternalCheckedException e) {
-            throw new IgniteInternalException("Failed to execute DDL statement [stmt=" + qry.sql()
+            throw new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
-        } finally {
-            queryRegistry.unregister(qry.id());
         }
 
-        return Commons.createCursor(Collections.emptyIterator(), plan);
+        return new AsyncWrapper<>(Collections.emptyIterator());
     }
 
-    private SqlCursor<List<?>> executeExplain(ExplainPlan plan) {
-        SqlCursor<List<?>> cur = Commons.createCursor(singletonList(singletonList(plan.plan())), plan);
-        // TODO: fix this
-        //        cur.fieldsMeta(plan.fieldsMeta().queryFieldsMetadata(pctx.typeFactory()));
+    private AsyncCursor<List<?>> executeExplain(ExplainPlan plan) {
+        List<List<?>> res = List.of(List.of(plan.plan()));
 
-        return cur;
+        return new AsyncWrapper<>(res.iterator());
     }
 
-    private void executeFragment(Query<RowT> qry, FragmentPlan plan, ExecutionContext<RowT> ectx) {
-        String origNodeId = ectx.originatingNodeId();
-
-        Outbox<RowT> node = new LogicalRelImplementor<>(
-                ectx,
-                affSrvc,
-                mailboxRegistry,
-                exchangeSrvc
-        ).go(plan.root());
-
-        qry.addFragment(new RunningFragment<>(node, ectx));
-
-        try {
-            msgSrvc.send(
-                    origNodeId,
-                    FACTORY.queryStartResponse()
-                            .queryId(qry.id())
-                            .fragmentId(ectx.fragmentId())
-                            .build()
-            );
-        } catch (IgniteInternalCheckedException e) {
-            IgniteInternalException wrpEx = new IgniteInternalException("Failed to send reply. [nodeId=" + origNodeId + ']', e);
-
-            throw wrpEx;
-        }
-
-        node.init();
-    }
-
-    private ResultSetMetadataInternal resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
-            @Nullable List<List<String>> origins) {
-        return new ResultSetMetadataImpl(
-                TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins),
-                origins
-        );
-    }
-
-    @SuppressWarnings("unchecked")
     private void onMessage(String nodeId, QueryStartRequest msg) {
         assert nodeId != null && msg != null;
 
-        try {
-            Query<RowT> qry = (Query<RowT>) queryRegistry.register(
-                    new Query<>(
-                            msg.queryId(),
-                            nodeId,
-                            null,
-                            exchangeSrvc,
-                            (q) -> queryRegistry.unregister(q.id()),
-                            LOG
-                    )
-            );
+        DistributedQueryManager queryManager = queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
+            BaseQueryContext ctx = createQueryContext(key, msg.schema(), msg.parameters());
 
-            QueryPlan qryPlan = qryPlanCache.queryPlan(
-                    new CacheKey(msg.schema(), msg.root()),
-                    () -> prepareFragment(msg.root())
-            );
+            return new DistributedQueryManager(ctx);
+        });
 
-            FragmentPlan plan = (FragmentPlan) qryPlan;
-
-            final BaseQueryContext qctx = createQueryContext(Contexts.empty(), msg.schema());
-
-            ExecutionContext<RowT> ectx = new ExecutionContext<>(
-                    qctx,
-                    taskExecutor,
-                    msg.queryId(),
-                    locNodeId,
-                    nodeId,
-                    msg.topologyVersion(),
-                    msg.fragmentDescription(),
-                    handler,
-                    Commons.parametersMap(msg.parameters())
-            );
-
-            executeFragment(qry, plan, ectx);
-        } catch (Throwable ex) {
-            LOG.error("Failed to start query fragment", ex);
-
-            mailboxRegistry.outboxes(msg.queryId(), msg.fragmentId(), -1)
-                    .forEach(Outbox::close);
-            mailboxRegistry.inboxes(msg.queryId(), msg.fragmentId(), -1)
-                    .forEach(Inbox::close);
-
-            try {
-                msgSrvc.send(
-                        nodeId,
-                        FACTORY.queryStartResponse()
-                                .queryId(msg.queryId())
-                                .fragmentId(msg.fragmentId())
-                                .error(ex)
-                                .build()
-                );
-            } catch (Exception e) {
-                LOG.error("Error occurred during send error message", e);
-
-                IgniteInternalException wrpEx = new IgniteInternalException("Error occurred during send error message", e);
-
-                e.addSuppressed(ex);
-
-                RunningQuery qry = queryRegistry.query(msg.queryId());
-
-                qry.cancel();
-
-                throw wrpEx;
-            }
-
-            throw ex;
-        }
+        queryManager.submitFragment(nodeId, msg.root(), msg.fragmentDescription());
     }
 
     private void onMessage(String nodeId, QueryStartResponse msg) {
         assert nodeId != null && msg != null;
 
-        RunningQuery qry = queryRegistry.query(msg.queryId());
+        DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
-        if (qry != null) {
-            assert qry instanceof RootQuery : "Unexpected query object: " + qry;
-
-            ((RootQuery<?>) qry).onResponse(nodeId, msg.fragmentId(), msg.error());
+        if (dqm != null) {
+            dqm.acknowledgeFragment(nodeId, msg.fragmentId(), msg.error());
         }
     }
 
     private void onMessage(String nodeId, ErrorMessage msg) {
         assert nodeId != null && msg != null;
 
-        RunningQuery qry = queryRegistry.query(msg.queryId());
+        DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
-        if (qry != null && qry.state() != QueryState.CLOSED) {
-            assert qry instanceof RootQuery : "Unexpected query object: " + qry;
+        if (dqm != null) {
+            RemoteException e = new RemoteException(nodeId, msg.queryId(), msg.fragmentId(), msg.error());
 
-            Exception e = new RemoteException(nodeId, msg.queryId(), msg.fragmentId(), msg.error());
+            dqm.onError(e);
+        }
+    }
 
-            ((RootQuery<?>) qry).onError(e);
+    private void onMessage(String nodeId, QueryCloseMessage msg) {
+        assert nodeId != null && msg != null;
+
+        DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
+
+        if (dqm != null) {
+            dqm.close();
         }
     }
 
     private void onNodeLeft(ClusterNode node) {
-        queryRegistry.runningQueries().forEach(query -> ((Query<?>) query).onNodeLeft(node.id()));
+        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(node.id()));
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         IgniteUtils.closeAll(iteratorsHolder::stop);
+    }
+
+    static class AsyncWrapper<T> implements AsyncCursor<T> {
+        private final AtomicReference<CompletableFuture<Iterator<T>>> cursorRef;
+
+        public AsyncWrapper(Iterator<T> source) {
+            this(CompletableFuture.completedFuture(source));
+        }
+
+        public AsyncWrapper(CompletableFuture<Iterator<T>> initFut) {
+            this.cursorRef = new AtomicReference<>(initFut);
+        }
+
+        @Override
+        public CompletionStage<List<T>> requestNext(int rows) {
+            CompletableFuture<List<T>> batchFut = new CompletableFuture<>();
+
+            cursorRef.updateAndGet(fut -> fut.thenApplyAsync(cursor -> {
+                int remains = rows;
+                List<T> batch = new ArrayList<>(rows);
+
+                while (remains-- > 0 && cursor.hasNext()) {
+                    batch.add(cursor.next());
+                }
+
+                batchFut.complete(batch);
+
+                return cursor;
+            }).exceptionally(t -> {
+                batchFut.completeExceptionally(t);
+
+                return null;
+            }));
+
+            return batchFut;
+        }
+
+        @Override
+        public CompletableFuture<Void> close() {
+            return cursorRef.get().thenAccept(iterator -> {
+                if (iterator instanceof AutoCloseable) {
+                    try {
+                        ((AutoCloseable) iterator).close();
+                    } catch (Exception e) {
+                        throw new IgniteInternalException(e);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * A convenient class that manages the initialization and termination of distributed queries.
+     */
+    class DistributedQueryManager {
+        private final BaseQueryContext ctx;
+
+        private final AtomicReference<CompletableFuture<Void>> cancelFut = new AtomicReference<>();
+
+        private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new ConcurrentHashMap<>();
+
+        private final CompletableFuture<RootNode<RowT>> root = new CompletableFuture<>();
+
+        private final Queue<AbstractNode<RowT>> localFragments = new LinkedBlockingQueue<>();
+
+        private volatile Long rootFragmentId = null;
+
+        public DistributedQueryManager(BaseQueryContext ctx) {
+            this.ctx = ctx;
+        }
+
+        private void sendFragment(String targetNodeId, Fragment fragment, FragmentDescription desc) throws IgniteInternalCheckedException {
+            QueryStartRequest req = FACTORY.queryStartRequest()
+                    .queryId(ctx.queryId())
+                    .fragmentId(fragment.fragmentId())
+                    .schema(ctx.schemaName())
+                    .root(fragment.serialized())
+                    .fragmentDescription(desc)
+                    .parameters(ctx.parameters())
+                    .build();
+
+            msgSrvc.send(targetNodeId, req);
+
+            remoteFragmentInitCompletion.put(new RemoteFragmentKey(targetNodeId, fragment.fragmentId()), new CompletableFuture<>());
+        }
+
+        private void acknowledgeFragment(String nodeId, long fragmentId, @Nullable Throwable ex) {
+            if (ex != null) {
+                Long rootFragmentId0 = rootFragmentId;
+
+                if (rootFragmentId0 != null && fragmentId == rootFragmentId0) {
+                    root.completeExceptionally(ex);
+                } else {
+                    root.thenAccept(root -> root.onError(ex));
+                }
+            }
+
+            remoteFragmentInitCompletion.get(new RemoteFragmentKey(nodeId, fragmentId)).complete(null);
+        }
+
+        private void onError(RemoteException ex) {
+            root.thenAccept(root -> root.onError(ex));
+        }
+
+        void onNodeLeft(String nodeId) {
+            remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
+                    .forEach(e -> e.getValue().completeExceptionally(new IgniteInternalException("asddd")));
+        }
+
+        private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {
+            String origNodeId = ectx.originatingNodeId();
+
+            AbstractNode<RowT> node = new LogicalRelImplementor<>(
+                    ectx,
+                    affSrvc,
+                    mailboxRegistry,
+                    exchangeSrvc
+            ).go(plan.root());
+
+            if (!(node instanceof Outbox)) {
+                RootNode<RowT> rootNode = new RootNode<>(ectx, plan.root().getRowType(), this::close);
+                rootNode.register(node);
+
+                root.complete(rootNode);
+            }
+
+            localFragments.add(node);
+
+            try {
+                msgSrvc.send(
+                        origNodeId,
+                        FACTORY.queryStartResponse()
+                                .queryId(ectx.queryId())
+                                .fragmentId(ectx.fragmentId())
+                                .build()
+                );
+            } catch (IgniteInternalCheckedException e) {
+                throw new IgniteInternalException("Failed to send reply. [nodeId=" + origNodeId + ']', e);
+            }
+
+            if (node instanceof Outbox) {
+                ((Outbox<?>) node).init();
+            }
+        }
+
+        private ExecutionContext<RowT> createContext(String initiatorNodeId, FragmentDescription desc) {
+            return new ExecutionContext<>(
+                    ctx,
+                    taskExecutor,
+                    ctx.queryId(),
+                    locNodeId,
+                    initiatorNodeId,
+                    desc,
+                    handler,
+                    Commons.parametersMap(ctx.parameters())
+            );
+        }
+
+        void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc) {
+            try {
+                QueryPlan qryPlan = prepareFragment(fragmentString);
+
+                FragmentPlan plan = (FragmentPlan) qryPlan;
+
+                executeFragment(plan, createContext(initiatorNode, desc));
+            } catch (Throwable ex) {
+                LOG.error("Failed to start query fragment", ex);
+
+                try {
+                    msgSrvc.send(
+                            initiatorNode,
+                            FACTORY.queryStartResponse()
+                                    .queryId(ctx.queryId())
+                                    .fragmentId(desc.fragmentId())
+                                    .error(ex)
+                                    .build()
+                    );
+                } catch (Exception e) {
+                    LOG.error("Error occurred during send error message", e);
+
+                    close();
+                }
+            }
+        }
+
+        CompletableFuture<Iterator<List<?>>> execute(MultiStepPlan plan) {
+            return CompletableFuture.runAsync(() -> {
+                plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
+
+                List<Fragment> fragments = plan.fragments();
+
+                // start remote execution
+                try {
+                    for (Fragment fragment : fragments) {
+                        if (fragment.rootFragment()) {
+                            assert rootFragmentId == null;
+
+                            rootFragmentId = fragment.fragmentId();
+                        }
+
+                        FragmentDescription fragmentDesc = new FragmentDescription(
+                                fragment.fragmentId(),
+                                plan.mapping(fragment),
+                                plan.target(fragment),
+                                plan.remotes(fragment)
+                        );
+
+                        for (String nodeId : fragmentDesc.nodeIds()) {
+                            sendFragment(nodeId, fragment, fragmentDesc);
+                        }
+                    }
+                } catch (Throwable e) {
+                    root.thenAccept(root -> root.onError(e));
+                }
+            }, taskExecutor)
+                    .thenCompose(tmp -> root)
+                    .thenApply(root -> new TransformingIterator<>(iteratorsHolder.iterator(root), row -> {
+                        int rowSize = root.context().rowHandler().columnCount(row);
+
+                        List<Object> res = new ArrayList<>(rowSize);
+
+                        for (int i = 0; i < rowSize; i++) {
+                            res.add(root.context().rowHandler().get(i, row));
+                        }
+
+                        return res;
+                    }));
+        }
+
+        CompletableFuture<Void> close() {
+            return cancelFut.updateAndGet(old -> {
+                if (old != null) {
+                    return old;
+                }
+
+                CompletableFuture<Void> start = new CompletableFuture<>();
+
+                CompletableFuture<Void> end = start
+                        .thenCompose(tmp -> {
+                            if (!root.completeExceptionally(new ExecutionCancelledException())) {
+                                return root.thenAccept(RootNode::closeInternal);
+                            }
+
+                            return CompletableFuture.completedFuture(null);
+                        })
+                        .thenCompose(tmp -> {
+                            Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
+                            for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
+                                requestsPerNode.computeIfAbsent(entry.getKey().nodeId(), key -> new ArrayList<>()).add(entry.getValue());
+                            }
+
+                            List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
+                            for (Map.Entry<String, List<CompletableFuture<?>>> entry : requestsPerNode.entrySet()) {
+                                String nodeId = entry.getKey();
+
+                                if (!exchangeSrvc.alive(nodeId)) {
+                                    continue;
+                                }
+
+                                cancelFuts.add(
+                                        CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
+                                                .thenRun(() -> {
+                                                    try {
+                                                        exchangeSrvc.closeQuery(nodeId, ctx.queryId());
+                                                    } catch (IgniteInternalCheckedException e) {
+                                                        throw new IgniteInternalException(
+                                                                "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
+                                                    }
+                                                })
+                                );
+                            }
+
+                            for (AbstractNode<?> node : localFragments) {
+                                node.context().execute(() -> {
+                                    node.close();
+                                    node.context().cancel();
+                                }, node::onError);
+                            }
+
+                            return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]))
+                                    .thenRun(() -> queryManagerMap.remove(ctx.queryId()));
+                        });
+
+                start.completeAsync(() -> null, taskExecutor);
+
+                return end;
+            });
+        }
     }
 }

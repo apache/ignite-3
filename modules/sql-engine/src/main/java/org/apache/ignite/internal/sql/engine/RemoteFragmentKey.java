@@ -23,7 +23,7 @@ package org.apache.ignite.internal.sql.engine;
  * <p>Every fragment could be executed on several nodes. So, it is not sufficient to use the
  * fragment id only to distinguish between remote fragments, the node id should be attached.
  */
-final class RemoteFragmentKey {
+public final class RemoteFragmentKey {
     private final String nodeId;
 
     private final long fragmentId;
@@ -34,7 +34,7 @@ final class RemoteFragmentKey {
      * @param nodeId Id of the node that own a fragment.
      * @param fragmentId Id of the particular fragment owned by a remote node.
      */
-    RemoteFragmentKey(String nodeId, long fragmentId) {
+    public RemoteFragmentKey(String nodeId, long fragmentId) {
         this.nodeId = nodeId;
         this.fragmentId = fragmentId;
     }

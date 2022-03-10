@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimi
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -62,43 +64,49 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan prepareSingle(SqlNode sqlNode, PlanningContext ctx) {
-        try {
-            assert single(sqlNode);
+    @Override
+    public CompletableFuture<QueryPlan> prepare(SqlNode sqlNode, BaseQueryContext ctx) {
+        return CompletableFuture.completedFuture(null)
+                .thenApply(voidArg -> {
+                    try {
+                        assert single(sqlNode);
 
-            ctx.planner().reset();
+                        var planningContext = PlanningContext.builder()
+                                .parentContext(ctx)
+                                .build();
 
-            if (SqlKind.DDL.contains(sqlNode.getKind())) {
-                return prepareDdl(sqlNode, ctx);
-            }
+                        if (SqlKind.DDL.contains(sqlNode.getKind())) {
+                            return prepareDdl(sqlNode, planningContext);
+                        }
 
-            switch (sqlNode.getKind()) {
-                case SELECT:
-                case ORDER_BY:
-                case WITH:
-                case VALUES:
-                case UNION:
-                case EXCEPT:
-                case INTERSECT:
-                    return prepareQuery(sqlNode, ctx);
+                        switch (sqlNode.getKind()) {
+                            case SELECT:
+                            case ORDER_BY:
+                            case WITH:
+                            case VALUES:
+                            case UNION:
+                            case EXCEPT:
+                            case INTERSECT:
+                                return prepareQuery(sqlNode, planningContext);
 
-                case INSERT:
-                case DELETE:
-                case UPDATE:
-                case MERGE:
-                    return prepareDml(sqlNode, ctx);
+                            case INSERT:
+                            case DELETE:
+                            case UPDATE:
+                            case MERGE:
+                                return prepareDml(sqlNode, planningContext);
 
-                case EXPLAIN:
-                    return prepareExplain(sqlNode, ctx);
+                            case EXPLAIN:
+                                return prepareExplain(sqlNode, planningContext);
 
-                default:
-                    throw new IgniteInternalException("Unsupported operation ["
-                            + "sqlNodeKind=" + sqlNode.getKind() + "; "
-                            + "querySql=\"" + ctx.query() + "\"]");
-            }
-        } catch (ValidationException | CalciteContextException e) {
-            throw new IgniteInternalException("Failed to validate query. " + e.getMessage(), e);
-        }
+                            default:
+                                throw new IgniteInternalException("Unsupported operation ["
+                                        + "sqlNodeKind=" + sqlNode.getKind() + "; "
+                                        + "querySql=\"" + planningContext.query() + "\"]");
+                        }
+                    } catch (ValidationException | CalciteContextException e) {
+                        throw new IgniteInternalException("Failed to validate query. " + e.getMessage(), e);
+                    }
+                });
     }
 
     private QueryPlan prepareDdl(SqlNode sqlNode, PlanningContext ctx) {

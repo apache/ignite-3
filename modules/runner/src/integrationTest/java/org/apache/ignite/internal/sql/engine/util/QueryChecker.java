@@ -33,13 +33,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.Cursor;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -340,10 +340,10 @@ public abstract class QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        List<SqlCursor<List<?>>> explainCursors =
-                qryProc.query("PUBLIC", "EXPLAIN PLAN FOR " + qry);
+        List<CompletableFuture<AsyncSqlCursor<List<?>>>> explainCursors =
+                qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry);
 
-        Cursor<List<?>> explainCursor = explainCursors.get(0);
+        AsyncSqlCursor<List<?>> explainCursor = explainCursors.get(0).join();
         List<List<?>> explainRes = getAllFromCursor(explainCursor);
         String actualPlan = (String) explainRes.get(0).get(0);
 
@@ -358,10 +358,10 @@ public abstract class QueryChecker {
         }
 
         // Check result.
-        List<SqlCursor<List<?>>> cursors =
-                qryProc.query("PUBLIC", qry, params);
+        List<CompletableFuture<AsyncSqlCursor<List<?>>>> cursors =
+                qryProc.queryAsync("PUBLIC", qry, params);
 
-        SqlCursor<List<?>> cur = cursors.get(0);
+        AsyncSqlCursor<List<?>> cur = cursors.get(0).join();
 
         if (expectedColumnNames != null) {
             List<String> colNames = cur.metadata().fields().stream()
