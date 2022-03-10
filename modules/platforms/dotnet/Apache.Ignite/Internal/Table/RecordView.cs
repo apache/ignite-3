@@ -280,6 +280,7 @@ namespace Apache.Ignite.Internal.Table
             Transaction? tx,
             PooledArrayBufferWriter? request = null)
         {
+            // TODO: This misses retry functionality in FailoverSocket when tx is not specified.
             var socket = await _table.GetSocket(tx).ConfigureAwait(false);
 
             return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);

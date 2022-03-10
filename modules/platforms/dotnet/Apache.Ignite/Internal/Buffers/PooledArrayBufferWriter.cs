@@ -56,7 +56,7 @@ namespace Apache.Ignite.Internal.Buffers
         private int _startIndex;
 
         /** Disposed flag. */
-        private bool _disposed;
+        private volatile bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PooledArrayBufferWriter"/> class.

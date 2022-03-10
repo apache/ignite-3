@@ -107,14 +107,12 @@ namespace Apache.Ignite.Internal
                 {
                     var socket = await GetSocketAsync().ConfigureAwait(false);
 
-                    // TODO: Request may be disposed early during send!
                     return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
                 }
                 catch (Exception e)
                 {
                     if (!HandleOpError(e, clientOp, ref attempt, ref errors))
                     {
-                        request?.Dispose();
                         throw;
                     }
                 }
