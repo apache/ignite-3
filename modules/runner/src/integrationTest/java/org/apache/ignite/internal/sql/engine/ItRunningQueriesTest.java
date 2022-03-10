@@ -36,13 +36,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests to verify running query registry and cancellation.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItRunningQueriesTest extends AbstractBasicIntegrationTest {
     /** Timeout in ms for async operations. */
     private static final long TIMEOUT_IN_MS = 10_000;

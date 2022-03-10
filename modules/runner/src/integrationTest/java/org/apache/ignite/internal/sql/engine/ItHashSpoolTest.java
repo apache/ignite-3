@@ -21,13 +21,11 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Hash spool test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
 
