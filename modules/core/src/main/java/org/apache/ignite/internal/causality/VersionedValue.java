@@ -231,8 +231,8 @@ public class VersionedValue<T> {
      * Updates the value using the given updater. The updater receives the value on previous token, or default value
      * (see constructor) if the value isn't initialized, or current intermediate value, if this method has been already
      * called for the same token; and returns a new value.<br>
-     * If an exception ({@link CancellationException} or {@link CompletionException}) was thrown when calculating the value for previous token,
-     * then {@code fail} updater is used to process the exception and calculate a new value.<br>
+     * If an exception ({@link CancellationException} or {@link CompletionException}) was thrown when calculating the value for previous
+     * token, then {@code fail} updater is used to process the exception and calculate a new value.<br>
      * This method can be called multiple times for the same token, and doesn't complete the future created for this token.
      * The future is supposed to be completed by storage revision update in this case. If this method has been called at least
      * once on the given token, the updater will receive a value that was evaluated by updater on previous call, as intermediate
