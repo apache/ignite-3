@@ -19,15 +19,15 @@ package org.apache.ignite.raft.jraft;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
-import org.apache.ignite.raft.jraft.rpc.CliRequests;
-import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 
 /**
  * Message group for the Raft module.
  */
-@MessageGroup(groupType = 3, groupName = "RaftMessages")
+@MessageGroup(groupName = "RaftMessages", groupType = 3)
 public class RaftMessageGroup {
     /**
      * Logical message subgroup for messages declared in {@link CliRequests}.

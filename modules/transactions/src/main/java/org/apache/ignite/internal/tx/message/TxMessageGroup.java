@@ -22,7 +22,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 /**
  * Message types for transactions.
  */
-@MessageGroup(groupType = 5, groupName = "TxMessages")
+@MessageGroup(groupName = "TxMessages", groupType = 5)
 public class TxMessageGroup {
     /**
      * Message type for {@link TxFinishRequest}.

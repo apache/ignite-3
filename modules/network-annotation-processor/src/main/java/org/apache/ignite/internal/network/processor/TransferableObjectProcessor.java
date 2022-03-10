@@ -58,7 +58,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     /** {@inheritDoc} */
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return Set.of(Transferable.class.getName());
+        return Set.of(Transferable.class.getName(), MessageGroup.class.getName());
     }
 
     /** {@inheritDoc} */
@@ -72,6 +72,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
             List<MessageClass> messages = annotations.stream()
+                    .filter(el -> el.getQualifiedName().toString().equals(Transferable.class.getName()))
                     .map(roundEnv::getElementsAnnotatedWith)
                     .flatMap(Collection::stream)
                     .map(TypeElement.class::cast)

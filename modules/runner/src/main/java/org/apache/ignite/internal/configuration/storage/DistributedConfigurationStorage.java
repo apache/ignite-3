@@ -141,6 +141,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                 data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
             }
         } catch (Exception e) {
+            e.printStackTrace();
             throw new StorageException("Exception when closing a Meta Storage cursor", e);
         }
 

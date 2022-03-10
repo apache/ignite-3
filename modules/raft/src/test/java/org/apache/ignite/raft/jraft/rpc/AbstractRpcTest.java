@@ -16,6 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.rpc;
 
+import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -29,13 +36,6 @@ import org.apache.ignite.raft.jraft.util.Endpoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.apache.ignite.raft.jraft.test.TestUtils.INIT_PORT;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  *
@@ -248,28 +248,28 @@ public abstract class AbstractRpcTest {
     }
 
     /** */
-    @Transferable(value = 0)
+    @Transferable(value = TestMessageGroup.TEST_REQUEST1)
     public static interface Request1 extends Message {
         /** */
         int val();
     }
 
     /** */
-    @Transferable(value = 1)
+    @Transferable(value = TestMessageGroup.TEST_REQUEST2)
     public static interface Request2 extends Message {
         /** */
         int val();
     }
 
     /** */
-    @Transferable(value = 2)
+    @Transferable(value = TestMessageGroup.TEST_RESPONSE1)
     public static interface Response1 extends Message {
         /** */
         int val();
     }
 
     /** */
-    @Transferable(value = 3)
+    @Transferable(value = TestMessageGroup.TEST_RESPONSE2)
     public static interface Response2 extends Message {
         /** */
         int val();

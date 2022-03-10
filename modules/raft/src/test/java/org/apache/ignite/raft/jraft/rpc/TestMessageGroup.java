@@ -24,4 +24,10 @@ import org.apache.ignite.network.annotations.MessageGroup;
  */
 @MessageGroup(groupType = 4, groupName = "TestRaftMessages")
 public class TestMessageGroup {
+
+    public static final short TEST_REQUEST1 = 0;
+    public static final short TEST_REQUEST2 = 1;
+    public static final short TEST_RESPONSE1 = 2;
+    public static final short TEST_RESPONSE2 = 3;
+
 }
