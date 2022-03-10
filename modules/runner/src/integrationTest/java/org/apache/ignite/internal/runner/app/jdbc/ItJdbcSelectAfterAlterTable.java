@@ -26,13 +26,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Base class for complex SQL tests based on JDBC driver.
  */
-
 public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @BeforeEach

@@ -31,14 +31,12 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Index spool test.
  */
-
 public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(AbstractBasicIntegrationTest.class);
 

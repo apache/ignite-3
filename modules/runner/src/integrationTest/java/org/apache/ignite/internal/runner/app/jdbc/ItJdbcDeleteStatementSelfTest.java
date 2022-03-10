@@ -24,13 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.SQLException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Delete functional statement self test.
  */
-
 public class ItJdbcDeleteStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /**
      * Execute delete query test.

@@ -25,13 +25,11 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Group of tests to verify the query metadata returned alongside the query result.
  */
-
 public class ItMetadataTest extends AbstractBasicIntegrationTest {
     /**
      * Before all.

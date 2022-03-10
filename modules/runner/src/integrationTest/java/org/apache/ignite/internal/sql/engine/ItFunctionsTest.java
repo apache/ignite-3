@@ -36,13 +36,11 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test Ignite SQL functions.
  */
-
 public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 

@@ -30,13 +30,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for complex queries (joins, etc.).
  */
-
 public class ItJdbcComplexQuerySelfTest extends AbstractJdbcSelfTest {
     @BeforeAll
     public static void createTable() throws Exception {

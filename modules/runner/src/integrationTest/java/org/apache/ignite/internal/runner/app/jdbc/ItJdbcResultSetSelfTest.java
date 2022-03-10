@@ -52,13 +52,11 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Result set test.
  */
-
 public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     /** SQL static query. */
     private static final String STATIC_SQL =

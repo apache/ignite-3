@@ -29,13 +29,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Statement test.
  */
-
 public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL SELECT query for verification. */
     private static final String SQL_SELECT = "select sid, id, firstName, lastName, age from PUBLIC.PERSON";

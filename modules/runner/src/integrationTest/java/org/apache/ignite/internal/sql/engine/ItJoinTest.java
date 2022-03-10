@@ -24,14 +24,12 @@ import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Check JOIN on basic cases.
  */
-
 public class ItJoinTest extends AbstractBasicIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
