@@ -70,7 +70,7 @@ public class SerializationFactoryGenerator {
                 .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
                 .build();
 
-        return TypeSpec.classBuilder(message.simpleName() + "SerializationFactory")
+        return TypeSpec.classBuilder(message.serializationFactoryName())
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(
                         ParameterizedTypeName.get(ClassName.get(MessageSerializationFactory.class), message.className())

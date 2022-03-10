@@ -24,7 +24,6 @@ import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -52,7 +51,6 @@ import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
-import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 
@@ -128,9 +126,16 @@ public class TransferableObjectProcessor extends AbstractProcessor {
 
             generateSerializers(messages, messageGroup);
 
+            var initializerGenerator = new RegistryInitializerGenerator(processingEnv, messageGroup);
+
+            // Generate a registry initializer for all the messages inside the current compilation unit (incremental-aware)
+            TypeSpec registryInitializer = initializerGenerator.generateRegistryInitializer(currentConfig.messageClasses());
+
+            writeToFile(messageGroup.packageName(), registryInitializer);
+
             var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
 
-            // generate a factory for all messages inside the current compilation unit
+            // Generate a factory for all the messages inside the current compilation unit (incremental-aware)
             TypeSpec messageFactory = messageFactoryGenerator.generateMessageFactory(currentConfig.messageClasses());
 
             writeToFile(messageGroup.packageName(), messageFactory);
@@ -147,7 +152,6 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      * <ol>
      *     <li>Builder interfaces;</li>
      *     <li>Network Message and Builder implementations;</li>
-     *     <li>Message factory for all generated messages.</li>
      * </ol>
      */
     private void generateMessageImpls(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
@@ -178,8 +182,6 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      *     <li>{@link MessageSerializer};</li>
      *     <li>{@link MessageDeserializer};</li>
      *     <li>{@link MessageSerializationFactory};</li>
-     *     <li>Helper class for adding all generated serialization factories to a
-     *     {@link MessageSerializationRegistry}.</li>
      * </ol>
      */
     private void generateSerializers(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
@@ -191,12 +193,9 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             return;
         }
 
-        var factories = new HashMap<MessageClass, TypeSpec>();
-
         var serializerGenerator = new MessageSerializerGenerator(processingEnv, messageGroup);
         var deserializerGenerator = new MessageDeserializerGenerator(processingEnv, messageGroup);
         var factoryGenerator = new SerializationFactoryGenerator(processingEnv, messageGroup);
-        var initializerGenerator = new RegistryInitializerGenerator(processingEnv, messageGroup);
 
         for (MessageClass message : serializableMessages) {
             try {
@@ -214,16 +213,10 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 TypeSpec factory = factoryGenerator.generateFactory(message, serializer, deserializer);
 
                 writeToFile(message.packageName(), factory);
-
-                factories.put(message, factory);
             } catch (ProcessingException e) {
                 throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
             }
         }
-
-        TypeSpec registryInitializer = initializerGenerator.generateRegistryInitializer(factories);
-
-        writeToFile(messageGroup.packageName(), registryInitializer);
     }
 
     /**
