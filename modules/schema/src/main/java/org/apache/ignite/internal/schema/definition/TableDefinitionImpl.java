@@ -50,7 +50,7 @@ public class TableDefinitionImpl extends AbstractSchemaObject implements TableDe
     /** Cached key columns. */
     private final Set<String> keyCols;
 
-    /** Cached key affinity columns. */
+    /** Colocation columns. */
     private final List<String> colocationCols;
 
     /**
