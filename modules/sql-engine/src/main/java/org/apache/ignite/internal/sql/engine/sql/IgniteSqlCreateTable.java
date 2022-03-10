@@ -113,7 +113,7 @@ public class IgniteSqlCreateTable extends SqlCreate {
      * Get list of the colocation columns.
      */
     public SqlNodeList colocationColumns() {
-        return columnList;
+        return colocationColumns;
     }
 
     /**

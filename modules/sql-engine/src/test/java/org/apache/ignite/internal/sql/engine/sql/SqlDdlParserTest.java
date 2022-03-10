@@ -22,10 +22,13 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -215,20 +218,49 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Parsing of CREATE TABLE with specified table options.
+     * Parsing of CREATE TABLE with specified colocation columns.
      */
     @Test
     public void createTableWithColocation() throws SqlParseException {
-        String query = "create table my_table(id0 int, id1 int, id2 int, val int, primary key (id0, id1, id2)) colocate by (id0, id1)";
+        IgniteSqlCreateTable createTable;
 
-        SqlNode node = parse(query);
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2))"
+        );
+
+        assertNull(createTable.colocationColumns());
+
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE BY (ID2, ID1)"
+        );
+
+        assertThat(
+                createTable.colocationColumns().getList().stream()
+                .map(SqlIdentifier.class::cast)
+                .map(SqlIdentifier::getSimple)
+                .collect(Collectors.toList()),
+                equalTo(List.of("ID2", "ID1"))
+        );
+
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0)"
+        );
+
+        assertThat(
+                createTable.colocationColumns().getList().stream()
+                        .map(SqlIdentifier.class::cast)
+                        .map(SqlIdentifier::getSimple)
+                        .collect(Collectors.toList()),
+                equalTo(List.of("ID0"))
+        );
+    }
+
+    private IgniteSqlCreateTable parseCreateTable(String stmt) throws SqlParseException {
+        SqlNode node = parse(stmt);
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
 
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        System.out.println();
-
+        return (IgniteSqlCreateTable) node;
     }
 
     /**
