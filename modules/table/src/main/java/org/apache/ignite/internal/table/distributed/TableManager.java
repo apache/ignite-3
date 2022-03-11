@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -193,8 +194,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         engine = new RocksDbStorageEngine();
 
-        tablesVv = new VersionedValue<>(registry);
-        tablesByIdVv = new VersionedValue<>(registry);
+        tablesVv = new VersionedValue<>(registry, HashMap::new);
+        tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
     }
 
     /** {@inheritDoc} */
@@ -439,23 +440,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Map<String, TableImpl> tables = tablesVv.latest();
 
-        if (tables != null) {
-            for (TableImpl table : tables.values()) {
-                try {
-                    table.internalTable().storage().stop();
-                    table.internalTable().close();
+        for (TableImpl table : tables.values()) {
+            try {
+                table.internalTable().storage().stop();
+                table.internalTable().close();
 
-                    for (int p = 0; p < table.internalTable().partitions(); p++) {
-                        raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
-                    }
-                } catch (Exception e) {
-                    LOG.error("Failed to stop a table {}", e, table.name());
+                for (int p = 0; p < table.internalTable().partitions(); p++) {
+                    raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
                 }
+            } catch (Exception e) {
+                LOG.error("Failed to stop a table {}", e, table.name());
             }
         }
 
         // Stop all data regions when all table storages are stopped.
-        for (Map.Entry<String, DataRegion> entry : dataRegions.entrySet()) {
+        for (Entry<String, DataRegion> entry : dataRegions.entrySet()) {
             try {
                 entry.getValue().stop();
             } catch (Exception e) {
@@ -538,7 +537,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, schemaRegistry);
 
         tablesVv.update(causalityToken, previous -> {
-            var val = previous == null ? new HashMap() : new HashMap<>(previous);
+            var val = new HashMap<>(previous);
 
             val.put(name, table);
 
@@ -548,7 +547,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         tablesByIdVv.update(causalityToken, previous -> {
-            var val = previous == null ? new HashMap() : new HashMap<>(previous);
+            var val = new HashMap<>(previous);
 
             val.put(tblId, table);
 
@@ -587,9 +586,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Schema descriptor.
      */
     private SchemaDescriptor tableSchema(UUID tblId, int schemaVer) {
-        Map<UUID, TableImpl> tablesById = tablesByIdVv.latest();
-
-        TableImpl table = tablesById == null ? null : tablesById.get(tblId);
+        TableImpl table = tablesByIdVv.latest().get(tblId);
 
         assert table != null : "Table is undefined [tblId=" + tblId + ']';
 
@@ -1213,9 +1210,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return CompletableFuture.completedFuture(null);
         }
 
-        Map<UUID, TableImpl> tablesById = tablesByIdVv.latest();
-
-        var tbl = tablesById == null ? null : tablesById.get(id);
+        var tbl = tablesByIdVv.latest().get(id);
 
         if (tbl != null) {
             return CompletableFuture.completedFuture(tbl);
@@ -1247,9 +1242,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tablesById = tablesByIdVv.latest();
-
-        tbl = tablesById == null ? null : tablesById.get(id);
+        tbl = tablesByIdVv.latest().get(id);
 
         if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
             removeListener(TableEvent.CREATE, clo, null);

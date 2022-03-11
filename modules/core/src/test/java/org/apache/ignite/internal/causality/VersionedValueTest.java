@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -270,6 +271,56 @@ public class VersionedValueTest {
 
         assertThrowsExactly(ExecutionException.class, fut1::get);
         assertEquals(TEST_VALUE, fut2.get());
+    }
+
+    /**
+     * Tests a default value supplier.
+     */
+    @Test
+    public void testDefaultValueSupplier() {
+        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER, () -> TEST_VALUE);
+
+        checkDefaultValue(vv, TEST_VALUE);
+    }
+
+    /**
+     * Tests a case when there is no default value supplier.
+     */
+    @Test
+    public void testWithoutDefaultValue() {
+        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
+
+        checkDefaultValue(vv, null);
+    }
+
+    /**
+     * Tests a case when there is no default value supplier.
+     */
+    public void checkDefaultValue(VersionedValue<Integer> vv, Integer expectedDefault) {
+        assertEquals(expectedDefault, vv.latest());
+
+        vv.update(0, a -> {
+                    assertEquals(expectedDefault, vv.latest());
+
+                    return a == null ? null : a + 1;
+                }, e -> {
+                    throw new IgniteInternalException(e);
+                }
+        );
+
+        assertEquals(expectedDefault, vv.latest());
+
+        CompletableFuture<Integer> f = vv.get(0);
+
+        assertFalse(f.isDone());
+
+        vv.update(0, a -> a == null ? null : a + 1, e -> null);
+
+        REGISTER.moveRevision.accept(0L);
+
+        assertTrue(f.isDone());
+
+        assertEquals(expectedDefault == null ? null : TEST_VALUE + 2, f.join());
     }
 
     /**
