@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor.serialization;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.processor.MessageClass.implClassName;
 import static org.apache.ignite.internal.network.processor.MessageClass.serializationFactoryName;
 
@@ -27,8 +28,11 @@ import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializationRegistryInitializer;
@@ -64,6 +68,20 @@ public class RegistryInitializerGenerator {
      * @return {@code TypeSpec} of the generated registry initializer
      */
     public TypeSpec generateRegistryInitializer(List<ClassName> messages) {
+        Elements elementUtils = processingEnv.getElementUtils();
+
+        List<ClassName> autoSerializableMessages = messages.stream().filter(className -> {
+            TypeElement typeElement = elementUtils.getTypeElement(className.canonicalName());
+
+            assert typeElement != null;
+
+            Transferable annotation = typeElement.getAnnotation(Transferable.class);
+
+            assert annotation != null;
+
+            return annotation.autoSerializable();
+        }).collect(toList());
+
         String initializerName = messageGroup.groupName() + "SerializationRegistryInitializer";
 
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + initializerName);
@@ -78,7 +96,7 @@ public class RegistryInitializerGenerator {
                 .addStatement("var messageFactory = new $T()", messageGroup.messageFactoryClassName())
                 .addCode("\n");
 
-        messages.forEach((message) -> {
+        autoSerializableMessages.forEach((message) -> {
             ClassName factoryType = serializationFactoryName(message);
 
             ClassName messageImplClassName = implClassName(message);
