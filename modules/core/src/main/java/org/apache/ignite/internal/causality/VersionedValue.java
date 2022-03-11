@@ -42,6 +42,9 @@ public class VersionedValue<T> {
     /** Token until the value is initialized. */
     private static final long NOT_INITIALIZED = -1L;
 
+    /** Default history size. */
+    private static final int DEFAULT_HISTORY_SIZE = 2;
+
     /** Last applied causality token. */
     private volatile long actualToken = NOT_INITIALIZED;
 
@@ -49,7 +52,7 @@ public class VersionedValue<T> {
     private final int historySize;
 
     /** Closure applied on storage revision update. */
-    private final BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating;
+    private final BiConsumer<VersionedValue<T>, Long> storageRevisionUpdateCallback;
 
     /** Versioned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
@@ -73,52 +76,75 @@ public class VersionedValue<T> {
     private final CompletableFuture<T> initFut = new CompletableFuture<>();
 
     /** The supplier may provide a value which will used as a default. */
-    private final Supplier<T> defaultVal;
+    private final Supplier<T> defaultValSupplier;
+
+    /** Value that can be used as default. */
+    private volatile T defaultVal;
 
     /**
      * Constructor.
      *
-     * @param storageRevisionUpdating    Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
-     * @param observableRevisionUpdater  A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
-     *                                   should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                   a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
-     *                                   on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                   concurrently with {@link #set(long, T)} operations.
-     * @param historySize                Size of the history of changes to store, including last applied token.
-     * @param defaultVal                 Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
-     *                                   evaluate the default value if the value is not initialized yet.
+     * @param storageRevisionUpdateCallback Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
+     * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
+     *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
+     *                                      This closure is called once on a construction of this VersionedValue and accepts a
+     *                                      {@code Consumer<Long>} that should be called on every update of storage revision as a
+     *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #set(long, T)}
+     *                                      operations.
+     * @param historySize                   Size of the history of changes to store, including last applied token.
+     * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
+     *                                      evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
-            @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
+            @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdateCallback,
             Consumer<Consumer<Long>> observableRevisionUpdater,
             int historySize,
             Supplier<T> defaultVal
     ) {
-        this.storageRevisionUpdating = storageRevisionUpdating;
+        this.storageRevisionUpdateCallback = storageRevisionUpdateCallback;
 
         this.historySize = historySize;
 
-        //TODO: IGNITE-16553 Added a possibility to set any start value (not only null).
-        this.defaultVal = defaultVal;
+        this.defaultValSupplier = defaultVal;
 
         observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
     }
 
     /**
-     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
+     * Constructor.
      *
-     * @param storageRevisionUpdating   Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
-     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
-     *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                  concurrently with {@link #set(long, T)} operations.
+     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
+     *                                  VersionedValue should be able to listen to, for receiving storage revision updates.
+     *                                  This closure is called once on a construction of this VersionedValue and accepts a
+     *                                  {@code Consumer<Long>} that should be called on every update of storage revision as a
+     *                                  listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #set(long, T)}
+     *                                  operations.
+     * @param defaultVal                Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
+     *                                  evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
-            @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdating,
+            Consumer<Consumer<Long>> observableRevisionUpdater,
+            Supplier<T> defaultVal
+    ) {
+        this(null, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, defaultVal);
+    }
+
+    /**
+     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
+     *
+     * @param storageRevisionUpdateCallback Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
+     * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
+     *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
+     *                                      This closure is called once on a construction of this VersionedValue and accepts a
+     *                                      {@code Consumer<Long>} that should be called on every update of storage revision as a
+     *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with
+     *                                      {@link #set(long, T)} and {@link #update(long, Function, Function)} operations.
+     */
+    public VersionedValue(
+            @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdateCallback,
             Consumer<Consumer<Long>> observableRevisionUpdater
     ) {
-        this(storageRevisionUpdating, observableRevisionUpdater, 2, null);
+        this(storageRevisionUpdateCallback, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, null);
     }
 
     /**
@@ -199,7 +225,9 @@ public class VersionedValue<T> {
             }
         }
 
-        return getDefault();
+        synchronized (updateMutex) {
+            return getDefault();
+        }
     }
 
     /**
@@ -208,7 +236,13 @@ public class VersionedValue<T> {
      * @return The value.
      */
     private T getDefault() {
-        return defaultVal == null ? null : defaultVal.get();
+        // It is thread safe, as it's protected by either updateMutex or exclusiveness of #onStorageRevisionUpdate
+        // in all usages of getDefault().
+        if (defaultValSupplier != null && defaultVal == null) {
+            defaultVal = defaultValSupplier.get();
+        }
+
+        return defaultVal;
     }
 
     /**
@@ -404,8 +438,8 @@ public class VersionedValue<T> {
             isUpdating = false;
         }
 
-        if (storageRevisionUpdating != null) {
-            storageRevisionUpdating.accept(this, causalityToken);
+        if (storageRevisionUpdateCallback != null) {
+            storageRevisionUpdateCallback.accept(this, causalityToken);
         }
 
         completeRelatedFuture(causalityToken);
