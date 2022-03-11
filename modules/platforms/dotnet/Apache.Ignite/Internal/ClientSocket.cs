@@ -331,7 +331,7 @@ namespace Apache.Ignite.Internal
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             // Prepend size.
-            // TODO: Cleanup.
+            // TODO: Move this logic to PooledArrayBufferWriter? Or some other class?
             var buf = bufferWriter.GetWrittenMemory();
             var size = buf.Length - PooledArrayBufferWriter.ReservedPrefixSize;
             var resBuf = buf.Slice(PooledArrayBufferWriter.ReservedPrefixSize - 4);
