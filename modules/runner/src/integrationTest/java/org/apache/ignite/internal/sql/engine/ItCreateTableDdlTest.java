@@ -118,11 +118,24 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
      */
     @Test
     public void explicitColocationColumns() {
-        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (ID0)");
+        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
         Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
 
         assertEquals(1, colocationColumns.length);
         assertEquals("ID0", colocationColumns[0].name());
+    }
+
+    /**
+     * Check explicit colocation columns configuration.
+     */
+    @Test
+    public void explicitColocationColumnsCaseSensitive() {
+        sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
+
+        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+
+        assertEquals(1, colocationColumns.length);
+        assertEquals("Id0", colocationColumns[0].name());
     }
 }

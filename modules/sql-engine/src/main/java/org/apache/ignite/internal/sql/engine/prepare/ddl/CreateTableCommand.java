@@ -103,9 +103,9 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     }
 
     /**
-     * Set colocation columns.
+     * Set colocation column names.
      *
-     * @return Affinity key columns.
+     * @return Collocation column names.
      */
     @Nullable
     public List<String> colocationColumns() {
@@ -113,9 +113,9 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     }
 
     /**
-     * Get colocation columns.
+     * Get colocation column names.
      *
-     * @param colocationCols Colocation columns.
+     * @param colocationCols Colocation column names.
      */
     public void colocationColumns(List<String> colocationCols) {
         this.colocationCols = colocationCols;
