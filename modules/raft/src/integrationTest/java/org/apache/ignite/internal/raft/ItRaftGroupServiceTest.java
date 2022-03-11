@@ -145,6 +145,8 @@ public class ItRaftGroupServiceTest {
 
         raftGroups.get(oldLeaderNode).get().transferLeadership(expectedNewLeaderPeer).get();
 
+        raftGroups.get(oldLeaderNode).get().refreshLeader().get();
+
         assertEquals(expectedNewLeaderPeer, raftGroups.get(oldLeaderNode).get().leader());
 
         raftGroups.get(newLeaderNode).get().refreshLeader().get();
