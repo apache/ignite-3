@@ -300,12 +300,12 @@ public class VersionedValueTest {
         assertEquals(expectedDefault, vv.latest());
 
         vv.update(0, a -> {
-                assertEquals(expectedDefault, vv.latest());
+                    assertEquals(expectedDefault, vv.latest());
 
-                return a == null ? null : a + 1;
-            }, e -> {
-                throw new IgniteInternalException(e);
-            }
+                    return a == null ? null : a + 1;
+                }, e -> {
+                    throw new IgniteInternalException(e);
+                }
         );
 
         assertEquals(expectedDefault, vv.latest());
