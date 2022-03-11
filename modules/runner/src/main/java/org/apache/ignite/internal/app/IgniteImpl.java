@@ -31,10 +31,12 @@ import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -409,6 +411,12 @@ public class IgniteImpl implements Ignite {
         } catch (NodeStoppingException e) {
             throw new IgniteException(e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteCompute compute() {
+        return new IgniteComputeImpl();
     }
 
     /**
