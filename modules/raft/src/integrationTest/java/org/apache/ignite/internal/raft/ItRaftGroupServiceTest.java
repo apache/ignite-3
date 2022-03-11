@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.raft.jraft.test.TestUtils.waitForCondition;
 import static org.apache.ignite.raft.jraft.test.TestUtils.waitForTopology;
 import static org.apache.ignite.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -145,14 +146,11 @@ public class ItRaftGroupServiceTest {
 
         raftGroups.get(oldLeaderNode).get().transferLeadership(expectedNewLeaderPeer).get();
 
-        Thread.sleep(10_000);
+        assertTrue(waitForCondition(() -> expectedNewLeaderPeer.equals(raftGroups.get(oldLeaderNode).join().leader()), 10_000));
 
-        raftGroups.get(oldLeaderNode).get().refreshLeader().get();
-
-        assertEquals(expectedNewLeaderPeer, raftGroups.get(oldLeaderNode).get().leader());
-
-        raftGroups.get(newLeaderNode).get().refreshLeader().get();
-
-        assertEquals(expectedNewLeaderPeer, raftGroups.get(newLeaderNode).get().leader());
+        assertTrue(waitForCondition(() -> {
+            raftGroups.get(newLeaderNode).join().refreshLeader().join();
+            return expectedNewLeaderPeer.equals(raftGroups.get(newLeaderNode).join().leader());
+        }, 10_000));
     }
 }
