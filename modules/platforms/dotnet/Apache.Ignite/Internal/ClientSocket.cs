@@ -330,8 +330,14 @@ namespace Apache.Ignite.Internal
             using var bufferWriter = new PooledArrayBufferWriter();
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
-            // TODO: prepend size.
-            await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
+            // Prepend size.
+            // TODO: Cleanup.
+            var buf = bufferWriter.GetWrittenMemory();
+            var size = buf.Length - PooledArrayBufferWriter.ReservedPrefixSize;
+            var resBuf = buf.Slice(PooledArrayBufferWriter.ReservedPrefixSize - 4);
+            WriteMessageSize(resBuf, size);
+
+            await stream.WriteAsync(resBuf).ConfigureAwait(false);
         }
 
         private static void WriteHandshake(ClientProtocolVersion version, MessagePackWriter w)
@@ -347,6 +353,14 @@ namespace Apache.Ignite.Internal
             w.WriteMapHeader(0); // Extensions.
 
             w.Flush();
+        }
+
+        private static unsafe void WriteMessageSize(Memory<byte> target, int size)
+        {
+            fixed (byte* bufPtr = target.Span)
+            {
+                *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
+            }
         }
 
         private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)

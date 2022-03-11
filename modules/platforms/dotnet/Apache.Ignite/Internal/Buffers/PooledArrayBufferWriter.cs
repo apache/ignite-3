@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// Gets the written memory, including reserved prefix (see <see cref="ReservedPrefixSize"/>).
         /// </summary>
         /// <returns>Written array.</returns>
-        public ReadOnlyMemory<byte> GetWrittenMemory()
+        public Memory<byte> GetWrittenMemory()
         {
             Debug.Assert(!_disposed, "!_disposed");
 
