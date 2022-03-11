@@ -128,7 +128,7 @@ public class ItRaftGroupServiceTest {
 
     @Test
     @Timeout(10)
-    public void testTransferLeadership() throws Exception{
+    public void testTransferLeadership() throws Exception {
         RaftGroupService raftGroupService = raftGroups.get(clusterServices.get(0).topologyService().localMember()).get();
 
         while (raftGroupService.leader() == null) {
