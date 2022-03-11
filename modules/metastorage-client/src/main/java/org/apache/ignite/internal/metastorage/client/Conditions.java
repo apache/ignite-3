@@ -21,8 +21,8 @@ import org.apache.ignite.lang.ByteArray;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * This class contains fabric methods which produce conditions needed for conditional multi update functionality provided by meta storage
- * service.
+ * This class contains fabric methods which produce conditions needed for a conditional multi update functionality provided by the meta
+ * storage service.
  *
  * @see SimpleCondition
  */
@@ -41,7 +41,7 @@ public final class Conditions {
     /**
      * Creates condition on entry value.
      *
-     * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
+     * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry value.
      * @see SimpleCondition.ValueCondition
      */
@@ -50,9 +50,9 @@ public final class Conditions {
     }
 
     /**
-     * Creates condition on entry existence.
+     * Creates condition on an entry existence.
      *
-     * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
+     * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry existence.
      */
     public static SimpleCondition exists(@NotNull ByteArray key) {
@@ -60,9 +60,9 @@ public final class Conditions {
     }
 
     /**
-     * Creates condition on entry not existence.
+     * Creates a condition on an entry not existence.
      *
-     * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
+     * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry not existence.
      */
     public static SimpleCondition notExists(@NotNull ByteArray key) {
@@ -70,9 +70,9 @@ public final class Conditions {
     }
 
     /**
-     * Creates condition on an entry's value which checks whether value is tombstone or not.
+     * Creates a condition on an entry's value, which checks whether a value is tombstone or not.
      *
-     * @param key Identifies an entry which condition will be applied to. Can't be {@code null}.
+     * @param key Identifies an entry, which condition will be applied to. Can't be {@code null}.
      * @return Condition on entry's value is tombstone.
      */
     public static SimpleCondition tombstone(@NotNull ByteArray key) {

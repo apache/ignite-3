@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.metastorage.client;
 
 /**
- * Root building block for the compound metas torage invoke command.
+ * Root building block for the compound meta storage invoke command.
  * Contains of boolean condition and 2 branches of execution, like usual programming language's if.
  * Every branch can be either new {@link If} statement (non-terminal) or result terminal statement {@link Update}.
  *
  * <p>The easiest way to construct the needed {@link If} conditional statement is the builtin shortcut methods.
- * For example to create the statement, which implement the following pseudo code:
+ * For example to create the statement, which implement the following pseudocode:
  * <pre>
  * {@code
  *                {@link CompoundCondition}
