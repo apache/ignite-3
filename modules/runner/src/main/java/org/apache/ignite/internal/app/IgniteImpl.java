@@ -145,6 +145,9 @@ public class IgniteImpl implements Ignite {
     /** Node status. Adds ability to stop currently starting node. */
     private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
 
+    @Nullable
+    private transient IgniteCompute compute;
+
     /**
      * The Constructor.
      *
@@ -416,7 +419,10 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        return new IgniteComputeImpl();
+        if (compute == null) {
+            compute = new IgniteComputeImpl();
+        }
+        return compute;
     }
 
     /**
