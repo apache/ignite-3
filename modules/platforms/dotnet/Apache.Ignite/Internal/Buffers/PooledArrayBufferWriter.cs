@@ -79,7 +79,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: 0, length: _index + ReservedPrefixSize);
+            return new(_buffer, start: 0, length: _index);
         }
 
         /// <inheritdoc />

@@ -26,26 +26,18 @@ namespace Apache.Ignite.Tests.Buffers
     public class PooledArrayBufferWriterTests
     {
         [Test]
-        public void TestBufferWriterPrependsMessageLength()
+        public void TestBufferWriterReservesPrefixSpace()
         {
             using var bufferWriter = new PooledArrayBufferWriter();
-
-            // With payload.
             var writer = bufferWriter.GetMessageWriter();
 
             writer.Write(1);
             writer.Write("A");
             writer.Flush();
 
-            var res = bufferWriter.GetWrittenMemory().ToArray();
+            var res = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..].ToArray();
 
-            var expectedBytes = new byte[]
-            {
-                // 4 bytes BE length + 1 byte int + 1 byte fixstr + 1 byte char.
-                0, 0, 0, 3, 1, 0xa1, (byte)'A'
-            };
-
-            CollectionAssert.AreEqual(expectedBytes, res);
+            CollectionAssert.AreEqual(new byte[] { 1, 0xa1, (byte)'A' }, res);
         }
     }
 }
