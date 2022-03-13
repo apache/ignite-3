@@ -156,6 +156,29 @@ namespace Apache.Ignite.Tests
                         }
                     }
 
+                    if (opCode == ClientOp.SchemasGet)
+                    {
+                        handler.Send(new byte[] { 0, 0, 0, 6 }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0 });
+
+                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var writer = new MessagePackWriter(arrayBufferWriter);
+                        writer.WriteMapHeader(1);
+                        writer.Write(1); // Version.
+                        writer.WriteArrayHeader(0); // Columns.
+                        writer.Flush();
+
+                        handler.Send(arrayBufferWriter.WrittenSpan);
+                    }
+
+                    if (opCode == ClientOp.TupleUpsert)
+                    {
+                        handler.Send(new byte[] { 0, 0, 0, 3 }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0 }); // No payload.
+
+                        continue;
+                    }
+
                     // Fake error message for any other op code.
                     handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
                     handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
