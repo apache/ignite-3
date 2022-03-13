@@ -169,6 +169,8 @@ namespace Apache.Ignite.Tests
                         writer.Flush();
 
                         handler.Send(arrayBufferWriter.WrittenSpan);
+
+                        continue;
                     }
 
                     if (opCode == ClientOp.TupleUpsert)
