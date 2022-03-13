@@ -181,6 +181,14 @@ namespace Apache.Ignite.Tests
                         continue;
                     }
 
+                    if (opCode == ClientOp.TxBegin)
+                    {
+                        handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0, 0 }); // Tx id.
+
+                        continue;
+                    }
+
                     // Fake error message for any other op code.
                     handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
                     handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });

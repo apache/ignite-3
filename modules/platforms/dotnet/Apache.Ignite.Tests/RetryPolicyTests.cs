@@ -128,8 +128,18 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestTableOperationWithTxIsNotRetried()
         {
-            await Task.Yield();
-            Assert.Fail("TODO");
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new TestRetryPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+            var tx = await client.Transactions.BeginAsync();
+
+            var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+            await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple());
         }
 
         [Test]
