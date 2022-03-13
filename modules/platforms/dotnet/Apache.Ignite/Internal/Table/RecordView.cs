@@ -280,10 +280,19 @@ namespace Apache.Ignite.Internal.Table
             Transaction? tx,
             PooledArrayBufferWriter? request = null)
         {
-            // TODO: This misses retry functionality in FailoverSocket when tx is not specified.
-            var socket = await _table.GetSocket(tx).ConfigureAwait(false);
+            if (tx == null)
+            {
+                // Use failover socket with reconnect and retry behavior.
+                return await _table.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+            }
 
-            return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+            if (tx.FailoverSocket != _table.Socket)
+            {
+                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
+            }
+
+            // Use tx-specific socket without retry and failover.
+            return await tx.Socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
         }
 
         private async Task<PooledBuffer> DoRecordOutOpAsync(
