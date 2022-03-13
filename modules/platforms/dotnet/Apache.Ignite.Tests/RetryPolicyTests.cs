@@ -139,7 +139,8 @@ namespace Apache.Ignite.Tests
 
             var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-            await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple());
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple()));
+            StringAssert.StartsWith("Socket is closed due to an error", ex!.Message);
         }
 
         [Test]

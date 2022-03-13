@@ -73,6 +73,9 @@ namespace Apache.Ignite.Internal
         /** Request id generator. */
         private long _requestId;
 
+        /** Exception that caused this socket to close. */
+        private volatile Exception? _exception;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientSocket"/> class.
         /// </summary>
@@ -140,6 +143,13 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
         {
+            var ex = _exception;
+
+            if (ex != null)
+            {
+                throw new IgniteClientException("Socket is closed due to an error, examine inner exception for details.", ex);
+            }
+
             if (_disposeTokenSource.IsCancellationRequested)
             {
                 throw new ObjectDisposedException(nameof(ClientSocket));
@@ -488,6 +498,7 @@ namespace Apache.Ignite.Internal
         /// <param name="ex">Exception to set for pending requests.</param>
         private void Dispose(Exception ex)
         {
+            _exception = ex;
             _disposeTokenSource.Cancel();
             _stream.Dispose();
 
