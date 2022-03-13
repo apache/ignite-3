@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Ignite.Table;
     using NUnit.Framework;
 
     /// <summary>
@@ -107,8 +108,21 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestTableOperationWithoutTxIsRetried()
         {
-            await Task.Yield();
-            Assert.Fail("TODO");
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryLimit = 1,
+                RetryPolicy = new TestRetryPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (int i = 0; i < 100; i++)
+            {
+                var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+                await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple());
+            }
         }
 
         [Test]
