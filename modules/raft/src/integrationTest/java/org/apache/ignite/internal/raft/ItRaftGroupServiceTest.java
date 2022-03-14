@@ -70,7 +70,7 @@ public class ItRaftGroupServiceTest {
 
     private static List<Loza> raftSrvs = new ArrayList<>();
 
-    private static Map<ClusterNode, CompletableFuture<RaftGroupService>> raftGroups = new HashMap<>();
+    private static Map<ClusterNode, RaftGroupService> raftGroups = new HashMap<>();
 
     @BeforeAll
     public static void beforeAll(TestInfo testInfo) throws Exception {
@@ -96,6 +96,8 @@ public class ItRaftGroupServiceTest {
 
         List<ClusterNode> nodes = clusterServices.stream().map(cs -> cs.topologyService().localMember()).collect(Collectors.toList());
 
+        CompletableFuture<RaftGroupService>[] svcFutures = new CompletableFuture[NODES_CNT];
+
         for (int i = 0; i < NODES_CNT; i++) {
             Loza raftServer = new Loza(clusterServices.get(i), workDir);
 
@@ -109,15 +111,20 @@ public class ItRaftGroupServiceTest {
                     () -> mock(RaftGroupListener.class)
             );
 
-            raftGroups.put(clusterServices.get(i).topologyService().localMember(), raftGroupServiceFuture);
+            svcFutures[i] = raftGroupServiceFuture;
         }
 
-        raftGroups.get(clusterServices.get(0).topologyService().localMember()).get();
-        raftGroups.get(clusterServices.get(1).topologyService().localMember()).get();
+        CompletableFuture.allOf(svcFutures).get();
+
+        for (int i = 0; i < NODES_CNT; i++) {
+            raftGroups.put(clusterServices.get(i).topologyService().localMember(), svcFutures[i].get());
+        }
     }
 
     @AfterAll
     public static void afterAll() throws Exception {
+        raftGroups.values().forEach(RaftGroupService::shutdown);
+
         for (Loza raftSrv : raftSrvs) {
             raftSrv.stopRaftGroup(RAFT_GROUP_NAME);
             raftSrv.stop();
@@ -129,7 +136,7 @@ public class ItRaftGroupServiceTest {
     @Test
     @Timeout(20)
     public void testTransferLeadership() throws Exception {
-        RaftGroupService raftGroupService = raftGroups.get(clusterServices.get(0).topologyService().localMember()).get();
+        RaftGroupService raftGroupService = raftGroups.get(clusterServices.get(0).topologyService().localMember());
 
         while (raftGroupService.leader() == null) {
             raftGroupService.refreshLeader().get();
@@ -143,13 +150,13 @@ public class ItRaftGroupServiceTest {
 
         Peer expectedNewLeaderPeer = new Peer(newLeaderNode.address());
 
-        raftGroups.get(oldLeaderNode).get().transferLeadership(expectedNewLeaderPeer).get();
+        raftGroups.get(oldLeaderNode).transferLeadership(expectedNewLeaderPeer).get();
 
-        assertTrue(waitForCondition(() -> expectedNewLeaderPeer.equals(raftGroups.get(oldLeaderNode).join().leader()), 10_000));
+        assertTrue(waitForCondition(() -> expectedNewLeaderPeer.equals(raftGroups.get(oldLeaderNode).leader()), 10_000));
 
         assertTrue(waitForCondition(() -> {
-            raftGroups.get(newLeaderNode).join().refreshLeader().join();
-            return expectedNewLeaderPeer.equals(raftGroups.get(newLeaderNode).join().leader());
+            raftGroups.get(newLeaderNode).refreshLeader().join();
+            return expectedNewLeaderPeer.equals(raftGroups.get(newLeaderNode).leader());
         }, 10_000));
     }
 }
