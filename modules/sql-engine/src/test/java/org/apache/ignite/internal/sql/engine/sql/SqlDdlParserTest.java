@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
+import static org.hamcrest.CoreMatchers.endsWith;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
@@ -38,6 +39,7 @@ import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -241,6 +243,11 @@ public class SqlDdlParserTest {
                 .collect(Collectors.toList()),
                 equalTo(List.of("ID2", "ID1"))
         );
+
+        SqlPrettyWriter w = new SqlPrettyWriter();
+        createTable.unparse(w, 0, 0);
+
+        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID2\", \"ID1\")"));
 
         createTable = parseCreateTable(
                 "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0)"
