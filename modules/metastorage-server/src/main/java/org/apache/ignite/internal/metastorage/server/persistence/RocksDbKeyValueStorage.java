@@ -27,20 +27,16 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.metastorage.server.persistence.RocksStorageUtils.valueToBytes;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.DATA;
 import static org.apache.ignite.internal.metastorage.server.persistence.StorageColumnFamilyType.INDEX;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.find;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.forEach;
+import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +59,7 @@ import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEvent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksBiPredicate;
+import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -74,13 +71,11 @@ import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
-import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Snapshot;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
@@ -96,9 +91,6 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage implements KeyValueStorage {
-    /** Suffix for the temporary snapshot folder. */
-    private static final String TMP_SUFFIX = ".tmp";
-
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -147,6 +139,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** Index column family. */
     private volatile ColumnFamily index;
 
+    /** Snapshot manager. */
+    private volatile RocksSnapshotManager snapshotManager;
+
     /** Revision. Will be incremented for each single-entry or multi-entry update operation. */
     private volatile long rev;
 
@@ -165,10 +160,15 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        options = new DBOptions()
-                .setCreateMissingColumnFamilies(true)
-                .setCreateIfMissing(true);
+        try {
+            // Delete existing data, relying on the raft's snapshot and log playback
+            recreateDb();
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Failed to start the storage", e);
+        }
+    }
 
+    private static List<ColumnFamilyDescriptor> cfDescriptors() {
         Options dataOptions = new Options().setCreateIfMissing(true)
                 // The prefix is the revision of an entry, so prefix length is the size of a long
                 .useFixedLengthPrefixExtractor(Long.BYTES);
@@ -179,25 +179,30 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         ColumnFamilyOptions indexFamilyOptions = new ColumnFamilyOptions(indexOptions);
 
-        List<ColumnFamilyDescriptor> descriptors = Arrays.asList(
+        return List.of(
                 new ColumnFamilyDescriptor(DATA.nameAsBytes(), dataFamilyOptions),
                 new ColumnFamilyDescriptor(INDEX.nameAsBytes(), indexFamilyOptions)
         );
+    }
 
-        var handles = new ArrayList<ColumnFamilyHandle>();
+    private void recreateDb() throws RocksDBException {
+        destroyRocksDb();
 
-        try {
-            // Delete existing data, relying on the raft's snapshot and log playback
-            destroyRocksDb();
+        List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
-            this.db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException("Failed to start the storage", e);
-        }
+        var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
-        data = new ColumnFamily(db, handles.get(0), DATA.name(), dataFamilyOptions, dataOptions);
+        options = new DBOptions()
+                .setCreateMissingColumnFamilies(true)
+                .setCreateIfMissing(true);
 
-        index = new ColumnFamily(db, handles.get(1), INDEX.name(), indexFamilyOptions, indexOptions);
+        db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
+
+        data = ColumnFamily.createExisting(db, handles.get(0));
+
+        index = ColumnFamily.createExisting(db, handles.get(1));
+
+        snapshotManager = new RocksSnapshotManager(db, List.of(fullRange(data), fullRange(index)), snapshotExecutor);
     }
 
     /**
@@ -218,55 +223,13 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(data, index, db, options);
+        IgniteUtils.closeAll(db, options);
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
-
-        // Create a RocksDB point-in-time snapshot
-        Snapshot snapshot = db.getSnapshot();
-
-        return CompletableFuture.runAsync(() -> {
-            // (Re)create the temporary directory
-            IgniteUtils.deleteIfExists(tempPath);
-
-            try {
-                Files.createDirectories(tempPath);
-            } catch (IOException e) {
-                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
-            }
-        }, snapshotExecutor).thenCompose(argVoid ->
-                // Create futures for capturing SST snapshots of the column families
-                CompletableFuture.allOf(
-                        CompletableFuture.runAsync(() -> createSstFile(data, snapshot, tempPath), snapshotExecutor),
-                        CompletableFuture.runAsync(() -> createSstFile(index, snapshot, tempPath), snapshotExecutor)
-                )
-        ).whenComplete((argVoid, throwable) -> {
-            // Release a snapshot
-            db.releaseSnapshot(snapshot);
-
-            // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
-            // database does. Calling close to maintain the AutoCloseable semantics
-            snapshot.close();
-
-            if (throwable != null) {
-                return;
-            }
-
-            // Delete snapshot directory if it already exists
-            IgniteUtils.deleteIfExists(snapshotPath);
-
-            try {
-                // Rename the temporary directory
-                IgniteUtils.atomicMoveFile(tempPath, snapshotPath, null);
-            } catch (IOException e) {
-                throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
-            }
-        });
+        return snapshotManager.createSnapshot(snapshotPath);
     }
 
     /** {@inheritDoc} */
@@ -274,22 +237,19 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void restoreSnapshot(Path path) {
         rwLock.writeLock().lock();
 
-        try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
-            for (ColumnFamily family : Arrays.asList(data, index)) {
-                Path snapshotPath = path.resolve(family.name());
+        try {
+            // there's no way to easily remove all data from RocksDB, so we need to re-create it from scratch
+            IgniteUtils.closeAll(db, options);
 
-                if (!Files.exists(snapshotPath)) {
-                    throw new IgniteInternalException("Snapshot not found: " + snapshotPath);
-                }
+            recreateDb();
 
-                family.ingestExternalFile(Collections.singletonList(snapshotPath.toString()), ingestOptions);
-            }
+            snapshotManager.restoreSnapshot(path);
 
             rev = bytesToLong(data.get(REVISION_KEY));
 
             updCntr = bytesToLong(data.get(UPDATE_COUNTER_KEY));
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException("Fail to ingest sst file at path: " + path, e);
+        } catch (Exception e) {
+            throw new IgniteInternalException("Failed to restore snapshot", e);
         } finally {
             rwLock.writeLock().unlock();
         }
