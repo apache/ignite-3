@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Proto
 {
+    using System;
     using MessagePack;
 
     /// <summary>
@@ -25,20 +26,63 @@ namespace Apache.Ignite.Internal.Proto
     internal static class MessagePackUtil
     {
         /// <summary>
-        /// Gets the write size for the specified value.
+        /// Writes an unsigned value to specified memory location and returns number of bytes written.
         /// </summary>
-        /// <param name="value">Value.</param>
-        /// <returns>MessagePack write size.</returns>
-        public static int GetWriteSize(ulong value)
+        /// <param name="mem">Memory.</param>
+        /// <param name="val">Value.</param>
+        /// <returns>Bytes written.</returns>
+        public static int WriteUnsigned(Memory<byte> mem, ulong val)
         {
-            return value switch
+            unchecked
             {
-                <= MessagePackRange.MaxFixPositiveInt => 1,
-                <= byte.MaxValue => 2,
-                <= ushort.MaxValue => 3,
-                <= uint.MaxValue => 5,
-                _ => 9
-            };
+                var span = mem.Span;
+
+                if (val <= MessagePackRange.MaxFixPositiveInt)
+                {
+                    span[0] = (byte)val;
+                    return 1;
+                }
+
+                if (val <= byte.MaxValue)
+                {
+                    span[0] = MessagePackCode.UInt8;
+                    span[1] = (byte)val;
+
+                    return 2;
+                }
+
+                if (val <= ushort.MaxValue)
+                {
+                    span[0] = MessagePackCode.UInt16;
+                    span[2] = (byte)val;
+                    span[1] = (byte)(val >> 8);
+
+                    return 3;
+                }
+
+                if (val <= uint.MaxValue)
+                {
+                    span[0] = MessagePackCode.UInt32;
+                    span[4] = (byte)val;
+                    span[3] = (byte)(val >> 8);
+                    span[2] = (byte)(val >> 16);
+                    span[1] = (byte)(val >> 24);
+
+                    return 5;
+                }
+
+                span[0] = MessagePackCode.UInt64;
+                span[8] = (byte)val;
+                span[7] = (byte)(val >> 8);
+                span[6] = (byte)(val >> 16);
+                span[5] = (byte)(val >> 24);
+                span[4] = (byte)(val >> 32);
+                span[3] = (byte)(val >> 40);
+                span[2] = (byte)(val >> 48);
+                span[1] = (byte)(val >> 56);
+
+                return 9;
+            }
         }
     }
 }
