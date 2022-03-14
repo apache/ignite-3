@@ -43,7 +43,7 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Reserved prefix size.
         /// </summary>
-        public const int ReservedPrefixSize = 4 + 4 + 9; // Size (4 bytes) + OpCode (4 bytes) + RequestId (9 bytes)/
+        public const int ReservedPrefixSize = 4 + 5 + 9; // Size (4 bytes) + OpCode (5 bytes) + RequestId (9 bytes)/
 
         /** Underlying pooled array. */
         private byte[] _buffer;

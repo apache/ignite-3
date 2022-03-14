@@ -31,7 +31,7 @@ namespace Apache.Ignite.Internal.Proto
         /// <param name="mem">Memory.</param>
         /// <param name="val">Value.</param>
         /// <returns>Bytes written.</returns>
-        public static int WriteUnsigned(Memory<byte> mem, ulong val)
+        public static int WriteUnsigned(Memory<byte> mem, long val)
         {
             unchecked
             {

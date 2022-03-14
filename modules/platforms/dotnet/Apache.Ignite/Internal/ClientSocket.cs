@@ -70,6 +70,9 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
+        /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
+        private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
+
         /** Request id generator. */
         private long _requestId;
 
@@ -341,7 +344,6 @@ namespace Apache.Ignite.Internal
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
             // Prepend size.
-            // TODO: Move this logic to PooledArrayBufferWriter? Or some other class?
             var buf = bufferWriter.GetWrittenMemory();
             var size = buf.Length - PooledArrayBufferWriter.ReservedPrefixSize;
             var resBuf = buf.Slice(PooledArrayBufferWriter.ReservedPrefixSize - 4);
@@ -379,21 +381,31 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                // TODO: Optimize prefix handling with a predefined reusable buffer. Remove prefix handling from PooledArrayBufferWriter.
-                // TODO: If there is a body, we can use it to write prefix and reduce socket calls.
-                var prefixBytes = WritePrefix();
-                var body = request?.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
+                var prefixMem = _prefixBuffer.AsMemory()[4..];
+                var prefixSize = MessagePackUtil.WriteUnsigned(prefixMem, (int)op);
+                prefixSize += MessagePackUtil.WriteUnsigned(prefixMem[prefixSize..], requestId);
 
-                var size = prefixBytes.Length + (body?.Length ?? 0);
-
-                var sizeBytes = WriteSize(size);
-
-                await _stream.WriteAsync(sizeBytes, _disposeTokenSource.Token).ConfigureAwait(false);
-                await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
-
-                if (body != null)
+                if (request != null)
                 {
-                    await _stream.WriteAsync(body.Value, _disposeTokenSource.Token).ConfigureAwait(false);
+                    var requestBuf = request.GetWrittenMemory();
+
+                    WriteSize(prefixSize + requestBuf.Length - PooledArrayBufferWriter.ReservedPrefixSize);
+                    var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
+
+                    var requestBufStart = PooledArrayBufferWriter.ReservedPrefixSize - prefixBytes.Length;
+                    var requestBufWithPrefix = requestBuf.Slice(requestBufStart);
+
+                    // Copy prefix to request buf to avoid extra WriteAsync call for the prefix.
+                    prefixBytes.CopyTo(requestBufWithPrefix);
+
+                    await _stream.WriteAsync(requestBufWithPrefix, _disposeTokenSource.Token).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Request without body, send only the prefix.
+                    WriteSize(prefixSize);
+                    var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
+                    await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
                 }
             }
             finally
@@ -401,27 +413,12 @@ namespace Apache.Ignite.Internal
                 _sendLock.Release();
             }
 
-            ReadOnlyMemory<byte> WritePrefix()
+            unsafe void WriteSize(int size)
             {
-                var buf = new ArrayBufferWriter<byte>(10);
-                var prefixWriter = new MessagePackWriter(buf);
-                prefixWriter.Write((int)op);
-                prefixWriter.Write(requestId);
-                prefixWriter.Flush();
-
-                return buf.WrittenMemory;
-            }
-
-            static unsafe ReadOnlyMemory<byte> WriteSize(int size)
-            {
-                var b = new byte[4];
-
-                fixed (byte* bufPtr = &b[0])
+                fixed (byte* bufPtr = &_prefixBuffer[0])
                 {
                     *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
                 }
-
-                return b;
             }
         }
 
