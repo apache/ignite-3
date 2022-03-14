@@ -613,7 +613,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return {@code True} if this is a recoverable exception.
      */
     private boolean recoverable(Throwable t) {
-        return t.getCause() instanceof IOException || t.getCause() instanceof TimeoutException;
+        return t instanceof TimeoutException || t.getCause() instanceof IOException;
     }
 
     /**
