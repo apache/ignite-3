@@ -172,9 +172,9 @@ public class DdlSqlToCommandConverter {
         List<String> colocationCols = createTblNode.colocationColumns() == null
                 ? null
                 : createTblNode.colocationColumns().getList().stream()
-                .map(SqlIdentifier.class::cast)
-                .map(SqlIdentifier::getSimple)
-                .collect(Collectors.toList());
+                        .map(SqlIdentifier.class::cast)
+                        .map(SqlIdentifier::getSimple)
+                        .collect(Collectors.toList());
 
         createTblCmd.colocationColumns(colocationCols);
 
