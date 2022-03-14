@@ -175,6 +175,21 @@ namespace Apache.Ignite.Tests
             }
         }
 
+        [Test]
+        public async Task TestRetryReadPolicyDoesNotRetryWriteOperations()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new RetryReadPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+            Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
+        }
+
         private class TestRetryPolicy : IRetryPolicy
         {
             private readonly List<IRetryPolicyContext> _invocations = new();
