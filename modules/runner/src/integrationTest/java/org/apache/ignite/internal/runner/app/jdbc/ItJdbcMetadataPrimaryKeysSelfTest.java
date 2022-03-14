@@ -27,13 +27,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that primary keys in the metadata are valid.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcMetadataPrimaryKeysSelfTest extends AbstractJdbcSelfTest {
     /** COLUMN_NAME column index in the metadata table. */
     private static final int COL_NAME_IDX = 4;

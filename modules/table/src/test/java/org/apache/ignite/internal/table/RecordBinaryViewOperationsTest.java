@@ -361,7 +361,7 @@ public class RecordBinaryViewOperationsTest {
 
         assertEquals(2, res.size());
         assertTrue(res.contains(rec1));
-        assertTrue(res.contains(rec1));
+        assertTrue(res.contains(rec3));
     }
 
     /**
