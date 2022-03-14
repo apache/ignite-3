@@ -42,6 +42,7 @@ public class HashCalculator {
      */
     public void append(Object v) {
         if (v == null) {
+            appendLong(0);
             return;
         }
 
@@ -165,7 +166,7 @@ public class HashCalculator {
      *
      * @param v Value to update hash.
      */
-    private void appendUuid(UUID v) {
+    public void appendUuid(UUID v) {
         appendLong(v.getMostSignificantBits());
         appendLong(v.getLeastSignificantBits());
     }
