@@ -1,10 +1,10 @@
 This package contains classes that are used for implementation of functionality based on causality tokens.
 
-###The purpose
+### The purpose
 
 Every component register configuration update listeners while starting. These listeners receive notifications during the further lifetime of the node, and also during the recovery process while retrieving notifications from Metastorage. While handling the notifications, listeners should rely on the fact that the components that they depend on, won’t return stale or inconsistent data, regardless of order in which these listeners will be called. It should be guaranteed by causality tokens mechanism.
 
-###Causality tokens
+### Causality tokens
 
 Cluster-wide events, such as, for example, configuration changes or Metastorage updates, trigger notifications that are propagated to the nodes and therefore, to components. Every event can trigger one or several notifications. Every notification has a causality token. Notifications triggered by the same event have the same causality token. It is guaranteed that the last notification produced with a certain causality token, will be a notification about storage revision update.
 
@@ -16,7 +16,7 @@ This guarantees that notifications will be handled by component listeners in a p
 
 It is also worth mentioning that local events should also be produced within a context of an appropriate causality token.
 
-###Versioned value
+### Versioned value
 
 Versioned value is some value that can be associated with a causality token. Typically, a field of a component that is supposed to be changed according to configuration changes, should be represented as `org.apache.ignite.internal.causality.VersionedValue` of needed type. Versioned value stores multiple versions of actual values, each for a certain causality token, i.e. a history of this value. Default history size is 2, but if the value didn’t change within a row of serial tokens, it is counted as one version for the history.
 
