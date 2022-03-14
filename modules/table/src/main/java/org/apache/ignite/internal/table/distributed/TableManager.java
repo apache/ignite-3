@@ -20,10 +20,16 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.metastorage.client.CompoundCondition.and;
+import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
+import static org.apache.ignite.internal.metastorage.client.Conditions.exists;
+import static org.apache.ignite.internal.metastorage.client.Conditions.value;
+import static org.apache.ignite.internal.metastorage.client.Operations.ops;
+import static org.apache.ignite.internal.metastorage.client.Operations.put;
+import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -66,17 +72,7 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.common.OperationType;
-import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
-import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.internal.metastorage.server.Operation;
-import org.apache.ignite.internal.metastorage.server.OrCondition;
-import org.apache.ignite.internal.metastorage.server.RevisionCondition;
-import org.apache.ignite.internal.metastorage.server.RevisionCondition.Type;
-import org.apache.ignite.internal.metastorage.server.Statement;
-import org.apache.ignite.internal.metastorage.server.StatementResult;
-import org.apache.ignite.internal.metastorage.server.Update;
-import org.apache.ignite.internal.metastorage.server.ValueCondition;
+import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -98,6 +94,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -330,19 +327,19 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(new NodeStoppingException());
                                     }
                                     try {
-                                        if (replicasCtx.oldValue() != null) {
+                                        String tableName = replicasCtx.name(TableConfiguration.class);
+                                        TableConfiguration tableCfg = replicasCtx.config(TableConfiguration.class);
 
-                                            int partCount = tablesCfg.tables().get(tblName).partitions().value();
+                                        int partCount = tableCfg.partitions().value();
 
-                                            int newReplicas = replicasCtx.newValue();
+                                        int newReplicas = replicasCtx.newValue();
 
-                                            for (int i = 0; i < partCount; i++) {
-                                                String partId = raftGroupName(
-                                                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).id().value(), i);
+                                        for (int i = 0; i < partCount; i++) {
+                                            String partId = partitionRaftGroupName(
+                                                    ((ExtendedTableConfiguration) tableCfg).id().value(), i);
 
-                                                metastorageInvoke(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
-                                                        replicasCtx.storageRevision());
-                                            }
+                                            updateAssignmentsKeys(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
+                                                    replicasCtx.storageRevision());
                                         }
 
                                         return CompletableFuture.completedFuture(null);
@@ -395,7 +392,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                                 try {
                                     return raftMgr.updateRaftGroup(
-                                            raftGroupName(tblId, partId),
+                                            partitionRaftGroupName(tblId, partId),
                                             newPartitionAssignment,
                                             toAdd,
                                             () -> new PartitionListener(tblId,
@@ -464,50 +461,44 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         defaultDataRegion.start();
     }
 
-    private void metastorageInvoke(String partId, Collection<ClusterNode> clusterNodes, int partitions, int replicas, long revision) {
-        byte[] partChangeTriggerKey = (partId + ".change.trigger").getBytes(StandardCharsets.UTF_8);
+    private void updateAssignmentsKeys(String partId, Collection<ClusterNode> clusterNodes, int partitions, int replicas, long revision) {
+        ByteArray partChangeTriggerKey = new ByteArray(partId + ".change.trigger");
 
-        String partAssignmentsPendingKey = partId + ".assignments.pending";
-        String partAssignmentsPlannedKey = partId + ".assignments.planned";
-        String partAssignmentsStableKey = partId + ".assignments.stable";
+        ByteArray partAssignmentsPendingKey = new ByteArray(partId + ".assignments.pending");
 
-        List<List<ClusterNode>> calcPartAssignments = AffinityUtils.calculateAssignments(clusterNodes, partitions, replicas);
+        ByteArray partAssignmentsPlannedKey = new ByteArray(partId + ".assignments.planned");
 
-        If iif = new If(
-                new OrCondition(new ExistenceCondition(ExistenceCondition.Type.EXISTS, partChangeTriggerKey), new RevisionCondition(
-                        Type.LESS, key1, val1)),
-                new Statement(
-                        new If(
-                                new RevisionCondition(RevisionCondition.Type.EQUAL, key3, 3),
-                                new Statement(
-                                        new Update(List.of(new Operation(OperationType.PUT, key1, rval1)), new StatementResult(1))),
-                                new Statement(
-                                        new Update(
-                                                List.of(new Operation(OperationType.PUT, key1, rval1),
-                                                        new Operation(OperationType.REMOVE, key2, null)),
-                                                new StatementResult(2))))),
-                new Statement(new Update(List.of(new Operation(OperationType.PUT, key3, rval3)), new StatementResult(3)))
-        );
+        ByteArray partAssignmentsStableKey = new ByteArray(partId + ".assignments.stable");
 
+        byte[] partAssignmentsBytes = ByteUtils.toBytes(AffinityUtils.calculateAssignments(clusterNodes, partitions, replicas));
 
+        //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+        //        if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
+        //            partition.assignments.pending = calcPartAssignments()
+        //            partition.change.trigger.revision = event.revision
+        //        else:
+        //            if partition.assignments.pending != calcPartAssignments
+        //                partition.assignments.planned = calcPartAssignments()
+        //                partition.change.trigger.revision = event.revision
+        //            else
+        //                remove(partition.assignments.planned)
+        //    else:
+        //        skip
+        var iif = If.iif(or(exists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
+                            If.iif(and(exists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
+                                    ops(
+                                            put(partAssignmentsPendingKey, partAssignmentsBytes),
+                                            put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
+                                    ).yield(),
+                                If.iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
+                                        ops(
+                                                put(partAssignmentsPlannedKey, partAssignmentsBytes),
+                                                put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
+                                        ).yield(),
+                                    ops(remove(partAssignmentsPlannedKey)).yield())),
+                        ops().yield());
 
-        if empty(partition.change.trigger.revision) || partition.change.trigger.revision < revision:
-            if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
-                partition.assignments.pending = AffinityUtils.calculateAssignments(
-                        clusterNodes,
-                        partitions,
-                        replicas);
-                partition.change.trigger.revision = revision
-            else:
-                if partition.assignments.pending != calcPartAssignments
-                    partition.assignments.planned = calcPartAssignments()
-                    partition.change.trigger.revision = revision
-                else
-                    remove(partition.assignments.planned)
-        else:
-            skip
-
-
+        metaStorageMgr.invoke(iif);
     }
 
     /** {@inheritDoc} */
@@ -528,7 +519,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     table.internalTable().close();
 
                     for (int p = 0; p < table.internalTable().partitions(); p++) {
-                        raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
+                        raftMgr.stopRaftGroup(partitionRaftGroupName(table.tableId(), p));
                     }
                 } catch (Exception e) {
                     LOG.error("Failed to stop a table {}", e, table.name());
@@ -608,7 +599,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             try {
                 partitionsGroupsFutures.add(
                         raftMgr.prepareRaftGroup(
-                                raftGroupName(tblId, p),
+                                partitionRaftGroupName(tblId, p),
                                 assignment.get(p),
                                 () -> new PartitionListener(tblId,
                                         new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager))
@@ -793,7 +784,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partitions = assignment.size();
 
             for (int p = 0; p < partitions; p++) {
-                raftMgr.stopRaftGroup(raftGroupName(tblId, p));
+                raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
             }
 
             tablesVv.update(causalityToken, previousVal -> {
@@ -838,7 +829,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A RAFT group name.
      */
     @NotNull
-    private String raftGroupName(UUID tblId, int partition) {
+    private String partitionRaftGroupName(UUID tblId, int partition) {
         return tblId + "_part_" + partition;
     }
 
@@ -1567,11 +1558,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             try {
                 futures[i] = raftMgr.changePeers(
-                        raftGroupName(tblId, p),
+                        partitionRaftGroupName(tblId, p),
                         oldPartitionAssignment,
                         newPartitionAssignment
                 ).exceptionally(th -> {
-                    LOG.error("Failed to update raft peers for group " + raftGroupName(tblId, p)
+                    LOG.error("Failed to update raft peers for group " + partitionRaftGroupName(tblId, p)
                             + "from " + oldPartitionAssignment + " to " + newPartitionAssignment, th);
                     return null;
                 });
