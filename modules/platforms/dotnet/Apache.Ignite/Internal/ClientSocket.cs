@@ -188,7 +188,7 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
-            Dispose(new ObjectDisposedException("Connection closed."));
+            Dispose(null);
         }
 
         /// <summary>
@@ -495,12 +495,19 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Disposes this socket and completes active requests with the specified exception.
         /// </summary>
-        /// <param name="ex">Exception to set for pending requests.</param>
-        private void Dispose(Exception ex)
+        /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
+        private void Dispose(Exception? ex)
         {
-            _exception = ex;
+            if (_disposeTokenSource.IsCancellationRequested)
+            {
+                return;
+            }
+
             _disposeTokenSource.Cancel();
+            _exception = ex;
             _stream.Dispose();
+
+            ex ??= new ObjectDisposedException("Connection closed.");
 
             while (!_requests.IsEmpty)
             {
