@@ -386,18 +386,6 @@ public class DirectMessageReader implements MessageReader {
 
     /** {@inheritDoc} */
     @Override
-    public <T> T readMarshallable(String name) {
-        DirectByteBufferStream stream = state.item().stream;
-
-        T object = stream.readMarshallable(this);
-
-        lastRead = stream.lastFinished();
-
-        return object;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public boolean isLastRead() {
         return lastRead;
     }

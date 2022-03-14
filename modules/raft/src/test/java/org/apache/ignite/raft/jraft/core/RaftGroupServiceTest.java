@@ -630,7 +630,8 @@ public class RaftGroupServiceTest {
 
         when(messagingService.invoke(any(NetworkAddress.class),
             eq(FACTORY.transferLeaderRequest()
-                .leaderId(PeerId.fromPeer(NODES.get(1)).toString())
+                .peerId(PeerId.fromPeer(NODES.get(1)).toString())
+                .leaderId(PeerId.fromPeer(NODES.get(0)).toString())
                 .groupId(groupId).build()), anyLong()))
             .then(invocation ->
                 completedFuture(RaftRpcFactory.DEFAULT.newResponse(FACTORY, Status.OK())));

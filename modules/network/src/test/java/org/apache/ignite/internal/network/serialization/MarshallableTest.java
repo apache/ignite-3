@@ -22,7 +22,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -30,6 +29,10 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.handler.codec.MessageToMessageEncoder;
+import io.netty.handler.stream.ChunkedWriteHandler;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.ints.IntSets;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -37,14 +40,18 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
+import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.netty.InboundDecoder;
+import org.apache.ignite.internal.network.netty.OutboundEncoder;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
 import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.OutNetworkObject;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
@@ -68,7 +75,7 @@ public class MarshallableTest {
      * Tests that marshallable object can be serialized along with its descriptor.
      */
     @Test
-    public void testMarshallable() {
+    public void testMarshallable() throws Exception {
         // Test map that will be sent as a Marshallable object within the MessageWithMarshallable message
         Map<String, SimpleSerializableObject> testMap = Map.of("test", new SimpleSerializableObject(10));
 
@@ -80,29 +87,40 @@ public class MarshallableTest {
     }
 
     /** Writes a map to a buffer through the {@link MessageWithMarshallable}. */
-    private ByteBuffer write(Map<String, SimpleSerializableObject> testMap) {
+    private ByteBuffer write(Map<String, SimpleSerializableObject> testMap) throws Exception {
         var serializers = new Serialization();
 
         var writer = new DirectMessageWriter(serializers.perSessionSerializationService, ConnectionManager.DIRECT_PROTOCOL_VERSION);
 
         MessageWithMarshallable msg = msgFactory.messageWithMarshallable().marshallableMap(testMap).build();
 
+        IntSet ids = new IntOpenHashSet();
+
+        msg.prepareMarshal(ids, serializers.userObjectSerializer);
+
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
-        ByteBuffer nioBuffer = ByteBuffer.allocate(1000);
+        var catcher = new OutboundByteBufCatcher();
+        var channel = new EmbeddedChannel(
+                catcher,
+                new ChunkedWriteHandler(),
+                new OutboundEncoder(serializers.perSessionSerializationService)
+        );
 
-        writer.setBuffer(nioBuffer);
+        List<ClassDescriptorMessage> classDescriptorsMessages = PerSessionSerializationService.createClassDescriptorsMessages(
+                ids, serializers.descriptorRegistry);
 
-        // Write a message to the ByteBuffer.
-        boolean fullyWritten = serializer.writeMessage(msg, writer);
+        channel.writeAndFlush(new OutNetworkObject(msg, classDescriptorsMessages));
 
-        assertTrue(fullyWritten);
+        channel.flushOutbound();
+
+        ByteBuffer nioBuffer = catcher.buf;
 
         return nioBuffer;
     }
 
     /** Reads a {@link MessageWithMarshallable} from the buffer (byte by byte) and checks for the class descriptor merging. */
-    private Map<String, SimpleSerializableObject> read(ByteBuffer outBuffer) {
+    private Map<String, SimpleSerializableObject> read(ByteBuffer outBuffer) throws Exception {
         ChannelHandlerContext ctx = mock(ChannelHandlerContext.class);
 
         var channel = new EmbeddedChannel();
@@ -150,6 +168,8 @@ public class MarshallableTest {
 
         MessageWithMarshallable received = (MessageWithMarshallable) list.get(0);
 
+        received.unmarshal(serializers.userObjectSerializer, serializers.descriptorRegistry);
+
         return received.marshallableMap();
     }
 
@@ -158,20 +178,35 @@ public class MarshallableTest {
         private final PerSessionSerializationService perSessionSerializationService;
 
         private final ClassDescriptor descriptor;
+        private final StubMarshaller userObjectSerializer;
+        private final ClassDescriptorRegistry descriptorRegistry;
 
         Serialization() {
-            var descriptorRegistry = new ClassDescriptorRegistry();
+            this.descriptorRegistry = new ClassDescriptorRegistry();
             var factory = new ClassDescriptorFactory(descriptorRegistry);
 
             // Create descriptor for SimpleSerializableObject
             this.descriptor = factory.create(SimpleSerializableObject.class);
 
-            var userObjectSerializer = new StubMarshaller(descriptor);
+            this.userObjectSerializer = new StubMarshaller(descriptor);
 
             var ser = new UserObjectSerializationContext(descriptorRegistry, factory, userObjectSerializer);
 
             var serializationService = new SerializationService(registry, ser);
             this.perSessionSerializationService = new PerSessionSerializationService(serializationService);
+        }
+    }
+
+    private static class OutboundByteBufCatcher extends MessageToMessageEncoder<ByteBuf> {
+        /** ByteBuffer that records incoming data. */
+        private ByteBuffer buf = ByteBuffer.allocateDirect(1000);
+
+        /** {@inheritDoc} */
+        @Override
+        protected void encode(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list) throws Exception {
+            ByteBuffer nioBuffer = byteBuf.nioBuffer();
+            buf.put(nioBuffer);
+            list.add(1); // Just to make sure netty continues writing to the channel
         }
     }
 

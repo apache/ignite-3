@@ -17,15 +17,10 @@
 
 package org.apache.ignite.internal.network.serialization;
 
-import org.apache.ignite.internal.network.serialization.marshal.MarshalException;
-import org.apache.ignite.internal.network.serialization.marshal.MarshalledObject;
-import org.apache.ignite.internal.network.serialization.marshal.UnmarshalException;
-import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Serialization service implementation.
@@ -40,9 +35,6 @@ public class SerializationService {
     /** Descriptor factory. */
     private final ClassDescriptorFactory descriptorFactory;
 
-    /** User object marshaller. */
-    private final UserObjectMarshaller marshaller;
-
     /**
      * Constructor.
      *
@@ -56,7 +48,6 @@ public class SerializationService {
         this.messageRegistry = messageRegistry;
         this.localDescriptorRegistry = userObjectSerializationContext.descriptorRegistry();
         this.descriptorFactory = userObjectSerializationContext.descriptorFactory();
-        this.marshaller = userObjectSerializationContext.marshaller();
     }
 
     /**
@@ -75,41 +66,6 @@ public class SerializationService {
      */
     public <T extends NetworkMessage> MessageDeserializer<T> createDeserializer(short groupType, short messageType) {
         return messageRegistry.createDeserializer(groupType, messageType);
-    }
-
-    /**
-     * Serializes a marshallable object to a byte array.
-     *
-     * @param object Object to serialize.
-     * @param <T> Object's type.
-     * @throws UserObjectSerializationException If failed to serialize an object.
-     * @see UserObjectMarshaller#marshal(Object)
-     */
-    public <T> MarshalledObject writeMarshallable(T object) throws UserObjectSerializationException {
-        try {
-            return marshaller.marshal(object);
-        } catch (MarshalException e) {
-            throw new UserObjectSerializationException("Failed to serialize object of type " + object.getClass().getName(), e);
-        }
-    }
-
-    /**
-     * Deserializes a marshallable object from a byte array.
-     *
-     * @param descriptors Descriptors provider.
-     * @param array Byte array that contains a serialized object.
-     * @param <T> Object's type.
-     * @throws UserObjectSerializationException If failed to deserialize an object.
-     * @see UserObjectMarshaller#unmarshal(byte[], DescriptorRegistry)
-     */
-    @Nullable
-    public <T> T readMarshallable(DescriptorRegistry descriptors, byte[] array)
-            throws UserObjectSerializationException {
-        try {
-            return marshaller.unmarshal(array, descriptors);
-        } catch (UnmarshalException e) {
-            throw new UserObjectSerializationException("Failed to deserialize object: " + e.getMessage(), e);
-        }
     }
 
     /**

@@ -25,13 +25,12 @@ import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +58,7 @@ public class NettyClient {
     private volatile Channel channel = null;
 
     /** Message listener. */
-    private final BiConsumer<String, NetworkMessage> messageListener;
+    private final Consumer<InNetworkObject> messageListener;
 
     /** Handshake manager. */
     private final HandshakeManager handshakeManager;
@@ -79,7 +78,7 @@ public class NettyClient {
             SocketAddress address,
             SerializationService serializationService,
             HandshakeManager manager,
-            BiConsumer<String, NetworkMessage> messageListener
+            Consumer<InNetworkObject> messageListener
     ) {
         this.address = address;
         this.serializationService = serializationService;
@@ -113,7 +112,9 @@ public class NettyClient {
 
                     ch.pipeline().addLast(
                             new InboundDecoder(sessionSerializationService),
-                            new HandshakeHandler(handshakeManager, (consistentId) -> new MessageHandler(messageListener, consistentId)),
+                            new HandshakeHandler(handshakeManager,
+                                    (consistentId) -> new MessageHandler(messageListener, consistentId, sessionSerializationService)
+                            ),
                             new ChunkedWriteHandler(),
                             new OutboundEncoder(sessionSerializationService),
                             new IoExceptionSuppressingHandler()

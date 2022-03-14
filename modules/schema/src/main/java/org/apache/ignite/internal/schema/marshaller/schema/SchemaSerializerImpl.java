@@ -89,11 +89,11 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         appendColumns(desc.keyColumns(), byteBuf);
         appendColumns(desc.valueColumns(), byteBuf);
 
-        Column[] affinityCols = desc.affinityColumns();
+        Column[] colocationCols = desc.colocationColumns();
 
-        byteBuf.putInt(affinityCols.length);
+        byteBuf.putInt(colocationCols.length);
 
-        for (Column column : affinityCols) {
+        for (Column column : colocationCols) {
             appendString(column.name(), byteBuf);
         }
 
@@ -108,15 +108,15 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
         Column[] keyCols = readColumns(byteBuf);
         Column[] valCols = readColumns(byteBuf);
 
-        int affinityColsSize = byteBuf.getInt();
+        int colocationColsSize = byteBuf.getInt();
 
-        String[] affinityCols = new String[affinityColsSize];
+        String[] colocationCols = new String[colocationColsSize];
 
-        for (int i = 0; i < affinityColsSize; i++) {
-            affinityCols[i] = readString(byteBuf);
+        for (int i = 0; i < colocationColsSize; i++) {
+            colocationCols[i] = readString(byteBuf);
         }
 
-        SchemaDescriptor descriptor = new SchemaDescriptor(ver, keyCols, affinityCols, valCols);
+        SchemaDescriptor descriptor = new SchemaDescriptor(ver, keyCols, colocationCols, valCols);
 
         ColumnMapper mapper = readColumnMapping(descriptor, byteBuf);
 
@@ -132,8 +132,8 @@ public class SchemaSerializerImpl extends AbstractSchemaSerializer {
                 + INT                          //Descriptor version
                 + getColumnsSize(desc.keyColumns())
                 + getColumnsSize(desc.valueColumns())
-                + ARRAY_HEADER_LENGTH          //Affinity columns length
-                + getStringArraySize(desc.affinityColumns())
+                + ARRAY_HEADER_LENGTH          //Colocation columns length
+                + getStringArraySize(desc.colocationColumns())
                 + getColumnMappingSize(desc.columnMapping(), desc.length());
     }
 

@@ -186,7 +186,7 @@ public class SchemaDescriptorConverter {
         return new SchemaDescriptor(
                 schemaVer,
                 keyCols.toArray(Column[]::new),
-                tblCfg.affinityColumns().toArray(String[]::new),
+                tblCfg.colocationColumns().toArray(String[]::new),
                 valCols.toArray(Column[]::new));
     }
 

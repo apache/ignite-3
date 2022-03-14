@@ -18,22 +18,36 @@
 package org.apache.ignite.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
+import static org.apache.ignite.network.NettyBootstrapFactory.isInNetworkThread;
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
+import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
-import org.apache.ignite.internal.network.message.ScaleCubeMessage;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
+import org.apache.ignite.internal.network.netty.InNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
+import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,6 +58,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     /** Topology service. */
     private final TopologyService topologyService;
+
+    /** User object marshaller. */
+    private final UserObjectMarshaller marshaller;
+
+    /** Class descriptor registry. */
+    private final ClassDescriptorRegistry classDescriptorRegistry;
 
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
@@ -66,15 +86,25 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /** Fake port for nodes that are not in the topology yet. TODO: IGNITE-16373 Remove after the ticket is resolved. */
     private static final int UNKNOWN_HOST_PORT = 1337;
 
+    /** Executor for outbound messages. */
+    private final ExecutorService outboundService = Executors.newSingleThreadExecutor();
+
+    /** Executor for inbound messages. */
+    private final ExecutorService inboundService = Executors.newSingleThreadExecutor();
+
     /**
      * Constructor.
      *
      * @param factory Network messages factory.
      * @param topologyService Topology service.
+     * @param userObjectSerializationContext Serialization context.
      */
-    public DefaultMessagingService(NetworkMessagesFactory factory, TopologyService topologyService) {
+    public DefaultMessagingService(NetworkMessagesFactory factory, TopologyService topologyService,
+            UserObjectSerializationContext userObjectSerializationContext) {
         this.factory = factory;
         this.topologyService = topologyService;
+        this.marshaller = userObjectSerializationContext.marshaller();
+        this.classDescriptorRegistry = userObjectSerializationContext.descriptorRegistry();
     }
 
     /**
@@ -158,7 +188,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         String recipientConsistentId = recipient != null ? recipient.name() : address.consistentId();
 
-        return connectionManager.channel(recipientConsistentId, addr).thenCompose(sender -> sender.send(message));
+        return this.sendMessage0(message, recipientConsistentId, addr);
     }
 
     /**
@@ -194,8 +224,40 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         String recipientConsistentId = recipient != null ? recipient.name() : addr.consistentId();
 
-        return connectionManager.channel(recipientConsistentId, address).thenCompose(sender -> sender.send(message))
-                .thenCompose(unused -> responseFuture);
+        return sendMessage0(message, recipientConsistentId, address).thenCompose(unused -> responseFuture);
+    }
+
+    /**
+     * Sends network object.
+     *
+     * @param message Message.
+     * @param recipientConsistentId Target consistent id
+     * @param addr Address.
+     * @return Future of the send operation.
+     */
+    private CompletableFuture<Void> sendMessage0(NetworkMessage message, String recipientConsistentId, InetSocketAddress addr) {
+        if (isInNetworkThread()) {
+            return CompletableFuture.supplyAsync(() -> sendMessage0(message, recipientConsistentId, addr), outboundService)
+                    .thenCompose(Function.identity());
+        }
+
+        List<ClassDescriptorMessage> descriptors;
+
+        try {
+            descriptors = beforeRead(message);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
+        }
+
+        return connectionManager.channel(recipientConsistentId, addr)
+                .thenCompose(sender -> sender.send(new OutNetworkObject(message, descriptors)));
+    }
+
+    private List<ClassDescriptorMessage> beforeRead(NetworkMessage msg) throws Exception {
+        IntSet ids = new IntOpenHashSet();
+        msg.prepareMarshal(ids, marshaller);
+
+        return createClassDescriptorsMessages(ids, classDescriptorRegistry);
     }
 
     /**
@@ -215,15 +277,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Handles an incoming messages.
      *
-     * @param consistentId Sender's consistent id.
-     * @param msg Incoming message.
+     * @param obj Incoming message wrapper.
      */
-    private void onMessage(String consistentId, NetworkMessage msg) {
-        if (msg instanceof ScaleCubeMessage) {
-            // ScaleCube messages are handled in the ScaleCubeTransport
+    private void onMessage(InNetworkObject obj) {
+        if (isInNetworkThread()) {
+            inboundService.submit(() -> onMessage(obj));
             return;
         }
 
+        NetworkMessage msg = obj.message();
+        DescriptorRegistry registry = obj.registry();
+        String consistentId = obj.consistentId();
+        try {
+            msg.unmarshal(marshaller, registry);
+        } catch (Exception e) {
+            throw new IgniteException("Failed to unmarshal message: " + e.getMessage(), e);
+        }
         if (msg instanceof InvokeResponse) {
             InvokeResponse response = (InvokeResponse) msg;
             onInvokeResponse(response.message(), response.correlationId());
@@ -344,5 +413,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
         requestsMap.values().forEach(fut -> fut.completeExceptionally(exception));
 
         requestsMap.clear();
+
+        inboundService.shutdown();
+        outboundService.shutdown();
     }
 }

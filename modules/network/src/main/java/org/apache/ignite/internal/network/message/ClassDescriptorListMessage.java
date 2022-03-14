@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.table;
+package org.apache.ignite.internal.network.message;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
+import java.util.Collection;
+import org.apache.ignite.internal.network.NetworkMessageTypes;
+import org.apache.ignite.network.NetworkMessage;
+import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Configuration for primary key constraint in SQL table.
+ * Message that wraps a list of {@link ClassDescriptorMessage}s.
  */
-@Config
-public class PrimaryKeyConfigurationSchema {
-    /** Primary key columns names. */
-    @Value
-    @Immutable
-    public String[] columns;
+@Transferable(NetworkMessageTypes.CLASS_DESCRIPTOR_LIST_MESSAGE)
+public interface ClassDescriptorListMessage extends NetworkMessage {
 
-    /** Primary key colocation columns names. */
-    @Value(hasDefault = true)
-    @Immutable
-    public String[] colocationColumns = new String[0];
+    /** List of the messages. */
+    Collection<ClassDescriptorMessage> messages();
+
 }
