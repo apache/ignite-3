@@ -238,9 +238,9 @@ public class SqlDdlParserTest {
 
         assertThat(
                 createTable.colocationColumns().getList().stream()
-                .map(SqlIdentifier.class::cast)
-                .map(SqlIdentifier::getSimple)
-                .collect(Collectors.toList()),
+                        .map(SqlIdentifier.class::cast)
+                        .map(SqlIdentifier::getSimple)
+                        .collect(Collectors.toList()),
                 equalTo(List.of("ID2", "ID1"))
         );
 
