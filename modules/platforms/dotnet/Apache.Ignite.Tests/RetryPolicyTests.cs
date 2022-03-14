@@ -27,6 +27,8 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class RetryPolicyTests
     {
+        private const int IterCount = 100;
+
         [Test]
         public async Task TestFailoverWithRetryPolicyCompletesOperationWithoutException()
         {
@@ -39,7 +41,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < IterCount; i++)
             {
                 await client.Tables.GetTablesAsync();
             }
@@ -89,7 +91,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 3 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            for (var i = 0; i < 100; i++)
+            for (var i = 0; i < IterCount; i++)
             {
                 await client.Tables.GetTablesAsync();
             }
@@ -117,7 +119,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < IterCount; i++)
             {
                 var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
@@ -155,7 +157,7 @@ namespace Apache.Ignite.Tests
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < IterCount; i++)
             {
                 var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
                 Assert.IsNotNull(table);
