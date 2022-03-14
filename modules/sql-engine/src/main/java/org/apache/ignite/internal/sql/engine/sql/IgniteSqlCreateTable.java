@@ -91,7 +91,9 @@ public class IgniteSqlCreateTable extends SqlCreate {
         if (colocationColumns != null) {
             writer.keyword("COLOCATE BY");
 
+            SqlWriter.Frame frame = writer.startList("(", ")");
             colocationColumns.unparse(writer, 0, 0);
+            writer.endList(frame);
         }
 
         if (createOptionList != null) {
