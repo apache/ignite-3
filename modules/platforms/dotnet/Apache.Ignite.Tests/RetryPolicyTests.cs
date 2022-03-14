@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests
             var cfg = new IgniteClientConfiguration
             {
                 RetryLimit = 1,
-                RetryPolicy = new TestRetryPolicy()
+                RetryPolicy = new RetryAllPolicy()
             };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
@@ -75,6 +75,17 @@ namespace Apache.Ignite.Tests
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
             Assert.AreEqual("Operation failed after 5 retries, examine InnerException for details.", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestRetryPolicyIsDisabledByDefault()
+        {
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync();
+
+            await client.Tables.GetTablesAsync();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
         }
 
         [Test]
