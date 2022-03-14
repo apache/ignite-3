@@ -45,7 +45,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -120,10 +119,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Revision updater. */
     private Consumer<Consumer<Long>> revisionUpdater;
-
-    /** Meta storage manager. */
-    @Mock
-    MetaStorageManager msm;
 
     /** Meta storage manager. */
     @Mock

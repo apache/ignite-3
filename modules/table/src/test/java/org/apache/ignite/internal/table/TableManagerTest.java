@@ -149,10 +149,6 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock
     MetaStorageManager msm;
 
-    /** Meta storage manager. */
-    @Mock
-    MetaStorageManager msm;
-
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
