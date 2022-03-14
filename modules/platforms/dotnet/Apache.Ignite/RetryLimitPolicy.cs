@@ -17,14 +17,30 @@
 
 namespace Apache.Ignite
 {
+    using Internal.Common;
+
     /// <summary>
-    /// Retry policy that always returns <c>true</c>.
+    /// Retry policy that returns <c>true</c> when <see cref="IRetryPolicyContext.Iteration"/> is less than
+    /// the specified <see cref="RetryLimit"/>.
     /// </summary>
-    public sealed class RetryAllPolicy : RetryLimitPolicy
+    public class RetryLimitPolicy : IRetryPolicy
     {
         /// <summary>
-        /// Singleton instance.
+        /// Gets or sets the retry limit. 0 or less for no limit.
         /// </summary>
-        public static readonly RetryAllPolicy Instance = new();
+        public int RetryLimit { get; set; }
+
+        /// <inheritdoc />
+        public virtual bool ShouldRetry(IRetryPolicyContext context)
+        {
+            IgniteArgumentCheck.NotNull(context, nameof(context));
+
+            if (RetryLimit <= 0)
+            {
+                return true;
+            }
+
+            return context.Iteration < RetryLimit;
+        }
     }
 }

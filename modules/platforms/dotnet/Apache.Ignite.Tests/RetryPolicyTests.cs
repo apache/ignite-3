@@ -34,8 +34,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryLimit = 1,
-                RetryPolicy = new RetryAllPolicy()
+                RetryPolicy = new RetryAllPolicy { RetryLimit = 1 }
             };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
@@ -64,8 +63,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryLimit = 5,
-                RetryPolicy = new TestRetryPolicy()
+                RetryPolicy = new TestRetryPolicy { RetryLimit = 5 }
             };
 
             using var server = new FakeServer(reqId => reqId > 1);
@@ -91,11 +89,10 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestCustomRetryPolicyIsInvokedWithCorrectContext()
         {
-            var testRetryPolicy = new TestRetryPolicy();
+            var testRetryPolicy = new TestRetryPolicy { RetryLimit = 3 };
 
             var cfg = new IgniteClientConfiguration
             {
-                RetryLimit = 3,
                 RetryPolicy = testRetryPolicy
             };
 
@@ -113,7 +110,6 @@ namespace Apache.Ignite.Tests
 
             Assert.AreNotSame(cfg, inv.Configuration);
             Assert.AreSame(testRetryPolicy, inv.Configuration.RetryPolicy);
-            Assert.AreEqual(3, inv.Configuration.RetryLimit);
             Assert.AreEqual(ClientOperationType.TablesGet, inv.Operation);
             Assert.AreEqual(0, inv.Iteration);
         }
@@ -123,8 +119,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryLimit = 1,
-                RetryPolicy = new TestRetryPolicy()
+                RetryPolicy = new TestRetryPolicy { RetryLimit = 1 }
             };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
@@ -161,8 +156,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryLimit = 1,
-                RetryPolicy = new TestRetryPolicy()
+                RetryPolicy = new TestRetryPolicy { RetryLimit = 1 }
             };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
@@ -190,17 +184,17 @@ namespace Apache.Ignite.Tests
             Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
         }
 
-        private class TestRetryPolicy : IRetryPolicy
+        private class TestRetryPolicy : RetryLimitPolicy
         {
             private readonly List<IRetryPolicyContext> _invocations = new();
 
             public IReadOnlyList<IRetryPolicyContext> Invocations => _invocations;
 
-            public bool ShouldRetry(IRetryPolicyContext context)
+            public override bool ShouldRetry(IRetryPolicyContext context)
             {
                 _invocations.Add(context);
 
-                return true;
+                return base.ShouldRetry(context);
             }
         }
     }

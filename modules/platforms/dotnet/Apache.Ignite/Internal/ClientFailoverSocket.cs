@@ -298,11 +298,6 @@ namespace Apache.Ignite.Internal
                 return false;
             }
 
-            if (Configuration.RetryLimit > 0 && attempt >= Configuration.RetryLimit)
-            {
-                return false;
-            }
-
             var publicOpType = op.ToPublicOperationType();
 
             if (publicOpType == null)

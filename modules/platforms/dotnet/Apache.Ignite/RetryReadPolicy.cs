@@ -23,7 +23,7 @@ namespace Apache.Ignite
     /// <summary>
     /// Retry policy that returns true for all read-only operations that do not modify data.
     /// </summary>
-    public sealed class RetryReadPolicy : IRetryPolicy
+    public sealed class RetryReadPolicy : RetryLimitPolicy
     {
         /// <summary>
         /// Singleton instance.
@@ -31,9 +31,14 @@ namespace Apache.Ignite
         public static readonly RetryReadPolicy Instance = new();
 
         /// <inheritdoc />
-        public bool ShouldRetry(IRetryPolicyContext context)
+        public override bool ShouldRetry(IRetryPolicyContext context)
         {
             IgniteArgumentCheck.NotNull(context, nameof(context));
+
+            if (!base.ShouldRetry(context))
+            {
+                return false;
+            }
 
             return context.Operation switch
             {

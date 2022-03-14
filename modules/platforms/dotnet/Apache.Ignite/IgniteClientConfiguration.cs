@@ -74,7 +74,6 @@ namespace Apache.Ignite
             SocketTimeout = other.SocketTimeout;
             Endpoints = other.Endpoints.ToList();
             RetryPolicy = other.RetryPolicy;
-            RetryLimit = other.RetryLimit;
         }
 
         /// <summary>
@@ -106,17 +105,9 @@ namespace Apache.Ignite
         /// <para />
         /// Default is <see cref="RetryNonePolicy"/> - does not retry anything.
         /// <para />
-        /// See also <see cref="RetryAllPolicy"/>, <see cref="RetryReadPolicy"/>, <see cref="RetryNonePolicy"/>, <see cref="RetryLimit"/>.
+        /// See also <see cref="RetryAllPolicy"/>, <see cref="RetryReadPolicy"/>, <see cref="RetryNonePolicy"/>,
+        /// <see cref="RetryLimitPolicy.RetryLimit"/>.
         /// </summary>
         public IRetryPolicy RetryPolicy { get; set; } = RetryNonePolicy.Instance;
-
-        /// <summary>
-        /// Gets or sets the retry limit. When a request fails due to a connection error,
-        /// Ignite will retry the request if the specified <see cref="RetryPolicy"/> allows it. When this property is
-        /// greater than <c>0</c>, Ignite will limit the number of retries.
-        /// <para />
-        /// Default is <c>0</c>: no limit on retries.
-        /// </summary>
-        public int RetryLimit { get; set; }
     }
 }
