@@ -50,62 +50,62 @@ namespace Apache.Ignite
         TupleUpsertAll,
 
         /// <summary>
-        /// TupleGetAll (<see cref="IRecordView{T}.GetAllAsync"/>).
+        /// Get All (<see cref="IRecordView{T}.GetAllAsync"/>).
         /// </summary>
         TupleGetAll,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.GetAndUpsertAsync"/>).
+        /// Get and Upsert (<see cref="IRecordView{T}.GetAndUpsertAsync"/>).
         /// </summary>
         TupleGetAndUpsert,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.InsertAsync"/>).
+        /// Insert (<see cref="IRecordView{T}.InsertAsync"/>).
         /// </summary>
         TupleInsert,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.InsertAllAsync"/>).
+        /// Insert All (<see cref="IRecordView{T}.InsertAllAsync"/>).
         /// </summary>
         TupleInsertAll,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.ReplaceAsync(Apache.Ignite.Transactions.ITransaction?,T)"/>).
+        /// Replace (<see cref="IRecordView{T}.ReplaceAsync(Apache.Ignite.Transactions.ITransaction?,T)"/>).
         /// </summary>
         TupleReplace,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.ReplaceAsync(Apache.Ignite.Transactions.ITransaction?,T, T)"/>).
+        /// Replace Exact (<see cref="IRecordView{T}.ReplaceAsync(Apache.Ignite.Transactions.ITransaction?,T, T)"/>).
         /// </summary>
         TupleReplaceExact,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.GetAndReplaceAsync"/>).
+        /// Get and Replace (<see cref="IRecordView{T}.GetAndReplaceAsync"/>).
         /// </summary>
         TupleGetAndReplace,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.DeleteAsync"/>).
+        /// Delete (<see cref="IRecordView{T}.DeleteAsync"/>).
         /// </summary>
         TupleDelete,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.DeleteAllAsync"/>).
+        /// Delete All (<see cref="IRecordView{T}.DeleteAllAsync"/>).
         /// </summary>
         TupleDeleteAll,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.DeleteExactAsync"/>).
+        /// Delete Exact (<see cref="IRecordView{T}.DeleteExactAsync"/>).
         /// </summary>
         TupleDeleteExact,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.DeleteAllExactAsync"/>).
+        /// Delete All Exact (<see cref="IRecordView{T}.DeleteAllExactAsync"/>).
         /// </summary>
         TupleDeleteAllExact,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.GetAndDeleteAsync"/>).
+        /// Get and Delete (<see cref="IRecordView{T}.GetAndDeleteAsync"/>).
         /// </summary>
         TupleGetAndDelete
     }
