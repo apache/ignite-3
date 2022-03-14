@@ -50,7 +50,7 @@ namespace Apache.Ignite
         TupleUpsertAll,
 
         /// <summary>
-        /// Upsert (<see cref="IRecordView{T}.GetAllAsync"/>).
+        /// TupleGetAll (<see cref="IRecordView{T}.GetAllAsync"/>).
         /// </summary>
         TupleGetAll,
 
