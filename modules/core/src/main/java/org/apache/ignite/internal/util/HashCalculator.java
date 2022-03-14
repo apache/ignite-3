@@ -82,67 +82,137 @@ public class HashCalculator {
         }
     }
 
+    /**
+     * Append byte to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendByte(byte v) {
         appendLong(v);
     }
 
+    /**
+     * Append short to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendShort(short v) {
         appendLong(v);
     }
 
+    /**
+     * Append integer to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendInt(int v) {
         appendLong(v);
     }
 
+    /**
+     * Append long to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendLong(long v) {
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
         buffer.putLong(v);
         hash = HashUtils.hash32(buffer.array(), 0, Long.BYTES, hash);
     }
 
+    /**
+     * Append float to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendFloat(float v) {
         ByteBuffer buffer = ByteBuffer.allocate(Float.BYTES);
         buffer.putFloat(v);
         hash = HashUtils.hash32(buffer.array(), 0, Float.BYTES, hash);
     }
 
+    /**
+     * Append double to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendDouble(double v) {
         ByteBuffer buffer = ByteBuffer.allocate(Double.BYTES);
         buffer.putDouble(v);
         hash = HashUtils.hash32(buffer.array(), 0, Float.BYTES, hash);
     }
 
+    /**
+     * Append BigDecimal to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendDecimal(BigDecimal v) {
         appendBytes(v.unscaledValue().toByteArray());
     }
 
+    /**
+     * Append BigInteger to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendNumber(BigInteger v) {
         appendBytes(v.toByteArray());
     }
 
+    /**
+     * Append UUID to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     private void appendUuid(UUID v) {
         appendLong(v.getMostSignificantBits());
         appendLong(v.getLeastSignificantBits());
     }
 
+    /**
+     * Append string value to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendString(String v) {
         appendBytes(v.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Append byte array to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendBytes(byte[] v) {
         hash = HashUtils.hash32(v, 0, v.length, hash);
     }
 
+    /**
+     * Append BitSet to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendBitmask(BitSet v) {
         appendBytes(v.toByteArray());
     }
 
+    /**
+     * Append LocalDate to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendDate(LocalDate v) {
         appendLong(v.getYear());
         appendLong(v.getMonthValue());
         appendLong(v.getDayOfMonth());
     }
 
+    /**
+     * Append LocalTime to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendTime(LocalTime v) {
         appendLong(v.getHour());
         appendLong(v.getMinute());
@@ -150,11 +220,21 @@ public class HashCalculator {
         appendLong(v.getNano());
     }
 
+    /**
+     * Append LocalDateTime to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendDateTime(LocalDateTime v) {
         appendDate(v.toLocalDate());
         appendTime(v.toLocalTime());
     }
 
+    /**
+     * Append Instant to hash calculation.
+     *
+     * @param v Value to update hash.
+     */
     public void appendTimestamp(Instant v) {
         appendLong(v.getEpochSecond());
         appendLong(v.getNano());
