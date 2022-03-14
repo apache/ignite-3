@@ -389,7 +389,7 @@ namespace Apache.Ignite.Internal
                 {
                     var requestBuf = request.GetWrittenMemory();
 
-                    WriteSize(prefixSize + requestBuf.Length - PooledArrayBufferWriter.ReservedPrefixSize);
+                    WriteMessageSize(_prefixBuffer, prefixSize + requestBuf.Length - PooledArrayBufferWriter.ReservedPrefixSize);
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
 
                     var requestBufStart = PooledArrayBufferWriter.ReservedPrefixSize - prefixBytes.Length;
@@ -403,7 +403,7 @@ namespace Apache.Ignite.Internal
                 else
                 {
                     // Request without body, send only the prefix.
-                    WriteSize(prefixSize);
+                    WriteMessageSize(_prefixBuffer, prefixSize);
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
                     await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
                 }
@@ -411,14 +411,6 @@ namespace Apache.Ignite.Internal
             finally
             {
                 _sendLock.Release();
-            }
-
-            unsafe void WriteSize(int size)
-            {
-                fixed (byte* bufPtr = &_prefixBuffer[0])
-                {
-                    *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
-                }
             }
         }
 
