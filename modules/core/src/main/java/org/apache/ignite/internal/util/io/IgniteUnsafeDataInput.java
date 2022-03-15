@@ -88,7 +88,7 @@ public class IgniteUnsafeDataInput extends InputStream implements IgniteDataInpu
     private int mark;
 
     /** Last length check timestamp. */
-    private long lastAutoShrinkCheckTimestamp = FastTimestamps.coarseCurrentTimeMillis();
+    private long lastAutoShrinkCheckTimestamp;
 
     /**
      * Creates a new input with auto-shrinking disabled and no internal buffer assigned.

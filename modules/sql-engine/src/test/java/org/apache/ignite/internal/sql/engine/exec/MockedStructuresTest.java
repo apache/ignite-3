@@ -17,21 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -39,17 +39,15 @@ import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSc
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
-import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
-import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -77,7 +75,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -109,6 +106,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private TxManager tm;
 
+    /**
+     * Revision listener holder. It uses for the test configurations:
+     * <ul>
+     * <li>{@link MockedStructuresTest#tblsCfg},</li>
+     * <li>{@link MockedStructuresTest#dataStorageCfg}.</li>
+     * </ul>
+     */
+    @InjectRevisionListenerHolder
+    private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
+
+    /** Revision updater. */
+    private Consumer<Consumer<Long>> revisionUpdater;
+
     /** Tables configuration. */
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
@@ -116,7 +126,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class
             }
     )
-
     private TablesConfiguration tblsCfg;
 
     /** Data storage configuration. */
@@ -157,47 +166,23 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** Inner initialisation. */
     @BeforeEach
     void before() throws NodeStoppingException {
+        revisionUpdater = (Consumer<Long> consumer) -> {
+            consumer.accept(0L);
+
+            fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
+                log.info("Notify about revision: {}", newStorageRevision);
+
+                consumer.accept(newStorageRevision);
+
+                return CompletableFuture.completedFuture(null);
+            });
+        };
+
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(cs, tblManager);
+        queryProc = new SqlQueryProcessor(revisionUpdater, cs, tblManager);
 
         queryProc.start();
-    }
-
-    /**
-     * Checks that appropriate methods called form table manager on rel node construction.
-     */
-    @Test
-    void checkAppropriateTableFound() throws Exception {
-        TableManager tableManager = mock(TableManager.class);
-
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
-        UUID tblId = UUID.randomUUID();
-
-        assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))
-                .getMessage().contains("Table not found"));
-        Mockito.verify(tableManager).table(any(UUID.class));
-
-        TableImpl tbl = mock(TableImpl.class);
-        SchemaDescriptor schDesc = mock(SchemaDescriptor.class);
-        SchemaRegistryImpl schReg = mock(SchemaRegistryImpl.class);
-
-        clearInvocations(tableManager);
-
-        when(tbl.name()).thenReturn("TEST_SCHEMA.T");
-        when(tbl.tableId()).thenReturn(tblId);
-        when(tbl.schemaView()).thenReturn(schReg);
-        when(schReg.schema()).thenReturn(schDesc);
-        when(schDesc.isKeyColumn(any(Integer.class))).thenReturn(true);
-
-        InternalTable internalTbl = mock(InternalTable.class);
-        when(tbl.internalTable()).thenReturn(internalTbl);
-        when(internalTbl.tableId()).thenReturn(tblId);
-
-        schemaManager.onTableCreated("TEST_SCHEMA", tbl);
-
-        schemaManager.tableById(tblId);
-        Mockito.verify(tableManager, never()).table(any(UUID.class));
     }
 
     /**
@@ -432,7 +417,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -481,6 +466,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @NotNull
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
+                revisionUpdater,
                 tblsCfg,
                 dataStorageCfg,
                 rm,

@@ -33,6 +33,10 @@
     <version>3.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <properties>
+        <root.directory>${pom.basedir}</root.directory>
+    </properties>
+
     <modules>
         <module>examples</module>
         <module>modules/affinity</module>
@@ -60,6 +64,7 @@
         <module>modules/raft</module>
         <module>modules/raft-client</module>
         <module>modules/rest</module>
+        <module>modules/rest-api</module>
         <module>modules/rocksdb-common</module>
         <module>modules/runner</module>
         <module>modules/schema</module>

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.schema.row;
 
 import static org.apache.ignite.internal.schema.BinaryRow.KEY_CHUNK_OFFSET;
-import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.KEY_FLAGS_OFFSET;
-import static org.apache.ignite.internal.schema.BinaryRow.RowFlags.VAL_FLAGS_OFFSET;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -35,7 +33,6 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.AssemblyException;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRow.RowFlags;
 import org.apache.ignite.internal.schema.BitmaskNativeType;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
@@ -98,7 +95,7 @@ public class RowAssembler {
     private int dataOff;
 
     /** Flags. */
-    private short flags;
+    private byte flags;
 
     /** Charset encoder for strings. Initialized lazily. */
     private CharsetEncoder strEncoder;
@@ -734,8 +731,8 @@ public class RowAssembler {
             throw new AssemblyException("Key column missed: colIdx=" + curCol);
         } else {
             if (curCol == 0) {
-                flags &= ~(RowFlags.CHUNK_FLAGS_MASK << VAL_FLAGS_OFFSET);
-                flags |= RowFlags.NO_VALUE_FLAG;
+                // Row has no value
+                buf.putShort(BinaryRow.SCHEMA_VERSION_OFFSET, (short) 0);
             } else if (schema.valueColumns().length() != curCol) {
                 throw new AssemblyException("Value column missed: colIdx=" + curCol);
             }
@@ -743,7 +740,6 @@ public class RowAssembler {
 
         int hash = HashUtils.hash32(buf.unwrap().array(), KEY_CHUNK_OFFSET, keyChunkLength, 0);
 
-        buf.putShort(BinaryRow.FLAGS_FIELD_OFFSET, flags);
         buf.putInt(BinaryRow.KEY_HASH_FIELD_OFFSET, hash);
     }
 
@@ -870,13 +866,14 @@ public class RowAssembler {
 
             curOff -= format.compactVarTable(buf, varTblOff, curVartblEntry - 1);
 
-            flags |= format.formatId() << (isKeyChunk() ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
+            flags |= format.formatId();
         }
 
         // Write sizes.
         final int chunkLen = curOff - baseOff;
 
         buf.putInt(baseOff, chunkLen);
+        buf.put(baseOff + BinaryRow.FLAGS_FIELD_OFFSET, flags);
 
         if (schema.keyColumns() == curCols) {
             keyChunkLength = chunkLen;
@@ -910,23 +907,12 @@ public class RowAssembler {
     private void initChunk(int baseOff, int nullMapLen, int vartblLen) {
         this.baseOff = baseOff;
 
-        nullMapOff = baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE;
+        nullMapOff = baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + BinaryRow.FLAGS_FLD_SIZE;
         varTblOff = nullMapOff + nullMapLen;
         dataOff = varTblOff + vartblLen;
         curOff = dataOff;
         curVartblEntry = 0;
-
-        int flags = 0;
-
-        if (nullMapLen == 0) {
-            flags |= VarTableFormat.OMIT_NULL_MAP_FLAG;
-        }
-
-        if (vartblLen == 0) {
-            flags |= VarTableFormat.OMIT_VARTBL_FLAG;
-        }
-
-        this.flags |= flags << (isKeyChunk() ? KEY_FLAGS_OFFSET : VAL_FLAGS_OFFSET);
+        flags = 0;
     }
 
     /**

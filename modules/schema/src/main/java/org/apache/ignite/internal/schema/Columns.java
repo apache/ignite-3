@@ -187,7 +187,7 @@ public class Columns {
     }
 
     /**
-     * Get index of the first varlength column in the sorted order of columns.
+     * Get index of the first varlength column in the sorted order of columns or return {@code -1} if varlength not found.
      */
     public int firstVarlengthColumn() {
         return firstVarlenColIdx;

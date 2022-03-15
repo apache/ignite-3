@@ -127,6 +127,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     protected void rewindInternal() {
         requested = 0;
         waiting = 0;
+        curSrcIdx = 0;
         grouping.groups.clear();
     }
 

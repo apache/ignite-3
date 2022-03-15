@@ -33,7 +33,6 @@ import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
-import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AbstractTableDdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -70,14 +70,9 @@ public class DdlCommandHandler {
         tableManager = tblManager;
     }
 
-    /** Planning context. */
-    private PlanningContext pctx;
-
     /** Handles ddl commands. */
-    public void handle(DdlCommand cmd, PlanningContext pctx) throws IgniteInternalCheckedException {
+    public void handle(DdlCommand cmd) throws IgniteInternalCheckedException {
         validateCommand(cmd);
-
-        this.pctx = pctx;
 
         if (cmd instanceof CreateTableCommand) {
             handleCreateTable((CreateTableCommand) cmd);
@@ -94,7 +89,7 @@ public class DdlCommandHandler {
         } else {
             throw new IgniteInternalCheckedException("Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
-                    + "querySql=\"" + pctx.query() + "\"]");
+                    + "cmd=\"" + cmd + "\"]");
         }
     }
 
@@ -116,7 +111,7 @@ public class DdlCommandHandler {
         pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
         pkeyDef.withAffinityColumns(IgniteObjectName.quoteNames(cmd.affColumns()));
 
-        final IgniteTypeFactory typeFactory = pctx.typeFactory();
+        final IgniteTypeFactory typeFactory = Commons.typeFactory();
 
         final List<org.apache.ignite.schema.definition.ColumnDefinition> colsInner = new ArrayList<>();
 
@@ -281,7 +276,7 @@ public class DdlCommandHandler {
                         colsDef0 = colsDef.stream().filter(k -> !colNamesToOrders.containsKey(k.name())).collect(Collectors.toList());
                     }
 
-                    final IgniteTypeFactory typeFactory = pctx.typeFactory();
+                    final IgniteTypeFactory typeFactory = Commons.typeFactory();
 
                     for (ColumnDefinition col : colsDef0) {
                         ColumnDefinitionBuilder col0 = SchemaBuilders.column(

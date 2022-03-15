@@ -32,7 +32,10 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -48,12 +51,32 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     public static void beforeClass() throws Exception {
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate("create table TEST(ID int primary key, NAME varchar(20));");
+        }
+    }
 
+    @BeforeEach
+    public void beforeEach() throws Exception {
+        try (Statement statement = conn.createStatement()) {
             int stmtCnt = 10;
 
             for (int i = 0; i < stmtCnt; ++i) {
                 statement.executeUpdate("insert into TEST (ID, NAME) values (" + i + ", 'name_" + i + "'); ");
             }
+        }
+    }
+
+    @AfterEach
+    public void afterEach() throws Exception {
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate("DELETE FROM TEST;");
+        }
+    }
+
+
+    @AfterAll
+    public static void afterClass() throws Exception {
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate("DROP TABLE TEST;");
         }
     }
 
@@ -718,7 +741,6 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16268")
     public void testStatementTypeMismatchUpdate() throws Exception {
         assertThrows(
                 SQLException.class,
@@ -732,9 +754,9 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         assertTrue(next);
 
-        assertEquals(1, rs.getInt(1),
+        assertEquals("name_1", rs.getString(1),
                 "The data must not be updated. "
                         + "Because update statement is executed via 'executeQuery' method."
-                        + " Data [val=" + rs.getInt(1) + ']');
+                        + " Data [val=" + rs.getString(1) + ']');
     }
 }

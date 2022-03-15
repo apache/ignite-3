@@ -66,10 +66,36 @@ void CreateTableOption(List<SqlNode> list) :
     }
 }
 
+SqlDataTypeSpec DataTypeEx() :
+{
+    final SqlDataTypeSpec dt;
+}
+{
+    (
+        dt = DataType()
+    |
+        dt = IntervalType()
+    )
+    {
+        return dt;
+    }
+}
+
+SqlDataTypeSpec IntervalType() :
+{
+    final Span s;
+    final SqlIntervalQualifier intervalQualifier;
+}
+{
+    <INTERVAL> { s = span(); } intervalQualifier = IntervalQualifier() {
+        return new SqlDataTypeSpec(new IgniteSqlIntervalTypeNameSpec(intervalQualifier, s.end(this)), s.pos());
+    }
+}
+
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
-    final boolean nullable;
+    final Boolean nullable;
     final SqlNodeList columnList;
     final Span s = Span.of();
     final ColumnStrategy strategy;
@@ -77,7 +103,7 @@ void TableElement(List<SqlNode> list) :
     SqlIdentifier id = null;
 }
 {
-    id = SimpleIdentifier() type = DataType() nullable = NullableOptDefaultTrue()
+    id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); } dflt = Literal() {
             strategy = ColumnStrategy.DEFAULT;
@@ -85,8 +111,11 @@ void TableElement(List<SqlNode> list) :
     |
         {
             dflt = null;
-            strategy = nullable ? ColumnStrategy.NULLABLE
-                : ColumnStrategy.NOT_NULLABLE;
+            strategy = nullable == null
+                ? null
+                : nullable
+                    ? ColumnStrategy.NULLABLE
+                    : ColumnStrategy.NOT_NULLABLE;
         }
     )
     [
@@ -108,7 +137,22 @@ void TableElement(List<SqlNode> list) :
     }
 }
 
-SqlNodeList TableElementList() :
+/**
+* Parse a nullable option, default is null.
+*/
+Boolean NullableOptDefaultNull() :
+{
+}
+{
+    <NULL> { return true; }
+    |
+    <NOT> <NULL> { return false; }
+    |
+    { return null; }
+}
+
+
+                SqlNodeList TableElementList() :
 {
     final Span s;
     final List<SqlNode> list = new ArrayList<SqlNode>();
@@ -239,7 +283,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataType() {
+    dt = DataTypeEx() {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -275,7 +319,7 @@ SqlNode ColumnWithType() :
 }
 {
     id = SimpleIdentifier()
-    type = DataType()
+    type = DataTypeEx()
     [
         <NOT> <NULL> {
             nullable = false;

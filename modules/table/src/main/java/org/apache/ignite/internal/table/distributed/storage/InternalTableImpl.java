@@ -32,6 +32,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -539,6 +540,8 @@ public class InternalTableImpl implements InternalTable {
              */
             private final CompletableFuture<Void> scanInitOp;
 
+            private AtomicInteger scanCounter = new AtomicInteger(1);
+
             /**
              * The constructor.
              *
@@ -611,7 +614,8 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(new ScanRetrieveBatchCommand(n, scanId)))
+                scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(
+                                new ScanRetrieveBatchCommand(n, scanId, scanCounter.getAndIncrement())))
                         .thenAccept(
                                 res -> {
                                     if (res.getValues() == null) {

@@ -47,6 +47,15 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
     private static final Object[] NULL_RESULT = new Object[] { null };
 
     @Test
+    public void testTimestampDiffWithFractionsOfSecond() {
+        assertQuery("SELECT TIMESTAMPDIFF(MICROSECOND, TIMESTAMP '2022-02-01 10:30:28.000', "
+                + "TIMESTAMP '2022-02-01 10:30:28.128')").returns(128000).check();
+
+        assertQuery("SELECT TIMESTAMPDIFF(NANOSECOND, TIMESTAMP '2022-02-01 10:30:28.000', "
+                + "TIMESTAMP '2022-02-01 10:30:28.128')").returns(128000000L).check();
+    }
+
+    @Test
     public void testLength() {
         assertQuery("SELECT LENGTH('TEST')").returns(4).check();
         assertQuery("SELECT LENGTH(NULL)").returns(NULL_RESULT).check();

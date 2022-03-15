@@ -17,6 +17,7 @@
 
 package org.apache.ignite.cli.ui;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayOutputStream;
@@ -53,16 +54,16 @@ public class SpinnerTest {
         var spinner = new Spinner(out, "Waiting");
 
         spinner.spin();
-        assertEquals("\rWaiting.  ", outputStream.toString());
+        assertEquals("\rWaiting.  ", outputStream.toString(UTF_8));
 
         spinner.spin();
-        assertEquals("\rWaiting.  \rWaiting.. ", outputStream.toString());
+        assertEquals("\rWaiting.  \rWaiting.. ", outputStream.toString(UTF_8));
 
         spinner.spin();
-        assertEquals("\rWaiting.  \rWaiting.. \rWaiting...", outputStream.toString());
+        assertEquals("\rWaiting.  \rWaiting.. \rWaiting...", outputStream.toString(UTF_8));
 
         spinner.spin();
-        assertEquals("\rWaiting.  \rWaiting.. \rWaiting...\rWaiting.  ", outputStream.toString());
+        assertEquals("\rWaiting.  \rWaiting.. \rWaiting...\rWaiting.  ", outputStream.toString(UTF_8));
     }
 
     @Test
@@ -72,6 +73,6 @@ public class SpinnerTest {
         spinner.spin();
         spinner.close();
 
-        assertEquals("\rWaiting.  \rWaiting..." + System.lineSeparator(), outputStream.toString());
+        assertEquals("\rWaiting.  \rWaiting..." + System.lineSeparator(), outputStream.toString(UTF_8));
     }
 }

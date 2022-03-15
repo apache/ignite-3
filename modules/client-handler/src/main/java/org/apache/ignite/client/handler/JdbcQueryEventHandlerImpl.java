@@ -17,9 +17,12 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNKNOWN;
 import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -31,8 +34,10 @@ import java.util.stream.Collectors;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.sql.JdbcQueryCursor;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.client.proto.query.JdbcStatementType;
 import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
 import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
 import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
 import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
@@ -51,10 +56,15 @@ import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
 import org.apache.ignite.client.proto.query.event.QueryFetchResult;
 import org.apache.ignite.client.proto.query.event.QuerySingleResult;
 import org.apache.ignite.client.proto.query.event.Response;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -95,7 +105,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         List<SqlCursor<List<?>>> cursors;
         try {
-            List<SqlCursor<List<?>>> queryCursors = processor.query(req.schemaName(), req.sqlQuery(),
+            QueryContext context = createQueryContext(req.getStmtType());
+
+            List<SqlCursor<List<?>>> queryCursors = processor.query(context, req.schemaName(), req.sqlQuery(),
                     req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
 
             cursors = queryCursors.stream()
@@ -128,6 +140,27 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         return CompletableFuture.completedFuture(new QueryExecuteResult(results));
+    }
+
+    private QueryContext createQueryContext(JdbcStatementType stmtType) {
+        if (stmtType == JdbcStatementType.ANY_STATEMENT_TYPE) {
+            return QueryContext.of();
+        }
+
+        QueryValidator validator = (QueryPlan plan) -> {
+            if (plan.type() == Type.QUERY || plan.type() == Type.EXPLAIN) {
+                if (stmtType == JdbcStatementType.SELECT_STATEMENT_TYPE) {
+                    return;
+                }
+                throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
+            }
+            if (stmtType == JdbcStatementType.UPDATE_STATEMENT_TYPE) {
+                return;
+            }
+            throw new QueryValidationException("Given statement type does not match that declared by JDBC driver.");
+        };
+
+        return QueryContext.of(validator);
     }
 
     /** {@inheritDoc} */
@@ -164,8 +197,63 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
-        return CompletableFuture.completedFuture(new BatchExecuteResult(UNSUPPORTED_OPERATION,
-                "ExecuteBatch operation is not implemented yet."));
+        List<String> queries = req.queries();
+
+        IntList res = new IntArrayList(queries.size());
+
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
+        for (String query : queries) {
+            try {
+                executeAndCollectUpdateCount(context, req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
+            } catch (Exception e) {
+                return handleBatchException(e, query, res);
+            }
+        }
+
+        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
+        IntList res = new IntArrayList(req.getArgs().size());
+
+        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
+        try {
+            for (Object[] arg : req.getArgs()) {
+                executeAndCollectUpdateCount(context, req.schemaName(), req.getQuery(), arg, res);
+            }
+        } catch (Exception e) {
+            return handleBatchException(e, req.getQuery(), res);
+        }
+
+        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+    }
+
+    private void executeAndCollectUpdateCount(QueryContext context, String schema, String sql, Object[] arg, IntList res) {
+        List<SqlCursor<List<?>>> cursors = processor.query(context, schema, sql, arg);
+        for (SqlCursor<List<?>> cursor : cursors) {
+            long updatedRows = (long) cursor.next().get(0);
+            res.add((int) updatedRows);
+        }
+    }
+
+    private CompletableFuture<BatchExecuteResult> handleBatchException(Exception e, String query, IntList res) {
+        StringWriter sw = getWriterWithStackTrace(e);
+
+        String error;
+
+        if (e instanceof ClassCastException) {
+            error = "Unexpected result after query:" + query + ". Not an upsert statement? " + sw;
+        } else {
+            error = sw.toString();
+        }
+
+        return CompletableFuture.completedFuture(
+                new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, res.toIntArray())
+        );
     }
 
     /** {@inheritDoc} */

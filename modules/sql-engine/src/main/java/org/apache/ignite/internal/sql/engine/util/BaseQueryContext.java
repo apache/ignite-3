@@ -20,37 +20,36 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import com.google.common.collect.Multimap;
+import java.lang.reflect.Method;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
-import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.metadata.Metadata;
+import org.apache.calcite.rel.metadata.MetadataDef;
+import org.apache.calcite.rel.metadata.MetadataHandler;
+import org.apache.calcite.rel.metadata.RelMetadataProvider;
+import org.apache.calcite.rel.metadata.UnboundMetadata;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
-import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
-import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.logger.NullLogger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Base query context.
@@ -87,7 +86,9 @@ public final class BaseQueryContext extends AbstractQueryContext {
         DUMMY_PLANNER = new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT) {
             @Override
             public void registerSchema(RelOptSchema schema) {
-                throw new UnsupportedOperationException("Dummy planer. Please use a specific instance.");
+                // This method in VolcanoPlanner stores schema in hash map. It can be invoked during relational
+                // operators cloning, so, can be executed even with empty context. Override it for empty context to
+                // prevent memory leaks.
             }
         };
 
@@ -98,24 +99,36 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         RelOptCluster cluster = RelOptCluster.create(DUMMY_PLANNER, DFLT_REX_BUILDER);
 
-        cluster.setMetadataProvider(IgniteMetadata.METADATA_PROVIDER);
+        // Forbid using the empty cluster in any planning or mapping procedures to prevent memory leaks.
+        String cantBeUsedMsg = "Empty cluster can't be used for planning or mapping";
+
+        cluster.setMetadataProvider(
+                new RelMetadataProvider() {
+                    @Override
+                    public <M extends Metadata> UnboundMetadata<M> apply(
+                            Class<? extends RelNode> relCls,
+                            Class<? extends M> metadataCls
+                    ) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+
+                    @Override
+                    public <M extends Metadata> Multimap<Method, MetadataHandler<M>> handlers(MetadataDef<M> def) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+
+                    @Override
+                    public List<MetadataHandler<?>> handlers(Class<? extends MetadataHandler<?>> hndCls) {
+                        throw new AssertionError(cantBeUsedMsg);
+                    }
+                }
+        );
+
+        cluster.setMetadataQuerySupplier(() -> {
+            throw new AssertionError(cantBeUsedMsg);
+        });
 
         CLUSTER = cluster;
-    }
-
-    /**
-     * Creates a new cluster.
-     *
-     * @return New cluster.
-     */
-    public static RelOptCluster createCluster() {
-        RelOptCluster cluster = RelOptCluster.create(new VolcanoPlanner(COST_FACTORY, EMPTY_CONTEXT), DFLT_REX_BUILDER);
-
-        cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
-                cluster.getPlanner()));
-        cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
-
-        return cluster;
     }
 
     private final FrameworkConfig cfg;
@@ -126,9 +139,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final RexBuilder rexBuilder;
 
-    private final QueryCancel qryCancel;
-
-    private final Map<String, SqlExtension> extensions;
+    private final QueryCancel cancel;
 
     private CalciteCatalogReader catalogReader;
 
@@ -137,23 +148,20 @@ public final class BaseQueryContext extends AbstractQueryContext {
      */
     private BaseQueryContext(
             FrameworkConfig cfg,
-            Context parentCtx,
-            IgniteLogger log,
-            Map<String, SqlExtension> extensions
+            QueryCancel cancel,
+            IgniteLogger log
     ) {
-        super(Contexts.chain(parentCtx, cfg.getContext()));
+        super(Contexts.chain(cfg.getContext()));
 
         // link frameworkConfig#context() to this.
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
 
         this.log = log;
-        this.extensions = extensions;
+        this.cancel = cancel;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
         typeFactory = new IgniteTypeFactory(typeSys);
-
-        qryCancel = unwrap(QueryCancel.class);
 
         rexBuilder = new RexBuilder(typeFactory);
     }
@@ -164,14 +172,6 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public static BaseQueryContext empty() {
         return EMPTY_CONTEXT;
-    }
-
-    public List<SqlExtension> extensions() {
-        return new ArrayList<>(extensions.values());
-    }
-
-    public @Nullable SqlExtension extension(String name) {
-        return extensions.get(name);
     }
 
     public FrameworkConfig config() {
@@ -219,8 +219,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 typeFactory(), CALCITE_CONNECTION_CONFIG);
     }
 
-    public QueryCancel queryCancel() {
-        return qryCancel;
+    public QueryCancel cancel() {
+        return cancel;
     }
 
     /**
@@ -235,19 +235,17 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private FrameworkConfig frameworkCfg = EMPTY_CONFIG;
 
-        private Context parentCtx = Contexts.empty();
+        private QueryCancel cancel = new QueryCancel();
 
         private IgniteLogger log = new NullLogger();
-
-        private Map<String, SqlExtension> extensions = Collections.emptyMap();
 
         public Builder frameworkConfig(@NotNull FrameworkConfig frameworkCfg) {
             this.frameworkCfg = frameworkCfg;
             return this;
         }
 
-        public Builder parentContext(@NotNull Context parentCtx) {
-            this.parentCtx = parentCtx;
+        public Builder cancel(@NotNull QueryCancel cancel) {
+            this.cancel = cancel;
             return this;
         }
 
@@ -256,13 +254,8 @@ public final class BaseQueryContext extends AbstractQueryContext {
             return this;
         }
 
-        public Builder extensions(Map<String, SqlExtension> extensions) {
-            this.extensions = extensions;
-            return this;
-        }
-
         public BaseQueryContext build() {
-            return new BaseQueryContext(frameworkCfg, parentCtx, log, extensions);
+            return new BaseQueryContext(frameworkCfg, cancel, log);
         }
     }
 }

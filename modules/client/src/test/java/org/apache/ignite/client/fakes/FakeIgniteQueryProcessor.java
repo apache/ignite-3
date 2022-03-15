@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 
@@ -28,6 +29,11 @@ import org.apache.ignite.internal.sql.engine.SqlCursor;
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
+        return Collections.singletonList(new FakeCursor());
+    }
+
+    @Override
+    public List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params) {
         return Collections.singletonList(new FakeCursor());
     }
 

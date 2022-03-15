@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -328,21 +327,19 @@ public final class ArrayUtils {
 
         assert idx >= 0 && idx < len : idx + " < " + len;
 
-        if (idx == len - 1) {
-            return Arrays.copyOfRange(arr, 0, len - 1);
+        if (idx < len >>> 1) {
+            T[] res = Arrays.copyOfRange(arr, 1, len);
+
+            System.arraycopy(arr, 0, res, 0, idx);
+
+            return res;
+        } else {
+            T[] res = Arrays.copyOf(arr, len - 1);
+
+            System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
+
+            return res;
         }
-
-        if (idx == 0) {
-            return Arrays.copyOfRange(arr, 1, len);
-        }
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
-        T[] res = (T[]) Array.newInstance(arr.getClass().getComponentType(), len - 1);
-
-        System.arraycopy(arr, 0, res, 0, idx);
-        System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
-
-        return res;
     }
 
     /**
@@ -357,20 +354,53 @@ public final class ArrayUtils {
 
         assert idx >= 0 && idx < len : idx + " < " + len;
 
-        if (idx == len - 1) {
-            return Arrays.copyOfRange(arr, 0, len - 1);
+        if (idx < len >>> 1) {
+            long[] res = Arrays.copyOfRange(arr, 1, len);
+
+            System.arraycopy(arr, 0, res, 0, idx);
+
+            return res;
+        } else {
+            long[] res = Arrays.copyOf(arr, len - 1);
+
+            System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
+
+            return res;
+        }
+    }
+
+    /**
+     * Set element to the array at the given index. Grows the array if needed.
+     *
+     * @param arr Array.
+     * @param idx Index.
+     * @param o Object.
+     * @return The given or grown array.
+     */
+    public static <T> T[] set(T[] arr, int idx, T o) {
+        int len = arr.length;
+
+        if (idx >= len) {
+            len += len >>> 1; // len *= 1.5
+            len = Math.max(len, idx + 1);
+            arr = Arrays.copyOf(arr, len);
         }
 
-        if (idx == 0) {
-            return Arrays.copyOfRange(arr, 1, len);
+        arr[idx] = o;
+
+        return arr;
+    }
+
+    /**
+     * Nullify array elements from the given index until the first {@code null} element
+     * (assuming that after the first {@code null} tail is already cleared).
+     *
+     * @param arr Array.
+     * @param fromIdx From index (including).
+     */
+    public static void clearTail(Object[] arr, int fromIdx) {
+        while (fromIdx < arr.length && arr[fromIdx] != null) {
+            arr[fromIdx++] = null;
         }
-
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-16451
-        long[] res = new long[len - 1];
-
-        System.arraycopy(arr, 0, res, 0, idx);
-        System.arraycopy(arr, idx + 1, res, idx, len - idx - 1);
-
-        return res;
     }
 }

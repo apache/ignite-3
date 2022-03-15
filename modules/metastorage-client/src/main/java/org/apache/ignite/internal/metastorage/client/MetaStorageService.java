@@ -219,10 +219,22 @@ public interface MetaStorageService {
      * @see Condition
      * @see Operation
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-14269: will be replaced by conditional multi update.
     @NotNull
     CompletableFuture<Boolean> invoke(@NotNull Condition condition,
             @NotNull Collection<Operation> success, @NotNull Collection<Operation> failure);
+
+    /**
+     * Invoke, which supports nested conditional statements.
+     * For detailed docs about construction of new if statement, look at {@link If} javadocs.
+     *
+     * @param iif {@link If} statement to invoke
+     * @return execution result
+     *
+     * @see If
+     * @see StatementResult
+     */
+    @NotNull
+    CompletableFuture<StatementResult> invoke(@NotNull If iif);
 
     /**
      * Retrieves entries for the given key range in lexicographic order. Entries will be filtered out by upper bound of given revision

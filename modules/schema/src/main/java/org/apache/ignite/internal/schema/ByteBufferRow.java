@@ -61,9 +61,9 @@ public class ByteBufferRow implements BinaryRow {
     /** {@inheritDoc} */
     @Override
     public boolean hasValue() {
-        short flags = readShort(FLAGS_FIELD_OFFSET);
+        short schemaVer = readShort(SCHEMA_VERSION_OFFSET);
 
-        return (flags & RowFlags.NO_VALUE_FLAG) == 0;
+        return schemaVer > 0;
     }
 
     /** {@inheritDoc} */

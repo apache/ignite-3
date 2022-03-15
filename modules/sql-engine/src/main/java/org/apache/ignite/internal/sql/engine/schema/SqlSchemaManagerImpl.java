@@ -22,17 +22,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalCatalog;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension.ExternalSchema;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -45,105 +41,137 @@ import org.jetbrains.annotations.Nullable;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
-    private final Map<String, IgniteSchema> igniteSchemas = new HashMap<>();
+    private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
-    private final Map<UUID, IgniteTable> tablesById = new ConcurrentHashMap<>();
-
-    private final Map<String, Schema> externalCatalogs = new HashMap<>();
+    private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
 
     private final Runnable onSchemaUpdatedCallback;
 
     private final TableManager tableManager;
 
-    private volatile SchemaPlus calciteSchema;
+    private final VersionedValue<SchemaPlus> calciteSchemaVv;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public SqlSchemaManagerImpl(TableManager tableManager, Runnable onSchemaUpdatedCallback) {
+    public SqlSchemaManagerImpl(
+            TableManager tableManager,
+            Consumer<Consumer<Long>> storageRevisionUpdater,
+            Runnable onSchemaUpdatedCallback
+    ) {
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
-        this.tableManager = tableManager;
 
-        SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
-        calciteSchema = newCalciteSchema;
+        this.tableManager = tableManager;
+        schemasVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
+        tablesVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
+
+        calciteSchemaVv = new VersionedValue<>(null, storageRevisionUpdater, 2, () -> {
+            SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
+            newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+            return newCalciteSchema;
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public SchemaPlus schema(@Nullable String schema) {
-        return schema != null ? calciteSchema.getSubSchema(schema) : calciteSchema;
+        SchemaPlus schemaPlus = calciteSchemaVv.latest();
+
+        return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus;
     }
 
     /** {@inheritDoc} */
     @Override
     @NotNull
-    public IgniteTable tableById(UUID id) {
+    public IgniteTable tableById(UUID id, int ver) {
+        Map<UUID, IgniteTable> tablesById = tablesVv.latest();
+
         IgniteTable table = tablesById.get(id);
 
         // there is a chance that someone tries to resolve table before
         // the distributed event of that table creation has been processed
         // by TableManager, so we need to get in sync with the TableManager
-        if (table == null) {
-            ensureTableStructuresCreated(id);
-
-            // at this point the table is either null means no such table
-            // really exists or the table itself
-            table = tablesById.get(id);
+        if (table == null || ver > table.version()) {
+            table = awaitLatestTableSchema(id);
         }
 
         if (table == null) {
             throw new IgniteInternalException(
-                    IgniteStringFormatter.format("Table not found [tableId={}]", id));
+                IgniteStringFormatter.format("Table not found [tableId={}]", id));
+        }
+
+        if (table.version() < ver) {
+            throw new IgniteInternalException(
+                    IgniteStringFormatter.format("Table version not found [tableId={}, requiredVer={}, latestKnownVer={}]",
+                            id, ver, table.version()));
         }
 
         return table;
     }
 
-    private void ensureTableStructuresCreated(UUID id) {
+    private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
         try {
-            tableManager.table(id);
+            TableImpl table = tableManager.table(tableId);
+
+            if (table == null) {
+                return null;
+            }
+
+            table.schemaView().waitLatestSchema();
+
+            return convert(table);
         } catch (NodeStoppingException e) {
-            // Discard the exception
+            throw new IgniteInternalException(e);
         }
     }
 
     /**
-     * Register an external catalog under given name.
+     * Schema creation handler.
      *
-     * @param name Name of the external catalog.
-     * @param catalog Catalog to register.
+     * @param schemaName Schema name.
+     * @param causalityToken Causality token.
      */
-    public synchronized void registerExternalCatalog(String name, ExternalCatalog catalog) {
-        catalog.schemaNames().forEach(schemaName -> registerExternalSchema(name, schemaName, catalog.schema(schemaName)));
+    public synchronized void onSchemaCreated(String schemaName, long causalityToken) {
+        schemasVv.update(
+                causalityToken,
+                schemas -> {
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
-        rebuild();
+                    res.putIfAbsent(schemaName, new IgniteSchema(schemaName));
+
+                    return res;
+                },
+                e -> {
+                    throw new IgniteInternalException(e);
+                }
+        );
+
+        rebuild(causalityToken);
     }
 
-    private void registerExternalSchema(String catalogName, String schemaName, ExternalSchema schema) {
-        Map<String, Table> tables = new HashMap<>();
+    /**
+     * Schema drop handler.
+     *
+     * @param schemaName Schema name.
+     * @param causalityToken Causality token.
+     */
+    public synchronized void onSchemaDropped(String schemaName, long causalityToken) {
+        schemasVv.update(
+                    causalityToken,
+                    schemas -> {
+                        Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
-        for (String name : schema.tableNames()) {
-            IgniteTable table = schema.table(name);
+                        res.remove(schemaName);
 
-            tables.put(name, table);
-            tablesById.put(table.id(), table);
-        }
+                        return res;
+                    },
+                    e -> {
+                        throw new IgniteInternalException(e);
+                    }
+        );
 
-        SchemaPlus schemaPlus = (SchemaPlus) externalCatalogs.computeIfAbsent(catalogName, n -> Frameworks.createRootSchema(false));
-
-        schemaPlus.add(schemaName, new ExternalSchemaHolder(tables));
-    }
-
-    public synchronized void onSchemaCreated(String schemaName) {
-        igniteSchemas.putIfAbsent(schemaName, new IgniteSchema(schemaName));
-        rebuild();
-    }
-
-    public synchronized void onSchemaDropped(String schemaName) {
-        igniteSchemas.remove(schemaName);
-        rebuild();
+        rebuild(causalityToken);
     }
 
     /**
@@ -152,10 +180,121 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public synchronized void onTableCreated(
             String schemaName,
-            TableImpl table
+            TableImpl table,
+            long causalityToken
     ) {
-        IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
+        schemasVv.update(
+                causalityToken,
+                schemas -> {
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
+                    IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+
+                    IgniteTableImpl igniteTable = convert(table);
+
+                    schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
+
+                    tablesVv.update(
+                            causalityToken,
+                            tables -> {
+                                Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
+
+                                resTbls.put(igniteTable.id(), igniteTable);
+
+                                return resTbls;
+                            },
+                            e -> {
+                                throw new IgniteInternalException(e);
+                            }
+                    );
+
+                    return res;
+                },
+                e -> {
+                    throw new IgniteInternalException(e);
+                }
+        );
+
+        rebuild(causalityToken);
+    }
+
+    /**
+     * OnSqlTypeUpdated.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public void onTableUpdated(
+            String schemaName,
+            TableImpl table,
+            long causalityToken
+    ) {
+        onTableCreated(schemaName, table, causalityToken);
+    }
+
+    /**
+     * OnSqlTypeDropped.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public synchronized void onTableDropped(
+            String schemaName,
+            String tableName,
+            long causalityToken
+    ) {
+        schemasVv.update(causalityToken,
+                schemas -> {
+                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+
+                    IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
+
+                    String calciteTableName = removeSchema(schemaName, tableName);
+
+                    InternalIgniteTable table = (InternalIgniteTable) schema.getTable(calciteTableName);
+
+                    if (table != null) {
+                        schema.removeTable(calciteTableName);
+
+                        tablesVv.update(causalityToken,
+                                tables -> {
+                                    Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
+
+                                    resTbls.remove(table.id());
+
+                                    return resTbls;
+                                },
+                                e -> {
+                                    throw new IgniteInternalException(e);
+                                }
+                        );
+                    }
+
+                    return res;
+                },
+                e -> {
+                    throw new IgniteInternalException(e);
+                }
+        );
+
+        rebuild(causalityToken);
+    }
+
+    private void rebuild(long causalityToken) {
+        SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
+
+        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+
+        // TODO rewrite with VersionedValue#update to get the current (maybe temporary) value for current token
+        // TODO https://issues.apache.org/jira/browse/IGNITE-16543
+        Map<String, IgniteSchema> schemas = schemasVv.latest();
+
+        schemas.forEach(newCalciteSchema::add);
+
+        calciteSchemaVv.update(causalityToken, s -> newCalciteSchema, e -> {
+            throw new IgniteInternalException(e);
+        });
+
+        onSchemaUpdatedCallback.run();
+    }
+
+    private IgniteTableImpl convert(TableImpl table) {
         SchemaDescriptor descriptor = table.schemaView().schema();
 
         List<ColumnDescriptor> colDescriptors = descriptor.columnNames().stream()
@@ -171,74 +310,14 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 ))
                 .collect(Collectors.toList());
 
-        IgniteTableImpl igniteTable = new IgniteTableImpl(
+        return new IgniteTableImpl(
                 new TableDescriptorImpl(colDescriptors),
                 table.internalTable(),
                 table.schemaView()
         );
-
-        schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
-        tablesById.put(igniteTable.id(), igniteTable);
-
-        rebuild();
-    }
-
-    /**
-     * OnSqlTypeUpdated.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public void onTableUpdated(
-            String schemaName,
-            TableImpl table
-    ) {
-        onTableCreated(schemaName, table);
-    }
-
-    /**
-     * OnSqlTypeDropped.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public synchronized void onTableDropped(
-            String schemaName,
-            String tableName
-    ) {
-        IgniteSchema schema = igniteSchemas.computeIfAbsent(schemaName, IgniteSchema::new);
-
-        InternalIgniteTable table = (InternalIgniteTable) schema.getTable(tableName);
-        if (table != null) {
-            tablesById.remove(table.id());
-            schema.removeTable(tableName);
-        }
-
-        rebuild();
-    }
-
-    private void rebuild() {
-        SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
-
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
-
-        igniteSchemas.forEach(newCalciteSchema::add);
-        externalCatalogs.forEach(newCalciteSchema::add);
-
-        calciteSchema = newCalciteSchema;
-
-        onSchemaUpdatedCallback.run();
     }
 
     private static String removeSchema(String schemaName, String canonicalName) {
         return canonicalName.substring(schemaName.length() + 1);
-    }
-
-    private static class ExternalSchemaHolder extends AbstractSchema {
-        private final Map<String, Table> tables;
-
-        public ExternalSchemaHolder(Map<String, Table> tables) {
-            this.tables = tables;
-        }
-
-        @Override protected Map<String, Table> getTableMap() {
-            return tables;
-        }
     }
 }

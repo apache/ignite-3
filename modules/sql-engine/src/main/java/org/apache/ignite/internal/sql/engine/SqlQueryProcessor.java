@@ -17,32 +17,48 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.ServiceLoader;
-import java.util.function.Function;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
+import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
+import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
+import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
+import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
+import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.CacheKey;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCache;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCacheImpl;
+import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
 import org.jetbrains.annotations.NotNull;
@@ -53,6 +69,8 @@ import org.jetbrains.annotations.Nullable;
  *  TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class SqlQueryProcessor implements QueryProcessor {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(SqlQueryProcessor.class);
+
     /** Size of the cache for query plans. */
     public static final int PLAN_CACHE_SIZE = 1024;
 
@@ -60,14 +78,18 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
+    private final Consumer<Consumer<Long>> revisionUpdater;
+
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Keeps queries plans to avoid expensive planning of the same queries. */
-    private final QueryPlanCache planCache = new QueryPlanCacheImpl(PLAN_CACHE_SIZE);
-
     /** Event listeners to close. */
     private final List<Pair<TableEvent, EventListener<TableEventParameters>>> evtLsnrs = new ArrayList<>();
+
+    private final List<LifecycleAware> services = new ArrayList<>();
+
+    /** Keeps queries plans to avoid expensive planning of the same queries. */
+    private volatile QueryPlanCache planCache;
 
     private volatile ExecutionService executionSrvc;
 
@@ -75,60 +97,78 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile QueryTaskExecutor taskExecutor;
 
-    private volatile Map<String, SqlExtension> extensions;
+    private volatile PrepareService prepareSvc;
 
+    private volatile MailboxRegistry mailboxRegistry;
+
+    private volatile ExchangeService exchangeService;
+
+    private volatile QueryRegistry queryRegistry;
+
+    private volatile SqlSchemaManager schemaManager;
+
+    /** Constructor. */
     public SqlQueryProcessor(
+            Consumer<Consumer<Long>> revisionUpdater,
             ClusterService clusterSrvc,
             TableManager tableManager
     ) {
+        this.revisionUpdater = revisionUpdater;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
-        taskExecutor = new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName());
+    public synchronized void start() {
+        planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
+        prepareSvc = registerService(new PrepareServiceImpl());
+        queryRegistry = registerService(new QueryRegistryImpl());
+        mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
 
-        msgSrvc = new MessageServiceImpl(
-                clusterSrvc.topologyService(),
-                clusterSrvc.messagingService(),
-                taskExecutor
-        );
+        msgSrvc = registerService(new MessageServiceImpl(
+            clusterSrvc.topologyService(),
+            clusterSrvc.messagingService(),
+            taskExecutor
+        ));
 
-        List<SqlExtension> extensionList = new ArrayList<>();
+        exchangeService = registerService(new ExchangeServiceImpl(
+            clusterSrvc.topologyService().localMember().id(),
+            taskExecutor,
+            mailboxRegistry,
+            msgSrvc,
+            queryRegistry
+        ));
 
-        ServiceLoader<SqlExtension> loader = ServiceLoader.load(SqlExtension.class);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, revisionUpdater, planCache::clear);
 
-        loader.reload();
-
-        loader.forEach(extensionList::add);
-
-        extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
-
-        SqlSchemaManagerImpl schemaHolder = new SqlSchemaManagerImpl(tableManager, planCache::clear);
-
-        executionSrvc = new ExecutionServiceImpl<>(
+        executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
                 msgSrvc,
                 planCache,
-                schemaHolder,
+                schemaManager,
                 tableManager,
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
-                extensions
-        );
+                mailboxRegistry,
+                exchangeService,
+                queryRegistry
+        ));
 
-        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaHolder));
-        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaHolder));
-        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaHolder));
+        registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
+        registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));
+        registerTableListener(TableEvent.DROP, new TableDroppedListener(schemaManager));
 
-        taskExecutor.start();
-        msgSrvc.start();
-        executionSrvc.start();
-        planCache.start();
+        this.schemaManager = schemaManager;
 
-        extensionList.forEach(ext -> ext.init(catalog -> schemaHolder.registerExternalCatalog(ext.name(), catalog)));
+        services.forEach(LifecycleAware::start);
+    }
+
+    private <T extends LifecycleAware> T registerService(T service) {
+        services.add(service);
+
+        return service;
     }
 
     private void registerTableListener(TableEvent evt, AbstractTableEventListener lsnr) {
@@ -139,49 +179,141 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public synchronized void stop() throws Exception {
         busyLock.block();
 
-        List<AutoCloseable> toClose = new ArrayList<>();
+        List<LifecycleAware> services = new ArrayList<>(this.services);
 
-        Map<String, SqlExtension> extensions = this.extensions;
-        if (extensions != null) {
-            toClose.addAll(
-                    extensions.values().stream()
-                            .map(ext -> (AutoCloseable) ext::stop)
-                            .collect(Collectors.toList())
-            );
-        }
+        this.services.clear();
 
-        Stream<AutoCloseable> closableComponents = Stream.of(
-                executionSrvc::stop,
-                msgSrvc::stop,
-                taskExecutor::stop,
-                planCache::stop
-        );
+        Collections.reverse(services);
+
+        Stream<AutoCloseable> closableComponents = services.stream().map(s -> s::stop);
 
         Stream<AutoCloseable> closableListeners = evtLsnrs.stream()
                 .map((p) -> () -> tableManager.removeListener(p.left, p.right));
 
-        toClose.addAll(
-                Stream.concat(closableComponents, closableListeners).collect(Collectors.toList())
-        );
-
-        IgniteUtils.closeAll(toClose);
+        IgniteUtils.closeAll(Stream.concat(closableComponents, closableListeners).collect(Collectors.toList()));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
+        return query(QueryContext.of(), schemaName, qry, params);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            return executionSrvc.executeQuery(schemaName, qry, params);
+            return query0(context, schemaName, qry, params);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    public QueryRegistry queryRegistry() {
+        return queryRegistry;
+    }
+
+    private List<SqlCursor<List<?>>> query0(QueryContext context, String schemaName, String sql, Object... params) {
+        SchemaPlus schema = schemaManager.schema(schemaName);
+
+        assert schema != null : "Schema not found: " + schemaName;
+
+        QueryPlan plan = planCache.queryPlan(new CacheKey(schema.getName(), sql));
+
+        if (plan != null) {
+            final QueryPlan finalPlan = plan;
+
+            context.maybeUnwrap(QueryValidator.class)
+                    .ifPresent(queryValidator -> queryValidator.validatePlan(finalPlan));
+
+            RootQuery<Object[]> qry = new RootQuery<>(
+                    sql,
+                    schema,
+                    params,
+                    exchangeService,
+                    (q) -> queryRegistry.unregister(q.id()),
+                    LOG
+            );
+
+            queryRegistry.register(qry);
+
+            try {
+                return Collections.singletonList(executionSrvc.executePlan(
+                        qry,
+                        plan
+                ));
+            } catch (Exception e) {
+                boolean isCanceled = qry.isCancelled();
+
+                qry.cancel();
+
+                queryRegistry.unregister(qry.id());
+
+                if (isCanceled) {
+                    throw new IgniteInternalException("The query was cancelled while planning", e);
+                } else {
+                    throw e;
+                }
+            }
+        }
+
+        SqlNodeList qryList = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
+        List<SqlCursor<List<?>>> cursors = new ArrayList<>(qryList.size());
+
+        List<RootQuery<Object[]>> qrys = new ArrayList<>(qryList.size());
+
+        for (final SqlNode sqlNode : qryList) {
+            RootQuery<Object[]> qry = new RootQuery<>(
+                    sqlNode.toString(),
+                    schemaManager.schema(schemaName), // Update schema for each query in multiple statements.
+                    params,
+                    exchangeService,
+                    (q) -> queryRegistry.unregister(q.id()),
+                    LOG
+            );
+
+            qrys.add(qry);
+
+            queryRegistry.register(qry);
+
+            try {
+                if (qryList.size() == 1) {
+                    plan = planCache.queryPlan(
+                            new CacheKey(schemaName, qry.sql()),
+                            () -> prepareSvc.prepareSingle(sqlNode, qry.planningContext()));
+                } else {
+                    plan = prepareSvc.prepareSingle(sqlNode, qry.planningContext());
+                }
+
+                final QueryPlan finalPlan = plan;
+
+                context.maybeUnwrap(QueryValidator.class)
+                        .ifPresent(queryValidator -> queryValidator.validatePlan(finalPlan));
+
+                cursors.add(executionSrvc.executePlan(qry, plan));
+            } catch (Exception e) {
+                boolean isCanceled = qry.isCancelled();
+
+                qrys.forEach(RootQuery::cancel);
+
+                queryRegistry.unregister(qry.id());
+
+                if (isCanceled) {
+                    throw new IgniteInternalException("The query was cancelled while planning", e);
+                } else {
+                    throw e;
+                }
+            }
+        }
+
+        return cursors;
     }
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
@@ -212,7 +344,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableCreated(
                     "PUBLIC",
-                    parameters.table()
+                    parameters.table(),
+                    parameters.causalityToken()
             );
 
             return false;
@@ -231,7 +364,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableUpdated(
                     "PUBLIC",
-                    parameters.table()
+                    parameters.table(),
+                    parameters.causalityToken()
             );
 
             return false;
@@ -250,7 +384,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableDropped(
                     "PUBLIC",
-                    parameters.tableName()
+                    parameters.tableName(),
+                    parameters.causalityToken()
             );
 
             return false;

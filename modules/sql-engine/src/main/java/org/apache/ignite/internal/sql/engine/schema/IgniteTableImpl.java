@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
+import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -63,6 +64,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class IgniteTableImpl extends AbstractTable implements InternalIgniteTable {
     private final TableDescriptor desc;
+
+    private final int ver;
 
     private final InternalTable table;
 
@@ -87,6 +90,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             InternalTable table,
             SchemaRegistry schemaRegistry
     ) {
+        this.ver = schemaRegistry.lastSchemaVersion();
         this.desc = desc;
         this.table = table;
         this.schemaRegistry = schemaRegistry;
@@ -109,6 +113,12 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     @Override
     public UUID id() {
         return table.tableId();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int version() {
+        return ver;
     }
 
     /** {@inheritDoc} */
@@ -252,11 +262,11 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public <RowT> BinaryRow toBinaryRow(
+    public <RowT> ModifyRow toModifyRow(
             ExecutionContext<RowT> ectx,
             RowT row,
             TableModify.Operation op,
-            Object arg
+            List<String> arg
     ) {
         switch (op) {
             case INSERT:
@@ -264,15 +274,15 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             case DELETE:
                 return deleteTuple(row, ectx);
             case UPDATE:
-                return updateTuple(row, (List<String>) arg, ectx);
+                return updateTuple(row, arg, 0, ectx);
             case MERGE:
-                throw new UnsupportedOperationException();
+                return mergeTuple(row, arg, ectx);
             default:
                 throw new AssertionError();
         }
     }
 
-    private <RowT> BinaryRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow insertTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
         int nonNullVarlenValCols = 0;
 
@@ -300,16 +310,36 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return rowAssembler.build();
+        return new ModifyRow(rowAssembler.build(), Operation.INSERT_ROW);
     }
 
-    private <RowT> BinaryRow updateTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
+        RowHandler<RowT> hnd = ectx.rowHandler();
+
+        int rowColumnsCnt = hnd.columnCount(row);
+
+        if (desc.columnsCount() == rowColumnsCnt) { // Only WHEN NOT MATCHED clause in MERGE.
+            return insertTuple(row, ectx);
+        } else if (desc.columnsCount() + updateColList.size() == rowColumnsCnt) { // Only WHEN MATCHED clause in MERGE.
+            return updateTuple(row, updateColList, 0, ectx);
+        } else { // Both WHEN MATCHED and WHEN NOT MATCHED clauses in MERGE.
+            int off = columnsOrderedByPhysSchema.size();
+
+            if (hnd.get(off, row) == null) {
+                return insertTuple(row, ectx);
+            } else {
+                return updateTuple(row, updateColList, off, ectx);
+            }
+        }
+    }
+
+    private <RowT> ModifyRow updateTuple(RowT row, List<String> updateColList, int offset, ExecutionContext<RowT> ectx) {
         RowHandler<RowT> hnd = ectx.rowHandler();
 
         Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(updateColList.size());
 
         for (int i = 0; i < updateColList.size(); i++) {
-            columnToIndex.put(updateColList.get(i), i + desc.columnsCount());
+            columnToIndex.put(updateColList.get(i), i + desc.columnsCount() + offset);
         }
 
         int nonNullVarlenKeyCols = 0;
@@ -321,7 +351,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             nonNullVarlenKeyCols = countNotNullColumns(
                     keyOffset,
                     schemaDescriptor.keyColumns().length(),
-                    columnToIndex, hnd, row);
+                    columnToIndex, offset, hnd, row);
         }
 
         int valOffset = schemaDescriptor.valueColumns().firstVarlengthColumn();
@@ -330,23 +360,23 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             nonNullVarlenValCols = countNotNullColumns(
                     schemaDescriptor.keyColumns().length() + valOffset,
                     schemaDescriptor.length(),
-                    columnToIndex, hnd, row);
+                    columnToIndex, offset, hnd, row);
         }
 
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            int orDefault = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
+            int colIdx = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
 
-            Object val = hnd.get(orDefault, row);
+            Object val = hnd.get(colIdx, row);
 
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return rowAssembler.build();
+        return new ModifyRow(rowAssembler.build(), Operation.UPDATE_ROW);
     }
 
-    private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex,
+    private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
             RowHandler<RowT> hnd, RowT row) {
         int nonNullCols = 0;
 
@@ -355,7 +385,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
             assert !colDesc.physicalType().spec().fixedLength();
 
-            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex());
+            int colIdInRow = columnToIndex.getOrDefault(colDesc.name(), colDesc.logicalIndex() + offset);
 
             if (hnd.get(colIdInRow, row) != null) {
                 nonNullCols++;
@@ -365,7 +395,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         return nonNullCols;
     }
 
-    private <RowT> BinaryRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
+    private <RowT> ModifyRow deleteTuple(RowT row, ExecutionContext<RowT> ectx) {
         int nonNullVarlenKeyCols = 0;
 
         RowHandler<RowT> hnd = ectx.rowHandler();
@@ -396,7 +426,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return rowAssembler.build();
+        return new ModifyRow(rowAssembler.build(), Operation.DELETE_ROW);
     }
 
     private ColocationGroup partitionedGroup() {

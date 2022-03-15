@@ -51,10 +51,10 @@ public class QueryTemplate {
     public QueryTemplate(List<Fragment> fragments) {
         List<Fragment> frgs = new ArrayList<>(fragments.size());
 
-        RelOptCluster cluster = Commons.createCluster();
+        RelOptCluster cluster = Commons.cluster();
 
         for (Fragment fragment : fragments) {
-            frgs.add(fragment.copy(cluster));
+            frgs.add(fragment.attach(cluster));
         }
 
         this.fragments = List.copyOf(frgs);
@@ -70,9 +70,7 @@ public class QueryTemplate {
             return executionPlan;
         }
 
-        RelOptCluster cluster = Commons.createCluster();
-
-        List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.copy(cluster));
+        List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.attach(ctx.cluster()));
 
         Exception ex = null;
         RelMetadataQuery mq = first(fragments).root().getCluster().getMetadataQuery();
@@ -103,8 +101,10 @@ public class QueryTemplate {
     private List<Fragment> map(MappingService mappingService, List<Fragment> fragments, MappingQueryContext ctx, RelMetadataQuery mq) {
         List<Fragment> frgs = new ArrayList<>();
 
+        RelOptCluster cluster = Commons.cluster();
+
         for (Fragment fragment : fragments) {
-            frgs.add(fragment.map(mappingService, ctx, mq));
+            frgs.add(fragment.map(mappingService, ctx, mq).attach(cluster));
         }
 
         return List.copyOf(frgs);

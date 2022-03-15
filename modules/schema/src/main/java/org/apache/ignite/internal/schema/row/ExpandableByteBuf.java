@@ -172,11 +172,11 @@ public class ExpandableByteBuf {
     public int putString(int off, String val, CharsetEncoder encoder) throws CharacterCodingException {
         ensureCapacity(off);
 
-        buf.position(off);
-
         if (val.isEmpty()) {
             return 0;
         }
+
+        buf.position(off);
 
         encoder.reset();
 

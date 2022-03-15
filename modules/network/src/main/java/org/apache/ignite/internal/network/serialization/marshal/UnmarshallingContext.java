@@ -64,20 +64,6 @@ class UnmarshallingContext implements DescriptorRegistry {
         return descriptors.getDescriptor(clazz);
     }
 
-    public ClassDescriptor resolveDescriptorOfDeclaredClass(Class<?> declaredClass) throws UnmarshalException {
-        if (declaredClass == null) {
-            throw new UnmarshalException("NOT_NULL marker encountered, but we are not reading a field value");
-        }
-
-        ClassDescriptor descriptor = DescriptorResolver.resolveDescriptor(declaredClass, this);
-
-        if (descriptor == null) {
-            throw new UnmarshalException("Did not find a descriptor for " + declaredClass);
-        }
-
-        return descriptor;
-    }
-
     public ClassLoader classLoader() {
         return classLoader;
     }

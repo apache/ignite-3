@@ -220,6 +220,20 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
+    /**
+     * Test that set op node can be rewinded.
+     */
+    @Test
+    public void testSetOpRewindability() {
+        sql("CREATE TABLE test(id int PRIMARY KEY, i INTEGER)");
+        sql("INSERT INTO test VALUES (1, 1), (2, 2)");
+
+        assertQuery("SELECT (SELECT i FROM test EXCEPT SELECT test.i) FROM test")
+                .returns(1)
+                .returns(2)
+                .check();
+    }
+
     @Test
     public void testUnionAll() {
         List<List<?>> rows = sql("SELECT name, salary FROM emp1 "

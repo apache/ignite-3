@@ -17,113 +17,19 @@
 
 package org.apache.ignite.internal.rest.routes;
 
-import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.util.AsciiString;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
+import org.apache.ignite.internal.rest.api.Route;
 
 /**
  * Dispatcher of http requests.
- *
- * <p>Example:
- * <pre>
- * {@code
- * var router = new Router();
- * router.get("/user", (req, resp) -> {
- *     resp.status(HttpResponseStatus.OK);
- * });
- * }
- * </pre>
  */
-public class Router {
-    /** Routes. */
-    private final List<Route> routes;
-
-    /**
-     * Creates a new router with the given list of {@code routes}.
-     *
-     * @param routes Routes.
-     */
-    public Router(List<Route> routes) {
-        this.routes = routes;
-    }
-
-    /**
-     * Creates a new empty router.
-     */
-    public Router() {
-        routes = new ArrayList<>();
-    }
-
-    /**
-     * GET query helper.
-     *
-     * @param route      Route.
-     * @param acceptType Accept type.
-     * @param hnd        Actual handler of the request.
-     * @return Router
-     */
-    public Router get(String route, AsciiString acceptType, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.GET, acceptType.toString(), hnd));
-        return this;
-    }
-
-    /**
-     * GET query helper.
-     *
-     * @param route Route.
-     * @param hnd   Actual handler of the request.
-     * @return Router
-     */
-    public Router get(String route, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.GET, null, hnd));
-        return this;
-    }
-
-    /**
-     * PUT query helper.
-     *
-     * @param route      Route.
-     * @param acceptType Accept type.
-     * @param hnd        Actual handler of the request.
-     * @return Router
-     */
-    public Router put(String route, AsciiString acceptType, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.PUT, acceptType.toString(), hnd));
-        return this;
-    }
-
-    /**
-     * Defines a PATCH route.
-     *
-     * @param route      Route.
-     * @param acceptType Accept type.
-     * @param hnd        Actual handler of the request.
-     * @return Router
-     */
-    public Router patch(String route, AsciiString acceptType, RequestHandler hnd) {
-        addRoute(new Route(route, HttpMethod.PATCH, acceptType.toString(), hnd));
-        return this;
-    }
-
-    /**
-     * Adds the route to router chain.
-     *
-     * @param route Route
-     */
-    public void addRoute(Route route) {
-        routes.add(route);
-    }
-
+public interface Router {
     /**
      * Finds the route by request.
      *
      * @param req Request.
-     * @return Route if founded.
+     * @return Route if found.
      */
-    public Optional<Route> route(HttpRequest req) {
-        return routes.stream().filter(r -> r.match(req)).findFirst();
-    }
+    Optional<Route> route(HttpRequest req);
 }

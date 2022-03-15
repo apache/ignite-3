@@ -17,19 +17,21 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import org.apache.ignite.internal.sql.engine.extension.SqlExtension;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.jetbrains.annotations.Nullable;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.rel.metadata.CachingRelMetadataProvider;
+import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
+import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Query mapping context.
  */
 public class MappingQueryContext {
-    private final BaseQueryContext qctx;
-
     private final String locNodeId;
 
     private final long topVer;
+
+    private RelOptCluster cluster;
 
     /**
      * Constructor.
@@ -37,19 +39,21 @@ public class MappingQueryContext {
      * @param locNodeId Local node identifier.
      * @param topVer    Topology version to map.
      */
-    public MappingQueryContext(BaseQueryContext qctx, String locNodeId, long topVer) {
-        this.qctx = qctx;
+    public MappingQueryContext(String locNodeId, long topVer) {
         this.locNodeId = locNodeId;
         this.topVer = topVer;
     }
 
-    /**
-     * Get an extensions by it's name.
-     *
-     * @return An extensions or {@code null} if there is no extension with given name.
-     */
-    public @Nullable SqlExtension extension(String name) {
-        return qctx.extension(name);
+    /** Creates a cluster. */
+    RelOptCluster cluster() {
+        if (cluster == null) {
+            cluster = RelOptCluster.create(Commons.cluster().getPlanner(), Commons.cluster().getRexBuilder());
+            cluster.setMetadataProvider(new CachingRelMetadataProvider(IgniteMetadata.METADATA_PROVIDER,
+                    Commons.cluster().getPlanner()));
+            cluster.setMetadataQuerySupplier(RelMetadataQueryEx::create);
+        }
+
+        return cluster;
     }
 
     public String localNodeId() {
