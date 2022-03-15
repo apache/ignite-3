@@ -150,7 +150,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDecimal(BigDecimal v) {
-        appendBytes(v.unscaledValue().toByteArray());
+        appendDouble(v.doubleValue());
     }
 
     /**
@@ -159,7 +159,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendNumber(BigInteger v) {
-        appendBytes(v.toByteArray());
+        appendDouble(v.doubleValue());
     }
 
     /**
