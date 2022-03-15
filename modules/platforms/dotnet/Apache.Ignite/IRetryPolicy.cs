@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Buffers
+namespace Apache.Ignite
 {
-    using Internal.Buffers;
-    using NUnit.Framework;
-
     /// <summary>
-    /// Tests for <see cref="PooledArrayBufferWriter"/>.
+    /// Client retry policy determines whether client operations that have failed due to a connection issue
+    /// should be retried.
     /// </summary>
-    public class PooledArrayBufferWriterTests
+    public interface IRetryPolicy
     {
-        [Test]
-        public void TestBufferWriterReservesPrefixSpace()
-        {
-            using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
-
-            writer.Write(1);
-            writer.Write("A");
-            writer.Flush();
-
-            var res = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..].ToArray();
-
-            CollectionAssert.AreEqual(new byte[] { 1, 0xa1, (byte)'A' }, res);
-        }
+        /// <summary>
+        /// Gets a value indicating whether a client operation that has failed due to a connection issue
+        /// should be retried.
+        /// </summary>
+        /// <param name="context">Operation context.</param>
+        /// <returns>
+        /// <c>true</c> if the operation should be retried on another connection, <c>false</c> otherwise.
+        /// </returns>
+        bool ShouldRetry(IRetryPolicyContext context);
     }
 }

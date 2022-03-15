@@ -73,6 +73,11 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }
 
+        /// <summary>
+        /// Gets the associated socket.
+        /// </summary>
+        internal ClientFailoverSocket Socket => _socket;
+
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
             where T : class
@@ -100,26 +105,6 @@ namespace Apache.Ignite.Internal.Table
             {
                 w.Write(tx.Id);
             }
-        }
-
-        /// <summary>
-        /// Gets the socket.
-        /// </summary>
-        /// <param name="tx">Transaction.</param>
-        /// <returns>Socket.</returns>
-        internal ValueTask<ClientSocket> GetSocket(Transactions.Transaction? tx)
-        {
-            if (tx == null)
-            {
-                return _socket.GetSocketAsync();
-            }
-
-            if (tx.FailoverSocket != _socket)
-            {
-                throw new IgniteClientException("Specified transaction belongs to a different IgniteClient instance.");
-            }
-
-            return new ValueTask<ClientSocket>(tx.Socket);
         }
 
         /// <summary>

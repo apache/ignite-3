@@ -15,29 +15,33 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Buffers
+namespace Apache.Ignite
 {
-    using Internal.Buffers;
-    using NUnit.Framework;
+    using System;
 
     /// <summary>
-    /// Tests for <see cref="PooledArrayBufferWriter"/>.
+    /// Retry policy context. See <see cref="IRetryPolicy.ShouldRetry"/>.
     /// </summary>
-    public class PooledArrayBufferWriterTests
+    public interface IRetryPolicyContext
     {
-        [Test]
-        public void TestBufferWriterReservesPrefixSpace()
-        {
-            using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+        /// <summary>
+        /// Gets the client configuration.
+        /// </summary>
+        IgniteClientConfiguration Configuration { get; }
 
-            writer.Write(1);
-            writer.Write("A");
-            writer.Flush();
+        /// <summary>
+        /// Gets the operation type.
+        /// </summary>
+        ClientOperationType Operation { get; }
 
-            var res = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..].ToArray();
+        /// <summary>
+        /// Gets the current iteration.
+        /// </summary>
+        int Iteration { get; }
 
-            CollectionAssert.AreEqual(new byte[] { 1, 0xa1, (byte)'A' }, res);
-        }
+        /// <summary>
+        /// Gets the exception that caused current retry iteration.
+        /// </summary>
+        Exception Exception { get; }
     }
 }

@@ -15,29 +15,28 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Buffers
+namespace Apache.Ignite.Tests
 {
-    using Internal.Buffers;
+    using System.Linq;
+    using Internal;
     using NUnit.Framework;
 
     /// <summary>
-    /// Tests for <see cref="PooledArrayBufferWriter"/>.
+    /// Tests for <see cref="RetryReadPolicy"/>.
     /// </summary>
-    public class PooledArrayBufferWriterTests
+    public class RetryReadPolicyTests
     {
         [Test]
-        public void TestBufferWriterReservesPrefixSpace()
+        public void TestRetryReadPolicySupportsAllOperations()
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            var opTypes = typeof(ClientOperationType).GetEnumValues().Cast<ClientOperationType>().ToList();
 
-            writer.Write(1);
-            writer.Write("A");
-            writer.Flush();
+            foreach (var opType in opTypes)
+            {
+                var ctx = new RetryPolicyContext(new(), opType, 1, new());
 
-            var res = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..].ToArray();
-
-            CollectionAssert.AreEqual(new byte[] { 1, 0xa1, (byte)'A' }, res);
+                Assert.DoesNotThrow(() => RetryReadPolicy.Instance.ShouldRetry(ctx), opType.ToString());
+            }
         }
     }
 }
