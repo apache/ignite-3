@@ -105,11 +105,11 @@ public class Status implements Copiable<Status> {
     }
 
     public Status(RaftError raftError, String fmt, Object... args) {
-        this.state = new State(raftError.getNumber(), String.format(fmt, args));
+        this.state = new State(raftError.getNumber(), String.format(String.valueOf(fmt), args));
     }
 
     public Status(int code, String fmt, Object... args) {
-        this.state = new State(code, String.format(fmt, args));
+        this.state = new State(code, String.format(String.valueOf(fmt), args));
     }
 
     public Status(int code, String errorMsg) {
