@@ -84,6 +84,13 @@ public class HashCalculator {
     }
 
     /**
+     * Append null value to hash calculation.
+     */
+    public void appendNull() {
+        appendLong(0);
+    }
+
+    /**
      * Append byte to hash calculation.
      *
      * @param v Value to update hash.
