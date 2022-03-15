@@ -35,6 +35,11 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-compute-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-configuration-api</artifactId>
         </dependency>
 

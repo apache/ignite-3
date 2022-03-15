@@ -422,16 +422,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             return refreshLeader().thenCompose(res -> transferLeadership(newLeader));
 
         TransferLeaderRequest req = factory.transferLeaderRequest()
-            .groupId(groupId).leaderId(PeerId.fromPeer(newLeader).toString()).build();
+                .groupId(groupId)
+                .leaderId(PeerId.fromPeer(leader).toString())
+                .peerId(PeerId.fromPeer(newLeader).toString())
+                .build();
 
-        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(newLeader.address(), req, rpcTimeout);
+        CompletableFuture<NetworkMessage> fut = cluster.messagingService().invoke(leader.address(), req, rpcTimeout);
 
         return fut.thenCompose(resp -> {
             if (resp != null) {
                 RpcRequests.ErrorResponse resp0 = (RpcRequests.ErrorResponse) resp;
 
                 if (resp0.errorCode() != RaftError.SUCCESS.getNumber())
-                    CompletableFuture.failedFuture(
+                    return CompletableFuture.failedFuture(
                         new RaftException(
                             RaftError.forNumber(resp0.errorCode()), resp0.errorMsg()
                         )

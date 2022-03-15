@@ -15,29 +15,26 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Buffers
+namespace Apache.Ignite.Tests.Proto
 {
-    using Internal.Buffers;
+    using System.Linq;
+    using Internal.Proto;
     using NUnit.Framework;
 
     /// <summary>
-    /// Tests for <see cref="PooledArrayBufferWriter"/>.
+    /// Tests for <see cref="ClientOpExtensions"/>.
     /// </summary>
-    public class PooledArrayBufferWriterTests
+    public class ClientOpExtensionsTest
     {
         [Test]
-        public void TestBufferWriterReservesPrefixSpace()
+        public void TestToPublicOperationTypeSupportsAllOps()
         {
-            using var bufferWriter = new PooledArrayBufferWriter();
-            var writer = bufferWriter.GetMessageWriter();
+            var ops = typeof(ClientOp).GetEnumValues().Cast<ClientOp>().ToList();
 
-            writer.Write(1);
-            writer.Write("A");
-            writer.Flush();
-
-            var res = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..].ToArray();
-
-            CollectionAssert.AreEqual(new byte[] { 1, 0xa1, (byte)'A' }, res);
+            foreach (var op in ops)
+            {
+                Assert.DoesNotThrow(() => op.ToPublicOperationType(), op.ToString());
+            }
         }
     }
 }
