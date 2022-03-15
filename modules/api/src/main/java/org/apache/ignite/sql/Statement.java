@@ -26,13 +26,14 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Statement object is thread-safe.
  *
- * <p>Prepared statement forces performance optimizations, such as query plan caching on the server side, which is useful for frequently
- * executed queries or for queries when low-latency is critical. However, statement execution flow may fallback to a normal flow for a shot
- * time in some situations, e.g. when cached state on the server-side was lost, or the query is started in a new session.
+ * <p>Prepared statement forces performance optimizations, such as query plan caching on the server-side.
+ * However, if the server-side state is not exists, e.g. due to current client node reconnect or running statement in a new session, then
+ * the server-side state will be restored automatically. In that case, the user may experience an slightly higher latency as for regular
+ * statement execution.
  *
  * <p>Because of prepared statements holds resources on the server-side, the resources must be released manually via calling a
- * {@link #close()} method on the statement or calling {@link Session#release(Statement)} method for all active sessions which were used for
- * the statement execution.
+ * {@link #close()} method on the statement or calling {@link Session#release(Statement)} method for all active sessions, which were used
+ * for this statement execution.
  */
 public interface Statement extends AutoCloseable {
     /**
@@ -81,7 +82,9 @@ public interface Statement extends AutoCloseable {
     @Nullable Object property(@NotNull String name);
 
     /**
-     * Closes statement and releases remote resources.
+     * Releases remote resources.
+     * //TODO: It is not clear, should the method release the resources in all the sessions?
+     * //TODO: It is not clear, if the statement object will be invalidated or can be reused later?
      */
     @Override
     void close();

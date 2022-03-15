@@ -26,9 +26,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * SQL Session provides methods for query execution.
  *
- * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries. Modifying the session state
- * may affect the queries that are already started within this session. Thus, modifying session state from multiple threads may lead to
- * unexpected behaviour.
+ * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries.
+ * Session object is immutable and thread-safe.
  *
  * <p>Session "execute*" methods are thread-safe and can be called from different threads.
  *
@@ -120,15 +119,22 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     @Nullable Object property(String name);
 
     /**
-     * Releases remote session resources related to given prepared statement without closing the statement itself.
-     * Already started queries will not be affected.
+     * Releases remote session resources related to given prepared statement without closing the statement itself. Already started queries
+     * will not be affected.
      *
      * @param prepared Prepared statement.
      */
     void release(Statement prepared);
 
     /**
-     * Closes session, cleanup remote session resources, and stops all queries that are running within the current session.
+     * Releases remote session resources without invalidating the session object. Already started queries will not be affected.
+     */
+    void release();
+
+    /**
+     * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
+     *
+     * //TODO: It is not clear, if the session object will be invalidated or can be reused later?
      */
     @Override
     void close();

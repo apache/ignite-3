@@ -44,6 +44,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
@@ -57,6 +58,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -89,10 +91,10 @@ public class IgniteSqlApiTest {
     @Test
     public void syncSqlApi() {
         // Create session with params.
-        Session sess = igniteSql.createSession();
-
-        sess.defaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
-        sess.property("memoryQuota", 10 * Constants.MiB); // Set default quota.
+        SessionBuilder sessionBuilder = igniteSql.sessionBuilder();
+        sessionBuilder = sessionBuilder.withDefaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
+        sessionBuilder = sessionBuilder.withProperty("memoryQuota", 10 * Constants.MiB); // Set default quota.
+        Session sess = sessionBuilder.build();
 
         // Execute DDL.
         ResultSet rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
@@ -265,10 +267,10 @@ public class IgniteSqlApiTest {
 
         igniteTx.beginAsync()
                 .thenCompose(tx0 -> igniteSql.createSession()
-                                            .executeAsync(tx0, "SELECT id, val FROM tbl WHERE id > ?", 1)
-                                            .thenCompose(new AsyncPageProcessor(tx0))
-                                            .thenCompose(ignore -> tx0.commitAsync())
-                                            .thenApply(ignore -> tx0))
+                        .executeAsync(tx0, "SELECT id, val FROM tbl WHERE id > ?", 1)
+                        .thenCompose(new AsyncPageProcessor(tx0))
+                        .thenCompose(ignore -> tx0.commitAsync())
+                        .thenApply(ignore -> tx0))
                 .get();
 
         Mockito.verify(transaction).commitAsync();
@@ -309,7 +311,7 @@ public class IgniteSqlApiTest {
     @Test
     public void testMetadata() {
         ResultSet rs = igniteSql.createSession()
-                               .execute(null, "SELECT id, val FROM tbl");
+                .execute(null, "SELECT id, val FROM tbl");
 
         SqlRow row = rs.iterator().next();
 
@@ -365,7 +367,14 @@ public class IgniteSqlApiTest {
         txState = new HashMap<>();
 
         Session session = Mockito.mock(Session.class);
+        SessionBuilder sessionBuilder = Mockito.mock(SessionBuilder.class);
+
         Mockito.when(igniteSql.createSession()).thenReturn(session);
+        Mockito.when(igniteSql.sessionBuilder()).thenReturn(sessionBuilder);
+        Mockito.when(sessionBuilder.withDefaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.withDefaultTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.withProperty(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.build()).thenReturn(session);
 
         transaction = Mockito.spy(new DummyTx());
         Mockito.doCallRealMethod().when(transaction).commitAsync();
@@ -430,15 +439,15 @@ public class IgniteSqlApiTest {
 
         Mockito.when(session.execute(Mockito.nullable(Transaction.class), Mockito.eq("DELETE FROM tbl")))
                 .thenAnswer(ans -> Mockito.when(Mockito.mock(ResultSet.class).affectedRows())
-                                           .then(ans0 -> {
-                                               Map<Integer, String> state = state(ans.getArgument(0));
-                                               HashMap<Integer, String> oldState = new HashMap<>(state);
+                        .then(ans0 -> {
+                            Map<Integer, String> state = state(ans.getArgument(0));
+                            HashMap<Integer, String> oldState = new HashMap<>(state);
 
-                                               oldState.forEach((k, v) -> state.put(k, null));
+                            oldState.forEach((k, v) -> state.put(k, null));
 
-                                               return oldState.size();
-                                           })
-                                           .getMock());
+                            return oldState.size();
+                        })
+                        .getMock());
 
         Mockito.when(session.execute(Mockito.isNull(), Mockito.eq("SELECT id, val FROM tbl2")))
                 .thenAnswer(ans -> {
@@ -522,14 +531,14 @@ public class IgniteSqlApiTest {
 
     private List<SqlRow> stateAsRowSet(Transaction tx, Integer filterArg) {
         return state(tx).entrySet().stream()
-                       .filter(e -> e.getKey() > filterArg)
-                       .map(e -> createRow(e.getKey(), e.getValue()).build())
-                       .collect(Collectors.toList());
+                .filter(e -> e.getKey() > filterArg)
+                .map(e -> createRow(e.getKey(), e.getValue()).build())
+                .collect(Collectors.toList());
     }
 
     private TestRow createRow(Integer key, String value) {
         return new TestRow().set("id", key)
-                       .set("val", value);
+                .set("val", value);
     }
 
     private Map<Integer, String> state(Transaction tx) {
