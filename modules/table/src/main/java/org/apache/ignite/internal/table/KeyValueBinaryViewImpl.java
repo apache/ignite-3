@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -88,7 +89,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
 
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
+        List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
         for (Tuple keyRec : keys) {
             final Row keyRow = marshal(keyRec, null);
@@ -140,7 +141,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        List<BinaryRow> rows = new ArrayList<>(pairs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
             final Row row = marshal(pair.getKey(), pair.getValue());
@@ -231,7 +232,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
         Objects.requireNonNull(keys);
 
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
+        List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
 
         for (Tuple keyRec : keys) {
             final Row keyRow = marshal(keyRec, null);

@@ -29,6 +29,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -51,7 +52,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * @see TemporalTypesHelper
  */
-public class Row implements BinaryRow, SchemaAware {
+public class Row implements BinaryRowEx, SchemaAware {
     /** Schema descriptor. */
     protected final SchemaDescriptor schema;
 
@@ -889,5 +890,10 @@ public class Row implements BinaryRow, SchemaAware {
     @Override
     public byte[] bytes() {
         return row.bytes();
+    }
+
+    @Override
+    public int colocationHash() {
+        return hash();
     }
 }
