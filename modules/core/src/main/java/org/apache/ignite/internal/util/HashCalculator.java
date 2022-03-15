@@ -19,7 +19,6 @@ package org.apache.ignite.internal.util;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,7 +32,7 @@ import org.apache.ignite.lang.IgniteInternalException;
  * Implement hash calculator.
  */
 public class HashCalculator {
-    int hash = 0;
+    private int hash = 0;
 
     /**
      * Append value to hash calculation.
@@ -42,7 +41,7 @@ public class HashCalculator {
      */
     public void append(Object v) {
         if (v == null) {
-            appendLong(0);
+            appendNull();
             return;
         }
 
@@ -87,7 +86,7 @@ public class HashCalculator {
      * Append null value to hash calculation.
      */
     public void appendNull() {
-        appendLong(0);
+        appendByte((byte) 0);
     }
 
     /**
@@ -96,7 +95,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendByte(byte v) {
-        appendLong(v);
+        hash = HashUtils.hash32(v, hash);
     }
 
     /**
@@ -105,7 +104,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendShort(short v) {
-        appendLong(v);
+        hash = HashUtils.hash32(v, hash);
     }
 
     /**
@@ -114,7 +113,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendInt(int v) {
-        appendLong(v);
+        hash = HashUtils.hash32(v, hash);
     }
 
     /**
@@ -123,9 +122,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendLong(long v) {
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.putLong(v);
-        hash = HashUtils.hash32(buffer.array(), 0, Long.BYTES, hash);
+        hash = HashUtils.hash32(v, hash);
     }
 
     /**
@@ -134,9 +131,7 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendFloat(float v) {
-        ByteBuffer buffer = ByteBuffer.allocate(Float.BYTES);
-        buffer.putFloat(v);
-        hash = HashUtils.hash32(buffer.array(), 0, Float.BYTES, hash);
+        appendInt(Float.floatToRawIntBits(v));
     }
 
     /**
@@ -145,9 +140,8 @@ public class HashCalculator {
      * @param v Value to update hash.
      */
     public void appendDouble(double v) {
-        ByteBuffer buffer = ByteBuffer.allocate(Double.BYTES);
-        buffer.putDouble(v);
-        hash = HashUtils.hash32(buffer.array(), 0, Float.BYTES, hash);
+        appendLong(Double.doubleToRawLongBits(v));
+
     }
 
     /**

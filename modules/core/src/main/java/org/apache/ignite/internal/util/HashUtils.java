@@ -63,6 +63,53 @@ public class HashUtils {
         return (int) (hash ^ (hash >>> 32));
     }
 
+    /**
+     * Generates 32-bit hash from the byte value.
+     *
+     * @param data The input byte.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(final byte data, int seed) {
+        long hash = hash64(data, seed);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Generates 32-bit hash from the short value.
+     *
+     * @param data The input short value.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(final short data, int seed) {
+        long hash = hash64(data, seed);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Generates 32-bit hash from the integer value.
+     *
+     * @param data The input integer value.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(final int data, int seed) {
+        long hash = hash64(data, seed);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
+
+    /**
+     * Generates 32-bit hash from the long value.
+     *
+     * @param data The input long value.
+     * @return The 32-bit hash.
+     */
+    public static int hash32(final long data, int seed) {
+        long hash = hash64(data, seed);
+
+        return (int) (hash ^ (hash >>> 32));
+    }
 
     /**
      * Generates 64-bit hash from the byte value.
@@ -84,25 +131,26 @@ public class HashUtils {
         return hashInternal(data, seed);
     }
 
-//    /**
-//     * Generates 64-bit hash from the integer value.
-//     *
-//     * @param data The input integer value.
-//     * @return The 64-bit hash.
-//     */
-//    public static long hash64(final int data, long seed) {
-//        return hashInternal(data, seed);
-//    }
-//
-//    /**
-//     * Generates 64-bit hash from the long value.
-//     *
-//     * @param data The input long value.
-//     * @return The 64-bit hash.
-//     */
-//    public static long hash64(final long data, long seed) {
-//        return hashInternal(data, seed);
-//    }
+    /**
+     * Generates 64-bit hash from the integer value.
+     *
+     * @param data The input integer value.
+     * @return The 64-bit hash.
+     */
+    public static long hash64(final int data, long seed) {
+        return hashInternal(data, seed);
+    }
+
+
+    /**
+     * Generates 64-bit hash from the long value.
+     *
+     * @param data The input long value.
+     * @return The 64-bit hash.
+     */
+    public static long hash64(final long data, long seed) {
+        return hashInternal(data, seed);
+    }
 
     /**
      * Generates 64-bit hash from the byte array with a seed of zero.
@@ -131,7 +179,7 @@ public class HashUtils {
     /**
      * Generates 64-bit hash from the byte and seed.
      *
-     * @param data   The input byte .
+     * @param data   The input byte.
      * @param seed   The initial seed value.
      * @return The 64-bit hash.
      */
@@ -141,7 +189,7 @@ public class HashUtils {
 
         long k1 = 0;
 
-        k1 ^= data & 0xff;
+        k1 ^= data & 0xffL;
         k1 *= C1;
         k1 = Long.rotateLeft(k1, R1);
         k1 *= C2;
@@ -161,10 +209,10 @@ public class HashUtils {
     }
 
     /**
-     * Generates 64-bit hash from the byte and seed.
+     * Generates 64-bit hash from the short value and seed.
      *
-     * @param data   The input byte .
-     * @param seed   The initial seed value.
+     * @param data The input short value .
+     * @param seed The initial seed value.
      * @return The 64-bit hash.
      */
     private static long hashInternal(final short data, final long seed) {
@@ -173,15 +221,79 @@ public class HashUtils {
 
         long k1 = 0;
 
-        k1 ^= ((long) data & 0xffff);
+        k1 ^= data & 0xffffL;
         k1 *= C1;
         k1 = Long.rotateLeft(k1, R1);
         k1 *= C2;
         h1 ^= k1;
 
         // finalization
-        h1 ^= 1;
-        h2 ^= 1;
+        h1 ^= 2;
+        h2 ^= 2;
+
+        h1 += h2;
+        h2 += h1;
+
+        h1 = fmix64(h1);
+        h2 = fmix64(h2);
+
+        return h1 + h2;
+    }
+
+    /**
+     * Generates 64-bit hash from the integer value and seed.
+     *
+     * @param data The input integer value.
+     * @param seed The initial seed value.
+     * @return The 64-bit hash.
+     */
+    private static long hashInternal(final int data, final long seed) {
+        long h1 = seed;
+        long h2 = seed;
+
+        long k1 = 0;
+
+        k1 ^= data & 0xffffffffL;
+        k1 *= C1;
+        k1 = Long.rotateLeft(k1, R1);
+        k1 *= C2;
+        h1 ^= k1;
+
+        // finalization
+        h1 ^= 4;
+        h2 ^= 4;
+
+        h1 += h2;
+        h2 += h1;
+
+        h1 = fmix64(h1);
+        h2 = fmix64(h2);
+
+        return h1 + h2;
+    }
+
+    /**
+     * Generates 64-bit hash from the long value and seed.
+     *
+     * @param data The input long value.
+     * @param seed The initial seed value.
+     * @return The 64-bit hash.
+     */
+    private static long hashInternal(final long data, final long seed) {
+        long h1 = seed;
+        long h2 = seed;
+
+        long k1 = 0;
+
+        k1 ^= data;
+        k1 *= C1;
+        k1 = Long.rotateLeft(k1, R1);
+        k1 *= C2;
+        h1 ^= k1;
+
+        // finalization
+        h1 ^= 8;
+        h2 ^= 8;
 
         h1 += h2;
         h2 += h1;

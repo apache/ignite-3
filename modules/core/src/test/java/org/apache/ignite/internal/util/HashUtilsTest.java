@@ -47,10 +47,10 @@ class HashUtilsTest {
     }
 
     /**
-     * Tests for hash one byte.
+     * Check hash one byte.
      */
     @Test
-    void testByte() {
+    void hashByte() {
         long h0 = 0;
         long h1 = 0;
 
@@ -64,17 +64,72 @@ class HashUtilsTest {
     }
 
     /**
-     * Tests for hash one byte.
+     * Check hash short.
      */
     @Test
-    void testShort() {
+    void hashShort() {
         long h0 = 0;
         long h1 = 0;
 
         for (int i = 0; i < ITERS; ++i) {
             short d = (short) rnd.nextInt(Short.MAX_VALUE);
+
             h0 = HashUtils.hash64(d, h0 & 0xffffffffL);
             h1 = HashUtils.hash64(new byte[]{(byte) (d & 0xff), (byte) ((d >> 8) & 0xff)}, 0, 2, (int) h1);
+
+            assertEquals(h0, h1);
+        }
+    }
+
+    /**
+     * Check hash integer.
+     */
+    @Test
+    void hashInteger() {
+        long h0 = 0;
+        long h1 = 0;
+
+        for (int i = 0; i < ITERS; ++i) {
+            int d = rnd.nextInt();
+
+            h0 = HashUtils.hash64(d, h0 & 0xffffffffL);
+            h1 = HashUtils.hash64(
+                    new byte[]{
+                            (byte) (d & 0xff),
+                            (byte) ((d >> 8) & 0xff),
+                            (byte) ((d >> 16) & 0xff),
+                            (byte) ((d >> 24) & 0xff)
+                    },
+                    0, 4, (int) h1);
+
+            assertEquals(h0, h1);
+        }
+    }
+
+    /**
+     * Check hash long.
+     */
+    @Test
+    void hashLong() {
+        long h0 = 0;
+        long h1 = 0;
+
+        for (int i = 0; i < ITERS; ++i) {
+            long d = rnd.nextLong();
+
+            h0 = HashUtils.hash64(d, h0 & 0xffffffffL);
+            h1 = HashUtils.hash64(
+                    new byte[]{
+                            (byte) (d & 0xff),
+                            (byte) ((d >> 8) & 0xff),
+                            (byte) ((d >> 16) & 0xff),
+                            (byte) ((d >> 24) & 0xff),
+                            (byte) ((d >> 32) & 0xff),
+                            (byte) ((d >> 40) & 0xff),
+                            (byte) ((d >> 48) & 0xff),
+                            (byte) ((d >> 56) & 0xff),
+                    },
+                    0, 8, (int) h1);
 
             assertEquals(h0, h1);
         }

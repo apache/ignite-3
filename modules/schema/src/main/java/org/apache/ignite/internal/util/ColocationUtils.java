@@ -66,7 +66,7 @@ public class ColocationUtils {
      */
     public static void append(HashCalculator calc, Object v, NativeTypeSpec typeSpec) {
         if (v == null) {
-            calc.appendLong(0);
+            calc.appendNull();
             return;
         }
 
@@ -74,51 +74,67 @@ public class ColocationUtils {
             case INT8:
                 calc.appendByte((byte) v);
                 return;
+
             case INT16:
                 calc.appendShort((short) v);
                 return;
+
             case INT32:
                 calc.appendInt((int) v);
                 return;
+
             case INT64:
                 calc.appendLong((long) v);
                 return;
+
             case FLOAT:
                 calc.appendFloat((float) v);
                 return;
+
             case DOUBLE:
                 calc.appendDouble((double) v);
                 return;
+
             case DECIMAL:
                 calc.appendDecimal((BigDecimal) v);
                 return;
+
             case UUID:
                 calc.appendUuid((UUID) v);
                 return;
+
             case STRING:
                 calc.appendString((String) v);
                 return;
+
             case BYTES:
                 calc.appendBytes((byte[]) v);
                 return;
+
             case BITMASK:
                 calc.appendBitmask((BitSet) v);
                 return;
+
             case NUMBER:
                 calc.appendNumber((BigInteger) v);
                 return;
+
             case DATE:
                 calc.appendDate((LocalDate) v);
                 return;
+
             case TIME:
                 calc.appendTime((LocalTime) v);
                 return;
+
             case DATETIME:
                 calc.appendDateTime((LocalDateTime) v);
                 return;
+
             case TIMESTAMP:
                 calc.appendTimestamp((Instant) v);
                 return;
+
             default:
                 throw new IllegalStateException("Unexpected type: " + typeSpec);
         }
