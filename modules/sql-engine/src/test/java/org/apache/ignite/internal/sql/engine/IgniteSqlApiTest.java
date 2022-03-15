@@ -46,6 +46,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.KeyValueView;
@@ -88,13 +89,43 @@ public class IgniteSqlApiTest {
         initMock();
     }
 
+
+    @Test
+    public void statementApi() {
+        // Default session.
+        Session session = igniteSql.createSession();
+
+        // Simple statement.
+        Statement simpleStatement = igniteSql.createStatement("SELECT id, val FROM tbl WHERE id > ?");
+
+        // Create session with params.
+        Session sessionWithParams = igniteSql.sessionBuilder()
+                .withDefaultTimeout(10_000, TimeUnit.MILLISECONDS) // Set default timeout.
+                .withProperty("memoryQuota", 10 * Constants.MiB) // Set default quota.
+                .build();
+
+        // Statement with params. Prepared statement.
+        Statement preparedStatement = igniteSql.statementBuilder("SELECT id, val FROM tbl WHERE id > ?")
+                .withDefaultSchema("PUBLIC")
+                .prepared()
+                .build();
+
+        // Execute statement.
+        session.execute(null, simpleStatement,  /* args */ 1);
+
+        // Execute same statement in different sessions is allowed.
+        session.execute(null, preparedStatement,  /* args */ 1);
+        sessionWithParams.execute(null, preparedStatement,  /* args */ 1);
+
+        // Releasing session resources.
+        sessionWithParams.release(preparedStatement);
+        preparedStatement.close();
+        session.release();
+    }
+
     @Test
     public void syncSqlApi() {
-        // Create session with params.
-        SessionBuilder sessionBuilder = igniteSql.sessionBuilder();
-        sessionBuilder = sessionBuilder.withDefaultTimeout(10_000, TimeUnit.MILLISECONDS); // Set default timeout.
-        sessionBuilder = sessionBuilder.withProperty("memoryQuota", 10 * Constants.MiB); // Set default quota.
-        Session sess = sessionBuilder.build();
+        final Session sess = igniteSql.createSession();
 
         // Execute DDL.
         ResultSet rs = sess.execute(null, "CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)");
