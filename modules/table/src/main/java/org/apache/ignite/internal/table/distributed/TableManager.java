@@ -19,21 +19,14 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
-import static org.apache.ignite.internal.metastorage.client.CompoundCondition.and;
-import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
-import static org.apache.ignite.internal.metastorage.client.Conditions.exists;
-import static org.apache.ignite.internal.metastorage.client.Conditions.value;
-import static org.apache.ignite.internal.metastorage.client.Operations.ops;
-import static org.apache.ignite.internal.metastorage.client.Operations.put;
-import static org.apache.ignite.internal.metastorage.client.Operations.remove;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;;
+import static org.apache.ignite.internal.utils.RebalanceUtil.updateAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -72,7 +65,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
@@ -94,7 +86,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -339,7 +330,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                                     ((ExtendedTableConfiguration) tableCfg).id().value(), i);
 
                                             updateAssignmentsKeys(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
-                                                    replicasCtx.storageRevision());
+                                                    replicasCtx.storageRevision(), metaStorageMgr);
                                         }
 
                                         return CompletableFuture.completedFuture(null);
@@ -459,46 +450,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
 
         defaultDataRegion.start();
-    }
-
-    private void updateAssignmentsKeys(String partId, Collection<ClusterNode> clusterNodes, int partitions, int replicas, long revision) {
-        ByteArray partChangeTriggerKey = new ByteArray(partId + ".change.trigger");
-
-        ByteArray partAssignmentsPendingKey = new ByteArray(partId + ".assignments.pending");
-
-        ByteArray partAssignmentsPlannedKey = new ByteArray(partId + ".assignments.planned");
-
-        ByteArray partAssignmentsStableKey = new ByteArray(partId + ".assignments.stable");
-
-        byte[] partAssignmentsBytes = ByteUtils.toBytes(AffinityUtils.calculateAssignments(clusterNodes, partitions, replicas));
-
-        //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
-        //        if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
-        //            partition.assignments.pending = calcPartAssignments()
-        //            partition.change.trigger.revision = event.revision
-        //        else:
-        //            if partition.assignments.pending != calcPartAssignments
-        //                partition.assignments.planned = calcPartAssignments()
-        //                partition.change.trigger.revision = event.revision
-        //            else
-        //                remove(partition.assignments.planned)
-        //    else:
-        //        skip
-        var iif = If.iif(or(exists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
-                            If.iif(and(exists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
-                                    ops(
-                                            put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                            put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
-                                    ).yield(),
-                                If.iif(value(partAssignmentsPendingKey).ne(partAssignmentsBytes),
-                                        ops(
-                                                put(partAssignmentsPlannedKey, partAssignmentsBytes),
-                                                put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
-                                        ).yield(),
-                                    ops(remove(partAssignmentsPlannedKey)).yield())),
-                        ops().yield());
-
-        metaStorageMgr.invoke(iif);
     }
 
     /** {@inheritDoc} */

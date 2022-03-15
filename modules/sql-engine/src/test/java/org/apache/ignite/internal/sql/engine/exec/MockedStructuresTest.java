@@ -107,6 +107,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private TxManager tm;
 
+    /** Meta storage manager. */
+    @Mock
+    MetaStorageManager msm;
+
     /**
      * Revision listener holder. It uses for the test configurations:
      * <ul>
@@ -119,10 +123,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Revision updater. */
     private Consumer<Consumer<Long>> revisionUpdater;
-
-    /** Meta storage manager. */
-    @Mock
-    MetaStorageManager msm;
 
     /** Tables configuration. */
     @InjectConfiguration(
