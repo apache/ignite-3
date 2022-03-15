@@ -49,7 +49,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
         {
-            var cfg = new IgniteClientConfiguration { RetryPolicy = new TestRetryPolicy() };
+            var cfg = new IgniteClientConfiguration { RetryPolicy = RetryAllPolicy.Instance };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
@@ -59,7 +59,7 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public async Task TestFailoverWithRetryPolicyThrowsOnRetryCountExceeded()
+        public async Task TestFailoverWithRetryPolicyThrowsOnRetryLimitExceeded()
         {
             var cfg = new IgniteClientConfiguration
             {
@@ -73,6 +73,23 @@ namespace Apache.Ignite.Tests
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
             Assert.AreEqual("Operation failed after 5 retries, examine InnerException for details.", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestZeroRetryLimitDoesNotLimitRetryCount()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new RetryAllPolicy { RetryLimit = 0 }
+            };
+
+            using var server = new FakeServer(reqId => reqId % 10 != 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (var i = 0; i < IterCount; i++)
+            {
+                await client.Tables.GetTablesAsync();
+            }
         }
 
         [Test]
