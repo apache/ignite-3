@@ -44,6 +44,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.rmi.StubNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,7 +73,7 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
-import org.apache.ignite.raft.jraft.ChangePeersAsyncStatus;
+import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -3040,9 +3041,11 @@ public class ItNodeTest {
             assertEquals(leaderPeer, leader.getNodeId().getPeerId());
             PeerId newLeaderPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
             if (async) {
-                ChangePeersAsyncStatus status = leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
-                        leader.getCurrentTerm());
-                assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
+                SynchronizedClosure done = new SynchronizedClosure();
+                leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
+                        leader.getCurrentTerm(), done);
+                Status status = done.await();
+                assertTrue(status.isOk(), status.getRaftError().toString());
                 assertTrue(waitForCondition(() -> {
                     if (cluster.getLeader() != null) {
                         return newLeaderPeer.equals(cluster.getLeader().getLeaderId());
@@ -3083,9 +3086,11 @@ public class ItNodeTest {
 
         PeerId newPeer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1);
 
-        ChangePeersAsyncStatus status = leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
-                leader.getCurrentTerm());
-        assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
+        SynchronizedClosure done = new SynchronizedClosure();
+
+        leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
+                leader.getCurrentTerm(), done);
+        assertEquals(done.await(), Status.OK());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
                 .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP));
@@ -3120,9 +3125,10 @@ public class ItNodeTest {
             assertEquals(peer, leader.getNodeId().getPeerId());
             PeerId newPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
 
-            ChangePeersAsyncStatus status = leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
-                    leader.getCurrentTerm());
-            assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
+            SynchronizedClosure done = new SynchronizedClosure();
+            leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
+                    leader.getCurrentTerm(), done);
+            assertEquals(done.await(), Status.OK());
             assertTrue(waitForCondition(() -> {
                 if (cluster.getLeader() != null) {
                     return newPeer.equals(cluster.getLeader().getLeaderId());
@@ -3132,8 +3138,6 @@ public class ItNodeTest {
 
             verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(Collections.singletonList(newPeer));
         }
-
-        cluster.waitLeader();
     }
 
     @Test
@@ -3193,19 +3197,24 @@ public class ItNodeTest {
         assertEquals(leaderPeer, leader.getNodeId().getPeerId());
 
         PeerId newLeaderPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + 1);
-        ChangePeersAsyncStatus status = leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
-                leader.getCurrentTerm() - 1);
-        assertEquals(status, ChangePeersAsyncStatus.WRONG_TERM);
+
+        // wrong leader term, do nothing
+        SynchronizedClosure done = new SynchronizedClosure();
+        leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
+                leader.getCurrentTerm() - 1, done);
+        assertEquals(done.await(), Status.OK());
 
         // the same config, do nothing
-        status = leader.changePeersAsync(new Configuration(Collections.singletonList(leaderPeer)),
-                leader.getCurrentTerm());
-        assertEquals(status, ChangePeersAsyncStatus.DONE);
+        done = new SynchronizedClosure();
+        leader.changePeersAsync(new Configuration(Collections.singletonList(leaderPeer)),
+                leader.getCurrentTerm(), done);
+        assertEquals(done.await(), Status.OK());
 
         // change peer to new conf containing only new node
-        status = leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
-                leader.getCurrentTerm());
-        assertEquals(status, ChangePeersAsyncStatus.RECEIVED);
+        done = new SynchronizedClosure();
+        leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
+                leader.getCurrentTerm(), done);
+        assertEquals(done.await(), Status.OK());
 
         assertTrue(waitForCondition(() -> {
             if (cluster.getLeader() != null)
@@ -3224,19 +3233,21 @@ public class ItNodeTest {
 
         ExecutorService executor = Executors.newFixedThreadPool(10);
 
-        List<ChangePeersAsyncStatus> res = new ArrayList<>();
+        List<SynchronizedClosure> dones = new ArrayList<>();
         List<Future> futs = new ArrayList<>();
 
         for (int i = 0; i < 2; i++) {
+            SynchronizedClosure newDone = new SynchronizedClosure();
+            dones.add(newDone);
             futs.add(executor.submit(() -> {
-                res.add(newLeader.changePeersAsync(new Configuration(Collections.singletonList(peer0)), 2));
+                newLeader.changePeersAsync(new Configuration(Collections.singletonList(peer0)), 2, newDone);
             }));
         }
         futs.get(0).get();
         futs.get(1).get();
 
-        assertEquals(res.get(0), ChangePeersAsyncStatus.RECEIVED);
-        assertEquals(res.get(1), ChangePeersAsyncStatus.BUSY);
+        assertEquals(dones.get(0).await(), Status.OK());
+        assertEquals(dones.get(1).await().getRaftError(), RaftError.EBUSY);
 
         assertTrue(waitForCondition(() -> {
             if (cluster.getLeader() != null)

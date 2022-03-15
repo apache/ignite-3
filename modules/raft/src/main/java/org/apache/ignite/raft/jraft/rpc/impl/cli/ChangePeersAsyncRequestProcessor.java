@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.raft.jraft.ChangePeersAsyncStatus;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -71,16 +70,19 @@ public class ChangePeersAsyncRequestProcessor extends BaseCliRequestProcessor<Ch
         LOG.info("Receive ChangePeersAsyncRequest with term {} to {} from {}, new conf is {}", term, ctx.node.getNodeId(), done.getRpcCtx()
                 .getRemoteAddress(), conf);
 
-        ChangePeersAsyncStatus status = ctx.node.changePeersAsync(conf, term);
+        ctx.node.changePeersAsync(conf, term, status -> {
+            if (!status.isOk()) {
+                done.run(status);
+            }
+            else {
+                ChangePeersAsyncResponse resp = msgFactory().changePeersAsyncResponse()
+                        .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
+                        .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
+                        .build();
 
-        ChangePeersAsyncResponse resp = msgFactory().changePeersAsyncResponse()
-                .oldPeersList(oldConf.stream().map(Object::toString).collect(toList()))
-                .newPeersList(conf.getPeers().stream().map(Object::toString).collect(toList()))
-                .status(status)
-                .build();
-
-        done.sendResponse(resp);
-
+                done.sendResponse(resp);
+            }
+        });
         return null;
     }
 

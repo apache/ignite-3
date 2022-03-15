@@ -20,6 +20,7 @@ package org.apache.ignite.internal.utils;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.and;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
 import static org.apache.ignite.internal.metastorage.client.Conditions.exists;
+import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
@@ -52,8 +53,9 @@ public class RebalanceUtil {
      * @param metaStorageMgr Meta Storage manager.
      * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
-    public static @NotNull CompletableFuture<StatementResult> updateAssignmentsKeys(String partId, Collection<ClusterNode> baselineNodes,
-            int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr) {
+    public static @NotNull CompletableFuture<StatementResult> updatePendingAssignmentsKeys(
+            String partId, Collection<ClusterNode> baselineNodes,
+            int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = partAssignmentsPendingKey(partId);
@@ -62,7 +64,8 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = partAssignmentsStableKey(partId);
 
-        byte[] partAssignmentsBytes = ByteUtils.toBytes(AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas));
+        byte[] partAssignmentsBytes = ByteUtils.toBytes(
+                AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas).get(partNum));
 
         //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
         //        if empty(partition.assignments.pending) && partition.assignments.stable != calcPartAssighments():
@@ -77,7 +80,7 @@ public class RebalanceUtil {
         //    else:
         //        skip
         var iif = If.iif(or(exists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
-                If.iif(and(exists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
+                If.iif(and(notExists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
                                 put(partChangeTriggerKey, ByteUtils.longToBytes(revision))
@@ -92,6 +95,9 @@ public class RebalanceUtil {
 
         return metaStorageMgr.invoke(iif);
     }
+
+    /** Key prefix for pending assignments. */
+    public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
 
     /**
      * Key that is needed for the rebalance algorithm.
@@ -112,7 +118,7 @@ public class RebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
     public static ByteArray partAssignmentsPendingKey(String partId) {
-        return new ByteArray(partId + ".assignments.pending");
+        return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
     }
 
     /**
@@ -123,7 +129,7 @@ public class RebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
     public static ByteArray partAssignmentsPlannedKey(String partId) {
-        return new ByteArray(partId + ".assignments.planned");
+        return new ByteArray("assignments.planned." + partId);
     }
 
     /**
@@ -134,6 +140,6 @@ public class RebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
     public static ByteArray partAssignmentsStableKey(String partId) {
-        return new ByteArray(partId + ".assignments.stable");
+        return new ByteArray("assignments.stable." + partId);
     }
 }

@@ -276,8 +276,8 @@ public class VersionedValue<T> {
             history.put(causalityToken, initFut);
         }
 
-        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
-                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
+        assert actualToken0 == NOT_INITIALIZED || actualToken0 <= causalityToken : IgniteStringFormatter.format(
+                "Token must be greater than or equal to actual [token={}, actual={}]", causalityToken, actualToken0);
 
         setValueInternal(causalityToken, value);
     }
@@ -295,8 +295,8 @@ public class VersionedValue<T> {
             history.put(causalityToken, initFut);
         }
 
-        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
-                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
+        assert actualToken0 == NOT_INITIALIZED || actualToken0 <= causalityToken : IgniteStringFormatter.format(
+                "Token must be greater than or equal to actual [token={}, actual={}]", causalityToken, actualToken0);
 
         failInternal(causalityToken, throwable);
     }
@@ -333,8 +333,8 @@ public class VersionedValue<T> {
     public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
         long actualToken0 = actualToken;
 
-        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
-                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
+        assert actualToken0 == NOT_INITIALIZED || actualToken0 <= causalityToken : IgniteStringFormatter.format(
+                "Token must be greater than or equal to actual [token={}, actual={}]", causalityToken, actualToken0);
 
         try {
             synchronized (updateMutex) {

@@ -72,6 +72,7 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -659,6 +660,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
             return ret;
         });
+
+        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
 
         TableManager tableManager = createTableManager();
 

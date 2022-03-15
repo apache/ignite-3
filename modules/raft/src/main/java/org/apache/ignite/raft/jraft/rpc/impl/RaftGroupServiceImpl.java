@@ -65,6 +65,8 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.jetbrains.annotations.NotNull;
 
@@ -89,6 +91,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** */
     private volatile Peer leader;
+
+    /** Current term. */
+    private volatile long term;
 
     /** */
     private volatile List<Peer> peers;
@@ -244,6 +249,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         return fut.thenApply(resp -> {
             leader = parsePeer(resp.leaderId());
+            term = resp.currentTerm();
 
             return null;
         });
@@ -332,6 +338,27 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             return null;
         });
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<Void> changePeersAsync(List<Peer> peers) {
+        Peer leader = this.leader;
+
+        if (leader == null)
+            return refreshLeader().thenCompose(res -> changePeersAsync(peers));
+
+        List<String> peersToChange = peers.stream().map(p -> PeerId.fromPeer(p).toString())
+                .collect(Collectors.toList());
+
+        ChangePeersAsyncRequest req = factory.changePeersAsyncRequest().groupId(groupId)
+                .term(term)
+                .newPeersList(peersToChange).build();
+
+        CompletableFuture<ChangePeersAsyncResponse> fut = new CompletableFuture<>();
+
+        sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
+
+        return fut.thenRun(() -> {});
     }
 
     /** {@inheritDoc} */

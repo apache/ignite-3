@@ -144,6 +144,19 @@ public interface RaftGroupService {
     CompletableFuture<Void> changePeers(List<Peer> peers);
 
     /**
+     * Changes peers of the replication group.
+     *
+     * <p>Asynchronous variant of the previous method.
+     * When the future completed, it just means, that changePeers process successfully started.
+     *
+     * <p>This operation is executed on a group leader.
+     *
+     * @param peers Peers.
+     * @return A future.
+     */
+    CompletableFuture<Void> changePeersAsync(List<Peer> peers);
+
+    /**
      * Adds learners (non-voting members).
      *
      * <p>After the future completion methods like {@link #peers()} and {@link #learners()} can be used to retrieve current members of a

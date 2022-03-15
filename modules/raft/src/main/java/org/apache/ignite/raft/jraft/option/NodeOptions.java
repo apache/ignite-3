@@ -105,10 +105,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // a valid instance.
     private StateMachine fsm;
 
+    // Listener for raft group reconfiguration events.
     private RaftGroupEventsListener raftGrpEvtsLsnr;
-
-    // Describe a specific LogStorage in format ${type}://${parameters}
-    private String logUri;
 
     // Describe a specific RaftMetaStorage in format ${type}://${parameters}
     private String raftMetaUri;

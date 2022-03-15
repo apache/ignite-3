@@ -96,6 +96,7 @@ metastoreInvoke: \\ atomic
         partition.assignments.pending = empty
     else:
         partition.assignments.pending = partition.assignments.planned
+        remove(partition.assignments.planned)
 ```
 
 Failover helpers (detailed failover scenarious must be developed in future)
