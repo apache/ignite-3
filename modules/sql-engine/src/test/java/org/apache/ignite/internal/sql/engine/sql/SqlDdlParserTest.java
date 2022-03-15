@@ -260,6 +260,19 @@ public class SqlDdlParserTest {
                         .collect(Collectors.toList()),
                 equalTo(List.of("ID0"))
         );
+
+        // Check uparse 'COLOCATE' and 'WITH' together.
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0) "
+                        + "with "
+                        + "replicas=2, "
+                        + "partitions=3"
+        );
+
+        w = new SqlPrettyWriter();
+        createTable.unparse(w, 0, 0);
+
+        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID0\") WITH REPLICAS = 2, PARTITIONS = 3"));
     }
 
     private IgniteSqlCreateTable parseCreateTable(String stmt) throws SqlParseException {
