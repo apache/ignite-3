@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updateAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
