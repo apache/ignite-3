@@ -33,8 +33,8 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     /** Primary key columns. */
     private List<String> pkCols;
 
-    /** Affinity key columns. */
-    private List<String> affCols;
+    /** Colocation columns. */
+    private List<String> colocationCols;
 
     /** Columns. */
     private List<ColumnDefinition> cols;
@@ -85,7 +85,7 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     }
 
     /**
-     * Table columns.
+     * Get table columns.
      *
      * @return Columns.
      */
@@ -94,7 +94,7 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     }
 
     /**
-     * Table columns.
+     * Set table columns.
      *
      * @param cols Columns.
      */
@@ -103,22 +103,21 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     }
 
     /**
-     * Affinity columns.
+     * Set colocation column names.
      *
-     * @return Affinity key columns.
+     * @return Collocation column names.
      */
     @Nullable
-    public List<String> affColumns() {
-        return affCols;
+    public List<String> colocationColumns() {
+        return colocationCols;
     }
 
     /**
-     * Affinity columns.
+     * Get colocation column names.
      *
-     * @param affCols Set affinity key columns.
+     * @param colocationCols Colocation column names.
      */
-    // todo: support aff columns https://issues.apache.org/jira/browse/IGNITE-16069
-    public void affColumns(List<String> affCols) {
-        this.affCols = affCols;
+    public void colocationColumns(List<String> colocationCols) {
+        this.colocationCols = colocationCols;
     }
 }

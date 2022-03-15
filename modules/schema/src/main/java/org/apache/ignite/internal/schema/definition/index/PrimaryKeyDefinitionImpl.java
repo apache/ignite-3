@@ -48,9 +48,13 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
 
         if (CollectionUtils.nullOrEmpty(columns)) {
             throw new IllegalStateException("Primary key column(s) must be configured.");
-        } else if (!columns.containsAll(colocationColumns)) {
-            throw new IllegalStateException("Schema definition error: All colocation columns must be part of key.");
-        } else if (colocationColumns.size() != Set.copyOf(colocationColumns).size()) {
+        }
+
+        Set<String> colocationColumnsSet = Set.copyOf(colocationColumns);
+
+        if (!columns.containsAll(colocationColumnsSet)) {
+            throw new IllegalStateException("Schema definition error: All colocation columns must be part of primary key.");
+        } else if (colocationColumns.size() != colocationColumnsSet.size()) {
             throw new IllegalStateException("Schema definition error: Colocation columns must not be duplicated.");
         }
 
