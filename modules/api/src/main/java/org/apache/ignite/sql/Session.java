@@ -133,8 +133,7 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
 
     /**
      * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
-     *
-     * //TODO: It is not clear, if the session object will be invalidated or can be reused later?
+     * TODO: It is not clear, if the session object will be invalidated or can be reused later?
      */
     @Override
     void close();
