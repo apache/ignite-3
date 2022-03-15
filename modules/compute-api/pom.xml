@@ -29,18 +29,13 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
-    <artifactId>ignite-network-api</artifactId>
+    <artifactId>ignite-compute-api</artifactId>
     <version>3.0.0-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-configuration-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-core</artifactId>
+            <artifactId>ignite-network-api</artifactId>
         </dependency>
 
         <!-- Test dependencies -->
