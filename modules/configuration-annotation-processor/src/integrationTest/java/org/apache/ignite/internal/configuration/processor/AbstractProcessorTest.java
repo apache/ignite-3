@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.processor;
 
 import static com.google.testing.compile.Compiler.javac;
 
-import com.google.common.base.Functions;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.ClassName;
@@ -133,7 +132,7 @@ public class AbstractProcessorTest {
             generatedSources = compilation.generatedSourceFiles();
 
             generatedClasses = generatedSources.stream()
-                    .collect(Collectors.toMap(object -> fromGeneratedFilePath(object.getName()), Functions.identity()));
+                    .collect(Collectors.toMap(object -> fromGeneratedFilePath(object.getName()), o -> o));
 
             classSets = schemaClasses.stream().collect(
                     Collectors.toMap(name -> name, name -> getConfigSet(name, generatedClasses))

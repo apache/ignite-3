@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.configuration.processor;
 
-import com.google.common.base.Functions;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -61,15 +60,15 @@ public class ParsedClass {
 
         this.fields = cls.getAllFields()
                 .stream()
-                .collect(Collectors.toMap(CtReference::getSimpleName, Functions.identity()));
+                .collect(Collectors.toMap(CtReference::getSimpleName, o -> o));
 
         this.methods = cls.getMethods()
                 .stream()
-                .collect(Collectors.toMap(this::getMethodName, Functions.identity()));
+                .collect(Collectors.toMap(this::getMethodName, o -> o));
 
         this.constructors = cls.getConstructors()
                 .stream()
-                .collect(Collectors.toMap(this::getMethodName, Functions.identity()));
+                .collect(Collectors.toMap(this::getMethodName, o -> o));
     }
 
     /**
