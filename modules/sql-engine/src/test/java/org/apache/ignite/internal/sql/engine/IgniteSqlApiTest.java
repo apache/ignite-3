@@ -47,6 +47,7 @@ import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.KeyValueView;
@@ -105,7 +106,8 @@ public class IgniteSqlApiTest {
                 .build();
 
         // Statement with params. Prepared statement.
-        Statement preparedStatement = igniteSql.statementBuilder("SELECT id, val FROM tbl WHERE id > ?")
+        Statement preparedStatement = igniteSql.statementBuilder()
+                .query("SELECT id, val FROM tbl WHERE id > ?")
                 .withDefaultSchema("PUBLIC")
                 .prepared()
                 .build();
@@ -398,14 +400,29 @@ public class IgniteSqlApiTest {
         txState = new HashMap<>();
 
         Session session = Mockito.mock(Session.class);
+        Statement statement = Mockito.mock(Statement.class);
+
         SessionBuilder sessionBuilder = Mockito.mock(SessionBuilder.class);
 
-        Mockito.when(igniteSql.createSession()).thenReturn(session);
-        Mockito.when(igniteSql.sessionBuilder()).thenReturn(sessionBuilder);
         Mockito.when(sessionBuilder.withDefaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(sessionBuilder.withDefaultTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(sessionBuilder.withProperty(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(sessionBuilder.build()).thenReturn(session);
+
+        StatementBuilder stmtBuilder = Mockito.mock(StatementBuilder.class);
+
+        Mockito.when(stmtBuilder.query(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.withDefaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.withPageSize(Mockito.anyInt())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.withQueryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.withProperty(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.prepared()).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.build()).thenReturn(statement);
+
+        Mockito.when(igniteSql.createSession()).thenReturn(session);
+        Mockito.when(igniteSql.sessionBuilder()).thenReturn(sessionBuilder);
+        Mockito.when(igniteSql.statementBuilder()).thenReturn(stmtBuilder);
+        Mockito.when(igniteSql.createStatement(Mockito.anyString())).thenReturn(statement);
 
         transaction = Mockito.spy(new DummyTx());
         Mockito.doCallRealMethod().when(transaction).commitAsync();

@@ -119,23 +119,25 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     @Nullable Object property(String name);
 
     /**
-     * Releases remote session resources related to given prepared statement without closing the statement itself. Already started queries
-     * will not be affected.
+     * Releases remote session resources related to the given prepared statement. Queries, which are already running, will not be affected.
      *
      * @param prepared Prepared statement.
      */
     void release(Statement prepared);
 
     /**
-     * Releases remote session resources without invalidating the session object. Already started queries will not be affected.
+     * Releases all remote resources for this session. Queries, which are already running, will not be affected.
      */
     void release();
 
     /**
      * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
-     * TODO: It is not clear, if the session object will be invalidated or can be reused later?
      */
     @Override
-    void close();
+    void close(); // TODO: It is not clear, if this session object can be reused later or not?
 
+    /**
+     * Creates a new session builder from current session.
+     */
+    SessionBuilder toBuilder();
 }

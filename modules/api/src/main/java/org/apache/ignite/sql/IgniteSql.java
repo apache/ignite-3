@@ -22,33 +22,32 @@ package org.apache.ignite.sql;
  */
 public interface IgniteSql {
     /**
-     * Creates an SQL session object that provides methods for executing SQL queries and holds settings with which queries will be executed.
+     * Creates an SQL session that provides methods for executing SQL queries and holds settings with which queries will be executed.
      *
      * @return A new session.
      */
     Session createSession();
 
     /**
-     * Creates an SQL session builder object.
+     * Creates an SQL session builder.
      *
-     * @return A new session.
+     * @return A new session builder.
      */
     SessionBuilder sessionBuilder();
 
     /**
-     * Creates an SQL statement abject, which represents a query and holds a query-specific settings that overrides the session default
-     * settings.
+     * Creates an SQL statement from given query string.
      *
-     * @param query SQL query template.
+     * @param query SQL query string.
      * @return A new statement.
      */
     Statement createStatement(String query);
 
     /**
-     * Creates an SQL statement builder abject.
+     * Creates an SQL statement builder, which provides query-specific setting. These settings will override the session defaults for this
+     * statement when it will be executed.
      *
-     * @param query SQL query template.
-     * @return A new statement.
+     * @return A new statement builder.
      */
-    StatementBuilder statementBuilder(String query);
+    StatementBuilder statementBuilder();
 }

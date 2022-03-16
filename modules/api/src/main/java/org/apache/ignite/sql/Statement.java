@@ -82,10 +82,15 @@ public interface Statement extends AutoCloseable {
     @Nullable Object property(@NotNull String name);
 
     /**
-     * Releases remote resources.
-     * //TODO: It is not clear, should the method release the resources in all the sessions?
+     * Releases all remote resources related to the current statement.
      * //TODO: It is not clear, if the statement object will be invalidated or can be reused later?
+     * //TODO: What happens with queries that are already running?
      */
     @Override
     void close();
+
+    /**
+     * Creates a new statement builder from current statement.
+     */
+    StatementBuilder toBuilder();
 }

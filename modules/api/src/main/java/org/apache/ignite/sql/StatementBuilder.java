@@ -26,6 +26,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface StatementBuilder {
     /**
+     * Set SQL statement string.
+     */
+    StatementBuilder query(String sql);
+
+    /**
      * Marks current statement as prepared.
      */
     StatementBuilder prepared();
