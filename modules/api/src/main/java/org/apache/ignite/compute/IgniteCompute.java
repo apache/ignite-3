@@ -38,4 +38,15 @@ public interface IgniteCompute {
      * @return future job result
      */
     <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
+
+    /**
+     * Executes a {@link ComputeJob}.
+     *
+     * @param nodes    nodes on which to execute the job
+     * @param jobClassName name of the job class to execute
+     * @param args     arguments of the job
+     * @param <R>      job result type
+     * @return future job result
+     */
+    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args);
 }

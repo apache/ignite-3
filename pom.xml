@@ -49,7 +49,6 @@
         <module>modules/client-common</module>
         <module>modules/client-handler</module>
         <module>modules/compute</module>
-        <module>modules/compute-api</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
