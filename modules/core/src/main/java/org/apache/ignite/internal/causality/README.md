@@ -14,7 +14,7 @@ More formally, one can make a call for a component using causality token and rec
 
 This guarantees that notifications will be handled by component listeners in the proper order.
 
-It is also worth mentioning that local events should also be produced within a context of an appropriate causality token.
+It is also worth mentioning that local events should also be produced within the context of an appropriate causality token.
 
 ### Versioned value
 
