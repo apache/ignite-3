@@ -252,7 +252,7 @@ public class SchemaConfigurationConverterTest {
         assertEquals(tbl.canonicalName(), tbl2.canonicalName());
         assertEquals(tbl.indices().size(), tbl2.indices().size());
         assertEquals(tbl.keyColumns().size(), tbl2.keyColumns().size());
-        assertEquals(tbl.affinityColumns().size(), tbl2.affinityColumns().size());
+        assertEquals(tbl.colocationColumns().size(), tbl2.colocationColumns().size());
         assertEquals(tbl.columns().size(), tbl2.columns().size());
     }
 

@@ -195,6 +195,10 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         );
     }
 
+    protected static Table table(String canonicalName) {
+        return CLUSTER_NODES.get(0).tables().table(canonicalName);
+    }
+
     protected static void insertData(String tblName, String[] columnNames, Object[]... tuples) {
         insertData(CLUSTER_NODES.get(0).tables().table(tblName), columnNames, tuples);
     }

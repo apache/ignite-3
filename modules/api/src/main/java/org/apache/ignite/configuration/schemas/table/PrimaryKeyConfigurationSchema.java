@@ -31,8 +31,8 @@ public class PrimaryKeyConfigurationSchema {
     @Immutable
     public String[] columns;
 
-    /** Primary key affinity columns names. */
+    /** Primary key colocation columns names. */
     @Value(hasDefault = true)
     @Immutable
-    public String[] affinityColumns = new String[0];
+    public String[] colocationColumns = new String[0];
 }

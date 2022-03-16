@@ -1,0 +1,218 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace Apache.Ignite.Tests
+{
+    using System.Collections.Generic;
+    using System.Threading.Tasks;
+    using Ignite.Table;
+    using NUnit.Framework;
+
+    /// <summary>
+    /// Tests client behavior with different <see cref="IgniteClientConfiguration.RetryPolicy"/> settings.
+    /// </summary>
+    public class RetryPolicyTests
+    {
+        private const int IterCount = 100;
+
+        [Test]
+        public async Task TestFailoverWithRetryPolicyCompletesOperationWithoutException()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new RetryAllPolicy { RetryLimit = 1 }
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (int i = 0; i < IterCount; i++)
+            {
+                await client.Tables.GetTablesAsync();
+            }
+        }
+
+        [Test]
+        public async Task TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
+        {
+            var cfg = new IgniteClientConfiguration { RetryPolicy = RetryAllPolicy.Instance };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("bad-table"));
+            Assert.AreEqual(FakeServer.Err, ex!.Message);
+        }
+
+        [Test]
+        public async Task TestFailoverWithRetryPolicyThrowsOnRetryLimitExceeded()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new TestRetryPolicy { RetryLimit = 5 }
+            };
+
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            await client.Tables.GetTablesAsync();
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            Assert.AreEqual("Operation failed after 5 retries, examine InnerException for details.", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestZeroRetryLimitDoesNotLimitRetryCount()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new RetryAllPolicy { RetryLimit = 0 }
+            };
+
+            using var server = new FakeServer(reqId => reqId % 10 != 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (var i = 0; i < IterCount; i++)
+            {
+                await client.Tables.GetTablesAsync();
+            }
+        }
+
+        [Test]
+        public async Task TestRetryPolicyIsDisabledByDefault()
+        {
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync();
+
+            await client.Tables.GetTablesAsync();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+        }
+
+        [Test]
+        public async Task TestCustomRetryPolicyIsInvokedWithCorrectContext()
+        {
+            var testRetryPolicy = new TestRetryPolicy { RetryLimit = 3 };
+
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = testRetryPolicy
+            };
+
+            using var server = new FakeServer(reqId => reqId % 3 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (var i = 0; i < IterCount; i++)
+            {
+                await client.Tables.GetTablesAsync();
+            }
+
+            Assert.AreEqual(49, testRetryPolicy.Invocations.Count);
+
+            var inv = testRetryPolicy.Invocations[0];
+
+            Assert.AreNotSame(cfg, inv.Configuration);
+            Assert.AreSame(testRetryPolicy, inv.Configuration.RetryPolicy);
+            Assert.AreEqual(ClientOperationType.TablesGet, inv.Operation);
+            Assert.AreEqual(0, inv.Iteration);
+        }
+
+        [Test]
+        public async Task TestTableOperationWithoutTxIsRetried()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new TestRetryPolicy { RetryLimit = 1 }
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (int i = 0; i < IterCount; i++)
+            {
+                var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+                await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple());
+            }
+        }
+
+        [Test]
+        public async Task TestTableOperationWithTxIsNotRetried()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new TestRetryPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+            var tx = await client.Transactions.BeginAsync();
+
+            var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(tx, new IgniteTuple()));
+            StringAssert.StartsWith("Socket is closed due to an error", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestRetryOperationWithPayloadReusesPooledBufferCorrectly()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new TestRetryPolicy { RetryLimit = 1 }
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            for (int i = 0; i < IterCount; i++)
+            {
+                var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+                Assert.IsNotNull(table);
+            }
+        }
+
+        [Test]
+        public async Task TestRetryReadPolicyDoesNotRetryWriteOperations()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = new RetryReadPolicy()
+            };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+            Assert.ThrowsAsync<IgniteClientException>(async () => await table!.RecordBinaryView.UpsertAsync(null, new IgniteTuple()));
+        }
+
+        private class TestRetryPolicy : RetryLimitPolicy
+        {
+            private readonly List<IRetryPolicyContext> _invocations = new();
+
+            public IReadOnlyList<IRetryPolicyContext> Invocations => _invocations;
+
+            public override bool ShouldRetry(IRetryPolicyContext context)
+            {
+                _invocations.Add(context);
+
+                return base.ShouldRetry(context);
+            }
+        }
+    }
+}

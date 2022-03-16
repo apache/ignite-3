@@ -118,7 +118,11 @@ namespace Apache.Ignite.Tests.Proto
             writer.Write(Guid.Parse(JavaUuidString));
             writer.Flush();
 
-            var bytes = bufferWriter.GetWrittenMemory()[4..].ToArray().Select(b => (sbyte) b).ToArray();
+            var bytes = bufferWriter.GetWrittenMemory()[PooledArrayBufferWriter.ReservedPrefixSize..]
+                .ToArray()
+                .Select(b => (sbyte) b)
+                .ToArray();
+
             CollectionAssert.AreEqual(JavaUuidBytes, bytes);
         }
 
@@ -154,7 +158,7 @@ namespace Apache.Ignite.Tests.Proto
             var bufferWriter = new PooledArrayBufferWriter();
             write(bufferWriter);
 
-            var mem = bufferWriter.GetWrittenMemory()[4..]; // Skip length.
+            var mem = bufferWriter.GetWrittenMemory().Slice(PooledArrayBufferWriter.ReservedPrefixSize);
             return read(mem);
         }
     }

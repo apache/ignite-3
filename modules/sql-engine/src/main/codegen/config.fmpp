@@ -38,12 +38,14 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
     ]
 
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
     # not a reserved keyword, add it to the 'nonReservedKeywords' section.
     keywords: [
+      "COLOCATE"
       "SEMI"
       "IF"
       "REPLICAS"
@@ -135,6 +137,7 @@ data: {
       "COLLATE"
       "COLLATION"
       "COLLECT"
+      "COLOCATE"
       "COLUMN"
       "COMMIT"
       "CONDITION"

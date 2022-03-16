@@ -25,20 +25,20 @@ import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
  */
 public interface PrimaryKeyDefinitionBuilder extends SchemaObjectBuilder {
     /**
-     * Sets affinity columns.
+     * Sets colocation columns.
      *
-     * @param cols Affinity columns. Must be a valid subset of key columns.
+     * @param cols Colocation columns. Must be a valid subset of key columns.
      * @return Primary index builder.
      */
-    PrimaryKeyDefinitionBuilder withAffinityColumns(String... cols);
+    PrimaryKeyDefinitionBuilder withColocationColumns(String... cols);
 
     /**
-     * Sets affinity columns.
+     * Sets colocation columns.
      *
-     * @param cols Affinity columns. Must be a valid subset of key columns.
+     * @param cols Colocation columns. Must be a valid subset of key columns.
      * @return Primary index builder.
      */
-    PrimaryKeyDefinitionBuilder withAffinityColumns(List<String> cols);
+    PrimaryKeyDefinitionBuilder withColocationColumns(List<String> cols);
 
     /**
      * Sets primary key columns.

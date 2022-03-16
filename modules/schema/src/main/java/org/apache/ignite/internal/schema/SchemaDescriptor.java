@@ -44,8 +44,8 @@ public class SchemaDescriptor {
     /** Value columns in serialization order. */
     private final Columns valCols;
 
-    /** Affinity columns. */
-    private final Column[] affCols;
+    /** Colocation columns. */
+    private final Column[] colocationCols;
 
     /** Mapping 'Column name' -&gt; Column. */
     private final Map<String, Column> colMap;
@@ -69,10 +69,10 @@ public class SchemaDescriptor {
      *
      * @param ver     Schema version.
      * @param keyCols Key columns.
-     * @param affCols Affinity column names.
+     * @param colocationCols Colocation column names.
      * @param valCols Value columns.
      */
-    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] affCols, Column[] valCols) {
+    public SchemaDescriptor(int ver, Column[] keyCols, @Nullable String[] colocationCols, Column[] valCols) {
         assert keyCols.length > 0 : "No key columns are configured.";
 
         this.ver = ver;
@@ -89,8 +89,8 @@ public class SchemaDescriptor {
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
-        this.affCols = (ArrayUtils.nullOrEmpty(affCols)) ? keyCols :
-                Arrays.stream(affCols).map(colMap::get).toArray(Column[]::new);
+        this.colocationCols = (ArrayUtils.nullOrEmpty(colocationCols)) ? keyCols :
+                Arrays.stream(colocationCols).map(colMap::get).toArray(Column[]::new);
     }
 
     /**
@@ -164,12 +164,12 @@ public class SchemaDescriptor {
     }
 
     /**
-     * Get affinity columns.
+     * Get colocation columns.
      *
-     * @return Key affinity columns chunk.
+     * @return Key colocation columns chunk.
      */
-    public Column[] affinityColumns() {
-        return affCols;
+    public Column[] colocationColumns() {
+        return colocationCols;
     }
 
     /**

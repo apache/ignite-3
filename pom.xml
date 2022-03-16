@@ -48,6 +48,8 @@
         <module>modules/client</module>
         <module>modules/client-common</module>
         <module>modules/client-handler</module>
+        <module>modules/compute</module>
+        <module>modules/compute-api</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
@@ -64,6 +66,7 @@
         <module>modules/raft</module>
         <module>modules/raft-client</module>
         <module>modules/rest</module>
+        <module>modules/rest-api</module>
         <module>modules/rocksdb-common</module>
         <module>modules/runner</module>
         <module>modules/schema</module>

@@ -58,6 +58,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -630,6 +631,9 @@ public class KeyValueViewOperationsTest {
                 .thenReturn(DummyInternalTableImpl.ADDR);
 
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager());
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);

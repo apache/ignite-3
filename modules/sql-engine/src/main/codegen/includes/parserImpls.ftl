@@ -66,6 +66,32 @@ void CreateTableOption(List<SqlNode> list) :
     }
 }
 
+SqlDataTypeSpec DataTypeEx() :
+{
+    final SqlDataTypeSpec dt;
+}
+{
+    (
+        dt = DataType()
+    |
+        dt = IntervalType()
+    )
+    {
+        return dt;
+    }
+}
+
+SqlDataTypeSpec IntervalType() :
+{
+    final Span s;
+    final SqlIntervalQualifier intervalQualifier;
+}
+{
+    <INTERVAL> { s = span(); } intervalQualifier = IntervalQualifier() {
+        return new SqlDataTypeSpec(new IgniteSqlIntervalTypeNameSpec(intervalQualifier, s.end(this)), s.pos());
+    }
+}
+
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
@@ -77,7 +103,7 @@ void TableElement(List<SqlNode> list) :
     SqlIdentifier id = null;
 }
 {
-    id = SimpleIdentifier() type = DataType() nullable = NullableOptDefaultNull()
+    id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
     (
         <DEFAULT_> { s.add(this); } dflt = Literal() {
             strategy = ColumnStrategy.DEFAULT;
@@ -126,7 +152,7 @@ Boolean NullableOptDefaultNull() :
 }
 
 
-                SqlNodeList TableElementList() :
+SqlNodeList TableElementList() :
 {
     final Span s;
     final List<SqlNode> list = new ArrayList<SqlNode>();
@@ -147,20 +173,23 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final boolean ifNotExists;
     final SqlIdentifier id;
     final SqlNodeList columnList;
-    final SqlNodeList optionList;
+    SqlNodeList optionList = null;
+    SqlNodeList colocationColumns = null;
 }
 {
     <TABLE>
     ifNotExists = IfNotExistsOpt()
     id = CompoundIdentifier()
     columnList = TableElementList()
-    (
+    [
+        <COLOCATE> [<BY>] {s.add(this);}
+            colocationColumns = ParenthesizedSimpleIdentifierList()
+    ]
+    [
         <WITH> { s.add(this); } optionList = CreateTableOptionList()
-    |
-        { optionList = null; }
-    )
+    ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
     }
 }
 
@@ -257,7 +286,7 @@ void InfixCast(List<Object> list, ExprContext exprContext, Span s) :
     <INFIX_CAST> {
         checkNonQueryExpression(exprContext);
     }
-    dt = DataType() {
+    dt = DataTypeEx() {
         list.add(
             new SqlParserUtil.ToTreeListItem(SqlLibraryOperators.INFIX_CAST,
                 s.pos()));
@@ -293,7 +322,7 @@ SqlNode ColumnWithType() :
 }
 {
     id = SimpleIdentifier()
-    type = DataType()
+    type = DataTypeEx()
     [
         <NOT> <NULL> {
             nullable = false;

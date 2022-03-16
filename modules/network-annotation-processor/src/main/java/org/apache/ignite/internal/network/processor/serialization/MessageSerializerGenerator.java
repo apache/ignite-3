@@ -81,9 +81,11 @@ public class MessageSerializerGenerator {
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(boolean.class)
-                .addParameter(message.className(), "message")
+                .addParameter(message.className(), "msg")
                 .addParameter(MessageWriter.class, "writer")
                 .addException(MessageMappingException.class);
+
+        method.addStatement("$T message = ($T) msg", message.implClassName(), message.implClassName()).addCode("\n");
 
         List<ExecutableElement> getters = message.getters();
 
