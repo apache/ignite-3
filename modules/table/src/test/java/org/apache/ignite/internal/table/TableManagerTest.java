@@ -146,6 +146,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private LockManager lm;
 
+    /** Meta storage manager. */
+    @Mock
+    MetaStorageManager msm;
+
     /**
      * Revision listener holder. It uses for the test configurations:
      * <ul>
@@ -158,10 +162,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Revision updater. */
     private Consumer<Consumer<Long>> revisionUpdater;
-
-    /** Meta storage manager. */
-    @Mock
-    MetaStorageManager msm;
 
     /** Tables configuration. */
     @InjectConfiguration(

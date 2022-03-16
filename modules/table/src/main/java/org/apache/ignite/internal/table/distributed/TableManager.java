@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.utils.RebalanceUtil.updateAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -82,7 +83,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -218,10 +218,24 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         return CompletableFuture.completedFuture(new NodeStoppingException());
                     }
                     try {
-                        // Multi invoke supposed to be here
-                        metaStorageMgr.put(new ByteArray("some key"), null);
+                        TableConfiguration tableCfg = replicasCtx.config(TableConfiguration.class);
 
-                        return CompletableFuture.completedFuture(null);
+                        int partCount = tableCfg.partitions().value();
+
+                        int newReplicas = replicasCtx.newValue();
+
+                        CompletableFuture<?>[] futures = new CompletableFuture<?>[partCount];
+
+                        for (int i = 0; i < partCount; i++) {
+                            String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tableCfg).id().value(), i);
+
+                            futures[i] = updateAssignmentsKeys(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
+                                    replicasCtx.storageRevision(), metaStorageMgr);
+                        }
+
+                        return CompletableFuture.allOf(futures);
+                    } catch (NodeStoppingException e) {
+                        return CompletableFuture.completedFuture(new NodeStoppingException());
                     } finally {
                         busyLock.leaveBusy();
                     }
@@ -449,7 +463,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 try {
                     futures[partId] = raftMgr.updateRaftGroup(
-                            raftGroupName(tblId, partId),
+                            partitionRaftGroupName(tblId, partId),
                             newPartitionAssignment,
                             toAdd,
                             () -> new PartitionListener(tblId,
@@ -494,7 +508,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 table.internalTable().close();
 
                 for (int p = 0; p < table.internalTable().partitions(); p++) {
-                    raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
+                    raftMgr.stopRaftGroup(partitionRaftGroupName(table.tableId(), p));
                 }
             } catch (Exception e) {
                 LOG.error("Failed to stop a table {}", e, table.name());
@@ -666,7 +680,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             int partitions = assignment.size();
 
             for (int p = 0; p < partitions; p++) {
-                raftMgr.stopRaftGroup(raftGroupName(tblId, p));
+                raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
             }
 
             tablesVv.update(causalityToken, previousVal -> {
@@ -717,7 +731,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return A RAFT group name.
      */
     @NotNull
-    private String raftGroupName(UUID tblId, int partition) {
+    private String partitionRaftGroupName(UUID tblId, int partition) {
         return tblId + "_part_" + partition;
     }
 
@@ -1471,11 +1485,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             try {
                 futures[i] = raftMgr.changePeers(
-                        raftGroupName(tblId, p),
+                        partitionRaftGroupName(tblId, p),
                         oldPartitionAssignment,
                         newPartitionAssignment
                 ).exceptionally(th -> {
-                    LOG.error("Failed to update raft peers for group " + raftGroupName(tblId, p)
+                    LOG.error("Failed to update raft peers for group " + partitionRaftGroupName(tblId, p)
                             + "from " + oldPartitionAssignment + " to " + newPartitionAssignment, th);
                     return null;
                 });
