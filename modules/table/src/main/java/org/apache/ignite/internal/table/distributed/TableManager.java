@@ -318,22 +318,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         return CompletableFuture.completedFuture(new NodeStoppingException());
                                     }
                                     try {
-                                        String tableName = replicasCtx.name(TableConfiguration.class);
                                         TableConfiguration tableCfg = replicasCtx.config(TableConfiguration.class);
 
                                         int partCount = tableCfg.partitions().value();
 
                                         int newReplicas = replicasCtx.newValue();
 
-                                        for (int i = 0; i < partCount; i++) {
-                                            String partId = partitionRaftGroupName(
-                                                    ((ExtendedTableConfiguration) tableCfg).id().value(), i);
+                                        CompletableFuture<?>[] futures = new CompletableFuture<?>[partCount];
 
-                                            updateAssignmentsKeys(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
+                                        for (int i = 0; i < partCount; i++) {
+                                            String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tableCfg).id().value(), i);
+
+                                            futures[i] = updateAssignmentsKeys(partId, baselineMgr.baselineNodes(), partCount, newReplicas,
                                                     replicasCtx.storageRevision(), metaStorageMgr);
                                         }
 
-                                        return CompletableFuture.completedFuture(null);
+                                        return CompletableFuture.allOf(futures);
                                     } catch (NodeStoppingException e) {
                                         return CompletableFuture.completedFuture(new NodeStoppingException());
                                     } finally {

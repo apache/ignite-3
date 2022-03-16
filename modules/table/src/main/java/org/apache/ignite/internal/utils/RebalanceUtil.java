@@ -26,12 +26,15 @@ import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.If;
+import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -47,9 +50,10 @@ public class RebalanceUtil {
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
+     * @return Future representing result of updating keys in {@code metaStorageMgr}
      */
-    public static void updateAssignmentsKeys(String partId, Collection<ClusterNode> baselineNodes, int partitions, int replicas,
-            long revision, MetaStorageManager metaStorageMgr) {
+    public static @NotNull CompletableFuture<StatementResult> updateAssignmentsKeys(String partId, Collection<ClusterNode> baselineNodes,
+            int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
         ByteArray partAssignmentsPendingKey = partAssignmentsPendingKey(partId);
@@ -86,7 +90,7 @@ public class RebalanceUtil {
                                 ops(remove(partAssignmentsPlannedKey)).yield())),
                 ops().yield());
 
-        metaStorageMgr.invoke(iif);
+        return metaStorageMgr.invoke(iif);
     }
 
     /**
