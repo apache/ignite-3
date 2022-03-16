@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.rel.agg;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.maxPrefix;
 
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,7 +67,7 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
         }
 
         return Pair.of(nodeTraits.replace(collation),
-                ImmutableList.of(inputTraits.get(0).replace(collation)));
+                List.of(inputTraits.get(0).replace(collation)));
     }
 
     /** {@inheritDoc} */
@@ -81,13 +80,13 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
         IntList newCollationColls = maxPrefix(inputCollation.getKeys(), getGroupSet().asSet());
 
         if (newCollationColls.size() < getGroupSet().cardinality()) {
-            return ImmutableList.of();
+            return List.of();
         }
 
         List<RelFieldCollation> suitableCollations = inputCollation.getFieldCollations()
                 .stream().filter(k -> newCollationColls.contains(k.getFieldIndex())).collect(Collectors.toList());
 
-        return ImmutableList.of(Pair.of(
+        return List.of(Pair.of(
                 nodeTraits.replace(RelCollations.of(suitableCollations)),
                 inputTraits
         ));
