@@ -12,7 +12,7 @@ Components’ listeners that process these notifications, can be called in any o
 
 More formally, one can make a call for a component using causality token and receive a future, that will be completed when this component handles notification about storage revision update having the given causality token. The result of this future should be guaranteed to be consistent regarding the given token.
 
-This guarantees that notifications will be handled by component listeners in a proper order.
+This guarantees that notifications will be handled by component listeners in the proper order.
 
 It is also worth mentioning that local events should also be produced within a context of an appropriate causality token.
 
