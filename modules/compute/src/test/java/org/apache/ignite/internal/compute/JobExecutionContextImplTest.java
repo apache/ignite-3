@@ -15,10 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.internal.compute;
 
-/**
- * Context of {@link ComputeJob} execution.
- */
-public interface JobExecutionContext {
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.sameInstance;
+
+import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class JobExecutionContextImplTest {
+    @Mock
+    private Ignite ignite;
+
+    @Test
+    void returnsIgnite() {
+        JobExecutionContext context = new JobExecutionContextImpl(ignite);
+
+        assertThat(context.ignite(), is(sameInstance(ignite)));
+    }
 }
