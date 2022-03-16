@@ -40,8 +40,6 @@ import org.apache.ignite.internal.metastorage.common.command.GetAndPutCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveAllCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetAndRemoveCommand;
 import org.apache.ignite.internal.metastorage.common.command.GetCommand;
-import org.apache.ignite.internal.metastorage.common.command.GetEarliestRevision;
-import org.apache.ignite.internal.metastorage.common.command.GetRevision;
 import org.apache.ignite.internal.metastorage.common.command.IfInfo;
 import org.apache.ignite.internal.metastorage.common.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.common.command.MultiInvokeCommand;
@@ -98,18 +96,6 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         this.metaStorageRaftGrpSvc = metaStorageRaftGrpSvc;
         this.watchProcessor = new WatchProcessor();
         this.localNodeId = localNodeId;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Long> revision() {
-        return metaStorageRaftGrpSvc.run(new GetRevision());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Long> earliestRevision() {
-        return metaStorageRaftGrpSvc.run(new GetEarliestRevision());
     }
 
     /** {@inheritDoc} */

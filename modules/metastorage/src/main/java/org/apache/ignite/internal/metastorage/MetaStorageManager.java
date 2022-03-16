@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -47,8 +46,6 @@ import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.metastorage.event.MetastorageEvent;
-import org.apache.ignite.internal.metastorage.event.MetastorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -60,7 +57,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
-import org.apache.ignite.lang.Constants;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -86,12 +82,18 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 @SuppressWarnings("unused")
-public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEventParameters> implements IgniteComponent {
+public class MetaStorageManager implements IgniteComponent {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageManager.class);
 
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
+
+    /**
+     * Special key for the vault where the applied revision for {@link MetaStorageManager#storeEntries} operation is stored. This mechanism
+     * is needed for committing processed watches to {@link VaultManager}.
+     */
+    public static final ByteArray APPLIED_REV = ByteArray.fromString("applied_revision");
 
     /** Vault manager in order to commit processed watches with corresponding applied revision. */
     private final VaultManager vaultMgr;
@@ -327,40 +329,6 @@ public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEv
             }
 
             deployed = true;
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Retrieves a current revision.
-     *
-     * @return Revision.
-     */
-    public CompletableFuture<Long> revision() {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.revision());
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Retrieves the earliest available revision.
-     *
-     * @return Revision.
-     */
-    public CompletableFuture<Long> earliestRevision() {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.earliestRevision());
         } finally {
             busyLock.leaveBusy();
         }
@@ -905,7 +873,7 @@ public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEv
      * Returns applied revision for {@link VaultManager#putAll} operation.
      */
     private long appliedRevision() {
-        byte[] appliedRevision = vaultMgr.get(Constants.APPLIED_REV).join().value();
+        byte[] appliedRevision = vaultMgr.get(APPLIED_REV).join().value();
 
         return appliedRevision == null ? 0L : bytesToLong(appliedRevision);
     }
@@ -942,11 +910,13 @@ public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEv
     private void storeEntries(Collection<IgniteBiTuple<ByteArray, byte[]>> entries, long revision) {
         Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(entries.size() + 1);
 
-        batch.put(Constants.APPLIED_REV, longToBytes(revision));
+        batch.put(APPLIED_REV, longToBytes(revision));
 
         entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-        long appliedRevision = vaultMgr.getRevision().join();
+        byte[] appliedRevisionBytes = vaultMgr.get(APPLIED_REV).join().value();
+
+        long appliedRevision = appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
 
         if (revision <= appliedRevision) {
             throw new IgniteInternalException(String.format(
@@ -956,8 +926,6 @@ public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEv
         }
 
         vaultMgr.putAll(batch).join();
-
-        fireEvent(MetastorageEvent.REVISION_APPLIED, new MetastorageEventParameters(revision), null);
     }
 
     /**
