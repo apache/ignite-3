@@ -10,7 +10,7 @@ Cluster-wide events, such as, for example, configuration changes or Metastorage 
 
 Components’ listeners that process these notifications, can be called in any order. So there may be a situation when a listener registered in component A tries to call component B, but component B is not ready because its listeners haven’t received a corresponding notification yet. The listener of component A needs to make sure that component B is in a consistent up-to-date state, so it needs to await this state, and then continue the execution of a code dependent on component B. It is achieved by including a causality token to a call to component B. The token should be taken from notification. The call to component B now returns a future. This future is completed when component B receives notifications that have a causality token in the context of which the future was created. After completion of this future, the listener in component A can continue working – of course, it should happen asynchronously.
 
-More formally, one can make a call for a component using causality token and receive a future, that will be completed when this component handles notification about storage revision update having the given causality token. The result of this future should be guaranteed to be consistent regarding the given token.
+More formally, one can make a call for a component using a causality token and receive a future, that will be completed when this component handles notification about a storage revision update having the given causality token. The result of this future should be guaranteed to be consistent regarding the given token.
 
 This guarantees that notifications will be handled by component listeners in the proper order.
 
