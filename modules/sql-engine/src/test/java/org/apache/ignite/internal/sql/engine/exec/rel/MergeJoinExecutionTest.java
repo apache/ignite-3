@@ -115,39 +115,44 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest {
         Object[][] right = {
                 {1, "Core"},
                 {1, "OLD_Core"},
+                {1, "NEW_Core"},
                 {2, "SQL"},
                 {3, "Arch"}
         };
 
-        verifyJoin(left, right, INNER, new Object[][]{
+        verifyJoin(left, right, INNER, new Object[][] {
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"}
         });
-        verifyJoin(left, right, LEFT, new Object[][]{
+        verifyJoin(left, right, LEFT, new Object[][] {
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"}
         });
-        verifyJoin(left, right, RIGHT, new Object[][]{
+        verifyJoin(left, right, RIGHT, new Object[][] {
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"},
                 {null, null, "Arch"}
         });
-        verifyJoin(left, right, FULL, new Object[][]{
+        verifyJoin(left, right, FULL, new Object[][] {
                 {1, "Roman", null},
                 {2, "Igor", "Core"},
                 {2, "Igor", "OLD_Core"},
+                {2, "Igor", "NEW_Core"},
                 {3, "Alexey", "SQL"},
                 {null, null, "Arch"}
         });
-        verifyJoin(left, right, SEMI, new Object[][]{
+        verifyJoin(left, right, SEMI, new Object[][] {
                 {2, "Igor"},
                 {3, "Alexey"}
         });
-        verifyJoin(left, right, ANTI, new Object[][]{
+        verifyJoin(left, right, ANTI, new Object[][] {
                 {1, "Roman"}
         });
     }
