@@ -208,7 +208,11 @@ public class ConnectionManager {
      * @param channel Channel from client to this {@link #server}.
      */
     private void onNewIncomingChannel(NettySender channel) {
-        channels.put(channel.consistentId(), channel);
+        NettySender oldChannel = channels.put(channel.consistentId(), channel);
+
+        if (oldChannel != null) {
+            oldChannel.close();
+        }
     }
 
     /**
@@ -259,6 +263,8 @@ public class ConnectionManager {
                 clients.values().stream().map(NettyClient::stop),
                 Stream.of(server.stop())
         );
+
+        channels.values().forEach(NettySender::close);
 
         CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
 
