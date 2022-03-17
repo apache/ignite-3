@@ -179,7 +179,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
         if (curSchema == null) {
             throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + row.schemaVersion());
-        } else if (curSchema.version() == row.schemaVersion()) {
+        } else if (row.schemaVersion() == 0 || curSchema.version() == row.schemaVersion()) {
             return new Row(curSchema, row);
         }
 
