@@ -771,7 +771,7 @@ public class Row implements BinaryRow, SchemaAware {
     }
 
     /**
-     * @return Either key or value slice.
+     * Returns either key or value slice.
      */
     private ByteBuffer chunk(boolean isKeyCol) {
         return isKeyCol ? keySlice : valueSlice;

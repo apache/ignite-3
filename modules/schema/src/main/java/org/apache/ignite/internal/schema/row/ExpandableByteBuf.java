@@ -311,9 +311,9 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * GEt underlying buffer.
+     * Get underlying buffer.
      */
     public ByteBuffer unwrap() {
-        return buf.duplicate().limit(len).order(ByteOrder.LITTLE_ENDIAN);
+        return ByteBuffer.wrap(Arrays.copyOf(arr, len)).order(ByteOrder.LITTLE_ENDIAN);
     }
 }

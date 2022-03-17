@@ -22,8 +22,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 /**
- * Binary row interface. Data layout is the following:
- * <br/>| Version (2 bytes) | Hash (4 bytes) | Key chunk size (4 bytes) | Key payload | Value chunk size (4 bytes) | Value payload |
+ * Binary row interface. Data layout is described in packages' {@code README.md}.
  */
 public interface BinaryRow {
     /** Size of chunk length field. */

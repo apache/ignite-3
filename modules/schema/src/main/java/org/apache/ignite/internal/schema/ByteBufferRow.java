@@ -47,6 +47,8 @@ public class ByteBufferRow implements BinaryRow {
      */
     public ByteBufferRow(ByteBuffer buf) {
         assert buf.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buf.position() == 0;
+        assert buf.limit() == buf.capacity();
 
         this.buf = buf;
     }
