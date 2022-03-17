@@ -36,6 +36,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
@@ -148,6 +149,9 @@ public class IgniteImpl implements Ignite {
     @Nullable
     private transient IgniteCompute compute;
 
+    /** JVM pause detector. */
+    private final LongJvmPauseDetector longJvmPauseDetector;
+
     /**
      * The Constructor.
      *
@@ -257,6 +261,8 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry(),
                 nettyBootstrapFactory
         );
+
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
     }
 
     private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
@@ -304,6 +310,12 @@ public class IgniteImpl implements Ignite {
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
+            doStartComponent(
+                    name,
+                    startedComponents,
+                    longJvmPauseDetector
+            );
+
             // Vault startup.
             doStartComponent(
                     name,
@@ -373,8 +385,8 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
-            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
+            doStopNode(List.of(longJvmPauseDetector, vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr,
+                    baselineMgr, distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
         }
     }
 
