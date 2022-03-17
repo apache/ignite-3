@@ -259,12 +259,12 @@ public class ConnectionManager {
             return;
         }
 
-        Stream<CompletableFuture<Void>> stream = Stream.concat(
-                clients.values().stream().map(NettyClient::stop),
-                Stream.of(server.stop())
+        Stream<CompletableFuture<Void>> stream = Stream.concat(Stream.concat(
+                    clients.values().stream().map(NettyClient::stop),
+                    Stream.of(server.stop())
+                ),
+                channels.values().stream().map(NettySender::closeAsync)
         );
-
-        channels.values().forEach(NettySender::close);
 
         CompletableFuture<Void> stopFut = CompletableFuture.allOf(stream.toArray(CompletableFuture<?>[]::new));
 
