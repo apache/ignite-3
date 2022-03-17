@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForFileObject;
+import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForJavaFileObject;
 import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.CONFIG_FILE_NAME;
 import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.readClassName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,14 +37,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import javax.tools.DiagnosticCollector;
-import javax.tools.FileObject;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileManager.Location;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
@@ -64,9 +61,11 @@ public class ItTransferableObjectProcessorIncrementalTest {
     /** File manager for incremental compilation. */
     private InMemoryJavaFileManager fileManager;
 
+    /** Javac diagnostic collector. */
+    private DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
+
     @BeforeEach
     void setUp() {
-        DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
         JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
         StandardJavaFileManager standardFileManager = systemJavaCompiler.getStandardFileManager(diagnosticCollector, Locale.getDefault(),
                 StandardCharsets.UTF_8);
@@ -84,7 +83,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
         var compilationObjects1 = new ArrayList<JavaFileObject>();
         JavaFileObject messageGroupObject = createMessageGroup(testMessageGroup, testMessageGroupName);
         compilationObjects1.add(messageGroupObject);
-        compilationObjects1.add(createTransferable(testMessageClass));
+        compilationObjects1.add(createTransferable(testMessageClass, 0));
 
         Map<URI, JavaFileObject> compilation1 = compile(compilationObjects1);
 
@@ -101,7 +100,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
             assertNull(bufferedReader.readLine());
         }
 
-        URI factoryUri = uriForJavaClass(
+        URI factoryUri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
                 RESOURCE_PACKAGE_NAME + "." + testMessageGroupName + "Factory",
                 Kind.SOURCE
@@ -113,7 +112,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         List<JavaFileObject> compilationObjects2 = new ArrayList<>();
         compilationObjects2.add(createNonTransferable(testMessageClass));
-        compilationObjects2.add(createTransferable(testMessageClass2));
+        compilationObjects2.add(createTransferable(testMessageClass2, 0));
 
         Map<URI, JavaFileObject> compilation2 = compile(compilationObjects2);
 
@@ -146,7 +145,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
         var compilationObjects1 = new ArrayList<JavaFileObject>();
         JavaFileObject messageGroupObject = createMessageGroup(testMessageGroup, testMessageGroupName);
         compilationObjects1.add(messageGroupObject);
-        compilationObjects1.add(createTransferable(testMessageClass));
+        compilationObjects1.add(createTransferable(testMessageClass, 0));
 
         Map<URI, JavaFileObject> compilation1 = compile(compilationObjects1);
 
@@ -163,7 +162,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
             assertNull(bufferedReader.readLine());
         }
 
-        URI factoryUri = uriForJavaClass(
+        URI factoryUri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
                 RESOURCE_PACKAGE_NAME + "." + testMessageGroupName + "Factory",
                 Kind.SOURCE
@@ -174,7 +173,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
         assertTrue(messageFactory1.contains("TestMessageImpl.builder();"));
 
         List<JavaFileObject> compilationObjects2 = new ArrayList<>();
-        compilationObjects2.add(createTransferable(testMessageClass2));
+        compilationObjects2.add(createTransferable(testMessageClass2, 1));
 
         Map<URI, JavaFileObject> compilation2 = compile(compilationObjects2);
 
@@ -211,7 +210,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         var compilationObjects1 = new ArrayList<JavaFileObject>();
         compilationObjects1.add(createMessageGroup(testMessageGroup, testMessageGroupName));
-        compilationObjects1.add(createTransferable(testMessageClass));
+        compilationObjects1.add(createTransferable(testMessageClass, 0));
 
         Map<URI, JavaFileObject> compilation1 = compile(compilationObjects1);
 
@@ -228,7 +227,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
             assertNull(bufferedReader.readLine());
         }
 
-        URI factory1Uri = uriForJavaClass(
+        URI factory1Uri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
                 RESOURCE_PACKAGE_NAME + "." + testMessageGroupName + "Factory",
                 Kind.SOURCE
@@ -240,7 +239,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         List<JavaFileObject> compilationObjects2 = new ArrayList<>();
         compilationObjects2.add(createMessageGroup(testMessageGroup2, testMessageGroupName2));
-        compilationObjects2.add(createTransferable(testMessageClass));
+        compilationObjects2.add(createTransferable(testMessageClass, 0));
 
         Map<URI, JavaFileObject> compilation2 = compile(compilationObjects2);
 
@@ -257,7 +256,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
             assertNull(bufferedReader.readLine());
         }
 
-        URI factory2Uri = uriForJavaClass(
+        URI factory2Uri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
                 RESOURCE_PACKAGE_NAME + "." + testMessageGroupName2 + "Factory",
                 Kind.SOURCE
@@ -281,14 +280,14 @@ public class ItTransferableObjectProcessorIncrementalTest {
         }
     }
 
-    private JavaFileObject createTransferable(String className) {
+    private JavaFileObject createTransferable(String className, int msgId) {
         @Language("JAVA") String code =
                 "package " + RESOURCE_PACKAGE_NAME + ";\n"
                   + "import org.apache.ignite.network.NetworkMessage;\n"
                   + "import org.apache.ignite.network.annotations.Transferable;\n"
                     + "\n"
                 + "\n"
-                + "@Transferable(value = 0)\n"
+                + "@Transferable(value = " + msgId + ")\n"
                 + "public interface " + className + " extends NetworkMessage {\n"
                     + "    String foo();\n"
                     + "}\n";
@@ -321,9 +320,9 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
     private Map<URI, JavaFileObject> compile(Iterable<? extends JavaFileObject> files) {
         JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
-        DiagnosticCollector<JavaFileObject> diagnosticListener = new DiagnosticCollector<>();
+
         CompilationTask task = systemJavaCompiler
-                .getTask(null, fileManager, diagnosticListener, Collections.emptyList(), Set.of(), files);
+                .getTask(null, fileManager, diagnosticCollector, Collections.emptyList(), Set.of(), files);
 
         task.setProcessors(Collections.singleton(new TransferableObjectProcessor()));
 
@@ -331,22 +330,10 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         assertTrue(result);
 
-        Iterable<JavaFileObject> generatedFiles = fileManager.getOutputFiles();
-
-        return StreamSupport.stream(generatedFiles.spliterator(), false)
-                .collect(Collectors.toMap(FileObject::toUri, Function.identity()));
+        return fileManager.getOutputFiles();
     }
-
 
     private static URI uriForMessagesFile() {
-        return uriForObject(StandardLocation.CLASS_OUTPUT, CONFIG_FILE_NAME, Kind.OTHER);
-    }
-
-    private static URI uriForJavaClass(Location location, String className, Kind kind) {
-        return URI.create("mem:///" + location.getName() + '/' + className.replace('.', '/') + kind.extension);
-    }
-
-    private static URI uriForObject(Location location, String fileName, Kind kind) {
-        return URI.create("mem:///" + location.getName() + '/' + fileName + kind.extension);
+        return uriForFileObject(StandardLocation.CLASS_OUTPUT, "", CONFIG_FILE_NAME);
     }
 }

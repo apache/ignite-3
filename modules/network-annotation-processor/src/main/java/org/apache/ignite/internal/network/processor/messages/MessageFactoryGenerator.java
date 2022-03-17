@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
-import static org.apache.ignite.internal.network.processor.MessageClass.asMethodName;
-import static org.apache.ignite.internal.network.processor.MessageClass.builderClassName;
-import static org.apache.ignite.internal.network.processor.MessageClass.implClassName;
-
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
@@ -28,6 +24,7 @@ import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
+import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 
 /**
@@ -60,7 +57,7 @@ public class MessageFactoryGenerator {
      * @param messages Network Messages from a module
      * @return {@code TypeSpec} of the generated message factory
      */
-    public TypeSpec generateMessageFactory(List<ClassName> messages) {
+    public TypeSpec generateMessageFactory(List<MessageClass> messages) {
         ClassName factoryName = messageGroup.messageFactoryClassName();
 
         processingEnvironment.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + factoryName);
@@ -69,15 +66,16 @@ public class MessageFactoryGenerator {
                 .addModifiers(Modifier.PUBLIC)
                 .addOriginatingElement(messageGroup.element());
 
-        for (ClassName messageClassName : messages) {
-            MethodSpec buildMethod = MethodSpec.methodBuilder(asMethodName(messageClassName))
+        for (MessageClass message : messages) {
+            MethodSpec buildMethod = MethodSpec.methodBuilder(message.asMethodName())
                     .addModifiers(Modifier.PUBLIC)
-                    .returns(builderClassName(messageClassName))
-                    .addStatement("return $T.builder()", implClassName(messageClassName))
+                    .returns(message.builderClassName())
+                    .addStatement("return $T.builder()", message.implClassName())
                     .build();
 
             messageFactory
-                    .addMethod(buildMethod);
+                    .addMethod(buildMethod)
+                    .addOriginatingElement(message.element());
         }
 
         return messageFactory.build();

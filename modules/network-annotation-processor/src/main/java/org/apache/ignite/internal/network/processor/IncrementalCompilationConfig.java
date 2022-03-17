@@ -17,29 +17,34 @@
 
 package org.apache.ignite.internal.network.processor;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Collectors.toList;
 
 import com.squareup.javapoet.ClassName;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
 import java.nio.file.NoSuchFileException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Incremental configuration of the {@link TransferableObjectProcessor}.
  * Holds data between (re-)compilations.
+ * <br>
+ * The serialized format of this config is as follows:
+ * <br>
+ * First line: message group class' name
+ * <br>
+ * Next lines: message class' names
+ * <br>
+ * Every class name is written as {@code packageName + " " + simpleName1 + " " + ... + simpleNameN}, e.g.
+ * "org.apache.ignite OuterClass InnerClass EvenMoreInnerClass".
  */
 class IncrementalCompilationConfig {
     /** Incremental compilation configuration file name. */
@@ -53,7 +58,7 @@ class IncrementalCompilationConfig {
 
     IncrementalCompilationConfig(ClassName messageGroupClassName, List<ClassName> messageClasses) {
         this.messageGroupClassName = messageGroupClassName;
-        this.messageClasses = messageClasses;
+        this.messageClasses = List.copyOf(messageClasses);
     }
 
     /**
@@ -71,17 +76,12 @@ class IncrementalCompilationConfig {
             throw new ProcessingException(e.getMessage());
         }
 
-        try (OutputStream out = fileObject.openOutputStream()) {
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, UTF_8));
+        try (BufferedWriter writer = new BufferedWriter(fileObject.openWriter())) {
             writeClassName(writer, messageGroupClassName);
-            writer.newLine();
 
             for (ClassName messageClassName : messageClasses) {
                 writeClassName(writer, messageClassName);
-                writer.newLine();
             }
-
-            writer.flush();
         } catch (IOException e) {
             throw new ProcessingException(e.getMessage());
         }
@@ -92,6 +92,7 @@ class IncrementalCompilationConfig {
      *
      * @param processingEnv Processing environment.
      */
+    @Nullable
     static IncrementalCompilationConfig readConfig(ProcessingEnvironment processingEnv) {
         Filer filer = processingEnv.getFiler();
 
@@ -103,8 +104,7 @@ class IncrementalCompilationConfig {
             return null;
         }
 
-        try (Reader reader = resource.openReader(true)) {
-            BufferedReader bufferedReader = new BufferedReader(reader);
+        try (BufferedReader bufferedReader = new BufferedReader(resource.openReader(true))) {
             String messageClassNameString = bufferedReader.readLine();
 
             if (messageClassNameString == null) {
@@ -113,15 +113,9 @@ class IncrementalCompilationConfig {
 
             ClassName messageClassName = readClassName(messageClassNameString);
 
-            List<ClassName> message = new ArrayList<>();
+            List<ClassName> messages = bufferedReader.lines().map(IncrementalCompilationConfig::readClassName).collect(toList());
 
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                ClassName className = readClassName(line);
-                message.add(className);
-            }
-
-            return new IncrementalCompilationConfig(messageClassName, message);
+            return new IncrementalCompilationConfig(messageClassName, messages);
         } catch (FileNotFoundException | NoSuchFileException e) {
             return null;
         } catch (IOException e) {
@@ -136,22 +130,18 @@ class IncrementalCompilationConfig {
      * @param className Class name.
      * @throws IOException If failed.
      */
-    private void writeClassName(BufferedWriter writer, ClassName className) throws IOException {
+    private static void writeClassName(BufferedWriter writer, ClassName className) throws IOException {
         writer.write(className.packageName());
         writer.write(' ');
 
-        List<String> enclosingSimpleNames = new ArrayList<>();
-        ClassName enclosing = className;
-        while ((enclosing = enclosing.enclosingClassName()) != null) {
-            enclosingSimpleNames.add(enclosing.simpleName());
-        }
-        Collections.reverse(enclosingSimpleNames);
-        for (String enclosingSimpleName : enclosingSimpleNames) {
+        List<String> simpleNames = className.simpleNames();
+
+        for (String enclosingSimpleName : simpleNames) {
             writer.write(enclosingSimpleName);
             writer.write(' ');
         }
 
-        writer.write(className.simpleName());
+        writer.newLine();
     }
 
     /**
@@ -162,15 +152,14 @@ class IncrementalCompilationConfig {
      */
     static ClassName readClassName(String line) {
         String[] split = line.split(" ");
+
         String packageName = split[0];
-        String simpleName = split[1];
-        String[] simpleNames = {};
 
-        if (split.length > 2) {
-            simpleNames = Arrays.copyOfRange(split, 2, split.length);
-        }
+        String firstSimpleName = split[1];
 
-        return ClassName.get(packageName, simpleName, simpleNames);
+        String[] simpleNames = split.length > 2 ? Arrays.copyOfRange(split, 2, split.length) : new String[0];
+
+        return ClassName.get(packageName, firstSimpleName, simpleNames);
     }
 
     ClassName messageGroupClassName() {

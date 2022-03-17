@@ -147,13 +147,6 @@ public class MessageClass {
      * @return Class name that the generated SerializationFactory should have.
      */
     public ClassName serializationFactoryName() {
-        return serializationFactoryName(className);
-    }
-
-    /**
-     * Implementation of the {@link MessageClass#serializationFactoryName()}.
-     */
-    public static ClassName serializationFactoryName(ClassName className) {
         return ClassName.get(className.packageName(), className.simpleName() + "SerializationFactory");
     }
 
@@ -163,13 +156,6 @@ public class MessageClass {
      * @return Class name that the generated Network Message implementation should have.
      */
     public ClassName implClassName() {
-        return implClassName(className);
-    }
-
-    /**
-     * Implementation of the {@link MessageClass#implClassName()}.
-     */
-    public static ClassName implClassName(ClassName className) {
         return ClassName.get(className.packageName(), className.simpleName() + "Impl");
     }
 
@@ -179,13 +165,6 @@ public class MessageClass {
      * @return Class name that the generated Builder interface should have.
      */
     public ClassName builderClassName() {
-        return builderClassName(className);
-    }
-
-    /**
-     * Implementation of the {@link MessageClass#builderClassName()}.
-     */
-    public static ClassName builderClassName(ClassName className) {
         return ClassName.get(className.packageName(), className.simpleName() + "Builder");
     }
 
@@ -195,13 +174,6 @@ public class MessageClass {
      * @return name of the factory method that should be used by the message factories
      */
     public String asMethodName() {
-        return asMethodName(className);
-    }
-
-    /**
-     * Implementation of the {@link MessageClass#asMethodName()}.
-     */
-    public static String asMethodName(ClassName className) {
         return decapitalize(className.simpleName());
     }
 
@@ -228,7 +200,7 @@ public class MessageClass {
      *
      * @return A copy of the given string with the first character converted to lower case.
      */
-    public static String decapitalize(String str) {
+    private static String decapitalize(String str) {
         return Character.toLowerCase(str.charAt(0)) + str.substring(1);
     }
 

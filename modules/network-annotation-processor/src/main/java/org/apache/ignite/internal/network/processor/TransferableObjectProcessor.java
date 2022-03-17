@@ -23,10 +23,11 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.processing.AbstractProcessor;
@@ -51,6 +52,7 @@ import org.apache.ignite.network.annotations.MessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
 import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
+import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
 import org.jetbrains.annotations.Nullable;
 
@@ -89,61 +91,55 @@ public class TransferableObjectProcessor extends AbstractProcessor {
 
             MessageGroupWrapper messageGroup = getMessageGroup(roundEnv, currentConfig);
 
-            if (currentConfig == null) {
-                List<ClassName> messageClassNames = messages.stream()
-                        .map(MessageClass::className)
-                        .collect(toList());
-
-                currentConfig = new IncrementalCompilationConfig(ClassName.get(messageGroup.element()), messageClassNames);
-            } else {
-                List<ClassName> messageClassesFromConfig = currentConfig.messageClasses();
-
-                for (int i = messageClassesFromConfig.size() - 1; i >= 0; i--) {
-                    ClassName className = messageClassesFromConfig.get(i);
-                    Elements elementUtils = processingEnv.getElementUtils();
-
-                    TypeElement elementFromConfig = elementUtils.getTypeElement(className.canonicalName());
-
-                    if (elementFromConfig == null || elementFromConfig.getAnnotation(Transferable.class) == null) {
-                        messageClassesFromConfig.remove(i);
-                    }
-                }
-
-                for (MessageClass message : messages) {
-                    ClassName messageClass = message.className();
-
-                    if (!messageClassesFromConfig.contains(messageClass)) {
-                        messageClassesFromConfig.add(messageClass);
-                    }
-                }
+            if (currentConfig != null) {
+                messages = mergeMessages(currentConfig, messages);
             }
 
-            currentConfig.writeConfig(processingEnv);
+            updateConfig(messages, messageGroup);
 
             validateMessages(messages);
 
             generateMessageImpls(messages, messageGroup);
 
             generateSerializers(messages, messageGroup);
-
-            var initializerGenerator = new RegistryInitializerGenerator(processingEnv, messageGroup);
-
-            // Generate a registry initializer for all the messages inside the current compilation unit (incremental-aware)
-            TypeSpec registryInitializer = initializerGenerator.generateRegistryInitializer(currentConfig.messageClasses());
-
-            writeToFile(messageGroup.packageName(), registryInitializer);
-
-            var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
-
-            // Generate a factory for all the messages inside the current compilation unit (incremental-aware)
-            TypeSpec messageFactory = messageFactoryGenerator.generateMessageFactory(currentConfig.messageClasses());
-
-            writeToFile(messageGroup.packageName(), messageFactory);
         } catch (ProcessingException e) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, e.getMessage(), e.getElement());
         }
 
         return true;
+    }
+
+    private void updateConfig(List<MessageClass> messages, MessageGroupWrapper messageGroup) {
+        List<ClassName> messageClassNames = messages.stream()
+                .map(MessageClass::className)
+                .collect(toList());
+
+        var config = new IncrementalCompilationConfig(ClassName.get(messageGroup.element()), messageClassNames);
+
+        config.writeConfig(processingEnv);
+    }
+
+    private List<MessageClass> mergeMessages(IncrementalCompilationConfig currentConfig, List<MessageClass> messages) {
+        List<ClassName> messageClassesFromConfig = new ArrayList<>(currentConfig.messageClasses());
+        List<MessageClass> mergedMessages = new ArrayList<>();
+
+        for (ClassName messageClass : messageClassesFromConfig) {
+            Elements elementUtils = processingEnv.getElementUtils();
+
+            TypeElement elementFromConfig = elementUtils.getTypeElement(messageClass.canonicalName());
+
+            if (elementFromConfig != null && elementFromConfig.getAnnotation(Transferable.class) != null) {
+                mergedMessages.add(new MessageClass(processingEnv, elementFromConfig));
+            }
+        }
+
+        for (MessageClass message : messages) {
+            if (!mergedMessages.contains(message)) {
+                mergedMessages.add(message);
+            }
+        }
+
+        return mergedMessages;
     }
 
     /**
@@ -152,11 +148,13 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      * <ol>
      *     <li>Builder interfaces;</li>
      *     <li>Network Message and Builder implementations;</li>
+     *     <li>Message factory for all generated messages.</li>
      * </ol>
      */
     private void generateMessageImpls(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
         var messageBuilderGenerator = new MessageBuilderGenerator(processingEnv, messageGroup);
         var messageImplGenerator = new MessageImplGenerator(processingEnv, messageGroup);
+        var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
 
         for (MessageClass message : annotatedMessages) {
             try {
@@ -173,6 +171,11 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
             }
         }
+
+        // generate a factory for all messages inside the current compilation unit
+        TypeSpec messageFactory = messageFactoryGenerator.generateMessageFactory(annotatedMessages);
+
+        writeToFile(messageGroup.packageName(), messageFactory);
     }
 
     /**
@@ -182,6 +185,8 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      *     <li>{@link MessageSerializer};</li>
      *     <li>{@link MessageDeserializer};</li>
      *     <li>{@link MessageSerializationFactory};</li>
+     *     <li>Helper class for adding all generated serialization factories to a
+     *     {@link MessageSerializationRegistry}.</li>
      * </ol>
      */
     private void generateSerializers(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
@@ -193,9 +198,12 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             return;
         }
 
+        var factories = new HashMap<MessageClass, TypeSpec>();
+
         var serializerGenerator = new MessageSerializerGenerator(processingEnv, messageGroup);
         var deserializerGenerator = new MessageDeserializerGenerator(processingEnv, messageGroup);
         var factoryGenerator = new SerializationFactoryGenerator(processingEnv, messageGroup);
+        var initializerGenerator = new RegistryInitializerGenerator(processingEnv, messageGroup);
 
         for (MessageClass message : serializableMessages) {
             try {
@@ -213,10 +221,16 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 TypeSpec factory = factoryGenerator.generateFactory(message, serializer, deserializer);
 
                 writeToFile(message.packageName(), factory);
+
+                factories.put(message, factory);
             } catch (ProcessingException e) {
                 throw new ProcessingException(e.getMessage(), e.getCause(), message.element());
             }
         }
+
+        TypeSpec registryInitializer = initializerGenerator.generateRegistryInitializer(factories);
+
+        writeToFile(messageGroup.packageName(), registryInitializer);
     }
 
     /**
@@ -308,7 +322,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             TypeElement groupFromConfig = elementUtils.getTypeElement(config.messageGroupClassName().canonicalName());
 
             // TypeElement is not overriding equals, but same type elements should be equal by pointer
-            if (groupFromConfig != null && !Objects.equals(groupFromConfig, groupElement)) {
+            if (groupFromConfig != null && groupFromConfig != groupElement) {
                 config.messageGroupClassName(ClassName.get(groupElement));
             }
         }
