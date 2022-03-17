@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,11 +53,23 @@ import org.jetbrains.annotations.NotNull;
  * @see TemporalTypesHelper
  */
 public class Row implements BinaryRow, SchemaAware {
+    /**
+     * Null map offset.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    private static final int NULLMAP_CHUNK_OFFSET = CHUNK_HEADER_SIZE;
+
     /** Schema descriptor. */
     protected final SchemaDescriptor schema;
 
     /** Binary row. */
     private final BinaryRow row;
+
+    /** Cached key slice byte buffer. */
+    private final ByteBuffer keySlice;
+
+    /** Cached value slice byte buffer. */
+    private final ByteBuffer valueSlice;
 
     /**
      * Constructor.
@@ -67,6 +80,8 @@ public class Row implements BinaryRow, SchemaAware {
     public Row(SchemaDescriptor schema, BinaryRow row) {
         this.row = row;
         this.schema = schema;
+        keySlice = row.keySlice();
+        valueSlice = row.valueSlice();
     }
 
     /**
@@ -104,9 +119,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public byte byteValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT8);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? 0 : readByte(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT8, isKeyCol);
+
+        return off < 0 ? 0 : chunk(isKeyCol).get(offset(off));
     }
 
     /**
@@ -117,9 +134,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Byte byteValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT8);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? null : readByte(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT8, isKeyCol);
+
+        return off < 0 ? null : chunk(isKeyCol).get(offset(off));
     }
 
     /**
@@ -130,9 +149,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public short shortValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT16);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? 0 : readShort(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT16, isKeyCol);
+
+        return off < 0 ? 0 : chunk(isKeyCol).getShort(offset(off));
     }
 
     /**
@@ -143,9 +164,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Short shortValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT16);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? null : readShort(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT16, isKeyCol);
+
+        return off < 0 ? null : chunk(isKeyCol).getShort(offset(off));
     }
 
     /**
@@ -156,9 +179,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public int intValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT32);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? 0 : readInteger(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT32, isKeyCol);
+
+        return off < 0 ? 0 : chunk(isKeyCol).getInt(offset(off));
     }
 
     /**
@@ -169,9 +194,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Integer intValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT32);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? null : readInteger(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT32, isKeyCol);
+
+        return off < 0 ? null : chunk(isKeyCol).getInt(offset(off));
     }
 
     /**
@@ -182,9 +209,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public long longValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT64);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? 0 : readLong(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT64, isKeyCol);
+
+        return off < 0 ? 0 : chunk(isKeyCol).getLong(offset(off));
     }
 
     /**
@@ -195,9 +224,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Long longValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.INT64);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? null : readLong(offset(off));
+        long off = findColumn(col, NativeTypeSpec.INT64, isKeyCol);
+
+        return off < 0 ? null : chunk(isKeyCol).getLong(offset(off));
     }
 
     /**
@@ -208,9 +239,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public float floatValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.FLOAT);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? 0.f : readFloat(offset(off));
+        long off = findColumn(col, NativeTypeSpec.FLOAT, isKeyCol);
+
+        return off < 0 ? 0.f : chunk(isKeyCol).getFloat(offset(off));
     }
 
     /**
@@ -221,9 +254,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Float floatValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.FLOAT);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? null : readFloat(offset(off));
+        long off = findColumn(col, NativeTypeSpec.FLOAT, isKeyCol);
+
+        return off < 0 ? null : chunk(isKeyCol).getFloat(offset(off));
     }
 
     /**
@@ -234,9 +269,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public double doubleValue(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.DOUBLE);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? 0.d : readDouble(offset(off));
+        long off = findColumn(col, NativeTypeSpec.DOUBLE, isKeyCol);
+
+        return off < 0 ? 0.d : chunk(isKeyCol).getDouble(offset(off));
     }
 
     /**
@@ -247,9 +284,11 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Double doubleValueBoxed(int col) throws InvalidTypeException {
-        long off = findColumn(col, NativeTypeSpec.DOUBLE);
+        boolean isKeyCol = schema.isKeyColumn(col);
 
-        return off < 0 ? null : readDouble(offset(off));
+        long off = findColumn(col, NativeTypeSpec.DOUBLE, isKeyCol);
+
+        return off < 0 ? null : chunk(isKeyCol).getDouble(offset(off));
     }
 
     /**
@@ -260,7 +299,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public BigDecimal decimalValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.DECIMAL);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.DECIMAL, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -271,7 +312,7 @@ public class Row implements BinaryRow, SchemaAware {
 
         DecimalNativeType type = (DecimalNativeType) schema.column(col).type();
 
-        byte[] bytes = readBytes(off, len);
+        byte[] bytes = readBytes(chunk(isKeyCol), off, len);
 
         return new BigDecimal(new BigInteger(bytes), type.scale());
     }
@@ -284,7 +325,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public BigInteger numberValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.NUMBER);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.NUMBER, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -293,7 +336,7 @@ public class Row implements BinaryRow, SchemaAware {
         int off = offset(offLen);
         int len = length(offLen);
 
-        return new BigInteger(readBytes(off, len));
+        return new BigInteger(readBytes(chunk(isKeyCol), off, len));
     }
 
     /**
@@ -304,7 +347,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public String stringValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.STRING);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.STRING, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -313,7 +358,13 @@ public class Row implements BinaryRow, SchemaAware {
         int off = offset(offLen);
         int len = length(offLen);
 
-        return readString(off, len);
+        ByteBuffer chunk = chunk(isKeyCol);
+
+        if (chunk.hasArray()) {
+            return new String(chunk.array(), chunk.arrayOffset() + off, len, StandardCharsets.UTF_8);
+        } else {
+            return new String(readBytes(chunk, off, len), StandardCharsets.UTF_8);
+        }
     }
 
     /**
@@ -324,7 +375,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public byte[] bytesValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.BYTES);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.BYTES, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -333,7 +386,7 @@ public class Row implements BinaryRow, SchemaAware {
         int off = offset(offLen);
         int len = length(offLen);
 
-        return readBytes(off, len);
+        return readBytes(chunk(isKeyCol), off, len);
     }
 
     /**
@@ -344,7 +397,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public UUID uuidValue(int col) throws InvalidTypeException {
-        long found = findColumn(col, NativeTypeSpec.UUID);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long found = findColumn(col, NativeTypeSpec.UUID, isKeyCol);
 
         if (found < 0) {
             return null;
@@ -352,8 +407,10 @@ public class Row implements BinaryRow, SchemaAware {
 
         int off = offset(found);
 
-        long lsb = readLong(off);
-        long msb = readLong(off + 8);
+        ByteBuffer chunk = chunk(isKeyCol);
+
+        long lsb = chunk.getLong(off);
+        long msb = chunk.getLong(off + 8);
 
         return new UUID(msb, lsb);
     }
@@ -366,7 +423,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public BitSet bitmaskValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.BITMASK);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.BITMASK, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -375,7 +434,7 @@ public class Row implements BinaryRow, SchemaAware {
         int off = offset(offLen);
         int len = columnLength(col);
 
-        return BitSet.valueOf(readBytes(off, len));
+        return BitSet.valueOf(readBytes(chunk(isKeyCol), off, len));
     }
 
     /**
@@ -386,7 +445,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public LocalDate dateValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.DATE);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.DATE, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -394,7 +455,7 @@ public class Row implements BinaryRow, SchemaAware {
 
         int off = offset(offLen);
 
-        return readDate(off);
+        return readDate(chunk(isKeyCol), off);
     }
 
     /**
@@ -405,7 +466,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public LocalTime timeValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.TIME);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.TIME, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -415,7 +478,7 @@ public class Row implements BinaryRow, SchemaAware {
 
         TemporalNativeType type = (TemporalNativeType) schema.column(col).type();
 
-        return readTime(off, type);
+        return readTime(chunk(isKeyCol), off, type);
     }
 
     /**
@@ -426,7 +489,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public LocalDateTime dateTimeValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.DATETIME);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.DATETIME, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -436,7 +501,9 @@ public class Row implements BinaryRow, SchemaAware {
 
         TemporalNativeType type = (TemporalNativeType) schema.column(col).type();
 
-        return LocalDateTime.of(readDate(off), readTime(off + 3, type));
+        ByteBuffer chunk = chunk(isKeyCol);
+
+        return LocalDateTime.of(readDate(chunk, off), readTime(chunk, off + 3, type));
     }
 
     /**
@@ -447,7 +514,9 @@ public class Row implements BinaryRow, SchemaAware {
      * @throws InvalidTypeException If actual column type does not match the requested column type.
      */
     public Instant timestampValue(int col) throws InvalidTypeException {
-        long offLen = findColumn(col, NativeTypeSpec.TIMESTAMP);
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        long offLen = findColumn(col, NativeTypeSpec.TIMESTAMP, isKeyCol);
 
         if (offLen < 0) {
             return null;
@@ -457,11 +526,13 @@ public class Row implements BinaryRow, SchemaAware {
 
         TemporalNativeType type = (TemporalNativeType) schema.column(col).type();
 
-        long seconds = readLong(off);
+        ByteBuffer chunk = chunk(isKeyCol);
+
+        long seconds = chunk.getLong(off);
         int nanos = 0;
 
         if (type.precision() != 0) {
-            nanos = readInteger(off + 8);
+            nanos = chunk.getInt(off + 8);
         }
 
         return Instant.ofEpochSecond(seconds, nanos);
@@ -475,22 +546,25 @@ public class Row implements BinaryRow, SchemaAware {
      * @return {@code true} if this column contains a null value, {@code false} otherwise.
      */
     public boolean hasNullValue(int col, NativeTypeSpec expectedType) {
-        return findColumn(col, expectedType) < 0;
+        boolean isKeyCol = schema.isKeyColumn(col);
+
+        return findColumn(col, expectedType, isKeyCol) < 0;
     }
 
     /**
      * Reads and decode time column value.
      *
-     * @param off  Offset
+     * @param chunk Key or value chunk.
+     * @param off Offset
      * @param type Temporal type precision.
      * @return LocalTime value.
      */
-    private LocalTime readTime(int off, TemporalNativeType type) {
-        long time = Integer.toUnsignedLong(readInteger(off));
+    private LocalTime readTime(ByteBuffer chunk, int off, TemporalNativeType type) {
+        long time = Integer.toUnsignedLong(chunk.getInt(off));
 
         if (type.precision() > 3) {
             time <<= 16;
-            time |= Short.toUnsignedLong(readShort(off + 4));
+            time |= Short.toUnsignedLong(chunk.getShort(off + 4));
             time = (time >>> TemporalTypesHelper.NANOSECOND_PART_LEN) << 32 | (time & TemporalTypesHelper.NANOSECOND_PART_MASK);
         } else { // Decompress
             time = (time >>> TemporalTypesHelper.MILLISECOND_PART_LEN) << 32 | (time & TemporalTypesHelper.MILLISECOND_PART_MASK);
@@ -502,12 +576,13 @@ public class Row implements BinaryRow, SchemaAware {
     /**
      * Reads and decode date column value.
      *
+     * @param chunk Key or value chunk.
      * @param off Offset
      * @return LocalDate value.
      */
-    private LocalDate readDate(int off) {
-        int date = Short.toUnsignedInt(readShort(off)) << 8;
-        date |= Byte.toUnsignedInt(readByte(off + 2));
+    private LocalDate readDate(ByteBuffer chunk, int off) {
+        int date = Short.toUnsignedInt(chunk.getShort(off)) << 8;
+        date |= Byte.toUnsignedInt(chunk.get(off + 2));
 
         return TemporalTypesHelper.decodeDate(date);
     }
@@ -519,26 +594,22 @@ public class Row implements BinaryRow, SchemaAware {
      * requested column type, throwing {@link InvalidTypeException} if the types do not match.
      *
      * @param colIdx Column index.
-     * @param type   Expected column type.
+     * @param type Expected column type.
+     * @param isKeyCol {@code} if column is part of the key.
      * @return {@code -1} if value is {@code null} for a column, otherwise encoded offset + length of the column.
      * @see #offset(long)
      * @see #length(long)
+     * @see SchemaDescriptor#isKeyColumn(int)
      * @see InvalidTypeException If actual column type does not match the requested column type.
      */
-    protected long findColumn(int colIdx, NativeTypeSpec type) throws InvalidTypeException {
-        // Get base offset (key start or value start) for the given column.
-        boolean isKeyCol = schema.isKeyColumn(colIdx);
-
+    protected long findColumn(int colIdx, NativeTypeSpec type, boolean isKeyCol) throws InvalidTypeException {
         Columns cols;
-        int chunkBaseOff;
-        int flags;
+
+        ByteBuffer chunk = chunk(isKeyCol);
+        int flags = chunk.get(FLAGS_FIELD_OFFSET);
 
         if (isKeyCol) {
             cols = schema.keyColumns();
-
-            chunkBaseOff = KEY_CHUNK_OFFSET;
-
-            flags = keyFlags();
         } else {
             // Adjust the column index according to the number of key columns.
             if (!hasValue()) {
@@ -548,10 +619,6 @@ public class Row implements BinaryRow, SchemaAware {
             colIdx -= schema.keyColumns().length();
 
             cols = schema.valueColumns();
-
-            chunkBaseOff = KEY_CHUNK_OFFSET + readInteger(KEY_CHUNK_OFFSET);
-
-            flags = valueFlags();
         }
 
         if (cols.column(colIdx).type().spec() != type) {
@@ -562,31 +629,31 @@ public class Row implements BinaryRow, SchemaAware {
 
         VarTableFormat format = VarTableFormat.fromFlags(flags);
 
-        if (nullMapLen > 0 && isNull(chunkBaseOff, colIdx)) {
+        if (nullMapLen > 0 && isNull(chunk, colIdx)) {
             return -1;
         }
 
-        int dataOffset = varTableOffset(chunkBaseOff, nullMapLen);
+        int dataOffset = varTableOffset(nullMapLen);
 
-        dataOffset += format.vartableLength(format.readVartableSize(row, dataOffset));
+        dataOffset += format.vartableLength(format.readVartableSize(chunk, dataOffset));
 
         return type.fixedLength()
-                ? fixedSizeColumnOffset(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen > 0) :
-                varlenColumnOffsetAndLength(chunkBaseOff, dataOffset, cols, colIdx, nullMapLen, format);
+                ? fixedSizeColumnOffset(chunk, dataOffset, cols, colIdx, nullMapLen > 0) :
+                varlenColumnOffsetAndLength(chunk, dataOffset, cols, colIdx, nullMapLen, format);
     }
 
     /**
      * Calculates the offset of the fixed-size column with the given index in the row. It essentially folds the null-map with the column
      * lengths to calculate the size of non-null columns preceding the requested column.
      *
-     * @param chunkBaseOff Chunk base offset.
-     * @param dataOffset   Chunk data offset.
-     * @param cols         Columns chunk.
-     * @param idx          Column index in the chunk.
-     * @param hasNullmap   {@code true} if chunk has null-map, {@code false} otherwise.
+     * @param chunk Key or value chunk.
+     * @param dataOffset Chunk data offset.
+     * @param cols Columns chunk.
+     * @param idx Column index in the chunk.
+     * @param hasNullmap {@code true} if chunk has null-map, {@code false} otherwise.
      * @return Encoded offset (from the row start) of the requested fixlen column.
      */
-    int fixedSizeColumnOffset(int chunkBaseOff, int dataOffset, Columns cols, int idx, boolean hasNullmap) {
+    int fixedSizeColumnOffset(ByteBuffer chunk, int dataOffset, Columns cols, int idx, boolean hasNullmap) {
         int colOff = 0;
 
         // Calculate fixlen column offset.
@@ -601,10 +668,10 @@ public class Row implements BinaryRow, SchemaAware {
         if (hasNullmap) {
             // Fold offset based on the whole map bytes in the schema
             for (int i = 0; i < colByteIdx; i++) {
-                colOff += cols.foldFixedLength(i, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + i)));
+                colOff += cols.foldFixedLength(i, Byte.toUnsignedInt(chunk.get(NULLMAP_CHUNK_OFFSET + i)));
             }
 
-            colOff += cols.foldFixedLength(colByteIdx, Byte.toUnsignedInt(row.readByte(nullMapOffset(chunkBaseOff) + colByteIdx)) | mask);
+            colOff += cols.foldFixedLength(colByteIdx, Byte.toUnsignedInt(chunk.get(NULLMAP_CHUNK_OFFSET + colByteIdx)) | mask);
         } else {
             for (int i = 0; i < colByteIdx; i++) {
                 colOff += cols.foldFixedLength(i, 0);
@@ -624,16 +691,16 @@ public class Row implements BinaryRow, SchemaAware {
      *
      * <p>Note: Offset for the very fisrt varlen is skipped in vartable and calculated from fixlen columns sizes.
      *
-     * @param baseOff    Chunk base offset.
-     * @param dataOff    Chunk data offset.
-     * @param cols       Columns chunk.
-     * @param idx        Column index in the chunk.
+     * @param chunk Key or value chunk.
+     * @param dataOff Chunk data offset.
+     * @param cols Columns chunk.
+     * @param idx Column index in the chunk.
      * @param nullMapLen Null-map length or {@code 0} if null-map is omitted.
-     * @param format     Vartable format helper or {@code null} if vartable is omitted.
+     * @param format Vartable format helper or {@code null} if vartable is omitted.
      * @return Encoded offset (from the row start) and length of the column with the given index.
      */
     long varlenColumnOffsetAndLength(
-            int baseOff,
+            ByteBuffer chunk,
             int dataOff,
             Columns cols,
             int idx,
@@ -652,7 +719,7 @@ public class Row implements BinaryRow, SchemaAware {
             int numNullsBefore = 0;
 
             for (int i = nullStartByte; i <= nullEndByte; i++) {
-                byte nullmapByte = row.readByte(nullMapOffset(baseOff) + i);
+                byte nullmapByte = chunk.get(NULLMAP_CHUNK_OFFSET + i);
 
                 if (i == nullStartByte) { // We need to clear startBitInByte least significant bits
                     nullmapByte &= (0xFF << startBitInByte);
@@ -674,105 +741,67 @@ public class Row implements BinaryRow, SchemaAware {
         // as vartable don't store the offset for the first varlen.
         if (idx == 0) {
             int off = cols.numberOfFixsizeColumns() == 0 ? dataOff
-                    : fixedSizeColumnOffset(baseOff, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0);
+                    : fixedSizeColumnOffset(chunk, dataOff, cols, cols.numberOfFixsizeColumns(), nullMapLen > 0);
 
             long len = format != VarTableFormat.SKIPPED
                     ?
                     // Length is either diff between current offset and next varlen offset or end-of-chunk.
-                    dataOff + format.readVarlenOffset(row, varTableOffset(baseOff, nullMapLen), 0) - off :
-                    (baseOff + chunkLength(baseOff)) - off;
+                    dataOff + format.readVarlenOffset(chunk, varTableOffset(nullMapLen), 0) - off :
+                    chunk.limit() - off;
 
             return (len << 32) | off;
         }
 
-        final int varTblOff = varTableOffset(baseOff, nullMapLen);
-        final int vartblSize = format.readVartableSize(row, varTblOff);
+        final int varTblOff = varTableOffset(nullMapLen);
+        final int vartblSize = format.readVartableSize(chunk, varTblOff);
 
         assert idx > 0 && vartblSize >= idx : "Vartable index is out of bound: colId=" + idx;
 
         // Offset of idx-th column is from base offset.
-        int resOff = dataOff + format.readVarlenOffset(row, varTblOff, idx - 1);
+        int resOff = dataOff + format.readVarlenOffset(chunk, varTblOff, idx - 1);
 
         long len = (vartblSize == idx)
                 ?
                 // totalLength - columnStartOffset
-                (baseOff + chunkLength(baseOff)) - resOff :
+                chunk.limit() - resOff :
                 // nextColumnStartOffset - columnStartOffset
-                dataOff + format.readVarlenOffset(row, varTblOff, idx) - resOff;
+                dataOff + format.readVarlenOffset(chunk, varTblOff, idx) - resOff;
 
         return (len << 32) | resOff;
     }
 
     /**
-     * Get chunk length.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param baseOff Chunk base offset.
-     * @return Chunk length.
+     * @return Either key or value slice.
      */
-    private int chunkLength(int baseOff) {
-        return readInteger(baseOff);
+    private ByteBuffer chunk(boolean isKeyCol) {
+        return isKeyCol ? keySlice : valueSlice;
     }
 
     /**
      * Get vartable offset.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param baseOff    Chunk base offset.
      * @param nullMapLen Null-map length.
      * @return Vartable offset.
      */
-    private int varTableOffset(int baseOff, int nullMapLen) {
-        return baseOff + BinaryRow.CHUNK_HEADER_SIZE + nullMapLen;
+    private int varTableOffset(int nullMapLen) {
+        return CHUNK_HEADER_SIZE + nullMapLen;
     }
 
     /**
      * Checks the row's null-map for the given column index in the chunk.
      *
-     * @param baseOff Chunk base offset.
-     * @param idx     Offset of the column in the chunk.
+     * @param chunk Key or value chunk.
+     * @param idx Offset of the column in the chunk.
      * @return {@code true} if the column value is {@code null}, {@code false} otherwise.
      */
-    protected boolean isNull(int baseOff, int idx) {
+    protected boolean isNull(ByteBuffer chunk, int idx) {
         int nullByte = idx >> 3; // Equivalent expression for: idx / 8
         int posInByte = idx & 7; // Equivalent expression for: idx % 8
 
-        int map = row.readByte(baseOff + BinaryRow.CHUNK_HEADER_SIZE + nullByte) & 0xFF;
+        int map = chunk.get(CHUNK_HEADER_SIZE + nullByte) & 0xFF;
 
         return (map & (1 << posInByte)) != 0;
-    }
-
-    /**
-     * Get key flags.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @return Key flags.
-     */
-    private byte keyFlags() {
-        return readByte(KEY_CHUNK_OFFSET + FLAGS_FIELD_OFFSET);
-    }
-
-    /**
-     * Get value flags.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @return Value flags.
-     */
-    private byte valueFlags() {
-        int keyLen = readInteger(KEY_CHUNK_OFFSET);
-
-        return readByte(KEY_CHUNK_OFFSET + keyLen + FLAGS_FIELD_OFFSET);
-    }
-
-    /**
-     * Get null map offset.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param baseOff Chunk base offset.
-     * @return Null-map offset.
-     */
-    int nullMapOffset(int baseOff) {
-        return baseOff + BinaryRow.CHUNK_LEN_FLD_SIZE + BinaryRow.FLAGS_FLD_SIZE;
     }
 
     /**
@@ -832,58 +861,37 @@ public class Row implements BinaryRow, SchemaAware {
         return row.valueSlice();
     }
 
-    /** {@inheritDoc} */
+    /**
+     * Writes binary row to given stream.
+     *
+     * @param stream Stream to write to.
+     * @throws IOException If write operation fails.
+     */
     @Override
     public void writeTo(OutputStream stream) throws IOException {
         row.writeTo(stream);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public byte readByte(int off) {
-        return row.readByte(off);
-    }
+    /**
+     * Read bytes by offset.
+     *
+     * @param chunk Key or value chunk.
+     * @param off Offset.
+     * @param len Length.
+     * @return Byte array.
+     */
+    private byte[] readBytes(ByteBuffer chunk, int off, int len) {
+        try {
+            byte[] res = new byte[len];
 
-    /** {@inheritDoc} */
-    @Override
-    public short readShort(int off) {
-        return row.readShort(off);
-    }
+            chunk.position(off);
 
-    /** {@inheritDoc} */
-    @Override
-    public int readInteger(int off) {
-        return row.readInteger(off);
-    }
+            chunk.get(res, 0, res.length);
 
-    /** {@inheritDoc} */
-    @Override
-    public long readLong(int off) {
-        return row.readLong(off);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public float readFloat(int off) {
-        return row.readFloat(off);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public double readDouble(int off) {
-        return row.readDouble(off);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String readString(int off, int len) {
-        return row.readString(off, len);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public byte[] readBytes(int off, int len) {
-        return row.readBytes(off, len);
+            return res;
+        } finally {
+            chunk.position(0);
+        }
     }
 
     @Override
