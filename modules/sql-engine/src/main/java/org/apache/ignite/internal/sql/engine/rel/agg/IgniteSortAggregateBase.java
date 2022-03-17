@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.rel.agg;
 
 import static org.apache.ignite.internal.sql.engine.util.Commons.maxPrefix;
 
-import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelTraitSet;
@@ -28,7 +28,6 @@ import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
@@ -50,7 +49,22 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
     default Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(
             RelTraitSet nodeTraits, List<RelTraitSet> inputTraits
     ) {
-        RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(getGroupSet().asList()));
+        RelCollation required = TraitUtils.collation(nodeTraits);
+        ImmutableBitSet requiredKeys = ImmutableBitSet.of(required.getKeys());
+        RelCollation collation;
+
+        if (getGroupSet().contains(requiredKeys)) {
+            List<RelFieldCollation> newCollationFields = new ArrayList<>(getGroupSet().cardinality());
+            newCollationFields.addAll(required.getFieldCollations());
+
+            ImmutableBitSet keysLeft = getGroupSet().except(requiredKeys);
+
+            keysLeft.forEach(fieldIdx -> newCollationFields.add(TraitUtils.createFieldCollation(fieldIdx)));
+
+            collation = RelCollations.of(newCollationFields);
+        } else {
+            collation = TraitUtils.createCollation(getGroupSet().toList());
+        }
 
         return Pair.of(nodeTraits.replace(collation),
                 List.of(inputTraits.get(0).replace(collation)));
@@ -66,13 +80,13 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
         IntList newCollationColls = maxPrefix(inputCollation.getKeys(), getGroupSet().asSet());
 
         if (newCollationColls.size() < getGroupSet().cardinality()) {
-            return ImmutableList.of();
+            return List.of();
         }
 
         List<RelFieldCollation> suitableCollations = inputCollation.getFieldCollations()
                 .stream().filter(k -> newCollationColls.contains(k.getFieldIndex())).collect(Collectors.toList());
 
-        return ImmutableList.of(Pair.of(
+        return List.of(Pair.of(
                 nodeTraits.replace(RelCollations.of(suitableCollations)),
                 inputTraits
         ));

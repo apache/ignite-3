@@ -19,15 +19,23 @@ package org.apache.ignite.internal.sql.engine.rule;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelRule;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Spool;
+import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableSpool;
@@ -66,9 +74,11 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
 
         RelNode input = spool.getInput();
 
+        RelCollation inCollation = TraitUtils.collation(input);
+
         IndexConditions idxCond = RexUtils.buildSortedIndexConditions(
                 cluster,
-                TraitUtils.collation(input),
+                inCollation,
                 filter.getCondition(),
                 spool.getRowType(),
                 null
@@ -78,13 +88,54 @@ public class FilterSpoolMergeToSortedIndexSpoolRule extends RelRule<FilterSpoolM
             return;
         }
 
-        RelCollation collation = TraitUtils.createCollation(idxCond.keys());
+        RelCollation traitCollation;
+        RelCollation searchCollation;
+
+        if (inCollation == null || inCollation.isDefault()) {
+            // Create collation by index condition.
+            List<RexNode> lowerBound = idxCond.lowerBound();
+            List<RexNode> upperBound = idxCond.upperBound();
+
+            assert lowerBound == null || upperBound == null || lowerBound.size() == upperBound.size();
+
+            int cardinality = lowerBound != null ? lowerBound.size() : upperBound.size();
+
+            List<Integer> equalsFields = new ArrayList<>(cardinality);
+            List<Integer> otherFields = new ArrayList<>(cardinality);
+
+            // First, add all equality filters to collation, then add other fields.
+            for (int i = 0; i < cardinality; i++) {
+                RexNode lowerNode = lowerBound != null ? lowerBound.get(i) : null;
+                RexNode upperNode = upperBound != null ? upperBound.get(i) : null;
+
+                if (RexUtils.isNotNull(lowerNode) || RexUtils.isNotNull(upperNode)) {
+                    (Objects.equals(lowerNode, upperNode) ? equalsFields : otherFields).add(i);
+                }
+            }
+
+            equalsFields.addAll(otherFields);
+
+            searchCollation = traitCollation = TraitUtils.createCollation(equalsFields);
+        } else {
+            // Create search collation as a prefix of input collation.
+            traitCollation = inCollation;
+
+            Set<Integer> searchKeys = idxCond.keys();
+
+            List<RelFieldCollation> collationFields = inCollation.getFieldCollations().subList(0, searchKeys.size());
+
+            assert searchKeys.containsAll(collationFields.stream().map(RelFieldCollation::getFieldIndex)
+                    .collect(Collectors.toSet())) : "Search condition should be a prefix of collation [searchKeys="
+                    + searchKeys + ", collation=" + inCollation + ']';
+
+            searchCollation = RelCollations.of(collationFields);
+        }
 
         RelNode res = new IgniteSortedIndexSpool(
                 cluster,
-                trait.replace(collation),
-                convert(input, input.getTraitSet().replace(collation)),
-                collation,
+                trait.replace(traitCollation),
+                convert(input, input.getTraitSet().replace(traitCollation)),
+                searchCollation,
                 filter.getCondition(),
                 idxCond
         );

@@ -23,12 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -66,7 +64,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         return IgniteDistributions.affinity(0, "T0", "hash");
                     }
                 }
-                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t0_jid_idx")
+                        .addIndex("t0_jid_idx", 1, 0)
         );
 
         publicSchema.addTable(
@@ -83,7 +81,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         return IgniteDistributions.affinity(0, "T1", "hash");
                     }
                 }
-                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid_idx")
+                        .addIndex("t1_jid_idx", 1, 0)
         );
 
         String sql = "select * "
@@ -158,7 +156,7 @@ public class SortedIndexSpoolPlannerTest extends AbstractPlannerTest {
                         return IgniteDistributions.affinity(0, "T1", "hash");
                     }
                 }
-                        .addIndex(RelCollations.of(ImmutableIntList.of(1, 0)), "t1_jid0_idx")
+                        .addIndex("t1_jid0_idx", 1, 0)
         );
 
         String sql = "select * "

@@ -28,9 +28,9 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -471,10 +471,26 @@ public class TraitUtils {
      * @param keys The keys to create collation from.
      * @return New collation.
      */
-    public static RelCollation createCollation(IntSet keys) {
+    public static RelCollation createCollation(Collection<Integer> keys) {
         return RelCollations.of(
-                keys.intStream().mapToObj(RelFieldCollation::new).collect(Collectors.toList())
+                keys.stream().map(TraitUtils::createFieldCollation).collect(Collectors.toList())
         );
+    }
+
+    /**
+     * Creates field collation with default direction and nulls ordering.
+     */
+    public static RelFieldCollation createFieldCollation(int fieldIdx) {
+        return createFieldCollation(fieldIdx, true);
+    }
+
+    /**
+     * Creates field collation with default nulls ordering.
+     */
+    public static RelFieldCollation createFieldCollation(int fieldIdx, boolean asc) {
+        return asc
+                ? new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.ASCENDING, RelFieldCollation.NullDirection.FIRST)
+                : new RelFieldCollation(fieldIdx, RelFieldCollation.Direction.DESCENDING, RelFieldCollation.NullDirection.LAST);
     }
 
     /**
