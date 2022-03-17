@@ -44,10 +44,10 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SessionBuilder;
+import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.StatementBuilder;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.KeyValueView;
@@ -101,14 +101,14 @@ public class IgniteSqlApiTest {
 
         // Create session with params.
         Session sessionWithParams = igniteSql.sessionBuilder()
-                .withDefaultTimeout(10_000, TimeUnit.MILLISECONDS) // Set default timeout.
-                .withProperty("memoryQuota", 10 * Constants.MiB) // Set default quota.
+                .defaultTimeout(10_000, TimeUnit.MILLISECONDS) // Set default timeout.
+                .property("memoryQuota", 10 * Constants.MiB) // Set default quota.
                 .build();
 
         // Statement with params. Prepared statement.
         Statement preparedStatement = igniteSql.statementBuilder()
                 .query("SELECT id, val FROM tbl WHERE id > ?")
-                .withDefaultSchema("PUBLIC")
+                .defaultSchema("PUBLIC")
                 .prepared()
                 .build();
 
@@ -120,9 +120,7 @@ public class IgniteSqlApiTest {
         sessionWithParams.execute(null, preparedStatement,  /* args */ 1);
 
         // Releasing session resources.
-        sessionWithParams.release(preparedStatement);
-        preparedStatement.close();
-        session.release();
+        session.close();
     }
 
     @Test
@@ -404,18 +402,18 @@ public class IgniteSqlApiTest {
 
         SessionBuilder sessionBuilder = Mockito.mock(SessionBuilder.class);
 
-        Mockito.when(sessionBuilder.withDefaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(sessionBuilder.withDefaultTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(sessionBuilder.withProperty(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.defaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.defaultTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(sessionBuilder.property(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(sessionBuilder.build()).thenReturn(session);
 
         StatementBuilder stmtBuilder = Mockito.mock(StatementBuilder.class);
 
         Mockito.when(stmtBuilder.query(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.withDefaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.withPageSize(Mockito.anyInt())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.withQueryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.withProperty(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.defaultSchema(Mockito.anyString())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.pageSize(Mockito.anyInt())).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.queryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.property(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.prepared()).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.build()).thenReturn(statement);
 

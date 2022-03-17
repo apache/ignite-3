@@ -28,12 +28,14 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries.
  * Session object is immutable and thread-safe.
- *
- * <p>Session "execute*" methods are thread-safe and can be called from different threads.
- *
- * <p>Closing a session will not affect already running queries.
  */
 public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
+    /** Default schema name. */
+    String DEFAULT_SCHEMA = "PUBLIC";
+
+    /** Default maximal number of rows in a single page. */
+    int DEFAULT_PAGE_SIZE = 1024;
+
     /**
      * Executes single SQL query.
      *
@@ -114,30 +116,96 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * Returns session property.
      *
      * @param name Property name.
-     * @return Property value.
+     * @return Property value or {@code null} if wasn't set.
      */
     @Nullable Object property(String name);
-
-    /**
-     * Releases remote session resources related to the given prepared statement. Queries, which are already running, will not be affected.
-     *
-     * @param prepared Prepared statement.
-     */
-    void release(Statement prepared);
-
-    /**
-     * Releases all remote resources for this session. Queries, which are already running, will not be affected.
-     */
-    void release();
 
     /**
      * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
      */
     @Override
-    void close(); // TODO: It is not clear, if this session object can be reused later or not?
+    void close();
 
     /**
      * Creates a new session builder from current session.
      */
     SessionBuilder toBuilder();
+
+    /**
+     * Session builder.
+     */
+    interface SessionBuilder {
+        /**
+         * Return default query timeout.
+         *
+         * @param timeUnit Timeunit to convert timeout to.
+         * @return Default query timeout in the given timeunit.
+         */
+        long defaultTimeout(TimeUnit timeUnit);
+
+        /**
+         * Sets default query timeout.
+         *
+         * @param timeout Query timeout value.
+         * @param timeUnit Timeunit.
+         */
+        SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit);
+
+        /**
+         * Returns session default schema.
+         *
+         * @return Session default schema.
+         */
+        String defaultSchema();
+
+        /**
+         * Sets default schema for the session, which the queries will be executed with.
+         *
+         * <p>Default schema is used to resolve schema objects by their simple names, those for which schema is not specified in the query
+         * text, to their canonical names.
+         *
+         * @param schema Default schema.
+         */
+        SessionBuilder defaultSchema(String schema);
+
+        /**
+         * Returns default page size, which is a maximal amount of results rows that can be fetched once at a time.
+         *
+         * @return Maximal amount of rows in a page.
+         */
+        int defaultPageSize();
+
+        /**
+         * Sets default page size, which is a maximal amount of results rows that can be fetched once at a time.
+         *
+         * @param pageSize Maximal amount of rows in a page.
+         * @return {@code this} for chaining.
+         */
+        SessionBuilder defaultPageSize(int pageSize);
+
+        /**
+         * Returns session property.
+         *
+         * @param name Property name.
+         * @return Property value or {@code null} if wasn't set.
+         */
+        @Nullable Object property(String name);
+
+        /**
+         * Sets session property.
+         *
+         * @param name Property name.
+         * @param value Property value.
+         * @return {@code this} for chaining.
+         */
+        SessionBuilder property(String name, @Nullable Object value);
+
+        /**
+         * Creates an SQL session object that provides methods for executing SQL queries and holds settings with which queries will be
+         * executed.
+         *
+         * @return Session.
+         */
+        Session build();
+    }
 }

@@ -33,7 +33,7 @@ public interface IgniteSql {
      *
      * @return A new session builder.
      */
-    SessionBuilder sessionBuilder();
+    Session.SessionBuilder sessionBuilder();
 
     /**
      * Creates an SQL statement from given query string.
@@ -49,5 +49,5 @@ public interface IgniteSql {
      *
      * @return A new statement builder.
      */
-    StatementBuilder statementBuilder();
+    Statement.StatementBuilder statementBuilder();
 }
