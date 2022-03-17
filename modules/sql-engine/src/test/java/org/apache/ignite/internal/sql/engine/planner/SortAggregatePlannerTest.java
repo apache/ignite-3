@@ -29,7 +29,6 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -55,7 +54,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void notApplicableForSortAggregate() {
-        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "val0_val1");
+        TestTable tbl = createAffinityTable().addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -129,7 +128,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
                 return IgniteDistributions.broadcast();
             }
         }
-                .addIndex(RelCollations.of(ImmutableIntList.of(3, 4)), "grp0_1");
+                .addIndex("grp0_1", 3, 4);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -177,7 +176,7 @@ public class SortAggregatePlannerTest extends AbstractAggregatePlannerTest {
                 return IgniteDistributions.affinity(0, "test", "hash");
             }
         }
-                .addIndex(RelCollations.of(ImmutableIntList.of(3, 4)), "grp0_1");
+                .addIndex("grp0_1", 3, 4);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
