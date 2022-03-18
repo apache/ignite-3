@@ -248,7 +248,7 @@ public class RocksDbTableStorageTest {
         partitionStorage2.writeAll(List.of(testData1, testData2));
 
         // take a snapshot of the first partition
-        assertThat(partitionStorage1.snapshot(workDir.resolve("snapshot1")), willBe(nullValue(Void.class)));
+        assertThat(partitionStorage1.snapshot(workDir.resolve("snapshot")), willBe(nullValue(Void.class)));
 
         // remove all data from partitions
         partitionStorage1.removeAll(List.of(testData1, testData2));
@@ -258,25 +258,10 @@ public class RocksDbTableStorageTest {
         assertThat(partitionStorage2.readAll(List.of(testData1, testData2)), is(empty()));
 
         // restore a snapshot and check that only the first partition has data
-        partitionStorage1.restoreSnapshot(workDir.resolve("snapshot1"));
+        partitionStorage1.restoreSnapshot(workDir.resolve("snapshot"));
 
         assertThat(partitionStorage1.readAll(List.of(testData1, testData2)), containsInAnyOrder(testData1, testData2));
         assertThat(partitionStorage2.readAll(List.of(testData1, testData2)), is(empty()));
-
-        partitionStorage2.write(testData1);
-
-        assertThat(partitionStorage2.snapshot(workDir.resolve("snapshot2")), willBe(nullValue(Void.class)));
-
-        // key is intentionally the same as testData1
-        var testData3 = new SimpleDataRow(testData1.keyBytes(), "new value".getBytes(StandardCharsets.UTF_8));
-
-        // test that snapshot restoration overrides existing keys
-        partitionStorage2.write(testData3);
-
-        partitionStorage2.restoreSnapshot(workDir.resolve("snapshot2"));
-
-        assertThat(partitionStorage1.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData2, testData1));
-        assertThat(partitionStorage2.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData1));
     }
 
     /**
@@ -293,7 +278,7 @@ public class RocksDbTableStorageTest {
         partitionStorage1.writeAll(List.of(testData1, testData2));
         partitionStorage2.writeAll(List.of(testData1, testData2));
 
-        assertThat(partitionStorage2.snapshot(workDir.resolve("snapshot2")), willBe(nullValue(Void.class)));
+        assertThat(partitionStorage2.snapshot(workDir.resolve("snapshot")), willBe(nullValue(Void.class)));
 
         // key is intentionally the same as testData1
         var testData3 = new SimpleDataRow(testData1.keyBytes(), "new value".getBytes(StandardCharsets.UTF_8));
@@ -301,7 +286,7 @@ public class RocksDbTableStorageTest {
         // test that snapshot restoration overrides existing keys
         partitionStorage2.write(testData3);
 
-        partitionStorage2.restoreSnapshot(workDir.resolve("snapshot2"));
+        partitionStorage2.restoreSnapshot(workDir.resolve("snapshot"));
 
         assertThat(partitionStorage1.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData2, testData1));
         assertThat(partitionStorage2.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData1));
