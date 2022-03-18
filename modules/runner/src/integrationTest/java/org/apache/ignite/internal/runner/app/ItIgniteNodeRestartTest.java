@@ -60,16 +60,16 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
-        + "  \"node\": {\n"
-        + "    \"metastorageNodes\":[ {} ]\n"
-        + "  },\n"
-        + "  \"network\": {\n"
-        + "    \"port\":{},\n"
-        + "    \"nodeFinder\":{\n"
-        + "      \"netClusterNodes\": [ {} ]\n"
-        + "    }\n"
-        + "  }\n"
-        + "}";
+            + "  \"node\": {\n"
+            + "    \"metastorageNodes\":[ {} ]\n"
+            + "  },\n"
+            + "  \"network\": {\n"
+            + "    \"port\":{},\n"
+            + "    \"nodeFinder\":{\n"
+            + "      \"netClusterNodes\": [ {} ]\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
 
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
@@ -116,11 +116,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @return Created node instance.
      */
     private IgniteImpl startNode(
-        TestInfo testInfo,
-        int idx,
-        @Nullable String predefinedNodeName,
-        @Nullable Integer predefinedPort,
-        @Nullable String cfg
+            TestInfo testInfo,
+            int idx,
+            @Nullable String predefinedNodeName,
+            @Nullable Integer predefinedPort,
+            @Nullable String cfg
     ) {
         int port = predefinedPort == null ? DEFAULT_NODE_PORT + idx : predefinedPort;
         String nodeName = predefinedNodeName == null ? testNodeName(testInfo, port) : predefinedNodeName;
@@ -128,8 +128,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         String connectAddr = "\"localhost:" + connectPort + '\"';
         String metastorageNodeName = testNodeName(testInfo, connectPort);
         String cfgString = cfg == null
-            ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
-            : cfg;
+                ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
+                : cfg;
 
         return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
     }
@@ -147,6 +147,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /**
      * Stop the node with given index.
+     *
      * @param idx Node index.
      */
     private void stopNode(int idx) {
