@@ -391,6 +391,16 @@ class ComputeComponentImplTest {
         assertThat(((Exception) result).getMessage(), containsString("Cannot load job class by name 'no-such-class'"));
     }
 
+    @Test
+    void executionOfNonJobClassResultsInException() throws Exception {
+        Object result = computeComponent.executeLocally(Object.class.getName())
+                .handle((res, ex) -> ex != null ? ex : res)
+                .get();
+
+        assertThat(result, is(instanceOf(Exception.class)));
+        assertThat(((Exception) result).getMessage(), containsString("'java.lang.Object' does not implement ComputeJob interface"));
+    }
+
     private static class SimpleJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override

@@ -114,6 +114,10 @@ public class ComputeComponentImpl implements ComputeComponent {
     }
 
     private <R> ComputeJob<R> instantiateJob(Class<? extends ComputeJob<R>> jobClass) {
+        if (!(ComputeJob.class.isAssignableFrom(jobClass))) {
+            throw new IgniteInternalException("'" + jobClass.getName() + "' does not implement ComputeJob interface");
+        }
+
         try {
             Constructor<? extends ComputeJob<R>> constructor = jobClass.getDeclaredConstructor();
 
