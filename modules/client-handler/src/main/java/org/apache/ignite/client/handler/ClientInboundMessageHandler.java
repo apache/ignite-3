@@ -280,6 +280,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             int opCode
     ) {
         switch (opCode) {
+            case ClientOp.HEARTBEAT:
+                return null;
+
             case ClientOp.TABLE_DROP:
                 return ClientTableDropRequest.process(in, igniteTables);
 
