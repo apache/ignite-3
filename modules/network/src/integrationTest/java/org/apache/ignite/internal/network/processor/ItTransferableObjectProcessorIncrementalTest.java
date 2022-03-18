@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.processor;
 
 import static com.squareup.javapoet.ClassName.get;
-import static java.util.Set.of;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForFileObject;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForJavaFileObject;
 import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.CONFIG_FILE_NAME;
@@ -38,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.DiagnosticCollector;
@@ -176,7 +176,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
         assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
         assertEquals(2, cfg2.messageClasses().size());
         assertEquals(
-                of(get(RESOURCE_PACKAGE_NAME, testMessageClass), get(RESOURCE_PACKAGE_NAME, testMessageClass2)),
+                Set.of(get(RESOURCE_PACKAGE_NAME, testMessageClass), get(RESOURCE_PACKAGE_NAME, testMessageClass2)),
                 new HashSet<>(cfg2.messageClasses())
         );
 
@@ -294,7 +294,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
         JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
 
         CompilationTask task = systemJavaCompiler
-                .getTask(null, fileManager, diagnosticCollector, Collections.emptyList(), of(), files);
+                .getTask(null, fileManager, diagnosticCollector, Collections.emptyList(), Set.of(), files);
 
         task.setProcessors(Collections.singleton(new TransferableObjectProcessor()));
 

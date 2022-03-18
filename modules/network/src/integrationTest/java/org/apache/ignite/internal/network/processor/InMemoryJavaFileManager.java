@@ -19,12 +19,12 @@ package org.apache.ignite.internal.network.processor;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -137,7 +137,7 @@ final class InMemoryJavaFileManager extends ForwardingJavaFileManager<JavaFileMa
 
         private byte[] data() throws IOException {
             if (data == null) {
-                throw new FileNotFoundException();
+                throw new NoSuchFileException(uri.toString());
             }
 
             return data;

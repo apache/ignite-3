@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 import com.squareup.javapoet.ClassName;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
@@ -116,7 +115,9 @@ class IncrementalCompilationConfig {
             List<ClassName> messages = bufferedReader.lines().map(IncrementalCompilationConfig::readClassName).collect(toList());
 
             return new IncrementalCompilationConfig(messageClassName, messages);
-        } catch (FileNotFoundException | NoSuchFileException e) {
+        } catch (NoSuchFileException e) {
+            // PathFileObject throws this internally although this exception is not declared in the openReader javadoc, so
+            // this is the only way to know if the file doesn't exist.
             return null;
         } catch (IOException e) {
             throw new ProcessingException(e.getMessage());
