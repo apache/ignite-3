@@ -25,14 +25,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
-import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -47,11 +50,14 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleAggregateBase;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteSingleSortAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * AggregatePlannerTest.
@@ -67,7 +73,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithoutIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex(RelCollations.of(ImmutableIntList.of(1, 2)), "val0_val1");
+        TestTable tbl = createBroadcastTable().addIndex("val0_val1", 1, 2);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -104,7 +110,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void singleWithIndex(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createBroadcastTable().addIndex(RelCollations.of(ImmutableIntList.of(3, 4)), "grp0_grp1");
+        TestTable tbl = createBroadcastTable().addIndex("grp0_grp1", 3, 4);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -184,7 +190,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @ParameterizedTest
     @EnumSource
     public void distribution(AggregateAlgorithm algo) throws Exception {
-        TestTable tbl = createAffinityTable().addIndex(RelCollations.of(ImmutableIntList.of(3)), "grp0");
+        TestTable tbl = createAffinityTable().addIndex("grp0", 3);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -225,8 +231,8 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     @EnumSource
     public void expandDistinctAggregates(AggregateAlgorithm algo) throws Exception {
         TestTable tbl = createAffinityTable()
-                .addIndex(RelCollations.of(ImmutableIntList.of(3, 1, 0)), "idx_val0")
-                .addIndex(RelCollations.of(ImmutableIntList.of(3, 2, 0)), "idx_val1");
+                .addIndex("idx_val0", 3, 1, 0)
+                .addIndex("idx_val1", 3, 2, 0);
 
         IgniteSchema publicSchema = new IgniteSchema("PUBLIC");
 
@@ -268,11 +274,75 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
         );
 
-        // Check the second aggrgation step contains accumulators.
+        // Check the second aggregation step contains accumulators.
         assertTrue(
                 findNodes(phys, byClass(algo.single)).stream()
                         .noneMatch(n -> ((Aggregate) n).getAggCallList().isEmpty()),
                 "Invalid plan\n" + RelOptUtil.toString(phys, SqlExplainLevel.ALL_ATTRIBUTES)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideAlgoAndDistribution")
+    public void singleSumTypes(AggregateAlgorithm algo, IgniteDistribution distr) throws Exception {
+        IgniteSchema schema = createSchema(
+                createTable(
+                        "TEST", distr,
+                        "ID", Integer.class,
+                        "GRP", Integer.class,
+                        "VAL_TINYINT", Byte.class,
+                        "VAL_SMALLINT", Short.class,
+                        "VAL_INT", Integer.class,
+                        "VAL_BIGINT", Long.class,
+                        "VAL_DECIMAL", BigDecimal.class,
+                        "VAL_FLOAT", Float.class,
+                        "VAL_DOUBLE", Double.class
+                )
+        );
+
+        String sql = "SELECT "
+                + "SUM(VAL_TINYINT), "
+                + "SUM(VAL_SMALLINT), "
+                + "SUM(VAL_INT), "
+                + "SUM(VAL_BIGINT), "
+                + "SUM(VAL_DECIMAL), "
+                + "SUM(VAL_FLOAT), "
+                + "SUM(VAL_DOUBLE) "
+                + "FROM test GROUP BY grp";
+
+        IgniteRel phys = physicalPlan(
+                sql,
+                schema,
+                algo.rulesToDisable
+        );
+
+        checkSplitAndSerialization(phys, schema);
+
+        Class<? extends SingleRel> cls = distr == IgniteDistributions.broadcast() ? algo.single : algo.reduce;
+
+        SingleRel agg = findFirstNode(phys, byClass(cls));
+
+        assertNotNull(agg, "Invalid plan\n" + RelOptUtil.toString(phys));
+
+        RelDataType rowTypes = agg.getRowType();
+
+        RelDataTypeFactory tf = phys.getCluster().getTypeFactory();
+
+        assertEquals(tf.createJavaType(Long.class), rowTypes.getFieldList().get(1).getType());
+        assertEquals(tf.createJavaType(Long.class), rowTypes.getFieldList().get(2).getType());
+        assertEquals(tf.createJavaType(Long.class), rowTypes.getFieldList().get(3).getType());
+        assertEquals(tf.createJavaType(BigDecimal.class), rowTypes.getFieldList().get(4).getType());
+        assertEquals(tf.createJavaType(BigDecimal.class), rowTypes.getFieldList().get(5).getType());
+        assertEquals(tf.createJavaType(Double.class), rowTypes.getFieldList().get(6).getType());
+        assertEquals(tf.createJavaType(Double.class), rowTypes.getFieldList().get(7).getType());
+    }
+
+    private static Stream<Arguments> provideAlgoAndDistribution() {
+        return Stream.of(
+                Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.broadcast()),
+                Arguments.of(AggregateAlgorithm.SORT, IgniteDistributions.random()),
+                Arguments.of(AggregateAlgorithm.HASH, IgniteDistributions.broadcast()),
+                Arguments.of(AggregateAlgorithm.HASH, IgniteDistributions.random())
         );
     }
 

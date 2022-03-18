@@ -152,7 +152,7 @@ Boolean NullableOptDefaultNull() :
 }
 
 
-                SqlNodeList TableElementList() :
+SqlNodeList TableElementList() :
 {
     final Span s;
     final List<SqlNode> list = new ArrayList<SqlNode>();
@@ -173,20 +173,23 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final boolean ifNotExists;
     final SqlIdentifier id;
     final SqlNodeList columnList;
-    final SqlNodeList optionList;
+    SqlNodeList optionList = null;
+    SqlNodeList colocationColumns = null;
 }
 {
     <TABLE>
     ifNotExists = IfNotExistsOpt()
     id = CompoundIdentifier()
     columnList = TableElementList()
-    (
+    [
+        <COLOCATE> [<BY>] {s.add(this);}
+            colocationColumns = ParenthesizedSimpleIdentifierList()
+    ]
+    [
         <WITH> { s.add(this); } optionList = CreateTableOptionList()
-    |
-        { optionList = null; }
-    )
+    ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
     }
 }
 

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
@@ -414,7 +415,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         requestsMap.clear();
 
-        inboundService.shutdown();
-        outboundService.shutdown();
+        IgniteUtils.shutdownAndAwaitTermination(inboundService, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(outboundService, 10, TimeUnit.SECONDS);
     }
 }

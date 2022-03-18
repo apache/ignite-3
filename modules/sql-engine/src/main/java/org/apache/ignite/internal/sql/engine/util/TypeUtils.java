@@ -25,17 +25,21 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.lang.reflect.Type;
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Period;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.DataContext;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelOptTable;
@@ -64,10 +68,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TypeUtils {
     private static final Set<Type> CONVERTABLE_TYPES = Set.of(
-            java.util.Date.class,
-            java.sql.Date.class,
-            java.sql.Time.class,
-            java.sql.Timestamp.class,
+            LocalDate.class,
+            LocalDateTime.class,
+            LocalTime.class,
+            Timestamp.class,
             Duration.class,
             Period.class
     );
@@ -337,19 +341,18 @@ public class TypeUtils {
     public static Object fromInternal(ExecutionContext<?> ectx, Object val, Type storageType) {
         if (val == null) {
             return null;
-        } else if (storageType == java.sql.Date.class && val instanceof Integer) {
-            final long t = (Integer) val * DateTimeUtils.MILLIS_PER_DAY;
-            return new java.sql.Date(t - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset(t));
-        } else if (storageType == java.sql.Time.class && val instanceof Integer) {
-            return new java.sql.Time((Integer) val - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset((Integer) val));
-        } else if (storageType == Timestamp.class && val instanceof Long) {
-            return new Timestamp((Long) val - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset((Long) val));
-        } else if (storageType == java.util.Date.class && val instanceof Long) {
-            return new java.util.Date((Long) val - DataContext.Variable.TIME_ZONE.<TimeZone>get(ectx).getOffset((Long) val));
+        } else if (storageType == LocalDate.class && val instanceof Integer) {
+            return LocalDate.ofEpochDay((Integer) val);
+        } else if (storageType == LocalTime.class && val instanceof Integer) {
+            return LocalTime.ofSecondOfDay((Integer) val / 1000);
+        } else if (storageType == LocalDateTime.class && (val instanceof Long)) {
+            return LocalDateTime.ofEpochSecond((Long) val / 1000, (int) ((Long) val % 1000) * 1000 * 1000, ZoneOffset.UTC);
         } else if (storageType == Duration.class && val instanceof Long) {
             return Duration.ofMillis((Long) val);
         } else if (storageType == Period.class && val instanceof Integer) {
             return Period.of((Integer) val / 12, (Integer) val % 12, 0);
+        } else if (storageType == byte[].class && val instanceof ByteString) {
+            return ((ByteString) val).getBytes();
         } else {
             return val;
         }
