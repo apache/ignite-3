@@ -32,10 +32,15 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.compute.ComputeComponent;
+import org.apache.ignite.internal.compute.ComputeComponentImpl;
+import org.apache.ignite.internal.compute.ComputeMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
@@ -68,6 +73,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -77,6 +83,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Ignite internal implementation.
@@ -115,6 +122,8 @@ public class IgniteImpl implements Ignite {
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
 
+    private final ComputeComponent computeComponent;
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
 
@@ -147,6 +156,9 @@ public class IgniteImpl implements Ignite {
 
     @Nullable
     private transient IgniteCompute compute;
+
+    /** JVM pause detector. */
+    private final LongJvmPauseDetector longJvmPauseDetector;
 
     /**
      * The Constructor.
@@ -182,6 +194,7 @@ public class IgniteImpl implements Ignite {
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        ComputeMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
@@ -194,6 +207,9 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory
         );
+
+        computeComponent = new ComputeComponentImpl(this, clusterSvc.messagingService(),
+                nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY));
 
         raftMgr = new Loza(clusterSvc, workDir);
 
@@ -257,6 +273,8 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry(),
                 nettyBootstrapFactory
         );
+
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
     }
 
     private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
@@ -304,6 +322,12 @@ public class IgniteImpl implements Ignite {
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
+            doStartComponent(
+                    name,
+                    startedComponents,
+                    longJvmPauseDetector
+            );
+
             // Vault startup.
             doStartComponent(
                     name,
@@ -334,6 +358,7 @@ public class IgniteImpl implements Ignite {
             List<IgniteComponent> otherComponents = List.of(
                     nettyBootstrapFactory,
                     clusterSvc,
+                    computeComponent,
                     raftMgr,
                     txManager,
                     metaStorageMgr,
@@ -373,8 +398,8 @@ public class IgniteImpl implements Ignite {
      */
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
-            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
+            doStopNode(List.of(longJvmPauseDetector, vaultMgr, nodeCfgMgr, clusterSvc, computeComponent, raftMgr, txManager, metaStorageMgr,
+                    clusterCfgMgr, baselineMgr, distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
         }
     }
 
@@ -420,7 +445,7 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCompute compute() {
         if (compute == null) {
-            compute = new IgniteComputeImpl();
+            compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
         }
         return compute;
     }
@@ -556,6 +581,11 @@ public class IgniteImpl implements Ignite {
         }
 
         return partitionsStore;
+    }
+
+    @TestOnly
+    public ClusterNode node() {
+        return clusterSvc.topologyService().localMember();
     }
 
     /**

@@ -311,7 +311,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * GEt underlying buffer.
+     * Creates a wrapper for the underlying buffer.
      */
     public ByteBuffer unwrap() {
         return buf.duplicate().limit(len).order(ByteOrder.LITTLE_ENDIAN);

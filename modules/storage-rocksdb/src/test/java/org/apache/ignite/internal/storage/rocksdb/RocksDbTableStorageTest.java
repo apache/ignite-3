@@ -26,6 +26,8 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -205,5 +207,87 @@ public class RocksDbTableStorageTest {
         assertThat(storage.getPartition(0), is(notNullValue()));
         assertThat(storage.getPartition(1), is(nullValue()));
         assertThat(storage.getPartition(0).read(testData), is(equalTo(testData)));
+    }
+
+    /**
+     * Tests that restoring a snapshot clears all previous data.
+     */
+    @Test
+    void testRestoreSnapshot() {
+        PartitionStorage partitionStorage = storage.getOrCreatePartition(0);
+
+        var testData1 = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+        var testData2 = new SimpleDataRow("baz".getBytes(StandardCharsets.UTF_8), "quux".getBytes(StandardCharsets.UTF_8));
+
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        partitionStorage.write(testData1);
+
+        assertThat(partitionStorage.snapshot(snapshotDir), willBe(nullValue(Void.class)));
+
+        partitionStorage.write(testData2);
+
+        partitionStorage.restoreSnapshot(snapshotDir);
+
+        assertThat(partitionStorage.read(testData1), is(testData1));
+        assertThat(partitionStorage.read(testData2), is(nullValue()));
+    }
+
+    /**
+     * Tests that loading snapshots for one partition does not influence data in another.
+     */
+    @Test
+    void testSnapshotIndependence() {
+        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(0);
+        PartitionStorage partitionStorage2 = storage.getOrCreatePartition(1);
+
+        var testData1 = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+        var testData2 = new SimpleDataRow("baz".getBytes(StandardCharsets.UTF_8), "quux".getBytes(StandardCharsets.UTF_8));
+
+        partitionStorage1.writeAll(List.of(testData1, testData2));
+        partitionStorage2.writeAll(List.of(testData1, testData2));
+
+        // take a snapshot of the first partition
+        assertThat(partitionStorage1.snapshot(workDir.resolve("snapshot")), willBe(nullValue(Void.class)));
+
+        // remove all data from partitions
+        partitionStorage1.removeAll(List.of(testData1, testData2));
+        partitionStorage2.removeAll(List.of(testData1, testData2));
+
+        assertThat(partitionStorage1.readAll(List.of(testData1, testData2)), is(empty()));
+        assertThat(partitionStorage2.readAll(List.of(testData1, testData2)), is(empty()));
+
+        // restore a snapshot and check that only the first partition has data
+        partitionStorage1.restoreSnapshot(workDir.resolve("snapshot"));
+
+        assertThat(partitionStorage1.readAll(List.of(testData1, testData2)), containsInAnyOrder(testData1, testData2));
+        assertThat(partitionStorage2.readAll(List.of(testData1, testData2)), is(empty()));
+    }
+
+    /**
+     * Tests that loading snapshots for one partition does not influence data in another when overwriting existing keys.
+     */
+    @Test
+    void testSnapshotIndependenceOverwritesKeys() {
+        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(0);
+        PartitionStorage partitionStorage2 = storage.getOrCreatePartition(1);
+
+        var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+
+        partitionStorage1.write(testData);
+        partitionStorage2.write(testData);
+
+        assertThat(partitionStorage2.snapshot(workDir.resolve("snapshot")), willBe(nullValue(Void.class)));
+
+        // key is intentionally the same as testData
+        var overwriteData = new SimpleDataRow(testData.keyBytes(), "new value".getBytes(StandardCharsets.UTF_8));
+
+        // test that snapshot restoration overrides existing keys
+        partitionStorage2.write(overwriteData);
+
+        partitionStorage2.restoreSnapshot(workDir.resolve("snapshot"));
+
+        assertThat(partitionStorage1.read(overwriteData), is(testData));
+        assertThat(partitionStorage2.read(overwriteData), is(testData));
     }
 }

@@ -224,7 +224,7 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
+    public CompletableFuture<Void> snapshot(Path snapshotPath) {
         return CompletableFuture.runAsync(() -> {
             try (
                     OutputStream out = Files.newOutputStream(snapshotPath.resolve(SNAPSHOT_FILE));

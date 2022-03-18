@@ -137,7 +137,7 @@ public class RocksDbSortedIndexStorage implements SortedIndexStorage {
 
     @Override
     public void close() throws Exception {
-        indexCf.close();
+        // no-op
     }
 
     @Override
