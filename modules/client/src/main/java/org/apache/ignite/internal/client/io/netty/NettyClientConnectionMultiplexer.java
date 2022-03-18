@@ -62,6 +62,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
+                    // TODO: Not possible to auto-adjust heartbeat interval with immutable IdleStateHandler.
+                    // Change to manually managed timer.
                     IdleStateHandler idleStateHandler = new IdleStateHandler(
                             0,
                             clientCfg.heartbeatInterval(),
