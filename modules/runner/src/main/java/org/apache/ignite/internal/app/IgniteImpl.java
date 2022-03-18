@@ -408,7 +408,7 @@ public class IgniteImpl implements Ignite {
         CompletableFuture<Void> catchUpFuture = new CompletableFuture<>();
 
         ConfigurationStorageRevisionListener listener =
-            new ConfigurationCatchUpListener(cfgStorage.lastRevision().join(), catchUpFuture);
+                new ConfigurationCatchUpListener(cfgStorage.lastRevision().join(), catchUpFuture);
 
         catchUpFuture.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
 
