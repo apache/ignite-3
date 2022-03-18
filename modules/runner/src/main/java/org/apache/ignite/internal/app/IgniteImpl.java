@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
@@ -47,11 +48,8 @@ import org.apache.ignite.internal.configuration.rest.ConfigurationHttpHandlers;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
-import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.event.MetastorageEvent;
-import org.apache.ignite.internal.metastorage.event.MetastorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -109,7 +107,7 @@ public class IgniteImpl implements Ignite {
      * Difference between the local node applied revision and distributed data storage revision on start.
      * TODO: IGNITE-16488 Move the property to configuration.
      */
-    public static final int METADATA_DIFFERENCE = 100;
+    private static final int METADATA_DIFFERENCE = 100;
 
     /** Ignite node name. */
     private final String name;
@@ -155,6 +153,9 @@ public class IgniteImpl implements Ignite {
 
     /** Node status. Adds ability to stop currently starting node. */
     private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
+
+    /** Distributed configuration storage. */
+    private final ConfigurationStorage cfgStorage;
 
     @Nullable
     private transient IgniteCompute compute;
@@ -218,7 +219,7 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+        this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -341,9 +342,7 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().initializeDefaults();
             }
 
-            if (!standaloneMode()) {
-                waitForJoinPermission();
-            }
+            waitForJoinPermission();
 
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
@@ -388,15 +387,6 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Whether the node had started in standalone mode (for example, maintenance mode).
-     *
-     * @return Whether the node had started in standalone mode.
-     */
-    private boolean standaloneMode() {
-        return false;
-    }
-
-    /**
      * Awaits for a permission to join the cluster, i.e. node join response from Cluster Management group.
      * After the completion of this method, the node is considered as validated.
      */
@@ -417,51 +407,29 @@ public class IgniteImpl implements Ignite {
 
         CompletableFuture<Void> upToDateMetastorageRevisionFut = new CompletableFuture<>();
 
+        AtomicLong cfgRevisionHolder = new AtomicLong(cfgStorage.lastRevision().join());
+
         ConfigurationStorageRevisionListener listener = cfgUpdateRevision -> {
-            long metastorageRevision = metaStorageMgr.revision().join();
+            long cfgRevision = cfgRevisionHolder.get();
 
-            assert metastorageRevision >= cfgUpdateRevision : IgniteStringFormatter.format(
-                    "Metastorage revision must be greater than local node applied revision [msRev={}, appliedRev={}",
-                    metastorageRevision, cfgUpdateRevision);
+            assert cfgRevision >= cfgUpdateRevision : IgniteStringFormatter.format(
+                    "Configuration revision must be greater than local node applied revision [msRev={}, appliedRev={}",
+                    cfgRevision, cfgUpdateRevision);
 
-            if (isMetadataUpToDate(metastorageRevision, cfgUpdateRevision)) {
-                upToDateMetastorageRevisionFut.complete(null);
+            if (isConfigurationUpToDate(cfgRevision, cfgUpdateRevision)) {
+                cfgRevision = cfgStorage.lastRevision().join();
+
+                if (isConfigurationUpToDate(cfgRevision, cfgUpdateRevision)) {
+                    upToDateMetastorageRevisionFut.complete(null);
+                }
+
+                cfgRevisionHolder.set(cfgRevision);
             }
 
             return CompletableFuture.completedFuture(null);
         };
 
         clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(listener);
-
-        metaStorageMgr.listen(MetastorageEvent.REVISION_APPLIED, new EventListener<MetastorageEventParameters>() {
-            @Override
-            public boolean notify(@NotNull MetastorageEventParameters parameters, @Nullable Throwable exception) {
-                if (exception != null) {
-                    upToDateMetastorageRevisionFut.completeExceptionally(exception);
-
-                    return true;
-                }
-
-                long metastorageRevision = metaStorageMgr.revision().join();
-
-                assert metastorageRevision >= parameters.getRevision() : IgniteStringFormatter.format(
-                        "Metastorage revision must be greater than local node applied revision [msRev={}, appliedRev={}",
-                        metastorageRevision, parameters.getRevision());
-
-                if (isMetadataUpToDate(metastorageRevision, parameters.getRevision())) {
-                    upToDateMetastorageRevisionFut.complete(null);
-
-                    return true;
-                }
-
-                return false;
-            }
-
-            @Override
-            public void remove(@NotNull Throwable exception) {
-                upToDateMetastorageRevisionFut.completeExceptionally(exception);
-            }
-        });
 
         upToDateMetastorageRevisionFut.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
 
@@ -475,8 +443,8 @@ public class IgniteImpl implements Ignite {
      * @param appliedRevision Last applied node revision.
      * @return True when the applied revision is greater enough to node recovery complete, false otherwise.
      */
-    private boolean isMetadataUpToDate(long metastorageRevision, long appliedRevision) {
-        return metastorageRevision - METADATA_DIFFERENCE < appliedRevision;
+    private boolean isConfigurationUpToDate(long metastorageRevision, long appliedRevision) {
+        return metastorageRevision - METADATA_DIFFERENCE <= appliedRevision;
     }
 
     /**

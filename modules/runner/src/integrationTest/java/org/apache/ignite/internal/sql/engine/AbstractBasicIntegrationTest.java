@@ -80,7 +80,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
 
     /** Work directory. */
     @WorkDirectory
-    private static Path WORK_DIR;
+    protected static Path WORK_DIR;
 
     /**
      * Before all.

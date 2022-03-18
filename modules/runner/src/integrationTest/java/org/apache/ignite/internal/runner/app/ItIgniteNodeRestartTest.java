@@ -261,6 +261,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Checks the table exists and validates all data in it.
      *
      * @param ignite Ignite.
+     * @param name Table name.
      * @param valueProducer Producer to predict a value.
      */
     private void checkTableWithData(Ignite ignite, String name, IntFunction<String> valueProducer) {
@@ -279,6 +280,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Creates a table and load data to it.
      *
      * @param ignite Ignite.
+     * @param name Table name.
+     * @param valueProducer Producer of the values.
      */
     private void createTableWithData(Ignite ignite, String name, IntFunction<String> valueProducer) {
         TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", name).columns(

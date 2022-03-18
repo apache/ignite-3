@@ -338,40 +338,6 @@ public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEv
     }
 
     /**
-     * Retrieves a current revision.
-     *
-     * @return Revision.
-     */
-    public CompletableFuture<Long> revision() {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.revision());
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Retrieves the earliest available revision.
-     *
-     * @return Revision.
-     */
-    public CompletableFuture<Long> earliestRevision() {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.earliestRevision());
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Register watch listener by key.
      *
      * @param key  The target key.
