@@ -99,13 +99,13 @@ public class ComputeComponentImpl implements ComputeComponent {
         assert jobExecutorService != null : "Not started yet!";
 
         try {
-            return CompletableFuture.supplyAsync(() -> executeOnCurrentThread(jobClass, args), jobExecutorService);
+            return CompletableFuture.supplyAsync(() -> executeJob(jobClass, args), jobExecutorService);
         } catch (RejectedExecutionException e) {
             return CompletableFuture.failedFuture(e);
         }
     }
 
-    private <R> R executeOnCurrentThread(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
+    private <R> R executeJob(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         ComputeJob<R> job = instantiateJob(jobClass);
         JobExecutionContext context = new JobExecutionContextImpl(ignite);
         return job.execute(context, args);
