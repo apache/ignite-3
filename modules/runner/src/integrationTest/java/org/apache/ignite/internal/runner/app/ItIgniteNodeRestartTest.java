@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntFunction;
@@ -38,6 +39,7 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -48,7 +50,7 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Default node port. */
-    private static final int DEFAULT_NODE_PORT = 47500;
+    private static final int DEFAULT_NODE_PORT = 3344;
 
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
@@ -72,6 +74,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
+    /**
+     * Stops all started nodes.
+     */
     @AfterEach
     public void afterAll() {
         for (int i = 0; i < CLUSTER_NODES.size(); i++) {
@@ -81,32 +86,76 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         CLUSTER_NODES.clear();
     }
 
-    private IgniteImpl startNode(TestInfo testInfo, int idx, Integer predefinedPort, String cfg) {
-        int port = predefinedPort == null ? DEFAULT_NODE_PORT + idx : predefinedPort;
-        int connectPort = predefinedPort == null ? DEFAULT_NODE_PORT : predefinedPort;
-        String connectAddr = "\"localhost:" + connectPort + '\"';
-        String metastorageNodeName = testNodeName(testInfo, DEFAULT_NODE_PORT);
-        String nodeName = testNodeName(testInfo, idx);
-        String cfgString = cfg == null
-            ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
-            : cfg;
-
-        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+    /**
+     * Start node with the given parameters.
+     *
+     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
+     * @param nodeName Node name.
+     * @param cfgString Configuration string.
+     * @param workDir Working directory.
+     * @return Created node instance.
+     */
+    private IgniteImpl startNode(int idx, String nodeName, String cfgString, Path workDir) {
+        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, cfgString, workDir);
 
         assertTrue(CLUSTER_NODES.size() == idx || CLUSTER_NODES.get(idx) == null);
 
-        CLUSTER_NODES.add(ignite);
+        CLUSTER_NODES.add(idx, ignite);
 
         return ignite;
     }
 
+    /**
+     * Start node with the given parameters.
+     *
+     * @param testInfo Test info.
+     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
+     * @param predefinedNodeName Predefined node name, can be null.
+     * @param predefinedPort Predefined port, is {@code null} then default port is used.
+     * @param cfg Configuration string, can be auto-generated if {@code null}.
+     * @return Created node instance.
+     */
+    private IgniteImpl startNode(
+        TestInfo testInfo,
+        int idx,
+        @Nullable String predefinedNodeName,
+        @Nullable Integer predefinedPort,
+        @Nullable String cfg
+    ) {
+        int port = predefinedPort == null ? DEFAULT_NODE_PORT + idx : predefinedPort;
+        String nodeName = predefinedNodeName == null ? testNodeName(testInfo, port) : predefinedNodeName;
+        int connectPort = predefinedPort == null ? DEFAULT_NODE_PORT : predefinedPort;
+        String connectAddr = "\"localhost:" + connectPort + '\"';
+        String metastorageNodeName = testNodeName(testInfo, connectPort);
+        String cfgString = cfg == null
+            ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
+            : cfg;
+
+        return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
+    }
+
+    /**
+     * Start node with the given parameters.
+     *
+     * @param testInfo Test info.
+     * @param idx Node index, is used to stop the node later, see {@link #stopNode(int)}.
+     * @return Created node instance.
+     */
+    private IgniteImpl startNode(TestInfo testInfo, int idx) {
+        return startNode(testInfo, idx, null, null, null);
+    }
+
+    /**
+     * Stop the node with given index.
+     * @param idx Node index.
+     */
     private void stopNode(int idx) {
         Ignite node = CLUSTER_NODES.get(idx);
 
         if (node != null) {
             IgnitionManager.stop(node.name());
 
-            CLUSTER_NODES.set(0, null);
+            CLUSTER_NODES.set(idx, null);
         }
     }
 
@@ -115,7 +164,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     public void emptyNodeTest(TestInfo testInfo) {
-        IgniteImpl ignite = startNode(testInfo, 0, null, null);
+        IgniteImpl ignite = startNode(testInfo, 0);
 
         int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -123,7 +172,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopNode(0);
 
-        ignite = startNode(testInfo, 0, null, null);
+        ignite = startNode(testInfo, 0);
 
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -135,7 +184,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     public void changeConfigurationOnStartTest(TestInfo testInfo) {
-        IgniteImpl ignite = startNode(testInfo, 0, null, null);
+        IgniteImpl ignite = startNode(testInfo, 0);
 
         int nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -147,7 +196,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         String updateCfg = "network.port=" + newPort;
 
-        ignite = startNode(testInfo, 0, newPort, updateCfg);
+        ignite = startNode(testInfo, 0, null, newPort, updateCfg);
 
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -166,7 +215,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 + "  nodeFinder: {netClusterNodes:[ \"localhost:3344\" ]}\n"
                 + "}";
 
-        IgniteImpl ignite = startNode(testInfo, 0, 3344, startCfg);
+        IgniteImpl ignite = startNode(testInfo, 0, null, 3344, startCfg);
+
+        String nodeName = ignite.name();
 
         assertEquals(
                 3344,
@@ -180,7 +231,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopNode(0);
 
-        ignite = startNode(testInfo, 0, null, "network.nodeFinder.netClusterNodes=[ \"localhost:3344\", \"localhost:3343\" ]");
+        ignite = startNode(testInfo, 0, nodeName, null, "network.nodeFinder.netClusterNodes=[ \"localhost:3344\", \"localhost:3343\" ]");
 
         assertEquals(
                 3344,
@@ -253,54 +304,62 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param directOrder When the parameter is true, nodes restart in direct order, otherwise they restart in reverse order.
      */
     private void twoNodesRestart(TestInfo testInfo, boolean directOrder) {
-        String metastorageNode = testNodeName(testInfo, 3344);
+        Ignite ignite = startNode(testInfo, 0);
 
-        Ignite ignite = IgnitionManager.start(metastorageNode, "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ " + metastorageNode + " ]\n"
-                + "  },\n"
-                + "  \"network\": {\n"
-                + "    \"port\":3344,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\" ] \n"
-                + "    }\n"
-                + "  }\n"
-                + "}", workDir.resolve(metastorageNode));
-
-        String nodeName = testNodeName(testInfo, 3345);
-
-        IgnitionManager.start(nodeName, "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ " + metastorageNode + " ]\n"
-                + "  },\n"
-                + "  \"network\": {\n"
-                + "    \"port\":3345,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\" ] \n"
-                + "    }\n"
-                + "  }\n"
-                + "}", workDir.resolve(nodeName));
+        startNode(testInfo, 1);
 
         createTableWithData(ignite, TABLE_NAME, i -> "name " + i);
         createTableWithData(ignite, TABLE_NAME_2, i -> "val " + i);
 
-        IgnitionManager.stop(metastorageNode);
-        IgnitionManager.stop(nodeName);
+        stopNode(0);
+        stopNode(1);
 
         if (directOrder) {
-            IgnitionManager.start(metastorageNode, null, workDir.resolve(metastorageNode));
-            ignite = IgnitionManager.start(nodeName, null, workDir.resolve(nodeName));
+            startNode(testInfo, 0);
+            ignite = startNode(testInfo, 1);
         } else {
-            ignite = IgnitionManager.start(nodeName, null, workDir.resolve(nodeName));
-            IgnitionManager.start(metastorageNode, null, workDir.resolve(metastorageNode));
+            ignite = startNode(testInfo, 1);
+            startNode(testInfo, 0);
         }
 
         checkTableWithData(ignite, TABLE_NAME,  i -> "name " + i);
         checkTableWithData(ignite, TABLE_NAME_2,  i -> "val " + i);
-
-        IgnitionManager.stop(metastorageNode);
-        IgnitionManager.stop(nodeName);
     }
+
+    /**
+     * The test for node restart when there is a gap between the node local configuration and distributed configuration.
+     */
+    @Test
+    public void testRestartNodeWithConfigurationGap(TestInfo testInfo) {
+        final int nodes = 4;
+
+        for (int i = 0; i < nodes; i++) {
+            startNode(testInfo, i);
+        }
+
+        IntFunction<String> valueProducer = String::valueOf;
+
+        createTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
+
+        final int nodeToStop = nodes - 1;
+
+        log.info("Stopping the node.");
+
+        stopNode(nodeToStop);
+
+        createTableWithData(CLUSTER_NODES.get(0), "t2", valueProducer);
+
+        log.info("Starting the node.");
+
+        startNode(testInfo, nodeToStop);
+
+        checkTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
+        checkTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
+
+        checkTableWithData(CLUSTER_NODES.get(nodeToStop), "t1", valueProducer);
+        checkTableWithData(CLUSTER_NODES.get(nodeToStop), "t2", valueProducer);
+    }
+
 
     /**
      * Checks the table exists and validates all data in it.
