@@ -311,7 +311,7 @@ public class ExpandableByteBuf {
     }
 
     /**
-     * Get underlying buffer.
+     * Creates a wrapper for the underlying buffer.
      */
     public ByteBuffer unwrap() {
         return ByteBuffer.wrap(Arrays.copyOf(arr, len)).order(ByteOrder.LITTLE_ENDIAN);
