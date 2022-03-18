@@ -62,17 +62,14 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
-                    if (clientCfg.isHeartbeatEnabled()) {
-                        IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                0,
-                                clientCfg.heartbeatInterval(),
-                                0,
-                                TimeUnit.MILLISECONDS);
-
-                        ch.pipeline().addLast(idleStateHandler);
-                    }
+                    IdleStateHandler idleStateHandler = new IdleStateHandler(
+                            0,
+                            clientCfg.heartbeatInterval(),
+                            0,
+                            TimeUnit.MILLISECONDS);
 
                     ch.pipeline().addLast(
+                            idleStateHandler,
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
                 }

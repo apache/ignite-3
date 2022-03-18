@@ -47,8 +47,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
-    private final boolean isHeartbeatEnabled;
-
+    /** */
     private final long heartbeatInterval;
 
     /**
@@ -68,7 +67,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
-            Executor asyncContinuationExecutor, boolean isHeartbeatEnabled, long heartbeatInterval) {
+            Executor asyncContinuationExecutor,
+            long heartbeatInterval) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).

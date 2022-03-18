@@ -32,8 +32,11 @@ public interface IgniteClientConfiguration {
     /** Default port range. */
     int DFLT_PORT_RANGE = 100;
 
-    /** Default socket connect timeout. */
+    /** Default socket connect timeout, in milliseconds. */
     int DFLT_CONNECT_TIMEOUT = 5000;
+
+    /** Default heartbeat interval, in milliseconds. */
+    int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
     /** Default operation retry limit. */
     int DFLT_RETRY_LIMIT = 5;
@@ -102,18 +105,6 @@ public interface IgniteClientConfiguration {
      * @return Executor for async continuations.
      */
     @Nullable Executor asyncContinuationExecutor();
-
-    /**
-     * Gets a value indicating whether heartbeats are enabled.
-     * <p />
-     * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
-     * to keep the connection alive and detect potential half-open state.
-     * <p />
-     * See also {@link #heartbeatInterval}.
-     *
-     * @return Whether heartbeats are enabled.
-     */
-    public boolean isHeartbeatEnabled();
 
     /**
      * Gets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
