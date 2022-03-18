@@ -331,6 +331,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
+    @Disabled
     public void testRestartNodeWithConfigurationGap(TestInfo testInfo) {
         final int nodes = 4;
 
