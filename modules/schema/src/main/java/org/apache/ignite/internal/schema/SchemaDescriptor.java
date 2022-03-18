@@ -89,7 +89,7 @@ public class SchemaDescriptor {
 
         // Preserving key chunk column order is not actually required.
         // It is sufficient to has same column order for all nodes.
-        this.colocationCols = (ArrayUtils.nullOrEmpty(colocationCols)) ? keyCols :
+        this.colocationCols = (ArrayUtils.nullOrEmpty(colocationCols)) ? this.keyCols.columns() :
                 Arrays.stream(colocationCols).map(colMap::get).toArray(Column[]::new);
     }
 
