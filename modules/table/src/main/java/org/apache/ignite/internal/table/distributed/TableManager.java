@@ -209,7 +209,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentsCtx -> {
-                return onUpdateAssignments(assignmentsCtx);
+            return onUpdateAssignments(assignmentsCtx);
         });
 
         tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
