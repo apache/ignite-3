@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.lang.reflect.Constructor;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -92,7 +94,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> executeLocally(String jobClassName, Object... args) {
-        return executeLocally(jobClass(jobClassName), args);
+        return completedFuture(null).thenCompose(ignore -> executeLocally(jobClass(jobClassName), args));
     }
 
     private <R> CompletableFuture<R> doExecuteLocally(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
@@ -142,7 +144,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> executeRemotely(ClusterNode remoteNode, String jobClassName, Object... args) {
-        return executeRemotely(remoteNode, jobClass(jobClassName), args);
+        return completedFuture(null).thenCompose(ignored -> executeRemotely(remoteNode, jobClass(jobClassName), args));
     }
 
     private <R> CompletableFuture<R> doExecuteRemotely(ClusterNode remoteNode, Class<? extends ComputeJob<R>> jobClass, Object[] args) {
@@ -161,7 +163,7 @@ public class ComputeComponentImpl implements ComputeComponent {
             return CompletableFuture.failedFuture(executeResponse.throwable());
         }
 
-        return CompletableFuture.completedFuture((R) executeResponse.result());
+        return completedFuture((R) executeResponse.result());
     }
 
     /** {@inheritDoc} */
@@ -226,7 +228,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         try {
             return (Class<J>) Class.forName(jobClassName, true, jobClassLoader);
         } catch (ClassNotFoundException e) {
-            throw new IgniteInternalException("Cannot load job class", e);
+            throw new IgniteInternalException("Cannot load job class by name '" + jobClassName + "'", e);
         }
     }
 

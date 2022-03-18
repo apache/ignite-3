@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -378,6 +379,16 @@ class ComputeComponentImplTest {
 
         assertThat(result, is(instanceOf(CancellationException.class)));
         assertThat(((CancellationException) result).getMessage(), is("Cancelled due to node stop"));
+    }
+
+    @Test
+    void executionOfJobOfNonExistentClassResultsInException() throws Exception {
+        Object result = computeComponent.executeLocally("no-such-class")
+                .handle((res, ex) -> ex != null ? ex : res)
+                .get();
+
+        assertThat(result, is(instanceOf(Exception.class)));
+        assertThat(((Exception) result).getMessage(), containsString("Cannot load job class by name 'no-such-class'"));
     }
 
     private static class SimpleJob implements ComputeJob<String> {
