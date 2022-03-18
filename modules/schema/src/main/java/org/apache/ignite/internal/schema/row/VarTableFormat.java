@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.row;
 
-import org.apache.ignite.internal.schema.BinaryRow;
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.util.Constants;
 
 /**
@@ -139,21 +139,21 @@ abstract class VarTableFormat {
     /**
      * Reads varlen offset from vartable.
      *
-     * @param row       Row.
+     * @param chunk Chunk byte array.
      * @param vartblOff Vartable offset.
-     * @param entryIdx  Vartable entry index.
+     * @param entryIdx Vartable entry index.
      * @return Varlen offset.
      */
-    abstract int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx);
+    abstract int readVarlenOffset(ByteBuffer chunk, int vartblOff, int entryIdx);
 
     /**
      * Reads vartable size.
      *
-     * @param row       Row.
+     * @param chunk Chunk byte array.
      * @param vartblOff Vartable offset.
      * @return Number of entries in the vartable.
      */
-    abstract int readVartableSize(BinaryRow row, int vartblOff);
+    abstract int readVartableSize(ByteBuffer chunk, int vartblOff);
 
     /**
      * Convert vartable inplace to the current format.
@@ -180,13 +180,13 @@ abstract class VarTableFormat {
 
         /** {@inheritDoc} */
         @Override
-        int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
+        int readVarlenOffset(ByteBuffer chunk, int vartblOff, int entryIdx) {
             throw new IllegalStateException("Offset must be calculated by chunk when vartable is skipped");
         }
 
         /** {@inheritDoc} */
         @Override
-        int readVartableSize(BinaryRow row, int vartblOff) {
+        int readVartableSize(ByteBuffer chunk, int vartblOff) {
             return 0;
         }
 
@@ -212,14 +212,14 @@ abstract class VarTableFormat {
 
         /** {@inheritDoc} */
         @Override
-        int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
-            return Byte.toUnsignedInt(row.readByte(vartblOff + vartableEntryOffset(entryIdx)));
+        int readVarlenOffset(ByteBuffer chunk, int vartblOff, int entryIdx) {
+            return Byte.toUnsignedInt(chunk.get(vartblOff + vartableEntryOffset(entryIdx)));
         }
 
         /** {@inheritDoc} */
         @Override
-        int readVartableSize(BinaryRow row, int vartblOff) {
-            return Byte.toUnsignedInt(row.readByte(vartblOff));
+        int readVartableSize(ByteBuffer chunk, int vartblOff) {
+            return Byte.toUnsignedInt(chunk.get(vartblOff));
         }
 
         /** {@inheritDoc} */
@@ -257,14 +257,14 @@ abstract class VarTableFormat {
 
         /** {@inheritDoc} */
         @Override
-        int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
-            return Short.toUnsignedInt(row.readShort(vartblOff + vartableEntryOffset(entryIdx)));
+        int readVarlenOffset(ByteBuffer chunk, int vartblOff, int entryIdx) {
+            return Short.toUnsignedInt(chunk.getShort(vartblOff + vartableEntryOffset(entryIdx)));
         }
 
         /** {@inheritDoc} */
         @Override
-        int readVartableSize(BinaryRow row, int vartblOff) {
-            return Short.toUnsignedInt(row.readShort(vartblOff));
+        int readVartableSize(ByteBuffer chunk, int vartblOff) {
+            return Short.toUnsignedInt(chunk.getShort(vartblOff));
         }
 
         /** {@inheritDoc} */
@@ -300,14 +300,14 @@ abstract class VarTableFormat {
 
         /** {@inheritDoc} */
         @Override
-        int readVarlenOffset(BinaryRow row, int vartblOff, int entryIdx) {
-            return row.readInteger(vartblOff + vartableEntryOffset(entryIdx));
+        int readVarlenOffset(ByteBuffer chunk, int vartblOff, int entryIdx) {
+            return chunk.getInt(vartblOff + vartableEntryOffset(entryIdx));
         }
 
         /** {@inheritDoc} */
         @Override
-        int readVartableSize(BinaryRow row, int vartblOff) {
-            return Short.toUnsignedInt(row.readShort(vartblOff));
+        int readVartableSize(ByteBuffer chunk, int vartblOff) {
+            return Short.toUnsignedInt(chunk.getShort(vartblOff));
         }
 
         /** {@inheritDoc} */
