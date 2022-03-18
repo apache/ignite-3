@@ -820,7 +820,7 @@ public class Row implements BinaryRowEx, SchemaAware {
     }
 
     /**
-     * Utility method to extract the column offset from the {@link #findColumn(int, NativeTypeSpec)} result. The offset is calculated from
+     * Utility method to extract the column offset from the {@link #findColumn} result. The offset is calculated from
      * the beginning of the row.
      *
      * @param offLen {@code findColumn} invocation result.
@@ -831,7 +831,7 @@ public class Row implements BinaryRowEx, SchemaAware {
     }
 
     /**
-     * Utility method to extract the column length from the {@link #findColumn(int, NativeTypeSpec)} result for varlen columns.
+     * Utility method to extract the column length from the {@link #findColumn} result for varlen columns.
      *
      * @param offLen {@code findColumn} invocation result.
      * @return Length of the column or {@code 0} if the column is fixed-length.
