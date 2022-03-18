@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.network.processor;
 
 import static com.squareup.javapoet.ClassName.get;
-import static java.util.Arrays.asList;
+import static java.util.Set.of;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForFileObject;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForJavaFileObject;
 import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.CONFIG_FILE_NAME;
@@ -34,10 +34,10 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.DiagnosticCollector;
@@ -176,8 +176,8 @@ public class ItTransferableObjectProcessorIncrementalTest {
         assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
         assertEquals(2, cfg2.messageClasses().size());
         assertEquals(
-                asList(get(RESOURCE_PACKAGE_NAME, testMessageClass), get(RESOURCE_PACKAGE_NAME, testMessageClass2)),
-                cfg2.messageClasses()
+                of(get(RESOURCE_PACKAGE_NAME, testMessageClass), get(RESOURCE_PACKAGE_NAME, testMessageClass2)),
+                new HashSet<>(cfg2.messageClasses())
         );
 
         String messageFactory2 = readJavaFileObject(compilation2.get(factoryUri));
@@ -294,7 +294,7 @@ public class ItTransferableObjectProcessorIncrementalTest {
         JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
 
         CompilationTask task = systemJavaCompiler
-                .getTask(null, fileManager, diagnosticCollector, Collections.emptyList(), Set.of(), files);
+                .getTask(null, fileManager, diagnosticCollector, Collections.emptyList(), of(), files);
 
         task.setProcessors(Collections.singleton(new TransferableObjectProcessor()));
 

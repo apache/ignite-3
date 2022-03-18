@@ -29,7 +29,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
@@ -129,7 +128,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
                 .filter(element -> element != null && element.getAnnotation(Transferable.class) != null)
                 .map(element -> new MessageClass(processingEnv, element));
 
-        return Stream.concat(messages.stream(), configMessages).collect(Collectors.toSet());
+        return Stream.concat(messages.stream(), configMessages).collect(toSet());
     }
 
     /**
