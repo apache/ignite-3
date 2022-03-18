@@ -135,6 +135,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** {@inheritDoc} */
     @Override
+    public void onIdle() {
+        // TODO: Send heartbeat
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
