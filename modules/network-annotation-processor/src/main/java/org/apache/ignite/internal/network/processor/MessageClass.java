@@ -147,7 +147,7 @@ public class MessageClass {
      * @return Class name that the generated SerializationFactory should have.
      */
     public ClassName serializationFactoryName() {
-        return ClassName.get(className.packageName(), className.simpleName() + "SerializationFactory");
+        return ClassName.get(packageName(), simpleName() + "SerializationFactory");
     }
 
     /**
@@ -156,7 +156,7 @@ public class MessageClass {
      * @return Class name that the generated Network Message implementation should have.
      */
     public ClassName implClassName() {
-        return ClassName.get(className.packageName(), className.simpleName() + "Impl");
+        return ClassName.get(packageName(), simpleName() + "Impl");
     }
 
     /**
@@ -165,7 +165,7 @@ public class MessageClass {
      * @return Class name that the generated Builder interface should have.
      */
     public ClassName builderClassName() {
-        return ClassName.get(className.packageName(), className.simpleName() + "Builder");
+        return ClassName.get(packageName(), simpleName() + "Builder");
     }
 
     /**
@@ -174,7 +174,7 @@ public class MessageClass {
      * @return name of the factory method that should be used by the message factories
      */
     public String asMethodName() {
-        return decapitalize(className.simpleName());
+        return decapitalize(simpleName());
     }
 
     /**

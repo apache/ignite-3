@@ -20,15 +20,15 @@ package org.apache.ignite.internal.network.processor;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForFileObject;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForJavaFileObject;
 import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.CONFIG_FILE_NAME;
-import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.readClassName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 import com.google.testing.compile.JavaFileObjects;
 import com.squareup.javapoet.ClassName;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.processing.Filer;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
@@ -48,10 +50,14 @@ import javax.tools.ToolProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Integration tests for the {@link TransferableObjectProcessor} incremental compilation.
  */
+@ExtendWith(MockitoExtension.class)
 public class ItTransferableObjectProcessorIncrementalTest {
     /**
      * Package name of the test sources.
@@ -62,10 +68,18 @@ public class ItTransferableObjectProcessorIncrementalTest {
     private InMemoryJavaFileManager fileManager;
 
     /** Javac diagnostic collector. */
-    private DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
+    private final DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
+
+    @Mock
+    private ProcessingEnvironment env;
+
+    @Mock
+    private Filer filer;
 
     @BeforeEach
     void setUp() {
+        when(env.getFiler()).thenReturn(filer);
+
         JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
         StandardJavaFileManager standardFileManager = systemJavaCompiler.getStandardFileManager(diagnosticCollector, Locale.getDefault(),
                 StandardCharsets.UTF_8);
@@ -87,18 +101,11 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         Map<URI, JavaFileObject> compilation1 = compile(compilationObjects1);
 
-        JavaFileObject messageRegistry1 = compilation1.get(uriForMessagesFile());
-        try (BufferedReader bufferedReader = new BufferedReader(messageRegistry1.openReader(true))) {
-            ClassName messageGroupClass = readClassName(bufferedReader.readLine());
+        IncrementalCompilationConfig cfg1 = readConfig(compilation1);
 
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), messageGroupClass);
-
-            ClassName messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), messageClass);
-
-            assertNull(bufferedReader.readLine());
-        }
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
+        assertEquals(1, cfg1.messageClasses().size());
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
 
         URI factoryUri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -116,18 +123,11 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         Map<URI, JavaFileObject> compilation2 = compile(compilationObjects2);
 
-        JavaFileObject messageRegistry2 = compilation2.get(uriForMessagesFile());
-        try (BufferedReader bufferedReader = new BufferedReader(messageRegistry2.openReader(true))) {
-            ClassName messageGroupClass = readClassName(bufferedReader.readLine());
+        IncrementalCompilationConfig cfg2 = readConfig(compilation2);
 
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), messageGroupClass);
-
-            ClassName messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass2), messageClass);
-
-            assertNull(bufferedReader.readLine());
-        }
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
+        assertEquals(1, cfg2.messageClasses().size());
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass2), cfg2.messageClasses().get(0));
 
         String messageFactory2 = readJavaFileObject(compilation2.get(factoryUri));
 
@@ -149,18 +149,11 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         Map<URI, JavaFileObject> compilation1 = compile(compilationObjects1);
 
-        JavaFileObject messageRegistry1 = compilation1.get(uriForMessagesFile());
-        try (BufferedReader bufferedReader = new BufferedReader(messageRegistry1.openReader(true))) {
-            ClassName messageGroupClass = readClassName(bufferedReader.readLine());
+        IncrementalCompilationConfig cfg1 = readConfig(compilation1);
 
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), messageGroupClass);
-
-            ClassName messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), messageClass);
-
-            assertNull(bufferedReader.readLine());
-        }
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
+        assertEquals(1, cfg1.messageClasses().size());
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
 
         URI factoryUri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -177,22 +170,12 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         Map<URI, JavaFileObject> compilation2 = compile(compilationObjects2);
 
-        JavaFileObject messageRegistry2 = compilation2.get(uriForMessagesFile());
-        try (BufferedReader bufferedReader = new BufferedReader(messageRegistry2.openReader(true))) {
-            ClassName messageGroupClass = readClassName(bufferedReader.readLine());
+        IncrementalCompilationConfig cfg2 = readConfig(compilation2);
 
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), messageGroupClass);
-
-            ClassName messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), messageClass);
-
-            messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass2), messageClass);
-
-            assertNull(bufferedReader.readLine());
-        }
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
+        assertEquals(2, cfg2.messageClasses().size());
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg2.messageClasses().get(0));
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass2), cfg2.messageClasses().get(1));
 
         String messageFactory2 = readJavaFileObject(compilation2.get(factoryUri));
 
@@ -214,18 +197,11 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         Map<URI, JavaFileObject> compilation1 = compile(compilationObjects1);
 
-        JavaFileObject messageRegistry1 = compilation1.get(uriForMessagesFile());
-        try (BufferedReader bufferedReader = new BufferedReader(messageRegistry1.openReader(true))) {
-            ClassName messageGroupClass = readClassName(bufferedReader.readLine());
+        IncrementalCompilationConfig cfg1 = readConfig(compilation1);
 
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), messageGroupClass);
-
-            ClassName messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), messageClass);
-
-            assertNull(bufferedReader.readLine());
-        }
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
+        assertEquals(1, cfg1.messageClasses().size());
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
 
         URI factory1Uri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -243,18 +219,11 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         Map<URI, JavaFileObject> compilation2 = compile(compilationObjects2);
 
-        JavaFileObject messageRegistry2 = compilation2.get(uriForMessagesFile());
-        try (BufferedReader bufferedReader = new BufferedReader(messageRegistry2.openReader(true))) {
-            ClassName messageGroupClass = readClassName(bufferedReader.readLine());
+        IncrementalCompilationConfig cfg2 = readConfig(compilation2);
 
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup2), messageGroupClass);
-
-            ClassName messageClass = readClassName(bufferedReader.readLine());
-
-            assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), messageClass);
-
-            assertNull(bufferedReader.readLine());
-        }
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup2), cfg2.messageGroupClassName());
+        assertEquals(1, cfg2.messageClasses().size());
+        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg2.messageClasses().get(0));
 
         URI factory2Uri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -331,6 +300,13 @@ public class ItTransferableObjectProcessorIncrementalTest {
         assertTrue(result);
 
         return fileManager.getOutputFiles();
+    }
+
+    private IncrementalCompilationConfig readConfig(Map<URI, JavaFileObject> compilation) throws IOException {
+        when(filer.getResource(StandardLocation.CLASS_OUTPUT, "", CONFIG_FILE_NAME))
+                .thenReturn(compilation.get(uriForMessagesFile()));
+
+        return IncrementalCompilationConfig.readConfig(env);
     }
 
     private static URI uriForMessagesFile() {

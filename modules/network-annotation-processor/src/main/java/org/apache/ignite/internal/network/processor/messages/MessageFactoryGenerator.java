@@ -20,7 +20,7 @@ package org.apache.ignite.internal.network.processor.messages;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.TypeSpec;
-import java.util.List;
+import java.util.Collection;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Modifier;
 import javax.tools.Diagnostic;
@@ -57,7 +57,7 @@ public class MessageFactoryGenerator {
      * @param messages Network Messages from a module
      * @return {@code TypeSpec} of the generated message factory
      */
-    public TypeSpec generateMessageFactory(List<MessageClass> messages) {
+    public TypeSpec generateMessageFactory(Collection<MessageClass> messages) {
         ClassName factoryName = messageGroup.messageFactoryClassName();
 
         processingEnvironment.getMessager().printMessage(Diagnostic.Kind.NOTE, "Generating " + factoryName);

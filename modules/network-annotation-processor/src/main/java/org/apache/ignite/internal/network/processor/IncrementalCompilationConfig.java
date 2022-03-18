@@ -51,7 +51,7 @@ class IncrementalCompilationConfig {
     static final String CONFIG_FILE_NAME = "META-INF/transferable.messages";
 
     /** Message group class name. */
-    private ClassName messageGroupClassName;
+    private final ClassName messageGroupClassName;
 
     /** Messages. */
     private final List<ClassName> messageClasses;
@@ -134,9 +134,7 @@ class IncrementalCompilationConfig {
         writer.write(className.packageName());
         writer.write(' ');
 
-        List<String> simpleNames = className.simpleNames();
-
-        for (String enclosingSimpleName : simpleNames) {
+        for (String enclosingSimpleName : className.simpleNames()) {
             writer.write(enclosingSimpleName);
             writer.write(' ');
         }
@@ -150,7 +148,7 @@ class IncrementalCompilationConfig {
      * @param line Line.
      * @return Class name.
      */
-    static ClassName readClassName(String line) {
+    private static ClassName readClassName(String line) {
         String[] split = line.split(" ");
 
         String packageName = split[0];
@@ -164,10 +162,6 @@ class IncrementalCompilationConfig {
 
     ClassName messageGroupClassName() {
         return messageGroupClassName;
-    }
-
-    void messageGroupClassName(ClassName messageGroupClassName) {
-        this.messageGroupClassName = messageGroupClassName;
     }
 
     List<ClassName> messageClasses() {
