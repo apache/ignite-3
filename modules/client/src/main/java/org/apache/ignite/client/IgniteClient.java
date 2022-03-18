@@ -214,7 +214,7 @@ public interface IgniteClient extends Ignite {
                     connectTimeout,
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
-                    asyncContinuationExecutor);
+                    asyncContinuationExecutor, isHeartbeatEnabled, heartbeatInterval);
 
             return TcpIgniteClient.startAsync(cfg);
         }
