@@ -48,7 +48,6 @@ public class ByteBufferRow implements BinaryRow {
     public ByteBufferRow(ByteBuffer buf) {
         assert buf.order() == ByteOrder.LITTLE_ENDIAN;
         assert buf.position() == 0;
-        assert buf.limit() == buf.capacity();
 
         this.buf = buf;
     }
@@ -86,14 +85,15 @@ public class ByteBufferRow implements BinaryRow {
     /** {@inheritDoc} */
     @Override
     public ByteBuffer keySlice() {
-        final int off = KEY_CHUNK_OFFSET;
-        final int len = buf.getInt(off);
+        int off = KEY_CHUNK_OFFSET;
+        int len = buf.getInt(off);
+        int limit = buf.limit();
 
         try {
             return buf.limit(off + len).position(off).slice().order(ByteOrder.LITTLE_ENDIAN);
         } finally {
             buf.position(0); // Reset bounds.
-            buf.limit(buf.capacity());
+            buf.limit(limit);
         }
     }
 
@@ -102,12 +102,13 @@ public class ByteBufferRow implements BinaryRow {
     public ByteBuffer valueSlice() {
         int off = KEY_CHUNK_OFFSET + buf.getInt(KEY_CHUNK_OFFSET);
         int len = hasValue() ? buf.getInt(off) : 0;
+        int limit = buf.limit();
 
         try {
             return buf.limit(off + len).position(off).slice().order(ByteOrder.LITTLE_ENDIAN);
         } finally {
             buf.position(0); // Reset bounds.
-            buf.limit(buf.capacity());
+            buf.limit(limit);
         }
     }
 
