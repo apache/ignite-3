@@ -102,4 +102,29 @@ public interface IgniteClientConfiguration {
      * @return Executor for async continuations.
      */
     @Nullable Executor asyncContinuationExecutor();
+
+    /**
+     * Gets a value indicating whether heartbeats are enabled.
+     * <p />
+     * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+     * to keep the connection alive and detect potential half-open state.
+     * <p />
+     * See also {@link #heartbeatInterval}.
+     *
+     * @return Whether heartbeats are enabled.
+     */
+    public boolean isHeartbeatEnabled();
+
+    /**
+     * Gets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
+     * <p />
+     * When server-side idle timeout is not zero, effective heartbeat
+     * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
+     * <p />
+     * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+     * to keep the connection alive and detect potential half-open state.     *
+     *
+     * @return Heartbeat interval.
+     */
+    public long heartbeatInterval();
 }

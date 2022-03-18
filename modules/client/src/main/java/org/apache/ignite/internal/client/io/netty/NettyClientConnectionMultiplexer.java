@@ -24,7 +24,9 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.timeout.IdleStateHandler;
 import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
@@ -63,6 +65,17 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
+
+                    if (clientCfg.isHeartbeatEnabled()) {
+                        IdleStateHandler idleStateHandler = new IdleStateHandler(
+                                0,
+                                clientCfg.heartbeatInterval(),
+                                0,
+                                TimeUnit.MILLISECONDS);
+
+                        ch.pipeline().addLast(idleStateHandler);
+                        ch.pipeline().addLast(new NettyIdleEventHandler());
+                    }
                 }
             });
 

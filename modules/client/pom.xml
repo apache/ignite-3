@@ -79,6 +79,11 @@
             <artifactId>netty-codec</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-handler</artifactId>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.hamcrest</groupId>
