@@ -278,4 +278,32 @@ public class RocksDbTableStorageTest {
         assertThat(partitionStorage1.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData2, testData1));
         assertThat(partitionStorage2.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData1));
     }
+
+    /**
+     * Tests that loading snapshots for one partition does not influence data in another when overwriting existing keys.
+     */
+    @Test
+    void testSnapshotIndependenceOverwritesKeys() {
+        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(0);
+        PartitionStorage partitionStorage2 = storage.getOrCreatePartition(1);
+
+        var testData1 = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+        var testData2 = new SimpleDataRow("baz".getBytes(StandardCharsets.UTF_8), "quux".getBytes(StandardCharsets.UTF_8));
+
+        partitionStorage1.writeAll(List.of(testData1, testData2));
+        partitionStorage2.writeAll(List.of(testData1, testData2));
+
+        assertThat(partitionStorage2.snapshot(workDir.resolve("snapshot2")), willBe(nullValue(Void.class)));
+
+        // key is intentionally the same as testData1
+        var testData3 = new SimpleDataRow(testData1.keyBytes(), "new value".getBytes(StandardCharsets.UTF_8));
+
+        // test that snapshot restoration overrides existing keys
+        partitionStorage2.write(testData3);
+
+        partitionStorage2.restoreSnapshot(workDir.resolve("snapshot2"));
+
+        assertThat(partitionStorage1.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData2, testData1));
+        assertThat(partitionStorage2.readAll(List.of(testData2, testData3)), containsInAnyOrder(testData1));
+    }
 }

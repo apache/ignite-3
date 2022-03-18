@@ -64,7 +64,7 @@ public class RocksSnapshotManager {
         assert !ranges.isEmpty();
 
         this.db = db;
-        this.ranges = ranges;
+        this.ranges = List.copyOf(ranges);
         this.executor = executor;
     }
 
@@ -89,23 +89,24 @@ public class RocksSnapshotManager {
                     return CompletableFuture.allOf(sstFutures).thenApply(v -> snapshot);
                 }, executor)
                 .whenCompleteAsync((snapshot, e) -> {
-                    // Release the snapshot
+                    if (e != null) {
+                        return;
+                    }
+
                     db.releaseSnapshot(snapshot);
 
                     // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
                     // database does. Calling close to maintain the AutoCloseable semantics
                     snapshot.close();
 
-                    if (e == null) {
-                        // Delete snapshot directory if it already exists
-                        IgniteUtils.deleteIfExists(snapshotDir);
+                    // Delete snapshot directory if it already exists
+                    IgniteUtils.deleteIfExists(snapshotDir);
 
-                        try {
-                            // Rename the temporary directory
-                            IgniteUtils.atomicMoveFile(tmpPath, snapshotDir, null);
-                        } catch (IOException ex) {
-                            throw new IgniteInternalException("Failed to rename: " + tmpPath + " to " + snapshotDir, ex);
-                        }
+                    try {
+                        // Rename the temporary directory
+                        IgniteUtils.atomicMoveFile(tmpPath, snapshotDir, null);
+                    } catch (IOException ex) {
+                        throw new IgniteInternalException("Failed to rename: " + tmpPath + " to " + snapshotDir, ex);
                     }
                 }, executor)
                 .thenApply(v -> null);

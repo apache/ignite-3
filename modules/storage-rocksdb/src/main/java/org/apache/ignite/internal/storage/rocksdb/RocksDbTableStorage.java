@@ -145,7 +145,7 @@ class RocksDbTableStorage implements TableStorage {
 
             // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
             for (ColumnFamilyHandle cfHandle : cfHandles) {
-                ColumnFamily cf = ColumnFamily.createExisting(db, cfHandle);
+                ColumnFamily cf = ColumnFamily.wrap(db, cfHandle);
 
                 switch (columnFamilyType(cf.name())) {
                     case META:
@@ -274,7 +274,7 @@ class RocksDbTableStorage implements TableStorage {
 
             ColumnFamily cf;
             try {
-                cf = ColumnFamily.createNew(db, cfDescriptor);
+                cf = ColumnFamily.create(db, cfDescriptor);
             } catch (RocksDBException e) {
                 throw new StorageException("Failed to create new RocksDB column family: " + new String(cfDescriptor.getName(), UTF_8), e);
             }
@@ -363,13 +363,6 @@ class RocksDbTableStorage implements TableStorage {
             default:
                 throw new StorageException("Unidentified column family [name=" + cfName + ", table=" + tableCfg.name() + ']');
         }
-    }
-
-    /**
-     * Creates a descriptor of the "partition" Column Family.
-     */
-    private static ColumnFamilyDescriptor partitionCfDescriptor() {
-        return new ColumnFamilyDescriptor(PARTITION_CF_NAME.getBytes(UTF_8), new ColumnFamilyOptions());
     }
 
     /**

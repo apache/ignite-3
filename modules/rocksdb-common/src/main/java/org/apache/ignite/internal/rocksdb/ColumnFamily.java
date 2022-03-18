@@ -63,7 +63,7 @@ public class ColumnFamily {
      * @return new Column Family.
      * @throws RocksDBException If an error has occurred during creation.
      */
-    public static ColumnFamily createNew(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
+    public static ColumnFamily create(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
         ColumnFamilyHandle cfHandle = db.createColumnFamily(descriptor);
 
         return new ColumnFamily(db, cfHandle);
@@ -77,7 +77,7 @@ public class ColumnFamily {
      * @return Column Family wrapper.
      * @throws RocksDBException If an error has occurred during creation.
      */
-    public static ColumnFamily createExisting(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
+    public static ColumnFamily wrap(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
         return new ColumnFamily(db, handle);
     }
 

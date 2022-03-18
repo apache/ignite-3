@@ -190,6 +190,8 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
+        assert descriptors.size() == 2;
+
         var handles = new ArrayList<ColumnFamilyHandle>(descriptors.size());
 
         options = new DBOptions()
@@ -198,9 +200,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
 
-        data = ColumnFamily.createExisting(db, handles.get(0));
+        data = ColumnFamily.wrap(db, handles.get(0));
 
-        index = ColumnFamily.createExisting(db, handles.get(1));
+        index = ColumnFamily.wrap(db, handles.get(1));
 
         snapshotManager = new RocksSnapshotManager(db, List.of(fullRange(data), fullRange(index)), snapshotExecutor);
     }
