@@ -59,6 +59,7 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -92,26 +93,32 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
 
+    /** Configuration. */
+    private final ClientConnectorView configuration;
+
     /** Context. */
     private ClientContext clientContext;
 
     /**
      * Constructor.
-     *
-     * @param igniteTables       Ignite tables API entry point.
+     *  @param igniteTables      Ignite tables API entry point.
      * @param igniteTransactions Transactions API.
      * @param processor          Sql query processor.
+     * @param configuration      Configuration.
      */
     public ClientInboundMessageHandler(
             IgniteTables igniteTables,
             IgniteTransactions igniteTransactions,
-            QueryProcessor processor) {
+            QueryProcessor processor,
+            ClientConnectorView configuration) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
+        assert configuration != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
+        this.configuration = configuration;
 
         this.jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
@@ -167,6 +174,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientErrorCode.SUCCESS);
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
+            packer.packLong(configuration.idleTimeout());
 
             write(packer, ctx);
         } catch (Throwable t) {

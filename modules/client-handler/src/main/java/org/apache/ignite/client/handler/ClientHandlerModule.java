@@ -159,7 +159,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                new ClientInboundMessageHandler(igniteTables, igniteTransactions, queryProcessor));
+                                new ClientInboundMessageHandler(igniteTables, igniteTransactions, queryProcessor, configuration));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

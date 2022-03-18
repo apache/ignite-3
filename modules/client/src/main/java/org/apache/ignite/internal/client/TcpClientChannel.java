@@ -346,10 +346,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Returns protocol context for a version.
      *
      * @param ver Protocol version.
+     * @param serverIdleTimeout Server idle timeout.
      * @return Protocol context for a version.
      */
-    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver) {
-        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet());
+    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver, long serverIdleTimeout) {
+        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout);
     }
 
     /** Receive and handle handshake response. */
@@ -388,7 +389,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
 
-            protocolCtx = protocolContextFromVersion(srvVer);
+            var serverIdleTimeout = unpacker.unpackLong();
+
+            protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout);
         }
     }
 

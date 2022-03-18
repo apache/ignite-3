@@ -31,15 +31,19 @@ public class ProtocolContext {
     /** Features. */
     private final EnumSet<ProtocolBitmaskFeature> features;
 
+    /** Server idle timeout. */
+    private final long serverIdleTimeout;
+
     /**
      * Constructor.
-     *
-     * @param ver      Protocol version.
+     *  @param ver Protocol version.
      * @param features Supported features.
+     * @param serverIdleTimeout Server idle timeout.
      */
-    public ProtocolContext(ProtocolVersion ver, EnumSet<ProtocolBitmaskFeature> features) {
+    public ProtocolContext(ProtocolVersion ver, EnumSet<ProtocolBitmaskFeature> features, long serverIdleTimeout) {
         this.ver = ver;
         this.features = features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class);
+        this.serverIdleTimeout = serverIdleTimeout;
     }
 
     /**
@@ -80,5 +84,14 @@ public class ProtocolContext {
      */
     public ProtocolVersion version() {
         return ver;
+    }
+
+    /**
+     * Returns server idle timeout.
+     *
+     * @return Server idle timeout.
+     */
+    public long getServerIdleTimeout() {
+        return serverIdleTimeout;
     }
 }
