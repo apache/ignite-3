@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static com.squareup.javapoet.ClassName.get;
+import static java.util.Arrays.asList;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForFileObject;
 import static org.apache.ignite.internal.network.processor.InMemoryJavaFileManager.uriForJavaFileObject;
 import static org.apache.ignite.internal.network.processor.IncrementalCompilationConfig.CONFIG_FILE_NAME;
@@ -26,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.google.testing.compile.JavaFileObjects;
-import com.squareup.javapoet.ClassName;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
@@ -103,9 +104,9 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         IncrementalCompilationConfig cfg1 = readConfig(compilation1);
 
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
         assertEquals(1, cfg1.messageClasses().size());
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
 
         URI factoryUri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -125,9 +126,9 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         IncrementalCompilationConfig cfg2 = readConfig(compilation2);
 
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
         assertEquals(1, cfg2.messageClasses().size());
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass2), cfg2.messageClasses().get(0));
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageClass2), cfg2.messageClasses().get(0));
 
         String messageFactory2 = readJavaFileObject(compilation2.get(factoryUri));
 
@@ -151,9 +152,9 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         IncrementalCompilationConfig cfg1 = readConfig(compilation1);
 
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
         assertEquals(1, cfg1.messageClasses().size());
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
 
         URI factoryUri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -172,10 +173,12 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         IncrementalCompilationConfig cfg2 = readConfig(compilation2);
 
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg2.messageGroupClassName());
         assertEquals(2, cfg2.messageClasses().size());
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg2.messageClasses().get(0));
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass2), cfg2.messageClasses().get(1));
+        assertEquals(
+                asList(get(RESOURCE_PACKAGE_NAME, testMessageClass), get(RESOURCE_PACKAGE_NAME, testMessageClass2)),
+                cfg2.messageClasses()
+        );
 
         String messageFactory2 = readJavaFileObject(compilation2.get(factoryUri));
 
@@ -199,9 +202,9 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         IncrementalCompilationConfig cfg1 = readConfig(compilation1);
 
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup), cfg1.messageGroupClassName());
         assertEquals(1, cfg1.messageClasses().size());
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg1.messageClasses().get(0));
 
         URI factory1Uri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
@@ -221,9 +224,9 @@ public class ItTransferableObjectProcessorIncrementalTest {
 
         IncrementalCompilationConfig cfg2 = readConfig(compilation2);
 
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageGroup2), cfg2.messageGroupClassName());
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageGroup2), cfg2.messageGroupClassName());
         assertEquals(1, cfg2.messageClasses().size());
-        assertEquals(ClassName.get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg2.messageClasses().get(0));
+        assertEquals(get(RESOURCE_PACKAGE_NAME, testMessageClass), cfg2.messageClasses().get(0));
 
         URI factory2Uri = uriForJavaFileObject(
                 StandardLocation.SOURCE_OUTPUT,
