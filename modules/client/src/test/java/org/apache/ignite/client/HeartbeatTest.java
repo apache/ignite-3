@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getPort;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.IgniteClient.Builder;
@@ -38,9 +39,27 @@ public class HeartbeatTest {
                     .retryLimit(0);
 
             try (var client = builder.build()) {
-                Thread.sleep(500);
+                Thread.sleep(300);
 
                 assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
+            }
+        }
+    }
+
+    @Test
+    public void testHeartbeatShorterThanIdleTimeoutKeepsConnectionAlive() throws Exception {
+        try (var srv = new TestServer(10800, 10, 100, new FakeIgnite())) {
+            int srvPort = getPort(srv.module());
+
+            Builder builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + srvPort)
+                    .heartbeatInterval(50)
+                    .retryLimit(0);
+
+            try (var client = builder.build()) {
+                Thread.sleep(900);
+
+                assertEquals(0, client.tables().tables().size());
             }
         }
     }
