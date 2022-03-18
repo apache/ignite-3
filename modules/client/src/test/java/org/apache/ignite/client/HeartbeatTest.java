@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getPort;
 
+import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.junit.jupiter.api.Test;
 
@@ -28,10 +29,21 @@ import org.junit.jupiter.api.Test;
 public class HeartbeatTest {
     @Test
     public void testHeartbeatLongerThanIdleTimeoutCausesDisconnect() throws Exception {
-        try (TestServer srv = new TestServer(10800, 10, 100, new FakeIgnite())) {
-            int serverPort = getPort(srv.module());
+        try (var srv = new TestServer(10800, 10, 100, new FakeIgnite())) {
+            int srvPort = getPort(srv.module());
 
+            Builder builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + srvPort)
+                    .retryLimit(0);
 
+            try (var client = builder.build()) {
+                Thread.sleep(500);
+
+                client.tables();
+
+                // TODO
+                assert false;
+            }
         }
     }
 }
