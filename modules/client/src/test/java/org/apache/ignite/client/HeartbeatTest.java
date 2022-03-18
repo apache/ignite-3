@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.AbstractClientTest.getPort;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -39,10 +40,7 @@ public class HeartbeatTest {
             try (var client = builder.build()) {
                 Thread.sleep(500);
 
-                client.tables();
-
-                // TODO
-                assert false;
+                assertThrows(IgniteClientConnectionException.class, client::tables);
             }
         }
     }

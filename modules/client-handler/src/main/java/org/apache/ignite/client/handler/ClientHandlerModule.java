@@ -149,9 +149,9 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
-                        if (configuration.connectTimeout() > 0) {
+                        if (configuration.idleTimeout() > 0) {
                             IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                    configuration.connectTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+                                    configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
 
                             ch.pipeline().addLast(idleStateHandler);
                             ch.pipeline().addLast(new IdleChannelHandler());
