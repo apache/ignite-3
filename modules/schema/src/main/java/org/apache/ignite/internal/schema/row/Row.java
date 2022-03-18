@@ -38,6 +38,8 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.util.ColocationUtils;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -887,13 +889,21 @@ public class Row implements BinaryRowEx, SchemaAware {
         return row.readBytes(off, len);
     }
 
+    /** {@inheritDoc} */
     @Override
     public byte[] bytes() {
         return row.bytes();
     }
 
+    /** {@inheritDoc} */
     @Override
     public int colocationHash() {
-        return hash();
+        HashCalculator hashCalc = new HashCalculator();
+
+        for (Column c : schema().colocationColumns()) {
+            ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type().spec());
+        }
+
+        return hashCalc.hash();
     }
 }

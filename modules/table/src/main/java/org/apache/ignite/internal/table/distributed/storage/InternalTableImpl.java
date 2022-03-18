@@ -574,6 +574,10 @@ public class InternalTableImpl implements InternalTable {
                 final int internalBatchSize = Integer.MAX_VALUE;
 
                 for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++) {
+                    if (canceled.get()) {
+                        break;
+                    }
+
                     scanBatch(internalBatchSize);
                 }
 

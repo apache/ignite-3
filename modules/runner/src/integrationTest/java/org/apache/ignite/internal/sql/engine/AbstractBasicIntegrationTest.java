@@ -85,7 +85,7 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     /**
      * Before all.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      */
     @BeforeAll
     void startNodes(TestInfo testInfo) {
