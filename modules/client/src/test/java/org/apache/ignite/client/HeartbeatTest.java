@@ -40,7 +40,7 @@ public class HeartbeatTest {
             try (var client = builder.build()) {
                 Thread.sleep(500);
 
-                assertThrows(IgniteClientConnectionException.class, client::tables);
+                assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
             }
         }
     }
