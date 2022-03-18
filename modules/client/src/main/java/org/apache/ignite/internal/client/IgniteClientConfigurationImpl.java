@@ -57,7 +57,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param retryLimit                Retry limit.
      * @param connectTimeout            Socket connect timeout.
      * @param asyncContinuationExecutor Async continuation executor.
-     * @param isHeartbeatEnabled        Whether heartbeats are enabled.
      * @param heartbeatInterval         Heartbeat message interval.
      */
     public IgniteClientConfigurationImpl(
@@ -79,7 +78,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
-        this.isHeartbeatEnabled = isHeartbeatEnabled;
         this.heartbeatInterval = heartbeatInterval;
     }
 
@@ -123,12 +121,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable Executor asyncContinuationExecutor() {
         return asyncContinuationExecutor;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isHeartbeatEnabled() {
-        return isHeartbeatEnabled;
     }
 
     /** {@inheritDoc} */

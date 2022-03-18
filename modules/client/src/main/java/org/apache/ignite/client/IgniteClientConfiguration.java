@@ -113,7 +113,7 @@ public interface IgniteClientConfiguration {
      * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
      * <p />
      * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
-     * to keep the connection alive and detect potential half-open state.     *
+     * to keep the connection alive and detect potential half-open state.
      *
      * @return Heartbeat interval.
      */

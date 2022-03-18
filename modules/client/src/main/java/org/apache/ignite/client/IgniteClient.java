@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RETRY_LIMIT;
@@ -53,6 +54,7 @@ public interface IgniteClient extends Ignite {
     }
 
     /** Client builder. */
+    @SuppressWarnings("PublicInnerClass")
     class Builder {
         /** Addresses. */
         private String[] addresses;
@@ -74,6 +76,9 @@ public interface IgniteClient extends Ignite {
 
         /** Async continuation executor. */
         private Executor asyncContinuationExecutor;
+
+        /** Heartbeat interval. */
+        private long heartbeatInterval = DFLT_HEARTBEAT_INTERVAL;
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -188,6 +193,23 @@ public interface IgniteClient extends Ignite {
          */
         public Builder asyncContinuationExecutor(Executor asyncContinuationExecutor) {
             this.asyncContinuationExecutor = asyncContinuationExecutor;
+
+            return this;
+        }
+
+        /**
+         * Sets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
+         * <p />
+         * When server-side idle timeout is not zero, effective heartbeat
+         * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
+         * <p />
+         * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+         * to keep the connection alive and detect potential half-open state.
+         *
+         * @return Heartbeat interval.
+         */
+        public Builder heartbeatInterval(long heartbeatInterval) {
+            this.heartbeatInterval = heartbeatInterval;
 
             return this;
         }
