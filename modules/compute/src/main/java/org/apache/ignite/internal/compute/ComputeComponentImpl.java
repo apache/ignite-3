@@ -248,7 +248,7 @@ public class ComputeComponentImpl implements ComputeComponent {
         IgniteUtils.shutdownAndAwaitTermination(jobExecutorService, stopTimeoutMillis(), TimeUnit.MILLISECONDS);
     }
 
-    int stopTimeoutMillis() {
-        return 10_000;
+    long stopTimeoutMillis() {
+        return configuration.threadPoolStopTimeoutMillis().value();
     }
 }

@@ -88,6 +88,8 @@ class ComputeComponentImplTest {
 
     @Mock
     private ConfigurationValue<Integer> threadPoolSizeValue;
+    @Mock
+    private ConfigurationValue<Long> threadPoolStopTimeoutMillisValue;
 
     @InjectMocks
     private ComputeComponentImpl computeComponent;
@@ -105,8 +107,10 @@ class ComputeComponentImplTest {
 
     @BeforeEach
     void setUp() {
-        when(computeConfiguration.threadPoolSize()).thenReturn(threadPoolSizeValue);
-        when(threadPoolSizeValue.value()).thenReturn(8);
+        lenient().when(computeConfiguration.threadPoolSize()).thenReturn(threadPoolSizeValue);
+        lenient().when(threadPoolSizeValue.value()).thenReturn(8);
+        lenient().when(computeConfiguration.threadPoolStopTimeoutMillis()).thenReturn(threadPoolStopTimeoutMillisValue);
+        lenient().when(threadPoolStopTimeoutMillisValue.value()).thenReturn(10_000L);
 
         lenient().when(ignite.name()).thenReturn(INSTANCE_NAME);
 
@@ -330,7 +334,7 @@ class ComputeComponentImplTest {
             }
 
             @Override
-            int stopTimeoutMillis() {
+            long stopTimeoutMillis() {
                 return 100;
             }
         };
@@ -358,7 +362,7 @@ class ComputeComponentImplTest {
 
         computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration) {
             @Override
-            int stopTimeoutMillis() {
+            long stopTimeoutMillis() {
                 return 100;
             }
         };
