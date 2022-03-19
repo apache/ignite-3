@@ -23,14 +23,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /** Different DML tests. */
 public class ItDmlTest extends AbstractBasicIntegrationTest {
 
     protected int nodes() {
         return 3;
+    }
+
+    /**
+     * Clear tables after each test.
+     *
+     * @param testInfo Test information object.
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    @Override
+    public void tearDown(TestInfo testInfo) throws Exception {
+        dropAllTables();
+
+        super.tearDownBase(testInfo);
     }
 
     @Test

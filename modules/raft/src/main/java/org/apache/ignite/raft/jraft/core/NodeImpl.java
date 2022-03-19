@@ -1167,36 +1167,37 @@ public class NodeImpl implements Node, RaftServerService {
         if (opts.getClientExecutor() == null && validateOption(opts, "clientExecutor"))
             opts.setClientExecutor(JRaftUtils.createClientExecutor(opts, opts.getServerName()));
 
+
         if (opts.getfSMCallerExecutorDisruptor() == null) {
-            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new FSMCallerImpl.ApplyTask(),
-                opts.getStripes()));
+            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new FSMCallerImpl.ApplyTask(),
+                    opts.getStripes()));
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
-            opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new NodeImpl.LogEntryAndClosure(),
-                opts.getStripes()));
+            opts.setNodeApplyDisruptor(new StripedDisruptor<>(
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new NodeImpl.LogEntryAndClosure(),
+                    opts.getStripes()));
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
-            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
-                opts.getStripes()));
+            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
+                    opts.getStripes()));
         }
 
         if (opts.getLogManagerDisruptor() == null) {
-            opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
-                NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
-                opts.getRaftOptions().getDisruptorBufferSize(),
-                () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getStripes()));
+            opts.setLogManagerDisruptor(new StripedDisruptor<>(
+                    NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-LogManager-Disruptor"),
+                    opts.getRaftOptions().getDisruptorBufferSize(),
+                    () -> new LogManagerImpl.StableClosureEvent(),
+                    opts.getStripes()));
         }
     }
 
