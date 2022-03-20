@@ -19,7 +19,7 @@ To simplify the implementation of this pattern, the concept of `VersionedValue` 
 
 ### Versioned value
 
-Versioned value is some value that can be associated with a causality token. Typically, a field of a component that is supposed to be changed according to configuration changes, should be represented as `org.apache.ignite.internal.causality.VersionedValue` of needed type. Versioned value stores multiple versions of actual values, each for a certain causality token, i.e. a history of this value. Default history size is 2, but if the value didn’t change within a row of serial tokens, it is counted as one version for the history.
+Versioned value is some value that can be associated with a causality token. Typically, a field of a component that is supposed to be changed according to configuration changes, should be represented as `org.apache.ignite.internal.causality.VersionedValue` of needed type. Versioned value stores multiple versions of actual values, each for a certain causality token, i.e. a history of this value. The default history size is 2, but if the value hasn't been changed within a row of serial tokens, it is counted as one version for the history.
 
 Aforementioned futures, created for some causality token, are returned from `#get(long causalityToken)` method of `VersionedValue`.
 
