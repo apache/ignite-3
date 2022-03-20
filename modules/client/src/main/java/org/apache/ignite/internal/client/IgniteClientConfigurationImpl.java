@@ -47,12 +47,13 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
-    /** */
+    /** Heartbeat interval. */
     private final long heartbeatInterval;
 
     /**
      * Constructor.
-     *  @param addressFinder            Address finder.
+     *
+     * @param addressFinder             Address finder.
      * @param addresses                 Addresses.
      * @param retryLimit                Retry limit.
      * @param connectTimeout            Socket connect timeout.
