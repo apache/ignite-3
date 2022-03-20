@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
@@ -63,6 +64,11 @@ class CoreLocalConfigurationModuleTest {
     @Test
     void hasClientConnectorConfigurationRoot() {
         assertThat(module.rootKeys(), hasItem(ClientConnectorConfiguration.KEY));
+    }
+
+    @Test
+    void hasComputeConfigurationRoot() {
+        assertThat(module.rootKeys(), hasItem(ComputeConfiguration.KEY));
     }
 
     @Test

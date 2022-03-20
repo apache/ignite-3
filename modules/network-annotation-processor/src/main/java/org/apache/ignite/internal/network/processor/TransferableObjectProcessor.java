@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
+
+import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
@@ -25,7 +29,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
@@ -50,6 +54,7 @@ import org.apache.ignite.network.serialization.MessageDeserializer;
 import org.apache.ignite.network.serialization.MessageSerializationFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.network.serialization.MessageSerializer;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Annotation processor for working with the {@link Transferable} annotation.
@@ -71,18 +76,26 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         try {
-            List<MessageClass> messages = annotations.stream()
+            Set<MessageClass> messages = annotations.stream()
                     .map(roundEnv::getElementsAnnotatedWith)
                     .flatMap(Collection::stream)
                     .map(TypeElement.class::cast)
                     .map(e -> new MessageClass(processingEnv, e))
-                    .collect(Collectors.toList());
+                    .collect(toSet());
 
             if (messages.isEmpty()) {
                 return true;
             }
 
-            MessageGroupWrapper messageGroup = getMessageGroup(roundEnv);
+            IncrementalCompilationConfig currentConfig = IncrementalCompilationConfig.readConfig(processingEnv);
+
+            MessageGroupWrapper messageGroup = getMessageGroup(roundEnv, currentConfig);
+
+            if (currentConfig != null) {
+                messages = mergeMessages(currentConfig, messages);
+            }
+
+            updateConfig(messages, messageGroup);
 
             validateMessages(messages);
 
@@ -96,6 +109,28 @@ public class TransferableObjectProcessor extends AbstractProcessor {
         return true;
     }
 
+    private void updateConfig(Collection<MessageClass> messages, MessageGroupWrapper messageGroup) {
+        List<ClassName> messageClassNames = messages.stream()
+                .map(MessageClass::className)
+                .collect(toList());
+
+        var config = new IncrementalCompilationConfig(ClassName.get(messageGroup.element()), messageClassNames);
+
+        config.writeConfig(processingEnv);
+    }
+
+    private Set<MessageClass> mergeMessages(IncrementalCompilationConfig currentConfig, Collection<MessageClass> messages) {
+        Elements elementUtils = processingEnv.getElementUtils();
+
+        Stream<MessageClass> configMessages = currentConfig.messageClasses().stream()
+                .map(ClassName::canonicalName)
+                .map(elementUtils::getTypeElement)
+                .filter(element -> element != null && element.getAnnotation(Transferable.class) != null)
+                .map(element -> new MessageClass(processingEnv, element));
+
+        return Stream.concat(messages.stream(), configMessages).collect(toSet());
+    }
+
     /**
      * Generates the following classes for the current compilation unit.
      *
@@ -105,7 +140,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      *     <li>Message factory for all generated messages.</li>
      * </ol>
      */
-    private void generateMessageImpls(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
+    private void generateMessageImpls(Collection<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
         var messageBuilderGenerator = new MessageBuilderGenerator(processingEnv, messageGroup);
         var messageImplGenerator = new MessageImplGenerator(processingEnv, messageGroup);
         var messageFactoryGenerator = new MessageFactoryGenerator(processingEnv, messageGroup);
@@ -143,10 +178,10 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      *     {@link MessageSerializationRegistry}.</li>
      * </ol>
      */
-    private void generateSerializers(List<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
+    private void generateSerializers(Collection<MessageClass> annotatedMessages, MessageGroupWrapper messageGroup) {
         List<MessageClass> serializableMessages = annotatedMessages.stream()
                 .filter(MessageClass::isAutoSerializable)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         if (serializableMessages.isEmpty()) {
             return;
@@ -195,7 +230,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
      *     <li>No messages with the same message type exist.</li>
      * </ol>
      */
-    private void validateMessages(List<MessageClass> messages) {
+    private void validateMessages(Collection<MessageClass> messages) {
         var typeUtils = new TypeUtils(processingEnv);
 
         var messageTypesSet = new HashSet<Short>();
@@ -231,17 +266,24 @@ public class TransferableObjectProcessor extends AbstractProcessor {
     /**
      * Extracts and validates the declared message group types marked with the {@link MessageGroup} annotation.
      */
-    private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv) {
+    private MessageGroupWrapper getMessageGroup(RoundEnvironment roundEnv, @Nullable IncrementalCompilationConfig config) {
         Set<? extends Element> messageGroupSet = roundEnv.getElementsAnnotatedWith(MessageGroup.class);
 
+        Elements elementUtils = processingEnv.getElementUtils();
+
         if (messageGroupSet.isEmpty()) {
-            Elements elements = processingEnv.getElementUtils();
+            if (config != null) {
+                TypeElement typeElement = elementUtils.getTypeElement(config.messageGroupClassName().canonicalName());
+                if (typeElement != null) {
+                    return new MessageGroupWrapper(typeElement);
+                }
+            }
 
             Set<String> packageNames = roundEnv.getRootElements().stream()
-                    .map(elements::getPackageOf)
+                    .map(elementUtils::getPackageOf)
                     .map(PackageElement::getQualifiedName)
                     .map(Name::toString)
-                    .collect(Collectors.toSet());
+                    .collect(toSet());
 
             throw new ProcessingException(String.format(
                     "No message groups (classes annotated with @%s) found while processing messages from the following packages: %s",
@@ -254,7 +296,7 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             List<String> sortedNames = messageGroupSet.stream()
                     .map(Object::toString)
                     .sorted()
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             throw new ProcessingException(String.format(
                     "Invalid number of message groups (classes annotated with @%s), only one can be present in a compilation unit: %s",
@@ -263,9 +305,9 @@ public class TransferableObjectProcessor extends AbstractProcessor {
             ));
         }
 
-        Element singleElement = messageGroupSet.iterator().next();
+        TypeElement groupElement = (TypeElement) messageGroupSet.iterator().next();
 
-        return new MessageGroupWrapper((TypeElement) singleElement);
+        return new MessageGroupWrapper(groupElement);
     }
 
     /**

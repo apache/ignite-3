@@ -22,7 +22,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 /**
- * Binary row interface. The class contains low-level methods to read row data.
+ * Binary row interface. Data layout is described in packages' {@code README.md}.
  */
 public interface BinaryRow {
     /** Size of chunk length field. */
@@ -89,72 +89,6 @@ public interface BinaryRow {
      * @throws IOException If write operation fails.
      */
     void writeTo(OutputStream stream) throws IOException;
-
-    /**
-     * Read byte by offset.
-     *
-     * @param off Offset.
-     * @return Byte primitive value.
-     */
-    byte readByte(int off);
-
-    /**
-     * Read short by offset.
-     *
-     * @param off Offset.
-     * @return Short primitive value.
-     */
-    short readShort(int off);
-
-    /**
-     * Read integer by offset.
-     *
-     * @param off Offset.
-     * @return Integer primitive value.
-     */
-    int readInteger(int off);
-
-    /**
-     * Read long by offset.
-     *
-     * @param off Offset.
-     * @return Long primitive value.
-     */
-    long readLong(int off);
-
-    /**
-     * Read float by offset.
-     *
-     * @param off Offset.
-     * @return Float primitive value.
-     */
-    float readFloat(int off);
-
-    /**
-     * Read double by offset.
-     *
-     * @param off Offset.
-     * @return Double primitive value.
-     */
-    double readDouble(int off);
-
-    /**
-     * Read string by offset.
-     *
-     * @param off Offset.
-     * @param len Length.
-     * @return String value.
-     */
-    String readString(int off, int len);
-
-    /**
-     * Read bytes by offset.
-     *
-     * @param off Offset.
-     * @param len Length.
-     * @return Byte array.
-     */
-    byte[] readBytes(int off, int len);
 
     /**
      * Get byte array of the row.

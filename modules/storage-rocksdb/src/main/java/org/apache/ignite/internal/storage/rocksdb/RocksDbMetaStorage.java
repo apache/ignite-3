@@ -34,7 +34,7 @@ import org.rocksdb.Slice;
  * Wrapper around the "meta" Column Family inside a RocksDB-based storage, which stores some auxiliary information needed for internal
  * storage logic.
  */
-class RocksDbMetaStorage implements AutoCloseable {
+class RocksDbMetaStorage {
     /**
      * Name of the key that corresponds to a list of existing partition IDs of a storage.
      */
@@ -129,10 +129,5 @@ class RocksDbMetaStorage implements AutoCloseable {
                 .put(PARTITION_ID_PREFIX)
                 .putShort((short) partitionId)
                 .array();
-    }
-
-    @Override
-    public void close() throws Exception {
-        metaCf.close();
     }
 }
