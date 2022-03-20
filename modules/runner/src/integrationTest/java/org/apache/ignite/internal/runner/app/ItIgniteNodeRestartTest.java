@@ -202,8 +202,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
         assertEquals(newPort, nodePort);
-
-        IgnitionManager.stop(ignite.name());
     }
 
     /**
@@ -264,15 +262,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 + "  }\n"
                 + "}", workDir);
 
-        createTableWithData(ignite, TABLE_NAME, i -> "name " + i);
+        createTableWithData(ignite, TABLE_NAME, i -> "name " + i, 1);
 
         IgnitionManager.stop(nodeName);
 
         ignite = IgnitionManager.start(nodeName, null, workDir);
 
         checkTableWithData(ignite, TABLE_NAME,  i -> "name " + i);
-
-        IgnitionManager.stop(nodeName);
     }
 
     /**
@@ -309,8 +305,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         startNode(testInfo, 1);
 
-        createTableWithData(ignite, TABLE_NAME, i -> "name " + i);
-        createTableWithData(ignite, TABLE_NAME_2, i -> "val " + i);
+        createTableWithData(ignite, TABLE_NAME, i -> "name " + i, 2);
+        createTableWithData(ignite, TABLE_NAME_2, i -> "val " + i, 2);
 
         stopNode(0);
         stopNode(1);
@@ -341,7 +337,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         IntFunction<String> valueProducer = String::valueOf;
 
-        createTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
+        createTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer, nodes);
 
         final int nodeToStop = nodes - 1;
 
@@ -349,7 +345,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         stopNode(nodeToStop);
 
-        createTableWithData(CLUSTER_NODES.get(0), "t2", valueProducer);
+        createTableWithData(CLUSTER_NODES.get(0), "t2", valueProducer, nodes);
 
         log.info("Starting the node.");
 
@@ -389,7 +385,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      * @param valueProducer Producer of the values.
      */
-    private void createTableWithData(Ignite ignite, String name, IntFunction<String> valueProducer) {
+    private void createTableWithData(Ignite ignite, String name, IntFunction<String> valueProducer, int replicas) {
         TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", name).columns(
                 SchemaBuilders.column("id", ColumnType.INT32).build(),
                 SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build()
@@ -400,7 +396,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         ).build();
 
         Table table = ignite.tables().createTable(
-                scmTbl1.canonicalName(), tbl -> SchemaConfigurationConverter.convert(scmTbl1, tbl).changePartitions(10));
+                scmTbl1.canonicalName(),
+                tbl -> SchemaConfigurationConverter.convert(scmTbl1, tbl).changePartitions(10).changeReplicas(replicas)
+        );
 
         for (int i = 0; i < 100; i++) {
             Tuple key = Tuple.create().set("id", i);
