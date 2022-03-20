@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
 
 /**
@@ -38,6 +40,12 @@ public class DdlPlan implements QueryPlan {
     @Override
     public Type type() {
         return Type.DDL;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ResultSetMetadata metadata() {
+        return List::of;
     }
 
     /** {@inheritDoc} */

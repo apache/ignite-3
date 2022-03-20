@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.engine;
 
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Results set metadata.
+ * The exception is used to complete result stage of {@link AsyncCursor#requestNext(int)} invocation when invoked on a closed cursor.
  */
-public interface ResultSetMetadataInternal extends ResultSetMetadata {
-    /**
-     * Get fields metadata.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    RelDataType rowType();
+public class ClosedCursorException extends IgniteInternalCheckedException {
 }

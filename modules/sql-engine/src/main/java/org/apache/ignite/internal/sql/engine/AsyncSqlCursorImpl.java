@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -28,23 +27,45 @@ import java.util.concurrent.CompletionStage;
  */
 public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
+    private final ResultSetMetadata meta;
     private final AsyncCursor<T> dataCursor;
 
-    public AsyncSqlCursorImpl(SqlQueryType queryType, AsyncCursor<T> dataCursor) {
+    /**
+     * Constructor.
+     *
+     * @param queryType Type of the query.
+     * @param meta The meta of the result set.
+     * @param dataCursor The result set.
+     */
+    public AsyncSqlCursorImpl(
+            SqlQueryType queryType,
+            ResultSetMetadata meta,
+            AsyncCursor<T> dataCursor
+    ) {
         this.queryType = queryType;
+        this.meta = meta;
         this.dataCursor = dataCursor;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SqlQueryType queryType() {
         return queryType;
     }
 
+    /** {@inheritDoc} */
     @Override
-    public CompletionStage<List<T>> requestNext(int rows) {
+    public ResultSetMetadata metadata() {
+        return meta;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletionStage<BatchedResult<T>> requestNext(int rows) {
         return dataCursor.requestNext(rows);
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> close() {
         return dataCursor.close();

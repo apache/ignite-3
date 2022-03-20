@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.List;
-
 /**
  * Sql query cursor.
  *
@@ -26,14 +24,12 @@ import java.util.List;
  */
 public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
     /**
-     * Get query type.
+     * Returns query type.
      */
     SqlQueryType queryType();
 
     /**
-     * Get column metadata.
+     * Returns column metadata.
      */
-    default ResultSetMetadata metadata() {
-        return List::of;
-    }
+    ResultSetMetadata metadata();
 }

@@ -30,13 +30,11 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
-import org.apache.ignite.internal.sql.engine.RemoteFragmentKey;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -160,7 +158,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
         assert old == null;
 
-        return new AsyncWrapper<>(queryManager.execute(plan));
+        return new AsyncWrapper<>(queryManager.execute(plan), taskExecutor);
     }
 
     private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
@@ -274,62 +272,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         IgniteUtils.closeAll(iteratorsHolder::stop);
     }
 
-    static class AsyncWrapper<T> implements AsyncCursor<T> {
-        private final AtomicReference<CompletableFuture<Iterator<T>>> cursorRef;
-
-        public AsyncWrapper(Iterator<T> source) {
-            this(CompletableFuture.completedFuture(source));
-        }
-
-        public AsyncWrapper(CompletableFuture<Iterator<T>> initFut) {
-            this.cursorRef = new AtomicReference<>(initFut);
-        }
-
-        @Override
-        public CompletionStage<List<T>> requestNext(int rows) {
-            CompletableFuture<List<T>> batchFut = new CompletableFuture<>();
-
-            cursorRef.updateAndGet(fut -> fut.thenApplyAsync(cursor -> {
-                int remains = rows;
-                List<T> batch = new ArrayList<>(rows);
-
-                while (remains-- > 0 && cursor.hasNext()) {
-                    batch.add(cursor.next());
-                }
-
-                batchFut.complete(batch);
-
-                return cursor;
-            }).exceptionally(t -> {
-                batchFut.completeExceptionally(t);
-
-                return null;
-            }));
-
-            return batchFut;
-        }
-
-        @Override
-        public CompletableFuture<Void> close() {
-            return cursorRef.get().thenAccept(iterator -> {
-                if (iterator instanceof AutoCloseable) {
-                    try {
-                        ((AutoCloseable) iterator).close();
-                    } catch (Exception e) {
-                        throw new IgniteInternalException(e);
-                    }
-                }
-            });
-        }
-    }
-
     /**
      * A convenient class that manages the initialization and termination of distributed queries.
      */
     class DistributedQueryManager {
         private final BaseQueryContext ctx;
 
-        private final AtomicReference<CompletableFuture<Void>> cancelFut = new AtomicReference<>();
+        private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
+
+        private final AtomicBoolean cancelled = new AtomicBoolean();
 
         private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new ConcurrentHashMap<>();
 
@@ -353,9 +304,16 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                     .parameters(ctx.parameters())
                     .build();
 
-            msgSrvc.send(targetNodeId, req);
+            var fut = new CompletableFuture<Void>();
+            remoteFragmentInitCompletion.put(new RemoteFragmentKey(targetNodeId, fragment.fragmentId()), fut);
 
-            remoteFragmentInitCompletion.put(new RemoteFragmentKey(targetNodeId, fragment.fragmentId()), new CompletableFuture<>());
+            try {
+                msgSrvc.send(targetNodeId, req);
+            } catch (Exception ex) {
+                fut.complete(null);
+
+                throw ex;
+            }
         }
 
         private void acknowledgeFragment(String nodeId, long fragmentId, @Nullable Throwable ex) {
@@ -502,63 +460,61 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
 
         CompletableFuture<Void> close() {
-            return cancelFut.updateAndGet(old -> {
-                if (old != null) {
-                    return old;
-                }
+            if (!cancelled.compareAndSet(false, true)) {
+                return cancelFut;
+            }
 
-                CompletableFuture<Void> start = new CompletableFuture<>();
+            CompletableFuture<Void> start = new CompletableFuture<>();
 
-                CompletableFuture<Void> end = start
-                        .thenCompose(tmp -> {
-                            if (!root.completeExceptionally(new ExecutionCancelledException())) {
-                                return root.thenAccept(RootNode::closeInternal);
+            CompletableFuture<Void> end = start
+                    .thenCompose(tmp -> {
+                        if (!root.completeExceptionally(new ExecutionCancelledException())) {
+                            return root.thenAccept(RootNode::closeInternal);
+                        }
+
+                        return CompletableFuture.completedFuture(null);
+                    })
+                    .thenCompose(tmp -> {
+                        Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
+                        for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
+                            requestsPerNode.computeIfAbsent(entry.getKey().nodeId(), key -> new ArrayList<>()).add(entry.getValue());
+                        }
+
+                        List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
+                        for (Map.Entry<String, List<CompletableFuture<?>>> entry : requestsPerNode.entrySet()) {
+                            String nodeId = entry.getKey();
+
+                            if (!exchangeSrvc.alive(nodeId)) {
+                                continue;
                             }
 
-                            return CompletableFuture.completedFuture(null);
-                        })
-                        .thenCompose(tmp -> {
-                            Map<String, List<CompletableFuture<?>>> requestsPerNode = new HashMap<>();
-                            for (Map.Entry<RemoteFragmentKey, CompletableFuture<Void>> entry : remoteFragmentInitCompletion.entrySet()) {
-                                requestsPerNode.computeIfAbsent(entry.getKey().nodeId(), key -> new ArrayList<>()).add(entry.getValue());
-                            }
+                            cancelFuts.add(
+                                    CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
+                                            .thenRun(() -> {
+                                                try {
+                                                    exchangeSrvc.closeQuery(nodeId, ctx.queryId());
+                                                } catch (IgniteInternalCheckedException e) {
+                                                    throw new IgniteInternalException(
+                                                            "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
+                                                }
+                                            })
+                            );
+                        }
 
-                            List<CompletableFuture<?>> cancelFuts = new ArrayList<>();
-                            for (Map.Entry<String, List<CompletableFuture<?>>> entry : requestsPerNode.entrySet()) {
-                                String nodeId = entry.getKey();
+                        for (AbstractNode<?> node : localFragments) {
+                            node.context().execute(() -> {
+                                node.close();
+                                node.context().cancel();
+                            }, node::onError);
+                        }
 
-                                if (!exchangeSrvc.alive(nodeId)) {
-                                    continue;
-                                }
+                        return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]))
+                                .thenRun(() -> queryManagerMap.remove(ctx.queryId()));
+                    });
 
-                                cancelFuts.add(
-                                        CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
-                                                .thenRun(() -> {
-                                                    try {
-                                                        exchangeSrvc.closeQuery(nodeId, ctx.queryId());
-                                                    } catch (IgniteInternalCheckedException e) {
-                                                        throw new IgniteInternalException(
-                                                                "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
-                                                    }
-                                                })
-                                );
-                            }
+            start.completeAsync(() -> null, taskExecutor);
 
-                            for (AbstractNode<?> node : localFragments) {
-                                node.context().execute(() -> {
-                                    node.close();
-                                    node.context().cancel();
-                                }, node::onError);
-                            }
-
-                            return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]))
-                                    .thenRun(() -> queryManagerMap.remove(ctx.queryId()));
-                        });
-
-                start.completeAsync(() -> null, taskExecutor);
-
-                return end;
-            });
+            return end;
         }
     }
 }

@@ -22,12 +22,60 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Sql query cursor.
+ * Asynchronous cursor.
  *
  * @param <T> Type of elements.
  */
 public interface AsyncCursor<T> {
-    CompletionStage<List<T>> requestNext(int rows);
+    /**
+     * Request next batch of rows.
+     *
+     * <p>Several calls to this method should be chained and resulting stages should be completed in the order of invocation. Any call
+     * to this method after call to {@link #close()} should be completed immediately with
+     * {@link org.apache.ignite.internal.sql.engine.ClosedCursorException} even if the future returned by {@link #close()}
+     * is not completed yet.
+     *
+     * @param rows Desired amount of rows.
+     * @return A completion stage that will be completed with batch of size {@code rows} or less if there is no more data.
+     */
+    CompletionStage<BatchedResult<T>> requestNext(int rows);
 
+    /**
+     * Releases resources acquired by the cursor.
+     *
+     * @return A future which will be completed when the resources will be actually released.
+     */
     CompletableFuture<Void> close();
+
+    /**
+     * Batch of the items.
+     *
+     * @param <T> Type of the item.
+     */
+    class BatchedResult<T> {
+        private final List<T> items;
+
+        private final boolean hasMore;
+
+        /**
+         * Constructor.
+         *
+         * @param items Batch of items.
+         * @param hasMore Whether there is at least one more row in the cursor.
+         */
+        public BatchedResult(List<T> items, boolean hasMore) {
+            this.items = items;
+            this.hasMore = hasMore;
+        }
+
+        /** Returns items of this batch. */
+        public List<T> items() {
+            return items;
+        }
+
+        /** Returns {@code true} in case this cursor has more data. */
+        public boolean hasMore() {
+            return hasMore;
+        }
+    }
 }

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -67,6 +68,11 @@ public class QueryPlanCacheSelfTest {
         @Override
         public Type type() {
             return Type.QUERY;
+        }
+
+        @Override
+        public ResultSetMetadata metadata() {
+            return null;
         }
 
         @Override

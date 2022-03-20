@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.exec;
 
 /**
  * An id object that uniquely describes the remote fragment.
@@ -23,7 +23,7 @@ package org.apache.ignite.internal.sql.engine;
  * <p>Every fragment could be executed on several nodes. So, it is not sufficient to use the
  * fragment id only to distinguish between remote fragments, the node id should be attached.
  */
-public final class RemoteFragmentKey {
+public class RemoteFragmentKey {
     private final String nodeId;
 
     private final long fragmentId;

@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -52,14 +55,20 @@ public class CursorUtils {
         int batchSize = 256;
 
         try {
-            AtomicInteger lastBatchSize = new AtomicInteger();
-            do {
-                cur.requestNext(batchSize).thenAccept(batch -> {
-                    lastBatchSize.set(batch.size());
+            Consumer<BatchedResult<List<?>>> consumer = new Consumer<>() {
+                @Override
+                public void accept(BatchedResult<List<?>> br) {
+                    res.addAll(br.items());
 
-                    res.addAll(batch);
-                }).toCompletableFuture().join();
-            } while (lastBatchSize.get() == batchSize);
+                    if (br.hasMore()) {
+                        cur.requestNext(batchSize).thenAccept(this);
+                    }
+                }
+            };
+
+            cur.requestNext(batchSize).thenAccept(consumer).toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+            cur.close().get(5, TimeUnit.SECONDS);
         } catch (Throwable ex) {
             if (ex instanceof CompletionException) {
                 ex = ex.getCause();
@@ -68,20 +77,6 @@ public class CursorUtils {
             sneakyThrow(ex);
         }
 
-        try {
-            cur.close().get(5, TimeUnit.SECONDS);
-        } catch (Exception ex) {
-            sneakyThrow(ex);
-        }
-
         return res;
-    }
-
-    /**
-     * Throw an exception as if it were unchecked.
-     */
-    @SuppressWarnings("unchecked")
-    public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
-        throw (E) e;
     }
 }

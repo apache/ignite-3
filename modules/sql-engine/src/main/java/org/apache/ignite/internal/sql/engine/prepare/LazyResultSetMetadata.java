@@ -17,44 +17,33 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 
 /**
- * Query explain plan.
+ * Results set metadata holder.
  */
-public class ExplainPlan implements QueryPlan {
-    /** Column name. */
-    public static final String PLAN_COL_NAME = "PLAN";
+public class LazyResultSetMetadata implements ResultSetMetadata {
+    private final Supplier<List<ResultFieldMetadata>> fieldsMetaProvider;
 
-    private final ResultSetMetadata meta;
+    /** Fields metadata. */
+    private volatile List<ResultFieldMetadata> fields;
 
-    private final String plan;
-
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public ExplainPlan(String plan, ResultSetMetadata meta) {
-        this.meta = meta;
-        this.plan = plan;
+    public LazyResultSetMetadata(
+            Supplier<List<ResultFieldMetadata>> fieldsMetaProvider
+    ) {
+        this.fieldsMetaProvider = fieldsMetaProvider;
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.EXPLAIN;
-    }
+    @Override
+    public List<ResultFieldMetadata> fields() {
+        if (fields == null) {
+            fields = fieldsMetaProvider.get();
+        }
 
-    /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override public ResultSetMetadata metadata() {
-        return meta;
-    }
-
-    public String plan() {
-        return plan;
+        return fields;
     }
 }

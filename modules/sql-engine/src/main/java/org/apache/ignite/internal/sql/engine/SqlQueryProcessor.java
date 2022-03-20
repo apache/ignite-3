@@ -36,20 +36,15 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
-import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
-import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCache;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCacheImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
@@ -91,20 +86,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
-    /** Keeps queries plans to avoid expensive planning of the same queries. */
-    private volatile QueryPlanCache planCache;
-
     private volatile ExecutionService executionSrvc;
 
-    private volatile MessageService msgSrvc;
-
-    private volatile QueryTaskExecutor taskExecutor;
-
     private volatile PrepareService prepareSvc;
-
-    private volatile MailboxRegistry mailboxRegistry;
-
-    private volatile ExchangeService exchangeService;
 
     private volatile SqlSchemaManager schemaManager;
 
@@ -122,25 +106,25 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public synchronized void start() {
-        planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
-        taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
+        var planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
+        var taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
+        var mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
         prepareSvc = registerService(new PrepareServiceImpl());
-        mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
 
-        msgSrvc = registerService(new MessageServiceImpl(
-            clusterSrvc.topologyService(),
-            clusterSrvc.messagingService(),
-            taskExecutor
+        var msgSrvc = registerService(new MessageServiceImpl(
+                clusterSrvc.topologyService(),
+                clusterSrvc.messagingService(),
+                taskExecutor
         ));
 
-        exchangeService = registerService(new ExchangeServiceImpl(
-            clusterSrvc.topologyService().localMember().id(),
-            taskExecutor,
-            mailboxRegistry,
-            msgSrvc
+        var exchangeService = registerService(new ExchangeServiceImpl(
+                clusterSrvc.topologyService().localMember().id(),
+                taskExecutor,
+                mailboxRegistry,
+                msgSrvc
         ));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, revisionUpdater, planCache::clear);
+        var schemaManager = new SqlSchemaManagerImpl(tableManager, revisionUpdater, planCache::clear);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),
@@ -255,6 +239,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
                         return new AsyncSqlCursorImpl<>(
                                 SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                                plan.metadata(),
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });

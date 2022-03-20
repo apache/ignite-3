@@ -18,10 +18,12 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -29,7 +31,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 /**
  * Fake {@link SqlCursor}.
  */
-public class FakeCursor implements SqlCursor<List<?>> {
+public class FakeCursor implements AsyncSqlCursor<List<?>> {
     private final Random random;
 
     FakeCursor() {
@@ -37,31 +39,27 @@ public class FakeCursor implements SqlCursor<List<?>> {
     }
 
     @Override
-    public void close() throws Exception {
-
+    public CompletableFuture<Void> close() {
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public Iterator<List<?>> iterator() {
-        return null;
-    }
+    public CompletionStage<BatchedResult<List<?>>> requestNext(int rows) {
+        var batch = new ArrayList<List<?>>();
 
-    @Override
-    public boolean hasNext() {
-        return true;
-    }
+        for (int i = 0; i < rows; i++) {
+            List<Object> row = new ArrayList<>();
+            row.add(random.nextInt());
+            row.add(random.nextLong());
+            row.add(random.nextFloat());
+            row.add(random.nextDouble());
+            row.add(UUID.randomUUID().toString());
+            row.add(null);
 
-    @Override
-    public List<?> next() {
-        List<Object> result = new ArrayList<>();
-        result.add(random.nextInt());
-        result.add(random.nextLong());
-        result.add(random.nextFloat());
-        result.add(random.nextDouble());
-        result.add(UUID.randomUUID().toString());
-        result.add(null);
+            batch.add(row);
+        }
 
-        return result;
+        return CompletableFuture.completedFuture(new BatchedResult<>(batch, true));
     }
 
     @Override

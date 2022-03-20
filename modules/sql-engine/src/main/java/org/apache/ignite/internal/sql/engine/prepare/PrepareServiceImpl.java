@@ -21,11 +21,13 @@ import static java.util.Collections.singletonList;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
@@ -35,6 +37,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -66,47 +69,46 @@ public class PrepareServiceImpl implements PrepareService {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryPlan> prepare(SqlNode sqlNode, BaseQueryContext ctx) {
-        return CompletableFuture.completedFuture(null)
-                .thenApply(voidArg -> {
-                    try {
-                        assert single(sqlNode);
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                assert single(sqlNode);
 
-                        var planningContext = PlanningContext.builder()
-                                .parentContext(ctx)
-                                .build();
+                var planningContext = PlanningContext.builder()
+                        .parentContext(ctx)
+                        .build();
 
-                        if (SqlKind.DDL.contains(sqlNode.getKind())) {
-                            return prepareDdl(sqlNode, planningContext);
-                        }
+                if (SqlKind.DDL.contains(sqlNode.getKind())) {
+                    return prepareDdl(sqlNode, planningContext);
+                }
 
-                        switch (sqlNode.getKind()) {
-                            case SELECT:
-                            case ORDER_BY:
-                            case WITH:
-                            case VALUES:
-                            case UNION:
-                            case EXCEPT:
-                            case INTERSECT:
-                                return prepareQuery(sqlNode, planningContext);
+                switch (sqlNode.getKind()) {
+                    case SELECT:
+                    case ORDER_BY:
+                    case WITH:
+                    case VALUES:
+                    case UNION:
+                    case EXCEPT:
+                    case INTERSECT:
+                        return prepareQuery(sqlNode, planningContext);
 
-                            case INSERT:
-                            case DELETE:
-                            case UPDATE:
-                            case MERGE:
-                                return prepareDml(sqlNode, planningContext);
+                    case INSERT:
+                    case DELETE:
+                    case UPDATE:
+                    case MERGE:
+                        return prepareDml(sqlNode, planningContext);
 
-                            case EXPLAIN:
-                                return prepareExplain(sqlNode, planningContext);
+                    case EXPLAIN:
+                        return prepareExplain(sqlNode, planningContext);
 
-                            default:
-                                throw new IgniteInternalException("Unsupported operation ["
-                                        + "sqlNodeKind=" + sqlNode.getKind() + "; "
-                                        + "querySql=\"" + planningContext.query() + "\"]");
-                        }
-                    } catch (ValidationException | CalciteContextException e) {
-                        throw new IgniteInternalException("Failed to validate query. " + e.getMessage(), e);
-                    }
-                });
+                    default:
+                        throw new IgniteInternalException("Unsupported operation ["
+                                + "sqlNodeKind=" + sqlNode.getKind() + "; "
+                                + "querySql=\"" + planningContext.query() + "\"]");
+                }
+            } catch (ValidationException | CalciteContextException e) {
+                throw new IgniteInternalException("Failed to validate query. " + e.getMessage(), e);
+            }
+        }, Runnable::run);
     }
 
     private QueryPlan prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
@@ -180,11 +182,30 @@ public class PrepareServiceImpl implements PrepareService {
         return resultSetMetadata(ctx, planDataType, null);
     }
 
-    private ResultSetMetadataInternal resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
+    private ResultSetMetadata resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
             @Nullable List<List<String>> origins) {
-        return new ResultSetMetadataImpl(
-                TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins),
-                origins
+        return new LazyResultSetMetadata(
+                () -> {
+                    RelDataType rowType = TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
+
+                    List<ResultFieldMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
+
+                    for (int i = 0; i < rowType.getFieldCount(); ++i) {
+                        RelDataTypeField fld = rowType.getFieldList().get(i);
+
+                        fieldsMeta.add(
+                                new ResultFieldMetadataImpl(
+                                        fld.getName(),
+                                        TypeUtils.nativeType(fld.getType()),
+                                        fld.getIndex(),
+                                        fld.getType().isNullable(),
+                                        origins == null ? List.of() : origins.get(i)
+                                )
+                        );
+                    }
+
+                    return fieldsMeta;
+                }
         );
     }
 }

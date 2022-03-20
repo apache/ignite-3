@@ -497,4 +497,15 @@ public final class IgniteTestUtils {
     public interface RunnableX {
         void run() throws Throwable;
     }
+
+    /**
+     * Throw an exception as if it were unchecked.
+     *
+     * <p>This method erases type of the exception in the thrown clause, so checked exception could be thrown without need to wrap it with
+     * unchecked one or adding a similar throws clause to the upstream methods.
+     */
+    @SuppressWarnings("unchecked")
+    public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
+        throw (E) e;
+    }
 }
