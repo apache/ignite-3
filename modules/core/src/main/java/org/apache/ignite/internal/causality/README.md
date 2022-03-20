@@ -25,4 +25,4 @@ Aforementioned futures, created for some causality token, are returned from `#ge
 
 New version of a value, associated with causality token, can be set either explicitly via `#set` method, or via update of a storage revision. The storage revision updater is set in the constructor. If the value hasn't been changed when the storage revision update happens (neither `#set` nor `#update` methods were called), it means that the previous value becomes associated with the new token. When a value becomes associated with a token, a future created for this token completes.
 
-Versioned value can be also changed multiple times within one causality token, but these changes are not saved to history and don’t complete the futures. It should be used for processing multiple notifications having the same causality token. For details, see javadoc for `#update` method.
+Versioned value can be also changed multiple times within one causality token, but these changes are not saved to the history and don’t complete the futures. It should be used for processing multiple notifications having the same causality token. For details, see javadoc for `#update` method.
