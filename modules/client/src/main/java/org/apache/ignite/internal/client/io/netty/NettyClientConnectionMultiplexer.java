@@ -24,9 +24,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.timeout.IdleStateHandler;
 import java.net.InetSocketAddress;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.internal.client.io.ClientConnection;
@@ -62,16 +60,7 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
-                    // TODO: Not possible to auto-adjust heartbeat interval with immutable IdleStateHandler.
-                    // Change to manually managed timer.
-                    IdleStateHandler idleStateHandler = new IdleStateHandler(
-                            0,
-                            clientCfg.heartbeatInterval(),
-                            0,
-                            TimeUnit.MILLISECONDS);
-
                     ch.pipeline().addLast(
-                            idleStateHandler,
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
                 }

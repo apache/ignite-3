@@ -21,9 +21,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import java.net.InetSocketAddress;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -61,6 +59,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolVersion.V3_0_0
     );
 
+    /** Minimum supported heartbeat interval. */
+    private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 50;
+
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
 
@@ -82,6 +83,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Connect timeout in milliseconds. */
     private final long connectTimeout;
 
+    /** Heartbeat timer. */
+    private final Timer heartbeatTimer;
+
+    /** Last send operation timestamp. */
+    private volatile long lastSendMillis;
+
     /**
      * Constructor.
      *
@@ -100,6 +107,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         sock = connMgr.open(cfg.getAddress(), this, this);
 
         handshake(DEFAULT_VERSION);
+
+        heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
     }
 
     /** {@inheritDoc} */
@@ -113,6 +122,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(Exception cause) {
         if (closed.compareAndSet(false, true)) {
+            heartbeatTimer.cancel();
+
             sock.close();
 
             for (ClientRequestFuture pendingReq : pendingReqs.values()) {
@@ -131,12 +142,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public void onDisconnected(@Nullable Exception e) {
         close(e);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onIdle() {
-        serviceAsync(ClientOp.HEARTBEAT, null, null);
     }
 
     /** {@inheritDoc} */
@@ -397,14 +402,76 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
     /** Write bytes to the output stream. */
     private ChannelFuture write(ClientMessagePacker packer) throws IgniteClientConnectionException {
+        lastSendMillis = System.currentTimeMillis();
+
         var buf = packer.getBuffer();
 
         return sock.send(buf);
     }
 
     /**
+     * Initializes heartbeats.
+     *
+     * @param configuredInterval Configured heartbeat interval, in milliseconds.
+     * @return Heartbeat timer.
+     */
+    private Timer initHeartbeat(long configuredInterval) {
+        long heartbeatInterval = getHeartbeatInterval(configuredInterval);
+
+        Timer timer = new Timer("tcp-client-channel-heartbeats-" + hashCode());
+
+        timer.schedule(new HeartbeatTask(heartbeatInterval), heartbeatInterval, heartbeatInterval);
+
+        return timer;
+    }
+
+    /**
+     * Gets the heartbeat interval based on the configured value and served-side idle timeout.
+     *
+     * @param configuredInterval Configured interval.
+     * @return Resolved interval.
+     */
+    private long getHeartbeatInterval(long configuredInterval) {
+        long serverIdleTimeoutMs = protocolCtx.getServerIdleTimeout();
+
+        if (serverIdleTimeoutMs <= 0)
+            return configuredInterval;
+
+        long recommendedHeartbeatInterval = serverIdleTimeoutMs / 3;
+
+        if (recommendedHeartbeatInterval < MIN_RECOMMENDED_HEARTBEAT_INTERVAL)
+            recommendedHeartbeatInterval = MIN_RECOMMENDED_HEARTBEAT_INTERVAL;
+
+        return Math.min(configuredInterval, recommendedHeartbeatInterval);
+    }
+
+    /**
      * Client request future.
      */
     private static class ClientRequestFuture extends CompletableFuture<ClientMessageUnpacker> {
+    }
+
+    /**
+     * Sends heartbeat messages.
+     */
+    private class HeartbeatTask extends TimerTask {
+        /** Heartbeat interval. */
+        private final long interval;
+
+        /** Constructor. */
+        public HeartbeatTask(long interval) {
+            this.interval = interval;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void run() {
+            try {
+                if (System.currentTimeMillis() - lastSendMillis > interval)
+                    serviceAsync(ClientOp.HEARTBEAT, null, null);
+            }
+            catch (Throwable ignored) {
+                // Ignore failed heartbeats.
+            }
+        }
     }
 }

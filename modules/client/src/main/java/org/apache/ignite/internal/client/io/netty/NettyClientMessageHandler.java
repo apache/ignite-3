@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
-import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.ATTR_CONN;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
+
 import java.io.IOException;
+
+import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.ATTR_CONN;
 
 /**
  * Netty client message handler.
@@ -40,13 +39,5 @@ public class NettyClientMessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
         ctx.channel().attr(ATTR_CONN).get().onDisconnected(null);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
-        if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.WRITER_IDLE) {
-            ctx.channel().attr(ATTR_CONN).get().onIdle();
-        }
     }
 }
