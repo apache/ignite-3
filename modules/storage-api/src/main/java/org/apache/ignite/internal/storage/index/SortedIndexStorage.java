@@ -112,7 +112,9 @@ public interface SortedIndexStorage extends AutoCloseable {
         throw new UnsupportedOperationException("scan");
     }
 
-    // To sole purpose of this class is to avoid massive refactoring while changing the original IndexRow.
+    /**
+     * The sole purpose of this class is to avoid massive refactoring while changing the original IndexRow.
+     */
     interface IndexRowEx {
         BinaryRow pk();
 

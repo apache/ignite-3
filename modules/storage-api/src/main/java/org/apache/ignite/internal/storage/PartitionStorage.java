@@ -51,6 +51,18 @@ public interface PartitionStorage extends AutoCloseable {
     DataRow read(SearchRow key) throws StorageException;
 
     /**
+     * Reads the value from the storage as it was at the given timestamp.
+     *
+     * @param key Key.
+     * @param timestamp Timestamp.
+     * @return Binary row that corresponds to the key or {@code null} if value is not found.
+     */
+    @Nullable
+    default BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp) {
+        throw new UnsupportedOperationException("read");
+    }
+
+    /**
      * Reads {@link DataRow}s for a given collection of keys.
      *
      * @param keys Search rows.
@@ -132,6 +144,17 @@ public interface PartitionStorage extends AutoCloseable {
     Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException;
 
     /**
+     * Scans the partition and returns a cursor of values in at the given timestamp.
+     *
+     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
+     * @param timestamp Timestamp
+     * @return Cursor.
+     */
+    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
+        throw new UnsupportedOperationException("scan");
+    }
+
+    /**
      * Exception class that describes the situation where two independant transactions attempting to write values for the same key.
      */
     class TxIdMismatchException extends RuntimeException {
@@ -166,29 +189,6 @@ public interface PartitionStorage extends AutoCloseable {
      */
     default void commitWrite(BinaryRow key, Timestamp timestamp) {
         throw new UnsupportedOperationException("commitWrite");
-    }
-
-    /**
-     * Reads the value from the storage as it was at the given timestamp.
-     *
-     * @param key Key.
-     * @param timestamp Timestamp.
-     * @return Binary row that corresponds to the key or {@code null} if value is not found.
-     */
-    @Nullable
-    default BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp) {
-        throw new UnsupportedOperationException("read");
-    }
-
-    /**
-     * Scans the partition and returns a cursor of values in at the given timestamp.
-     *
-     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
-     * @param timestamp Timestamp
-     * @return Cursor.
-     */
-    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
-        throw new UnsupportedOperationException("scan");
     }
 
     /**

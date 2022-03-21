@@ -74,11 +74,11 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
     private int compareColumns(BinaryRow l, BinaryRow r) {
         List<ColumnDescriptor> columnDescriptors = descriptor.indexRowColumns();
 
-        Row lRow = new Row(descriptor.asSchemaDescriptor(), l);
+        Row leftRow = new Row(descriptor.asSchemaDescriptor(), l);
 
-        Object[] lTuple = convert(lRow, columnDescriptors, null);
+        Object[] leftTuple = convert(leftRow, columnDescriptors, null);
 
-        return new PrefixComparator(descriptor, () -> lTuple).compare(r);
+        return new PrefixComparator(descriptor, () -> leftTuple).compare(r);
     }
 
     public void append(BinaryRow row) {
