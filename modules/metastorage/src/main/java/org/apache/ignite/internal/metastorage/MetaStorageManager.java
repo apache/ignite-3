@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -47,8 +46,6 @@ import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
-import org.apache.ignite.internal.metastorage.event.MetastorageEvent;
-import org.apache.ignite.internal.metastorage.event.MetastorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -85,7 +82,7 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-14586 Remove @SuppressWarnings when implementation provided.
 @SuppressWarnings("unused")
-public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEventParameters> implements IgniteComponent {
+public class MetaStorageManager implements IgniteComponent {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(MetaStorageManager.class);
 
@@ -929,8 +926,6 @@ public class MetaStorageManager extends Producer<MetastorageEvent, MetastorageEv
         }
 
         vaultMgr.putAll(batch).join();
-
-        fireEvent(MetastorageEvent.REVISION_APPLIED, new MetastorageEventParameters(revision), null);
     }
 
     /**
