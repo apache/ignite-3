@@ -21,8 +21,8 @@ package org.apache.ignite.internal.client.proto;
  * Client operation codes.
  */
 public class ClientOp {
-    /** Create table. */
-    public static final int TABLE_CREATE = 1;
+    /** Heartbeat. */
+    public static final int HEARTBEAT = 1;
 
     /** Drop table. */
     public static final int TABLE_DROP = 2;

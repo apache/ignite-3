@@ -252,6 +252,7 @@ namespace Apache.Ignite.Internal
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
+            reader.Skip(); // Idle timeout.
         }
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
