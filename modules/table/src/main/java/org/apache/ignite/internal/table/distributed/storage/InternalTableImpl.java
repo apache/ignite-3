@@ -624,16 +624,14 @@ public class InternalTableImpl implements InternalTable {
                                         return;
                                     } else {
                                         res.getValues().forEach(subscriber::onNext);
-
-                                        if (requestedItemsSizeTotal < (scanIteration * requestedItemsSizeBatched)) {
-                                            scanBatch(requestedItemsSizeBatched, requestedItemsSizeTotal, scanIteration + 1);
-                                        }
                                     }
 
                                     if (res.getValues().size() < requestedItemsSizeBatched) {
                                         cancel();
 
                                         subscriber.onComplete();
+                                    } else if (requestedItemsSizeTotal < (scanIteration * requestedItemsSizeBatched)) {
+                                        scanBatch(requestedItemsSizeBatched, requestedItemsSizeTotal, scanIteration + 1);
                                     }
                                 })
                         .exceptionally(
