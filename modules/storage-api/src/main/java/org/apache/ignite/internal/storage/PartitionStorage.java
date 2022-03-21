@@ -20,8 +20,11 @@ package org.apache.ignite.internal.storage;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -127,6 +130,78 @@ public interface PartitionStorage extends AutoCloseable {
      * @throws StorageException If failed to read data or storage is already stopped.
      */
     Cursor<DataRow> scan(Predicate<SearchRow> filter) throws StorageException;
+
+    /**
+     * Exception class that describes the situation where two independant transactions attempting to write values for the same key.
+     */
+    class TxIdMismatchException extends RuntimeException {
+    }
+
+    /**
+     * Creates uncommited version, assigned to the passed transaction id..
+     *
+     * @param row Binary row to update. Key only row means value removal.
+     * @param txId Transaction id.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to write data to the storage.
+     */
+    default void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException {
+        throw new UnsupportedOperationException("addWrite");
+    }
+
+    /**
+     * Aborts a pending update of the ongoing uncommited transaction. Invoked during rollback.
+     *
+     * @param key Key.
+     */
+    default void abortWrite(BinaryRow key) {
+        throw new UnsupportedOperationException("abortWrite");
+    }
+
+    /**
+     * Commits a pending update of the ongoing transaction. Invoked during commit. Commited value will be versioned by the given timestamp.
+     *
+     * @param key Key.
+     * @param timestamp Timestamp to associate with commited value.
+     */
+    default void commitWrite(BinaryRow key, Timestamp timestamp) {
+        throw new UnsupportedOperationException("commitWrite");
+    }
+
+    /**
+     * Reads the value from the storage as it was at the given timestamp.
+     *
+     * @param key Key.
+     * @param timestamp Timestamp.
+     * @return Binary row that corresponds to the key or {@code null} if value is not found.
+     */
+    @Nullable
+    default BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp) {
+        throw new UnsupportedOperationException("read");
+    }
+
+    /**
+     * Scans the partition and returns a cursor of values in at the given timestamp.
+     *
+     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
+     * @param timestamp Timestamp
+     * @return Cursor.
+     */
+    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
+        throw new UnsupportedOperationException("scan");
+    }
+
+    /**
+     * Removes data associated with old timestamps.
+     *
+     * @param from Start of hashes range to process. Inclusive.
+     * @param to End of hashes range to process. Inclusive.
+     * @param timestamp Timestamp to remove all the data with a lesser timestamp.
+     * @return Future for the operation.
+     */
+    default CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp) {
+        throw new UnsupportedOperationException("cleanup");
+    }
 
     /**
      * Creates a snapshot of the storage's current state in the specified directory.

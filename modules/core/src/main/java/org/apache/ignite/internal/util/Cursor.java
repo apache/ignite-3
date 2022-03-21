@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.util.Iterator;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Closeable cursor.
@@ -25,5 +26,39 @@ import java.util.Iterator;
  * @param <T> Type of elements.
  */
 public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
+    /**
+     * Creates an iterator based cursor.
+     *
+     * @param it Iterator.
+     * @param <T> Type of elements in iterator.
+     * @return Cursor.
+     */
+    static <T> Cursor<T> fromIterator(Iterator<? extends T> it) {
+        return new Cursor<T>() {
+            /** {@inheritDoc} */
+            @Override
+            public void close() throws Exception {
+                // No-op.
+            }
 
+            /** {@inheritDoc} */
+            @NotNull
+            @Override
+            public Iterator<T> iterator() {
+                return this;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean hasNext() {
+                return it.hasNext();
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public T next() {
+                return it.next();
+            }
+        };
+    }
 }

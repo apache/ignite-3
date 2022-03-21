@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.index;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -23,15 +23,13 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for comparing a {@link BinaryRow} representing an Index Key with a given prefix of index columns.
  */
-class PrefixComparator {
+public class PrefixComparator {
     private final SortedIndexDescriptor descriptor;
     private final @Nullable Object[] prefix;
 
@@ -41,7 +39,7 @@ class PrefixComparator {
      * @param descriptor Index Descriptor of the enclosing index.
      * @param prefix Prefix to compare the incoming rows against.
      */
-    PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
+    public PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
         assert descriptor.indexRowColumns().size() >= prefix.prefixColumnValues().length;
 
         this.descriptor = descriptor;
@@ -56,7 +54,7 @@ class PrefixComparator {
      *         a value less than {@code 0} if the row's prefix is smaller than the prefix; and
      *         a value greater than {@code 0} if the row's prefix is larger than the prefix.
      */
-    int compare(BinaryRow binaryRow) {
+    public int compare(BinaryRow binaryRow) {
         var row = new Row(descriptor.asSchemaDescriptor(), binaryRow);
 
         for (int i = 0; i < prefix.length; ++i) {

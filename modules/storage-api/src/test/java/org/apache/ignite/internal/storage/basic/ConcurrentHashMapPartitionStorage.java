@@ -45,7 +45,6 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -194,32 +193,7 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
                 .filter(filter)
                 .iterator();
 
-        return new Cursor<>() {
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                return iter.hasNext();
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public DataRow next() {
-                return iter.next();
-            }
-
-            /** {@inheritDoc} */
-            @NotNull
-            @Override
-            public Iterator<DataRow> iterator() {
-                return this;
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public void close() {
-                // No-op.
-            }
-        };
+        return Cursor.fromIterator(iter);
     }
 
     /** {@inheritDoc} */
