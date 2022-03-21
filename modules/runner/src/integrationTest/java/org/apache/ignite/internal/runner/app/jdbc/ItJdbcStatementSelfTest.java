@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Statement test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16683")
 public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL query. */
     private static final String SQL = "select * from PERSON where age > 30";
