@@ -1,6 +1,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -13,9 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.junit.jupiter.api.Test;
@@ -23,8 +21,6 @@ import org.mockito.Mockito;
 
 /** Test class to verify {@link org.apache.ignite.internal.sql.engine.exec.AsyncWrapper}. */
 public class AsyncWrapperSelfTest {
-    private static final int TIMEOUT_SEC = 1;
-
     /**
      * The very first invocation of {@link AsyncCursor#requestNext requestNext} on the empty cursor should complete normally, follow
      * invocation should be completed exceptionally.
@@ -159,26 +155,6 @@ public class AsyncWrapperSelfTest {
 
             return null;
         }));
-    }
-
-    /**
-     * Awaits completion of the given stage and returns its result.
-     *
-     * @param stage The stage.
-     * @param <T> Type of the result returned by the stage.
-     * @return A result of the stage.
-     */
-    @SuppressWarnings("UnusedReturnValue")
-    private static <T> T await(CompletionStage<T> stage) {
-        try {
-            return stage.toCompletableFuture().get(TIMEOUT_SEC, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            sneakyThrow(e);
-        }
-
-        assert false;
-
-        return null;
     }
 
     private interface ClosableIterator<T> extends Iterator<T>, AutoCloseable {

@@ -31,7 +31,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -44,6 +46,8 @@ import org.junit.jupiter.api.TestInfo;
  * Utility class for tests.
  */
 public final class IgniteTestUtils {
+    private static final int TIMEOUT_SEC = 1;
+
     /**
      * Set object field value via reflection.
      *
@@ -507,5 +511,25 @@ public final class IgniteTestUtils {
     @SuppressWarnings("unchecked")
     public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
         throw (E) e;
+    }
+
+    /**
+     * Awaits completion of the given stage and returns its result.
+     *
+     * @param stage The stage.
+     * @param <T> Type of the result returned by the stage.
+     * @return A result of the stage.
+     */
+    @SuppressWarnings("UnusedReturnValue")
+    public static <T> T await(CompletionStage<T> stage) {
+        try {
+            return stage.toCompletableFuture().get(TIMEOUT_SEC, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            sneakyThrow(e);
+        }
+
+        assert false;
+
+        return null;
     }
 }

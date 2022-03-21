@@ -108,7 +108,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized void start() {
         var planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
         var taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
-        var mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
+        var mailboxRegistry = registerService(new MailboxRegistryImpl());
+
         prepareSvc = registerService(new PrepareServiceImpl());
 
         var msgSrvc = registerService(new MessageServiceImpl(
@@ -126,7 +127,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         var schemaManager = new SqlSchemaManagerImpl(tableManager, revisionUpdater, planCache::clear);
 
-        executionSrvc = registerService(new ExecutionServiceImpl<>(
+        var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
                 msgSrvc,
                 schemaManager,
@@ -136,6 +137,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService
         ));
+
+        clusterSrvc.topologyService().addEventHandler(executionSrvc);
+        clusterSrvc.topologyService().addEventHandler(mailboxRegistry);
+
+        this.executionSrvc = executionSrvc;
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
         registerTableListener(TableEvent.ALTER, new TableUpdatedListener(schemaManager));

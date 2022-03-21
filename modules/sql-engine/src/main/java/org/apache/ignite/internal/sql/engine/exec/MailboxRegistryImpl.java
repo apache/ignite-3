@@ -27,23 +27,20 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Mailbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.apache.ignite.internal.sql.engine.util.NodeLeaveHandler;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * MailboxRegistryImpl.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class MailboxRegistryImpl implements MailboxRegistry {
+public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandler {
     private static final IgniteLogger LOG = IgniteLogger.forClass(MailboxRegistryImpl.class);
 
     private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
-
-    private final TopologyService topSrvc;
 
     private final Map<MailboxKey, Outbox<?>> locals;
 
@@ -53,9 +50,7 @@ public class MailboxRegistryImpl implements MailboxRegistry {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public MailboxRegistryImpl(TopologyService topSrvc) {
-        this.topSrvc = topSrvc;
-
+    public MailboxRegistryImpl() {
         locals = new ConcurrentHashMap<>();
         remotes = new ConcurrentHashMap<>();
     }
@@ -63,7 +58,7 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
+        // NO-OP
     }
 
     /** {@inheritDoc} */
@@ -144,11 +139,6 @@ public class MailboxRegistryImpl implements MailboxRegistry {
                 .collect(Collectors.toList());
     }
 
-    private void onNodeLeft(ClusterNode node) {
-        locals.values().forEach(n -> n.onNodeLeft(node.id()));
-        remotes.values().forEach(n -> n.onNodeLeft(node.id()));
-    }
-
     private static Predicate<Mailbox<?>> makeFilter(@Nullable UUID qryId, long fragmentId, long exchangeId) {
         Predicate<Mailbox<?>> filter = ALWAYS_TRUE;
         if (qryId != null) {
@@ -175,6 +165,19 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     public void stop() {
         locals.clear();
         remotes.clear();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onAppeared(ClusterNode member) {
+        // NO-OP
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onDisappeared(ClusterNode member) {
+        locals.values().forEach(n -> n.onNodeLeft(member.id()));
+        remotes.values().forEach(n -> n.onNodeLeft(member.id()));
     }
 
     private static class MailboxKey {

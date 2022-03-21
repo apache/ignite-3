@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
-import org.apache.ignite.internal.sql.engine.metadata.AffinityService;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.MappingServiceImpl;
@@ -61,7 +61,6 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.NodeLeaveHandler;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -69,18 +68,17 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * ExecutionServiceImpl. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class ExecutionServiceImpl<RowT> implements ExecutionService {
+public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
 
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
-
-    private final TopologyService topSrvc;
 
     private final MessageService msgSrvc;
 
@@ -89,10 +87,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
     private final SqlSchemaManager sqlSchemaManager;
 
     private final QueryTaskExecutor taskExecutor;
-
-    private final AffinityService affSrvc;
-
-    private final MailboxRegistry mailboxRegistry;
 
     private final MappingService mappingSrvc;
 
@@ -104,12 +98,25 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
     private final DdlCommandHandler ddlCmdHnd;
 
+    private final ImplementorFactory<RowT> implementorFactory;
+
     private final Map<UUID, DistributedQueryManager> queryManagerMap = new ConcurrentHashMap<>();
 
     /**
-     * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates the execution services.
+     *
+     * @param topSrvc Topology service.
+     * @param msgSrvc Message service.
+     * @param sqlSchemaManager Schema manager.
+     * @param tblManager Table manager.
+     * @param taskExecutor Task executor.
+     * @param handler Row handler.
+     * @param mailboxRegistry Mailbox registry.
+     * @param exchangeSrvc Exchange service.
+     * @param <RowT> Type of the sql row.
+     * @return An execution service.
      */
-    public ExecutionServiceImpl(
+    public static <RowT> ExecutionServiceImpl<RowT> create(
             TopologyService topSrvc,
             MessageService msgSrvc,
             SqlSchemaManager sqlSchemaManager,
@@ -119,28 +126,51 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc
     ) {
-        this.topSrvc = topSrvc;
+        return new ExecutionServiceImpl<>(
+                topSrvc.localMember().id(),
+                msgSrvc,
+                new MappingServiceImpl(topSrvc),
+                sqlSchemaManager,
+                new DdlCommandHandler(tblManager),
+                taskExecutor,
+                handler,
+                exchangeSrvc,
+                new ClosableIteratorsHolder(topSrvc.localMember().name(), LOG),
+                ctx -> new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeSrvc)
+        );
+    }
+
+    /**
+     * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     */
+    public ExecutionServiceImpl(
+            String localNodeId,
+            MessageService msgSrvc,
+            MappingService mappingSrvc,
+            SqlSchemaManager sqlSchemaManager,
+            DdlCommandHandler ddlCmdHnd,
+            QueryTaskExecutor taskExecutor,
+            RowHandler<RowT> handler,
+            ExchangeService exchangeSrvc,
+            ClosableIteratorsHolder iteratorsHolder,
+            ImplementorFactory<RowT> implementorFactory
+    ) {
+        this.locNodeId = localNodeId;
         this.handler = handler;
         this.msgSrvc = msgSrvc;
+        this.mappingSrvc = mappingSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
-        this.mailboxRegistry = mailboxRegistry;
         this.exchangeSrvc = exchangeSrvc;
-
-        ddlCmdHnd = new DdlCommandHandler(tblManager);
-
-        locNodeId = topSrvc.localMember().id();
-        iteratorsHolder = new ClosableIteratorsHolder(topSrvc.localMember().name(), LOG);
-        mappingSrvc = new MappingServiceImpl(topSrvc);
-        // TODO: fix this
-        affSrvc = cacheId -> Objects::hashCode;
+        this.iteratorsHolder = iteratorsHolder;
+        this.ddlCmdHnd = ddlCmdHnd;
+        this.implementorFactory = implementorFactory;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         iteratorsHolder.start();
-        topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
 
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
@@ -199,6 +229,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             default:
                 throw new AssertionError("Unexpected plan type: " + plan);
         }
+    }
+
+    /** Cancels the query with given id. */
+    public CompletionStage<?> cancel(UUID qryId) {
+        var mgr = queryManagerMap.get(qryId);
+
+        if (mgr == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return mgr.close();
     }
 
     private AsyncCursor<List<?>> executeDdl(DdlPlan plan) {
@@ -262,14 +303,33 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         }
     }
 
-    private void onNodeLeft(ClusterNode node) {
-        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(node.id()));
-    }
-
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
         IgniteUtils.closeAll(iteratorsHolder::stop);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onAppeared(ClusterNode member) {
+        // NO_OP
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onDisappeared(ClusterNode member) {
+        queryManagerMap.values().forEach(qm -> qm.onNodeLeft(member.id()));
+    }
+
+    /** Returns local fragments for the query with given id. */
+    public List<AbstractNode<?>> localFragments(UUID queryId) {
+        DistributedQueryManager mgr = queryManagerMap.get(queryId);
+
+        if (mgr == null) {
+            return List.of();
+        }
+
+        return mgr.localFragments();
     }
 
     /**
@@ -290,8 +350,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
         private volatile Long rootFragmentId = null;
 
-        public DistributedQueryManager(BaseQueryContext ctx) {
+        private DistributedQueryManager(BaseQueryContext ctx) {
             this.ctx = ctx;
+        }
+
+        private List<AbstractNode<?>> localFragments() {
+            return List.copyOf(localFragments);
         }
 
         private void sendFragment(String targetNodeId, Fragment fragment, FragmentDescription desc) throws IgniteInternalCheckedException {
@@ -311,6 +375,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                 msgSrvc.send(targetNodeId, req);
             } catch (Exception ex) {
                 fut.complete(null);
+
+                if (fragment.rootFragment()) {
+                    root.completeExceptionally(ex);
+                }
 
                 throw ex;
             }
@@ -334,7 +402,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             root.thenAccept(root -> root.onError(ex));
         }
 
-        void onNodeLeft(String nodeId) {
+        private void onNodeLeft(String nodeId) {
             remoteFragmentInitCompletion.entrySet().stream().filter(e -> nodeId.equals(e.getKey().nodeId()))
                     .forEach(e -> e.getValue().completeExceptionally(new IgniteInternalException("asddd")));
         }
@@ -342,12 +410,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
         private void executeFragment(FragmentPlan plan, ExecutionContext<RowT> ectx) {
             String origNodeId = ectx.originatingNodeId();
 
-            AbstractNode<RowT> node = new LogicalRelImplementor<>(
-                    ectx,
-                    affSrvc,
-                    mailboxRegistry,
-                    exchangeSrvc
-            ).go(plan.root());
+            AbstractNode<RowT> node = implementorFactory.create(ectx).go(plan.root());
 
             if (!(node instanceof Outbox)) {
                 RootNode<RowT> rootNode = new RootNode<>(ectx, plan.root().getRowType(), this::close);
@@ -388,7 +451,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             );
         }
 
-        void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc) {
+        private void submitFragment(String initiatorNode, String fragmentString, FragmentDescription desc) {
             try {
                 QueryPlan qryPlan = prepareFragment(fragmentString);
 
@@ -415,7 +478,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             }
         }
 
-        CompletableFuture<Iterator<List<?>>> execute(MultiStepPlan plan) {
+        private CompletableFuture<Iterator<List<?>>> execute(MultiStepPlan plan) {
             return CompletableFuture.runAsync(() -> {
                 plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
 
@@ -459,7 +522,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                     }));
         }
 
-        CompletableFuture<Void> close() {
+        private CompletableFuture<Void> close() {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut;
             }
@@ -469,7 +532,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
             CompletableFuture<Void> end = start
                     .thenCompose(tmp -> {
                         if (!root.completeExceptionally(new ExecutionCancelledException())) {
-                            return root.thenAccept(RootNode::closeInternal);
+                            return root.thenAccept(RootNode::close);
                         }
 
                         return CompletableFuture.completedFuture(null);
@@ -502,6 +565,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
                         }
 
                         for (AbstractNode<?> node : localFragments) {
+                            node.context().execute(() -> node.onError(new ExecutionCancelledException()), node::onError);
+                        }
+
+                        for (AbstractNode<?> node : localFragments) {
                             node.context().execute(() -> {
                                 node.close();
                                 node.context().cancel();
@@ -516,5 +583,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService {
 
             return end;
         }
+    }
+
+    @FunctionalInterface
+    interface ImplementorFactory<RowT> {
+        LogicalRelImplementor<RowT> create(ExecutionContext<RowT> ctx);
     }
 }
