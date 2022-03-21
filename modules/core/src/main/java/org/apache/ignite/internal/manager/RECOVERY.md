@@ -24,7 +24,7 @@
    If any action is required to recover data in Vault, it should be executed before.
 2. Data in Vault is consistent to the moment when the node was stopped (last applied revision appropriates to the rest of the data).
 3. Vault contains local node configuration, and a projection of cluster configuration. The latter can be written only after the cluster is initialized. No conflicts are possible between the node local configuration and the cluster configuration that is stored in Metastorage because the properties’ sets don’t intersect with each other.
-4. The prerequisite for the recovery from Metastorage is receiving a successful _nodeJoinResponse_ [Node join protocol](TODO add-readme).
+4. The prerequisite for the recovery from Metastorage is receiving a successful _nodeJoinResponse_ [Node join protocol](TODO add readme).
 
 ### The start of the components
 
