@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -173,7 +172,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 null
         );
 
-        ImmutableList<ImmutableBitSet> grpSets = ImmutableList.of(ImmutableBitSet.of());
+        List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of());
 
         RelDataType aggRowType = TypeUtils.createRowType(tf, int.class);
 

@@ -46,7 +46,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Statement test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16683")
 public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** SQL CREATE TABLE query. */
     private static final String SQL_CREATE = "CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)";

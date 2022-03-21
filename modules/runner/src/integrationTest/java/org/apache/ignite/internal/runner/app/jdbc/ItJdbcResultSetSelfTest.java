@@ -58,7 +58,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Result set test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16683")
 public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     /** SQL static query. */
     private static final String STATIC_SQL =
