@@ -25,6 +25,7 @@ import com.squareup.javapoet.ClassName;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.tools.JavaFileObject;
 
@@ -132,7 +133,7 @@ public class AbstractProcessorTest {
             generatedSources = compilation.generatedSourceFiles();
 
             generatedClasses = generatedSources.stream()
-                    .collect(Collectors.toMap(object -> fromGeneratedFilePath(object.getName()), o -> o));
+                    .collect(Collectors.toMap(object -> fromGeneratedFilePath(object.getName()), Function.identity()));
 
             classSets = schemaClasses.stream().collect(
                     Collectors.toMap(name -> name, name -> getConfigSet(name, generatedClasses))
