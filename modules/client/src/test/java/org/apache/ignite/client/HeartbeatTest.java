@@ -48,7 +48,7 @@ public class HeartbeatTest {
 
     @Test
     public void testHeartbeatShorterThanIdleTimeoutKeepsConnectionAlive() throws Exception {
-        try (var srv = new TestServer(10800, 10, 100, new FakeIgnite())) {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
             int srvPort = getPort(srv.module());
 
             Builder builder = IgniteClient.builder()
