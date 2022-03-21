@@ -25,8 +25,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
@@ -204,15 +204,14 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 case CHAR:
                     return String.class;
                 case DATE:
-                    return java.sql.Date.class;
+                    return LocalDate.class;
                 case TIME:
-                    return java.sql.Time.class;
-                case TIMESTAMP:
-                    return Timestamp.class;
-                case TIME_WITH_LOCAL_TIME_ZONE:
                     return LocalTime.class;
+                case TIMESTAMP:
                 case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                     return LocalDateTime.class;
+                case TIME_WITH_LOCAL_TIME_ZONE:
+                    return LocalTime.class;
                 case INTEGER:
                     return type.isNullable() ? Integer.class : int.class;
                 case INTERVAL_YEAR:
@@ -310,7 +309,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /** {@inheritDoc} */
     @Override public RelDataType createType(Type type) {
-        if (type == Duration.class || type == Period.class) {
+        if (type == Duration.class || type == Period.class || type == LocalDate.class || type == LocalDateTime.class
+                || type == LocalTime.class) {
             return createJavaType((Class<?>) type);
         }
 

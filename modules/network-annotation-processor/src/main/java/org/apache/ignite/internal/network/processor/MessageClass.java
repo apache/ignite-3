@@ -142,6 +142,15 @@ public class MessageClass {
     }
 
     /**
+     * Returns class name that the generated SerializationFactory should have.
+     *
+     * @return Class name that the generated SerializationFactory should have.
+     */
+    public ClassName serializationFactoryName() {
+        return ClassName.get(packageName(), simpleName() + "SerializationFactory");
+    }
+
+    /**
      * Returns class name that the generated Network Message implementation should have.
      *
      * @return Class name that the generated Network Message implementation should have.

@@ -35,17 +35,12 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-configuration</artifactId>
+            <artifactId>ignite-configuration-api</artifactId>
         </dependency>
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-api</artifactId>
         </dependency>
 
         <!-- Test dependencies -->

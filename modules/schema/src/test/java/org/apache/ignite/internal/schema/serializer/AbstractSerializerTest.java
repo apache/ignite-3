@@ -77,7 +77,7 @@ public class AbstractSerializerTest {
 
         assertArrayEquals(desc.keyColumns().columns(), deserialize.keyColumns().columns());
         assertArrayEquals(desc.valueColumns().columns(), deserialize.valueColumns().columns());
-        assertArrayEquals(desc.affinityColumns(), deserialize.affinityColumns());
+        assertArrayEquals(desc.colocationColumns(), deserialize.colocationColumns());
     }
 
     /**

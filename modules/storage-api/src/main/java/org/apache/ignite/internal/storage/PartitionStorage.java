@@ -131,7 +131,7 @@ public interface PartitionStorage extends AutoCloseable {
      * Creates a snapshot of the storage's current state in the specified directory.
      *
      * @param snapshotPath Directory to store a snapshot.
-     * @return Future representing pending completion of the operation. Can not be {@code null}.
+     * @return Future representing pending completion of the operation.
      */
     CompletableFuture<Void> snapshot(Path snapshotPath);
 

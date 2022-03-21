@@ -187,7 +187,7 @@ public class ItTransferableObjectProcessorTest {
 
         assertThat(compilation).hadErrorContaining(String.format(
                 "Invalid number of message groups (classes annotated with @%s), "
-                        + "only one can be present in a compilation unit: [%s.ITTestMessageGroup, %s.SecondGroup]",
+                    + "only one can be present in a compilation unit: [%s.ITTestMessageGroup, %s.SecondGroup]",
                 MessageGroup.class.getSimpleName(),
                 RESOURCE_PACKAGE_NAME,
                 RESOURCE_PACKAGE_NAME
@@ -212,7 +212,7 @@ public class ItTransferableObjectProcessorTest {
         assertThrows(
                 AssertionError.class,
                 () -> assertThat(compilation)
-                        .generatedSourceFile(fileName("UnmarshallableTypeNonSerializableMessageSerializer"))
+                    .generatedSourceFile(fileName("UnmarshallableTypeNonSerializableMessageSerializer"))
         );
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
@@ -360,7 +362,266 @@ public class RecordBinaryViewOperationsTest {
 
         assertEquals(2, res.size());
         assertTrue(res.contains(rec1));
+        assertTrue(res.contains(rec3));
+    }
+
+    @Test
+    public void upsertAllAfterInsertAll() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple rec1 = Tuple.create().set("id", 1L).set("val", 11L);
+        Tuple rec3 = Tuple.create().set("id", 3L).set("val", 33L);
+
+        tbl.insertAll(null, List.of(rec1, rec3));
+
+        Collection<Tuple> res = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(2, res.size());
         assertTrue(res.contains(rec1));
+        assertTrue(res.contains(rec3));
+
+        Tuple upRec1 = Tuple.create().set("id", 1L).set("val", 112L);
+        Tuple rec2 = Tuple.create().set("id", 2L).set("val", 22L);
+        Tuple upRec3 = Tuple.create().set("id", 3L).set("val", 332L);
+
+        tbl.upsertAll(null, List.of(upRec1, rec2, upRec3));
+
+        res = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(3, res.size());
+
+        assertTrue(res.contains(upRec1));
+        assertTrue(res.contains(rec2));
+        assertTrue(res.contains(upRec3));
+    }
+
+    @Test
+    public void deleteVsDeleteExact() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple rec = Tuple.create().set("id", 1L).set("val", 11L);
+        Tuple recReplace = Tuple.create().set("id", 1L).set("val", 12L);
+
+        tbl.insert(null, rec);
+
+        tbl.upsert(null, recReplace);
+
+        assertFalse(tbl.deleteExact(null, rec));
+        assertTrue(tbl.deleteExact(null, recReplace));
+
+        tbl.upsert(null, recReplace);
+
+        assertTrue(tbl.delete(null, Tuple.create().set("id", 1L)));
+
+        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
+    }
+
+    @Test
+    public void getAndReplace() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        int val = 0;
+
+        tbl.insert(null, Tuple.create().set("id", 1L).set("val", val));
+
+        for (int i = 1; i < 100; i++) {
+            val = i;
+
+            assertEquals(
+                    val - 1,
+                    tbl.getAndReplace(null, Tuple.create().set("id", 1L).set("val", val))
+                            .intValue(1)
+            );
+        }
+    }
+
+    @Test
+    public void getAndDelete() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple tuple = Tuple.create().set("id", 1L).set("val", 1);
+
+        tbl.insert(null, tuple);
+
+        Tuple removedTuple = tbl.getAndDelete(null, Tuple.create().set("id", 1L));
+
+        assertEquals(tuple, removedTuple);
+
+        assertNull(tbl.getAndDelete(null, Tuple.create().set("id", 1L)));
+    }
+
+    @Test
+    public void deleteAll() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11);
+        Tuple tuple2 = Tuple.create().set("id", 2L).set("val", 22);
+        Tuple tuple3 = Tuple.create().set("id", 3L).set("val", 33);
+
+        tbl.insertAll(null, List.of(tuple1, tuple2, tuple3));
+
+        Collection<Tuple> current = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(3, current.size());
+
+        assertTrue(current.contains(tuple1));
+        assertTrue(current.contains(tuple2));
+        assertTrue(current.contains(tuple3));
+
+        Collection<Tuple> notRemovedTuples = tbl.deleteAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 3L),
+                        Tuple.create().set("id", 4L)
+                )
+        );
+
+        assertEquals(1, notRemovedTuples.size());
+        assertTrue(notRemovedTuples.contains(Tuple.create().set("id", 4L)));
+
+        current = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(1, current.size());
+
+        assertTrue(current.contains(tuple2));
+    }
+
+    @Test
+    public void deleteExact() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT32, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11);
+        Tuple tuple2 = Tuple.create().set("id", 2L).set("val", 22);
+        Tuple tuple3 = Tuple.create().set("id", 3L).set("val", 33);
+
+        tbl.insertAll(null, List.of(tuple1, tuple2, tuple3));
+
+        Collection<Tuple> current = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(3, current.size());
+
+        assertTrue(current.contains(tuple1));
+        assertTrue(current.contains(tuple2));
+        assertTrue(current.contains(tuple3));
+
+        Tuple tuple3Upsert = Tuple.create().set("id", 3L).set("val", 44);
+
+        tbl.upsert(null, tuple3Upsert);
+
+        Tuple tuple4NotExists = Tuple.create().set("id", 4L).set("val", 55);
+
+        Collection<Tuple> notRemovedTuples = tbl.deleteAllExact(null,
+                List.of(tuple1, tuple2, tuple3, tuple4NotExists));
+
+        assertEquals(2, notRemovedTuples.size());
+        assertTrue(notRemovedTuples.contains(tuple3));
+        assertTrue(notRemovedTuples.contains(tuple4NotExists));
+
+        current = tbl.getAll(
+                null,
+                List.of(
+                        Tuple.create().set("id", 1L),
+                        Tuple.create().set("id", 2L),
+                        Tuple.create().set("id", 3L)
+                ));
+
+        assertEquals(1, current.size());
+
+        assertTrue(current.contains(tuple3Upsert));
+    }
+
+    @Test
+    public void getAndReplaceVsGetAndUpsert() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                1,
+                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+        );
+
+        RecordView<Tuple> tbl = createTableImpl(schema).recordView();
+
+        Tuple tuple1 = Tuple.create().set("id", 1L).set("val", 11L);
+
+        assertNull(tbl.getAndUpsert(null, tuple1));
+
+        Tuple tuple = tbl.get(null, Tuple.create().set("id", 1L));
+
+        assertNotNull(tuple);
+
+        assertEquals(tuple, tuple1);
+
+        assertTrue(tbl.deleteExact(null, tuple));
+
+        assertNull(tbl.getAndReplace(null, tuple));
+
+        assertNull(tbl.get(null, Tuple.create().set("id", 1L)));
     }
 
     /**
@@ -431,6 +692,9 @@ public class RecordBinaryViewOperationsTest {
         LockManager lockManager = new HeapLockManager();
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
+
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),

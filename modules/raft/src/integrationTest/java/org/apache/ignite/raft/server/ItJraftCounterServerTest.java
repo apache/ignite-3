@@ -569,44 +569,24 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         listenerFactory = () -> new CounterListener() {
             @Override
             public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-                Iterator<CommandClosure<WriteCommand>> wrapper = new Iterator<>() {
-                    @Override
-                    public boolean hasNext() {
-                        return iterator.hasNext();
-                    }
+                while (iterator.hasNext()) {
+                    CommandClosure<WriteCommand> clo = iterator.next();
 
-                    @Override
-                    public CommandClosure<WriteCommand> next() {
-                        CommandClosure<WriteCommand> cmd = iterator.next();
+                    IncrementAndGetCommand cmd0 = (IncrementAndGetCommand) clo.command();
 
-                        cmd.result(new RuntimeException("Expected message"));
-
-                        return cmd;
-                    }
-                };
-
-                super.onWrite(wrapper);
+                    clo.result(new RuntimeException("Expected message"));
+                }
             }
 
             @Override
             public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-                Iterator<CommandClosure<ReadCommand>> wrapper = new Iterator<>() {
-                    @Override
-                    public boolean hasNext() {
-                        return iterator.hasNext();
-                    }
+                while (iterator.hasNext()) {
+                    CommandClosure<ReadCommand> clo = iterator.next();
 
-                    @Override
-                    public CommandClosure<ReadCommand> next() {
-                        CommandClosure<ReadCommand> cmd = iterator.next();
+                    assert clo.command() instanceof GetValueCommand;
 
-                        cmd.result(new RuntimeException("Another expected message"));
-
-                        return cmd;
-                    }
-                };
-
-                super.onRead(wrapper);
+                    clo.result(new RuntimeException("Another expected message"));
+                }
             }
         };
 
@@ -624,7 +604,7 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
         assertNotNull(leader);
 
         try {
-            client1.<Long>run(new IncrementAndGetCommand(0)).get();
+            client1.<Long>run(new IncrementAndGetCommand(3)).get();
 
             fail();
         } catch (Exception e) {

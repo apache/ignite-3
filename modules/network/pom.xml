@@ -150,6 +150,18 @@
             <artifactId>byte-buddy</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.google.testing.compile</groupId>
+            <artifactId>compile-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-network-annotation-processor</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

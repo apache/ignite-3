@@ -127,7 +127,7 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
         assert columns.size() > primaryKeyDefinition.columns().size() : "Key or/and value columns must be defined.";
 
         validatePrimaryKey(primaryKeyDefinition.columns(), columns);
-        validateIndices(indices.values(), columns.values(), primaryKeyDefinition.affinityColumns());
+        validateIndices(indices.values(), columns.values(), primaryKeyDefinition.colocationColumns());
 
         return new TableDefinitionImpl(
                 schemaName,
@@ -156,11 +156,14 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
     /**
      * Validate indices.
      *
-     * @param indices     Table indices.
-     * @param cols        Table columns.
-     * @param affColNames Affinity columns names.
+     * @param indices Table indices.
+     * @param cols Table columns.
+     * @param colocationColNames Colocation columns names.
      */
-    public static void validateIndices(Collection<IndexDefinition> indices, Collection<ColumnDefinition> cols, Set<String> affColNames) {
+    public static void validateIndices(
+            Collection<IndexDefinition> indices,
+            Collection<ColumnDefinition> cols,
+            List<String> colocationColNames) {
         Set<String> colNames = cols.stream().map(ColumnDefinition::name).collect(Collectors.toSet());
 
         for (IndexDefinition idx : indices) {
@@ -173,8 +176,8 @@ public class TableDefinitionBuilderImpl implements TableDefinitionBuilder {
                 throw new IllegalStateException("Index column must exist in the schema.");
             }
 
-            if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(affColNames::contains))) {
-                throw new IllegalStateException("Unique index must contains all affinity columns.");
+            if (idx0.unique() && !(idx0.columns().stream().map(IndexColumnDefinition::name).allMatch(colocationColNames::contains))) {
+                throw new IllegalStateException("Unique index must contains all colocation columns.");
             }
         }
     }

@@ -18,6 +18,8 @@
 package org.apache.ignite;
 
 import java.util.Set;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -68,4 +70,13 @@ public interface Ignite extends AutoCloseable {
      */
     @Experimental
     void setBaseline(Set<String> baselineNodes);
+
+    /**
+     * Returns {@link IgniteCompute} which can be used to execute compute jobs.
+     *
+     * @return compute management object
+     * @see IgniteCompute
+     * @see ComputeJob
+     */
+    IgniteCompute compute();
 }

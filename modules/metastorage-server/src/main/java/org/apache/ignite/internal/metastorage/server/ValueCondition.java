@@ -21,14 +21,14 @@ import java.util.Arrays;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Defines condition on entry value.
+ * Defines condition on entry value. Values are compared in the lexicographical order.
  */
 public class ValueCondition extends AbstractSimpleCondition {
     /** Condition type. */
     @NotNull
     private final Type type;
 
-    /** Value which will be tested against an entry value. */
+    /** Value, which will be tested against an entry value. */
     @NotNull
     private final byte[] val;
 
@@ -36,8 +36,8 @@ public class ValueCondition extends AbstractSimpleCondition {
      * Constructs value condition with the given type, key and value.
      *
      * @param type Condition type. Can't be {@code null}.
-     * @param key  Key identifies an entry which condition will be applied to. Can't be {@code null}.
-     * @param val  Value which will be tested against an entry value. Can't be {@code null}.
+     * @param key  Key identifies an entry, which condition will be applied to. Can't be {@code null}.
+     * @param val  Value, which will be tested against an entry value. Can't be {@code null}.
      */
     public ValueCondition(@NotNull Type type, @NotNull byte[] key, @NotNull byte[] val) {
         super(key);
@@ -55,7 +55,7 @@ public class ValueCondition extends AbstractSimpleCondition {
     }
 
     /**
-     * Defines possible condition types which can be applied to the value.
+     * Defines possible condition types, which can be applied to the value. Values are compared in the lexicographical order.
      */
     public enum Type {
         /** Equality condition type. */
@@ -71,6 +71,38 @@ public class ValueCondition extends AbstractSimpleCondition {
             @Override
             public boolean test(long res) {
                 return res != 0;
+            }
+        },
+
+        /** Greater than condition type. */
+        GREATER {
+            @Override
+            public boolean test(long res) {
+                return res > 0;
+            }
+        },
+
+        /** Less than condition type. */
+        LESS {
+            @Override
+            public boolean test(long res) {
+                return res < 0;
+            }
+        },
+
+        /** Less than or equal to condition type. */
+        LESS_OR_EQUAL {
+            @Override
+            public boolean test(long res) {
+                return res <= 0;
+            }
+        },
+
+        /** Greater than or equal to condition type. */
+        GREATER_OR_EQUAL {
+            @Override
+            public boolean test(long res) {
+                return res >= 0;
             }
         };
 

@@ -237,9 +237,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         if (Variable.CANCEL_FLAG.camelName.equals(name)) {
             return cancelFlag;
         }
-        if (Variable.TIME_ZONE.camelName.equals(name)) {
-            return TIME_ZONE; // TODO DistributedSqlConfiguration#timeZone
-        }
         if (Variable.CURRENT_TIMESTAMP.camelName.equals(name)) {
             return startTs;
         }

@@ -17,53 +17,14 @@
 
 package org.apache.ignite.internal.rocksdb;
 
-import java.nio.file.Path;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.rocksdb.EnvOptions;
-import org.rocksdb.Options;
-import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
-import org.rocksdb.Snapshot;
-import org.rocksdb.SstFileWriter;
 
 /**
  * RocksDB utility functions.
  */
 public class RocksUtils {
-    /**
-     * Creates an SST file for the column family.
-     *
-     * @param columnFamily Column family.
-     * @param snapshot     Point-in-time snapshot.
-     * @param path         Directory to put the SST file in.
-     */
-    public static void createSstFile(
-            ColumnFamily columnFamily,
-            Snapshot snapshot,
-            Path path
-    ) {
-        try (
-                EnvOptions envOptions = new EnvOptions();
-                Options options = new Options();
-                ReadOptions readOptions = new ReadOptions().setSnapshot(snapshot);
-                RocksIterator it = columnFamily.newIterator(readOptions);
-                SstFileWriter sstFileWriter = new SstFileWriter(envOptions, options)
-        ) {
-            Path sstFile = path.resolve(columnFamily.name());
-
-            sstFileWriter.open(sstFile.toString());
-
-            it.seekToFirst();
-
-            forEach(it, sstFileWriter::put);
-
-            sstFileWriter.finish();
-        } catch (Throwable t) {
-            throw new IgniteInternalException("Failed to write snapshot: " + t.getMessage(), t);
-        }
-    }
-
     /**
      * Iterates over the given iterator passing key-value pairs to the given consumer and checks the iterator's status afterwards.
      *

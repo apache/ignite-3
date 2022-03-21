@@ -155,6 +155,12 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-compute</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-sql-engine</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -222,6 +228,12 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-network-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-network-annotation-processor</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

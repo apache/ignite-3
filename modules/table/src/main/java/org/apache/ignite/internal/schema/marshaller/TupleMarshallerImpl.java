@@ -196,6 +196,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                 assert val != POISON_OBJECT;
 
+                knownColumns++;
+
                 if (val == null || columns.firstVarlengthColumn() < i) {
                     continue;
                 }
