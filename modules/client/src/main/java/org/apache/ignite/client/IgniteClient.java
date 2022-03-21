@@ -206,7 +206,8 @@ public interface IgniteClient extends Ignite {
          * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
          * to keep the connection alive and detect potential half-open state.
          *
-         * @return Heartbeat interval.
+         * @param heartbeatInterval Heartbeat interval.
+         * @return This instance.
          */
         public Builder heartbeatInterval(long heartbeatInterval) {
             this.heartbeatInterval = heartbeatInterval;
