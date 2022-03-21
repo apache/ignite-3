@@ -64,7 +64,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     );
 
     /** Minimum supported heartbeat interval. */
-    private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 50;
+    private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 500;
 
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
