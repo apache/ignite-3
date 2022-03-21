@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
@@ -35,8 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.table.TableImpl;
@@ -45,21 +45,39 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.EnumSource.Mode;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for the {@link DistributedConfigurationStorage}.
+ * Tests for the data colocation.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16719")
 @ExtendWith(WorkDirectoryExtension.class)
 @Timeout(Long.MAX_VALUE)
 public class ItColocationTest extends AbstractBasicIntegrationTest {
     /** Rows count ot test. */
-    private static final int ROWS = 1000;
+    private static final int ROWS = 40;
+
+    /**
+     * Excluded native types.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
+     */
+    private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
+            NativeTypeSpec.INT8,
+            NativeTypeSpec.UUID,
+            NativeTypeSpec.BITMASK,
+            NativeTypeSpec.DECIMAL,
+            NativeTypeSpec.NUMBER,
+            NativeTypeSpec.TIMESTAMP,
+            NativeTypeSpec.BYTES)
+            .collect(Collectors.toSet());
 
     /**
      * Clear tables after each test.
@@ -81,7 +99,7 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
      * Check colocation by one column for all types.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
-    @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
+    @ParameterizedTest(name = "qtype=" + ARGUMENTS_PLACEHOLDER)
     @EnumSource(
             value = NativeTypeSpec.class,
             names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
@@ -105,8 +123,6 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
             System.out.println("+++ Check part " + i);
             List<Tuple> r0 = getAll(tbl0, i);
 
-            assertFalse(r0.isEmpty());
-
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
             List<Tuple> r1 = getAll(tbl1, i);
 
@@ -116,6 +132,65 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
         }
     }
 
+    /**
+     * Check colocation by one column for all types.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
+     */
+    @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
+    @MethodSource("twoColumnsParameters")
+    public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) throws ExecutionException, InterruptedException {
+        sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlTypeName(t0), sqlTypeName(t1)));
+
+        sql(String.format(
+                "create table test1(id integer, id0 %s, id1 %s, v INTEGER, primary key(id, id0, id1)) colocate by(id0, id1)",
+                sqlTypeName(t0),
+                sqlTypeName(t1)
+        ));
+
+        for (int i = 0; i < ROWS; ++i) {
+            sql("insert into test0 values(?, ?, ?)", generateValueByType(i, t0), generateValueByType(i, t1), 0);
+            sql("insert into test1 values(?, ?, ?, ?)", i, generateValueByType(i, t0), generateValueByType(i, t1), 0);
+        }
+
+        int parts = ((TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0")).internalTable().partitions();
+        TableImpl tbl0 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test0");
+        TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test1");
+
+        Function<Tuple, Tuple> tupleColocationExtract = (t) -> {
+            Tuple ret = Tuple.create();
+            ret.set("id0", t.value("id0"));
+            ret.set("id1", t.value("id1"));
+            return ret;
+        };
+
+        for (int i = 0; i < parts; ++i) {
+            System.out.println("+++ Check part " + i);
+            List<Tuple> r0 = getAll(tbl0, i);
+
+            Set<Tuple> ids0 = r0.stream().map(tupleColocationExtract).collect(Collectors.toSet());
+
+            List<Tuple> r1 = getAll(tbl1, i);
+
+            r1.forEach(t -> assertTrue(ids0.remove(tupleColocationExtract.apply(t))));
+
+            assertTrue(ids0.isEmpty());
+        }
+    }
+
+    private static Stream<Arguments> twoColumnsParameters() {
+        List<Arguments> args = new ArrayList<>();
+
+        for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
+            for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
+                if (!EXCLUDED_TYPES.contains(t0) && !EXCLUDED_TYPES.contains(t1)) {
+                    args.add(Arguments.of(t0, t1));
+                }
+            }
+        }
+
+        return args.stream();
+    }
+
     private static List<Tuple> getAll(TableImpl tbl, int part) throws ExecutionException, InterruptedException {
         List<Tuple> res = new ArrayList<>();
         CompletableFuture<Void> f = new CompletableFuture<>();
@@ -123,8 +198,8 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
         tbl.internalTable().scan(part, null).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
-                // subscription.request(ROWS);
-                subscription.request(Long.MAX_VALUE);
+                subscription.request(ROWS);
+                // subscription.request(Long.MAX_VALUE);
             }
 
             @Override
