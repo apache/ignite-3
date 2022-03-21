@@ -329,21 +329,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @Disabled
-    public void testRestartNodeWithConfigurationGap(TestInfo testInfo) {
+    public void testCfgGap(TestInfo testInfo) {
         final int nodes = 4;
-        //TODO: IGNITE-16034 Here we assume that Metastore consists into one node, and it starts at first.
-        String metastorageNodes = '\"' + IgniteTestUtils.testNodeName(testInfo, 0) + '\"';
-
-        String connectNodeAddr = "\"localhost:" + DEFAULT_NODE_PORT + '\"';
 
         for (int i = 0; i < nodes; i++) {
-            String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
-
-            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
-                metastorageNodes,
-                DEFAULT_NODE_PORT + i,
-                connectNodeAddr
-            ), workDir.resolve(curNodeName)));
+            startNode(testInfo, i);
         }
 
         createTableWithData(CLUSTER_NODES.get(0), "t1", String::valueOf, nodes);
