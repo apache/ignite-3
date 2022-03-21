@@ -96,6 +96,9 @@ namespace Apache.Ignite.Internal
             _configuration = configuration;
             _context = context;
 
+            // TODO: Init heartbeats
+            // TODO: Validate config.
+
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
 #pragma warning disable 4014
