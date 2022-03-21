@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
         /** Logger. */
-        private readonly IIgniteLogger? _logger;
+        private readonly IgniteClientConfiguration _configuration;
 
         /** Connection context. */
         private readonly ConnectionContext _context;
@@ -88,12 +88,12 @@ namespace Apache.Ignite.Internal
         /// Initializes a new instance of the <see cref="ClientSocket"/> class.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        /// <param name="logger">Logger.</param>
+        /// <param name="configuration">Configuration.</param>
         /// <param name="context">Connection context.</param>
-        private ClientSocket(NetworkStream stream, IIgniteLogger? logger, ConnectionContext context)
+        private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext context)
         {
             _stream = stream;
-            _logger = logger;
+            _configuration = configuration;
             _context = context;
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
@@ -112,13 +112,13 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
-        /// <param name="logger">Logger.</param>
+        /// <param name="configuration">Configuration.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IIgniteLogger? logger = null)
+        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IgniteClientConfiguration configuration)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -127,6 +127,8 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                var logger = configuration.Logger;
+
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
                 logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
 
@@ -135,7 +137,7 @@ namespace Apache.Ignite.Internal
                 var context = await HandshakeAsync(stream).ConfigureAwait(false);
                 logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
 
-                return new ClientSocket(stream, logger, context);
+                return new ClientSocket(stream, configuration, context);
             }
             catch (Exception)
             {
@@ -450,7 +452,7 @@ namespace Apache.Ignite.Internal
             {
                 const string message = "Exception while reading from socket. Connection closed.";
 
-                _logger?.Error(message, e);
+                _configuration.Logger?.Error(message, e);
                 Dispose(new IgniteClientException(message, e));
             }
         }
@@ -472,7 +474,7 @@ namespace Apache.Ignite.Internal
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
                 var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
-                _logger?.Error(message);
+                _configuration.Logger?.Error(message);
                 Dispose(new IgniteClientException(message));
 
                 return;

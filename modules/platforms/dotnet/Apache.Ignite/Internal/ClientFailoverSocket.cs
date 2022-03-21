@@ -216,7 +216,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private async Task<ClientSocket> ConnectAsync(SocketEndpoint endPoint)
         {
-            var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, _logger).ConfigureAwait(false);
+            var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, Configuration).ConfigureAwait(false);
 
             endPoint.Socket = socket;
 
