@@ -542,6 +542,8 @@ public class InternalTableImpl implements InternalTable {
 
             private AtomicInteger scanCounter = new AtomicInteger(1);
 
+            private static final int INTERNAL_BATCH_SIZE = 10_000;
+
             /**
              * The constructor.
              *
@@ -570,9 +572,7 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                final int internalBatchSize = Integer.MAX_VALUE;
-
-                scanBatch(internalBatchSize, n, 1);
+                scanBatch(INTERNAL_BATCH_SIZE, n, 1);
             }
 
             /** {@inheritDoc} */
@@ -630,7 +630,7 @@ public class InternalTableImpl implements InternalTable {
                                         cancel();
 
                                         subscriber.onComplete();
-                                    } else if (requestedItemsSizeTotal < (scanIteration * requestedItemsSizeBatched)) {
+                                    } else if (requestedItemsSizeTotal > (scanIteration * requestedItemsSizeBatched)) {
                                         scanBatch(requestedItemsSizeBatched, requestedItemsSizeTotal, scanIteration + 1);
                                     }
                                 })
