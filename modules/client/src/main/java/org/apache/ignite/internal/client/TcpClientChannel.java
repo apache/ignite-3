@@ -440,13 +440,15 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private long getHeartbeatInterval(long configuredInterval) {
         long serverIdleTimeoutMs = protocolCtx.getServerIdleTimeout();
 
-        if (serverIdleTimeoutMs <= 0)
+        if (serverIdleTimeoutMs <= 0) {
             return configuredInterval;
+        }
 
         long recommendedHeartbeatInterval = serverIdleTimeoutMs / 3;
 
-        if (recommendedHeartbeatInterval < MIN_RECOMMENDED_HEARTBEAT_INTERVAL)
+        if (recommendedHeartbeatInterval < MIN_RECOMMENDED_HEARTBEAT_INTERVAL) {
             recommendedHeartbeatInterval = MIN_RECOMMENDED_HEARTBEAT_INTERVAL;
+        }
 
         return Math.min(configuredInterval, recommendedHeartbeatInterval);
     }
@@ -472,10 +474,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         /** {@inheritDoc} */
         @Override public void run() {
             try {
-                if (System.currentTimeMillis() - lastSendMillis > interval)
+                if (System.currentTimeMillis() - lastSendMillis > interval) {
                     serviceAsync(ClientOp.HEARTBEAT, null, null);
-            }
-            catch (Throwable ignored) {
+                }
+            } catch (Throwable ignored) {
                 // Ignore failed heartbeats.
             }
         }
