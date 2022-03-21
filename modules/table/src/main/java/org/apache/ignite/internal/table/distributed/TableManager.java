@@ -204,79 +204,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).schemas().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-                long causalityToken = schemasCtx.storageRevision();
-
-                ExtendedTableConfiguration tblCfg = schemasCtx.config(TableConfiguration.class);
-
-                UUID tblId = tblCfg.id().value();
-
-                String tblName = tblCfg.name().value();
-
-                SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
-
-                if (!busyLock.enterBusy()) {
-                    if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
-                        fireEvent(
-                                TableEvent.ALTER,
-                                new TableEventParameters(causalityToken, tblId, tblName),
-                                new NodeStoppingException()
-                        );
-                    }
-
-                    return CompletableFuture.failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    createSchemaInternal(schemasCtx);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-
-                return CompletableFuture.completedFuture(null);
+                return onSchemaCreate(schemasCtx);
             }
         });
 
         ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentsCtx -> {
-            if (!busyLock.enterBusy()) {
-                return CompletableFuture.failedFuture(new NodeStoppingException());
-            }
-
-            try {
-                updateAssignmentInternal(assignmentsCtx);
-            } finally {
-                busyLock.leaveBusy();
-            }
-
-            return CompletableFuture.completedFuture(null);
+            return onUpdateAssignments(assignmentsCtx);
         });
 
         tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                if (!busyLock.enterBusy()) {
-                    String tblName = ctx.newValue().name();
-                    UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
-
-                    fireEvent(TableEvent.CREATE,
-                            new TableEventParameters(ctx.storageRevision(), tblId, tblName),
-                            new NodeStoppingException()
-                    );
-
-                    return CompletableFuture.failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    createTableLocally(
-                            ctx.storageRevision(),
-                            ctx.newValue().name(),
-                            ((ExtendedTableView) ctx.newValue()).id(),
-                            ctx.newValue().partitions()
-                    );
-                } finally {
-                    busyLock.leaveBusy();
-                }
-
-                return CompletableFuture.completedFuture(null);
+                return onTableCreate(ctx);
             }
 
             @Override
@@ -288,31 +227,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             @Override
             public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
-                if (!busyLock.enterBusy()) {
-                    String tblName = ctx.oldValue().name();
-                    UUID tblId = ((ExtendedTableView) ctx.oldValue()).id();
-
-                    fireEvent(
-                            TableEvent.DROP,
-                            new TableEventParameters(ctx.storageRevision(), tblId, tblName),
-                            new NodeStoppingException()
-                    );
-
-                    return CompletableFuture.failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    dropTableLocally(
-                            ctx.storageRevision(),
-                            ctx.oldValue().name(),
-                            ((ExtendedTableView) ctx.oldValue()).id(),
-                            (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
-                    );
-                } finally {
-                    busyLock.leaveBusy();
-                }
-
-                return CompletableFuture.completedFuture(null);
+                return onTableDelete(ctx);
             }
         });
 
@@ -323,6 +238,131 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
 
         defaultDataRegion.start();
+    }
+
+    /**
+     * Listener of table create configuration change.
+     *
+     * @param ctx Table configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
+        if (!busyLock.enterBusy()) {
+            String tblName = ctx.newValue().name();
+            UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
+
+            fireEvent(TableEvent.CREATE,
+                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
+                    new NodeStoppingException()
+            );
+
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            createTableLocally(
+                    ctx.storageRevision(),
+                    ctx.newValue().name(),
+                    ((ExtendedTableView) ctx.newValue()).id(),
+                    ctx.newValue().partitions()
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of table drop configuration change.
+     *
+     * @param ctx Table configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
+        if (!busyLock.enterBusy()) {
+            String tblName = ctx.oldValue().name();
+            UUID tblId = ((ExtendedTableView) ctx.oldValue()).id();
+
+            fireEvent(
+                    TableEvent.DROP,
+                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
+                    new NodeStoppingException()
+            );
+
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            dropTableLocally(
+                    ctx.storageRevision(),
+                    ctx.oldValue().name(),
+                    ((ExtendedTableView) ctx.oldValue()).id(),
+                    (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of assignment configuration changes.
+     *
+     * @param assignmentsCtx Assignment configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onUpdateAssignments(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            updateAssignmentInternal(assignmentsCtx);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of schema configuration changes.
+     *
+     * @param schemasCtx Schemas configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+        long causalityToken = schemasCtx.storageRevision();
+
+        ExtendedTableConfiguration tblCfg = schemasCtx.config(TableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        String tblName = tblCfg.name().value();
+
+        SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
+
+        if (!busyLock.enterBusy()) {
+            if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
+                fireEvent(
+                        TableEvent.ALTER,
+                        new TableEventParameters(causalityToken, tblId, tblName),
+                        new NodeStoppingException()
+                );
+            }
+
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            createSchemaInternal(schemasCtx);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -557,9 +597,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         CompletableFuture.allOf(tablesByIdVv.get(causalityToken), tablesVv.get(causalityToken)).thenRun(() -> {
-            completeApiCreateFuture(table);
-
             fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+
+            completeApiCreateFuture(table);
         });
     }
 
