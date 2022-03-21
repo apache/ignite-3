@@ -39,7 +39,6 @@ import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDesc
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
@@ -103,26 +102,40 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
             @Nullable BitSet columnsProjection,
             @Nullable IntPredicate partitionFilter
     ) {
+        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+        NavigableSet<BinaryRow> index = this.index;
+
+        // Swap bounds and flip index for backwards scan.
         if ((flags & BACKWARDS) != 0) {
-            throw new IllegalArgumentException("flags");
+            index = index.descendingSet();
+
+            boolean tempBoolean = includeLower;
+            includeLower = includeUpper;
+            includeUpper = tempBoolean;
+
+            IndexRowPrefix tempBound = lowerBound;
+            lowerBound = upperBound;
+            upperBound = tempBound;
         }
 
         ToIntFunction<BinaryRow> lowerCmp = lowerBound == null ? row -> -1 : new PrefixComparator(descriptor, lowerBound)::compare;
         ToIntFunction<BinaryRow> upperCmp = upperBound == null ? row -> -1 : new PrefixComparator(descriptor, upperBound)::compare;
 
-        boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
-        boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+        boolean includeLower0 = includeLower;
+        boolean includeUpper0 = includeUpper;
 
         Iterator<IndexRowEx> iterator = index.stream()
                 .dropWhile(binaryRow -> {
                     int cmp = lowerCmp.applyAsInt(binaryRow);
 
-                    return includeLower && cmp < 0 || !includeLower && cmp <= 0;
+                    return includeLower0 && cmp < 0 || !includeLower0 && cmp <= 0;
                 })
                 .takeWhile(binaryRow -> {
                     int cmp = upperCmp.applyAsInt(binaryRow);
 
-                    return includeUpper && cmp >= 0 || !includeUpper && cmp > 0;
+                    return includeUpper0 && cmp >= 0 || !includeUpper0 && cmp > 0;
                 })
                 .filter(binaryRow -> {
                     int partition = binaryRow.hash() % partitions;
@@ -170,8 +183,7 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
         return Cursor.fromIterator(iterator);
     }
 
-    @NotNull
-    private Object[] convert(Row row, List<ColumnDescriptor> columnDescriptors, BitSet projection) {
+    private Object[] convert(Row row, List<ColumnDescriptor> columnDescriptors, @Nullable BitSet projection) {
         int columns = projection == null ? columnDescriptors.size() : projection.cardinality();
 
         Object[] tuple = new Object[columns];
