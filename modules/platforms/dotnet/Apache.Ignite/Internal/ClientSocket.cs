@@ -38,6 +38,8 @@ namespace Apache.Ignite.Internal
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal sealed class ClientSocket : IDisposable
     {
+        private record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout);
+
         /** General-purpose client type code. */
         private const byte ClientType = 2;
 
@@ -70,6 +72,9 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
+        /** Connection context. */
+        private readonly ConnectionContext _context;
+
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
         private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
 
@@ -84,10 +89,12 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="stream">Network stream.</param>
         /// <param name="logger">Logger.</param>
-        private ClientSocket(NetworkStream stream, IIgniteLogger? logger)
+        /// <param name="context">Connection context.</param>
+        private ClientSocket(NetworkStream stream, IIgniteLogger? logger, ConnectionContext context)
         {
             _stream = stream;
             _logger = logger;
+            _context = context;
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
@@ -121,13 +128,14 @@ namespace Apache.Ignite.Internal
             try
             {
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-                logger?.Debug("Socket connection established: {0} -> {1}", socket.LocalEndPoint, socket.RemoteEndPoint);
+                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                await HandshakeAsync(stream).ConfigureAwait(false);
+                var context = await HandshakeAsync(stream).ConfigureAwait(false);
+                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
 
-                return new ClientSocket(stream, logger);
+                return new ClientSocket(stream, logger, context);
             }
             catch (Exception)
             {
@@ -198,7 +206,7 @@ namespace Apache.Ignite.Internal
         /// Performs the handshake exchange.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        private static async Task HandshakeAsync(NetworkStream stream)
+        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
             await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
@@ -208,7 +216,7 @@ namespace Apache.Ignite.Internal
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
-            CheckHandshakeResponse(response.GetReader());
+            return ReadHandshakeResponse(response.GetReader());
         }
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
@@ -234,7 +242,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static void CheckHandshakeResponse(MessagePackReader reader)
+        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -252,7 +260,10 @@ namespace Apache.Ignite.Internal
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
-            reader.Skip(); // Idle timeout.
+
+            var idleTimeoutMs = reader.ReadInt64();
+
+            return new ConnectionContext(serverVer, TimeSpan.FromMilliseconds(idleTimeoutMs));
         }
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
