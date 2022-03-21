@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -330,32 +331,46 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     @Disabled
     public void testRestartNodeWithConfigurationGap(TestInfo testInfo) {
         final int nodes = 4;
+        //TODO: IGNITE-16034 Here we assume that Metastore consists into one node, and it starts at first.
+        String metastorageNodes = '\"' + IgniteTestUtils.testNodeName(testInfo, 0) + '\"';
+
+        String connectNodeAddr = "\"localhost:" + DEFAULT_NODE_PORT + '\"';
 
         for (int i = 0; i < nodes; i++) {
-            startNode(testInfo, i);
+            String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
+
+            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
+                metastorageNodes,
+                DEFAULT_NODE_PORT + i,
+                connectNodeAddr
+            ), workDir.resolve(curNodeName)));
         }
 
-        IntFunction<String> valueProducer = String::valueOf;
+        createTableWithData(CLUSTER_NODES.get(0), "t1", String::valueOf, nodes);
 
-        createTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer, nodes);
-
-        final int nodeToStop = nodes - 1;
+        String igniteName = CLUSTER_NODES.get(nodes - 1).name();
 
         log.info("Stopping the node.");
 
-        stopNode(nodeToStop);
+        IgnitionManager.stop(igniteName);
+
+        IntFunction<String> valueProducer = String::valueOf;
+
+        checkTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
 
         createTableWithData(CLUSTER_NODES.get(0), "t2", valueProducer, nodes);
 
         log.info("Starting the node.");
 
-        startNode(testInfo, nodeToStop);
+        Ignite newNode = IgnitionManager.start(igniteName, null, workDir.resolve(igniteName));
+
+        CLUSTER_NODES.set(nodes - 1, newNode);
 
         checkTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
-        checkTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
+        checkTableWithData(CLUSTER_NODES.get(0), "t2", valueProducer);
 
-        checkTableWithData(CLUSTER_NODES.get(nodeToStop), "t1", valueProducer);
-        checkTableWithData(CLUSTER_NODES.get(nodeToStop), "t2", valueProducer);
+        checkTableWithData(CLUSTER_NODES.get(nodes - 1), "t1", valueProducer);
+        checkTableWithData(CLUSTER_NODES.get(nodes - 1), "t2", valueProducer);
     }
 
 
