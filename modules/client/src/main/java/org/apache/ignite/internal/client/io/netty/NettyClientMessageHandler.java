@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.client.io.netty;
 
+import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.ATTR_CONN;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-
 import java.io.IOException;
-
-import static org.apache.ignite.internal.client.io.netty.NettyClientConnection.ATTR_CONN;
 
 /**
  * Netty client message handler.
