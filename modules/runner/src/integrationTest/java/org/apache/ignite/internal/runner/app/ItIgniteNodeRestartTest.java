@@ -33,7 +33,6 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -249,25 +248,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     public void nodeWithDataTest(TestInfo testInfo) {
-        String nodeName = testNodeName(testInfo, 3344);
-
-        Ignite ignite = IgnitionManager.start(nodeName, "{\n"
-                + "  \"node\": {\n"
-                + "    \"metastorageNodes\":[ " + nodeName + " ]\n"
-                + "  },\n"
-                + "  \"network\": {\n"
-                + "    \"port\":3344,\n"
-                + "    \"nodeFinder\": {\n"
-                + "      \"netClusterNodes\":[ \"localhost:3344\" ] \n"
-                + "    }\n"
-                + "  }\n"
-                + "}", workDir);
+        Ignite ignite = startNode(testInfo, 0);
 
         createTableWithData(ignite, TABLE_NAME, i -> "name " + i, 1);
 
-        IgnitionManager.stop(nodeName);
+        stopNode(0);
 
-        ignite = IgnitionManager.start(nodeName, null, workDir);
+        ignite = startNode(testInfo, 0);
 
         checkTableWithData(ignite, TABLE_NAME,  i -> "name " + i);
     }
@@ -328,7 +315,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled
+    @Disabled("IGNITE-16718")
     public void testCfgGap(TestInfo testInfo) {
         final int nodes = 4;
 
@@ -336,15 +323,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             startNode(testInfo, i);
         }
 
-        createTableWithData(CLUSTER_NODES.get(0), "t1", String::valueOf, nodes);
+        IntFunction<String> valueProducer = String::valueOf;
+
+        createTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer, nodes);
 
         String igniteName = CLUSTER_NODES.get(nodes - 1).name();
 
         log.info("Stopping the node.");
 
         IgnitionManager.stop(igniteName);
-
-        IntFunction<String> valueProducer = String::valueOf;
 
         checkTableWithData(CLUSTER_NODES.get(0), "t1", valueProducer);
 
@@ -376,7 +363,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(table);
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
 
             assertEquals(valueProducer.apply(i), row.stringValue("name"));
@@ -405,7 +392,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 tbl -> SchemaConfigurationConverter.convert(scmTbl1, tbl).changePartitions(10).changeReplicas(replicas)
         );
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 10; i++) {
             Tuple key = Tuple.create().set("id", i);
             Tuple val = Tuple.create().set("name", valueProducer.apply(i));
 
