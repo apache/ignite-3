@@ -572,11 +572,7 @@ public class InternalTableImpl implements InternalTable {
 
                 final int internalBatchSize = Integer.MAX_VALUE;
 
-                for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++) {
-                    scanBatch(internalBatchSize);
-                }
-
-                scanBatch((int) (n % internalBatchSize));
+                scanBatch(internalBatchSize, n, 1);
             }
 
             /** {@inheritDoc} */
@@ -607,15 +603,17 @@ public class InternalTableImpl implements InternalTable {
             /**
              * Requests and processes n requested elements where n is an integer.
              *
-             * @param n Requested amount of items.
+             * @param requestedItemsSizeBatched Batched amount of items to request and process.
+             * @param requestedItemsSizeTotal Total requested amount of items requested by user.
+             * @param scanIteration Iterations counter to request {@code requestedItemsSizeTotal} by {@code requestedItemsSizeBatched}.
              */
-            private void scanBatch(int n) {
+            private void scanBatch(int requestedItemsSizeBatched, long requestedItemsSizeTotal, long scanIteration) {
                 if (canceled.get()) {
                     return;
                 }
 
                 scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(
-                                new ScanRetrieveBatchCommand(n, scanId, scanCounter.getAndIncrement())))
+                                new ScanRetrieveBatchCommand(requestedItemsSizeBatched, scanId, scanCounter.getAndIncrement())))
                         .thenAccept(
                                 res -> {
                                     if (res.getValues() == null) {
@@ -626,9 +624,13 @@ public class InternalTableImpl implements InternalTable {
                                         return;
                                     } else {
                                         res.getValues().forEach(subscriber::onNext);
+
+                                        if (requestedItemsSizeTotal < (scanIteration * requestedItemsSizeBatched)) {
+                                            scanBatch(requestedItemsSizeBatched, requestedItemsSizeTotal, scanIteration + 1);
+                                        }
                                     }
 
-                                    if (res.getValues().size() < n) {
+                                    if (res.getValues().size() < requestedItemsSizeBatched) {
                                         cancel();
 
                                         subscriber.onComplete();
