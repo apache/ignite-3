@@ -199,10 +199,10 @@ public interface IgniteClient extends Ignite {
 
         /**
          * Sets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
-         * <p />
+         * <p>
          * When server-side idle timeout is not zero, effective heartbeat
          * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
-         * <p />
+         * <p>
          * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
          * to keep the connection alive and detect potential half-open state.
          *
