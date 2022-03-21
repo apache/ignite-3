@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 public class HeartbeatTest {
     @Test
     public void testHeartbeatLongerThanIdleTimeoutCausesDisconnect() throws Exception {
-        try (var srv = new TestServer(10800, 10, 100, new FakeIgnite())) {
+        try (var srv = new TestServer(10800, 10, 50, new FakeIgnite())) {
             int srvPort = getPort(srv.module());
 
             Builder builder = IgniteClient.builder()
