@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.util;
 
 import java.util.Iterator;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Closeable cursor.
@@ -42,7 +41,6 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
             }
 
             /** {@inheritDoc} */
-            @NotNull
             @Override
             public Iterator<T> iterator() {
                 return this;
