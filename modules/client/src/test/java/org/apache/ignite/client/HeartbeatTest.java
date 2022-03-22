@@ -63,4 +63,22 @@ public class HeartbeatTest {
             }
         }
     }
+
+    @Test
+    public void testInvalidHeartbeatIntervalThrows() throws Exception {
+        try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
+
+            Builder builder = IgniteClient.builder()
+                    .addresses("127.0.0.1:" + getPort(srv.module()))
+                    .heartbeatInterval(-50);
+
+            Throwable ex = assertThrows(IgniteClientException.class, builder::build);
+
+            while (ex.getCause() != null) {
+                ex = ex.getCause();
+            }
+
+            assertEquals("Negative delay.", ex.getMessage());
+        }
+    }
 }
