@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -28,12 +29,17 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestServerDoesNotDisconnectIdleClientWithHeartbeats()
         {
-            // TODO: Check logger messages.
-            Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
+            var logger = new ListLogger();
+
+            var cfg = new IgniteClientConfiguration(GetConfig()) { Logger = logger };
+            using var client = await IgniteClient.StartAsync(cfg);
+
+            logger.Clear();
 
             await Task.Delay(ServerIdleTimeout * 3);
 
-            Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
+            Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
+            Assert.IsEmpty(string.Join(", ", logger.Entries.Select(e => e.Message)));
         }
     }
 }
