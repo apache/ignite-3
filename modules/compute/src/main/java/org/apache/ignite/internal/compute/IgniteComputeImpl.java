@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -93,18 +93,14 @@ public class IgniteComputeImpl implements IgniteCompute {
             Class<? extends ComputeJob<R>> jobClass,
             Object... args
     ) {
-        Map<ClusterNode, CompletableFuture<R>> resultMap = nodes.stream()
-                .collect(toMap(node -> node, node -> executeOnOneNode(node, jobClass, args)));
-
-        return Map.copyOf(resultMap);
+        return nodes.stream()
+                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClass, args)));
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        Map<ClusterNode, CompletableFuture<R>> resultMap = nodes.stream()
-                .collect(toMap(node -> node, node -> executeOnOneNode(node, jobClassName, args)));
-
-        return Map.copyOf(resultMap);
+        return nodes.stream()
+                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClassName, args)));
     }
 }
