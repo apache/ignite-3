@@ -49,6 +49,9 @@ namespace Apache.Ignite.Internal
         /** Current version. */
         private static readonly ClientProtocolVersion CurrentProtocolVersion = Ver300;
 
+        /** Minimum supported heartbeat interval. */
+        private static readonly TimeSpan MinRecommendedHeartbeatInterval = TimeSpan.FromMilliseconds(500);
+
         /** Underlying stream. */
         private readonly NetworkStream _stream;
 
@@ -399,35 +402,40 @@ namespace Apache.Ignite.Internal
 
         private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
         {
-            var recommendedHeartbeatInterval = serverIdleTimeout / 3;
-
-            if (recommendedHeartbeatInterval > TimeSpan.Zero)
+            if (serverIdleTimeout <= TimeSpan.Zero)
             {
-                if (configuredInterval < recommendedHeartbeatInterval)
-                {
-                    logger?.Info(
-                        $"Server-side IdleTimeout is {serverIdleTimeout}, " +
-                        $"using configured {nameof(IgniteClientConfiguration)}." +
-                        $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: " +
-                        configuredInterval);
+                logger?.Info(
+                    $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
+                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
 
-                    return configuredInterval;
-                }
-
-                logger?.Warn(
-                    $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
-                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
-                    $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
-                    $"Overriding heartbeat interval with IdleTimeout / 3: {recommendedHeartbeatInterval}");
-
-                return recommendedHeartbeatInterval;
+                return configuredInterval;
             }
 
-            logger?.Info(
-                $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
-                $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
+            var recommendedHeartbeatInterval = serverIdleTimeout / 3;
 
-            return configuredInterval;
+            if (recommendedHeartbeatInterval < MinRecommendedHeartbeatInterval)
+            {
+                recommendedHeartbeatInterval = MinRecommendedHeartbeatInterval;
+            }
+
+            if (configuredInterval < recommendedHeartbeatInterval)
+            {
+                logger?.Info(
+                    $"Server-side IdleTimeout is {serverIdleTimeout}, " +
+                    $"using configured {nameof(IgniteClientConfiguration)}." +
+                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: " +
+                    configuredInterval);
+
+                return configuredInterval;
+            }
+
+            logger?.Warn(
+                $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
+                $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
+                $"Overriding heartbeat interval with IdleTimeout / 3: {recommendedHeartbeatInterval}");
+
+            return recommendedHeartbeatInterval;
         }
 
         private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
