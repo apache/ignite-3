@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal
                     $"{nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
-            _logger = configuration.Logger;
+            _logger = configuration.Logger.GetLogger(GetType());
             _endPoints = GetIpEndPoints(configuration).ToList();
 
             Configuration = new(configuration); // Defensive copy.
