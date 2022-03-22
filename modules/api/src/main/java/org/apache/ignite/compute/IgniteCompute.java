@@ -17,6 +17,7 @@
 
 package org.apache.ignite.compute;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.network.ClusterNode;
@@ -29,7 +30,7 @@ import org.apache.ignite.network.ClusterNode;
  */
 public interface IgniteCompute {
     /**
-     * Executes a {@link ComputeJob}.
+     * Executes a {@link ComputeJob} represented by the given class on one node from the nodes set.
      *
      * @param nodes    nodes on which to execute the job
      * @param jobClass class of the job to execute
@@ -40,13 +41,35 @@ public interface IgniteCompute {
     <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
 
     /**
-     * Executes a {@link ComputeJob}.
+     * Executes a {@link ComputeJob} represented by the given class on one node from the nodes set.
      *
-     * @param nodes    nodes on which to execute the job
+     * @param nodes    candidate nodes; the job will be executed on one of them
      * @param jobClassName name of the job class to execute
      * @param args     arguments of the job
      * @param <R>      job result type
      * @return future job result
      */
     <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args);
+
+    /**
+     * Executes a {@link ComputeJob} represented by the given class on all nodes from the given nodes set.
+     *
+     * @param nodes nodes on each of which the job will be executed
+     * @param jobClass class of the job to execute
+     * @param args     arguments of the job
+     * @param <R>      job result type
+     * @return future job results
+     */
+    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
+
+    /**
+     * Executes a {@link ComputeJob} represented by the given class on all nodes from the given nodes set.
+     *
+     * @param nodes nodes on each of which the job will be executed
+     * @param jobClassName name of the job class to execute
+     * @param args     arguments of the job
+     * @param <R>      job result type
+     * @return future job results
+     */
+    <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args);
 }
