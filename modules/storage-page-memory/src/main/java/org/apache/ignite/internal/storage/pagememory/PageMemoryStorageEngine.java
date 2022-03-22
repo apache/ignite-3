@@ -56,12 +56,12 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public DataRegion createDataRegion(DataRegionConfiguration regionCfg) {
-        return new PageMemoryDataRegion((PageMemoryDataRegionConfiguration) regionCfg, ioRegistry);
+        return new VolatilePageMemoryDataRegion((PageMemoryDataRegionConfiguration) regionCfg, ioRegistry);
     }
 
     /** {@inheritDoc} */
     @Override
     public TableStorage createTable(Path tablePath, TableConfiguration tableCfg, DataRegion dataRegion) {
-        return new VolatilePageMemoryTableStorage(tableCfg, (PageMemoryDataRegion) dataRegion);
+        return new VolatilePageMemoryTableStorage(tableCfg, (VolatilePageMemoryDataRegion) dataRegion);
     }
 }

@@ -17,68 +17,26 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
-import static org.apache.ignite.internal.storage.StorageUtils.groupId;
-
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
-import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link PageMemoryTableStorage} for in-memory case.
  */
 class VolatilePageMemoryTableStorage extends PageMemoryTableStorage {
-    private TableFreeList freeList;
-
     /**
      * Constructor.
      *
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public VolatilePageMemoryTableStorage(TableConfiguration tableCfg, PageMemoryDataRegion dataRegion) {
+    public VolatilePageMemoryTableStorage(TableConfiguration tableCfg, VolatilePageMemoryDataRegion dataRegion) {
         super(tableCfg, dataRegion);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() throws StorageException {
-        assert !dataRegion.persistent() : "Persistent data region : " + dataRegion;
-
-        TableView tableView = tableCfg.value();
-
-        try {
-            int grpId = groupId(tableView);
-
-            long metaPageId = dataRegion.pageMemory().allocatePage(grpId, INDEX_PARTITION, FLAG_AUX);
-
-            freeList = new TableFreeList(
-                    grpId,
-                    dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
-                    metaPageId,
-                    true,
-                    null,
-                    PageEvictionTrackerNoOp.INSTANCE,
-                    IoStatisticsHolderNoOp.INSTANCE
-            );
-
-            autoCloseables.add(freeList::close);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a freeList", e);
-        }
-
-        super.start();
-    }
-
-    /** {@inheritDoc} */
-    @Override
     protected PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        return new PageMemoryPartitionStorage(partId, tableCfg, dataRegion, freeList);
+        return new PageMemoryPartitionStorage(partId, tableCfg, dataRegion, ((VolatilePageMemoryDataRegion) dataRegion).freeList());
     }
 }

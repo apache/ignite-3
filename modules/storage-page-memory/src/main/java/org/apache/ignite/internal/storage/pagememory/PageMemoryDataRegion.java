@@ -20,22 +20,20 @@ package org.apache.ignite.internal.storage.pagememory;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Data region implementation for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
+ * Abstract data region for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
 // TODO: IGNITE-16641 Add support for persistent case.
-class PageMemoryDataRegion implements DataRegion {
-    private final PageMemoryDataRegionConfiguration cfg;
+abstract class PageMemoryDataRegion implements DataRegion {
+    protected final PageMemoryDataRegionConfiguration cfg;
 
-    private final PageIoRegistry ioRegistry;
+    protected final PageIoRegistry ioRegistry;
 
-    private PageMemory pageMemory;
+    protected PageMemory pageMemory;
 
     /**
      * Constructor.
@@ -46,20 +44,6 @@ class PageMemoryDataRegion implements DataRegion {
     public PageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry) {
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void start() {
-        if (persistent()) {
-            throw new UnsupportedOperationException("Persistent case is not supported yet.");
-        }
-
-        PageMemory pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry);
-
-        pageMemory.start();
-
-        this.pageMemory = pageMemory;
     }
 
     /** {@inheritDoc} */
