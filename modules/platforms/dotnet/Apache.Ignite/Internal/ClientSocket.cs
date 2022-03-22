@@ -72,8 +72,8 @@ namespace Apache.Ignite.Internal
         /** Logger. */
         private readonly IgniteClientConfiguration _configuration;
 
-        /** Connection context. */
-        private readonly ConnectionContext _context;
+        /** Heartbeat timer. */
+        private readonly Timer _heartbeatTimer;
 
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
         private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
@@ -94,10 +94,15 @@ namespace Apache.Ignite.Internal
         {
             _stream = stream;
             _configuration = configuration;
-            _context = context;
 
-            // TODO: Init heartbeats
-            // TODO: Validate config.
+            var heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, configuration.Logger);
+
+            // ReSharper disable once AsyncVoidLambda (timer callback)
+            _heartbeatTimer = new Timer(
+                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
+                state: null,
+                dueTime: heartbeatInterval,
+                period: heartbeatInterval);
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
@@ -392,6 +397,39 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
+        {
+            var recommendedHeartbeatInterval = serverIdleTimeout / 3;
+
+            if (recommendedHeartbeatInterval > TimeSpan.Zero)
+            {
+                if (configuredInterval < recommendedHeartbeatInterval)
+                {
+                    logger?.Info(
+                        $"Server-side IdleTimeout is {serverIdleTimeout}, " +
+                        $"using configured {nameof(IgniteClientConfiguration)}." +
+                        $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: " +
+                        configuredInterval);
+
+                    return configuredInterval;
+                }
+
+                logger?.Warn(
+                    $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
+                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                    $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
+                    $"Overriding heartbeat interval with IdleTimeout / 3: {recommendedHeartbeatInterval}");
+
+                return recommendedHeartbeatInterval;
+            }
+
+            logger?.Info(
+                $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
+                $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
+
+            return configuredInterval;
+        }
+
         private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
         {
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
@@ -499,6 +537,26 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Sends heartbeat message.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
+        private async Task SendHeartbeatAsync()
+        {
+            try
+            {
+                await DoOutInOpAsync(ClientOp.Heartbeat).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _exception = e;
+                Dispose();
+            }
+        }
+
+        /// <summary>
         /// Disposes this socket and completes active requests with the specified exception.
         /// </summary>
         /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
@@ -509,6 +567,7 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            _heartbeatTimer.Dispose();
             _disposeTokenSource.Cancel();
             _exception = ex;
             _stream.Dispose();
