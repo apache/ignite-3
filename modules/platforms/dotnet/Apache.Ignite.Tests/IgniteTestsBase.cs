@@ -36,7 +36,7 @@ namespace Apache.Ignite.Tests
 
         protected const string ValCol = "val";
 
-        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(500); // See PlatformTestNodeRunner.
+        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(1000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
 
