@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests
 {
-    using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -39,7 +38,7 @@ namespace Apache.Ignite.Tests
             await Task.Delay(ServerIdleTimeout * 3);
 
             Assert.DoesNotThrowAsync(async () => await client.Tables.GetTablesAsync());
-            Assert.IsEmpty(string.Join(", ", logger.Entries.Select(e => e.Message)));
+            Assert.IsEmpty(logger.GetLogString(), "No disconnects or reconnects should be logged.");
         }
     }
 }

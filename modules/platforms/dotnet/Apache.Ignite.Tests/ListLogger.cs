@@ -67,6 +67,18 @@ namespace Apache.Ignite.Tests
         }
 
         /// <summary>
+        /// Gets the log as a string.
+        /// </summary>
+        /// <returns>Log string.</returns>
+        public string GetLogString()
+        {
+            lock (_lock)
+            {
+                return string.Join(", ", _entries.Select(e => $"{e.Category} [{e.Level}] {e.Message}"));
+            }
+        }
+
+        /// <summary>
         /// Clears the entries.
         /// </summary>
         public void Clear()
