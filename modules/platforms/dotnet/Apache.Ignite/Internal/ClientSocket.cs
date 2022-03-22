@@ -572,8 +572,7 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
-                _exception = e;
-                Dispose();
+                Dispose(e);
             }
         }
 
