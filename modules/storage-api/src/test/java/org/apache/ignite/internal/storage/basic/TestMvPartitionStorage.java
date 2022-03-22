@@ -32,6 +32,9 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Test implementation of MV partition storage.
+ */
 public abstract class TestMvPartitionStorage implements PartitionStorage {
     private final ConcurrentHashMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
 

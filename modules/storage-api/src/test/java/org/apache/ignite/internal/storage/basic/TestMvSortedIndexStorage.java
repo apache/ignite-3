@@ -41,6 +41,9 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Test implementation of MV sorted index storage.
+ */
 public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
     private final SortedIndexDescriptor descriptor;
 
