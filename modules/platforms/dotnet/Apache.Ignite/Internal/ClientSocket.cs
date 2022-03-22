@@ -75,6 +75,9 @@ namespace Apache.Ignite.Internal
         /** Heartbeat timer. */
         private readonly Timer _heartbeatTimer;
 
+        /** Effective heartbeat interval. */
+        private readonly TimeSpan _heartbeatInterval;
+
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
@@ -98,14 +101,14 @@ namespace Apache.Ignite.Internal
             _stream = stream;
             _logger = configuration.Logger.GetLogger(GetType());
 
-            var heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, _logger);
+            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
-                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false), // TODO: Reset timer on send.
+                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
                 state: null,
-                dueTime: heartbeatInterval,
-                period: heartbeatInterval);
+                dueTime: _heartbeatInterval,
+                period: TimeSpan.FromMilliseconds(-1));
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
@@ -447,6 +450,9 @@ namespace Apache.Ignite.Internal
 
         private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
         {
+            // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
+
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
             try
