@@ -55,28 +55,26 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
-        public void TestCustomHeartbeatIntervalOverridesCalculatedFromIdleTimeout()
+        public async Task TestCustomHeartbeatIntervalOverridesCalculatedFromIdleTimeout()
         {
-            // using var client = GetClient(enableHeartbeats: true, heartbeatInterval: 300);
-            //
-            // Assert.AreEqual(TimeSpan.FromMilliseconds(300), client.GetConfiguration().HeartbeatInterval);
-            //
-            // StringAssert.Contains("Server-side IdleTimeout is 2000ms, using configured IgniteClientConfiguration." +
-            //                       "HeartbeatInterval: 00:00:00.3000000", GetLogString(client));
+            var log = await ConnectAndGetLog(TimeSpan.FromMilliseconds(50));
+
+            StringAssert.Contains(
+                "ClientSocket [Info] Server-side IdleTimeout is 00:00:00.5000000, " +
+                "using configured IgniteClientConfiguration.HeartbeatInterval: 00:00:00.0500000",
+                log);
         }
 
         [Test]
-        public void TestCustomHeartbeatIntervalLongerThanRecommendedDoesNotOverrideCalculatedFromIdleTimeout()
+        public async Task TestCustomHeartbeatIntervalLongerThanRecommendedDoesNotOverrideCalculatedFromIdleTimeout()
         {
-            // using var client = GetClient(enableHeartbeats: true, heartbeatInterval: 3000);
-            //
-            // Assert.AreEqual(TimeSpan.FromMilliseconds(3000), client.GetConfiguration().HeartbeatInterval);
-            //
-            // StringAssert.Contains(
-            //     "Server-side IdleTimeout is 2000ms, configured IgniteClientConfiguration.HeartbeatInterval is " +
-            //     "00:00:03, which is longer than recommended IdleTimeout / 3. " +
-            //     "Overriding heartbeat interval with IdleTimeout / 3: 00:00:00.6660000",
-            //     GetLogString(client));
+            var log = await ConnectAndGetLog(TimeSpan.FromSeconds(4));
+
+            StringAssert.Contains(
+                "ClientSocket [Warn] Server-side IdleTimeout is 00:00:00.5000000, " +
+                "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:04, which is longer than recommended IdleTimeout / 3. " +
+                "Overriding heartbeat interval with IdleTimeout / 3: 00:00:00.5000000",
+                log);
         }
 
         [Test]

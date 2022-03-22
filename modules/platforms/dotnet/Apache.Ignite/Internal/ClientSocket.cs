@@ -402,6 +402,13 @@ namespace Apache.Ignite.Internal
 
         private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
         {
+            if (configuredInterval <= TimeSpan.Zero)
+            {
+                throw new IgniteClientException(
+                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                    "should be greater than zero.");
+            }
+
             if (serverIdleTimeout <= TimeSpan.Zero)
             {
                 logger?.Info(
