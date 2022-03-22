@@ -441,7 +441,7 @@ namespace Apache.Ignite.Internal
                 $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
                 $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
                 $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
-                $"Overriding heartbeat interval with IdleTimeout / 3: {recommendedHeartbeatInterval}");
+                $"Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {recommendedHeartbeatInterval}");
 
             return recommendedHeartbeatInterval;
         }
