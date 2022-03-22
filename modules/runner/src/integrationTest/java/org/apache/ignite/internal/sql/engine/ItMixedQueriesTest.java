@@ -105,6 +105,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         assertEquals(1, rows.size());
         assertEquals(Arrays.asList("щщ", "Б"), first(rows));
+
+        sql("DROP TABLE IF EXISTS TEST");
     }
 
     @Test
@@ -216,6 +218,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         }
 
         assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));
+
+        sql("DROP TABLE IF EXISTS t");
     }
 
     /**
@@ -260,7 +264,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     /** Quantified predicates test. */
     @Test
-    public void quantifiedCompTest() throws InterruptedException {
+    public void quantifiedCompTest() {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
                 .returns(11d)
                 .returns(12d)

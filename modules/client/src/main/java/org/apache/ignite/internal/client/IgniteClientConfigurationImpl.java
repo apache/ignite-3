@@ -47,6 +47,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
+    /** Heartbeat interval. */
+    private final long heartbeatInterval;
+
     /**
      * Constructor.
      *
@@ -55,6 +58,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param retryLimit                Retry limit.
      * @param connectTimeout            Socket connect timeout.
      * @param asyncContinuationExecutor Async continuation executor.
+     * @param heartbeatInterval         Heartbeat message interval.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -63,7 +67,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
-            Executor asyncContinuationExecutor) {
+            Executor asyncContinuationExecutor,
+            long heartbeatInterval) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -74,6 +79,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
+        this.heartbeatInterval = heartbeatInterval;
     }
 
     /** {@inheritDoc} */
@@ -116,5 +122,11 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable Executor asyncContinuationExecutor() {
         return asyncContinuationExecutor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long heartbeatInterval() {
+        return heartbeatInterval;
     }
 }

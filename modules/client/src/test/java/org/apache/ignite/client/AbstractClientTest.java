@@ -54,7 +54,7 @@ public abstract class AbstractClientTest {
 
         server = new FakeIgnite();
 
-        testServer = startServer(10800, 10, server);
+        testServer = startServer(10800, 10, 0, server);
 
         serverPort = getPort(testServer.module());
 
@@ -101,15 +101,17 @@ public abstract class AbstractClientTest {
      *
      * @param port Port.
      * @param portRange Port range.
+     * @param idleTimeout Idle timeout.
      * @param ignite Ignite.
      * @return Server.
      */
     public static TestServer startServer(
             int port,
             int portRange,
+            long idleTimeout,
             Ignite ignite
     ) {
-        return new TestServer(port, portRange, ignite);
+        return new TestServer(port, portRange, idleTimeout, ignite);
     }
 
     /**
