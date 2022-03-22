@@ -29,7 +29,9 @@ namespace Apache.Ignite.Tests
         public async Task TestServerDoesNotDisconnectIdleClientWithHeartbeats()
         {
             // TODO: Check logger messages.
-            await Task.Delay(ServerIdleTimeout * 2);
+            Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
+
+            await Task.Delay(ServerIdleTimeout * 3);
 
             Assert.DoesNotThrowAsync(async () => await Client.Tables.GetTablesAsync());
         }

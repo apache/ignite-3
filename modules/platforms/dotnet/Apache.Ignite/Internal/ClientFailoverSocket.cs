@@ -155,6 +155,11 @@ namespace Apache.Ignite.Internal
 
                 if (_socket == null || _socket.IsDisposed)
                 {
+                    if (_socket?.IsDisposed == true)
+                    {
+                        _logger?.Info("Primary socket connection lost, reconnecting.");
+                    }
+
                     _socket = await GetNextSocketAsync().ConfigureAwait(false);
                 }
 
