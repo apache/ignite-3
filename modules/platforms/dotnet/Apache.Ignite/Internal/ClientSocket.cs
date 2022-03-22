@@ -72,11 +72,11 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
-        /** Logger. */
-        private readonly IgniteClientConfiguration _configuration;
-
         /** Heartbeat timer. */
         private readonly Timer _heartbeatTimer;
+
+        /** Logger. */
+        private readonly IIgniteLogger? _logger;
 
         /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
         private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
@@ -96,13 +96,13 @@ namespace Apache.Ignite.Internal
         private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext context)
         {
             _stream = stream;
-            _configuration = configuration;
+            _logger = configuration.Logger.GetLogger(GetType());
 
-            var heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, configuration.Logger);
+            var heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
-                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
+                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false), // TODO: Reset timer on send.
                 state: null,
                 dueTime: heartbeatInterval,
                 period: heartbeatInterval);
@@ -138,7 +138,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                var logger = configuration.Logger;
+                var logger = configuration.Logger.GetLogger(typeof(ClientSocket));
 
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
                 logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
@@ -501,7 +501,7 @@ namespace Apache.Ignite.Internal
             {
                 const string message = "Exception while reading from socket. Connection closed.";
 
-                _configuration.Logger?.Error(message, e);
+                _logger?.Error(message, e);
                 Dispose(new IgniteClientException(message, e));
             }
         }
@@ -523,7 +523,7 @@ namespace Apache.Ignite.Internal
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
                 var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
-                _configuration.Logger?.Error(message);
+                _logger?.Error(message);
                 Dispose(new IgniteClientException(message));
 
                 return;
