@@ -106,6 +106,7 @@ public class ItClientHandlerTest {
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
+            packer.packInt(0); // Idle timeout.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -127,7 +128,7 @@ public class ItClientHandlerTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(7, len);
+            assertEquals(8, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);

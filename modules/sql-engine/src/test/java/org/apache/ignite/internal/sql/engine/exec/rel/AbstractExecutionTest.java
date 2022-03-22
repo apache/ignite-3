@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import com.google.common.collect.ImmutableMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -105,7 +105,7 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 0,
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
-                ImmutableMap.of()
+                Map.of()
         );
     }
 

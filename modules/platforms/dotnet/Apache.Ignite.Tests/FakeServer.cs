@@ -110,8 +110,8 @@ namespace Apache.Ignite.Tests
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
-                handler.Send(new byte[] { 0, 0, 0, 7 }); // Size.
-                handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128 });
+                handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
+                handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128, 0 });
 
                 while (!_cts.IsCancellationRequested)
                 {

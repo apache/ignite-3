@@ -34,7 +34,7 @@ safely compared instead of keys themselves avoiding unnecessary deserialization.
 at a time of table created, and key columns can't be added or removed. All the key columns values must be provided 
 for a table operation, to resolve unambiguity of 'null or absent' column.     
 
-Data layout is documentation can be found [here](src/main/java/org/apache/ignite/internal/schema/README.md)
+Row layout documentation can be found [here](src/main/java/org/apache/ignite/internal/schema/README.md)
 
 ## Object-to-schema mapping
 
