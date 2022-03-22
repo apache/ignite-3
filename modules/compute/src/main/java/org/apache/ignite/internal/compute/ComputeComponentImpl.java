@@ -68,6 +68,8 @@ public class ComputeComponentImpl implements ComputeComponent {
     /** Prevents double stopping the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    private final InFlightFutures inFlightFutures = new InFlightFutures();
+
     /**
      * Creates a new instance.
      */
@@ -100,6 +102,13 @@ public class ComputeComponentImpl implements ComputeComponent {
     private <R> CompletableFuture<R> doExecuteLocally(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         assert jobExecutorService != null : "Not started yet!";
 
+        CompletableFuture<R> future = startLocalExecution(jobClass, args);
+        inFlightFutures.registerFuture(future);
+
+        return future;
+    }
+
+    private <R> CompletableFuture<R> startLocalExecution(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         try {
             return CompletableFuture.supplyAsync(() -> executeJob(jobClass, args), jobExecutorService);
         } catch (RejectedExecutionException e) {
@@ -157,8 +166,10 @@ public class ComputeComponentImpl implements ComputeComponent {
                 .args(args)
                 .build();
 
-        return messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
+        CompletableFuture<R> future = messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
                 .thenCompose(message -> resultFromExecuteResponse((ExecuteResponse) message));
+        inFlightFutures.registerFuture(future);
+        return future;
     }
 
     @SuppressWarnings("unchecked")
@@ -246,6 +257,8 @@ public class ComputeComponentImpl implements ComputeComponent {
         busyLock.block();
 
         IgniteUtils.shutdownAndAwaitTermination(jobExecutorService, stopTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+        inFlightFutures.cancelInFlightFutures();
     }
 
     long stopTimeoutMillis() {
