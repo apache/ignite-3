@@ -33,6 +33,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -542,6 +543,8 @@ public class InternalTableImpl implements InternalTable {
 
             private AtomicInteger scanCounter = new AtomicInteger(1);
 
+            private final AtomicLong requestedItemsCnt;
+
             private static final int INTERNAL_BATCH_SIZE = 10_000;
 
             /**
@@ -555,6 +558,7 @@ public class InternalTableImpl implements InternalTable {
                 this.scanId = UUID_GENERATOR.randomUuid();
                 // TODO: IGNITE-15544 Close partition scans on node left.
                 this.scanInitOp = raftGrpSvc.run(new ScanInitCommand("", scanId));
+                this.requestedItemsCnt = new AtomicLong(0);
             }
 
             /** {@inheritDoc} */
@@ -572,7 +576,17 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                scanBatch(INTERNAL_BATCH_SIZE, n, 1);
+                long prevVal = requestedItemsCnt.getAndUpdate(origin -> {
+                    try {
+                        return Math.addExact(origin, n);
+                    } catch (ArithmeticException e) {
+                        return Long.MAX_VALUE;
+                    }
+                });
+
+                if (prevVal == 0) {
+                    scanBatch((int) Math.min(n, INTERNAL_BATCH_SIZE));
+                }
             }
 
             /** {@inheritDoc} */
@@ -603,17 +617,15 @@ public class InternalTableImpl implements InternalTable {
             /**
              * Requests and processes n requested elements where n is an integer.
              *
-             * @param requestedItemsSizeBatched Batched amount of items to request and process.
-             * @param requestedItemsSizeTotal Total requested amount of items requested by user.
-             * @param scanIteration Iterations counter to request {@code requestedItemsSizeTotal} by {@code requestedItemsSizeBatched}.
+             * @param n amount of items to request and process.
              */
-            private void scanBatch(int requestedItemsSizeBatched, long requestedItemsSizeTotal, long scanIteration) {
+            private void scanBatch(int n) {
                 if (canceled.get()) {
                     return;
                 }
 
                 scanInitOp.thenCompose((none) -> raftGrpSvc.<MultiRowsResponse>run(
-                                new ScanRetrieveBatchCommand(requestedItemsSizeBatched, scanId, scanCounter.getAndIncrement())))
+                                new ScanRetrieveBatchCommand(n, scanId, scanCounter.getAndIncrement())))
                         .thenAccept(
                                 res -> {
                                     if (res.getValues() == null) {
@@ -626,12 +638,12 @@ public class InternalTableImpl implements InternalTable {
                                         res.getValues().forEach(subscriber::onNext);
                                     }
 
-                                    if (res.getValues().size() < requestedItemsSizeBatched) {
+                                    if (res.getValues().size() < n) {
                                         cancel();
 
                                         subscriber.onComplete();
-                                    } else if (requestedItemsSizeTotal > (scanIteration * requestedItemsSizeBatched)) {
-                                        scanBatch(requestedItemsSizeBatched, requestedItemsSizeTotal, scanIteration + 1);
+                                    } else if (requestedItemsCnt.getAndAdd(Math.negateExact(res.getValues().size())) > 0) {
+                                        scanBatch(INTERNAL_BATCH_SIZE);
                                     }
                                 })
                         .exceptionally(

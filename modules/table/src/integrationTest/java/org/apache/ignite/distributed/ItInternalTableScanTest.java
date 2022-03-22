@@ -543,7 +543,7 @@ public class ItInternalTableScanTest {
             public void onNext(BinaryRow item) {
                 retrievedItems.add(item);
 
-                if (reqAmount != Long.MAX_VALUE && retrievedItems.size() % reqAmount == 0) {
+                if (retrievedItems.size() % reqAmount == 0) {
                     subscription.request(reqAmount);
                 }
             }
