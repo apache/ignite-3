@@ -429,6 +429,7 @@ namespace Apache.Ignite.Internal
                 return configuredInterval;
             }
 
+            // TODO: Explain MinRecommendedHeartbeatInterval behavior in the message.
             logger?.Warn(
                 $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
                 $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
