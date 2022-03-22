@@ -106,10 +106,7 @@ namespace Apache.Ignite.Tests
                 return;
             }
 
-            if (_wrappedLogger != null)
-            {
-                _wrappedLogger.Log(level, message, args, formatProvider, category, nativeErrorInfo, ex);
-            }
+            _wrappedLogger?.Log(level, message, args, formatProvider, category, nativeErrorInfo, ex);
 
             lock (_lock)
             {
