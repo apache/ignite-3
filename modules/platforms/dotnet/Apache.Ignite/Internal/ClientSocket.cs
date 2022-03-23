@@ -38,6 +38,8 @@ namespace Apache.Ignite.Internal
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal sealed class ClientSocket : IDisposable
     {
+        private record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout);
+
         /** General-purpose client type code. */
         private const byte ClientType = 2;
 
@@ -46,6 +48,9 @@ namespace Apache.Ignite.Internal
 
         /** Current version. */
         private static readonly ClientProtocolVersion CurrentProtocolVersion = Ver300;
+
+        /** Minimum supported heartbeat interval. */
+        private static readonly TimeSpan MinRecommendedHeartbeatInterval = TimeSpan.FromMilliseconds(500);
 
         /** Underlying stream. */
         private readonly NetworkStream _stream;
@@ -67,6 +72,12 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
+        /** Heartbeat timer. */
+        private readonly Timer _heartbeatTimer;
+
+        /** Effective heartbeat interval. */
+        private readonly TimeSpan _heartbeatInterval;
+
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
@@ -83,11 +94,21 @@ namespace Apache.Ignite.Internal
         /// Initializes a new instance of the <see cref="ClientSocket"/> class.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        /// <param name="logger">Logger.</param>
-        private ClientSocket(NetworkStream stream, IIgniteLogger? logger)
+        /// <param name="configuration">Configuration.</param>
+        /// <param name="context">Connection context.</param>
+        private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext context)
         {
             _stream = stream;
-            _logger = logger;
+            _logger = configuration.Logger.GetLogger(GetType());
+
+            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, _logger);
+
+            // ReSharper disable once AsyncVoidLambda (timer callback)
+            _heartbeatTimer = new Timer(
+                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
+                state: null,
+                dueTime: _heartbeatInterval,
+                period: TimeSpan.FromMilliseconds(-1));
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
@@ -105,13 +126,13 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
-        /// <param name="logger">Logger.</param>
+        /// <param name="configuration">Configuration.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IIgniteLogger? logger = null)
+        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IgniteClientConfiguration configuration)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -120,14 +141,17 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                var logger = configuration.Logger.GetLogger(typeof(ClientSocket));
+
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-                logger?.Debug("Socket connection established: {0} -> {1}", socket.LocalEndPoint, socket.RemoteEndPoint);
+                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                await HandshakeAsync(stream).ConfigureAwait(false);
+                var context = await HandshakeAsync(stream).ConfigureAwait(false);
+                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
 
-                return new ClientSocket(stream, logger);
+                return new ClientSocket(stream, configuration, context);
             }
             catch (Exception)
             {
@@ -198,7 +222,7 @@ namespace Apache.Ignite.Internal
         /// Performs the handshake exchange.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        private static async Task HandshakeAsync(NetworkStream stream)
+        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
             await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
@@ -208,7 +232,7 @@ namespace Apache.Ignite.Internal
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
-            CheckHandshakeResponse(response.GetReader());
+            return ReadHandshakeResponse(response.GetReader());
         }
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
@@ -234,7 +258,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static void CheckHandshakeResponse(MessagePackReader reader)
+        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -252,7 +276,10 @@ namespace Apache.Ignite.Internal
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
-            reader.Skip(); // Idle timeout.
+
+            var idleTimeoutMs = reader.ReadInt64();
+
+            return new ConnectionContext(serverVer, TimeSpan.FromMilliseconds(idleTimeoutMs));
         }
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
@@ -376,8 +403,56 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
+        {
+            if (configuredInterval <= TimeSpan.Zero)
+            {
+                throw new IgniteClientException(
+                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                    "should be greater than zero.");
+            }
+
+            if (serverIdleTimeout <= TimeSpan.Zero)
+            {
+                logger?.Info(
+                    $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
+                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
+
+                return configuredInterval;
+            }
+
+            var recommendedHeartbeatInterval = serverIdleTimeout / 3;
+
+            if (recommendedHeartbeatInterval < MinRecommendedHeartbeatInterval)
+            {
+                recommendedHeartbeatInterval = MinRecommendedHeartbeatInterval;
+            }
+
+            if (configuredInterval < recommendedHeartbeatInterval)
+            {
+                logger?.Info(
+                    $"Server-side IdleTimeout is {serverIdleTimeout}, " +
+                    $"using configured {nameof(IgniteClientConfiguration)}." +
+                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: " +
+                    configuredInterval);
+
+                return configuredInterval;
+            }
+
+            logger?.Warn(
+                $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
+                $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
+                $"Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {recommendedHeartbeatInterval}");
+
+            return recommendedHeartbeatInterval;
+        }
+
         private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
         {
+            // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
+
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
             try
@@ -483,6 +558,25 @@ namespace Apache.Ignite.Internal
         }
 
         /// <summary>
+        /// Sends heartbeat message.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
+        private async Task SendHeartbeatAsync()
+        {
+            try
+            {
+                await DoOutInOpAsync(ClientOp.Heartbeat).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Dispose(e);
+            }
+        }
+
+        /// <summary>
         /// Disposes this socket and completes active requests with the specified exception.
         /// </summary>
         /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
@@ -493,6 +587,7 @@ namespace Apache.Ignite.Internal
                 return;
             }
 
+            _heartbeatTimer.Dispose();
             _disposeTokenSource.Cancel();
             _exception = ex;
             _stream.Dispose();
