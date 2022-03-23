@@ -143,7 +143,6 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
                 .filter(binaryRow -> {
                     int partition = binaryRow.hash() % partitions;
 
-                    // This code has been copy-pasted.
                     if (partition < 0) {
                         partition = -partition;
                     }

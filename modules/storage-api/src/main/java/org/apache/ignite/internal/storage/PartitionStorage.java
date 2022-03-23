@@ -147,7 +147,7 @@ public interface PartitionStorage extends AutoCloseable {
      * Scans the partition and returns a cursor of values in at the given timestamp.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
-     * @param timestamp Timestamp
+     * @param timestamp Timestamp.
      * @return Cursor.
      */
     default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
