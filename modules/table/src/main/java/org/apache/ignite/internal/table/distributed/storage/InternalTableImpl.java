@@ -642,7 +642,7 @@ public class InternalTableImpl implements InternalTable {
                                         cancel();
 
                                         subscriber.onComplete();
-                                    } else if (requestedItemsCnt.getAndAdd(Math.negateExact(res.getValues().size())) > 0) {
+                                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(res.getValues().size())) > 0) {
                                         scanBatch(INTERNAL_BATCH_SIZE);
                                     }
                                 })
