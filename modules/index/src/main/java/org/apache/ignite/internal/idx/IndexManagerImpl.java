@@ -121,7 +121,7 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
                         } catch (Exception e) {
                             fireEvent(IndexEvent.CREATE, new IndexEventParameters(idxId, idxName, tblName), e);
 
-                            LOG.error("Internal error, index creation failed [name={}, table={}]", e, ctx.newValue().name(), tblName);
+                            LOG.error("Internal error, index creation failed [name={}, table={}]", e, idxName, tblName);
 
                             return CompletableFuture.completedFuture(e);
                         } finally {
@@ -556,5 +556,13 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
         idxsByName.put(idxView.name(), idx);
 
         fireEvent(IndexEvent.CREATE, new IndexEventParameters(tbl.name(), idx), null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean getIndexById(UUID id) {
+        InternalSortedIndex res = join(indexAsyncInternal(id));
+
+        return res != null;
     }
 }

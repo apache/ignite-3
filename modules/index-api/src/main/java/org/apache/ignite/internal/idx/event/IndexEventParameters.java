@@ -23,7 +23,7 @@ import org.apache.ignite.internal.manager.EventParameters;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table event parameters. There are properties which associate with a concrete table.
+ * Index event parameters. There are properties which are associates with a concrete index.
  */
 public class IndexEventParameters implements EventParameters {
     /** Index id. */

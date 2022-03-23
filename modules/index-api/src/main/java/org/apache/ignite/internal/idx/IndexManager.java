@@ -102,4 +102,12 @@ public interface IndexManager extends Producer<IndexEvent, IndexEventParameters>
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
     CompletableFuture<InternalSortedIndex> indexAsync(String idxCanonicalName);
+
+    /**
+     * Check index presence with current id.
+     *
+     * @param id Index id.
+     * @return {@code true} if found.
+     */
+    boolean getIndexById(UUID id);
 }

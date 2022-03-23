@@ -17,6 +17,8 @@
 
 package org.apache.ignite.lang;
 
+import java.util.UUID;
+
 /**
  * Exception is thrown when appropriate index is not found.
  */
@@ -28,5 +30,15 @@ public class IndexNotFoundException extends IgniteException {
      */
     public IndexNotFoundException(String indexName) {
         super(IgniteStringFormatter.format("Index '{}' does not exist.", indexName));
+    }
+
+    /**
+     * Create a new exception with given index name.
+     *
+     * @param indexName Index canonical name.
+     * @param id Index id.
+     */
+    public IndexNotFoundException(String indexName, UUID id) {
+        super(IgniteStringFormatter.format("Index '{}' was concurrently modified or deleted, id='{}'.", indexName, id));
     }
 }

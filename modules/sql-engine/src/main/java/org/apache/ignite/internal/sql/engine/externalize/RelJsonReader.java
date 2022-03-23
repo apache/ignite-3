@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptCluster;
@@ -47,10 +48,12 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IndexNotFoundException;
 
 /**
  * RelJsonReader.
@@ -65,6 +68,8 @@ public class RelJsonReader {
 
     private final SqlSchemaManager schemaManager;
 
+    private final IndexManager idxManager;
+
     private final RelJson relJson;
 
     private final Map<String, RelNode> relMap = new LinkedHashMap<>();
@@ -75,8 +80,8 @@ public class RelJsonReader {
      * FromJson.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, String json) {
-        RelJsonReader reader = new RelJsonReader(schemaManager);
+    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, IndexManager idxManager, String json) {
+        RelJsonReader reader = new RelJsonReader(schemaManager, idxManager);
 
         return (T) reader.read(json);
     }
@@ -85,8 +90,9 @@ public class RelJsonReader {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RelJsonReader(SqlSchemaManager schemaManager) {
+    public RelJsonReader(SqlSchemaManager schemaManager, IndexManager idxManager) {
         this.schemaManager = schemaManager;
+        this.idxManager = idxManager;
 
         relJson = new RelJson();
     }
@@ -155,12 +161,29 @@ public class RelJsonReader {
         @Override
         public RelOptTable getTableById(String tag) {
             String tableId = getString(tag);
+
+            Objects.requireNonNull(tableId);
+
             IgniteTable table = schemaManager.tableById(UUID.fromString(tableId));
 
             List<String> tableName = getStringList("table");
 
             return RelOptTableImpl.create(null, table.getRowType(Commons.typeFactory()), tableName,
                     table, null);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void checkIndexById(String tag, String idxName) {
+            String idxId = getString(tag);
+
+            Objects.requireNonNull(idxId);
+
+            UUID id = UUID.fromString(idxId);
+
+            if (!idxManager.getIndexById(id)) {
+                throw new IndexNotFoundException(idxId, id);
+            }
         }
 
         /** {@inheritDoc} */

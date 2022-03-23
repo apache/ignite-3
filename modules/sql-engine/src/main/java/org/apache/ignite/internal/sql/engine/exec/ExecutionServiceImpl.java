@@ -121,6 +121,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
 
     private final DdlCommandHandler ddlCmdHnd;
 
+    private final IndexManager idxManager;
+
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -142,6 +144,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
         this.handler = handler;
         this.msgSrvc = msgSrvc;
         this.sqlSchemaManager = sqlSchemaManager;
+        this.idxManager = idxManager;
         this.taskExecutor = taskExecutor;
         this.extensions = extensions;
         this.mailboxRegistry = mailboxRegistry;
@@ -278,7 +281,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
     }
 
     private QueryPlan prepareFragment(String jsonFragment) {
-        return new FragmentPlan(fromJson(sqlSchemaManager, jsonFragment));
+        return new FragmentPlan(fromJson(sqlSchemaManager, idxManager, jsonFragment));
     }
 
     /** {@inheritDoc} */

@@ -521,7 +521,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .collect(Collectors.toMap(IgniteTable::id, Function.identity()));
 
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap));
+            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap), null);
             deserializedNodes.add(reader.read(s));
         }
 

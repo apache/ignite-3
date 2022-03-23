@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.calcite.sql.SqlExplainLevel.EXPPLAN_ATTRIBUTES;
+
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -31,8 +33,12 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.IndexConditions;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,6 +57,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     protected AbstractIndexScan(RelInput input) {
         super(input);
         idxName = input.getString("index");
+        ((RelInputEx) input).checkIndexById("indexId", idxName);
         idxCond = new IndexConditions(input);
     }
 
@@ -79,6 +86,14 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     @Override
     protected RelWriter explainTerms0(RelWriter pw) {
         pw = pw.item("index", idxName);
+
+        IgniteIndex idx = table.unwrap(InternalIgniteTable.class).getIndex(idxName);
+
+        if (idx == null) {
+            throw new IndexNotFoundException(idxName, null);
+        }
+
+        pw = pw.itemIf("indexId", idx.id(), pw.getDetailLevel() != EXPPLAN_ATTRIBUTES);
         pw = super.explainTerms0(pw);
 
         return idxCond.explainTerms(pw);
