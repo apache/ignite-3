@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;

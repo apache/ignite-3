@@ -204,7 +204,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(QueryContext context, String schemaName, String sql, Object... params) {
+    private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
+            QueryContext context,
+            String schemaName,
+            String sql,
+            Object... params
+    ) {
         SchemaPlus schema = schemaManager.schema(schemaName);
 
         if (schema == null) {

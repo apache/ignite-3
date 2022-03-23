@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.lang.IgniteException;

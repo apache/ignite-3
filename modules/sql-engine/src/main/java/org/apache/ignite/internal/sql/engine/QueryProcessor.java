@@ -36,10 +36,6 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      * */
-    default List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
-        return null;
-    }
-
     List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
 
     /**

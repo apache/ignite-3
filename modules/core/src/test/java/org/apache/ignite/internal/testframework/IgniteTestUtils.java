@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.Thread.sleep;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;

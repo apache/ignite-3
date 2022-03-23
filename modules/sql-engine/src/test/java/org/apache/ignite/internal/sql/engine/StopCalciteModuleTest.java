@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,8 +34,8 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.manager.EventListener;
@@ -44,12 +46,14 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
@@ -179,24 +183,33 @@ public class StopCalciteModuleTest {
 
         testRevisionRegister.moveRevision.accept(0L);
 
-        List<SqlCursor<List<?>>> cursors = qryProc.query(
+        var cursors = qryProc.queryAsync(
                 "PUBLIC",
                 "SELECT * FROM TEST"
         );
 
-        SqlCursor<List<?>> cur = cursors.get(0);
-        cur.next();
+        await(cursors.get(0).thenCompose(cursor -> cursor.requestNext(1)));
 
         assertTrue(isThereNodeThreads(NODE_NAME));
 
         qryProc.stop();
 
+        var request = cursors.get(0)
+                .thenCompose(cursor -> cursor.requestNext(1));
+
         // Check cursor closed.
-        assertTrue(assertThrows(IgniteException.class, cur::hasNext).getMessage().contains("Query was cancelled"));
-        assertTrue(assertThrows(IgniteException.class, cur::next).getMessage().contains("Query was cancelled"));
+        await(request.exceptionally(t -> {
+            assertInstanceOf(CompletionException.class, t);
+            assertInstanceOf(IgniteException.class, t.getCause());
+            assertInstanceOf(IgniteInternalException.class, t.getCause().getCause());
+            assertInstanceOf(ExecutionCancelledException.class, t.getCause().getCause().getCause());
+
+            return null;
+        }));
+        assertTrue(request.isCompletedExceptionally());
 
         // Check execute query on stopped node.
-        assertTrue(assertThrows(IgniteException.class, () -> qryProc.query(
+        assertTrue(assertThrows(IgniteInternalException.class, () -> qryProc.queryAsync(
                 "PUBLIC",
                 "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
