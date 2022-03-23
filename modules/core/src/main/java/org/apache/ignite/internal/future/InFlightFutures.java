@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.future;
 
 import java.util.Collections;
 import java.util.Iterator;

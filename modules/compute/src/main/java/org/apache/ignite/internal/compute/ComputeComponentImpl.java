@@ -34,6 +34,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
