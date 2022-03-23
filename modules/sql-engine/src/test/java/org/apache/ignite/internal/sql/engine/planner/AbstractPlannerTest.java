@@ -876,6 +876,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             return this;
         }
 
+        /**
+         * AddIndex.
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         */
         public TestTable addIndex(String name, int... keys) {
             addIndex(TraitUtils.createCollation(Arrays.stream(keys).boxed().collect(Collectors.toList())), name);
 

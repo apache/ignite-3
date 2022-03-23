@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
@@ -124,13 +125,19 @@ public class AsyncWrapperSelfTest {
      * Call to {@link AsyncCursor#close()} should be chained as well.
      */
     @Test
-    public void testCloseChainedAsWell() {
+    public void testCloseCancelsIncompleteFutures() {
         var data = List.of(1, 2);
         var initFut = new CompletableFuture<Iterator<Integer>>();
         var cursor = new AsyncWrapper<>(initFut, ForkJoinPool.commonPool());
 
         var stage1 = cursor.requestNext(1)
-                .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(0, 1))));
+                .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(0, 1))))
+                .exceptionally(ex -> {
+                    assertInstanceOf(CompletionException.class, ex);
+                    assertInstanceOf(ClosedCursorException.class, ex.getCause());
+
+                    return null;
+                });
         var stage2 = cursor.close();
         var stage3 = cursor.requestNext(1)
                 .exceptionally(ex -> {
@@ -139,7 +146,7 @@ public class AsyncWrapperSelfTest {
                     return null;
                 });
 
-        assertFalse(stage1.toCompletableFuture().isDone());
+        assertTrue(stage1.toCompletableFuture().isDone());
         assertFalse(stage2.toCompletableFuture().isDone());
         assertTrue(stage3.toCompletableFuture().isDone());
 
@@ -147,6 +154,7 @@ public class AsyncWrapperSelfTest {
 
         await(stage1);
         await(stage2);
+        await(stage3);
     }
 
     private static void assertCursorHasNoMoreRow(AsyncCursor<?> cursor) {

@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test SQL data types.
  */
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
 public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     /** Tests correctness with unicode. */
     @Test
@@ -47,7 +48,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
                 sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
             }
 
-        var rows = sql("SELECT val FROM string_table");
+            var rows = sql("SELECT val FROM string_table");
 
             assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
@@ -79,7 +80,6 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     }
 
     /** Tests NOT NULL and DEFAULT column constraints. */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16292")
     @Test
     public void testCheckDefaultsAndNullables() {
         sql("CREATE TABLE tbl(c1 int PRIMARY KEY, c2 int NOT NULL, c3 int NOT NULL DEFAULT 100)");
@@ -169,7 +169,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
     public void testDateTime() {
         assertQuery("select date '1992-01-19'").returns(sqlDate("1992-01-19")).check();
         assertQuery("select date '1992-01-18' + interval (1) days").returns(sqlDate("1992-01-19")).check();
-        assertQuery("select date '1992-01-18' + interval (24) hours").returns(sqlDate("1992-01-19")).check();
+        assertQuery("select date '1992-01-18' + interval (24) hours").returns(sqlDateTime("1992-01-19T00:00")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-01-19T03:30:00")).check();
         assertQuery("SELECT timestamp '1992-01-18 02:30:00' + interval (23) hours")
@@ -179,7 +179,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
         assertQuery("select date '1992-03-29'").returns(sqlDate("1992-03-29")).check();
         assertQuery("select date '1992-03-28' + interval (1) days").returns(sqlDate("1992-03-29")).check();
-        assertQuery("select date '1992-03-28' + interval (24) hours").returns(sqlDate("1992-03-29")).check();
+        assertQuery("select date '1992-03-28' + interval (24) hours").returns(sqlDateTime("1992-03-29T00:00")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-03-29T03:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-03-28 02:30:00' + interval (23) hours")
@@ -189,7 +189,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
         assertQuery("select date '1992-09-27'").returns(sqlDate("1992-09-27")).check();
         assertQuery("select date '1992-09-26' + interval (1) days").returns(sqlDate("1992-09-27")).check();
-        assertQuery("select date '1992-09-26' + interval (24) hours").returns(sqlDate("1992-09-27")).check();
+        assertQuery("select date '1992-09-26' + interval (24) hours").returns(sqlDateTime("1992-09-27T00:00")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (25) hours")
                 .returns(sqlDateTime("1992-09-27T03:30:00.000")).check();
         assertQuery("SELECT timestamp '1992-09-26 02:30:00' + interval (23) hours")
@@ -199,7 +199,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
         assertQuery("select date '2021-11-07'").returns(sqlDate("2021-11-07")).check();
         assertQuery("select date '2021-11-06' + interval (1) days").returns(sqlDate("2021-11-07")).check();
-        assertQuery("select date '2021-11-06' + interval (24) hours").returns(sqlDate("2021-11-07")).check();
+        assertQuery("select date '2021-11-06' + interval (24) hours").returns(sqlDateTime("2021-11-07T00:00")).check();
         assertQuery("SELECT timestamp '2021-11-06 01:30:00' + interval (25) hours")
                 .returns(sqlDateTime("2021-11-07T02:30:00.000")).check();
         // Check string representation here, since after timestamp calculation we have '2021-11-07T01:30:00.000-0800'

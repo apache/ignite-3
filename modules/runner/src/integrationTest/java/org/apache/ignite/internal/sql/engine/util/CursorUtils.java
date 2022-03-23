@@ -17,13 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -55,30 +52,19 @@ public class CursorUtils {
         List<T> res = new ArrayList<>();
         int batchSize = 256;
 
-        try {
-            var consumer = new Consumer<BatchedResult<T>>() {
-                @Override
-                public void accept(BatchedResult<T> br) {
-                    res.addAll(br.items());
+        var consumer = new Consumer<BatchedResult<T>>() {
+            @Override
+            public void accept(BatchedResult<T> br) {
+                res.addAll(br.items());
 
-                    if (br.hasMore()) {
-                        cur.requestNext(batchSize).thenAccept(this);
-                    }
+                if (br.hasMore()) {
+                    cur.requestNext(batchSize).thenAccept(this);
                 }
-            };
-
-            cur.requestNext(batchSize).thenAccept(consumer).toCompletableFuture().get(5, TimeUnit.SECONDS);
-
-            cur.close().get(5, TimeUnit.SECONDS);
-        } catch (Throwable ex) {
-            if (ex instanceof CompletionException) {
-                ex = ex.getCause();
-            } else if (ex instanceof ExecutionException) {
-                ex = ex.getCause();
             }
+        };
 
-            sneakyThrow(ex);
-        }
+        await(cur.requestNext(batchSize).thenAccept(consumer));
+        await(cur.close());
 
         return res;
     }
