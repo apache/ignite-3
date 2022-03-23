@@ -17,16 +17,11 @@
 
 package org.apache.ignite.internal.storage.basic;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.Arrays;
-import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.IntPredicate;
 import java.util.function.ToIntFunction;
@@ -36,7 +31,7 @@ import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.PrefixComparator;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test implementation of MV sorted index storage.
  */
-public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
+public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
     private final SortedIndexDescriptor descriptor;
 
     private final NavigableSet<BinaryRow> index;
@@ -69,17 +64,20 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
         });
     }
 
+    /** {@inheritDoc} */
     @Override
-    public SortedIndexDescriptor indexDescriptor() {
-        return descriptor;
+    public boolean supportsBackwardsScan() {
+        return true;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean supportsIndexOnlyScan() {
+        return false;
     }
 
     private int compareColumns(BinaryRow l, BinaryRow r) {
-        List<ColumnDescriptor> columnDescriptors = descriptor.indexRowColumns();
-
-        Row leftRow = new Row(descriptor.asSchemaDescriptor(), l);
-
-        Object[] leftTuple = convert(leftRow, columnDescriptors, null);
+        Object[] leftTuple = convert(l);
 
         return new PrefixComparator(descriptor, () -> leftTuple).compare(r);
     }
@@ -96,13 +94,13 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
         return compareColumns(aborted, existing) == 0;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Cursor<IndexRowEx> scan(
             @Nullable IndexRowPrefix lowerBound,
             @Nullable IndexRowPrefix upperBound,
             byte flags,
             Timestamp timestamp,
-            @Nullable BitSet columnsProjection,
             @Nullable IntPredicate partitionFilter
     ) {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
@@ -140,7 +138,7 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
 
                     return includeUpper0 && cmp >= 0 || !includeUpper0 && cmp > 0;
                 })
-                .filter(binaryRow -> {
+                .map(binaryRow -> {
                     int partition = binaryRow.hash() % partitions;
 
                     if (partition < 0) {
@@ -148,30 +146,27 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
                     }
 
                     if (partitionFilter != null && !partitionFilter.test(partition)) {
-                        return false;
+                        return null;
                     }
 
                     TestMvPartitionStorage partitionStorage = pk.get(partition);
 
                     if (partitionStorage == null) {
-                        return false;
+                        return null;
                     }
 
                     BinaryRow pk = partitionStorage.read(binaryRow, timestamp);
 
-                    return pk != null && matches(binaryRow, pk);
+                    return matches(binaryRow, pk) ? pk : null;
                 })
+                .filter(Objects::nonNull)
                 .map(binaryRow -> {
-                    Object[] tuple = convert(
-                            new Row(descriptor.asSchemaDescriptor(), binaryRow),
-                            descriptor.indexRowColumns(),
-                            columnsProjection
-                    );
+                    Object[] tuple = convert(binaryRow);
 
                     return (IndexRowEx) new IndexRowEx() {
                         @Override
-                        public BinaryRow pk() {
-                            return new KeyBinaryRow(binaryRow);
+                        public BinaryRow row() {
+                            return binaryRow;
                         }
 
                         @Override
@@ -185,68 +180,23 @@ public abstract class TestMvSortedIndexStorage implements SortedIndexStorage {
         return Cursor.fromIterator(iterator);
     }
 
-    private Object[] convert(Row row, List<ColumnDescriptor> columnDescriptors, @Nullable BitSet projection) {
-        int columns = projection == null ? columnDescriptors.size() : projection.cardinality();
+    private Object[] convert(BinaryRow binaryRow) {
+        List<ColumnDescriptor> columnDescriptors = descriptor.indexRowColumns();
+
+        int columns = columnDescriptors.size();
 
         Object[] tuple = new Object[columns];
 
-        for (int i = 0, j = 0; i < columnDescriptors.size(); i++) {
-            if (projection != null && !projection.get(i)) {
-                continue;
-            }
+        Row row = new Row(descriptor.asSchemaDescriptor(), binaryRow);
 
+        for (int i = 0; i < columns; i++) {
             ColumnDescriptor columnDescriptor = columnDescriptors.get(i);
 
             Object columnValue = row.value(columnDescriptor.column().schemaIndex());
 
-            tuple[j++] = columnValue;
+            tuple[i] = columnValue;
         }
 
         return tuple;
-    }
-
-    private static final ByteBuffer NULL_VALUE = ByteBuffer.wrap(new byte[0]).order(ByteOrder.LITTLE_ENDIAN);
-
-    private static class KeyBinaryRow implements BinaryRow {
-        private final BinaryRow fullRow;
-
-        private KeyBinaryRow(BinaryRow fullRow) {
-            this.fullRow = fullRow;
-        }
-
-        @Override
-        public int schemaVersion() {
-            return 0;
-        }
-
-        @Override
-        public boolean hasValue() {
-            return false;
-        }
-
-        @Override
-        public int hash() {
-            return fullRow.hash();
-        }
-
-        @Override
-        public ByteBuffer keySlice() {
-            return fullRow.keySlice();
-        }
-
-        @Override
-        public ByteBuffer valueSlice() {
-            return NULL_VALUE;
-        }
-
-        @Override
-        public void writeTo(OutputStream stream) throws IOException {
-            stream.write(bytes());
-        }
-
-        @Override
-        public byte[] bytes() {
-            return Arrays.copyOf(fullRow.bytes(), BinaryRow.HEADER_SIZE + keySlice().limit());
-        }
     }
 }

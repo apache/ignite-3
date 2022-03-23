@@ -22,12 +22,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.PartitionStorage;
+import org.apache.ignite.internal.storage.MvStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -35,7 +34,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test implementation of MV partition storage.
  */
-public abstract class TestMvPartitionStorage implements PartitionStorage {
+public class TestMvPartitionStorage implements MvStorage {
+    private static final VersionChain NULL = new VersionChain(null, null, null, null);
+
     private final ConcurrentHashMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestMvSortedIndexStorage> indexes = new CopyOnWriteArrayList<>();
@@ -46,17 +47,10 @@ public abstract class TestMvPartitionStorage implements PartitionStorage {
         final UUID txId;
         final VersionChain next;
 
-        VersionChain(BinaryRow row, UUID txId, VersionChain next) {
-            this.row = row;
-            this.begin = null;
-            this.txId = txId;
-            this.next = next;
-        }
-
-        VersionChain(BinaryRow row, Timestamp begin, VersionChain next) {
+        VersionChain(BinaryRow row, Timestamp begin, UUID txId, VersionChain next) {
             this.row = row;
             this.begin = begin;
-            this.txId = null;
+            this.txId = txId;
             this.next = next;
         }
     }
@@ -70,7 +64,7 @@ public abstract class TestMvPartitionStorage implements PartitionStorage {
                 throw new TxIdMismatchException();
             }
 
-            return new VersionChain(row, txId, versionChain);
+            return new VersionChain(row, null, txId, versionChain);
         });
 
         for (TestMvSortedIndexStorage index : indexes) {
@@ -81,7 +75,7 @@ public abstract class TestMvPartitionStorage implements PartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void abortWrite(BinaryRow key) {
-        map.merge(key.keySlice(), null, (versionChain, ignored) -> {
+        map.merge(key.keySlice(), NULL, (versionChain, ignored) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
@@ -112,7 +106,7 @@ public abstract class TestMvPartitionStorage implements PartitionStorage {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
-            return new VersionChain(versionChain.row, timestamp, versionChain.next);
+            return new VersionChain(versionChain.row, timestamp, null, versionChain.next);
         });
     }
 
@@ -164,11 +158,5 @@ public abstract class TestMvPartitionStorage implements PartitionStorage {
                 .iterator();
 
         return Cursor.fromIterator(iterator);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp) {
-        return PartitionStorage.super.cleanup(from, to, timestamp);
     }
 }

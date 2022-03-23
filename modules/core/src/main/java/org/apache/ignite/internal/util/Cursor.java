@@ -25,6 +25,12 @@ import java.util.Iterator;
  * @param <T> Type of elements.
  */
 public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
+    /** {@inheritDoc} */
+    @Override
+    default Iterator<T> iterator() {
+        return this;
+    }
+
     /**
      * Creates an iterator based cursor.
      *
@@ -38,12 +44,6 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
             @Override
             public void close() throws Exception {
                 // No-op.
-            }
-
-            /** {@inheritDoc} */
-            @Override
-            public Iterator<T> iterator() {
-                return this;
             }
 
             /** {@inheritDoc} */
