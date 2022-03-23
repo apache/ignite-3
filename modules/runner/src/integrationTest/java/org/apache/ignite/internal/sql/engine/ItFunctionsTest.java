@@ -77,7 +77,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         while (true) {
             long tsBeg = System.currentTimeMillis();
 
-            List<List<?>> res = sql(sql);
+            var res = sql(sql);
 
             long tsEnd = System.currentTimeMillis();
 

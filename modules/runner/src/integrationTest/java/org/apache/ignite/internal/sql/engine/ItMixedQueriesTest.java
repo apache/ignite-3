@@ -101,7 +101,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     public void testVarCharMinMax() {
         sql("CREATE TABLE TEST(val VARCHAR primary key, val1 integer);");
         sql("INSERT INTO test VALUES ('б', 1), ('бб', 2), ('щ', 3), ('щщ', 4), ('Б', 4), ('ББ', 4), ('Я', 4);");
-        List<List<?>> rows = sql("SELECT MAX(val), MIN(val) FROM TEST");
+        var rows = sql("SELECT MAX(val), MIN(val) FROM TEST");
 
         assertEquals(1, rows.size());
         assertEquals(Arrays.asList("щщ", "Б"), first(rows));
@@ -126,7 +126,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testEqConditionWithDistinctSubquery() {
-        List<List<?>> rows = sql(
+        var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT DISTINCT(salary) FROM emp2 WHERE name='Igor1')");
 
         assertEquals(3, rows.size());
@@ -134,7 +134,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testEqConditionWithAggregateSubqueryMax() {
-        List<List<?>> rows = sql(
+        var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MAX(salary) FROM emp2 WHERE name='Roman')");
 
         assertEquals(3, rows.size());
@@ -142,7 +142,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testEqConditionWithAggregateSubqueryMin() {
-        List<List<?>> rows = sql(
+        var rows = sql(
                 "SELECT name FROM emp1 WHERE salary = (SELECT MIN(salary) FROM emp2 WHERE name='Roman')");
 
         assertEquals(1, rows.size());
@@ -150,7 +150,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testInConditionWithSubquery() {
-        List<List<?>> rows = sql(
+        var rows = sql(
                 "SELECT name FROM emp1 WHERE name IN (SELECT name FROM emp2)");
 
         assertEquals(4, rows.size());
@@ -158,7 +158,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testDistinctQueryWithInConditionWithSubquery() {
-        List<List<?>> rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
+        var rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
                 + "   SELECT name"
                 + "   FROM emp2)");
 
@@ -167,7 +167,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testNotInConditionWithSubquery() {
-        List<List<?>> rows = sql(
+        var rows = sql(
                 "SELECT name FROM emp1 WHERE name NOT IN (SELECT name FROM emp2)");
 
         assertEquals(3, rows.size());
@@ -175,7 +175,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testExistsConditionWithSubquery() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
+        var rows = sql("SELECT name FROM emp1 o WHERE EXISTS ("
                 + "   SELECT 1"
                 + "   FROM emp2 a"
                 + "   WHERE o.name = a.name)");
@@ -185,7 +185,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testNotExistsConditionWithSubquery() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
+        var rows = sql("SELECT name FROM emp1 o WHERE NOT EXISTS ("
                 + "   SELECT 1"
                 + "   FROM emp2 a"
                 + "   WHERE o.name = a.name)");

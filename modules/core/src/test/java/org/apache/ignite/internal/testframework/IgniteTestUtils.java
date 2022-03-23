@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.testframework;
 
 import static java.lang.Thread.sleep;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
@@ -31,7 +32,9 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -46,7 +49,7 @@ import org.junit.jupiter.api.TestInfo;
  * Utility class for tests.
  */
 public final class IgniteTestUtils {
-    private static final int TIMEOUT_SEC = 1;
+    private static final int TIMEOUT_SEC = 5;
 
     /**
      * Set object field value via reflection.
@@ -524,7 +527,13 @@ public final class IgniteTestUtils {
     public static <T> T await(CompletionStage<T> stage) {
         try {
             return stage.toCompletableFuture().get(TIMEOUT_SEC, TimeUnit.SECONDS);
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            if (e instanceof ExecutionException) {
+                e = e.getCause();
+            } else if (e instanceof CompletionException) {
+                e = e.getCause();
+            }
+
             sneakyThrow(e);
         }
 

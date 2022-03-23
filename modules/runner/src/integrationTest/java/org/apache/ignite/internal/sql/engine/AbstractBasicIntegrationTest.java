@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -234,9 +235,9 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    protected static List<List<?>> sql(String sql, Object... args) {
+    protected static List<List<Object>> sql(String sql, Object... args) {
         return getAllFromCursor(
-                ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
+                await(((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine().queryAsync("PUBLIC", sql, args).get(0))
         );
     }
 }

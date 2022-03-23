@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThr
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -40,7 +41,7 @@ public class CursorUtils {
      * @param cur The cursor to read.
      * @return List of rows that were read from the cursor.
      */
-    public static List<List<?>> getAllFromCursor(Cursor<List<?>> cur) {
+    public static <T> List<T> getAllFromCursor(Cursor<T> cur) {
         return StreamSupport.stream(cur.spliterator(), false).collect(Collectors.toList());
     }
 
@@ -50,14 +51,14 @@ public class CursorUtils {
      * @param cur The cursor to read.
      * @return List of rows that were read from the cursor.
      */
-    public static List<List<?>> getAllFromCursor(AsyncCursor<List<?>> cur) {
-        List<List<?>> res = new ArrayList<>();
+    public static <T> List<T> getAllFromCursor(AsyncCursor<T> cur) {
+        List<T> res = new ArrayList<>();
         int batchSize = 256;
 
         try {
-            Consumer<BatchedResult<List<?>>> consumer = new Consumer<>() {
+            var consumer = new Consumer<BatchedResult<T>>() {
                 @Override
-                public void accept(BatchedResult<List<?>> br) {
+                public void accept(BatchedResult<T> br) {
                     res.addAll(br.items());
 
                     if (br.hasMore()) {
@@ -71,6 +72,8 @@ public class CursorUtils {
             cur.close().get(5, TimeUnit.SECONDS);
         } catch (Throwable ex) {
             if (ex instanceof CompletionException) {
+                ex = ex.getCause();
+            } else if (ex instanceof ExecutionException) {
                 ex = ex.getCause();
             }
 

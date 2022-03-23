@@ -27,5 +27,5 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
  * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public interface ExecutionService extends LifecycleAware {
-    AsyncCursor<List<?>> executePlan(QueryPlan plan, BaseQueryContext ctx);
+    AsyncCursor<List<Object>> executePlan(QueryPlan plan, BaseQueryContext ctx);
 }

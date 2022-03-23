@@ -178,7 +178,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         msgSrvc.register((n, m) -> onMessage(n, (ErrorMessage) m), SqlQueryMessageGroup.ERROR_MESSAGE);
     }
 
-    private AsyncCursor<List<?>> executeQuery(
+    private AsyncCursor<List<Object>> executeQuery(
             BaseQueryContext ctx,
             MultiStepPlan plan
     ) {
@@ -210,7 +210,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     /** {@inheritDoc} */
     @Override
-    public AsyncCursor<List<?>> executePlan(
+    public AsyncCursor<List<Object>> executePlan(
             QueryPlan plan, BaseQueryContext ctx
     ) {
         switch (plan.type()) {
@@ -239,10 +239,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return CompletableFuture.completedFuture(null);
         }
 
-        return mgr.close();
+        return mgr.close(true);
     }
 
-    private AsyncCursor<List<?>> executeDdl(DdlPlan plan) {
+    private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
         try {
             ddlCmdHnd.handle(plan.command());
         } catch (IgniteInternalCheckedException e) {
@@ -253,8 +253,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return new AsyncWrapper<>(Collections.emptyIterator());
     }
 
-    private AsyncCursor<List<?>> executeExplain(ExplainPlan plan) {
-        List<List<?>> res = List.of(List.of(plan.plan()));
+    private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {
+        List<List<Object>> res = List.of(List.of(plan.plan()));
 
         return new AsyncWrapper<>(res.iterator());
     }
@@ -299,7 +299,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         DistributedQueryManager dqm = queryManagerMap.get(msg.queryId());
 
         if (dqm != null) {
-            dqm.close();
+            dqm.close(true);
         }
     }
 
@@ -412,14 +412,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
             AbstractNode<RowT> node = implementorFactory.create(ectx).go(plan.root());
 
+            localFragments.add(node);
+
             if (!(node instanceof Outbox)) {
-                RootNode<RowT> rootNode = new RootNode<>(ectx, plan.root().getRowType(), this::close);
+                RootNode<RowT> rootNode = new RootNode<>(ectx, plan.root().getRowType(), () -> this.close(false));
                 rootNode.register(node);
 
                 root.complete(rootNode);
             }
-
-            localFragments.add(node);
 
             try {
                 msgSrvc.send(
@@ -473,12 +473,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 } catch (Exception e) {
                     LOG.error("Error occurred during send error message", e);
 
-                    close();
+                    close(true);
                 }
             }
         }
 
-        private CompletableFuture<Iterator<List<?>>> execute(MultiStepPlan plan) {
+        private CompletableFuture<Iterator<List<Object>>> execute(MultiStepPlan plan) {
             return CompletableFuture.runAsync(() -> {
                 plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
 
@@ -522,7 +522,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     }));
         }
 
-        private CompletableFuture<Void> close() {
+        private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut;
             }
@@ -564,15 +564,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             );
                         }
 
-                        for (AbstractNode<?> node : localFragments) {
-                            node.context().execute(() -> node.onError(new ExecutionCancelledException()), node::onError);
-                        }
-
-                        for (AbstractNode<?> node : localFragments) {
-                            node.context().execute(() -> {
-                                node.close();
-                                node.context().cancel();
-                            }, node::onError);
+                        if (cancel) {
+                            for (AbstractNode<?> node : localFragments) {
+                                node.context().execute(() -> node.onError(new ExecutionCancelledException()), node::onError);
+                            }
+                        } else {
+                            for (AbstractNode<?> node : localFragments) {
+                                node.context().execute(() -> {
+                                    node.close();
+                                    node.context().cancel();
+                                }, node::onError);
+                            }
                         }
 
                         return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]))

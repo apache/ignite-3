@@ -40,6 +40,8 @@ public interface QueryProcessor extends IgniteComponent {
         return null;
     }
 
+    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
+
     /**
      * Execute the query with given schema name and parameters.
      *
@@ -51,11 +53,5 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      * */
-    default List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params) {
-        return null;
-    }
-
-    List<CompletableFuture<AsyncSqlCursor<List<?>>>> queryAsync(String schemaName, String qry, Object... params);
-
-    List<CompletableFuture<AsyncSqlCursor<List<?>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
+    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
 }

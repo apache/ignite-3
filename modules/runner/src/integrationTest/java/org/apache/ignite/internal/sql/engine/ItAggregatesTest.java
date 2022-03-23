@@ -136,7 +136,7 @@ public class ItAggregatesTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testAnyValAggr() {
-        List<List<?>> res = sql("select any_value(name) from person");
+        var res = sql("select any_value(name) from person");
 
         assertEquals(1, res.size());
 

@@ -45,7 +45,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
             sql("INSERT INTO string_table (key, val) VALUES (?, ?)", key++, val);
         }
 
-        List<List<?>> rows = sql("SELECT val FROM string_table");
+        var rows = sql("SELECT val FROM string_table");
 
         assertEquals(Set.of(values), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 
@@ -81,7 +81,7 @@ public class ItDataTypesTest extends AbstractBasicIntegrationTest {
 
         sql("INSERT INTO tbl(c1, c2) VALUES (1, 2)");
 
-        List<List<?>> rows = sql("SELECT c3 FROM tbl");
+        var rows = sql("SELECT c3 FROM tbl");
 
         assertEquals(Set.of(100), rows.stream().map(r -> r.get(0)).collect(Collectors.toSet()));
 

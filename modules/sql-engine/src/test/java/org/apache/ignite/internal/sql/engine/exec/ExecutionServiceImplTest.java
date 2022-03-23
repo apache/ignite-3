@@ -30,7 +30,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -167,7 +166,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
-        CompletionStage<BatchedResult<List<?>>> batchFut = cursor.requestNext(10);
+        var batchFut = cursor.requestNext(10);
 
         await(executionServices.get(1).cancel(ctx.queryId()));
 

@@ -185,13 +185,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<?>>>> queryAsync(String schemaName, String qry, Object... params) {
+    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
         return queryAsync(QueryContext.of(), schemaName, qry, params);
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<?>>>> queryAsync(QueryContext context, String schemaName,
+    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
             String qry, Object... params) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(new NodeStoppingException());
@@ -204,16 +204,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
-    /**
-     * To be removed.
-     *
-     * @return Always return null.
-     */
-    public QueryRegistry queryRegistry() {
-        return null;
-    }
-
-    private List<CompletableFuture<AsyncSqlCursor<List<?>>>> query0(QueryContext context, String schemaName, String sql, Object... params) {
+    private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(QueryContext context, String schemaName, String sql, Object... params) {
         SchemaPlus schema = schemaManager.schema(schemaName);
 
         if (schema == null) {
@@ -222,7 +213,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         SqlNodeList nodes = parsingCache.computeIfAbsent(sql, key -> Commons.parse(key, FRAMEWORK_CONFIG.getParserConfig()));
 
-        List<CompletableFuture<AsyncSqlCursor<List<?>>>> res = new ArrayList<>(nodes.size());
+        var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
 
         CompletableFuture<Void> start = new CompletableFuture<>();
 
@@ -238,7 +229,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .parameters(params)
                     .build();
 
-            CompletableFuture<AsyncSqlCursor<List<?>>> stage = start.thenCompose(voidArg -> prepareSvc.prepare(sqlNode, ctx))
+            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(voidArg -> prepareSvc.prepare(sqlNode, ctx))
                     .thenApply(plan -> {
                         context.maybeUnwrap(QueryValidator.class)
                                 .ifPresent(queryValidator -> queryValidator.validatePlan(plan));

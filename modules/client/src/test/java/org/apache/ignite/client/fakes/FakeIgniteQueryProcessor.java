@@ -28,12 +28,12 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<?>>>> queryAsync(String schemaName, String qry, Object... params) {
+    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
         return List.of(CompletableFuture.completedFuture(new FakeCursor()));
     }
 
     @Override
-    public List<CompletableFuture<AsyncSqlCursor<List<?>>>> queryAsync(QueryContext context, String schemaName,
+    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
             String qry, Object... params) {
         return List.of(CompletableFuture.completedFuture(new FakeCursor()));
     }

@@ -340,11 +340,10 @@ public abstract class QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        List<CompletableFuture<AsyncSqlCursor<List<?>>>> explainCursors =
-                qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry);
+        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry);
 
-        AsyncSqlCursor<List<?>> explainCursor = explainCursors.get(0).join();
-        List<List<?>> explainRes = getAllFromCursor(explainCursor);
+        var explainCursor = explainCursors.get(0).join();
+        var explainRes = getAllFromCursor(explainCursor);
         String actualPlan = (String) explainRes.get(0).get(0);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
@@ -358,10 +357,9 @@ public abstract class QueryChecker {
         }
 
         // Check result.
-        List<CompletableFuture<AsyncSqlCursor<List<?>>>> cursors =
-                qryProc.queryAsync("PUBLIC", qry, params);
+        var cursors = qryProc.queryAsync("PUBLIC", qry, params);
 
-        AsyncSqlCursor<List<?>> cur = cursors.get(0).join();
+        var cur = cursors.get(0).join();
 
         if (expectedColumnNames != null) {
             List<String> colNames = cur.metadata().fields().stream()
@@ -380,7 +378,7 @@ public abstract class QueryChecker {
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));
         }
 
-        List<List<?>> res = CursorUtils.getAllFromCursor(cur);
+        var res = CursorUtils.getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {

@@ -31,7 +31,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 /**
  * Fake {@link SqlCursor}.
  */
-public class FakeCursor implements AsyncSqlCursor<List<?>> {
+public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     private final Random random;
 
     FakeCursor() {
@@ -44,8 +44,8 @@ public class FakeCursor implements AsyncSqlCursor<List<?>> {
     }
 
     @Override
-    public CompletionStage<BatchedResult<List<?>>> requestNext(int rows) {
-        var batch = new ArrayList<List<?>>();
+    public CompletionStage<BatchedResult<List<Object>>> requestNext(int rows) {
+        var batch = new ArrayList<List<Object>>();
 
         for (int i = 0; i < rows; i++) {
             List<Object> row = new ArrayList<>();

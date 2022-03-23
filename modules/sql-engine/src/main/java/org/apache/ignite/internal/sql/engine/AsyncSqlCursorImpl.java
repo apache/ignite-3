@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Sql query cursor.
@@ -62,7 +64,17 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<BatchedResult<T>> requestNext(int rows) {
-        return dataCursor.requestNext(rows);
+        return dataCursor.requestNext(rows).handle((batch, t) -> {
+            if (t != null && !(t instanceof IgniteException)) {
+                if (t instanceof CompletionException) {
+                    t = t.getCause();
+                }
+
+                throw new IgniteException(t);
+            }
+
+            return batch;
+        });
     }
 
     /** {@inheritDoc} */
