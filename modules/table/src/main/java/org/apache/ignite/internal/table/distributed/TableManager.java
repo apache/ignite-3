@@ -1138,7 +1138,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @Nullable
     private UUID directTableId(String tblName) {
         try {
-            return ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName)).id().value();
+            ExtendedTableConfiguration exTblCfg = ((ExtendedTableConfiguration) directProxy(tablesCfg.tables()).get(tblName));
+
+            if (exTblCfg == null) {
+                return null;
+            } else {
+                return exTblCfg.id().value();
+            }
         } catch (NoSuchElementException e) {
             return null;
         }

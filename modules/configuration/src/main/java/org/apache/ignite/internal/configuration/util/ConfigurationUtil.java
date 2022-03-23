@@ -75,6 +75,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNode;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -1085,6 +1086,12 @@ public class ConfigurationUtil {
     }
 
     /**
+     * If the property is set as {@code true} the attempt to get configuration property direct from Metastorage will be skipped, and the
+     * local one local will be returned. Otherwise, when the property is set as {@code false}, the direct property will be returned.
+     */
+    private static final boolean GET_METADATA_LOCALLY_ONLY = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
+
+    /**
      * Returns a configuration tree for the purpose of reading configuration directly from the underlying storage. Actual reading is only
      * happening while invoking {@link ConfigurationTree#value()}. It will either throw {@link NoSuchElementException},
      * {@link StorageException} or return the value.
@@ -1126,6 +1133,9 @@ public class ConfigurationUtil {
         }
 
         assert property instanceof ConfigurationNode;
+
+        if (GET_METADATA_LOCALLY_ONLY)
+            return property;
 
         return (T) ((ConfigurationNode<T>) property).directProxy();
     }
