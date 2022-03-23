@@ -44,9 +44,7 @@ public interface MvStorage {
      * @return Binary row that corresponds to the key or {@code null} if value is not found.
      */
     @Nullable
-    default BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp) {
-        throw new UnsupportedOperationException("read");
-    }
+    BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp);
 
     /**
      * Creates uncommited version, assigned to the passed transaction id..
@@ -56,28 +54,24 @@ public interface MvStorage {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    default void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException {
-        throw new UnsupportedOperationException("addWrite");
-    }
+    void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommited transaction. Invoked during rollback.
      *
      * @param key Key.
+     * @throws StorageException If failed to write data to the storage.
      */
-    default void abortWrite(BinaryRow key) {
-        throw new UnsupportedOperationException("abortWrite");
-    }
+    void abortWrite(BinaryRow key) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Commited value will be versioned by the given timestamp.
      *
      * @param key Key.
      * @param timestamp Timestamp to associate with commited value.
+     * @throws StorageException If failed to write data to the storage.
      */
-    default void commitWrite(BinaryRow key, Timestamp timestamp) {
-        throw new UnsupportedOperationException("commitWrite");
-    }
+    void commitWrite(BinaryRow key, Timestamp timestamp) throws StorageException;
 
     /**
      * Removes data associated with old timestamps.
@@ -87,9 +81,7 @@ public interface MvStorage {
      * @param timestamp Timestamp to remove all the data with a lesser timestamp.
      * @return Future for the operation.
      */
-    default CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp) {
-        throw new UnsupportedOperationException("cleanup");
-    }
+    CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp);
 
     /**
      * Scans the partition and returns a cursor of values in at the given timestamp.
@@ -98,7 +90,5 @@ public interface MvStorage {
      * @param timestamp Timestamp.
      * @return Cursor.
      */
-    default Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
-        throw new UnsupportedOperationException("scan");
-    }
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException;
 }

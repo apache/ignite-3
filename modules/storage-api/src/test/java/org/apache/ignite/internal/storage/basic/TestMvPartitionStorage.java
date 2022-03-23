@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
@@ -158,5 +159,11 @@ public class TestMvPartitionStorage implements MvStorage {
                 .iterator();
 
         return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp) {
+        throw new UnsupportedOperationException("cleanup");
     }
 }
