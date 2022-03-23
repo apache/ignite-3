@@ -617,7 +617,7 @@ public class InternalTableImpl implements InternalTable {
             /**
              * Requests and processes n requested elements where n is an integer.
              *
-             * @param n amount of items to request and process.
+             * @param n Amount of items to request and process.
              */
             private void scanBatch(int n) {
                 if (canceled.get()) {
