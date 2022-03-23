@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
+import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
@@ -34,36 +35,40 @@ class TableDataRowImpl implements TableDataRow {
 
     private final int hash;
 
-    private final byte[] keyBytes;
+    private final ByteBuffer key;
 
-    private final byte[] valueBytes;
+    private final ByteBuffer value;
 
     /**
      * Constructor.
      *
      * @param link Row link.
      * @param hash Row hash.
-     * @param keyBytes Key bytes.
-     * @param valueBytes Value bytes.
+     * @param key Key byte buffer.
+     * @param value Value byte buffer.
      */
-    TableDataRowImpl(long link, int hash, byte[] keyBytes, byte[] valueBytes) {
+    TableDataRowImpl(long link, int hash, ByteBuffer key, ByteBuffer value) {
+        assert !key.isReadOnly();
+        assert key.position() == 0;
+        assert !value.isReadOnly();
+        assert value.position() == 0;
+
         this.link = link;
         this.hash = hash;
-        this.keyBytes = keyBytes;
-        this.valueBytes = valueBytes;
+
+        this.key = key;
+        this.value = value;
     }
 
     /**
      * Constructor.
      *
      * @param hash Row hash.
-     * @param keyBytes Key bytes.
-     * @param valueBytes Value bytes.
+     * @param key Key byte buffer.
+     * @param value Value byte buffer.
      */
-    TableDataRowImpl(int hash, byte[] keyBytes, byte[] valueBytes) {
-        this.hash = hash;
-        this.keyBytes = keyBytes;
-        this.valueBytes = valueBytes;
+    TableDataRowImpl(int hash, ByteBuffer key, ByteBuffer value) {
+        this(0, hash, key, value);
     }
 
     /** {@inheritDoc} */
@@ -87,7 +92,7 @@ class TableDataRowImpl implements TableDataRow {
     /** {@inheritDoc} */
     @Override
     public int size() {
-        return 4 + keyBytes.length + 4 + valueBytes.length;
+        return 4 + key.limit() + 4 + value.limit();
     }
 
     /** {@inheritDoc} */
@@ -105,25 +110,25 @@ class TableDataRowImpl implements TableDataRow {
     /** {@inheritDoc} */
     @Override
     public byte[] valueBytes() {
-        return valueBytes;
+        return toByteArray(value());
     }
 
     /** {@inheritDoc} */
     @Override
     public ByteBuffer value() {
-        return ByteBuffer.wrap(valueBytes);
+        return value.rewind();
     }
 
     /** {@inheritDoc} */
     @Override
     public byte[] keyBytes() {
-        return keyBytes;
+        return toByteArray(key());
     }
 
     /** {@inheritDoc} */
     @Override
     public ByteBuffer key() {
-        return ByteBuffer.wrap(keyBytes);
+        return key.rewind();
     }
 
     /** {@inheritDoc} */

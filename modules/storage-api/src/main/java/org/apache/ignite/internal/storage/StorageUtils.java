@@ -46,4 +46,18 @@ public class StorageUtils {
     public static int groupId(TableView tableView) {
         return tableView.name().hashCode();
     }
+
+    /**
+     * Converts to an array of bytes.
+     *
+     * @param buf Byte buffer.
+     */
+    // TODO: IGNITE-16350 Get rid of copying byte arrays.
+    public static byte[] toByteArray(ByteBuffer buf) {
+        byte[] arr = new byte[buf.limit()];
+
+        buf.get(arr);
+
+        return arr;
+    }
 }

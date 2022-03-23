@@ -111,12 +111,6 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
         TableDataRow rowByLink = getRowByLink(rowIo.link(pageAddr, idx), ioHash, KEY_ONLY);
 
-        cmp = Integer.compare(rowByLink.keyBytes().length, row.keyBytes().length);
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
         return rowByLink.key().compareTo(row.key());
     }
 
@@ -183,20 +177,22 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
                     keyBytes.readData(dataBuf);
 
-                    if (keyBytes.ready() && rowData == KEY_ONLY) {
-                        nextLink = 0;
-                        continue;
-                    }
+                    if (keyBytes.ready()) {
+                        if (rowData == KEY_ONLY) {
+                            nextLink = 0;
+                            continue;
+                        }
 
-                    if (valueBytes == null) {
-                        valueBytes = new FragmentedByteArray();
-                    }
+                        if (valueBytes == null) {
+                            valueBytes = new FragmentedByteArray();
+                        }
 
-                    valueBytes.readData(dataBuf);
+                        valueBytes.readData(dataBuf);
 
-                    if (valueBytes.ready()) {
-                        nextLink = 0;
-                        continue;
+                        if (valueBytes.ready()) {
+                            nextLink = 0;
+                            continue;
+                        }
                     }
 
                     nextLink = data.nextLink();
@@ -208,7 +204,10 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
             }
         } while (nextLink != 0);
 
-        return new TableDataRowImpl(link, hash, keyBytes.array(), valueBytes == null ? BYTE_EMPTY_ARRAY : valueBytes.array());
+        ByteBuffer key = ByteBuffer.wrap(keyBytes.array());
+        ByteBuffer value = ByteBuffer.wrap(valueBytes == null ? BYTE_EMPTY_ARRAY : valueBytes.array());
+
+        return new TableDataRowImpl(link, hash, key, value);
     }
 
     private TableDataRow readFullRow(long link, int hash, RowData rowData, long pageAddr) {
@@ -221,7 +220,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
         off += keyBytesLen;
 
         if (rowData == KEY_ONLY) {
-            return new TableDataRowImpl(link, hash, keyBytes, BYTE_EMPTY_ARRAY);
+            return new TableDataRowImpl(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(BYTE_EMPTY_ARRAY));
         }
 
         int valueBytesLen = getInt(pageAddr, off);
@@ -229,7 +228,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
         byte[] valueBytes = getBytes(pageAddr, off, valueBytesLen);
 
-        return new TableDataRowImpl(link, hash, keyBytes, valueBytes);
+        return new TableDataRowImpl(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(valueBytes));
     }
 
     /**

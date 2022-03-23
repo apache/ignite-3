@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -397,15 +398,20 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
+    public void close() {
         tree.close();
     }
 
     private TableSearchRow wrap(SearchRow searchRow) {
-        return new TableSearchRowImpl(StorageUtils.hashCode(searchRow.key()), searchRow.keyBytes());
+        ByteBuffer key = searchRow.key();
+
+        return new TableSearchRowImpl(StorageUtils.hashCode(key), key);
     }
 
     private TableDataRow wrap(DataRow dataRow) {
-        return new TableDataRowImpl(StorageUtils.hashCode(dataRow.key()), dataRow.keyBytes(), dataRow.valueBytes());
+        ByteBuffer key = dataRow.key();
+        ByteBuffer value = dataRow.value();
+
+        return new TableDataRowImpl(StorageUtils.hashCode(key), key, value);
     }
 }

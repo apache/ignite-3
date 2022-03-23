@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.io;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putBytes;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
@@ -59,23 +59,23 @@ public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
             putShort(addr, 0, (short) payloadSize);
             addr += 2;
 
-            byte[] keyBytes = row.keyBytes();
+            ByteBuffer key = row.key();
 
-            putInt(addr, 0, keyBytes.length);
+            putInt(addr, 0, key.limit());
             addr += 4;
 
-            putBytes(addr, 0, keyBytes);
-            addr += keyBytes.length;
+            putByteBuffer(addr, 0, key);
+            addr += key.limit();
         } else {
-            addr += 2 + 4 + row.keyBytes().length;
+            addr += 2 + 4 + row.key().limit();
         }
 
-        byte[] valueBytes = row.valueBytes();
+        ByteBuffer value = row.value();
 
-        putInt(addr, 0, valueBytes.length);
+        putInt(addr, 0, value.limit());
         addr += 4;
 
-        putBytes(addr, 0, valueBytes);
+        putByteBuffer(addr, 0, value);
     }
 
     /** {@inheritDoc} */
@@ -83,11 +83,11 @@ public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
     protected void writeFragmentData(TableDataRow row, ByteBuffer buf, int rowOff, int payloadSize) {
         assertPageType(buf);
 
-        byte[] keyBytes = row.keyBytes();
+        ByteBuffer key = row.key();
 
-        int written = writeFragmentBytes(buf, rowOff, 0, payloadSize, keyBytes);
+        int written = writeFragmentByteBuffer(buf, rowOff, 0, payloadSize, key);
 
-        written += writeFragmentBytes(buf, rowOff + written, 4 + keyBytes.length, payloadSize - written, row.valueBytes());
+        written += writeFragmentByteBuffer(buf, rowOff + written, 4 + key.limit(), payloadSize - written, row.value());
 
         assert written == payloadSize;
     }
@@ -100,48 +100,38 @@ public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
         sb.app("\n]");
     }
 
-    /**
-     * Try to write fragment data.
-     *
-     * @param buf Byte buffer to write to.
-     * @param rowOff Offset in row data bytes.
-     * @param expOff Expected offset in row data bytes.
-     * @param payloadSize Data length that should be written in this fragment.
-     * @param bytes Bytes to be written.
-     * @return Actually written data, in bytes.
-     */
-    private int writeFragmentBytes(
-            ByteBuffer buf,
+    private int writeFragmentByteBuffer(
+            ByteBuffer bufWriteTo,
             int rowOff,
             int expOff,
             int payloadSize,
-            byte[] bytes
+            ByteBuffer bufReadFrom
     ) {
         if (payloadSize == 0) {
             // No space left to write.
             return 0;
         }
 
-        if (rowOff >= expOff + 4 + bytes.length) {
+        if (rowOff >= expOff + 4 + bufReadFrom.limit()) {
             // Already fully written to the buffer.
             return 0;
         }
 
-        int len = Math.min(payloadSize, expOff + 4 + bytes.length - rowOff);
+        int len = Math.min(payloadSize, expOff + 4 + bufReadFrom.limit() - rowOff);
 
-        putValue(buf, rowOff - expOff, len, bytes);
+        putValue(bufWriteTo, rowOff - expOff, len, bufReadFrom);
 
         return len;
     }
 
     private void putValue(
-            ByteBuffer buf,
+            ByteBuffer bufWriteTo,
             int off,
             int len,
-            byte[] bytes
+            ByteBuffer bufReadFrom
     ) {
         if (off == 0 && len >= 4) {
-            buf.putInt(bytes.length);
+            bufWriteTo.putInt(bufReadFrom.limit());
 
             len -= 4;
         } else if (off >= 4) {
@@ -150,9 +140,9 @@ public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
             // Partial length write.
             ByteBuffer tmp = ByteBuffer.allocate(4);
 
-            tmp.order(buf.order());
+            tmp.order(bufWriteTo.order());
 
-            tmp.putInt(bytes.length);
+            tmp.putInt(bufReadFrom.limit());
 
             tmp.position(off);
 
@@ -160,7 +150,7 @@ public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
                 tmp.limit(off + Math.min(len, tmp.capacity() - off));
             }
 
-            buf.put(tmp);
+            bufWriteTo.put(tmp);
 
             if (tmp.limit() < 4) {
                 return;
@@ -170,6 +160,16 @@ public class TableDataIo extends AbstractDataPageIo<TableDataRow> {
             off = 0;
         }
 
-        buf.put(bytes, off, len);
+        int oldBufLimit = bufReadFrom.limit();
+
+        bufReadFrom.position(off);
+
+        if (len < bufReadFrom.capacity()) {
+            bufReadFrom.limit(off + Math.min(len, bufReadFrom.capacity() - off));
+        }
+
+        bufWriteTo.put(bufReadFrom);
+
+        bufReadFrom.limit(oldBufLimit);
     }
 }

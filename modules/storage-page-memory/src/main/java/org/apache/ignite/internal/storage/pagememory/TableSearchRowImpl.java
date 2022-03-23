@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
+
 import java.nio.ByteBuffer;
 
 /**
@@ -25,29 +27,32 @@ import java.nio.ByteBuffer;
 class TableSearchRowImpl implements TableSearchRow {
     private final int hash;
 
-    private final byte[] keyBytes;
+    private final ByteBuffer key;
 
     /**
      * Constructor.
      *
      * @param hash Key hash.
-     * @param keyBytes Key bytes.
+     * @param key Key byte buffer.
      */
-    TableSearchRowImpl(int hash, byte[] keyBytes) {
+    TableSearchRowImpl(int hash, ByteBuffer key) {
+        assert !key.isReadOnly();
+        assert key.position() == 0;
+
         this.hash = hash;
-        this.keyBytes = keyBytes;
+        this.key = key;
     }
 
     /** {@inheritDoc} */
     @Override
     public byte[] keyBytes() {
-        return keyBytes;
+        return toByteArray(key());
     }
 
     /** {@inheritDoc} */
     @Override
     public ByteBuffer key() {
-        return ByteBuffer.wrap(keyBytes);
+        return key.rewind();
     }
 
     /** {@inheritDoc} */
