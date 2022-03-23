@@ -83,7 +83,7 @@ namespace Apache.Ignite.Tests
 
             var str = Encoding.UTF8.GetString(msg);
 
-            Assert.AreEqual(8, msgSize, str);
+            Assert.AreEqual(10, msgSize, str);
 
             // Protocol version.
             Assert.AreEqual(3, msg[0]);
