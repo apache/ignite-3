@@ -1620,7 +1620,16 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
                 return true;
             };
 
+            int i = 0;
+
             while (!stop.get()) {
+                // It has been found that if a writer wants to change the page (leaf), then he may not be able
+                // to acquire a writing lock because the number of acquired reading locks does not reach 0 (no fair lock).
+                if (++i % 10 == 0) {
+                    // Reduce contention between writers and readers by one and the same page.
+                    Thread.sleep(10);
+                }
+
                 treeContents.clear();
 
                 long treeSize = tree.size(rowDumper);
