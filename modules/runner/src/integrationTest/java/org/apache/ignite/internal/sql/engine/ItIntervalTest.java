@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Period;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Disabled;
@@ -220,45 +220,45 @@ public class ItIntervalTest extends AbstractBasicIntegrationTest {
     @Test
     public void testIntervalArithmetic() {
         // Date +/- interval.
-        assertEquals(Date.valueOf("2021-01-02"), eval("DATE '2021-01-01' + INTERVAL 1 DAY"));
-        assertEquals(Date.valueOf("2020-12-31"), eval("DATE '2021-01-01' - INTERVAL 1 DAY"));
-        assertEquals(Date.valueOf("2020-12-31"), eval("DATE '2021-01-01' + INTERVAL -1 DAY"));
-        assertEquals(Date.valueOf("2021-02-01"), eval("DATE '2021-01-01' + INTERVAL 1 MONTH"));
-        assertEquals(Date.valueOf("2022-01-01"), eval("DATE '2021-01-01' + INTERVAL 1 YEAR"));
-        assertEquals(Date.valueOf("2022-02-01"), eval("DATE '2021-01-01' + INTERVAL '1-1' YEAR TO MONTH"));
+        assertEquals(LocalDate.parse("2021-01-02"), eval("DATE '2021-01-01' + INTERVAL 1 DAY"));
+        assertEquals(LocalDate.parse("2020-12-31"), eval("DATE '2021-01-01' - INTERVAL 1 DAY"));
+        assertEquals(LocalDate.parse("2020-12-31"), eval("DATE '2021-01-01' + INTERVAL -1 DAY"));
+        assertEquals(LocalDate.parse("2021-02-01"), eval("DATE '2021-01-01' + INTERVAL 1 MONTH"));
+        assertEquals(LocalDate.parse("2022-01-01"), eval("DATE '2021-01-01' + INTERVAL 1 YEAR"));
+        assertEquals(LocalDate.parse("2022-02-01"), eval("DATE '2021-01-01' + INTERVAL '1-1' YEAR TO MONTH"));
 
         // Timestamp +/- interval.
-        assertEquals(Timestamp.valueOf("2021-01-01 00:00:01"),
+        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 SECOND"));
-        assertEquals(Timestamp.valueOf("2021-01-01 00:00:01.123"),
+        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.123"),
                 eval("TIMESTAMP '2021-01-01 00:00:00.123' + INTERVAL 1 SECOND"));
-        assertEquals(Timestamp.valueOf("2021-01-01 00:00:01.123"),
+        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.123"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND"));
-        assertEquals(Timestamp.valueOf("2021-01-01 00:00:01.246"),
+        assertEquals(LocalDateTime.parse("2021-01-01T00:00:01.246"),
                 eval("TIMESTAMP '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND"));
-        assertEquals(Timestamp.valueOf("2020-12-31 23:59:59"),
+        assertEquals(LocalDateTime.parse("2020-12-31T23:59:59"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' - INTERVAL 1 SECOND"));
-        assertEquals(Timestamp.valueOf("2020-12-31 23:59:59"),
+        assertEquals(LocalDateTime.parse("2020-12-31T23:59:59"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL -1 SECOND"));
-        assertEquals(Timestamp.valueOf("2021-01-01 00:01:00"),
+        assertEquals(LocalDateTime.parse("2021-01-01T00:01:00"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 MINUTE"));
-        assertEquals(Timestamp.valueOf("2021-01-01 01:00:00"),
+        assertEquals(LocalDateTime.parse("2021-01-01T01:00:00"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 HOUR"));
-        assertEquals(Timestamp.valueOf("2021-01-02 00:00:00"),
+        assertEquals(LocalDateTime.parse("2021-01-02T00:00:00"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 DAY"));
-        assertEquals(Timestamp.valueOf("2021-02-01 00:00:00"),
+        assertEquals(LocalDateTime.parse("2021-02-01T00:00:00"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 MONTH"));
-        assertEquals(Timestamp.valueOf("2022-01-01 00:00:00"),
+        assertEquals(LocalDateTime.parse("2022-01-01T00:00:00"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL 1 YEAR"));
-        assertEquals(Timestamp.valueOf("2021-01-02 01:01:01.123"),
+        assertEquals(LocalDateTime.parse("2021-01-02T01:01:01.123"),
                 eval("TIMESTAMP '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND"));
-        assertEquals(Timestamp.valueOf("2022-02-01 01:01:01.123"),
+        assertEquals(LocalDateTime.parse("2022-02-01T01:01:01.123"),
                 eval("TIMESTAMP '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH"));
 
         // Time +/- interval.
-        assertEquals(Time.valueOf("00:00:01"), eval("TIME '00:00:00' + INTERVAL 1 SECOND"));
-        assertEquals(Time.valueOf("00:01:00"), eval("TIME '00:00:00' + INTERVAL 1 MINUTE"));
-        assertEquals(Time.valueOf("01:00:00"), eval("TIME '00:00:00' + INTERVAL 1 HOUR"));
+        assertEquals(LocalTime.parse("00:00:01"), eval("TIME '00:00:00' + INTERVAL 1 SECOND"));
+        assertEquals(LocalTime.parse("00:01:00"), eval("TIME '00:00:00' + INTERVAL 1 MINUTE"));
+        assertEquals(LocalTime.parse("01:00:00"), eval("TIME '00:00:00' + INTERVAL 1 HOUR"));
 
         // Date - date as interval.
         assertEquals(Duration.ofDays(1), eval("(DATE '2021-01-02' - DATE '2021-01-01') DAYS"));

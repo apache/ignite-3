@@ -224,9 +224,8 @@ public interface KeyValueStorage extends AutoCloseable {
      * Creates a snapshot of the storage's current state in the specified directory.
      *
      * @param snapshotPath Directory to store a snapshot.
-     * @return Future representing pending completion of the operation. Could not be {@code null}.
+     * @return Future representing pending completion of the operation.
      */
-    @NotNull
     CompletableFuture<Void> snapshot(Path snapshotPath);
 
     /**

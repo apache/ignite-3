@@ -129,10 +129,17 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         LOG.info("End tearDown()");
     }
 
+    /** Drops all visible tables. */
+    protected void dropAllTables() {
+        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + t.name());
+        }
+    }
+
     /**
      * Invokes before the test will start.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @BeforeEach
@@ -194,6 +201,10 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
                         .changeReplicas(1)
                         .changePartitions(10)
         );
+    }
+
+    protected static Table table(String canonicalName) {
+        return CLUSTER_NODES.get(0).tables().table(canonicalName);
     }
 
     protected static void insertData(String tblName, String[] columnNames, Object[]... tuples) {

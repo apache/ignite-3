@@ -571,8 +571,8 @@ public abstract class AbstractPartitionStorageTest {
     }
 
     /**
-     * Tests that {@link Storage#snapshot(Path)} and {@link Storage#restoreSnapshot(Path)} operations work properly in basic scenario of
-     * creating snapshot and restoring it on the clear db.
+     * Tests that {@link PartitionStorage#snapshot(Path)} and {@link PartitionStorage#restoreSnapshot(Path)} operations work properly
+     * in basic scenario of creating snapshot and restoring it on the clear db.
      *
      * @param workDir Directory to store snapshot file.
      * @throws Exception If failed to take snapshot.
@@ -581,7 +581,7 @@ public abstract class AbstractPartitionStorageTest {
     public void testSnapshot(@WorkDirectory Path workDir) throws Exception {
         List<DataRow> rows = insertBulk(10);
 
-        Path snapshotDir = Path.of(workDir.toString(), "snapshot");
+        Path snapshotDir = workDir.resolve("snapshot");
 
         Files.createDirectories(snapshotDir);
 

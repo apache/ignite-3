@@ -22,11 +22,8 @@ namespace Apache.Ignite.Internal.Proto
     /// </summary>
     internal enum ClientOp
     {
-        /** Create table. */
-        TableCreate = 1,
-
-        /** Drop table. */
-        TableDrop = 2,
+        /** Heartbeat. */
+        Heartbeat = 1,
 
         /** Get tables. */
         TablesGet = 3,

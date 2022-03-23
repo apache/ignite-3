@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static java.util.Collections.singleton;
+import static org.hamcrest.CoreMatchers.endsWith;
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -35,6 +39,7 @@ import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
@@ -212,6 +217,70 @@ public class SqlDdlParserTest {
 
         assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
         assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
+    }
+
+    /**
+     * Parsing of CREATE TABLE with specified colocation columns.
+     */
+    @Test
+    public void createTableWithColocation() throws SqlParseException {
+        IgniteSqlCreateTable createTable;
+
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2))"
+        );
+
+        assertNull(createTable.colocationColumns());
+
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE BY (ID2, ID1)"
+        );
+
+        assertThat(
+                createTable.colocationColumns().getList().stream()
+                        .map(SqlIdentifier.class::cast)
+                        .map(SqlIdentifier::getSimple)
+                        .collect(Collectors.toList()),
+                equalTo(List.of("ID2", "ID1"))
+        );
+
+        SqlPrettyWriter w = new SqlPrettyWriter();
+        createTable.unparse(w, 0, 0);
+
+        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID2\", \"ID1\")"));
+
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0)"
+        );
+
+        assertThat(
+                createTable.colocationColumns().getList().stream()
+                        .map(SqlIdentifier.class::cast)
+                        .map(SqlIdentifier::getSimple)
+                        .collect(Collectors.toList()),
+                equalTo(List.of("ID0"))
+        );
+
+        // Check uparse 'COLOCATE' and 'WITH' together.
+        createTable = parseCreateTable(
+                "CREATE TABLE MY_TABLE(ID0 INT, ID1 INT, ID2 INT, VAL INT, PRIMARY KEY (ID0, ID1, ID2)) COLOCATE (ID0) "
+                        + "with "
+                        + "replicas=2, "
+                        + "partitions=3"
+        );
+
+        w = new SqlPrettyWriter();
+        createTable.unparse(w, 0, 0);
+
+        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID0\") WITH REPLICAS = 2, PARTITIONS = 3"));
+    }
+
+    private IgniteSqlCreateTable parseCreateTable(String stmt) throws SqlParseException {
+        SqlNode node = parse(stmt);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        return (IgniteSqlCreateTable) node;
     }
 
     /**

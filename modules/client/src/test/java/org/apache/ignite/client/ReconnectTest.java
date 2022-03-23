@@ -48,6 +48,7 @@ public class ReconnectTest {
         server = AbstractClientTest.startServer(
                 10900,
                 10,
+                0,
                 ignite1);
 
         var client = IgniteClient.builder()
@@ -65,6 +66,7 @@ public class ReconnectTest {
         server2 = AbstractClientTest.startServer(
                 10950,
                 10,
+                0,
                 ignite2);
 
         assertEquals("t2", client.tables().tables().get(0).name());
@@ -78,6 +80,7 @@ public class ReconnectTest {
         server = AbstractClientTest.startServer(
                 10900,
                 10,
+                0,
                 ignite1);
 
         var client = IgniteClient.builder()

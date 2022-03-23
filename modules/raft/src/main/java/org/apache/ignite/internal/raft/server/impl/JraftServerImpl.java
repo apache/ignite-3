@@ -186,7 +186,7 @@ public class JraftServerImpl implements RaftServer {
         );
 
         if (opts.getfSMCallerExecutorDisruptor() == null) {
-            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-FSMCaller-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     () -> new FSMCallerImpl.ApplyTask(),
@@ -194,7 +194,7 @@ public class JraftServerImpl implements RaftServer {
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
-            opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
+            opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-NodeImpl-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     () -> new NodeImpl.LogEntryAndClosure(),
@@ -202,7 +202,7 @@ public class JraftServerImpl implements RaftServer {
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
-            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
+            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                     NamedThreadFactory.threadPrefix(opts.getServerName(), "JRaft-ReadOnlyService-Disruptor"),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
@@ -442,7 +442,13 @@ public class JraftServerImpl implements RaftServer {
                     }
                 });
             } catch (Exception err) {
-                Status st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
+                Status st;
+
+                if (err.getMessage() != null) {
+                    st = new Status(RaftError.ESTATEMACHINE, err.getMessage());
+                } else {
+                    st = new Status(RaftError.ESTATEMACHINE, "Unknown state machine error.");
+                }
 
                 if (iter.done() != null) {
                     iter.done().run(st);

@@ -66,10 +66,10 @@ public abstract class BaseIgniteAbstractTest {
     /**
      * Should be invoked after the test has finished.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
-    protected void tearDownBase(TestInfo testInfo) throws Exception {
+    protected void tearDownBase(TestInfo testInfo) {
         log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
                 testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
