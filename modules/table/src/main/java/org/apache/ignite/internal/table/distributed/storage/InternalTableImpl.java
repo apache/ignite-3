@@ -33,6 +33,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -542,6 +543,10 @@ public class InternalTableImpl implements InternalTable {
 
             private AtomicInteger scanCounter = new AtomicInteger(1);
 
+            private final AtomicLong requestedItemsCnt;
+
+            private static final int INTERNAL_BATCH_SIZE = 10_000;
+
             /**
              * The constructor.
              *
@@ -553,6 +558,7 @@ public class InternalTableImpl implements InternalTable {
                 this.scanId = UUID_GENERATOR.randomUuid();
                 // TODO: IGNITE-15544 Close partition scans on node left.
                 this.scanInitOp = raftGrpSvc.run(new ScanInitCommand("", scanId));
+                this.requestedItemsCnt = new AtomicLong(0);
             }
 
             /** {@inheritDoc} */
@@ -570,13 +576,17 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                final int internalBatchSize = Integer.MAX_VALUE;
+                long prevVal = requestedItemsCnt.getAndUpdate(origin -> {
+                    try {
+                        return Math.addExact(origin, n);
+                    } catch (ArithmeticException e) {
+                        return Long.MAX_VALUE;
+                    }
+                });
 
-                for (int intBatchCnr = 0; intBatchCnr < (n / internalBatchSize); intBatchCnr++) {
-                    scanBatch(internalBatchSize);
+                if (prevVal == 0) {
+                    scanBatch((int) Math.min(n, INTERNAL_BATCH_SIZE));
                 }
-
-                scanBatch((int) (n % internalBatchSize));
             }
 
             /** {@inheritDoc} */
@@ -607,7 +617,7 @@ public class InternalTableImpl implements InternalTable {
             /**
              * Requests and processes n requested elements where n is an integer.
              *
-             * @param n Requested amount of items.
+             * @param n Amount of items to request and process.
              */
             private void scanBatch(int n) {
                 if (canceled.get()) {
@@ -632,6 +642,8 @@ public class InternalTableImpl implements InternalTable {
                                         cancel();
 
                                         subscriber.onComplete();
+                                    } else if (requestedItemsCnt.addAndGet(Math.negateExact(res.getValues().size())) > 0) {
+                                        scanBatch(INTERNAL_BATCH_SIZE);
                                     }
                                 })
                         .exceptionally(

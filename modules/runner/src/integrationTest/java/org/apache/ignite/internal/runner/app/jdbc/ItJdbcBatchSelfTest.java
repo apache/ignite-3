@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.file.Path;
 import java.sql.BatchUpdateException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -38,15 +37,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Statement test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16683")
 public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** SQL CREATE TABLE query. */
     private static final String SQL_CREATE = "CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)";
@@ -65,8 +61,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     private PreparedStatement pstmt;
 
     @BeforeAll
-    public static void beforeAll(@TempDir Path temp, TestInfo testInfo) throws SQLException {
-        AbstractJdbcSelfTest.beforeAll(temp, testInfo);
+    public static void beforeAll(TestInfo testInfo) throws SQLException {
+        AbstractJdbcSelfTest.beforeAll(testInfo);
 
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate(SQL_CREATE);
@@ -85,8 +81,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @BeforeEach
     @Override
-    protected void beforeTest() throws Exception {
-        super.beforeTest();
+    protected void beforeTest(TestInfo testInfo) throws Exception {
+        super.beforeTest(testInfo);
 
         pstmt = conn.prepareStatement(SQL_PREPARED);
 
@@ -101,14 +97,14 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @AfterEach
     @Override
-    protected void afterTest() throws Exception {
+    protected void afterTest(TestInfo testInfo) throws Exception {
         if (pstmt != null && !pstmt.isClosed()) {
             pstmt.close();
         }
 
         assertTrue(pstmt.isClosed());
 
-        super.afterTest();
+        super.afterTest(testInfo);
     }
 
     @Test

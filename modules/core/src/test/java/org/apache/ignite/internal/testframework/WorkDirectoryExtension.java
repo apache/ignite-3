@@ -176,7 +176,9 @@ public class WorkDirectoryExtension
                 .map(Method::getName)
                 .orElse(STATIC_FOLDER_NAME);
 
-        Path workDir = getTestClassDir(context).resolve(testMethodDir + '_' + System.currentTimeMillis());
+        // Not using currentTimeMillis because some tests can have the same name (e.g. repeated tests) and execute in less than a
+        // millisecond, which will result in identical paths being generated.
+        Path workDir = getTestClassDir(context).resolve(testMethodDir + '_' + System.nanoTime());
 
         Files.createDirectories(workDir);
 
