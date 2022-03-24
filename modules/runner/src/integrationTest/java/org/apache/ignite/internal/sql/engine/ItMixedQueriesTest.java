@@ -158,6 +158,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16738")
     public void testDistinctQueryWithInConditionWithSubquery() {
         var rows = sql("SELECT distinct(name) FROM emp1 o WHERE name IN ("
                 + "   SELECT name"

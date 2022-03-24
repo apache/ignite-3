@@ -20,12 +20,12 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -92,6 +92,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager schemaManager;
 
+    private volatile ConcurrentMap<String, SqlNodeList> parserCache;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Consumer<Long>> revisionUpdater,
@@ -109,6 +111,11 @@ public class SqlQueryProcessor implements QueryProcessor {
         var planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
         var taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
+
+        parserCache = Caffeine.newBuilder()
+                .maximumSize(PLAN_CACHE_SIZE)
+                .<String, SqlNodeList>build()
+                .asMap();
 
         prepareSvc = registerService(new PrepareServiceImpl());
 
@@ -216,7 +223,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
         }
 
-        SqlNodeList nodes = parsingCache.computeIfAbsent(sql, key -> Commons.parse(key, FRAMEWORK_CONFIG.getParserConfig()));
+        SqlNodeList nodes = parserCache.computeIfAbsent(sql, key -> Commons.parse(key, FRAMEWORK_CONFIG.getParserConfig()));
 
         var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
 
@@ -254,8 +261,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         return res;
     }
-
-    Map<String, SqlNodeList> parsingCache = new HashMap<>();
 
     private abstract static class AbstractTableEventListener implements EventListener<TableEventParameters> {
         protected final SqlSchemaManagerImpl schemaHolder;
