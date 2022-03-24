@@ -29,7 +29,7 @@
         See https://github.com/jacoco/jacoco/tree/master/jacoco-maven-plugin.test/it/it-report-aggregate and
         https://stackoverflow.com/a/53559994/7637120
 
-        To get the coverage report, run 'mvn clean verify -Pjacoco-report' in the project root directory.
+        To get the coverage report, run 'mvn clean verify -Pjacoco' in the project root directory.
         The report will be created at modules/jacoco-report/target/site/jacoco-aggregate/index.html
     </description>
 
