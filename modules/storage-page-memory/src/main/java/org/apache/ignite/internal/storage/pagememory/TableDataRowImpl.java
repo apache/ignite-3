@@ -98,7 +98,8 @@ class TableDataRowImpl implements TableDataRow {
     /** {@inheritDoc} */
     @Override
     public int headerSize() {
-        return 0;
+        // Key size (int).
+        return 4;
     }
 
     /** {@inheritDoc} */
