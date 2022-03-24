@@ -128,7 +128,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(Exception cause) {
         if (closed.compareAndSet(false, true)) {
-            heartbeatTimer.cancel();
+            // Disconnect can happen before we initialize the timer.
+            var timer = heartbeatTimer;
+
+            if (timer != null) {
+                timer.cancel();
+            }
 
             sock.close();
 
