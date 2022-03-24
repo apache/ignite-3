@@ -101,17 +101,9 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
     protected int compare(BplusIo<TableSearchRow> io, long pageAddr, int idx, TableSearchRow row) throws IgniteInternalCheckedException {
         RowIo rowIo = (RowIo) io;
 
-        int ioHash = rowIo.hash(pageAddr, idx);
+        int cmp = Integer.compare(rowIo.hash(pageAddr, idx), row.hash());
 
-        int cmp = Integer.compare(ioHash, row.hash());
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
-        TableDataRow rowByLink = getRowByLink(rowIo.link(pageAddr, idx), ioHash, KEY_ONLY);
-
-        return rowByLink.key().compareTo(row.key());
+        return cmp != 0 ? cmp : compareRows(rowIo.link(pageAddr, idx), row);
     }
 
     /** {@inheritDoc} */
@@ -133,7 +125,6 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
      * @param rowData Specifies what data to lookup.
      * @throws IgniteInternalCheckedException If failed.
      */
-    // TODO: IGNITE-16666 Fragment storage optimization.
     public TableDataRow getRowByLink(final long link, int hash, RowData rowData) throws IgniteInternalCheckedException {
         assert link != 0;
 
@@ -229,6 +220,109 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
         byte[] valueBytes = getBytes(pageAddr, off, valueBytesLen);
 
         return new TableDataRowImpl(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(valueBytes));
+    }
+
+    private int compareRows(final long link, TableSearchRow row) throws IgniteInternalCheckedException {
+        assert link != 0;
+
+        long nextLink = link;
+
+        int keyBytesLen = -1;
+        int keyBytesOff = 0;
+
+        do {
+            final long pageId = pageId(nextLink);
+
+            final long page = pageMem.acquirePage(grpId, pageId, statisticsHolder());
+
+            try {
+                final long pageAddr = pageMem.readLock(grpId, pageId, page);
+
+                assert pageAddr != 0L : nextLink;
+
+                try {
+                    TableDataIo dataIo = pageMem.ioRegistry().resolve(pageAddr);
+
+                    int itemId = itemId(nextLink);
+
+                    int pageSize = pageMem.realPageSize(grpId);
+
+                    DataPagePayload data = dataIo.readPayload(pageAddr, itemId, pageSize);
+
+                    if (data.nextLink() == 0 && nextLink == link) {
+                        // Good luck: we can compare the rows without fragments.
+                        return compareRowsFull(pageAddr + data.offset(), row);
+                    }
+
+                    ByteBuffer dataBuf = wrapPointer(pageAddr, pageSize);
+
+                    dataBuf.position(data.offset());
+                    dataBuf.limit(data.offset() + data.payloadSize());
+
+                    ByteBuffer keyBuf = row.key();
+
+                    if (keyBytesLen == -1) {
+                        // Guaranteed to read because we store it in the header.
+                        keyBytesLen = dataBuf.getInt();
+
+                        int cmp = Integer.compare(keyBytesLen, keyBuf.limit());
+
+                        if (cmp != 0) {
+                            return cmp;
+                        }
+                    }
+
+                    if (dataBuf.remaining() > 0) {
+                        int len = Math.min(dataBuf.remaining(), keyBytesLen - keyBytesOff);
+
+                        int dataBufPos = dataBuf.position();
+
+                        dataBuf.position(dataBufPos);
+                        dataBuf.limit(dataBufPos + len);
+
+                        int oldKeyBufLimit = keyBuf.limit();
+
+                        keyBuf.position(keyBytesOff);
+                        keyBuf.limit(keyBytesOff + len);
+
+                        int cmp = dataBuf.compareTo(keyBuf);
+
+                        keyBytesOff += len;
+
+                        keyBuf.limit(oldKeyBufLimit);
+
+                        if (cmp != 0 || keyBytesOff == keyBytesLen) {
+                            return cmp;
+                        }
+                    }
+
+                    nextLink = data.nextLink();
+                } finally {
+                    pageMem.readUnlock(grpId, pageId, page);
+                }
+            } finally {
+                pageMem.releasePage(grpId, pageId, page);
+            }
+        } while (nextLink != 0);
+
+        throw new IgniteInternalCheckedException("Row comparison error [link=" + link + ", row=" + row + "]");
+    }
+
+    private int compareRowsFull(final long pageAddr, TableSearchRow row) {
+        int off = 0;
+
+        int keyBytesLen = getInt(pageAddr, off);
+        off += 4;
+
+        ByteBuffer key = row.key();
+
+        int cmp = Integer.compare(keyBytesLen, key.limit());
+
+        if (cmp != 0) {
+            return cmp;
+        }
+
+        return wrapPointer(pageAddr + off, keyBytesLen).compareTo(key);
     }
 
     /**
