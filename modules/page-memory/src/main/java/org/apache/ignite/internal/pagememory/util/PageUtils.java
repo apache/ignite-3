@@ -299,7 +299,7 @@ public class PageUtils {
 
             byte[] arr = buf.array();
 
-            GridUnsafe.copyMemory(arr, GridUnsafe.BYTE_ARR_OFF, null, addr + off, arr.length);
+            GridUnsafe.copyMemory(arr, GridUnsafe.BYTE_ARR_OFF + buf.position(), null, addr + off, buf.limit());
         }
     }
 }
