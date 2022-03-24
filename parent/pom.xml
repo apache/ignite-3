@@ -115,9 +115,9 @@
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
 
         <!-- We leave it empty so that, when jacoco does not run, the unreplaced @{argLine} does not impede the build. -->
-        <additionalTestArgLine/>
-        <commonTestArgLine>
-            ${additionalTestArgLine}
+        <additional.test.argLine/>
+        <common.test.argLine>
+            ${additional.test.argLine}
             --add-opens java.base/java.lang=ALL-UNNAMED
             --add-opens java.base/java.lang.invoke=ALL-UNNAMED
             --add-opens java.base/java.lang.reflect=ALL-UNNAMED
@@ -127,7 +127,7 @@
             --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
             -Dio.netty.tryReflectionSetAccessible=true
             -Djava.util.logging.config.file=../../config/java.util.logging.properties
-        </commonTestArgLine>
+        </common.test.argLine>
     </properties>
 
     <distributionManagement>
@@ -940,7 +940,7 @@
         <profile>
             <id>jacoco</id>
             <properties>
-                <additionalTestArgLine>@{argLine}</additionalTestArgLine>
+                <additional.test.argLine>@{argLine}</additional.test.argLine>
             </properties>
             <build>
                 <plugins>
@@ -1163,7 +1163,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>
-                        ${commonTestArgLine}
+                        ${common.test.argLine}
                     </argLine>
                     <excludes>
                         <exclude>%regex[.*(It)[A-Z].*]</exclude>
@@ -1181,7 +1181,7 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>
-                        ${commonTestArgLine}
+                        ${common.test.argLine}
                     </argLine>
                     <useModulePath>false</useModulePath>
                     <includes>
