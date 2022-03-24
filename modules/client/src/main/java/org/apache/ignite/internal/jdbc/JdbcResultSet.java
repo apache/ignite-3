@@ -47,6 +47,7 @@ import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -659,6 +660,8 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == Instant.class) {
             var odlDate = java.util.Date.from((Instant) val);
             return new Date(odlDate.getTime());
+        } else if (cls == LocalDateTime.class) {
+            return Date.valueOf(((LocalDateTime) val).toLocalDate());
         } else {
             throw new SQLException("Cannot convert to date: " + val, SqlStateCode.CONVERSION_FAILED);
         }
@@ -704,6 +707,8 @@ public class JdbcResultSet implements ResultSet {
         } else if (cls == Instant.class) {
             var oldTs = Timestamp.from((Instant) val);
             return new Time(oldTs.getTime());
+        } else if (cls == LocalDateTime.class) {
+            return Time.valueOf(((LocalDateTime) val).toLocalTime());
         } else {
             throw new SQLException("Cannot convert to time: " + val, SqlStateCode.CONVERSION_FAILED);
         }
@@ -748,6 +753,8 @@ public class JdbcResultSet implements ResultSet {
             return new Timestamp(Date.valueOf((LocalDate) val).getTime());
         } else if (cls == Instant.class) {
             return Timestamp.from(((Instant) val));
+        } else if (cls == LocalDateTime.class) {
+            return Timestamp.valueOf((LocalDateTime) val);
         } else {
             throw new SQLException("Cannot convert to timestamp: " + val, SqlStateCode.CONVERSION_FAILED);
         }
