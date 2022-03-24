@@ -75,11 +75,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.immutables</groupId>
-            <artifactId>value-annotations</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-cli</artifactId>
         </dependency>
