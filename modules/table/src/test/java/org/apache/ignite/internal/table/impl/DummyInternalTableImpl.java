@@ -68,7 +68,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     public DummyInternalTableImpl(VersionedRowStore store, TxManager txManager) {
         super("test", UUID.randomUUID(),
                 Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
-                1, null, txManager, mock(TableStorage.class));
+                1, null, null, txManager, mock(TableStorage.class));
 
         RaftGroupService svc = partitionMap.get(0);
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
 
@@ -95,4 +96,30 @@ public interface Table {
     default <K, V> KeyValueView<K, V> keyValueView(Class<K> keyCls, Class<V> valCls) {
         return keyValueView(Mapper.of(keyCls), Mapper.of(valCls));
     }
+
+    /**
+     * Returns a partition for a key tuple.
+     *
+     * @param key The tuple.
+     * @return The partition.
+     */
+    int partition(Tuple key);
+
+    /**
+     * Returns a partition for a key.
+     *
+     * @param key The key.
+     * @param keyMapper Key mapper
+     * @return The partition.
+     */
+    <K> int partition(K key, Mapper<K> keyMapper);
+
+    /**
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
+     * it cannot be found.
+     *
+     * @param partition partition number
+     * @return leader node of the partition group corresponding to the partition
+     */
+    ClusterNode leaderAssignment(int partition);
 }

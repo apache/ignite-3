@@ -27,20 +27,30 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Implementation of {@link IgniteCompute}.
  */
 public class IgniteComputeImpl implements IgniteCompute {
     private final TopologyService topologyService;
+    private final IgniteTables tables;
     private final ComputeComponent computeComponent;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
-    public IgniteComputeImpl(TopologyService topologyService, ComputeComponent computeComponent) {
+    /**
+     * Create new instance.
+     */
+    public IgniteComputeImpl(TopologyService topologyService, IgniteTables tables, ComputeComponent computeComponent) {
         this.topologyService = topologyService;
+        this.tables = tables;
         this.computeComponent = computeComponent;
     }
 
@@ -99,6 +109,89 @@ public class IgniteComputeImpl implements IgniteCompute {
 
     private boolean isLocal(ClusterNode targetNode) {
         return targetNode.equals(topologyService.localMember());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(jobClass);
+
+        return requiredTable(tableName)
+                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClass, args));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> CompletableFuture<R> executeColocated(
+            String tableName,
+            K key,
+            Mapper<K> keyMapper,
+            Class<? extends ComputeJob<R>> jobClass,
+            Object... args
+    ) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(jobClass);
+
+        return requiredTable(tableName)
+                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClass, args));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(jobClassName);
+
+        return requiredTable(tableName)
+                .thenApply(table -> leaderOfTablePartitionByTupleKey(table, key))
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(jobClassName);
+
+        return requiredTable(tableName)
+                .thenApply(table -> leaderOfTablePartitionByMappedKey(table, key, keyMapper))
+                .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
+    }
+
+    private CompletableFuture<Table> requiredTable(String tableName) {
+        return tables.tableAsync(tableName)
+                .thenApply(table -> {
+                    if (table == null) {
+                        throw new IgniteInternalException(String.format("Did not find a table by name '%s'", tableName));
+                    }
+                    return table;
+                });
+    }
+
+    private ClusterNode leaderOfTablePartitionByTupleKey(Table table, Tuple key) {
+        return requiredLeaderByPartition(table, table.partition(key));
+    }
+
+    private <K> ClusterNode leaderOfTablePartitionByMappedKey(Table table, K key, Mapper<K> keyMapper) {
+        return requiredLeaderByPartition(table, table.partition(key, keyMapper));
+    }
+
+    private ClusterNode requiredLeaderByPartition(Table table, int partitionIndex) {
+        ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
+        if (leaderNode == null) {
+            throw new IgniteInternalException("Leader not found for partition " + partitionIndex);
+        }
+
+        return leaderNode;
     }
 
     /** {@inheritDoc} */

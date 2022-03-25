@@ -272,7 +272,7 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
-        compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
+        compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,

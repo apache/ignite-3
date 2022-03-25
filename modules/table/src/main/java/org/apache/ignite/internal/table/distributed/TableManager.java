@@ -147,6 +147,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
 
+    /** Resolver that resolves a network address to cluster node. */
+    private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
+
     /** Data region instances. */
     private final Map<String, DataRegion> dataRegions = new ConcurrentHashMap<>();
 
@@ -193,6 +196,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return node.id();
         };
+        clusterNodeResolver = topologyService::getByAddress;
 
         engine = new RocksDbStorageEngine();
 
@@ -552,7 +556,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         tableStorage.start();
 
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
-                partitions, netAddrResolver, txManager, tableStorage);
+                partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
 
         var schemaRegistry = new SchemaRegistryImpl(v -> {
             if (!busyLock.enterBusy()) {

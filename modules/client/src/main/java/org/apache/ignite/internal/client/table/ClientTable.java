@@ -33,6 +33,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteBiTuple;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -116,6 +117,23 @@ public class ClientTable implements Table {
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
         return new ClientKeyValueBinaryView(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partition(Tuple key) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public <K> int partition(K key, Mapper<K> keyMapper) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ClusterNode leaderAssignment(int partition) {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     private CompletableFuture<ClientSchema> getLatestSchema() {
