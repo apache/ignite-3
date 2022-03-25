@@ -120,6 +120,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     private <R> R executeJob(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         ComputeJob<R> job = instantiateJob(jobClass);
         JobExecutionContext context = new JobExecutionContextImpl(ignite);
+        // TODO: IGNITE-16746 - translate NodeStoppingException to a public exception
         return job.execute(context, args);
     }
 
