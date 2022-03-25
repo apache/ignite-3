@@ -44,6 +44,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -116,6 +118,10 @@ public class ItInternalTableScanTest {
 
     /** Executor for raft group services. */
     ScheduledExecutorService executor;
+
+    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+        throw new UnsupportedOperationException();
+    };
 
     /**
      * Prepare test environment.
@@ -188,6 +194,7 @@ public class ItInternalTableScanTest {
                 Int2ObjectMaps.singleton(0, raftGrpSvc),
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txManager,
                 mock(TableStorage.class)
         );

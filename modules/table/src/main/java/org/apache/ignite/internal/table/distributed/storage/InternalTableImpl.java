@@ -62,10 +62,12 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.IgniteUuidGenerator;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -99,6 +101,9 @@ public class InternalTableImpl implements InternalTable {
     /** Resolver that resolves a network address to node id. */
     private final Function<NetworkAddress, String> netAddrResolver;
 
+    /** Resolver that resolves a network address to cluster node. */
+    private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
+
     /** Transactional manager. */
     private final TxManager txManager;
 
@@ -124,6 +129,7 @@ public class InternalTableImpl implements InternalTable {
             Int2ObjectMap<RaftGroupService> partMap,
             int partitions,
             Function<NetworkAddress, String> netAddrResolver,
+            Function<NetworkAddress, ClusterNode> clusterNodeResolver,
             TxManager txManager,
             TableStorage tableStorage
     ) {
@@ -132,6 +138,7 @@ public class InternalTableImpl implements InternalTable {
         this.partitionMap = partMap;
         this.partitions = partitions;
         this.netAddrResolver = netAddrResolver;
+        this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
         this.tableStorage = tableStorage;
     }
@@ -392,6 +399,18 @@ public class InternalTableImpl implements InternalTable {
                 .map(Peer::address)
                 .map(netAddrResolver)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public ClusterNode leaderAssignment(int partition) {
+        awaitLeaderInitialization();
+
+        RaftGroupService raftGroupService = partitionMap.get(partition);
+        if (raftGroupService == null) {
+            throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
+        }
+
+        return clusterNodeResolver.apply(raftGroupService.leader().address());
     }
 
     private void awaitLeaderInitialization() {
