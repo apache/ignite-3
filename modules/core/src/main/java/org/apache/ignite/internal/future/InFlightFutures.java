@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.future;
 
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * never be completed).
  */
 public class InFlightFutures implements Iterable<CompletableFuture<?>> {
-    private final Set<CompletableFuture<?>> inFlightFutures = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<CompletableFuture<?>> inFlightFutures = ConcurrentHashMap.newKeySet();
 
     /**
      * Registers a future in the in-flight futures collection. When it completes (either normally or exceptionally),
