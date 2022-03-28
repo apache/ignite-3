@@ -93,7 +93,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             throw new IndexNotFoundException(idxName, null);
         }
 
-        pw = pw.itemIf("indexId", idx.id(), pw.getDetailLevel() != EXPPLAN_ATTRIBUTES);
+        pw = pw.itemIf("indexId", idx.id().toString(), pw.getDetailLevel() != EXPPLAN_ATTRIBUTES);
         pw = super.explainTerms0(pw);
 
         return idxCond.explainTerms(pw);

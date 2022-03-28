@@ -37,7 +37,7 @@ public class IgniteIndex {
 
     private final String idxName;
 
-    private @Nullable final UUID id;
+    private final UUID id;
 
     private @Nullable final InternalSortedIndex idx;
 
@@ -48,7 +48,7 @@ public class IgniteIndex {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteIndex(RelCollation collation, String name, InternalIgniteTable tbl) {
-        this(collation, name, null, null, tbl);
+        this(collation, name, UUID.randomUUID(), null, tbl);
     }
 
     /**
