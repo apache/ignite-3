@@ -47,7 +47,6 @@ import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.rest.ConfigurationHttpHandlers;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -56,6 +55,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
+import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -72,7 +73,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
@@ -108,12 +108,6 @@ public class IgniteImpl implements Ignite {
      * Path for the partitions persistent storage.
      */
     private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
-
-    /**
-     * Difference between the local node applied revision and distributed data storage revision on start.
-     * TODO: IGNITE-16488 Move the property to configuration.
-     */
-    private static final int CONFIGURATION_DIFFERENCE = 100;
 
     /** Ignite node name. */
     private final String name;
@@ -387,7 +381,11 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
-            CompletableFuture<Void> configurationCatchUpFuture = configurationCatchUpFuture();
+            CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
+                    metaStorageMgr,
+                    clusterCfgMgr,
+                    fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
+            );
 
             notifyConfigurationListeners();
 
@@ -416,41 +414,6 @@ public class IgniteImpl implements Ignite {
      */
     private void waitForJoinPermission() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-15114
-    }
-
-    /**
-     * Creates a listener for configuration updates and a future which will be completed when configuration is up-to-date enough
-     * to complete the local recovery.
-     *
-     * @return Future, which completes when the local configuration is close enough to distributed one.
-     */
-    private CompletableFuture<Void> configurationCatchUpFuture() {
-        //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
-        if (!metaStorageMgr.isMetaStorageInitializedOnStart()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        CompletableFuture<Void> catchUpFuture = new CompletableFuture<>();
-
-        ConfigurationStorageRevisionListener listener =
-                new ConfigurationCatchUpListener(cfgStorage.lastRevision().join(), catchUpFuture);
-
-        catchUpFuture.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
-
-        clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(listener);
-
-        return catchUpFuture;
-    }
-
-    /**
-     * Checks the node up to date by distributed configuration.
-     *
-     * @param cfgRevision Configuration revision.
-     * @param appliedRevision Last applied node revision.
-     * @return True when the applied revision is great enough for node recovery to complete, false otherwise.
-     */
-    private boolean isConfigurationUpToDate(long cfgRevision, long appliedRevision) {
-        return cfgRevision - CONFIGURATION_DIFFERENCE <= appliedRevision;
     }
 
     /**
@@ -657,45 +620,5 @@ public class IgniteImpl implements Ignite {
         STARTED,
 
         STOPPING
-    }
-
-    /**
-     * Configuration listener class that is intended to complete catch-up future during recovery when configuration
-     * is up-to-date.
-     */
-    private class ConfigurationCatchUpListener implements ConfigurationStorageRevisionListener {
-        /** Revision to catch up. */
-        private long cfgRevision;
-
-        /** Catch-up future. */
-        private final CompletableFuture<Void> catchUpFuture;
-
-        /**
-         * Constructor.
-         *
-         * @param cfgRevision Revision to catch up.
-         * @param catchUpFuture Catch-up future.
-         */
-        public ConfigurationCatchUpListener(long cfgRevision, CompletableFuture<Void> catchUpFuture) {
-            this.cfgRevision = cfgRevision;
-            this.catchUpFuture = catchUpFuture;
-        }
-
-        /** {@inheritDoc} */
-        @Override public CompletableFuture<?> onUpdate(long cfgUpdateRevision) {
-            assert cfgRevision >= cfgUpdateRevision : IgniteStringFormatter.format(
-                "Configuration revision must be greater than local node applied revision [msRev={}, appliedRev={}",
-                cfgRevision, cfgUpdateRevision);
-
-            if (isConfigurationUpToDate(cfgRevision, cfgUpdateRevision)) {
-                cfgRevision = cfgStorage.lastRevision().join();
-
-                if (isConfigurationUpToDate(cfgRevision, cfgUpdateRevision)) {
-                    catchUpFuture.complete(null);
-                }
-            }
-
-            return CompletableFuture.completedFuture(null);
-        }
     }
 }
