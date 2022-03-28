@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
@@ -101,6 +102,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table manager.
@@ -1180,6 +1182,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return INITIAL_SCHEMA_VERSION;
         }
+    }
+
+    /**
+     * Actual tables map.
+     *
+     * @return Actual tables map.
+     */
+    @TestOnly
+    public Map<String, TableImpl> latestTables() {
+        return unmodifiableMap(tablesVv.latest());
     }
 
     /** {@inheritDoc} */
