@@ -44,6 +44,8 @@ public interface IgniteTablesInternal {
      */
     CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException;
 
+    // TODO: IGNITE-16750 - the following two methods look a bit ugly, separation of public/internal Table aspects should help
+
     /**
      * Gets a table by name, if it was created before.
      *
