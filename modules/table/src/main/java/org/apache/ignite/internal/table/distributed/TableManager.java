@@ -1213,7 +1213,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
+        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name))
+                .thenApply(Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -1229,14 +1230,25 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public TableImpl tableImpl(String name) {
+        return join(tableImplAsync(name));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<TableImpl> tableImplAsync(String name) {
+        return tableAsyncInternal(IgniteObjectName.parseCanonicalName(name));
+    }
+
     /**
      * Gets a table by name, if it was created before. Doesn't parse canonical name.
      *
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      * */
-    @NotNull
-    private CompletableFuture<Table> tableAsyncInternal(String name) {
+    private CompletableFuture<TableImpl> tableAsyncInternal(String name) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
@@ -1247,7 +1259,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return CompletableFuture.completedFuture(null);
             }
 
-            return (CompletableFuture) tableAsyncInternal(tableId, false);
+            return tableAsyncInternal(tableId, false);
         } finally {
             busyLock.leaveBusy();
         }
@@ -1260,7 +1272,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param checkConfiguration {@code True} when the method checks a configuration before trying to get a table, {@code false} otherwise.
      * @return Future representing pending completion of the operation.
      */
-    @NotNull
     private CompletableFuture<TableImpl> tableAsyncInternal(UUID id, boolean checkConfiguration) {
         if (checkConfiguration && !isTableConfigured(id)) {
             return CompletableFuture.completedFuture(null);

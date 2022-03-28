@@ -27,12 +27,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
@@ -40,7 +40,7 @@ import org.apache.ignite.table.mapper.Mapper;
  */
 public class IgniteComputeImpl implements IgniteCompute {
     private final TopologyService topologyService;
-    private final IgniteTables tables;
+    private final IgniteTablesInternal tables;
     private final ComputeComponent computeComponent;
 
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -48,7 +48,7 @@ public class IgniteComputeImpl implements IgniteCompute {
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(TopologyService topologyService, IgniteTables tables, ComputeComponent computeComponent) {
+    public IgniteComputeImpl(TopologyService topologyService, IgniteTablesInternal tables, ComputeComponent computeComponent) {
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
@@ -167,8 +167,8 @@ public class IgniteComputeImpl implements IgniteCompute {
                 .thenCompose(primaryNode -> executeOnOneNode(primaryNode, jobClassName, args));
     }
 
-    private CompletableFuture<Table> requiredTable(String tableName) {
-        return tables.tableAsync(tableName)
+    private CompletableFuture<TableImpl> requiredTable(String tableName) {
+        return tables.tableImplAsync(tableName)
                 .thenApply(table -> {
                     if (table == null) {
                         throw new IgniteInternalException(String.format("Did not find a table by name '%s'", tableName));
@@ -177,15 +177,15 @@ public class IgniteComputeImpl implements IgniteCompute {
                 });
     }
 
-    private ClusterNode leaderOfTablePartitionByTupleKey(Table table, Tuple key) {
+    private ClusterNode leaderOfTablePartitionByTupleKey(TableImpl table, Tuple key) {
         return requiredLeaderByPartition(table, table.partition(key));
     }
 
-    private <K> ClusterNode leaderOfTablePartitionByMappedKey(Table table, K key, Mapper<K> keyMapper) {
+    private <K> ClusterNode leaderOfTablePartitionByMappedKey(TableImpl table, K key, Mapper<K> keyMapper) {
         return requiredLeaderByPartition(table, table.partition(key, keyMapper));
     }
 
-    private ClusterNode requiredLeaderByPartition(Table table, int partitionIndex) {
+    private ClusterNode requiredLeaderByPartition(TableImpl table, int partitionIndex) {
         ClusterNode leaderNode = table.leaderAssignment(partitionIndex);
         if (leaderNode == null) {
             throw new IgniteInternalException("Leader not found for partition " + partitionIndex);

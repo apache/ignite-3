@@ -21,6 +21,7 @@ import static java.util.Collections.singleton;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,12 +30,12 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class IgniteComputeImplTest {
     private TopologyService topologyService;
 
     @Mock
-    private IgniteTables igniteTables;
+    private IgniteTablesInternal igniteTables;
 
     @Mock
     private ComputeComponent computeComponent;
@@ -58,7 +59,7 @@ class IgniteComputeImplTest {
     private IgniteComputeImpl compute;
 
     @Mock
-    private Table table;
+    private TableImpl table;
 
     private final ClusterNode localNode = new ClusterNode("local", "local", new NetworkAddress("local-host", 1, "local"));
     private final ClusterNode remoteNode = new ClusterNode("remote", "remote", new NetworkAddress("remote-host", 1, "remote"));
@@ -100,9 +101,9 @@ class IgniteComputeImplTest {
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToTupleKey() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableAsync("PUBLIC.test")).thenReturn(CompletableFuture.completedFuture(table));
-        when(table.partition(any())).thenReturn(42);
-        when(table.leaderAssignment(42)).thenReturn(remoteNode);
+        when(igniteTables.tableImplAsync("PUBLIC.test")).thenReturn(CompletableFuture.completedFuture(table));
+        doReturn(42).when(table).partition(any());
+        doReturn(remoteNode).when(table).leaderAssignment(42);
 
         String result = compute.executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), SimpleJob.class, "a", 42).get();
 
@@ -113,9 +114,9 @@ class IgniteComputeImplTest {
     void executesColocatedOnLeaderNodeOfPartitionCorrespondingToMappedKey() throws Exception {
         respondWhenExecutingSimpleJobRemotely();
 
-        when(igniteTables.tableAsync("PUBLIC.test")).thenReturn(CompletableFuture.completedFuture(table));
-        when(table.partition(any(), any())).thenReturn(42);
-        when(table.leaderAssignment(42)).thenReturn(remoteNode);
+        when(igniteTables.tableImplAsync("PUBLIC.test")).thenReturn(CompletableFuture.completedFuture(table));
+        doReturn(42).when(table).partition(any(), any());
+        doReturn(remoteNode).when(table).leaderAssignment(42);
 
         String result = compute.executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), SimpleJob.class, "a", 42).get();
 

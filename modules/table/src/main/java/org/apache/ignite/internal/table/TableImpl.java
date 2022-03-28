@@ -108,8 +108,12 @@ public class TableImpl implements Table {
         return new KeyValueBinaryViewImpl(tbl, schemaReg);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns a partition for a key tuple.
+     *
+     * @param key The tuple.
+     * @return The partition.
+     */
     public int partition(Tuple key) {
         Objects.requireNonNull(key);
 
@@ -122,8 +126,13 @@ public class TableImpl implements Table {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns a partition for a key.
+     *
+     * @param key The key.
+     * @param keyMapper Key mapper
+     * @return The partition.
+     */
     public <K> int partition(K key, Mapper<K> keyMapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
@@ -139,8 +148,13 @@ public class TableImpl implements Table {
         return tbl.partition(keyRow);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
+     * it cannot be found.
+     *
+     * @param partition partition number
+     * @return leader node of the partition group corresponding to the partition
+     */
     public ClusterNode leaderAssignment(int partition) {
         return tbl.leaderAssignment(partition);
     }
