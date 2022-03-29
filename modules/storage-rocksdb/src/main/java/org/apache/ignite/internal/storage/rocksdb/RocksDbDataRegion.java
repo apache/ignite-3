@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema.ROCKSDB_CLOCK_CACHE;
-import static org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema.ROCKSDB_DATA_REGION_TYPE;
-import static org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_CLOCK_CACHE;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
 
 import java.util.Locale;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionView;
-import org.apache.ignite.internal.storage.engine.DataRegion;
+import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.ClockCache;
@@ -34,7 +33,7 @@ import org.rocksdb.WriteBufferManager;
 /**
  * Data region implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
  */
-public class RocksDbDataRegion implements DataRegion {
+public class RocksDbDataRegion implements IgniteComponent {
     /** Region configuration. */
     private final RocksDbDataRegionConfiguration cfg;
 
@@ -51,14 +50,12 @@ public class RocksDbDataRegion implements DataRegion {
      */
     public RocksDbDataRegion(RocksDbDataRegionConfiguration cfg) {
         this.cfg = cfg;
-
-        assert ROCKSDB_DATA_REGION_TYPE.equalsIgnoreCase(cfg.type().value());
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        RocksDbDataRegionView dataRegionView = (RocksDbDataRegionView) cfg.value();
+        RocksDbDataRegionView dataRegionView = cfg.value();
 
         long writeBufferSize = dataRegionView.writeBufferSize();
 
@@ -90,8 +87,6 @@ public class RocksDbDataRegion implements DataRegion {
 
     /**
      * Returns write buffer manager associated withthe region.
-     *
-     * @return Write buffer manager associated withthe region.
      */
     public WriteBufferManager writeBufferManager() {
         return writeBufferManager;

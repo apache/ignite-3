@@ -25,6 +25,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
  * Memory allocator that allocates data in offheap using {@link sun.misc.Unsafe}.
  */
 @PolymorphicConfigInstance(UNSAFE_MEMORY_ALLOCATOR_TYPE)
+// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
 public class UnsafeMemoryAllocatorConfigurationSchema extends MemoryAllocatorConfigurationSchema {
     public static final String UNSAFE_MEMORY_ALLOCATOR_TYPE = "unsafe";
 }

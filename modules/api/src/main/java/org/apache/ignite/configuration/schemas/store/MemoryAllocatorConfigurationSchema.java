@@ -26,6 +26,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
  * Configuration schema for memory allocation strategies.
  */
 @PolymorphicConfig
+// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
 public class MemoryAllocatorConfigurationSchema {
     @PolymorphicId(hasDefault = true)
     public String type = UNSAFE_MEMORY_ALLOCATOR_TYPE;

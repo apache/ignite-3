@@ -32,11 +32,6 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.NamedListView;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
@@ -48,6 +43,9 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageChange;
+import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
+import org.apache.ignite.internal.schema.configuration.schema.TestRocksDbDataStorageConfigurationSchema;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,77 +66,47 @@ public class TableValidatorImplTest {
             + "    indices.foo {type = HASH, name = foo, colNames = [id]}"
             + "}",
             polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class
+                    HashIndexConfigurationSchema.class,
+                    SortedIndexConfigurationSchema.class,
+                    PartialIndexConfigurationSchema.class,
+                    TestRocksDbDataStorageConfigurationSchema.class,
+                    TestDataStorageConfigurationSchema.class
             }
     )
     private TablesConfiguration tablesCfg;
 
     /** Tests that validator finds no issues in a simple valid configuration. */
     @Test
-    public void testNoIssues(
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataStorageConfiguration dbCfg
-    ) {
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(null, dbCfg.value());
+    public void testNoIssues() {
+        ValidationContext<NamedListView<TableView>> ctx = mockContext(null);
 
         ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
 
         assertThat(issuesCaptor.getAllValues(), is(empty()));
     }
 
-    /** Tests that the validator catches nonexistent data regions. */
+    /** Tests that new data storage must have the same. */
     @Test
-    public void testMissingDataRegion(
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataStorageConfiguration dbCfg
-    ) throws Exception {
-        tablesCfg.tables().get("table").dataRegion().update("r0").get(1, TimeUnit.SECONDS);
-
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(null, dbCfg.value());
-
-        ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
-
-        assertEquals(1, issuesCaptor.getAllValues().size());
-
-        assertEquals(
-                "Data region 'r0' configured for table 'schema.table' isn't found",
-                issuesCaptor.getValue().message()
-        );
-    }
-
-    /** Tests that new data region must have the same type. */
-    @Test
-    public void testChangeDataRegionType(
-            @InjectConfiguration(
-                    value = "mock.regions.r0.type = pagemem",
-                    polymorphicExtensions = {
-                            RocksDbDataRegionConfigurationSchema.class, PageMemoryDataRegionConfigurationSchema.class,
-                            UnsafeMemoryAllocatorConfigurationSchema.class
-                    })
-                    DataStorageConfiguration dbCfg
-    ) throws Exception {
+    public void testChangeDataStorage() throws Exception {
         NamedListView<TableView> oldValue = tablesCfg.tables().value();
 
-        tablesCfg.tables().get("table").dataRegion().update("r0").get(1, TimeUnit.SECONDS);
+        tablesCfg.tables().get("table").dataStorage().change(c -> c.convert(TestDataStorageChange.class)).get(1, TimeUnit.SECONDS);
 
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue, dbCfg.value());
+        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue);
 
         ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
 
         assertEquals(1, issuesCaptor.getAllValues().size());
 
         assertEquals(
-                "Unable to move table 'schema.table' from region 'default' to region 'r0' because it has"
-                        + " different type (old=rocksdb, new=pagemem)",
+                "Unable to change data storage from 'rocksdb' to 'test_data_storage' for table 'schema.table'",
                 issuesCaptor.getValue().message()
         );
     }
 
-    /**
-     * Tests that column names and column keys inside a Named List must be equal.
-     */
+    /** Tests that column names and column keys inside a Named List must be equal. */
     @Test
-    void testMisalignedColumnNamedListKeys(
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataStorageConfiguration dbCfg
-    ) {
+    void testMisalignedColumnNamedListKeys() {
         NamedListView<TableView> oldValue = tablesCfg.tables().value();
 
         TableConfiguration tableCfg = tablesCfg.tables().get("table");
@@ -152,7 +120,7 @@ public class TableValidatorImplTest {
 
         assertThat(tableChangeFuture, willBe(nullValue(Void.class)));
 
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue, dbCfg.value());
+        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue);
 
         ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
 
@@ -164,13 +132,9 @@ public class TableValidatorImplTest {
         );
     }
 
-    /**
-     * Tests that index names and index keys inside a Named List must be equal.
-     */
+    /** Tests that index names and index keys inside a Named List must be equal. */
     @Test
-    void testMisalignedIndexNamedListKeys(
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataStorageConfiguration dbCfg
-    ) {
+    void testMisalignedIndexNamedListKeys() {
         NamedListView<TableView> oldValue = tablesCfg.tables().value();
 
         TableConfiguration tableCfg = tablesCfg.tables().get("table");
@@ -184,7 +148,7 @@ public class TableValidatorImplTest {
 
         assertThat(tableChangeFuture, willBe(nullValue(Void.class)));
 
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue, dbCfg.value());
+        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue);
 
         ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
 
@@ -196,16 +160,8 @@ public class TableValidatorImplTest {
         );
     }
 
-    /**
-     * Mocks validation context.
-     *
-     * @param oldValue  Old value of configuration.
-     * @param dbCfgView Data storage configuration to register it by {@link DataStorageConfiguration#KEY}.
-     * @return Mocked validation context.
-     */
     private ValidationContext<NamedListView<TableView>> mockContext(
-            @Nullable NamedListView<TableView> oldValue,
-            DataStorageView dbCfgView
+            @Nullable NamedListView<TableView> oldValue
     ) {
         ValidationContext<NamedListView<TableView>> ctx = mock(ValidationContext.class);
 
@@ -213,9 +169,6 @@ public class TableValidatorImplTest {
 
         when(ctx.getOldValue()).thenReturn(oldValue);
         when(ctx.getNewValue()).thenReturn(newValue);
-
-        when(ctx.getOldRoot(DataStorageConfiguration.KEY)).thenReturn(dbCfgView);
-        when(ctx.getNewRoot(DataStorageConfiguration.KEY)).thenReturn(dbCfgView);
 
         return ctx;
     }

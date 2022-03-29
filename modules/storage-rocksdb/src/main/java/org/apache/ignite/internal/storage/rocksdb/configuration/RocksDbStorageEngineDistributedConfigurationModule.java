@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.storage.rocksdb.configuration;
 
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-api.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-rocksdb.
  */
-public class CoreDistributedConfigurationModule implements ConfigurationModule {
+public class RocksDbStorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
@@ -42,21 +38,12 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(
-                ClusterConfiguration.KEY,
-                TablesConfiguration.KEY
-        );
+        return List.of(RocksDbStorageEngineConfiguration.KEY);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(
-                HashIndexConfigurationSchema.class,
-                SortedIndexConfigurationSchema.class,
-                PartialIndexConfigurationSchema.class,
-                PageMemoryDataRegionConfigurationSchema.class,
-                UnsafeMemoryAllocatorConfigurationSchema.class
-        );
+        return List.of(RocksDbDataStorageConfigurationSchema.class);
     }
 }

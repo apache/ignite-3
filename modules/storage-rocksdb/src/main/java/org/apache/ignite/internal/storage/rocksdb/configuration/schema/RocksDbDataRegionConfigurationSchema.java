@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
-import static org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema.ROCKSDB_DATA_REGION_TYPE;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
@@ -27,16 +26,17 @@ import org.apache.ignite.configuration.validation.OneOf;
 /**
  * Data region configuration for rocksdb storage engine.
  */
-@PolymorphicConfigInstance(ROCKSDB_DATA_REGION_TYPE)
-public class RocksDbDataRegionConfigurationSchema extends DataRegionConfigurationSchema {
-    /** Type of the RocksDB data region. */
-    public static final String ROCKSDB_DATA_REGION_TYPE = "rocksdb";
-
+@Config
+public class RocksDbDataRegionConfigurationSchema {
     /** Cache type for the RocksDB LRU cache. */
     public static final String ROCKSDB_LRU_CACHE = "lru";
 
     /** Cache type for the RocksDB LRU cache. */
     public static final String ROCKSDB_CLOCK_CACHE = "clock";
+
+    /** Name of the data region. */
+    @InjectedName
+    public String name;
 
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)

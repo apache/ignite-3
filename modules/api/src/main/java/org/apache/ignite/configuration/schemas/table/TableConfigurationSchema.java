@@ -17,12 +17,11 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -49,9 +48,9 @@ public class TableConfigurationSchema {
     @Value(hasDefault = true)
     public int replicas = 1;
 
-    /** Data region. */
-    @Value(hasDefault = true)
-    public String dataRegion = DEFAULT_DATA_REGION_NAME;
+    /** Data storage configuration. */
+    @ConfigValue
+    public DataStorageConfigurationSchema dataStorage;
 
     /** Columns configuration. */
     @NamedConfigValue

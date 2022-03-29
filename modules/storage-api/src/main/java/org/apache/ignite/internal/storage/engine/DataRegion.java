@@ -23,5 +23,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
  * Interface that represents Ignite data region. Data region is a memory segment of fixed size, usually located offheap,
  * that caches user data in memory.
  */
+// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
 public interface DataRegion extends IgniteComponent {
 }

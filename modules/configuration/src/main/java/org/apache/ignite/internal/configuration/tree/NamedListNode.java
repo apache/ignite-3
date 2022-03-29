@@ -153,7 +153,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         checkNewKey(key);
 
-        ElementDescriptor element = newElementDescriptor(key);
+        ElementDescriptor element = newElementDescriptorWithAddDefaults(key);
 
         map.put(key, element);
 
@@ -176,7 +176,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         checkNewKey(key);
 
-        ElementDescriptor element = newElementDescriptor(key);
+        ElementDescriptor element = newElementDescriptorWithAddDefaults(key);
 
         map.putByIndex(index, key, element);
 
@@ -204,7 +204,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
         checkNewKey(key);
 
-        ElementDescriptor element = newElementDescriptor(key);
+        ElementDescriptor element = newElementDescriptorWithAddDefaults(key);
 
         map.putAfter(precedingKey, key, element);
 
@@ -228,7 +228,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
         }
 
         if (element == null) {
-            element = newElementDescriptor(key);
+            element = newElementDescriptorWithAddDefaults(key);
 
             reverseIdMap.put(element.internalId, key);
         } else {
@@ -425,7 +425,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             }
 
             if (element == null) {
-                element = newElementDescriptor(key);
+                element = newElementDescriptorWithoutAddDefaults(key);
 
                 reverseIdMap.put(element.internalId, key);
 
@@ -437,6 +437,8 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
                     if (polymorphicTypeId != null) {
                         polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
                     } else {
+                        polymorphicInnerNode.constructDefault(typeIdFieldName);
+
                         // check if the Type ID node has already been created by the 'setDefaults' method
                         Object typeIdNode = polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true);
 
@@ -467,6 +469,9 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             value.setInjectedNameFieldValue(key);
 
             src.descend(value);
+
+            // TODO: IGNITE-16691 Починить проблему позже, кажется это должен быть один вызов а их много
+            addDefaults(value);
         }
     }
 
@@ -480,12 +485,27 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
      * Creates new element instance with initialized defaults.
      *
      * @param key K Key for the value to be created.
-     * @return New element instance with initialized defaults.
      */
-    private NamedListNode.ElementDescriptor newElementDescriptor(String key) {
+    private NamedListNode.ElementDescriptor newElementDescriptorWithAddDefaults(String key) {
         InnerNode newElement = valSupplier.get();
 
         addDefaults(newElement);
+
+        newElement.setInjectedNameFieldValue(key);
+
+        newElement.internalId(generateInternalId());
+
+        return new ElementDescriptor(newElement);
+    }
+
+    /**
+     * Creates new element instance without initialized defaults.
+     *
+     * @param key K Key for the value to be created.
+     */
+    // TODO: IGNITE-16691 Потом внимательно изучи и поправь!!! 
+    private NamedListNode.ElementDescriptor newElementDescriptorWithoutAddDefaults(String key) {
+        InnerNode newElement = valSupplier.get();
 
         newElement.setInjectedNameFieldValue(key);
 

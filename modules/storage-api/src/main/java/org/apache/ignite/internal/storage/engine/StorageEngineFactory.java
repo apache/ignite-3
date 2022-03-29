@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import java.nio.file.Path;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
- * Configuration schema for data storage.
+ * Factory for creating storage engines.
  */
-@PolymorphicConfig
-public class DataStorageConfigurationSchema {
-    /** Default data storage name. */
-    public static final String DEFAULT_DATA_STORAGE_NAME = "rocksdb";
-
-    /** Type of data storage. */
-    @PolymorphicId(hasDefault = true)
-    public String name = DEFAULT_DATA_STORAGE_NAME;
+public interface StorageEngineFactory {
+    /**
+     * Creates a new storage engine.
+     *
+     * @param configRegistry Configuration register.
+     * @param storagePath Storage path.
+     * @throws StorageException If there is an error when creating the storage engine.
+     */
+    StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException;
 }

@@ -2906,7 +2906,8 @@ public class ConfigurationAsmGenerator {
                                 .ifTrue(thisField.invoke(changeMethodName(polymorphicIdField.getName()), void.class, tmpStrVar))
                                 .ifFalse(new BytecodeBlock()
                                         .append(thisField.invoke(CONSTRUCT_DEFAULT_MTD, constantString(polymorphicIdField.getName())))
-                                        .append(new IfStatement()
+                                        .append(
+                                                new IfStatement()
                                                 .condition(isNull(thisField.getField(polymorphicIdField.getName(), String.class)))
                                                 .ifTrue(throwException(
                                                         IllegalStateException.class,

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration.schemas.store;
 
-import static org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema.ROCKSDB_DATA_REGION_TYPE;
+import static org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema.PAGE_MEMORY_DATA_REGION_TYPE;
 
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -28,11 +28,12 @@ import org.apache.ignite.configuration.validation.Immutable;
  * Configuration schema for data region.
  */
 @PolymorphicConfig
+// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
 public class DataRegionConfigurationSchema {
     /** Type for the future polymorphic configuration schemas. */
     @Immutable
     @PolymorphicId(hasDefault = true)
-    public String type = ROCKSDB_DATA_REGION_TYPE;
+    public String type = PAGE_MEMORY_DATA_REGION_TYPE;
 
     /** Name of the data region. */
     @InjectedName

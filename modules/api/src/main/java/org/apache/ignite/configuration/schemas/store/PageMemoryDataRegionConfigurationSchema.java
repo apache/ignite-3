@@ -29,6 +29,7 @@ import org.apache.ignite.configuration.validation.OneOf;
  * Data region configuration for Page Memory storage engine.
  */
 @PolymorphicConfigInstance(PAGE_MEMORY_DATA_REGION_TYPE)
+// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
 public class PageMemoryDataRegionConfigurationSchema extends DataRegionConfigurationSchema {
     /** Type of the Page Memory data region. */
     public static final String PAGE_MEMORY_DATA_REGION_TYPE = "pagemem";

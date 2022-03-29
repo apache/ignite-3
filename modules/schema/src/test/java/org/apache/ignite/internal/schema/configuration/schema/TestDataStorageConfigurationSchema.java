@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.schema.configuration.schema;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 
 /**
- * Configuration schema for data storage.
+ * Test data storage configuration schema for tables.
  */
-@PolymorphicConfig
-public class DataStorageConfigurationSchema {
-    /** Default data storage name. */
-    public static final String DEFAULT_DATA_STORAGE_NAME = "rocksdb";
-
-    /** Type of data storage. */
-    @PolymorphicId(hasDefault = true)
-    public String name = DEFAULT_DATA_STORAGE_NAME;
+@PolymorphicConfigInstance("test_data_storage")
+public class TestDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }
