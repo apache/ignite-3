@@ -95,7 +95,7 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
      * Check colocation by one column for all types.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
-    @ParameterizedTest(name = "qtype=" + ARGUMENTS_PLACEHOLDER)
+    @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
     @EnumSource(
             value = NativeTypeSpec.class,
             names = {"INT8", "UUID", "BITMASK", "DECIMAL", "NUMBER", "TIMESTAMP", "BYTES"},
