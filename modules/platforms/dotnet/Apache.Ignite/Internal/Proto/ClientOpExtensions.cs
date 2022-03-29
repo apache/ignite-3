@@ -54,6 +54,9 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TxBegin => null,
                 ClientOp.TxCommit => null,
                 ClientOp.TxRollback => null,
+                ClientOp.Heartbeat => null,
+
+                // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
             };
         }

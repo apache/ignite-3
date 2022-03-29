@@ -525,79 +525,75 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenRun(() -> {
-            try {
-                Int2ObjectOpenHashMap<RaftGroupService> partitionMap = new Int2ObjectOpenHashMap<>(partitions);
+            Int2ObjectOpenHashMap<RaftGroupService> partitionMap = new Int2ObjectOpenHashMap<>(partitions);
 
-                for (int p = 0; p < partitions; p++) {
-                    CompletableFuture<RaftGroupService> future = partitionsGroupsFutures.get(p);
+            for (int p = 0; p < partitions; p++) {
+                CompletableFuture<RaftGroupService> future = partitionsGroupsFutures.get(p);
 
-                    assert future.isDone();
+                assert future.isDone();
 
-                    RaftGroupService service = future.join();
+                RaftGroupService service = future.join();
 
-                    partitionMap.put(p, service);
+                partitionMap.put(p, service);
+            }
+
+            InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver,
+                    txManager, tableStorage);
+
+            var schemaRegistry = new SchemaRegistryImpl(v -> {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteException(new NodeStoppingException());
                 }
 
-                InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver,
-                        txManager, tableStorage);
+                try {
+                    return tableSchema(tblId, v);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }, () -> {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteException(new NodeStoppingException());
+                }
 
-                var schemaRegistry = new SchemaRegistryImpl(v -> {
-                    if (!busyLock.enterBusy()) {
-                        throw new IgniteException(new NodeStoppingException());
-                    }
+                try {
+                    return latestSchemaVersion(tblId);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
 
-                    try {
-                        return tableSchema(tblId, v);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                }, () -> {
-                    if (!busyLock.enterBusy()) {
-                        throw new IgniteException(new NodeStoppingException());
-                    }
+            schemaRegistry.onSchemaRegistered(schemaDesc);
 
-                    try {
-                        return latestSchemaVersion(tblId);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
+            var table = new TableImpl(
+                    internalTable,
+                    schemaRegistry
+            );
 
-                schemaRegistry.onSchemaRegistered(schemaDesc);
+            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
 
-                var table = new TableImpl(
-                        internalTable,
-                        schemaRegistry
-                );
+            tablesVv.update(causalityToken, previous -> {
+                var val = previous == null ? new HashMap() : new HashMap<>(previous);
 
-                tablesVv.update(causalityToken, previous -> {
-                    var val = previous == null ? new HashMap() : new HashMap<>(previous);
+                val.put(name, table);
 
-                    val.put(name, table);
+                return val;
+            }, th -> {
+                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
+                        th);
+            });
 
-                    return val;
-                }, th -> {
-                    throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
-                            th);
-                });
+            tablesByIdVv.update(causalityToken, previous -> {
+                var val = previous == null ? new HashMap() : new HashMap<>(previous);
 
-                tablesByIdVv.update(causalityToken, previous -> {
-                    var val = previous == null ? new HashMap() : new HashMap<>(previous);
+                val.put(tblId, table);
 
-                    val.put(tblId, table);
+                return val;
+            }, th -> {
+                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
+                        th);
+            });
 
-                    return val;
-                }, th -> {
-                    throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
-                            th);
-                });
-
-                completeApiCreateFuture(table);
-
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
-            } catch (Exception e) {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId, name), e);
-            }
+            completeApiCreateFuture(table);
         }).join();
     }
 

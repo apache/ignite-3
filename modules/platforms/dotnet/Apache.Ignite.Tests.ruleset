@@ -49,5 +49,8 @@
 
     <!-- DoNotCatchGeneralExceptionTypes -->
     <Rule Id="CA1031" Action="None" />
+
+    <!-- UnusedParameters -->
+    <Rule Id="CA1801" Action="None" />
   </Rules>
 </RuleSet>

@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -37,15 +36,13 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
     /**
      * Clear tables after each test.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @AfterEach
     @Override
     public void tearDown(TestInfo testInfo) throws Exception {
-        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
-            sql("DROP TABLE " + t.name());
-        }
+        dropAllTables();
 
         super.tearDownBase(testInfo);
     }

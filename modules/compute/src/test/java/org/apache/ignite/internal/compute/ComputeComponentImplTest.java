@@ -62,7 +62,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessageHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -354,10 +353,8 @@ class ComputeComponentImplTest {
         when(threadPoolSizeValue.value()).thenReturn(1);
     }
 
-    // TODO: IGNITE-16705 - enable this test
     @Test
-    @Disabled("IGNITE-16705")
-    void taskDropByExecutorServiceDueToStopCausesCancellationExceptionToBeReturnedViaFuture() throws Exception {
+    void stopCausesCancellationExceptionOnLocalExecution() throws Exception {
         restrictPoolSizeTo1();
 
         computeComponent = new ComputeComponentImpl(ignite, messagingService, computeConfiguration) {
@@ -382,7 +379,25 @@ class ComputeComponentImplTest {
         Object result = resultFuture.get(3, TimeUnit.SECONDS);
 
         assertThat(result, is(instanceOf(CancellationException.class)));
-        assertThat(((CancellationException) result).getMessage(), is("Cancelled due to node stop"));
+    }
+
+    @Test
+    void stopCausesCancellationExceptionOnRemoteExecution() throws Exception {
+        respondWithIncompleteFutureWhenExecuteRequestIsSent();
+
+        CompletableFuture<Object> resultFuture = computeComponent.executeRemotely(remoteNode, SimpleJob.class)
+                .handle((res, ex) -> ex != null ? ex : res);
+
+        computeComponent.stop();
+
+        Object result = resultFuture.get(3, TimeUnit.SECONDS);
+
+        assertThat(result, is(instanceOf(CancellationException.class)));
+    }
+
+    private void respondWithIncompleteFutureWhenExecuteRequestIsSent() {
+        when(messagingService.invoke(any(ClusterNode.class), any(ExecuteRequest.class), anyLong()))
+                .thenReturn(new CompletableFuture<>());
     }
 
     @Test

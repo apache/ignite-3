@@ -24,6 +24,8 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -43,6 +45,7 @@ import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.lang.IgniteException;
@@ -59,6 +62,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private static final Collection<ProtocolVersion> supportedVers = Collections.singletonList(
             ProtocolVersion.V3_0_0
     );
+
+    /** Minimum supported heartbeat interval. */
+    private static final long MIN_RECOMMENDED_HEARTBEAT_INTERVAL = 500;
 
     /** Protocol context. */
     private volatile ProtocolContext protocolCtx;
@@ -81,6 +87,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Connect timeout in milliseconds. */
     private final long connectTimeout;
 
+    /** Heartbeat timer. */
+    private final Timer heartbeatTimer;
+
+    /** Last send operation timestamp. */
+    private volatile long lastSendMillis;
+
     /**
      * Constructor.
      *
@@ -99,6 +111,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         sock = connMgr.open(cfg.getAddress(), this, this);
 
         handshake(DEFAULT_VERSION);
+
+        // Netty has a built-in IdleStateHandler to detect idle connections (used on the server side).
+        // However, to adjust the heartbeat interval dynamically, we have to use a timer here.
+        heartbeatTimer = initHeartbeat(cfg.clientConfiguration().heartbeatInterval());
     }
 
     /** {@inheritDoc} */
@@ -112,6 +128,13 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(Exception cause) {
         if (closed.compareAndSet(false, true)) {
+            // Disconnect can happen before we initialize the timer.
+            var timer = heartbeatTimer;
+
+            if (timer != null) {
+                timer.cancel();
+            }
+
             sock.close();
 
             for (ClientRequestFuture pendingReq : pendingReqs.values()) {
@@ -123,7 +146,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
-        processNextMessage(buf);
+        try {
+            processNextMessage(buf);
+        } catch (Throwable t) {
+            buf.release();
+            throw t;
+        }
     }
 
     /** {@inheritDoc} */
@@ -207,7 +235,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
         return pendingReq.thenApplyAsync(payload -> {
-            if (payload == null || payloadReader == null) {
+            if (payload == null) {
+                return null;
+            }
+
+            if (payloadReader == null) {
+                payload.close();
                 return null;
             }
 
@@ -339,10 +372,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Returns protocol context for a version.
      *
      * @param ver Protocol version.
+     * @param serverIdleTimeout Server idle timeout.
      * @return Protocol context for a version.
      */
-    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver) {
-        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet());
+    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver, long serverIdleTimeout) {
+        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout);
     }
 
     /** Receive and handle handshake response. */
@@ -381,20 +415,86 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
 
-            protocolCtx = protocolContextFromVersion(srvVer);
+            var serverIdleTimeout = unpacker.unpackLong();
+
+            protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout);
         }
     }
 
     /** Write bytes to the output stream. */
     private ChannelFuture write(ClientMessagePacker packer) throws IgniteClientConnectionException {
+        lastSendMillis = System.currentTimeMillis();
+
         var buf = packer.getBuffer();
 
         return sock.send(buf);
     }
 
     /**
+     * Initializes heartbeats.
+     *
+     * @param configuredInterval Configured heartbeat interval, in milliseconds.
+     * @return Heartbeat timer.
+     */
+    private Timer initHeartbeat(long configuredInterval) {
+        long heartbeatInterval = getHeartbeatInterval(configuredInterval);
+
+        Timer timer = new Timer("tcp-client-channel-heartbeats-" + hashCode());
+
+        timer.schedule(new HeartbeatTask(heartbeatInterval), heartbeatInterval, heartbeatInterval);
+
+        return timer;
+    }
+
+    /**
+     * Gets the heartbeat interval based on the configured value and served-side idle timeout.
+     *
+     * @param configuredInterval Configured interval.
+     * @return Resolved interval.
+     */
+    private long getHeartbeatInterval(long configuredInterval) {
+        long serverIdleTimeoutMs = protocolCtx.getServerIdleTimeout();
+
+        if (serverIdleTimeoutMs <= 0) {
+            return configuredInterval;
+        }
+
+        long recommendedHeartbeatInterval = serverIdleTimeoutMs / 3;
+
+        if (recommendedHeartbeatInterval < MIN_RECOMMENDED_HEARTBEAT_INTERVAL) {
+            recommendedHeartbeatInterval = MIN_RECOMMENDED_HEARTBEAT_INTERVAL;
+        }
+
+        return Math.min(configuredInterval, recommendedHeartbeatInterval);
+    }
+
+    /**
      * Client request future.
      */
     private static class ClientRequestFuture extends CompletableFuture<ClientMessageUnpacker> {
+    }
+
+    /**
+     * Sends heartbeat messages.
+     */
+    private class HeartbeatTask extends TimerTask {
+        /** Heartbeat interval. */
+        private final long interval;
+
+        /** Constructor. */
+        public HeartbeatTask(long interval) {
+            this.interval = interval;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void run() {
+            try {
+                if (System.currentTimeMillis() - lastSendMillis > interval) {
+                    serviceAsync(ClientOp.HEARTBEAT, null, null);
+                }
+            } catch (Throwable ignored) {
+                // Ignore failed heartbeats.
+            }
+        }
     }
 }

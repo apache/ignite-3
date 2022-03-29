@@ -19,11 +19,17 @@ package org.apache.ignite.client.handler;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -143,9 +149,17 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        if (configuration.idleTimeout() > 0) {
+                            IdleStateHandler idleStateHandler = new IdleStateHandler(
+                                    configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+
+                            ch.pipeline().addLast(idleStateHandler);
+                            ch.pipeline().addLast(new IdleChannelHandler());
+                        }
+
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                new ClientInboundMessageHandler(igniteTables, igniteTransactions, queryProcessor));
+                                new ClientInboundMessageHandler(igniteTables, igniteTransactions, queryProcessor, configuration));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -175,5 +189,16 @@ public class ClientHandlerModule implements IgniteComponent {
         LOG.info("Thin client protocol started successfully on port " + port);
 
         return ch.closeFuture();
+    }
+
+    /** Idle channel state handler. */
+    private static class IdleChannelHandler extends ChannelDuplexHandler {
+        /** {@inheritDoc} */
+        @Override
+        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+            if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+                ctx.close();
+            }
+        }
     }
 }

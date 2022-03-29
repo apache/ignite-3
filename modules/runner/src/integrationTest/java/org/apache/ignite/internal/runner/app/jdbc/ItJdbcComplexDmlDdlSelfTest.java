@@ -31,13 +31,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Base class for complex SQL tests based on JDBC driver.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
     /** Names of companies to use. */
     private static final List<String> COMPANIES = Arrays.asList("ASF", "GNU", "BSD");

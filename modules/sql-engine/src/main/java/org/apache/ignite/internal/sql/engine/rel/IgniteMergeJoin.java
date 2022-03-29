@@ -23,7 +23,6 @@ import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
 
-import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -174,7 +173,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         return List.of(
                 Pair.of(
                         nodeTraits.replace(desiredCollation),
-                        ImmutableList.of(
+                        List.of(
                                 left.replace(leftCollation),
                                 right.replace(rightCollation)
                         )
@@ -260,7 +259,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
 
         return Pair.of(
                 required.replace(nodeCollation),
-                ImmutableList.of(
+                List.of(
                         left.replace(leftCollation),
                         right.replace(rightCollation)
                 )
@@ -321,7 +320,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
     ) {
         return Pair.of(
                 nodeTraits.replace(EMPTY),
-                ImmutableList.of(
+                List.of(
                         leftInputTraits.replace(RelCollations.of(joinInfo.leftKeys)),
                         rightInputTraits.replace(RelCollations.of(joinInfo.rightKeys))
                 )

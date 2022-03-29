@@ -20,9 +20,12 @@ package org.apache.ignite.internal.runner.app;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
+import java.util.List;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -36,19 +39,25 @@ public class IgniteCliRunnerTest {
     public void runnerArgsSmokeTest(@WorkDirectory Path workDir) throws Exception {
         Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
 
-        assertNotNull(IgniteCliRunner.start(
+        Ignite ign1 = IgniteCliRunner.start(
                 new String[]{
                         "--config", configPath.toAbsolutePath().toString(),
                         "--work-dir", workDir.resolve("node1").toAbsolutePath().toString(),
                         "node1"
                 }
-        ));
+        );
 
-        assertNotNull(IgniteCliRunner.start(
+        assertNotNull(ign1);
+
+        Ignite ign2 = IgniteCliRunner.start(
                 new String[]{
                         "--work-dir", workDir.resolve("node2").toAbsolutePath().toString(),
                         "node2"
                 }
-        ));
+        );
+
+        assertNotNull(ign2);
+
+        IgniteUtils.closeAll(List.of(ign1, ign2));
     }
 }
