@@ -58,6 +58,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for the data colocation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@Disabled("Debug")
 public class ItColocationTest extends AbstractBasicIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;
