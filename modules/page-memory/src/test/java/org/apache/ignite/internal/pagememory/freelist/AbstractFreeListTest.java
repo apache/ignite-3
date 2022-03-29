@@ -184,7 +184,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                (PageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                fixConfiguration(dataRegionCfg),
                 ioRegistry
         );
     }

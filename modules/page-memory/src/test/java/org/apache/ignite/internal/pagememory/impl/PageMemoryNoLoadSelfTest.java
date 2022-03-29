@@ -317,7 +317,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
             provider,
-            (PageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+            fixConfiguration(dataRegionCfg),
             ioRegistry
         );
     }

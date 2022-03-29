@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fi
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.stream.LongStream;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -46,7 +45,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                (PageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 LongStream.range(0, 10).map(i -> 5 * MiB).toArray(),
                 new TestPageReadWriteManager(),

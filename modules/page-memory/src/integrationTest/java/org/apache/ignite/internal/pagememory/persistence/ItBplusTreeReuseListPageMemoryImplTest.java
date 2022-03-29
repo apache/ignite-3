@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
@@ -49,7 +48,7 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                (PageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),
