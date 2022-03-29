@@ -45,9 +45,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -58,19 +56,16 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for the data colocation.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16719")
 @ExtendWith(WorkDirectoryExtension.class)
-@Timeout(Long.MAX_VALUE)
 public class ItColocationTest extends AbstractBasicIntegrationTest {
     /** Rows count ot test. */
-    private static final int ROWS = 40;
+    private static final int ROWS = 10;
 
     /**
      * Excluded native types.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-            NativeTypeSpec.INT8,
             NativeTypeSpec.UUID,
             NativeTypeSpec.BITMASK,
             NativeTypeSpec.DECIMAL,
@@ -120,7 +115,6 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
         TableImpl tbl1 = (TableImpl) CLUSTER_NODES.get(0).tables().table("public.test1");
 
         for (int i = 0; i < parts; ++i) {
-            System.out.println("+++ Check part " + i);
             List<Tuple> r0 = getAll(tbl0, i);
 
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
@@ -164,7 +158,6 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
         };
 
         for (int i = 0; i < parts; ++i) {
-            System.out.println("+++ Check part " + i);
             List<Tuple> r0 = getAll(tbl0, i);
 
             Set<Tuple> ids0 = r0.stream().map(tupleColocationExtract).collect(Collectors.toSet());
