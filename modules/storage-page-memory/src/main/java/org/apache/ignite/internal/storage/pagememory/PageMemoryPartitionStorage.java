@@ -86,7 +86,11 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         int grpId = groupId(tableView);
 
         try {
+            // TODO: IGNITE-16641 It is necessary to do getting the tree root for the persistent case.
             long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX);
+
+            // TODO: IGNITE-16641 It is necessary to take into account the persistent case.
+            boolean initNew = true;
 
             tree = new TableTree(
                     grpId,
@@ -96,7 +100,8 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                     new AtomicLong(),
                     metaPageId,
                     freeList,
-                    partId
+                    partId,
+                    initNew
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error occurred while creating the partition storage", e);

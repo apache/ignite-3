@@ -60,6 +60,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
      * @param metaPageId Meta page ID.
      * @param reuseList Reuse list.
      * @param partId Partition id.
+     * @param initNew {@code True} if new tree should be created.
      */
     public TableTree(
             int grpId,
@@ -69,7 +70,8 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
             AtomicLong globalRmvId,
             long metaPageId,
             @Nullable ReuseList reuseList,
-            int partId
+            int partId,
+            boolean initNew
     ) throws IgniteInternalCheckedException {
         super(
                 "TableTree_" + grpId,
@@ -87,7 +89,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
         setIos(TableInnerIo.VERSIONS, TableLeafIo.VERSIONS, TableMetaIo.VERSIONS);
 
-        initTree(true);
+        initTree(initNew);
     }
 
     /** {@inheritDoc} */

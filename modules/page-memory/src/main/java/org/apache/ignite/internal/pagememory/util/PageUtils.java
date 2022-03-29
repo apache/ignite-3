@@ -293,7 +293,7 @@ public class PageUtils {
         assert buf != null;
 
         if (buf.isDirect()) {
-            GridUnsafe.copyMemory(buf, GridUnsafe.bufferAddress(buf), null, addr + off, buf.limit());
+            GridUnsafe.copyMemory(null, GridUnsafe.bufferAddress(buf), null, addr + off, buf.limit());
         } else {
             assert !buf.isReadOnly();
 
