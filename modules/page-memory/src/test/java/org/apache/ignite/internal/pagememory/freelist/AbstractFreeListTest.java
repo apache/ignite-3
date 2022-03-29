@@ -39,10 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -72,13 +69,8 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
     private static final int BATCH_SIZE = 100;
 
-    @InjectConfiguration(
-            value = "mock.type = pagemem",
-            polymorphicExtensions = {
-                    PageMemoryDataRegionConfigurationSchema.class,
-                    UnsafeMemoryAllocatorConfigurationSchema.class
-            })
-    private DataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    private PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -180,12 +172,9 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     }
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
-        dataRegionCfg.change(c ->
-                c.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(pageSize)
-                        .changeInitSize(MAX_SIZE)
-                        .changeMaxSize(MAX_SIZE)
-        ).get(1, TimeUnit.SECONDS);
+        dataRegionCfg
+                .change(c -> c.changePageSize(pageSize).changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE))
+                .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 

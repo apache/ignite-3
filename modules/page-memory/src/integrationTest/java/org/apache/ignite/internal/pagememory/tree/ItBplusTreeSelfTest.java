@@ -74,10 +74,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -144,13 +141,8 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
     private static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
 
-    @InjectConfiguration(
-            value = "mock.type = pagemem",
-            polymorphicExtensions = {
-                    PageMemoryDataRegionConfigurationSchema.class,
-                    UnsafeMemoryAllocatorConfigurationSchema.class
-            })
-    protected DataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    protected PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
     protected PageMemory pageMem;
@@ -2743,12 +2735,9 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c ->
-                c.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(PAGE_SIZE)
-                        .changeInitSize(MAX_MEMORY_SIZE)
-                        .changeMaxSize(MAX_MEMORY_SIZE)
-        ).get(1, TimeUnit.SECONDS);
+        dataRegionCfg
+                .change(c -> c.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
+                .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 

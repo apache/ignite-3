@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fi
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.stream.LongStream;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
@@ -37,12 +36,9 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     /** {@inheritDoc} */
     @Override
     protected PageMemory memory() throws Exception {
-        dataRegionCfg.change(cfg ->
-                cfg.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(PAGE_SIZE)
-                        .changeInitSize(MAX_MEMORY_SIZE)
-                        .changeMaxSize(MAX_MEMORY_SIZE)
-        ).get(1, SECONDS);
+        dataRegionCfg
+                .change(cfg -> cfg.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
+                .get(1, SECONDS);
 
         PageIoRegistry ioRegistry = new PageIoRegistry();
 

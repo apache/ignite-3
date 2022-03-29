@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
 import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
@@ -37,12 +36,9 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c ->
-                c.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(PAGE_SIZE)
-                        .changeInitSize(MAX_MEMORY_SIZE)
-                        .changeMaxSize(MAX_MEMORY_SIZE)
-        ).get(1, TimeUnit.SECONDS);
+        dataRegionCfg
+                .change(c -> c.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
+                .get(1, TimeUnit.SECONDS);
 
         long[] sizes = LongStream.range(0, CPUS + 1).map(i -> MAX_MEMORY_SIZE / CPUS).toArray();
 
