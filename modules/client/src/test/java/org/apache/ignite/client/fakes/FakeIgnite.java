@@ -93,6 +93,12 @@ public class FakeIgnite implements Ignite {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void close() {
         // No-op.
     }

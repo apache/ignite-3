@@ -457,6 +457,12 @@ public class IgniteImpl implements Ignite {
         return clusterSvc.topologyService().allMembers();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
+        return CompletableFuture.completedFuture(clusterNodes());
+    }
+
     /**
      * Returns node configuration.
      */
