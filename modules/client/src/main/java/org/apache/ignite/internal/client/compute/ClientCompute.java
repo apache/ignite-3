@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -44,14 +45,24 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        // TODO There is no public API to get cluster nodes, so we ignore that part for now.
         return null;
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        return null;
+        // TODO Add simple public API to retrieve cluster nodes.
+        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
+            w.out().packArrayHeader(nodes.size());
+
+            for (var n : nodes) {
+                w.out().packString(n.id());
+            }
+
+            w.out().packString(jobClassName);
+            w.out().packArrayHeader(args.length);
+            w.out().packObjectArray(args);
+        }, r -> (R)r.in().unpackObject(r.in().unpackInt()));
     }
 
     /** {@inheritDoc} */
