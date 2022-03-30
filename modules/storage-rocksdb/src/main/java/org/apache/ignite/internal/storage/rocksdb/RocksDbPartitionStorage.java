@@ -62,6 +62,8 @@ class RocksDbPartitionStorage implements PartitionStorage {
      */
     private static final int PARTITION_KEY_PREFIX_SIZE = Short.BYTES + Integer.BYTES;
 
+    private static final byte[] EMPTY_VAL = new byte[0];
+
     /**
      * Partition ID (should be treated as an unsigned short).
      *
@@ -348,6 +350,41 @@ class RocksDbPartitionStorage implements PartitionStorage {
                 IgniteUtils.closeAll(options, upperBound);
             }
         };
+    }
+
+    // TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
+    @Override
+    public long rowsCount() {
+        var upperBound = new Slice(partitionEndPrefix());
+
+        var options = new ReadOptions().setIterateUpperBound(upperBound);
+
+        RocksIterator it = data.newIterator(options);
+
+        it.seek(partitionStartPrefix());
+
+        ScanCursor it0 = new ScanCursor(it, t -> true) {
+            @Override
+            public void close() throws Exception {
+                super.close();
+
+                IgniteUtils.closeAll(options, upperBound);
+            }
+
+            @Override
+            protected DataRow decodeEntry(byte[] key, byte[] value) {
+                return new SimpleDataRow(EMPTY_VAL, EMPTY_VAL);
+            }
+        };
+
+        long size = 0;
+
+        while (it0.hasNext()) {
+            ++size;
+            it0.next();
+        }
+
+        return size;
     }
 
     /** {@inheritDoc} */
