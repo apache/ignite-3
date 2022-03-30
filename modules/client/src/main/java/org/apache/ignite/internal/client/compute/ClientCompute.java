@@ -44,6 +44,7 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
+        // TODO There is no public API to get cluster nodes, so we ignore that part for now.
         return null;
     }
 
