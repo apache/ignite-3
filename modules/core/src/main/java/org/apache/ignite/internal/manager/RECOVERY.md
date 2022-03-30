@@ -32,7 +32,7 @@ The node should start components and recover their state as was said above. If t
 
 The components start in such order that dependent components start after the components that they depend on, see [runner](../../../../../../../../../runner/README.md) for details. While starting, they register listeners on configuration updates from ConfigurationManager. These listeners receive notifications during the further lifetime of the node, and also during the recovery process while retrieving notifications from Metastorage, if it’s needed (see the description of the recovery process below). Note that the listeners can also process data from Vault and snapshot of data from Metastorage.
 
-While handling the notifications, listeners should rely on the fact that the components that they depend on, won’t return stale or inconsistent data. It should be guaranteed by [causality tokens mechanism](TODO).
+While handling the notifications, listeners should rely on the fact that the components that they depend on, won’t return stale or inconsistent data. It should be guaranteed by [causality tokens mechanism](../causality/README.md).
 
 ### Pre-recovery actions
 
