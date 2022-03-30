@@ -17,18 +17,10 @@
 
 package org.apache.ignite.internal.pagememory.util;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getBytes;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.ByteBuffer;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
-import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 
@@ -150,83 +142,6 @@ public class PageIdUtilsTest {
             assertEquals(pageId, PageIdUtils.pageId(link), msg);
             assertEquals(off, PageIdUtils.itemId(link), msg);
             assertEquals(pageId, PageIdUtils.pageId(link), msg);
-        }
-    }
-
-    @Test
-    void testPutByteBufferIndirect() {
-        final byte[] bytes = new byte[1024];
-
-        ThreadLocalRandom.current().nextBytes(bytes);
-
-        ByteBuffer buf = ByteBuffer.wrap(bytes);
-
-        assertFalse(buf.isDirect());
-
-        final long addr = GridUnsafe.allocateMemory(2048);
-
-        try {
-            putByteBuffer(addr, 256, buf);
-
-            assertArrayEquals(bytes, getBytes(addr, 256, bytes.length));
-        } finally {
-            GridUnsafe.freeMemory(addr);
-        }
-    }
-
-    @Test
-    void testPutByteBufferDirect() {
-        final byte[] bytes = new byte[1024];
-
-        ThreadLocalRandom.current().nextBytes(bytes);
-
-        ByteBuffer buf = GridUnsafe.allocateBuffer(1024);
-
-        try {
-            buf.put(bytes);
-
-            assertTrue(buf.isDirect());
-
-            final long addr = GridUnsafe.allocateMemory(2048);
-
-            try {
-                putByteBuffer(addr, 256, buf);
-
-                assertArrayEquals(bytes, getBytes(addr, 256, bytes.length));
-            } finally {
-                GridUnsafe.freeMemory(addr);
-            }
-        } finally {
-            GridUnsafe.freeBuffer(buf);
-        }
-    }
-
-    @Test
-    void testPutByteBufferIndirectNotZeroPosition() {
-        final byte[] bytes = new byte[1024];
-
-        ThreadLocalRandom.current().nextBytes(bytes);
-
-        ByteBuffer buf = ByteBuffer.wrap(bytes);
-
-        assertFalse(buf.isDirect());
-
-        int pos = 128;
-
-        buf.position(pos);
-
-        final long addr = GridUnsafe.allocateMemory(2048);
-
-        try {
-            putByteBuffer(addr, 256, buf);
-
-            byte[] exp = new byte[bytes.length - pos];
-
-            System.arraycopy(bytes, pos, exp, 0, exp.length);
-
-            assertArrayEquals(exp, getBytes(addr, 256, bytes.length - pos));
-        } finally {
-            GridUnsafe.freeMemory(addr);
         }
     }
 }

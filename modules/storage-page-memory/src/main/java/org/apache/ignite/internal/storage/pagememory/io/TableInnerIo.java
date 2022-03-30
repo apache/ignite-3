@@ -37,6 +37,8 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <p>Structure: hash(int) + link(long).
  */
 public class TableInnerIo extends BplusInnerIo<TableSearchRow> implements RowIo {
+    private static final int LINK_OFFSET = 4;
+
     /** Page IO type. */
     public static final short T_TABLE_INNER_IO = 4;
 
@@ -68,7 +70,7 @@ public class TableInnerIo extends BplusInnerIo<TableSearchRow> implements RowIo 
         int dstOff = offset(dstIdx);
 
         putInt(dstPageAddr, dstOff, srcHash);
-        dstOff += 4;
+        dstOff += LINK_OFFSET;
 
         putLong(dstPageAddr, dstOff, srcLink);
     }
@@ -79,7 +81,7 @@ public class TableInnerIo extends BplusInnerIo<TableSearchRow> implements RowIo 
         assertPageType(pageAddr);
 
         putInt(pageAddr, off, row.hash());
-        off += 4;
+        off += LINK_OFFSET;
 
         putLong(pageAddr, off, row.link());
     }
@@ -98,7 +100,7 @@ public class TableInnerIo extends BplusInnerIo<TableSearchRow> implements RowIo 
     public long link(long pageAddr, int idx) {
         assert idx < getCount(pageAddr) : idx;
 
-        return getLong(pageAddr, offset(idx) + 4 /* hash ahead */);
+        return getLong(pageAddr, offset(idx) + LINK_OFFSET);
     }
 
     /** {@inheritDoc} */

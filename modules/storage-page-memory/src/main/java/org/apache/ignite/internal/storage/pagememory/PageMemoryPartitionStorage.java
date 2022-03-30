@@ -410,13 +410,13 @@ class PageMemoryPartitionStorage implements PartitionStorage {
     private TableSearchRow wrap(SearchRow searchRow) {
         ByteBuffer key = searchRow.key();
 
-        return new TableSearchRowImpl(StorageUtils.hashCode(key), key);
+        return new TableSearchRow(StorageUtils.hashCode(key), key);
     }
 
     private TableDataRow wrap(DataRow dataRow) {
         ByteBuffer key = dataRow.key();
         ByteBuffer value = dataRow.value();
 
-        return new TableDataRowImpl(StorageUtils.hashCode(key), key, value);
+        return new TableDataRow(StorageUtils.hashCode(key), key, value);
     }
 }

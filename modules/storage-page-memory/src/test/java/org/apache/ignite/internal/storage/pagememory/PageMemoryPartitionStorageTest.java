@@ -73,9 +73,6 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
     )
     private TableConfiguration tableCfg;
 
-    @WorkDirectory
-    private Path workDir;
-
     private StorageEngine engine;
 
     private TableStorage table;
@@ -101,7 +98,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         dataRegion.start();
 
-        table = engine.createTable(workDir, tableCfg, dataRegion);
+        table = engine.createTable(null, tableCfg, dataRegion);
 
         assertThat(table, is(instanceOf(PageMemoryTableStorage.class)));
 

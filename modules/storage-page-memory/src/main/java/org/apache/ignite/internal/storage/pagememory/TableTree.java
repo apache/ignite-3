@@ -200,7 +200,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
         ByteBuffer key = ByteBuffer.wrap(keyBytes.array());
         ByteBuffer value = ByteBuffer.wrap(valueBytes == null ? BYTE_EMPTY_ARRAY : valueBytes.array());
 
-        return new TableDataRowImpl(link, hash, key, value);
+        return new TableDataRow(link, hash, key, value);
     }
 
     private TableDataRow readFullRow(long link, int hash, RowData rowData, long pageAddr) {
@@ -213,7 +213,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
         off += keyBytesLen;
 
         if (rowData == KEY_ONLY) {
-            return new TableDataRowImpl(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(BYTE_EMPTY_ARRAY));
+            return new TableDataRow(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(BYTE_EMPTY_ARRAY));
         }
 
         int valueBytesLen = getInt(pageAddr, off);
@@ -221,7 +221,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
         byte[] valueBytes = getBytes(pageAddr, off, valueBytesLen);
 
-        return new TableDataRowImpl(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(valueBytes));
+        return new TableDataRow(link, hash, ByteBuffer.wrap(keyBytes), ByteBuffer.wrap(valueBytes));
     }
 
     private int compareRows(final long link, TableSearchRow row) throws IgniteInternalCheckedException {

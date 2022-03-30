@@ -283,6 +283,8 @@ public class PageUtils {
     /**
      * Writes a {@link ByteBuffer} into the memory.
      *
+     * <p>NOTE: Will be written from {@link ByteBuffer#position()} to {@link ByteBuffer#limit()}.
+     *
      * @param addr Address.
      * @param off Offset.
      * @param buf Byte buffer.
@@ -292,14 +294,24 @@ public class PageUtils {
         assert off >= 0 : off;
         assert buf != null;
 
+        Object srcBase;
+
+        long srcOff;
+
         if (buf.isDirect()) {
-            GridUnsafe.copyMemory(null, GridUnsafe.bufferAddress(buf), null, addr + off, buf.limit());
+            srcBase = null;
+
+            srcOff = GridUnsafe.bufferAddress(buf);
         } else {
             assert !buf.isReadOnly();
 
             byte[] arr = buf.array();
 
-            GridUnsafe.copyMemory(arr, GridUnsafe.BYTE_ARR_OFF + buf.position(), null, addr + off, buf.limit());
+            srcBase = arr;
+
+            srcOff = GridUnsafe.BYTE_ARR_OFF + buf.arrayOffset();
         }
+
+        GridUnsafe.copyMemory(srcBase, srcOff + buf.position(), null, addr + off, buf.limit() - buf.position());
     }
 }

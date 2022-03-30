@@ -17,11 +17,101 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
+import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
+import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
+
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
+import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.pagememory.io.TableDataIo;
 
 /**
- * {@link DataRow} extension for {@link TableTree}.
+ * {@link DataRow} implementation.
  */
-public interface TableDataRow extends TableSearchRow, DataRow, Storable {
+public class TableDataRow extends TableSearchRow implements DataRow, Storable {
+    private long link;
+
+    private final ByteBuffer value;
+
+    /**
+     * Constructor.
+     *
+     * @param link Row link.
+     * @param hash Row hash.
+     * @param key Key byte buffer.
+     * @param value Value byte buffer.
+     */
+    public TableDataRow(long link, int hash, ByteBuffer key, ByteBuffer value) {
+        super(hash, key);
+
+        assert !value.isReadOnly();
+        assert value.position() == 0;
+
+        this.link = link;
+
+        this.value = value;
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param hash Row hash.
+     * @param key Key byte buffer.
+     * @param value Value byte buffer.
+     */
+    public TableDataRow(int hash, ByteBuffer key, ByteBuffer value) {
+        this(0, hash, key, value);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void link(long link) {
+        this.link = link;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long link() {
+        return link;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partition() {
+        return partitionId(pageId(link));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int size() {
+        return 4 + key.limit() + 4 + value.limit();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int headerSize() {
+        // Key size (int).
+        return 4;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IoVersions<? extends AbstractDataPageIo> ioVersions() {
+        return TableDataIo.VERSIONS;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] valueBytes() {
+        return toByteArray(value());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ByteBuffer value() {
+        return value.rewind();
+    }
 }

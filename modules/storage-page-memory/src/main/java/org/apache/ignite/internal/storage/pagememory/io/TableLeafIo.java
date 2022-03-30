@@ -70,7 +70,6 @@ public class TableLeafIo extends BplusLeafIo<TableSearchRow> implements RowIo {
         dstOff += 4;
 
         putLong(dstPageAddr, dstOff, srcLink);
-
     }
 
     /** {@inheritDoc} */

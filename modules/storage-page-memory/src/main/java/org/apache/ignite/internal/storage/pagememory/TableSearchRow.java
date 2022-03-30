@@ -17,19 +17,56 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
+
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.storage.SearchRow;
 
 /**
- * {@link SearchRow} extension for {@link TableTree}.
+ * {@link SearchRow} implementation.
  */
-public interface TableSearchRow extends SearchRow {
+public class TableSearchRow implements SearchRow {
+    protected final int hash;
+
+    protected final ByteBuffer key;
+
+    /**
+     * Constructor.
+     *
+     * @param hash Key hash.
+     * @param key Key byte buffer.
+     */
+    public TableSearchRow(int hash, ByteBuffer key) {
+        assert !key.isReadOnly();
+        assert key.position() == 0;
+
+        this.hash = hash;
+        this.key = key;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] keyBytes() {
+        return toByteArray(key());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ByteBuffer key() {
+        return key.rewind();
+    }
+
     /**
      * Returns hash of row.
      */
-    int hash();
+    public int hash() {
+        return hash;
+    }
 
     /**
      * Returns a row link.
      */
-    long link();
+    public long link() {
+        return 0;
+    }
 }
