@@ -176,14 +176,18 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         Collection<DataRow> cantInsert = new ArrayList<>();
 
         try {
+            InsertClosure insertClosure = new InsertClosure(freeList);
+
             for (DataRow row : rows) {
                 TableDataRow dataRow = wrap(row);
 
-                if (tree.findOne(dataRow) == null) {
-                    freeList.insertDataRow(dataRow);
+                insertClosure.reset();
 
-                    tree.put(dataRow);
-                } else {
+                insertClosure.newRow = dataRow;
+
+                tree.invoke(dataRow, null, insertClosure);
+
+                if (insertClosure.oldRow != null) {
                     cantInsert.add(row);
                 }
             }
@@ -238,17 +242,21 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         Collection<DataRow> skipped = new ArrayList<>();
 
         try {
+            RemoveExactClosure removeExactClosure = new RemoveExactClosure();
+
             for (DataRow keyValue : keyValues) {
                 TableDataRow dataRow = wrap(keyValue);
 
-                TableDataRow founded = tree.findOne(dataRow);
+                removeExactClosure.reset();
 
-                if (founded != null && founded.value().equals(dataRow.value())) {
-                    tree.remove(founded);
+                removeExactClosure.removedRow = dataRow;
 
-                    freeList.removeDataRowByLink(founded.link());
-                } else {
+                tree.invoke(dataRow, null, removeExactClosure);
+
+                if (removeExactClosure.foundedRow == null) {
                     skipped.add(keyValue);
+                } else {
+                    freeList.removeDataRowByLink(removeExactClosure.foundedRow.link());
                 }
             }
         } catch (IgniteInternalCheckedException e) {
@@ -418,5 +426,83 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         ByteBuffer value = dataRow.value();
 
         return new TableDataRow(StorageUtils.hashCode(key), key, value);
+    }
+
+    private static class InsertClosure implements IgniteTree.InvokeClosure<TableDataRow> {
+        final TableFreeList freeList;
+
+        TableDataRow newRow;
+
+        @Nullable TableDataRow oldRow;
+
+        InsertClosure(TableFreeList freeList) {
+            this.freeList = freeList;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void call(@Nullable TableDataRow oldRow) {
+            this.oldRow = oldRow;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable TableDataRow newRow() {
+            assert newRow != null;
+
+            try {
+                freeList.insertDataRow(newRow);
+            } catch (IgniteInternalCheckedException e) {
+                throw new IgniteInternalException(e);
+            }
+
+            return newRow;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteTree.@Nullable OperationType operationType() {
+            return oldRow == null ? IgniteTree.OperationType.PUT : IgniteTree.OperationType.NOOP;
+        }
+
+        void reset() {
+            newRow = null;
+
+            oldRow = null;
+        }
+    }
+
+    private static class RemoveExactClosure implements IgniteTree.InvokeClosure<TableDataRow> {
+        TableDataRow removedRow;
+
+        @Nullable TableDataRow foundedRow;
+
+        /** {@inheritDoc} */
+        @Override
+        public void call(@Nullable TableDataRow oldRow) {
+            assert removedRow != null;
+
+            if (oldRow != null && oldRow.value().equals(removedRow.value())) {
+                foundedRow = oldRow;
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @Nullable TableDataRow newRow() {
+            return null;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public IgniteTree.@Nullable OperationType operationType() {
+            return foundedRow == null ? IgniteTree.OperationType.NOOP : IgniteTree.OperationType.REMOVE;
+        }
+
+        void reset() {
+            removedRow = null;
+
+            foundedRow = null;
+        }
     }
 }
