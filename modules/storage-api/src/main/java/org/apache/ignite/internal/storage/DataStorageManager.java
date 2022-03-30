@@ -63,7 +63,15 @@ public class DataStorageManager implements IgniteComponent {
 
             engine.start();
 
-            engines.put(engine.name(), engine);
+            String name = engine.name();
+
+            if (engines.containsKey(name)) {
+                throw new StorageException(
+                        "There is already a storage engine with the same name: [name=" + name + ", engine=" + engines.get(name) + "]"
+                );
+            } else {
+                engines.put(name, engine);
+            }
         }
     }
 

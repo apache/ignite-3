@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
@@ -271,7 +271,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManagers.get(node)))
+                                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManagers.get(node)))
                 );
             }
 

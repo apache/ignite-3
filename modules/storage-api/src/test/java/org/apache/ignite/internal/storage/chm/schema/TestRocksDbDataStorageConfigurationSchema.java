@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.chm.schema;
 
-import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
-import org.junit.jupiter.api.BeforeEach;
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 
 /**
- * Storage test implementation for {@link ConcurrentHashMapPartitionStorage}.
+ * Test RocksDB data storage configuration schema for tables.
  */
-public class ConcurrentHashMapStorageTest extends AbstractPartitionStorageTest {
-    @BeforeEach
-    public void setUp() {
-        storage = new ConcurrentHashMapPartitionStorage();
-    }
+@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
+public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }
