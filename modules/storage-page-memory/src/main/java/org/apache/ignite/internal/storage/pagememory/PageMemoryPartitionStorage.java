@@ -118,7 +118,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
     @Override
     public @Nullable DataRow read(SearchRow key) throws StorageException {
         try {
-            return tree.findOne(wrap(key));
+            return wrap(tree.findOne(wrap(key)));
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error reading row", e);
         }
@@ -131,7 +131,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
         try {
             for (SearchRow key : keys) {
-                res.add(tree.findOne(wrap(key)));
+                res.add(wrap(tree.findOne(wrap(key))));
             }
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error reading rows", e);
@@ -273,7 +273,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
             /** {@inheritDoc} */
             @Override
             public void call(@Nullable TableDataRow oldRow) {
-                clo.call(oldRow);
+                clo.call(wrap(oldRow));
             }
 
             /** {@inheritDoc} */
@@ -355,7 +355,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                 /** {@inheritDoc} */
                 @Override
                 public DataRow next() {
-                    DataRow next = cur;
+                    DataRow next = wrap(cur);
 
                     if (next == null) {
                         throw new NoSuchElementException();
@@ -374,7 +374,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
                     while (treeCursor.next()) {
                         TableDataRow dataRow = treeCursor.get();
 
-                        if (filter.test(dataRow)) {
+                        if (filter.test(wrap(dataRow))) {
                             return dataRow;
                         }
                     }
@@ -415,17 +415,21 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         tree.close();
     }
 
-    private TableSearchRow wrap(SearchRow searchRow) {
+    private static TableSearchRow wrap(SearchRow searchRow) {
         ByteBuffer key = searchRow.key();
 
         return new TableSearchRow(StorageUtils.hashCode(key), key);
     }
 
-    private TableDataRow wrap(DataRow dataRow) {
+    private static TableDataRow wrap(DataRow dataRow) {
         ByteBuffer key = dataRow.key();
         ByteBuffer value = dataRow.value();
 
         return new TableDataRow(StorageUtils.hashCode(key), key, value);
+    }
+
+    private static @Nullable DataRow wrap(TableDataRow tableDataRow) {
+        return tableDataRow == null ? null : new DelegatingDataRow(tableDataRow);
     }
 
     private static class InsertClosure implements IgniteTree.InvokeClosure<TableDataRow> {

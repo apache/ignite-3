@@ -331,10 +331,10 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
      * Row data.
      */
     public enum RowData {
-        /** Only {@link TableDataRow#keyBytes key}. */
+        /** Only {@link TableDataRow#key()}  key}. */
         KEY_ONLY,
 
-        /** All: {@link TableDataRow#keyBytes key} and {@link TableDataRow#valueBytes value}. */
+        /** All: {@link TableDataRow#key()}  key} and {@link TableDataRow#value()}  value}. */
         FULL
     }
 }

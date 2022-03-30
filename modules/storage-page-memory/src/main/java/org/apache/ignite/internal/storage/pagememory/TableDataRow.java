@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
-import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.Storable;
@@ -31,7 +30,7 @@ import org.apache.ignite.internal.storage.pagememory.io.TableDataIo;
 /**
  * {@link DataRow} implementation.
  */
-public class TableDataRow extends TableSearchRow implements DataRow, Storable {
+public class TableDataRow extends TableSearchRow implements Storable {
     private long link;
 
     private final ByteBuffer value;
@@ -103,14 +102,9 @@ public class TableDataRow extends TableSearchRow implements DataRow, Storable {
         return TableDataIo.VERSIONS;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public byte[] valueBytes() {
-        return toByteArray(value());
-    }
-
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns value object as a byte buffer.
+     */
     public ByteBuffer value() {
         return value.rewind();
     }

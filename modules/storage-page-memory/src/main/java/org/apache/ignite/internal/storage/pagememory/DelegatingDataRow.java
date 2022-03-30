@@ -17,49 +17,47 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.StorageUtils.toByteArray;
+
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.DataRow;
 
 /**
- * {@link SearchRow} implementation.
+ * Delegating implementation of {@link DataRow}.
  */
-public class TableSearchRow {
-    protected final int hash;
-
-    protected final ByteBuffer key;
+class DelegatingDataRow implements DataRow {
+    private final TableDataRow tableDataRow;
 
     /**
      * Constructor.
      *
-     * @param hash Key hash.
-     * @param key Key byte buffer.
+     * @param tableDataRow Table data row.
      */
-    public TableSearchRow(int hash, ByteBuffer key) {
-        assert !key.isReadOnly();
-        assert key.position() == 0;
-
-        this.hash = hash;
-        this.key = key;
+    DelegatingDataRow(TableDataRow tableDataRow) {
+        this.tableDataRow = tableDataRow;
     }
 
-    /**
-     * Returns key object as a byte buffer.
-     */
+    /** {@inheritDoc} */
+    @Override
+    public byte[] valueBytes() {
+        return toByteArray(value());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ByteBuffer value() {
+        return tableDataRow.value();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] keyBytes() {
+        return toByteArray(key());
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public ByteBuffer key() {
-        return key.rewind();
-    }
-
-    /**
-     * Returns hash of row.
-     */
-    public int hash() {
-        return hash;
-    }
-
-    /**
-     * Returns a row link.
-     */
-    public long link() {
-        return 0;
+        return tableDataRow.key();
     }
 }
