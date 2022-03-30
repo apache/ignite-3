@@ -29,28 +29,38 @@ import org.apache.ignite.network.ClusterNode;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
+    /** Channel. */
     private final ReliableChannel ch;
 
+    /**
+     * Constructor.
+     *
+     * @param ch Channel.
+     */
     public ClientCompute(ReliableChannel ch) {
         this.ch = ch;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass,
             Object... args) {
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
         return null;
