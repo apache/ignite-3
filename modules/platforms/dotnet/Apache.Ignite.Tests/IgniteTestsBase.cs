@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
+    using Log;
     using NUnit.Framework;
     using Table;
 
@@ -34,6 +35,8 @@ namespace Apache.Ignite.Tests
         protected const string KeyCol = "key";
 
         protected const string ValCol = "val";
+
+        protected static readonly TimeSpan ServerIdleTimeout = TimeSpan.FromMilliseconds(1000); // See PlatformTestNodeRunner.
 
         private static readonly JavaServer ServerNode;
 
@@ -94,7 +97,8 @@ namespace Apache.Ignite.Tests
 
         protected static IgniteClientConfiguration GetConfig() => new()
         {
-            Endpoints = { "127.0.0.1:" + ServerNode.Port }
+            Endpoints = { "127.0.0.1:" + ServerNode.Port },
+            Logger = new ConsoleLogger { MinLevel = LogLevel.Trace }
         };
     }
 }

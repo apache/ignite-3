@@ -168,10 +168,26 @@ public final class IgniteTestUtils {
             @NotNull RunnableX run,
             @NotNull Class<? extends Throwable> cls
     ) {
+        return assertThrowsWithCause(run, cls, null);
+    }
+
+    /**
+     * Checks whether runnable throws exception, which is itself of a specified class, or has a cause of the specified class.
+     *
+     * @param run Runnable to check.
+     * @param cls Expected exception class.
+     * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrowsWithCause(
+            @NotNull RunnableX run,
+            @NotNull Class<? extends Throwable> cls,
+            @Nullable String msg
+    ) {
         try {
             run.run();
         } catch (Throwable e) {
-            if (!hasCause(e, cls, null)) {
+            if (!hasCause(e, cls, msg)) {
                 fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
             }
 

@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.stream.Collectors.toUnmodifiableMap;
+
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -43,29 +46,13 @@ public class IgniteComputeImpl implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        ClusterNode targetNode = randomNode(nodes);
-
-        if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(jobClass, args);
-        } else {
-            return computeComponent.executeRemotely(targetNode, jobClass, args);
-        }
+        return executeOnOneNode(randomNode(nodes), jobClass, args);
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        ClusterNode targetNode = randomNode(nodes);
-
-        if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(jobClassName, args);
-        } else {
-            return computeComponent.executeRemotely(targetNode, jobClassName, args);
-        }
-    }
-
-    private boolean isLocal(ClusterNode targetNode) {
-        return targetNode.equals(topologyService.localMember());
+        return executeOnOneNode(randomNode(nodes), jobClassName, args);
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -77,5 +64,43 @@ public class IgniteComputeImpl implements IgniteCompute {
         }
 
         return iterator.next();
+    }
+
+    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode targetNode, Class<? extends ComputeJob<R>> jobClass, Object[] args) {
+        if (isLocal(targetNode)) {
+            return computeComponent.executeLocally(jobClass, args);
+        } else {
+            return computeComponent.executeRemotely(targetNode, jobClass, args);
+        }
+    }
+
+    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode targetNode, String jobClassName, Object[] args) {
+        if (isLocal(targetNode)) {
+            return computeComponent.executeLocally(jobClassName, args);
+        } else {
+            return computeComponent.executeRemotely(targetNode, jobClassName, args);
+        }
+    }
+
+    private boolean isLocal(ClusterNode targetNode) {
+        return targetNode.equals(topologyService.localMember());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(
+            Set<ClusterNode> nodes,
+            Class<? extends ComputeJob<R>> jobClass,
+            Object... args
+    ) {
+        return nodes.stream()
+                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClass, args)));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+        return nodes.stream()
+                .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClassName, args)));
     }
 }

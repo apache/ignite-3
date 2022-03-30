@@ -34,6 +34,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.internal.compute.message.ExecuteRequest;
 import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -68,6 +69,8 @@ public class ComputeComponentImpl implements ComputeComponent {
     /** Prevents double stopping the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    private final InFlightFutures inFlightFutures = new InFlightFutures();
+
     /**
      * Creates a new instance.
      */
@@ -100,6 +103,13 @@ public class ComputeComponentImpl implements ComputeComponent {
     private <R> CompletableFuture<R> doExecuteLocally(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         assert jobExecutorService != null : "Not started yet!";
 
+        CompletableFuture<R> future = startLocalExecution(jobClass, args);
+        inFlightFutures.registerFuture(future);
+
+        return future;
+    }
+
+    private <R> CompletableFuture<R> startLocalExecution(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         try {
             return CompletableFuture.supplyAsync(() -> executeJob(jobClass, args), jobExecutorService);
         } catch (RejectedExecutionException e) {
@@ -110,6 +120,7 @@ public class ComputeComponentImpl implements ComputeComponent {
     private <R> R executeJob(Class<? extends ComputeJob<R>> jobClass, Object[] args) {
         ComputeJob<R> job = instantiateJob(jobClass);
         JobExecutionContext context = new JobExecutionContextImpl(ignite);
+        // TODO: IGNITE-16746 - translate NodeStoppingException to a public exception
         return job.execute(context, args);
     }
 
@@ -157,8 +168,10 @@ public class ComputeComponentImpl implements ComputeComponent {
                 .args(args)
                 .build();
 
-        return messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
+        CompletableFuture<R> future = messagingService.invoke(remoteNode, executeRequest, NETWORK_TIMEOUT_MILLIS)
                 .thenCompose(message -> resultFromExecuteResponse((ExecuteResponse) message));
+        inFlightFutures.registerFuture(future);
+        return future;
     }
 
     @SuppressWarnings("unchecked")
@@ -246,6 +259,8 @@ public class ComputeComponentImpl implements ComputeComponent {
         busyLock.block();
 
         IgniteUtils.shutdownAndAwaitTermination(jobExecutorService, stopTimeoutMillis(), TimeUnit.MILLISECONDS);
+
+        inFlightFutures.cancelInFlightFutures();
     }
 
     long stopTimeoutMillis() {

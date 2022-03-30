@@ -94,17 +94,4 @@ public interface BinaryRow {
      * Get byte array of the row.
      */
     byte[] bytes();
-
-    /**
-     * Row flags.
-     */
-    final class RowFlags {
-        /** First two flag bits reserved for format code. */
-        public static final int VARTABLE_FORMAT_MASK = 0x03;
-
-        /** Stub. */
-        private RowFlags() {
-            // No-op.
-        }
-    }
 }

@@ -18,14 +18,20 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
@@ -33,6 +39,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -134,6 +141,70 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(ex.getCause(), is(instanceOf(JobException.class)));
         assertThat(ex.getCause().getMessage(), is("Oops"));
         assertThat(ex.getCause().getCause(), is(notNullValue()));
+    }
+
+    @Test
+    void broadcastsJobWithArguments() {
+        IgniteImpl entryNode = node(0);
+
+        Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), ConcatJob.class, "a", 42);
+
+        assertThat(results, is(aMapWithSize(3)));
+        for (int i = 0; i < 3; i++) {
+            ClusterNode node = node(i).node();
+            assertThat(results.get(node), willBe("a42"));
+        }
+    }
+
+    @Test
+    void broadcastsJobByClassName() {
+        IgniteImpl entryNode = node(0);
+
+        Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), ConcatJob.class.getName(), "a", 42);
+
+        assertThat(results, is(aMapWithSize(3)));
+        for (int i = 0; i < 3; i++) {
+            ClusterNode node = node(i).node();
+            assertThat(results.get(node), willBe("a42"));
+        }
+    }
+
+    @Test
+    void broadcastExecutesJobOnRespectiveNodes() {
+        IgniteImpl entryNode = node(0);
+
+        Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), GetNodeNameJob.class);
+
+        assertThat(results, is(aMapWithSize(3)));
+        for (int i = 0; i < 3; i++) {
+            ClusterNode node = node(i).node();
+            assertThat(results.get(node), willBe(equalTo(node.name())));
+        }
+    }
+
+    @Test
+    void broadcastsFailingJob() throws Exception {
+        IgniteImpl entryNode = node(0);
+
+        Map<ClusterNode, CompletableFuture<String>> results = entryNode.compute()
+                .broadcast(Set.of(entryNode.node(), node(1).node(), node(2).node()), FailingJob.class);
+
+        assertThat(results, is(aMapWithSize(3)));
+        for (int i = 0; i < 3; i++) {
+            Object result = results.get(node(i).node())
+                    .handle((res, ex) -> ex != null ? ex : res)
+                    .get(1, TimeUnit.SECONDS);
+
+            assertThat(result, is(instanceOf(CompletionException.class)));
+            assertThat(((CompletionException) result).getCause(), is(instanceOf(JobException.class)));
+
+            JobException ex = (JobException) ((CompletionException) result).getCause();
+            assertThat(ex.getMessage(), is("Oops"));
+            assertThat(ex.getCause(), is(notNullValue()));
+        }
     }
 
     private static class ConcatJob implements ComputeJob<String> {
