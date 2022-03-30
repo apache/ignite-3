@@ -206,7 +206,7 @@ public class ItClientHandlerTest {
         bootstrapFactory.start();
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTables.class), mock(IgniteTransactions.class), registry,
-                bootstrapFactory);
+                compute, clusterService, bootstrapFactory);
 
         module.start();
 

@@ -77,7 +77,7 @@ public class TestServer implements AutoCloseable {
                 ignite.tables(),
                 ignite.transactions(),
                 cfg,
-                bootstrapFactory
+                compute, clusterService, bootstrapFactory
         );
 
         module.start();

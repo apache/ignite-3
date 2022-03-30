@@ -60,6 +60,7 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -97,30 +99,43 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Configuration. */
     private final ClientConnectorView configuration;
 
+    /** Compute. */
+    private final IgniteCompute compute;
+
+    /** Cluster. */
+    private final ClusterService clusterService;
+
     /** Context. */
     private ClientContext clientContext;
 
     /**
      * Constructor.
-     *
-     * @param igniteTables      Ignite tables API entry point.
+     *  @param igniteTables      Ignite tables API entry point.
      * @param igniteTransactions Transactions API.
      * @param processor          Sql query processor.
      * @param configuration      Configuration.
+     * @param compute            Compute.
+     * @param clusterService     Cluster.
      */
     public ClientInboundMessageHandler(
             IgniteTables igniteTables,
             IgniteTransactions igniteTransactions,
             QueryProcessor processor,
-            ClientConnectorView configuration) {
+            ClientConnectorView configuration,
+            IgniteCompute compute,
+            ClusterService clusterService) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
         assert configuration != null;
+        assert compute != null;
+        assert clusterService != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
         this.configuration = configuration;
+        this.compute = compute;
+        this.clusterService = clusterService;
 
         this.jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
@@ -393,7 +408,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientTransactionRollbackRequest.process(in, resources);
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, out);
+                return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
 
             case ClientOp.COMPUTE_BROADCAST:
                 // TODO
