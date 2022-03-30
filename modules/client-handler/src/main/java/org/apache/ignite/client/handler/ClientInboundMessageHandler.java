@@ -24,6 +24,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
@@ -390,6 +391,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources);
+
+            case ClientOp.COMPUTE_EXECUTE:
+                return ClientComputeExecuteRequest.process(in, out);
+
+            case ClientOp.COMPUTE_BROADCAST:
+                // TODO
+                return null;
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
