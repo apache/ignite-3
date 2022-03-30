@@ -26,7 +26,7 @@ import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.ApiStatus.Experimental;
 
 /**
- * Ignite node interface. Main entry-point for all Ignite APIs.
+ * Ignite API entry point.
  */
 public interface Ignite extends AutoCloseable {
     /**

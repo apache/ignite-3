@@ -25,6 +25,7 @@ import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
@@ -46,6 +47,9 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** Transactions. */
     private final ClientTransactions transactions;
+
+    /** Transactions. */
+    private final ClientCompute compute;
 
     /**
      * Constructor.
@@ -74,6 +78,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch = new ReliableChannel(chFactory, cfg);
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
+        compute = new ClientCompute(ch);
     }
 
     /**
@@ -119,7 +124,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return compute;
     }
 
     /** {@inheritDoc} */
