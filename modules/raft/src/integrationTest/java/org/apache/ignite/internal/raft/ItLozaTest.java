@@ -113,7 +113,7 @@ public class ItLozaTest {
 
             when(service.messagingService()).thenReturn(messagingServiceMock);
 
-            CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new Exception(new IOException()));
+            CompletableFuture<NetworkMessage> exception = CompletableFuture.failedFuture(new IOException());
 
             loza = new Loza(service, dataPath);
 

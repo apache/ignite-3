@@ -43,6 +43,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -613,7 +615,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @return {@code True} if this is a recoverable exception.
      */
     private boolean recoverable(Throwable t) {
-        return t instanceof TimeoutException || t.getCause() instanceof IOException;
+        if (t instanceof ExecutionException || t instanceof CompletionException) {
+            t = t.getCause();
+        }
+
+        return t instanceof TimeoutException || t instanceof IOException;
     }
 
     /**
