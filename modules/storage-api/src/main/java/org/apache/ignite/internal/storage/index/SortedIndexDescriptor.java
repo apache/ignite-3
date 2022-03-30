@@ -166,7 +166,7 @@ public class SortedIndexDescriptor {
     /**
      * Creates a {@link SchemaDescriptor} from a list of index key columns.
      */
-    private static SchemaDescriptor createSchemaDescriptor(List<ColumnView> indexKeyColumnViews) {
+    public static SchemaDescriptor createSchemaDescriptor(List<ColumnView> indexKeyColumnViews) {
         Column[] keyColumns = new Column[indexKeyColumnViews.size()];
 
         for (int i = 0; i < indexKeyColumnViews.size(); ++i) {

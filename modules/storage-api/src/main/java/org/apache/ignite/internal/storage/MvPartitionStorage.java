@@ -28,8 +28,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Multi-versioned partition storage.
+ * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Their API are very similar,
+ * althouh there are very important differences that will be addressed in the future.
  */
-public interface MvStorage {
+public interface MvPartitionStorage {
     /**
      * Exception class that describes the situation where two independant transactions attempting to write values for the same key.
      */

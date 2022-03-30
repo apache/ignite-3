@@ -26,25 +26,28 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage for a sorted index.
+ * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Real future implementation
+ * will be defined later. Things to notice here: TX-aware implementation should have a projection bitset instead of full row reading.
+ * Physical storage API will be enriched with append/remove methods, like in reference implementation.
  */
 public interface SortedIndexMvStorage {
     /** Exclude lower bound. */
-    byte GREATER = 0;
+    int GREATER = 0;
 
     /** Include lower bound. */
-    byte GREATER_OR_EQUAL = 1;
+    int GREATER_OR_EQUAL = 1;
 
     /** Exclude upper bound. */
-    byte LESS = 0;
+    int LESS = 0;
 
     /** Include upper bound. */
-    byte LESS_OR_EQUAL = 1 << 1;
+    int LESS_OR_EQUAL = 1 << 1;
 
     /** Forward scan. */
-    byte FORWARD = 0;
+    int FORWARD = 0;
 
     /** Backwards scan. */
-    byte BACKWARDS = 1 << 2;
+    int BACKWARDS = 1 << 2;
 
     /**
      * The sole purpose of this class is to avoid massive refactoring while changing the original IndexRow.
@@ -85,7 +88,7 @@ public interface SortedIndexMvStorage {
     Cursor<IndexRowEx> scan(
             @Nullable IndexRowPrefix lowerBound,
             @Nullable IndexRowPrefix upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexStorage.class) byte flags,
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
             Timestamp timestamp,
             @Nullable IntPredicate partitionFilter
     );

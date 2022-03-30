@@ -18,25 +18,41 @@
 package org.apache.ignite.internal.storage.basic;
 
 import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.storage.AbstractSortedIndexMvStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * MV sorted index storage test implementation for {@link TestSortedIndexMvStorage} class.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    /** Test partition storage instance. */
-    private TestMvPartitionStorage storage;
+public class TestSortedIndexMvStorageTest extends AbstractSortedIndexMvStorageTest {
+
+    private List<TestSortedIndexMvStorage> indexes;
+
+    private TestMvPartitionStorage partitionStorage;
 
     @BeforeEach
     void setUp() {
-        storage = new TestMvPartitionStorage(List.of());
+        indexes = new CopyOnWriteArrayList<>();
+
+        partitionStorage = new TestMvPartitionStorage(indexes);
     }
 
-    /** {@inheritDoc} */
     @Override
     protected MvPartitionStorage partitionStorage() {
-        return storage;
+        return partitionStorage;
+    }
+
+    @Override
+    protected SortedIndexMvStorage createIndexStorage(String name, TableView tableCfg) {
+        TestSortedIndexMvStorage index = new TestSortedIndexMvStorage(name, tableCfg, schemaDescriptor, Map.of(0, partitionStorage));
+
+        indexes.add(index);
+
+        return index;
     }
 }

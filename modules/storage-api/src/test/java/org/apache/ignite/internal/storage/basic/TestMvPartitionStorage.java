@@ -24,10 +24,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.MvStorage;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -35,12 +34,16 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test implementation of MV partition storage.
  */
-public class TestMvPartitionStorage implements MvStorage {
+public class TestMvPartitionStorage implements MvPartitionStorage {
     private static final VersionChain NULL = new VersionChain(null, null, null, null);
 
     private final ConcurrentHashMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
 
-    private final List<TestMvSortedIndexStorage> indexes = new CopyOnWriteArrayList<>();
+    private final List<TestSortedIndexMvStorage> indexes;
+
+    public TestMvPartitionStorage(List<TestSortedIndexMvStorage> indexes) {
+        this.indexes = indexes;
+    }
 
     private static class VersionChain {
         final BinaryRow row;
@@ -68,7 +71,7 @@ public class TestMvPartitionStorage implements MvStorage {
             return new VersionChain(row, null, txId, versionChain);
         });
 
-        for (TestMvSortedIndexStorage index : indexes) {
+        for (TestSortedIndexMvStorage index : indexes) {
             index.append(row);
         }
     }
@@ -82,7 +85,7 @@ public class TestMvPartitionStorage implements MvStorage {
 
             BinaryRow aborted = versionChain.row;
 
-            for (TestMvSortedIndexStorage index : indexes) {
+            for (TestSortedIndexMvStorage index : indexes) {
                 abortWrite(versionChain.next, aborted, index);
             }
 
@@ -90,7 +93,7 @@ public class TestMvPartitionStorage implements MvStorage {
         });
     }
 
-    private void abortWrite(VersionChain head, BinaryRow aborted, TestMvSortedIndexStorage index) {
+    private void abortWrite(VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
         for (VersionChain cur = head; cur != null; cur = cur.next) {
             if (index.matches(aborted, cur.row)) {
                 return;

@@ -18,19 +18,26 @@
 package org.apache.ignite.internal.storage.basic;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.IntPredicate;
 import java.util.function.ToIntFunction;
+import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.table.ColumnView;
+import org.apache.ignite.configuration.schemas.table.IndexColumnView;
+import org.apache.ignite.configuration.schemas.table.SortedIndexView;
+import org.apache.ignite.configuration.schemas.table.TableIndexView;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.NativeType;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.PrefixComparator;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -39,19 +46,35 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test implementation of MV sorted index storage.
  */
-public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
-    private final SortedIndexDescriptor descriptor;
+public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
+    private final TableView tableCfg;
 
     private final NavigableSet<BinaryRow> index;
 
+    private final SchemaDescriptor descriptor;
     private final Map<Integer, TestMvPartitionStorage> pk;
 
     private final int partitions;
 
-    protected TestMvSortedIndexStorage(SortedIndexDescriptor descriptor, Map<Integer, TestMvPartitionStorage> pk, int partitions) {
+    private final IndexColumnView[] indexColumns;
+
+    private final int[] columnIndexes;
+
+    private final NativeType[] nativeTypes;
+
+    protected TestSortedIndexMvStorage(
+            String name,
+            TableView tableCfg,
+            SchemaDescriptor descriptor,
+            Map<Integer, TestMvPartitionStorage> pk
+    ) {
+        this.tableCfg = tableCfg;
+
         this.descriptor = descriptor;
+
         this.pk = pk;
-        this.partitions = partitions;
+
+        partitions = tableCfg.partitions();
 
         index = new ConcurrentSkipListSet<>((l, r) -> {
             int cmp = compareColumns(l, r);
@@ -62,6 +85,35 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
 
             return l.keySlice().compareTo(r.keySlice());
         });
+
+        // Init columns.
+        NamedListView<? extends ColumnView> tblColumns = tableCfg.columns();
+
+        TableIndexView idxCfg = tableCfg.indices().get(name);
+
+        assert idxCfg instanceof SortedIndexView;
+
+        SortedIndexView sortedIdxCfg = (SortedIndexView) idxCfg;
+
+        NamedListView<? extends IndexColumnView> columns = sortedIdxCfg.columns();
+
+        int length = columns.size();
+
+        this.indexColumns = new IndexColumnView[length];
+        this.columnIndexes = new int[length];
+        this.nativeTypes = new NativeType[length];
+
+        for (int i = 0; i < length; i++) {
+            IndexColumnView idxColumn = columns.get(i);
+
+            indexColumns[i] = idxColumn;
+
+            int columnIndex = tblColumns.namedListKeys().indexOf(idxColumn.name());
+
+            columnIndexes[i] = columnIndex;
+
+            nativeTypes[i] = SchemaDescriptorConverter.convert(SchemaConfigurationConverter.convert(tblColumns.get(columnIndex).type()));
+        }
     }
 
     /** {@inheritDoc} */
@@ -77,9 +129,20 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
     }
 
     private int compareColumns(BinaryRow l, BinaryRow r) {
-        Object[] leftTuple = convert(l);
+        Row leftRow = new Row(descriptor, l);
+        Row rightRow = new Row(descriptor, r);
 
-        return new PrefixComparator(descriptor, () -> leftTuple).compare(r);
+        for (int i = 0; i < indexColumns.length; i++) {
+            int columnIndex = columnIndexes[i];
+
+            int cmp = PrefixComparator.compareColumns(leftRow, columnIndex, nativeTypes[i].spec(), rightRow.value(columnIndex));
+
+            if (cmp != 0) {
+                return indexColumns[i].asc() ? cmp : -cmp;
+            }
+        }
+
+        return 0;
     }
 
     public void append(BinaryRow row) {
@@ -99,7 +162,7 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
     public Cursor<IndexRowEx> scan(
             @Nullable IndexRowPrefix lowerBound,
             @Nullable IndexRowPrefix upperBound,
-            byte flags,
+            int flags,
             Timestamp timestamp,
             @Nullable IntPredicate partitionFilter
     ) {
@@ -107,10 +170,12 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
         NavigableSet<BinaryRow> index = this.index;
+        int direction = 1;
 
         // Swap bounds and flip index for backwards scan.
         if ((flags & BACKWARDS) != 0) {
             index = index.descendingSet();
+            direction = -1;
 
             boolean tempBoolean = includeLower;
             includeLower = includeUpper;
@@ -121,22 +186,15 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
             upperBound = tempBound;
         }
 
-        ToIntFunction<BinaryRow> lowerCmp = lowerBound == null ? row -> -1 : new PrefixComparator(descriptor, lowerBound)::compare;
-        ToIntFunction<BinaryRow> upperCmp = upperBound == null ? row -> -1 : new PrefixComparator(descriptor, upperBound)::compare;
-
-        boolean includeLower0 = includeLower;
-        boolean includeUpper0 = includeUpper;
+        ToIntFunction<BinaryRow> lowerCmp = lowerBound == null ? row -> 1 : boundComparator(lowerBound, direction, includeLower ? 0 : -1);
+        ToIntFunction<BinaryRow> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
 
         Iterator<IndexRowEx> iterator = index.stream()
                 .dropWhile(binaryRow -> {
-                    int cmp = lowerCmp.applyAsInt(binaryRow);
-
-                    return includeLower0 && cmp < 0 || !includeLower0 && cmp <= 0;
+                    return lowerCmp.applyAsInt(binaryRow) < 0;
                 })
                 .takeWhile(binaryRow -> {
-                    int cmp = upperCmp.applyAsInt(binaryRow);
-
-                    return includeUpper0 && cmp >= 0 || !includeUpper0 && cmp > 0;
+                    return upperCmp.applyAsInt(binaryRow) <= 0;
                 })
                 .map(binaryRow -> {
                     int partition = binaryRow.hash() % partitions;
@@ -161,7 +219,7 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
                 })
                 .filter(Objects::nonNull)
                 .map(binaryRow -> {
-                    Object[] tuple = convert(binaryRow);
+                    Row row = new Row(descriptor, binaryRow);
 
                     return (IndexRowEx) new IndexRowEx() {
                         @Override
@@ -171,7 +229,7 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
 
                         @Override
                         public Object value(int idx) {
-                            return tuple[idx];
+                            return row.value(columnIndexes[idx]);
                         }
                     };
                 })
@@ -180,23 +238,23 @@ public class TestMvSortedIndexStorage implements SortedIndexMvStorage {
         return Cursor.fromIterator(iterator);
     }
 
-    private Object[] convert(BinaryRow binaryRow) {
-        List<ColumnDescriptor> columnDescriptors = descriptor.indexRowColumns();
+    private ToIntFunction<BinaryRow> boundComparator(IndexRowPrefix bound, int direction, int equals) {
+        return binaryRow -> {
+            Object[] values = bound.prefixColumnValues();
 
-        int columns = columnDescriptors.size();
+            Row row = new Row(descriptor, binaryRow);
 
-        Object[] tuple = new Object[columns];
+            for (int i = 0; i < values.length; i++) {
+                int columnIndex = columnIndexes[i];
 
-        Row row = new Row(descriptor.asSchemaDescriptor(), binaryRow);
+                int cmp = PrefixComparator.compareColumns(row, columnIndex, nativeTypes[i].spec(), values[i]);
 
-        for (int i = 0; i < columns; i++) {
-            ColumnDescriptor columnDescriptor = columnDescriptors.get(i);
+                if (cmp != 0) {
+                    return direction * (indexColumns[i].asc() ? cmp : -cmp);
+                }
+            }
 
-            Object columnValue = row.value(columnDescriptor.column().schemaIndex());
-
-            tuple[i] = columnValue;
-        }
-
-        return tuple;
+            return equals;
+        };
     }
 }

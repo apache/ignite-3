@@ -74,7 +74,18 @@ public class PrefixComparator {
      * Compares a particular column of a {@code row} with the given value.
      */
     private static int compare(Column column, Row row, @Nullable Object value) {
-        boolean nullRow = row.hasNullValue(column.schemaIndex(), column.type().spec());
+        int schemaIndex = column.schemaIndex();
+
+        NativeTypeSpec typeSpec = column.type().spec();
+
+        return compareColumns(row, schemaIndex, typeSpec, value);
+    }
+
+    /**
+     * Compares a particular column of a {@code row} with the given value.
+     */
+    public static int compareColumns(Row row, int schemaIndex, NativeTypeSpec typeSpec, Object value) {
+        boolean nullRow = row.hasNullValue(schemaIndex, typeSpec);
 
         if (nullRow && value == null) {
             return 0;
@@ -83,10 +94,6 @@ public class PrefixComparator {
         } else if (value == null) {
             return 1;
         }
-
-        int schemaIndex = column.schemaIndex();
-
-        NativeTypeSpec typeSpec = column.type().spec();
 
         switch (typeSpec) {
             case INT8:
@@ -125,11 +132,7 @@ public class PrefixComparator {
                 return ((Comparable) typeSpec.objectValue(row, schemaIndex)).compareTo(value);
 
             default:
-                // should never reach here, this invariant is checked during the index creation
-                throw new IllegalStateException(String.format(
-                        "Invalid column schema. Column name: %s, column type: %s",
-                        column.name(), column.type()
-                ));
+                throw new AssertionError("Unknown type spec: " + typeSpec);
         }
     }
 }

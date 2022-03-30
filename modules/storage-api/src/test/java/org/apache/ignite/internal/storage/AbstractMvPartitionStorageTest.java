@@ -23,81 +23,33 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.NativeTypes;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
-import org.apache.ignite.internal.schema.marshaller.MarshallerException;
-import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
-import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
-import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.MvStorage.TxIdMismatchException;
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.storage.MvPartitionStorage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteException;
-import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
  * Base test for MV partition storages.
  */
-public abstract class AbstractMvPartitionStorageTest {
-    /** Default reflection marshaller factory. */
-    protected static MarshallerFactory marshallerFactory;
-
-    /** Schema descriptor for {@link TestPojo}. */
-    protected static SchemaDescriptor schemaDescriptor;
-
-    /** Key-value marshaller for {@link TestPojo}. */
-    protected static KvMarshaller<TestPojo, TestPojo> kvMarshaller;
-
-    @BeforeAll
-    static void beforeAll() {
-        marshallerFactory = new ReflectionMarshallerFactory();
-
-        schemaDescriptor = new SchemaDescriptor(1, new Column[]{
-                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        }, new Column[]{
-                new Column("intKey".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strKey".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-                new Column("intVal".toUpperCase(Locale.ROOT), NativeTypes.INT32, false),
-                new Column("strVal".toUpperCase(Locale.ROOT), NativeTypes.STRING, false),
-        });
-
-        kvMarshaller = marshallerFactory.create(schemaDescriptor, TestPojo.class, TestPojo.class);
-    }
-
-    @AfterAll
-    static void afterAll() {
-        kvMarshaller = null;
-        schemaDescriptor = null;
-        marshallerFactory = null;
-    }
-
+public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Creates a storage instance for testing.
      */
-    protected abstract MvStorage partitionStorage();
+    protected abstract MvPartitionStorage partitionStorage();
 
     /**
      * Tests that reads and scan from empty storage return empty results.
      */
     @Test
     public void testEmpty() throws Exception {
-        MvStorage pk = partitionStorage();
+        MvPartitionStorage pk = partitionStorage();
 
-        BinaryRow binaryKey = kvMarshaller.marshal(new TestPojo(10, "foo"));
+        BinaryRow binaryKey = binaryKey(new TestKey(10, "foo"));
 
         // Read.
         assertNull(pk.read(binaryKey, null));
@@ -109,15 +61,16 @@ public abstract class AbstractMvPartitionStorageTest {
     }
 
     /**
-     * Tests basic invariants of {@link MvStorage#addWrite(BinaryRow, UUID)}.
+     * Tests basic invariants of {@link MvPartitionStorage#addWrite(BinaryRow, UUID)}.
      */
     @Test
     public void testAddWrite() throws Exception {
-        MvStorage pk = partitionStorage();
+        MvPartitionStorage pk = partitionStorage();
 
-        TestPojo row = new TestPojo(10, "foo", 20, "bar");
+        TestKey key = new TestKey(10, "foo");
+        TestValue value = new TestValue(20, "bar");
 
-        BinaryRow binaryRow = kvMarshaller.marshal(row, row);
+        BinaryRow binaryRow = binaryRow(key, value);
 
         pk.addWrite(binaryRow, UUID.randomUUID());
 
@@ -125,40 +78,41 @@ public abstract class AbstractMvPartitionStorageTest {
         assertThrows(TxIdMismatchException.class, () -> pk.addWrite(binaryRow, UUID.randomUUID()));
 
         // Read without timestamp returns uncommited row.
-        assertEquals(row, row(pk.read(binaryRow, null)));
+        assertEquals(value, value(pk.read(binaryKey(key), null)));
 
         // Read with timestamp returns null.
-        assertNull(pk.read(binaryRow, Timestamp.nextVersion()));
+        assertNull(pk.read(binaryKey(key), Timestamp.nextVersion()));
     }
 
     /**
-     * Tests basic invariants of {@link MvStorage#abortWrite(BinaryRow)}.
+     * Tests basic invariants of {@link MvPartitionStorage#abortWrite(BinaryRow)}.
      */
     @Test
     public void testAbortWrite() throws Exception {
-        MvStorage pk = partitionStorage();
+        MvPartitionStorage pk = partitionStorage();
 
-        TestPojo row = new TestPojo(10, "foo", 20, "bar");
+        TestKey key = new TestKey(10, "foo");
+        TestValue value = new TestValue(20, "bar");
 
-        BinaryRow binaryRow = kvMarshaller.marshal(row, row);
+        pk.addWrite(binaryRow(key, value), UUID.randomUUID());
 
-        pk.addWrite(binaryRow, UUID.randomUUID());
+        pk.abortWrite(binaryKey(key));
 
-        pk.abortWrite(binaryRow);
-
-        assertNull(pk.read(binaryRow, null));
+        // Aborted row can't be read.
+        assertNull(pk.read(binaryKey(key), null));
     }
 
     /**
-     * Tests basic invariants of {@link MvStorage#commitWrite(BinaryRow, Timestamp)}.
+     * Tests basic invariants of {@link MvPartitionStorage#commitWrite(BinaryRow, Timestamp)}.
      */
     @Test
     public void testCommitWrite() throws Exception {
-        MvStorage pk = partitionStorage();
+        MvPartitionStorage pk = partitionStorage();
 
-        TestPojo row = new TestPojo(10, "foo", 20, "bar");
+        TestKey key = new TestKey(10, "foo");
+        TestValue value = new TestValue(20, "bar");
 
-        BinaryRow binaryRow = kvMarshaller.marshal(row, row);
+        BinaryRow binaryRow = binaryRow(key, value);
 
         pk.addWrite(binaryRow, UUID.randomUUID());
 
@@ -169,141 +123,80 @@ public abstract class AbstractMvPartitionStorageTest {
 
         Timestamp tsAfter = Timestamp.nextVersion();
 
+        // Row is invisible at the time before writing.
         assertNull(pk.read(binaryRow, tsBefore));
 
-        assertEquals(row, row(pk.read(binaryRow, null)));
-        assertEquals(row, row(pk.read(binaryRow, tsExact)));
-        assertEquals(row, row(pk.read(binaryRow, tsAfter)));
+        // Row is valid at the time during and after writing.
+        assertEquals(value, value(pk.read(binaryRow, null)));
+        assertEquals(value, value(pk.read(binaryRow, tsExact)));
+        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
 
-        TestPojo newRow = new TestPojo(10, "foo", 30, "duh");
+        TestValue newValue = new TestValue(30, "duh");
 
-        pk.addWrite(kvMarshaller.marshal(newRow, newRow), UUID.randomUUID());
+        pk.addWrite(binaryRow(key, newValue), UUID.randomUUID());
 
+        // Same checks, but now there are two different versions.
         assertNull(pk.read(binaryRow, tsBefore));
 
-        assertEquals(newRow, row(pk.read(binaryRow, null)));
+        assertEquals(newValue, value(pk.read(binaryRow, null)));
 
-        assertEquals(row, row(pk.read(binaryRow, tsExact)));
-        assertEquals(row, row(pk.read(binaryRow, tsAfter)));
-        assertEquals(row, row(pk.read(binaryRow, Timestamp.nextVersion())));
+        assertEquals(value, value(pk.read(binaryRow, tsExact)));
+        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+        assertEquals(value, value(pk.read(binaryRow, Timestamp.nextVersion())));
+
+        pk.commitWrite(binaryKey(key), Timestamp.nextVersion());
+
+        assertEquals(newValue, value(pk.read(binaryRow, null)));
+        assertEquals(newValue, value(pk.read(binaryRow, Timestamp.nextVersion())));
     }
 
     /**
-     * Tests basic invariants of {@link MvStorage#scan(Predicate, Timestamp)}.
+     * Tests basic invariants of {@link MvPartitionStorage#scan(Predicate, Timestamp)}.
      */
     @Test
     public void testScan() throws Exception {
-        MvStorage pk = partitionStorage();
+        MvPartitionStorage pk = partitionStorage();
 
-        TestPojo row1 = new TestPojo(1, "1", 10, "xxx");
-        BinaryRow binaryRow1 = kvMarshaller.marshal(row1, row1);
+        TestKey key1 = new TestKey(1, "1");
+        TestValue value1 = new TestValue(10, "xxx");
 
-        TestPojo row2 = new TestPojo(2, "2", 20, "yyy");
-        BinaryRow binaryRow2 = kvMarshaller.marshal(row2, row2);
+        TestKey key2 = new TestKey(2, "2");
+        TestValue value2 = new TestValue(20, "yyy");
 
-        pk.addWrite(binaryRow1, UUID.randomUUID());
-        pk.addWrite(binaryRow2, UUID.randomUUID());
+        pk.addWrite(binaryRow(key1, value1), UUID.randomUUID());
+        pk.addWrite(binaryRow(key2, value2), UUID.randomUUID());
 
-        assertEquals(List.of(row1, row2), convert(pk.scan(row -> true, null)));
-        assertEquals(List.of(row1), convert(pk.scan(row -> row(row).intKey == 1, null)));
-        assertEquals(List.of(row2), convert(pk.scan(row -> row(row).intKey == 2, null)));
+        // Scan with and without filters.
+        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, null)));
+        assertEquals(List.of(value1), convert(pk.scan(row -> key(row).intKey == 1, null)));
+        assertEquals(List.of(value2), convert(pk.scan(row -> key(row).intKey == 2, null)));
 
         Timestamp ts1 = Timestamp.nextVersion();
 
         Timestamp ts2 = Timestamp.nextVersion();
-        pk.commitWrite(binaryRow1, ts2);
+        pk.commitWrite(binaryKey(key1), ts2);
 
         Timestamp ts3 = Timestamp.nextVersion();
 
         Timestamp ts4 = Timestamp.nextVersion();
-        pk.commitWrite(binaryRow2, ts4);
+        pk.commitWrite(binaryKey(key2), ts4);
 
         Timestamp ts5 = Timestamp.nextVersion();
 
+        // Full scan with various timestamp values.
         assertEquals(List.of(), convert(pk.scan(row -> true, ts1)));
 
-        assertEquals(List.of(row1), convert(pk.scan(row -> true, ts2)));
-        assertEquals(List.of(row1), convert(pk.scan(row -> true, ts3)));
+        assertEquals(List.of(value1), convert(pk.scan(row -> true, ts2)));
+        assertEquals(List.of(value1), convert(pk.scan(row -> true, ts3)));
 
-        assertEquals(List.of(row1, row2), convert(pk.scan(row -> true, ts4)));
-        assertEquals(List.of(row1, row2), convert(pk.scan(row -> true, ts5)));
+        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts4)));
+        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts5)));
     }
 
-    @Nullable
-    protected TestPojo row(BinaryRow binaryRow) {
-        try {
-            return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
-        } catch (MarshallerException e) {
-            throw new IgniteException(e);
-        }
-    }
-
-    /**
-     * Test pojo.
-     */
-    protected static class TestPojo implements Comparable<TestPojo> {
-        public int intKey;
-
-        public String strKey;
-
-        public Integer intVal;
-
-        public String strVal;
-
-        public TestPojo() {
-        }
-
-        public TestPojo(int intKey, String strKey) {
-            this.intKey = intKey;
-            this.strKey = strKey;
-        }
-
-        public TestPojo(int intKey, String strKey, Integer intVal, String strVal) {
-            this.intKey = intKey;
-            this.strKey = strKey;
-            this.intVal = intVal;
-            this.strVal = strVal;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int compareTo(TestPojo o) {
-            int cmp = Integer.compare(intKey, o.intKey);
-
-            return cmp == 0 ? strKey.compareTo(o.strKey) : cmp;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestPojo testPojo = (TestPojo) o;
-            return intKey == testPojo.intKey && Objects.equals(strKey, testPojo.strKey) && Objects.equals(intVal,
-                    testPojo.intVal) && Objects.equals(strVal, testPojo.strVal);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public int hashCode() {
-            return Objects.hash(intKey, strKey, intVal, strVal);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public String toString() {
-            return S.toString(TestPojo.class, this);
-        }
-    }
-
-    private List<TestPojo> convert(Cursor<BinaryRow> cursor) throws Exception {
+    private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
-            List<TestPojo> list = StreamSupport.stream(cursor.spliterator(), false)
-                    .map(this::row)
+            List<TestValue> list = StreamSupport.stream(cursor.spliterator(), false)
+                    .map(this::value)
                     .collect(Collectors.toList());
 
             Collections.sort(list);
