@@ -92,7 +92,7 @@ public class ItColocationTest extends AbstractBasicIntegrationTest {
     }
 
     /**
-     * Check colocation by one column for all types.
+     * Check colocation by one column PK and explicit colocation key for all types.
      * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     @ParameterizedTest(name = "type=" + ARGUMENTS_PLACEHOLDER)
