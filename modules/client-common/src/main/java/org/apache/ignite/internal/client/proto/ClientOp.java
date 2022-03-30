@@ -128,4 +128,7 @@ public class ClientOp {
 
     /** Broadcast compute job. */
     public static final int COMPUTE_BROADCAST = 48;
+
+    /** Get cluster nodes. */
+    public static final int CLUSTER_GET_NODES = 49;
 }

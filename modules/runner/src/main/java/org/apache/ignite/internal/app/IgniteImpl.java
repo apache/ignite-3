@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -448,6 +449,12 @@ public class IgniteImpl implements Ignite {
             compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
         }
         return compute;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<ClusterNode> clusterNodes() {
+        return clusterSvc.topologyService().allMembers();
     }
 
     /**

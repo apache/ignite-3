@@ -17,10 +17,13 @@
 
 package org.apache.ignite;
 
+import java.util.Collection;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -79,4 +82,20 @@ public interface Ignite extends AutoCloseable {
      * @see ComputeJob
      */
     IgniteCompute compute();
+
+    /**
+     * Gets the cluster nodes.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     *
+     * @return Collection of cluster nodes.
+     */
+    Collection<ClusterNode> clusterNodes();
+
+    /**
+     * Gets the cluster nodes.
+     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
+     *
+     * @return Collection of cluster nodes.
+     */
+    CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
 }
