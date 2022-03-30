@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Year;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Random;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 
@@ -36,6 +37,25 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
  * Test utility class.
  */
 public final class SchemaTestUtils {
+    /** All types for tests. */
+    public static List<NativeType> ALL_TYPES = List.of(
+            NativeTypes.INT8,
+            NativeTypes.INT16,
+            NativeTypes.INT32,
+            NativeTypes.INT64,
+            NativeTypes.FLOAT,
+            NativeTypes.DOUBLE,
+            NativeTypes.DATE,
+            NativeTypes.UUID,
+            NativeTypes.numberOf(20),
+            NativeTypes.decimalOf(25, 5),
+            NativeTypes.bitmaskOf(22),
+            NativeTypes.time(),
+            NativeTypes.datetime(),
+            NativeTypes.timestamp(),
+            NativeTypes.BYTES,
+            NativeTypes.STRING);
+
     /**
      * Generates random value of given type.
      *

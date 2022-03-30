@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.internal.compute;
 
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.ClusterNode;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.sameInstance;
 
-/**
- * Provides access to the Compute functionality: the ability to execute compute jobs.
- *
- * @see ComputeJob
- * @see ComputeJob#execute(JobExecutionContext, Object...)
- */
-public interface IgniteCompute {
-    /**
-     * Executes a {@link ComputeJob}.
-     *
-     * @param nodes    nodes on which to execute the job
-     * @param jobClass class of the job to execute
-     * @param args     arguments of the job
-     * @param <R>      job result type
-     * @return future job result
-     */
-    <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args);
+import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
+class JobExecutionContextImplTest {
+    @Mock
+    private Ignite ignite;
+
+    @Test
+    void returnsIgnite() {
+        JobExecutionContext context = new JobExecutionContextImpl(ignite);
+
+        assertThat(context.ignite(), is(sameInstance(ignite)));
+    }
 }

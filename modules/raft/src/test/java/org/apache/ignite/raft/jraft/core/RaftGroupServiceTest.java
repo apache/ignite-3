@@ -793,7 +793,7 @@ public class RaftGroupServiceTest {
             NetworkAddress target = invocation.getArgument(0);
 
             if (peer != null && target.equals(peer.address()))
-                return failedFuture(new IgniteInternalException(new ConnectException()));
+                return failedFuture(new ConnectException());
 
             if (delay) {
                 return CompletableFuture.supplyAsync(() -> {

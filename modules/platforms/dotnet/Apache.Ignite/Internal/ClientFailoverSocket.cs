@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal
                     $"{nameof(IgniteClientConfiguration.Endpoints)} is empty. Nowhere to connect.");
             }
 
-            _logger = configuration.Logger;
+            _logger = configuration.Logger.GetLogger(GetType());
             _endPoints = GetIpEndPoints(configuration).ToList();
 
             Configuration = new(configuration); // Defensive copy.
@@ -155,6 +155,11 @@ namespace Apache.Ignite.Internal
 
                 if (_socket == null || _socket.IsDisposed)
                 {
+                    if (_socket?.IsDisposed == true)
+                    {
+                        _logger?.Info("Primary socket connection lost, reconnecting.");
+                    }
+
                     _socket = await GetNextSocketAsync().ConfigureAwait(false);
                 }
 
@@ -216,7 +221,7 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private async Task<ClientSocket> ConnectAsync(SocketEndpoint endPoint)
         {
-            var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, _logger).ConfigureAwait(false);
+            var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, Configuration).ConfigureAwait(false);
 
             endPoint.Socket = socket;
 

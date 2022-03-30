@@ -22,6 +22,9 @@ namespace Apache.Ignite.Internal.Proto
     /// </summary>
     internal enum ClientOp
     {
+        /** Heartbeat. */
+        Heartbeat = 1,
+
         /** Get tables. */
         TablesGet = 3,
 

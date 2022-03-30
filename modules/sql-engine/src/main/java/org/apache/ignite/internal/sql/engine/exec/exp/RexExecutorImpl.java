@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import com.google.common.collect.ImmutableList;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -113,7 +112,7 @@ public class RexExecutorImpl implements RexExecutor {
         final MethodDeclaration mtdDecl =
                 Expressions.methodDecl(Modifier.PUBLIC, Object[].class,
                         BuiltInMethod.FUNCTION1_APPLY.method.getName(),
-                        ImmutableList.of(root0_), blockBuilder.toBlock());
+                        List.of(root0_), blockBuilder.toBlock());
 
         String code = Expressions.toString(mtdDecl);
 

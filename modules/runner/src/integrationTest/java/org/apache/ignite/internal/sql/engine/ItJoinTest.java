@@ -725,6 +725,83 @@ public class ItJoinTest extends AbstractBasicIntegrationTest {
                 .check();
     }
 
+    /**
+     * Tests JOIN with USING clause.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testJoinWithUsing(JoinType joinType) {
+        // Select all join columns.
+        assertQuery("SELECT * FROM t1 JOIN t2 USING (c1, c2)", joinType)
+                .returns(1, 1, 0, 1, 0, 1)
+                .returns(2, 2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 1, null)
+                .returns(3, 3, 3, null, 4, 3)
+                .returns(3, 3, 4, 3, 4, 3)
+                .returns(4, 4, 5, 4, 5, 4)
+                .check();
+
+        // Select all table columns explicitly.
+        assertQuery("SELECT t1.*, t2.* FROM t1 JOIN t2 USING (c1, c2)")
+                .returns(0, 1, 1, 1, 0, 1, 1, 1)
+                .returns(2, 2, 2, 2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 1, 2, 2, null)
+                .returns(3, 3, 3, null, 4, 3, 3, 3)
+                .returns(4, 3, 3, 3, 4, 3, 3, 3)
+                .returns(5, 4, 4, 4, 5, 4, 4, 4)
+                .check();
+
+        // Select explicit columns. Columns from using - not ambiguous.
+        assertQuery("SELECT c1, c2, t1.c3, t2.c3 FROM t1 JOIN t2 USING (c1, c2) ORDER BY c1, c2")
+                .returns(1, 1, 1, 1)
+                .returns(2, 2, 2, null)
+                .returns(2, 2, 2, 2)
+                .returns(3, 3, null, 3)
+                .returns(3, 3, 3, 3)
+                .returns(4, 4, 4, 4)
+                .check();
+    }
+
+    /**
+     * Tests NATURAL JOIN.
+     */
+    @ParameterizedTest
+    @EnumSource
+    public void testNatural(JoinType joinType) {
+        // Select all join columns.
+        assertQuery("SELECT * FROM t1 NATURAL JOIN t2", joinType)
+                .returns(0, 1, 1, 1)
+                .returns(2, 2, 2, 2)
+                .returns(4, 3, 3, 3)
+                .returns(5, 4, 4, 4)
+                .check();
+
+        // Select all tables columns explicitly.
+        assertQuery("SELECT t1.*, t2.* FROM t1 NATURAL JOIN t2", joinType)
+                .returns(0, 1, 1, 1, 0, 1, 1, 1)
+                .returns(2, 2, 2, 2, 2, 2, 2, 2)
+                .returns(4, 3, 3, 3, 4, 3, 3, 3)
+                .returns(5, 4, 4, 4, 5, 4, 4, 4)
+                .check();
+
+        // Select explicit columns.
+        assertQuery("SELECT t1.c1, t2.c2, t1.c3, t2.c3 FROM t1 NATURAL JOIN t2", joinType)
+                .returns(1, 1, 1, 1)
+                .returns(2, 2, 2, 2)
+                .returns(3, 3, 3, 3)
+                .returns(4, 4, 4, 4)
+                .check();
+
+        // Columns - not ambiguous.
+        // TODO https://issues.apache.org/jira/browse/CALCITE-4915
+        //assertQuery("SELECT c1, c2, c3 FROM t1 NATURAL JOIN t2 ORDER BY c1, c2, c3")
+        //    .returns(1, 1, 1)
+        //    .returns(2, 2, 2)
+        //    .returns(3, 3, 3)
+        //    .returns(4, 4, 4)
+        //    .check();
+    }
+
     protected QueryChecker assertQuery(String qry, JoinType joinType) {
         return AbstractBasicIntegrationTest.assertQuery(qry.replace("select", "select "
             + Arrays.stream(joinType.disabledRules).collect(Collectors.joining("','", "/*+ DISABLE_RULE('", "') */"))));

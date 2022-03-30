@@ -18,24 +18,22 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.util.Collections.nCopies;
-import static org.apache.ignite.internal.rocksdb.RocksUtils.createSstFile;
+import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.range;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange;
+import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
@@ -45,16 +43,12 @@ import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
-import org.rocksdb.Snapshot;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
@@ -62,16 +56,10 @@ import org.rocksdb.WriteOptions;
  * Storage implementation based on a single RocksDB instance.
  */
 class RocksDbPartitionStorage implements PartitionStorage {
-    /** Suffix for the temporary snapshot folder. */
-    private static final String TMP_SUFFIX = ".tmp";
-
     /**
      * Size of the overhead for all keys in the storage: partition ID (unsigned {@code short}) + key hash ({@code int}).
      */
     private static final int PARTITION_KEY_PREFIX_SIZE = Short.BYTES + Integer.BYTES;
-
-    /** Thread pool for async operations. */
-    private final Executor threadPool;
 
     /**
      * Partition ID (should be treated as an unsigned short).
@@ -86,28 +74,34 @@ class RocksDbPartitionStorage implements PartitionStorage {
     /** Data column family. */
     private final ColumnFamily data;
 
+    /** Snapshot manager. */
+    private final RocksSnapshotManager snapshotManager;
+
+    /**
+     * Lock used to insure thread-safety of the {@link #restoreSnapshot} method.
+     */
+    private final Object snapshotRestoreLock = new Object();
+
     /**
      * Constructor.
      *
-     * @param threadPool   Thread pool for async operations.
      * @param partId       Partition id.
      * @param db           Rocks DB instance.
      * @param columnFamily Column family to be used for all storage operations. This class does not own the column family handler
      *                     as it is shared between multiple storages and will not close it.
+     * @param threadPool   Thread pool for async operations.
      * @throws StorageException If failed to create RocksDB instance.
      */
-    RocksDbPartitionStorage(
-            Executor threadPool,
-            int partId,
-            RocksDB db,
-            ColumnFamily columnFamily
-    ) throws StorageException {
+    RocksDbPartitionStorage(RocksDB db, ColumnFamily columnFamily, int partId, Executor threadPool) throws StorageException {
         assert partId >= 0 && partId < 0xFFFF : partId;
 
-        this.threadPool = threadPool;
         this.partId = partId;
         this.db = db;
         this.data = columnFamily;
+
+        ColumnFamilyRange snapshotRange = range(columnFamily, partitionStartPrefix(), partitionEndPrefix());
+
+        this.snapshotManager = new RocksSnapshotManager(db, List.of(snapshotRange), threadPool);
     }
 
     /** {@inheritDoc} */
@@ -357,60 +351,17 @@ class RocksDbPartitionStorage implements PartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> snapshot(Path snapshotPath) {
-        Path tempPath = Paths.get(snapshotPath.toString() + TMP_SUFFIX);
-
-        // Create a RocksDB point-in-time snapshot
-        Snapshot snapshot = db.getSnapshot();
-
-        return CompletableFuture.runAsync(() -> {
-            // (Re)create the temporary directory
-            IgniteUtils.deleteIfExists(tempPath);
-
-            try {
-                Files.createDirectories(tempPath);
-            } catch (IOException e) {
-                throw new IgniteInternalException("Failed to create directory: " + tempPath, e);
-            }
-        }, threadPool)
-            .thenRunAsync(() -> createSstFile(data, snapshot, tempPath), threadPool)
-            .whenComplete((nothing, throwable) -> {
-                // Release a snapshot
-                db.releaseSnapshot(snapshot);
-
-                // Snapshot is not actually closed here, because a Snapshot instance doesn't own a pointer, the
-                // database does. Calling close to maintain the AutoCloseable semantics
-                snapshot.close();
-
-                if (throwable != null) {
-                    return;
-                }
-
-                // Delete snapshot directory if it already exists
-                IgniteUtils.deleteIfExists(snapshotPath);
-
-                try {
-                    // Rename the temporary directory
-                    Files.move(tempPath, snapshotPath);
-                } catch (IOException e) {
-                    throw new IgniteInternalException("Failed to rename: " + tempPath + " to " + snapshotPath, e);
-                }
-            });
+    public CompletableFuture<Void> snapshot(Path snapshotPath) {
+        return snapshotManager.createSnapshot(snapshotPath);
     }
 
     /** {@inheritDoc} */
     @Override
     public void restoreSnapshot(Path path) {
-        try (IngestExternalFileOptions ingestOptions = new IngestExternalFileOptions()) {
-            Path snapshotPath = path.resolve(data.name());
+        synchronized (snapshotRestoreLock) {
+            destroy();
 
-            if (!Files.exists(snapshotPath)) {
-                throw new IgniteInternalException("Snapshot not found: " + snapshotPath);
-            }
-
-            data.ingestExternalFile(Collections.singletonList(snapshotPath.toString()), ingestOptions);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException("Fail to ingest sst file at path: " + path, e);
+            snapshotManager.restoreSnapshot(path);
         }
     }
 
@@ -504,9 +455,9 @@ class RocksDbPartitionStorage implements PartitionStorage {
     }
 
     /**
-     * Returns byte buffer hash that matches corresponging array hash.
+     * Returns byte buffer hash that matches corresponding array hash.
      */
-    private int hashCode(ByteBuffer buf) {
+    private static int hashCode(ByteBuffer buf) {
         int result = 1;
         for (int i = buf.position(); i < buf.limit(); i++) {
             result = 31 * result + buf.get(i);

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.testframework.matchers;
 
+import static org.hamcrest.Matchers.equalTo;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -75,5 +77,16 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
      */
     public static <T> CompletableFutureMatcher<T> willBe(Matcher<T> matcher) {
         return new CompletableFutureMatcher<>(matcher);
+    }
+
+    /**
+     * Returns a Matcher matching the {@link CompletableFuture} under match if it completes successfully with the given value.
+     *
+     * @param value expected value
+     * @param <T> value type
+     * @return matcher
+     */
+    public static <T> CompletableFutureMatcher<T> willBe(T value) {
+        return willBe(equalTo(value));
     }
 }

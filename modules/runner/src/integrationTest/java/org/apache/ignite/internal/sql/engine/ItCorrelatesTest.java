@@ -19,11 +19,27 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /** Tests for correlated queries. */
 public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
+
+    /**
+     * Clear tables after each test.
+     *
+     * @param testInfo Test information object.
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    @Override
+    public void tearDown(TestInfo testInfo) throws Exception {
+        dropAllTables();
+
+        super.tearDownBase(testInfo);
+    }
 
     /** Checks correlates are assigned before access. */
     @Test

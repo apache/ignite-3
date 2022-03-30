@@ -45,11 +45,13 @@ public class TestServer implements AutoCloseable {
      *
      * @param port Port.
      * @param portRange Port range.
+     * @param idleTimeout Idle timeout.
      * @param ignite Ignite.
      */
     public TestServer(
             int port,
             int portRange,
+            long idleTimeout,
             Ignite ignite
     ) {
         cfg = new ConfigurationRegistry(
@@ -63,7 +65,7 @@ public class TestServer implements AutoCloseable {
         cfg.start();
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
-                local -> local.changePort(port).changePortRange(portRange)
+                local -> local.changePort(port).changePortRange(portRange).changeIdleTimeout(idleTimeout)
         ).join();
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");

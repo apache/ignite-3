@@ -15,10 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.internal.compute;
+
+import org.apache.ignite.internal.compute.message.ExecuteRequest;
+import org.apache.ignite.internal.compute.message.ExecuteResponse;
+import org.apache.ignite.network.annotations.MessageGroup;
 
 /**
- * Context of {@link ComputeJob} execution.
+ * Message types for the Compute module.
  */
-public interface JobExecutionContext {
+@MessageGroup(groupName = "ComputeMessages", groupType = 6)
+public class ComputeMessageTypes {
+    /**
+     * Type for {@link ExecuteRequest}.
+     */
+    public static final short EXECUTE_REQUEST = 0;
+
+    /**
+     * Type for {@link ExecuteResponse}.
+     */
+    public static final short EXECUTE_RESPONSE = 1;
 }

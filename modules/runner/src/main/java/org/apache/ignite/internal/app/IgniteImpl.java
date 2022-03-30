@@ -32,17 +32,21 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.compute.ComputeComponent;
+import org.apache.ignite.internal.compute.ComputeComponentImpl;
+import org.apache.ignite.internal.compute.ComputeMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
-import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
 import org.apache.ignite.internal.configuration.rest.ConfigurationHttpHandlers;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -51,6 +55,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
+import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -67,9 +73,9 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterLocalConfiguration;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
@@ -79,6 +85,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Ignite internal implementation.
@@ -102,12 +109,6 @@ public class IgniteImpl implements Ignite {
      */
     private static final Path PARTITIONS_STORE_PATH = Paths.get("db");
 
-    /**
-     * Difference between the local node applied revision and distributed data storage revision on start.
-     * TODO: IGNITE-16488 Move the property to configuration.
-     */
-    private static final int CONFIGURATION_DIFFERENCE = 100;
-
     /** Ignite node name. */
     private final String name;
 
@@ -122,6 +123,8 @@ public class IgniteImpl implements Ignite {
 
     /** Cluster service (cluster network manager). */
     private final ClusterService clusterSvc;
+
+    private final ComputeComponent computeComponent;
 
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory nettyBootstrapFactory;
@@ -159,6 +162,9 @@ public class IgniteImpl implements Ignite {
     @Nullable
     private transient IgniteCompute compute;
 
+    /** JVM pause detector. */
+    private final LongJvmPauseDetector longJvmPauseDetector;
+
     /**
      * The Constructor.
      *
@@ -193,6 +199,7 @@ public class IgniteImpl implements Ignite {
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         SqlQueryMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
+        ComputeMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
         var clusterLocalConfiguration = new ClusterLocalConfiguration(name, serializationRegistry);
 
@@ -205,6 +212,9 @@ public class IgniteImpl implements Ignite {
                 networkConfiguration,
                 nettyBootstrapFactory
         );
+
+        computeComponent = new ComputeComponentImpl(this, clusterSvc.messagingService(),
+                nodeCfgMgr.configurationRegistry().getConfiguration(ComputeConfiguration.KEY));
 
         raftMgr = new Loza(clusterSvc, workDir);
 
@@ -268,6 +278,8 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry(),
                 nettyBootstrapFactory
         );
+
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
     }
 
     private ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
@@ -315,6 +327,12 @@ public class IgniteImpl implements Ignite {
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
+            doStartComponent(
+                    name,
+                    startedComponents,
+                    longJvmPauseDetector
+            );
+
             // Vault startup.
             doStartComponent(
                     name,
@@ -347,6 +365,7 @@ public class IgniteImpl implements Ignite {
             List<IgniteComponent> otherComponents = List.of(
                     nettyBootstrapFactory,
                     clusterSvc,
+                    computeComponent,
                     raftMgr,
                     txManager,
                     metaStorageMgr,
@@ -362,7 +381,11 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
-            CompletableFuture<Void> configurationCatchUpFuture = configurationCatchUpFuture();
+            CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
+                    metaStorageMgr,
+                    clusterCfgMgr,
+                    fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
+            );
 
             notifyConfigurationListeners();
 
@@ -394,47 +417,12 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Creates a listener for configuration updates and a future which will be completed when configuration is up-to-date enough
-     * to complete the local recovery.
-     *
-     * @return Future, which completes when the local configuration is close enough to distributed one.
-     */
-    private CompletableFuture<Void> configurationCatchUpFuture() {
-        //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
-        if (!metaStorageMgr.isMetaStorageInitializedOnStart()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        CompletableFuture<Void> catchUpFuture = new CompletableFuture<>();
-
-        ConfigurationStorageRevisionListener listener =
-                new ConfigurationCatchUpListener(cfgStorage.lastRevision().join(), catchUpFuture);
-
-        catchUpFuture.thenRun(() -> clusterCfgMgr.configurationRegistry().stopListenUpdateStorageRevision(listener));
-
-        clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(listener);
-
-        return catchUpFuture;
-    }
-
-    /**
-     * Checks the node up to date by distributed configuration.
-     *
-     * @param cfgRevision Configuration revision.
-     * @param appliedRevision Last applied node revision.
-     * @return True when the applied revision is great enough for node recovery to complete, false otherwise.
-     */
-    private boolean isConfigurationUpToDate(long cfgRevision, long appliedRevision) {
-        return cfgRevision - CONFIGURATION_DIFFERENCE <= appliedRevision;
-    }
-
-    /**
      * Stops ignite node.
      */
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
-            doStopNode(List.of(vaultMgr, nodeCfgMgr, clusterSvc, raftMgr, txManager, metaStorageMgr, clusterCfgMgr, baselineMgr,
-                    distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
+            doStopNode(List.of(longJvmPauseDetector, vaultMgr, nodeCfgMgr, clusterSvc, computeComponent, raftMgr, txManager, metaStorageMgr,
+                    clusterCfgMgr, baselineMgr, distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
         }
     }
 
@@ -480,7 +468,7 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCompute compute() {
         if (compute == null) {
-            compute = new IgniteComputeImpl();
+            compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
         }
         return compute;
     }
@@ -618,6 +606,11 @@ public class IgniteImpl implements Ignite {
         return partitionsStore;
     }
 
+    @TestOnly
+    public ClusterNode node() {
+        return clusterSvc.topologyService().localMember();
+    }
+
     /**
      * Node state.
      */
@@ -627,45 +620,5 @@ public class IgniteImpl implements Ignite {
         STARTED,
 
         STOPPING
-    }
-
-    /**
-     * Configuration listener class that is intended to complete catch-up future during recovery when configuration
-     * is up-to-date.
-     */
-    private class ConfigurationCatchUpListener implements ConfigurationStorageRevisionListener {
-        /** Revision to catch up. */
-        private long cfgRevision;
-
-        /** Catch-up future. */
-        private final CompletableFuture<Void> catchUpFuture;
-
-        /**
-         * Constructor.
-         *
-         * @param cfgRevision Revision to catch up.
-         * @param catchUpFuture Catch-up future.
-         */
-        public ConfigurationCatchUpListener(long cfgRevision, CompletableFuture<Void> catchUpFuture) {
-            this.cfgRevision = cfgRevision;
-            this.catchUpFuture = catchUpFuture;
-        }
-
-        /** {@inheritDoc} */
-        @Override public CompletableFuture<?> onUpdate(long cfgUpdateRevision) {
-            assert cfgRevision >= cfgUpdateRevision : IgniteStringFormatter.format(
-                "Configuration revision must be greater than local node applied revision [msRev={}, appliedRev={}",
-                cfgRevision, cfgUpdateRevision);
-
-            if (isConfigurationUpToDate(cfgRevision, cfgUpdateRevision)) {
-                cfgRevision = cfgStorage.lastRevision().join();
-
-                if (isConfigurationUpToDate(cfgRevision, cfgUpdateRevision)) {
-                    catchUpFuture.complete(null);
-                }
-            }
-
-            return CompletableFuture.completedFuture(null);
-        }
     }
 }

@@ -17,8 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -48,6 +48,7 @@ public class ReconnectTest {
         server = AbstractClientTest.startServer(
                 10900,
                 10,
+                0,
                 ignite1);
 
         var client = IgniteClient.builder()
@@ -65,12 +66,14 @@ public class ReconnectTest {
         server2 = AbstractClientTest.startServer(
                 10950,
                 10,
+                0,
                 ignite2);
 
         assertEquals("t2", client.tables().tables().get(0).name());
     }
 
     @Test
+    @SuppressWarnings("ThrowableNotThrown")
     public void testOperationFailsWhenAllServersFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
         ignite1.tables().createTable("t", c -> c.changeName("t"));
@@ -78,6 +81,7 @@ public class ReconnectTest {
         server = AbstractClientTest.startServer(
                 10900,
                 10,
+                0,
                 ignite1);
 
         var client = IgniteClient.builder()
@@ -89,7 +93,6 @@ public class ReconnectTest {
 
         server.close();
 
-        var ex = assertThrows(IgniteClientConnectionException.class, () -> client.tables().tables());
-        assertEquals(ex.getMessage(), "Channel is closed");
+        assertThrowsWithCause(() -> client.tables().tables(), IgniteClientConnectionException.class, "Channel is closed");
     }
 }

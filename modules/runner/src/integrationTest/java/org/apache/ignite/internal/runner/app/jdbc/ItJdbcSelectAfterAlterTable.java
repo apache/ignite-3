@@ -26,18 +26,17 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Base class for complex SQL tests based on JDBC driver.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @BeforeEach
-    @Override protected void beforeTest() throws Exception {
-        super.beforeTest();
+    @Override protected void beforeTest(TestInfo testInfo) throws Exception {
+        super.beforeTest(testInfo);
 
         stmt.executeUpdate("CREATE TABLE PUBLIC.PERSON (ID BIGINT, NAME VARCHAR, CITY_ID BIGINT, PRIMARY KEY (ID, CITY_ID))");
         stmt.executeUpdate("INSERT INTO PUBLIC.PERSON (ID, NAME, CITY_ID) values (1, 'name_1', 11)");
@@ -45,8 +44,8 @@ public class ItJdbcSelectAfterAlterTable extends AbstractJdbcSelfTest {
 
     /** {@inheritDoc} */
     @AfterEach
-    @Override protected void afterTest() throws Exception {
-        super.afterTest();
+    @Override protected void afterTest(TestInfo testInfo) throws Exception {
+        super.afterTest(testInfo);
         clusterNodes.get(0).tables().dropTableAsync("PUBLIC.PERSON").get();
     }
 

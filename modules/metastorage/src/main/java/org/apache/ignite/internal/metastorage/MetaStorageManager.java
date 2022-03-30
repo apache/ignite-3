@@ -143,7 +143,7 @@ public class MetaStorageManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
-    AtomicBoolean stopGuard = new AtomicBoolean();
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * The constructor.
