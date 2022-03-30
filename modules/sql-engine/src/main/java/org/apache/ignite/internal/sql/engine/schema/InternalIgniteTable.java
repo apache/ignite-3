@@ -49,11 +49,11 @@ public interface InternalIgniteTable extends IgniteTable {
      *
      * @param cluster   Custer.
      * @param relOptTbl Table.
-     * @param idxName   Index name.
+     * @param idx       Index impl.
      * @return Table relational expression.
      */
-    default IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, String idxName) {
-        return toRel(cluster, relOptTbl, idxName, null, null, null);
+    default IgniteLogicalIndexScan toRel(RelOptCluster cluster, RelOptTable relOptTbl, IgniteIndex idx) {
+        return toRel(cluster, relOptTbl, idx, null, null, null);
     }
 
     /**
@@ -73,7 +73,7 @@ public interface InternalIgniteTable extends IgniteTable {
     IgniteLogicalIndexScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTbl,
-            String idxName,
+            IgniteIndex idx,
             List<RexNode> proj,
             RexNode condition,
             ImmutableBitSet requiredCols

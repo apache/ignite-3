@@ -158,7 +158,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     public IgniteLogicalIndexScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTable,
-            String idxName,
+            IgniteIndex idx,
             List<RexNode> proj,
             RexNode condition,
             ImmutableBitSet requiredCols
@@ -166,9 +166,9 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         RelTraitSet traitSet = cluster.traitSetOf(Convention.Impl.NONE)
                 .replace(distribution())
                 .replace(RewindabilityTrait.REWINDABLE)
-                .replace(getIndex(idxName).collation());
+                .replace(idx.collation());
 
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idxName, proj, condition, requiredCols);
+        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, idx, proj, condition, requiredCols);
     }
 
     /** {@inheritDoc} */

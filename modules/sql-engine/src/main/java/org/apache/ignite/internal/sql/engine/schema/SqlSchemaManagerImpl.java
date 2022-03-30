@@ -33,6 +33,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.idx.IndexManager;
 import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -60,15 +62,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final TableManager tableManager;
 
+    private final IndexManager indexManager;
+
     private volatile SchemaPlus calciteSchema;
 
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public SqlSchemaManagerImpl(TableManager tableManager, Runnable onSchemaUpdatedCallback) {
+    public SqlSchemaManagerImpl(TableManager tblManager, IndexManager idxManager, Runnable onSchemaUpdatedCallback) {
+        tableManager = tblManager;
+        indexManager = idxManager;
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
-        this.tableManager = tableManager;
 
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
@@ -104,6 +109,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         return table;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public InternalSortedIndex indexById(UUID id, String idxName) {
+        InternalSortedIndex idx = indexManager.getIndexById(id);
+
+        if (idx == null) {
+            throw new IndexNotFoundException(idxName, id);
+        }
+
+        return idx;
     }
 
     private void ensureTableStructuresCreated(UUID id) {

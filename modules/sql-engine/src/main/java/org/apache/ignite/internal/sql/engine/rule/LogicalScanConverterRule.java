@@ -64,7 +64,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                 ) {
                     RelOptCluster cluster = rel.getCluster();
                     InternalIgniteTable table = rel.getTable().unwrap(InternalIgniteTable.class);
-                    IgniteIndex index = table.getIndex(rel.indexName());
+                    IgniteIndex index = rel.getIndex();
 
                     RelDistribution distribution = table.distribution();
                     RelCollation collation = index.collation();
@@ -95,7 +95,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                         cluster,
                         traits,
                         rel.getTable(),
-                        rel.indexName(),
+                        rel.getIndex(),
                         rel.projects(),
                         rel.condition(),
                         rel.indexConditions(),

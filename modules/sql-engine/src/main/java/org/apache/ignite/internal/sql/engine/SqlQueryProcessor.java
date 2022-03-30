@@ -168,7 +168,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         extensions = extensionList.stream().collect(Collectors.toMap(SqlExtension::name, Function.identity()));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tblManager, planCache::clear);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tblManager, idxManager, planCache::clear);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),

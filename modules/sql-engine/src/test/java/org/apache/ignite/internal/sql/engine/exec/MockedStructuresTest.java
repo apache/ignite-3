@@ -172,8 +172,9 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Test
     void checkAppropriateTableFound() throws Exception {
         TableManager tableManager = mock(TableManager.class);
+        IndexManager indexManager = mock(IndexManager.class);
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, () -> {});
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, indexManager, () -> {});
         UUID tblId = UUID.randomUUID();
 
         assertTrue(assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId))

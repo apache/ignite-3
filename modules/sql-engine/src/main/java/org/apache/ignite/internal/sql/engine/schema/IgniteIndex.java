@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -27,7 +28,6 @@ import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.IndexScan;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite scannable index.
@@ -35,11 +35,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteIndex {
     private final RelCollation collation;
 
-    private final String idxName;
-
-    private final UUID id;
-
-    private @Nullable final InternalSortedIndex idx;
+    private final InternalSortedIndex idx;
 
     private final InternalIgniteTable tbl;
 
@@ -47,28 +43,10 @@ public class IgniteIndex {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public IgniteIndex(RelCollation collation, String name, InternalIgniteTable tbl) {
-        this(collation, name, UUID.randomUUID(), null, tbl);
-    }
-
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     public IgniteIndex(RelCollation collation, InternalSortedIndex idx, InternalIgniteTable tbl) {
-        this(collation, idx.name(), idx.id(), idx, tbl);
-    }
-
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    private IgniteIndex(RelCollation collation, String name, UUID id, InternalSortedIndex idx, InternalIgniteTable tbl) {
-        this.collation = collation;
-        idxName = name;
-        this.idx = idx;
-        this.tbl = tbl;
-        this.id = id;
+        this.collation = Objects.requireNonNull(collation);
+        this.idx = Objects.requireNonNull(idx);
+        this.tbl = Objects.requireNonNull(tbl);
     }
 
     public RelCollation collation() {
@@ -76,7 +54,7 @@ public class IgniteIndex {
     }
 
     public String name() {
-        return idxName;
+        return idx.name();
     }
 
     public InternalIgniteTable table() {
@@ -88,7 +66,7 @@ public class IgniteIndex {
     }
 
     public UUID id() {
-        return id;
+        return idx.id();
     }
 
     /**

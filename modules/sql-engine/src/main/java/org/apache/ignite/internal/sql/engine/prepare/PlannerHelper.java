@@ -235,7 +235,7 @@ public class PlannerHelper {
             }
 
             IntSet indexedCols = CollectionUtils.setOf(
-                    tbl.getIndex(((AbstractIndexScan) scan).indexName()).collation().getKeys());
+                    ((AbstractIndexScan) scan).getIndex().collation().getKeys());
 
             spoolNeeded = modifyNode.getUpdateColumnList().stream()
                     .map(tbl.descriptor()::columnDescriptor)

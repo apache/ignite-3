@@ -48,12 +48,11 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.idx.IndexManager;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IndexNotFoundException;
 
 /**
  * RelJsonReader.
@@ -68,8 +67,6 @@ public class RelJsonReader {
 
     private final SqlSchemaManager schemaManager;
 
-    private final IndexManager idxManager;
-
     private final RelJson relJson;
 
     private final Map<String, RelNode> relMap = new LinkedHashMap<>();
@@ -80,8 +77,8 @@ public class RelJsonReader {
      * FromJson.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, IndexManager idxManager, String json) {
-        RelJsonReader reader = new RelJsonReader(schemaManager, idxManager);
+    public static <T extends RelNode> T fromJson(SqlSchemaManager schemaManager, String json) {
+        RelJsonReader reader = new RelJsonReader(schemaManager);
 
         return (T) reader.read(json);
     }
@@ -90,9 +87,8 @@ public class RelJsonReader {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public RelJsonReader(SqlSchemaManager schemaManager, IndexManager idxManager) {
+    public RelJsonReader(SqlSchemaManager schemaManager) {
         this.schemaManager = schemaManager;
-        this.idxManager = idxManager;
 
         relJson = new RelJson();
     }
@@ -174,16 +170,14 @@ public class RelJsonReader {
 
         /** {@inheritDoc} */
         @Override
-        public void checkIndexById(String tag, String idxName) {
+        public InternalSortedIndex getIndexById(String tag, String idxName) {
             String idxId = getString(tag);
 
             Objects.requireNonNull(idxId);
 
             UUID id = UUID.fromString(idxId);
 
-            if (!idxManager.getIndexById(id)) {
-                throw new IndexNotFoundException(idxId, id);
-            }
+            return schemaManager.indexById(id, idxName);
         }
 
         /** {@inheritDoc} */

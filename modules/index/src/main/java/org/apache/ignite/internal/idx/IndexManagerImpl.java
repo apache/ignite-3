@@ -560,9 +560,9 @@ public class IndexManagerImpl extends AbstractProducer<IndexEvent, IndexEventPar
 
     /** {@inheritDoc} */
     @Override
-    public boolean getIndexById(UUID id) {
+    public InternalSortedIndex getIndexById(UUID id) {
         InternalSortedIndex res = join(indexAsyncInternal(id));
 
-        return res != null;
+        return res;
     }
 }

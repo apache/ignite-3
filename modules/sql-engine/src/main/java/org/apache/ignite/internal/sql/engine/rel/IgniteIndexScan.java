@@ -27,6 +27,7 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,14 +59,14 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param cluster Cluster that this relational expression belongs to
      * @param traits  Traits of this relational expression
      * @param tbl     Table definition.
-     * @param idxName Index name.
+     * @param idx     Index impl.
      */
     public IgniteIndexScan(
             RelOptCluster cluster,
             RelTraitSet traits,
             RelOptTable tbl,
-            String idxName) {
-        this(cluster, traits, tbl, idxName, null, null, null, null);
+            IgniteIndex idx) {
+        this(cluster, traits, tbl, idx, null, null, null, null);
     }
 
     /**
@@ -74,7 +75,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param cluster      Cluster that this relational expression belongs to
      * @param traits       Traits of this relational expression
      * @param tbl          Table definition.
-     * @param idxName      Index name.
+     * @param idx          Index impl.
      * @param proj         Projects.
      * @param cond         Filters.
      * @param requiredCols Participating columns.
@@ -83,13 +84,13 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             RelOptCluster cluster,
             RelTraitSet traits,
             RelOptTable tbl,
-            String idxName,
+            IgniteIndex idx,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable IndexConditions idxCond,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        this(-1L, cluster, traits, tbl, idxName, proj, cond, idxCond, requiredCols);
+        this(-1L, cluster, traits, tbl, idx, proj, cond, idxCond, requiredCols);
     }
 
     /**
@@ -98,7 +99,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
      * @param cluster      Cluster that this relational expression belongs to
      * @param traits       Traits of this relational expression
      * @param tbl          Table definition.
-     * @param idxName      Index name.
+     * @param idx          Index impl.
      * @param proj         Projects.
      * @param cond         Filters.
      * @param requiredCols Participating columns.
@@ -108,13 +109,13 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
             RelOptCluster cluster,
             RelTraitSet traits,
             RelOptTable tbl,
-            String idxName,
+            IgniteIndex idx,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable IndexConditions idxCond,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        super(cluster, traits, List.of(), tbl, idxName, proj, cond, idxCond, requiredCols);
+        super(cluster, traits, List.of(), tbl, idx, proj, cond, idxCond, requiredCols);
 
         this.sourceId = sourceId;
     }
@@ -142,13 +143,13 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     @Override
     public IgniteRel clone(long sourceId) {
         return new IgniteIndexScan(sourceId, getCluster(), getTraitSet(), getTable(),
-                idxName, projects, condition, idxCond, requiredColumns);
+                index, projects, condition, idxCond, requiredColumns);
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteIndexScan(sourceId, cluster, getTraitSet(), getTable(),
-                idxName, projects, condition, idxCond, requiredColumns);
+                index, projects, condition, idxCond, requiredColumns);
     }
 }

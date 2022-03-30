@@ -281,7 +281,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
     }
 
     private QueryPlan prepareFragment(String jsonFragment) {
-        return new FragmentPlan(fromJson(sqlSchemaManager, idxManager, jsonFragment));
+        return new FragmentPlan(fromJson(sqlSchemaManager, jsonFragment));
     }
 
     /** {@inheritDoc} */

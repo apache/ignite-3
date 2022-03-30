@@ -27,6 +27,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -45,7 +46,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RelOptCluster cluster,
             RelTraitSet traits,
             RelOptTable table,
-            String idxName,
+            IgniteIndex idx,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable ImmutableBitSet requiredColumns
@@ -53,7 +54,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         InternalIgniteTable tbl = table.unwrap(InternalIgniteTable.class);
         IgniteTypeFactory typeFactory = Commons.typeFactory(cluster);
         RelDataType rowType = tbl.getRowType(typeFactory, requiredColumns);
-        RelCollation collation = tbl.getIndex(idxName).collation();
+        RelCollation collation = idx.collation();
 
         if (requiredColumns != null) {
             Mappings.TargetMapping targetMapping = Commons.mapping(requiredColumns,
@@ -79,7 +80,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 cluster,
                 traits,
                 table,
-                idxName,
+                idx,
                 proj,
                 cond,
                 idxCond,
@@ -92,7 +93,7 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
      * @param cluster      Cluster that this relational expression belongs to
      * @param traits       Traits of this relational expression
      * @param tbl          Table definition.
-     * @param idxName      Index name.
+     * @param idx          Index impl.
      * @param proj         Projects.
      * @param cond         Filters.
      * @param idxCond      Index conditions.
@@ -102,12 +103,12 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
             RelOptCluster cluster,
             RelTraitSet traits,
             RelOptTable tbl,
-            String idxName,
+            IgniteIndex idx,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable IndexConditions idxCond,
             @Nullable ImmutableBitSet requiredCols
     ) {
-        super(cluster, traits, List.of(), tbl, idxName, proj, cond, idxCond, requiredCols);
+        super(cluster, traits, List.of(), tbl, idx, proj, cond, idxCond, requiredCols);
     }
 }

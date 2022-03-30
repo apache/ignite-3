@@ -29,11 +29,14 @@ import java.util.UUID;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.Statistic;
-import org.apache.ignite.internal.idx.IndexManager;
+import org.apache.ignite.internal.idx.InternalSortedIndex;
+import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -41,7 +44,6 @@ import org.mockito.Mockito;
  * Tests to verify {@link RelJsonReader} behaviour.
  */
 public class RelJsonReaderTest {
-
     /**
      * Test verifies that during deserialization table being resolved by its ID.
      */
@@ -54,7 +56,6 @@ public class RelJsonReaderTest {
         when(igniteTableMock.getRowType(any())).thenReturn(mock(RelDataType.class));
 
         SqlSchemaManager schemaMock = mock(SqlSchemaManager.class);
-        IndexManager idxManagerMock = mock(IndexManager.class);
         when(schemaMock.tableById(tableId)).thenReturn(igniteTableMock);
 
         String json = ""
@@ -68,7 +69,7 @@ public class RelJsonReaderTest {
                 + "  } ]\n"
                 + "}";
 
-        RelNode node = RelJsonReader.fromJson(schemaMock, idxManagerMock, json);
+        RelNode node = RelJsonReader.fromJson(schemaMock, json);
 
         assertThat(node, isA(IgniteTableScan.class));
         assertThat(node.getTable(), notNullValue());
@@ -82,13 +83,16 @@ public class RelJsonReaderTest {
         UUID tableId = UUID.randomUUID();
 
         IgniteTable igniteTableMock = mock(IgniteTable.class);
+        InternalSortedIndex igniteIdxMock = mock(InternalSortedIndex.class);
         when(igniteTableMock.getStatistic()).thenReturn(new Statistic() {});
+        when(mock(RelInputEx.class).getIndexById(any(), any())).thenReturn(igniteIdxMock);
         when(igniteTableMock.getRowType(any())).thenReturn(mock(RelDataType.class));
+        when(igniteTableMock.unwrap(InternalIgniteTable.class)).thenReturn(mock(InternalIgniteTable.class));
 
         SqlSchemaManager schemaMock = mock(SqlSchemaManager.class);
-        IndexManager idxManagerMock = mock(IndexManager.class);
+
         when(schemaMock.tableById(tableId)).thenReturn(igniteTableMock);
-        when(idxManagerMock.getIndexById(indexId)).thenReturn(true);
+        when(schemaMock.indexById(any(UUID.class), any())).thenReturn(igniteIdxMock);
 
         String json = ""
                 + "{\n"
@@ -103,12 +107,14 @@ public class RelJsonReaderTest {
                 + "  } ]\n"
                 + "}";
 
-        RelNode node = RelJsonReader.fromJson(schemaMock, idxManagerMock, json);
+        RelNode node = RelJsonReader.fromJson(schemaMock, json);
 
         assertThat(node, isA(IgniteIndexScan.class));
         assertThat(node.getTable(), notNullValue());
         assertThat(node.getTable().unwrap(IgniteTable.class), is(igniteTableMock));
+        assertThat(IgniteTestUtils.getFieldValue(node, AbstractIndexScan.class, "index"), notNullValue());
+
         Mockito.verify(schemaMock).tableById(tableId);
-        Mockito.verify(idxManagerMock).getIndexById(indexId);
+        Mockito.verify(schemaMock).indexById(any(UUID.class), any());
     }
 }

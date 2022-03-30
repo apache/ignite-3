@@ -31,7 +31,6 @@ import org.apache.calcite.rel.core.Spool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.junit.jupiter.api.Test;
@@ -81,7 +80,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     public void insertCachesIndexScan() throws Exception {
         TestTable tbl = createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class);
 
-        tbl.addIndex(new IgniteIndex(RelCollations.of(0), "IDX", tbl));
+        tbl.addIndex(new TestIgniteIndex(RelCollations.of(0), "IDX", tbl));
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -138,7 +137,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     public void updateNotCachesNonDependentIndexScan() throws Exception {
         TestTable tbl = createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class, "IDX_VAL", Integer.class);
 
-        tbl.addIndex(new IgniteIndex(RelCollations.of(1), "IDX", tbl));
+        tbl.addIndex(new TestIgniteIndex(RelCollations.of(1), "IDX", tbl));
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -164,7 +163,7 @@ public class TableDmlPlannerTest extends AbstractPlannerTest {
     public void updateCachesDependentIndexScan() throws Exception {
         TestTable tbl = createTable("TEST", IgniteDistributions.random(), "VAL", Integer.class);
 
-        tbl.addIndex(new IgniteIndex(RelCollations.of(0), "IDX", tbl));
+        tbl.addIndex(new TestIgniteIndex(RelCollations.of(0), "IDX", tbl));
 
         IgniteSchema schema = createSchema(tbl);
 

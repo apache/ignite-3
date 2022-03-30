@@ -302,7 +302,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         Supplier<RowT> upper = upperCond == null ? null : expressionFactory.rowSource(upperCond);
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
-        IgniteIndex idx = tbl.getIndex(rel.indexName());
+        IgniteIndex idx = rel.getIndex();
 
         ColocationGroup group = ctx.group(rel.sourceId());
 
