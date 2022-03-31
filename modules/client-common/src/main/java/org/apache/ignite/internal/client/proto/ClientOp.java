@@ -126,9 +126,6 @@ public class ClientOp {
     /** Execute compute job. */
     public static final int COMPUTE_EXECUTE = 47;
 
-    /** Broadcast compute job. */
-    public static final int COMPUTE_BROADCAST = 48;
-
     /** Get cluster nodes. */
-    public static final int CLUSTER_GET_NODES = 49;
+    public static final int CLUSTER_GET_NODES = 48;
 }

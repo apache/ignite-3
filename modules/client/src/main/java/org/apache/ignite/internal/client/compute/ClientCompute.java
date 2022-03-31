@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -51,15 +54,21 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
-            w.out().packArrayHeader(nodes.size());
+        Objects.requireNonNull(nodes);
+        Objects.requireNonNull(jobClassName);
 
-            for (var n : nodes) {
-                w.out().packString(n.id());
-                w.out().packString(n.name());
-                w.out().packString(n.address().host());
-                w.out().packInt(n.address().port());
-            }
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("nodes must not be empty.");
+        }
+
+        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
+            // TODO: Cluster awareness (IGNITE-16771).
+            ClusterNode node = randomNode(nodes);
+
+            w.out().packString(node.id());
+            w.out().packString(node.name());
+            w.out().packString(node.address().host());
+            w.out().packInt(node.address().port());
 
             w.out().packString(jobClassName);
             w.out().packObjectArray(args);
@@ -70,12 +79,25 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass,
             Object... args) {
-        return null;
+        return broadcast(nodes, jobClass.getName(), args);
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+        // TODO: Send request to all known nodes.
+        // How to match connection to node? Extend handshake.
         return null;
+    }
+
+    private ClusterNode randomNode(Set<ClusterNode> nodes) {
+        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
+
+        Iterator<ClusterNode> iterator = nodes.iterator();
+        for (int i = 0; i < nodesToSkip; i++) {
+            iterator.next();
+        }
+
+        return iterator.next();
     }
 }

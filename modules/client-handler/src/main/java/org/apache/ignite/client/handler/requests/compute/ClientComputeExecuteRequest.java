@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -27,6 +27,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Compute execute request.
@@ -46,23 +47,34 @@ public class ClientComputeExecuteRequest {
             ClientMessagePacker out,
             IgniteCompute compute,
             ClusterService cluster) {
-        int nodeCnt = in.unpackArrayHeader();
-        var nodes = new HashSet<ClusterNode>(nodeCnt);
-
-        for (int i = 0; i < nodeCnt; i++) {
-            var node = new ClusterNode(in.unpackString(), in.unpackString(), new NetworkAddress(in.unpackString(), in.unpackInt()));
-            nodes.add(node);
-        }
+        var node = in.tryUnpackNil()
+                ? cluster.topologyService().localMember()
+                : new ClusterNode(in.unpackString(), in.unpackString(), new NetworkAddress(in.unpackString(), in.unpackInt()));
 
         String jobClassName = in.unpackString();
 
+        Object[] args = unpackArgs(in);
+
+        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
+    }
+
+    @NotNull
+    private static Object[] unpackArgs(ClientMessageUnpacker in) {
+        if (in.tryUnpackNil()) {
+            return OBJECT_EMPTY_ARRAY;
+        }
+
         int argCnt = in.unpackArrayHeader();
-        Object[] args = argCnt == 0 ? OBJECT_EMPTY_ARRAY : new Object[argCnt];
+
+        if (argCnt == 0) {
+            return OBJECT_EMPTY_ARRAY;
+        }
+
+        Object[] args = new Object[argCnt];
 
         for (int i = 0; i < argCnt; i++) {
             args[i] = in.unpackObjectWithType();
         }
-
-        return compute.execute(nodes, jobClassName, args).thenAccept(out::packObjectWithType);
+        return args;
     }
 }
