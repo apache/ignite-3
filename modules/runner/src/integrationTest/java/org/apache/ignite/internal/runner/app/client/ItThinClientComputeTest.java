@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
@@ -128,6 +129,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testAllSupportedArgTypes() {
         // TODO: Test all types and arrays of them.
+        testEchoArg(1);
+        testEchoArg("1");
+        testEchoArg(UUID.randomUUID());
+    }
+
+    private void testEchoArg(Object arg) {
+        Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg).join();
+
+        assertEquals(arg, res);
     }
 
     private ClusterNode node(int idx) {
@@ -158,6 +168,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             throw new TransactionException("Custom job error");
+        }
+    }
+
+    private static class EchoJob implements ComputeJob<Object> {
+        @Override
+        public Object execute(JobExecutionContext context, Object... args) {
+            return args[0];
         }
     }
 }
