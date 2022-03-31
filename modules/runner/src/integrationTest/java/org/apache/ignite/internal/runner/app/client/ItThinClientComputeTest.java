@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -76,8 +77,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class ConcatJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            // TODO: Concat args.
-            return null;
+            return Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
         }
     }
 }
