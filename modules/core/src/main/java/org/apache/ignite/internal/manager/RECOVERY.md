@@ -4,7 +4,7 @@
 
 **Local state** is a state of components, started tables, schemas, persistent and in-memory storages, partitions, RAFT groups, etc. on a given node. It also includes a projection of distributed cluster configuration.
 
-**Local state recovery** is changing local state in a way that every component on the node has its state configured and updated accordingly to cluster-wide configuration, topology, stored data, etc. and all the events that change this state and had already happened in the cluster to the moment in which the node tried to join the cluster.
+**Local state recovery** is changing local state in a way that every component on the node has its state configured and updated accordingly to cluster-wide configuration, topology, stored data, etc.
 
 **Vault** is a local storage of node configuration and a projection of cluster configuration. Vault has no log of historical changes. See [Vault](../../../../../../../../../vault/README.md).
 
@@ -16,7 +16,7 @@
 
 **Physical topology** - a set of nodes that are currently online and discovered via SWIM protocol, see [network-api](../../../../../../../../../network-api/README.md) and [network](../../../../../../../../../network/README.md) for details.
 
-**Logical topology** - a set of nodes that are present in physical topology and finished recovery process, they are considered to be able to serve user load.
+**Logical topology** - a set of nodes that are present in physical topology and finished recovery process. They are considered to be able to serve user load.
 
 ### Prerequisites
 
@@ -24,7 +24,7 @@
    If any action is required to recover data in Vault, it should be executed before.
 2. Data in Vault is consistent to the moment when the node was stopped (last applied revision appropriates to the rest of the data).
 3. Vault contains local node configuration, and a projection of cluster configuration. The latter can be written only after the cluster is initialized. No conflicts are possible between the node local configuration and the cluster configuration that is stored in Metastorage because the properties’ sets don’t intersect with each other.
-4. The prerequisite for the recovery from Metastorage is receiving a successful _nodeJoinResponse_ [Node join protocol](TODO add readme).
+4. The prerequisite for the recovery from Metastorage is receiving a successful _nodeJoinResponse_, see [Node join protocol](TODO add readme).
 
 ### The start of the components
 
@@ -54,11 +54,11 @@ From here, the actual recovery process can start. This distributed communication
 
 ### Recovery process
 
-The node begins to start other components. They register their listeners on `component.start()` using `any()` listener option. Notification of the listeners is allowed when all components have started and notifications from metastorage are allowed.
+The node begins to start other components. They register their listeners on `component.start()` using `any()` listener option. Notification of the listeners is allowed when all components have started and notifications from metastorage are enabled.
 
-Then, the Metastorage manager starts. The node checks _metastorage peers_ property in Vault to find out if it should be a member of Metastorage group, and creates a RAFT client for Metastorage group. When Metastorage group and Metastorage manager are ready, the node gets the minimal revision and the latest revision that are available in the cluster to receive updates through the Metastorage watch.
+The Metastorage manager starts. The node checks _metastorage peers_ property in Vault to find out if it should be a member of Metastorage group, and creates a RAFT client for Metastorage group. When Metastorage group and Metastorage manager are ready, the node gets the minimal revision and the latest revision that are available in the cluster to receive updates through the Metastorage watch.
 
-Metastorage watch deploying is one via `metaStorageMgr#deployWatches`.
+Metastorage watch deploying is done via `metaStorageMgr#deployWatches`.
 
 Here and below:
 - **LV** – latest applied revision in Vault;
@@ -75,7 +75,7 @@ _b._ **LM > LV and MM <= LV + 1**: this is the case when Vault is behind the clu
   
 During this process new updates can be written to Metastorage. After applying updates, the node should check the current value of LM and if it is significantly greater than LV, it should continue receiving updates from Metastorage, trying to catch current LM. This process ends when the difference between LV and LM is less or equal to some **acceptable difference value**, meaning that now the difference between LM and LV is small enough to let the node join logical topology.
   
-It’s also possible that Metastorage can be compacted right during this process and MM becomes greater than LV. Another case is when LM is to much greater than LV and sequential logic will be extremely inefficient here. In any of these two cases, we can fallback to the next case.
+It’s also possible that Metastorage can be compacted right during this process and MM becomes greater than LV. Another case is when LM is too much greater than LV and sequential logic will be extremely inefficient here. In any of these two cases, we can fallback to the next case.
 
 _c._ **LM > LV and MM > LV + 1**: this means that the node can't apply updates sequentially because a part of updates that are not present in Vault were compacted in metastorage. The node must get all up-to-date data from Metastorage as a snapshot. Then it should perform smart eviction of local data, for example, preserve partitions that are still needed and evict those that are not needed according to cluster configuration.
   If smart eviction takes significant time, the node should check the current value of LM, and if it is now greater than some **acceptable difference value** that was mentioned for previous case, try to catch LM by applying updates for Metastorage, as described above for case b.
