@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.storage.pagememory.io;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.storage.pagememory.TableTree;
 
 /**
- * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ * IO routines for {@link TableTree} meta pages.
  */
-public interface DataRow extends SearchRow {
-    /**
-     * Returns value bytes.
-     */
-    byte[] valueBytes();
+public class TableMetaIo extends BplusMetaIo {
+    /** Page IO type. */
+    public static final short T_TABLE_META_IO = 3;
+
+    /** I/O versions. */
+    public static final IoVersions<TableMetaIo> VERSIONS = new IoVersions<>(new TableMetaIo(1));
 
     /**
-     * Returns value object as a byte buffer. Allows more effective memory management in certain cases.
+     * Constructor.
+     *
+     * @param ver Page format version.
      */
-    ByteBuffer value();
+    protected TableMetaIo(int ver) {
+        super(T_TABLE_META_IO, ver);
+    }
 }
