@@ -71,6 +71,7 @@
         <module>modules/schema</module>
         <module>modules/sql-engine</module>
         <module>modules/storage-api</module>
+        <module>modules/storage-page-memory</module>
         <module>modules/storage-rocksdb</module>
         <module>modules/table</module>
         <module>modules/transactions</module>
