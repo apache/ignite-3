@@ -163,13 +163,9 @@ public class ClientUtils {
                 return null;
 
             case ClientOp.TX_BEGIN:
-                return null;
-
             case ClientOp.TX_COMMIT:
-                return null;
-
             case ClientOp.TX_ROLLBACK:
-                return null;
+                return null; // Commit/rollback use owning connection and bypass retry mechanism.
 
             case ClientOp.SQL_EXEC_PS_BATCH:
                 return null;

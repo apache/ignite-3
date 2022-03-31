@@ -546,8 +546,6 @@ public final class ReliableChannel implements AutoCloseable {
     private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
         ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        // TODO: Some system operations must not be retried (TX_COMMIT).
-        // File bugs for 2.x.
         if (opType == null)
             return true; // System operation.
 
