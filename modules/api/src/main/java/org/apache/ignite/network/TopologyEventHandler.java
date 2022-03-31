@@ -26,7 +26,9 @@ public interface TopologyEventHandler {
      *
      * @param member Appeared cluster member.
      */
-    void onAppeared(ClusterNode member);
+    default void onAppeared(ClusterNode member) {
+        // no-op
+    }
 
     /**
      * Indicates that a member has left a cluster. This method is only called when a member leaves permanently (i.e. it is not possible to
@@ -34,5 +36,7 @@ public interface TopologyEventHandler {
      *
      * @param member Disappeared cluster member.
      */
-    void onDisappeared(ClusterNode member);
+    default void onDisappeared(ClusterNode member) {
+        // no-op
+    }
 }
