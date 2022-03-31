@@ -785,6 +785,84 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Packs object type ({@link ClientDataType}) and value.
+     *
+     * @param obj Object.
+     */
+    public void packObjectWithType(Object obj) {
+        if (obj == null) {
+            packNil();
+
+            return;
+        }
+
+        Class<?> cls = obj.getClass();
+
+        if (cls == Boolean.class) {
+            packInt(ClientDataType.BOOLEAN);
+            packBoolean((Boolean) obj);
+        } else if (cls == Byte.class) {
+            packInt(ClientDataType.INT8);
+            packByte((Byte) obj);
+        } else if (cls == Short.class) {
+            packInt(ClientDataType.INT16);
+            packShort((Short) obj);
+        } else if (cls == Integer.class) {
+            packInt(ClientDataType.INT32);
+            packInt((Integer) obj);
+        } else if (cls == Long.class) {
+            packInt(ClientDataType.INT64);
+            packLong((Long) obj);
+        } else if (cls == Float.class) {
+            packInt(ClientDataType.FLOAT);
+            packFloat((Float) obj);
+        } else if (cls == Double.class) {
+            packInt(ClientDataType.DOUBLE);
+            packDouble((Double) obj);
+        } else if (cls == String.class) {
+            packInt(ClientDataType.STRING);
+            packString((String) obj);
+        } else if (cls == UUID.class) {
+            packInt(ClientDataType.UUID);
+            packUuid((UUID) obj);
+        } else if (cls == LocalDate.class) {
+            packInt(ClientDataType.DATE);
+            packDate((LocalDate) obj);
+        } else if (cls == LocalTime.class) {
+            packInt(ClientDataType.TIME);
+            packTime((LocalTime) obj);
+        } else if (cls == LocalDateTime.class) {
+            packInt(ClientDataType.DATETIME);
+            packDateTime((LocalDateTime) obj);
+        } else if (cls == Instant.class) {
+            packInt(ClientDataType.TIMESTAMP);
+            packTimestamp((Instant) obj);
+        } else if (cls == byte[].class) {
+            packInt(ClientDataType.BYTES);
+
+            packBinaryHeader(((byte[]) obj).length);
+            writePayload((byte[]) obj);
+        } else if (cls == Date.class) {
+            packInt(ClientDataType.DATE);
+            packDate(((Date) obj).toLocalDate());
+        } else if (cls == Time.class) {
+            packInt(ClientDataType.TIME);
+            packTime(((Time) obj).toLocalTime());
+        } else if (cls == Timestamp.class) {
+            packInt(ClientDataType.TIMESTAMP);
+            packTimestamp(((java.util.Date) obj).toInstant());
+        } else if (cls == BigDecimal.class) {
+            packInt(ClientDataType.DECIMAL);
+            packDecimal(((BigDecimal) obj));
+        } else if (cls == BigInteger.class) {
+            packInt(ClientDataType.BIGINTEGER);
+            packBigInteger(((BigInteger) obj));
+        } else {
+            throw new UnsupportedOperationException("Custom objects are not supported");
+        }
+    }
+
+    /**
      * Packs an array of different objects.
      *
      * @param args Object array.
@@ -802,76 +880,7 @@ public class ClientMessagePacker implements AutoCloseable {
         packArrayHeader(args.length);
 
         for (Object arg : args) {
-            if (arg == null) {
-                packNil();
-
-                continue;
-            }
-
-            Class<?> cls = arg.getClass();
-
-            if (cls == Boolean.class) {
-                packInt(ClientDataType.BOOLEAN);
-                packBoolean((Boolean) arg);
-            } else if (cls == Byte.class) {
-                packInt(ClientDataType.INT8);
-                packByte((Byte) arg);
-            } else if (cls == Short.class) {
-                packInt(ClientDataType.INT16);
-                packShort((Short) arg);
-            } else if (cls == Integer.class) {
-                packInt(ClientDataType.INT32);
-                packInt((Integer) arg);
-            } else if (cls == Long.class) {
-                packInt(ClientDataType.INT64);
-                packLong((Long) arg);
-            } else if (cls == Float.class) {
-                packInt(ClientDataType.FLOAT);
-                packFloat((Float) arg);
-            } else if (cls == Double.class) {
-                packInt(ClientDataType.DOUBLE);
-                packDouble((Double) arg);
-            } else if (cls == String.class) {
-                packInt(ClientDataType.STRING);
-                packString((String) arg);
-            } else if (cls == UUID.class) {
-                packInt(ClientDataType.UUID);
-                packUuid((UUID) arg);
-            } else if (cls == LocalDate.class) {
-                packInt(ClientDataType.DATE);
-                packDate((LocalDate) arg);
-            } else if (cls == LocalTime.class) {
-                packInt(ClientDataType.TIME);
-                packTime((LocalTime) arg);
-            } else if (cls == LocalDateTime.class) {
-                packInt(ClientDataType.DATETIME);
-                packDateTime((LocalDateTime) arg);
-            } else if (cls == Instant.class) {
-                packInt(ClientDataType.TIMESTAMP);
-                packTimestamp((Instant) arg);
-            } else if (cls == byte[].class) {
-                packInt(ClientDataType.BYTES);
-
-                packBinaryHeader(((byte[]) arg).length);
-                writePayload((byte[]) arg);
-            } else if (cls == Date.class) {
-                packInt(ClientDataType.DATE);
-                packDate(((Date) arg).toLocalDate());
-            } else if (cls == Time.class) {
-                packInt(ClientDataType.TIME);
-                packTime(((Time) arg).toLocalTime());
-            } else if (cls == Timestamp.class) {
-                packInt(ClientDataType.TIMESTAMP);
-                packTimestamp(((java.util.Date) arg).toInstant());
-            } else if (cls == BigDecimal.class) {
-                packInt(ClientDataType.DECIMAL);
-                packDecimal(((BigDecimal) arg));
-            } else if (cls == BigInteger.class) {
-                packInt(ClientDataType.BIGINTEGER);
-                packBigInteger(((BigInteger) arg));
-            } else {
-                throw new UnsupportedOperationException("Custom objects are not supported");
-            }
+            packObjectWithType(arg);
         }
     }
 
