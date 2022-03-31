@@ -123,11 +123,9 @@ public interface IgniteTree<L, T> {
         @Nullable T newRow();
 
         /**
-         * Returns operation type for this closure or {@code null} if it is unknown.
-         *
-         * <p>NOTE: After method {@link #call} has been called, operation type must be known and this method can not return {@code null}.
+         * Returns operation type for this closure.
          */
-        @Nullable OperationType operationType();
+        OperationType operationType();
     }
 
     /**

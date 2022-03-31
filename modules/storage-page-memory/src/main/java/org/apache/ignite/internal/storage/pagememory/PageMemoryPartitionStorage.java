@@ -249,14 +249,14 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
                 removeExactClosure.reset();
 
-                removeExactClosure.removedRow = dataRow;
+                removeExactClosure.forRemoveRow = dataRow;
 
                 tree.invoke(dataRow, null, removeExactClosure);
 
-                if (removeExactClosure.foundedRow == null) {
+                if (removeExactClosure.foundRow == null) {
                     skipped.add(keyValue);
                 } else {
-                    freeList.removeDataRowByLink(removeExactClosure.foundedRow.link());
+                    freeList.removeDataRowByLink(removeExactClosure.foundRow.link());
                 }
             }
         } catch (IgniteInternalCheckedException e) {
@@ -298,7 +298,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
             /** {@inheritDoc} */
             @Override
-            public @Nullable IgniteTree.OperationType operationType() {
+            public IgniteTree.OperationType operationType() {
                 OperationType operationType = clo.operationType();
 
                 switch (operationType) {
@@ -465,7 +465,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
         /** {@inheritDoc} */
         @Override
-        public IgniteTree.@Nullable OperationType operationType() {
+        public IgniteTree.OperationType operationType() {
             return oldRow == null ? IgniteTree.OperationType.PUT : IgniteTree.OperationType.NOOP;
         }
 
@@ -477,17 +477,17 @@ class PageMemoryPartitionStorage implements PartitionStorage {
     }
 
     private static class RemoveExactClosure implements IgniteTree.InvokeClosure<TableDataRow> {
-        TableDataRow removedRow;
+        TableDataRow forRemoveRow;
 
-        @Nullable TableDataRow foundedRow;
+        @Nullable TableDataRow foundRow;
 
         /** {@inheritDoc} */
         @Override
         public void call(@Nullable TableDataRow oldRow) {
-            assert removedRow != null;
+            assert forRemoveRow != null;
 
-            if (oldRow != null && oldRow.value().equals(removedRow.value())) {
-                foundedRow = oldRow;
+            if (oldRow != null && oldRow.value().equals(forRemoveRow.value())) {
+                foundRow = oldRow;
             }
         }
 
@@ -499,14 +499,14 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
         /** {@inheritDoc} */
         @Override
-        public IgniteTree.@Nullable OperationType operationType() {
-            return foundedRow == null ? IgniteTree.OperationType.NOOP : IgniteTree.OperationType.REMOVE;
+        public IgniteTree.OperationType operationType() {
+            return foundRow == null ? IgniteTree.OperationType.NOOP : IgniteTree.OperationType.REMOVE;
         }
 
         void reset() {
-            removedRow = null;
+            forRemoveRow = null;
 
-            foundedRow = null;
+            foundRow = null;
         }
     }
 }
