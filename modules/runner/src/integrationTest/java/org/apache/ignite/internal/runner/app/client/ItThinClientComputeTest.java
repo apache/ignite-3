@@ -27,7 +27,9 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClientException;
@@ -58,9 +60,26 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecute() {
-        String res = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
+        String res1 = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
+        String res2 = client().compute().execute(Set.of(node(1)), NodeNameJob.class).join();
 
-        assertEquals("ItThinClientComputeTest_null_3344", res);
+        assertEquals("ItThinClientComputeTest_null_3344", res1);
+        assertEquals("ItThinClientComputeTest_null_3345", res2);
+    }
+
+    @Test
+    void testBroadcast() {
+        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
+                new HashSet<>(sortedNodes()),
+                NodeNameJob.class,
+                "_",
+                123);
+
+        String res1 = futuresPerNode.get(node(0)).join();
+        String res2 = futuresPerNode.get(node(1)).join();
+
+        assertEquals("ItThinClientComputeTest_null_3344__123", res1);
+        assertEquals("ItThinClientComputeTest_null_3345__123", res2);
     }
 
     @Test
@@ -100,7 +119,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class NodeNameJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
-            return context.ignite().name();
+            return context.ignite().name() + Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
         }
     }
 
