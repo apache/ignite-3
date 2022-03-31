@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
@@ -29,7 +28,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -212,14 +210,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return onTableDelete(ctx);
             }
         });
-
-        engine.start();
-
-        DataRegion defaultDataRegion = engine.createDataRegion(dataStorageCfg.defaultRegion());
-
-        dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
-
-        defaultDataRegion.start();
     }
 
     /**
