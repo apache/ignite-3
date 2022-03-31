@@ -56,7 +56,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** Transactions. */
     private final ClientTransactions transactions;
 
-    /** Transactions. */
+    /** Compute. */
     private final ClientCompute compute;
 
     /**
