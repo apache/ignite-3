@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -159,8 +160,8 @@ public class IgniteImpl implements Ignite {
     /** Distributed configuration storage. */
     private final ConfigurationStorage cfgStorage;
 
-    @Nullable
-    private transient IgniteCompute compute;
+    /** Compute. */
+    private final IgniteCompute compute;
 
     /** JVM pause detector. */
     private final LongJvmPauseDetector longJvmPauseDetector;
@@ -271,11 +272,15 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
+        compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
+
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
                 new IgniteTransactionsImpl(txManager),
                 nodeCfgMgr.configurationRegistry(),
+                compute,
+                clusterSvc,
                 nettyBootstrapFactory
         );
 
@@ -467,10 +472,19 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        if (compute == null) {
-            compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
-        }
         return compute;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<ClusterNode> clusterNodes() {
+        return clusterSvc.topologyService().allMembers();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
+        return CompletableFuture.completedFuture(clusterNodes());
     }
 
     /**

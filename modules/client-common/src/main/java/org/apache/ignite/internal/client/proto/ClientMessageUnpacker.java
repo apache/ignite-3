@@ -938,6 +938,19 @@ public class ClientMessageUnpacker implements AutoCloseable {
     }
 
     /**
+     * Unpacks object type ({@link ClientDataType}) and value.
+     *
+     * @return Object value.
+     */
+    public Object unpackObjectWithType() {
+        if (tryUnpackNil()) {
+            return null;
+        }
+
+        return unpackObject(unpackInt());
+    }
+
+    /**
      * Unpacks an object based on the specified type.
      *
      * @param dataType Data type code.
