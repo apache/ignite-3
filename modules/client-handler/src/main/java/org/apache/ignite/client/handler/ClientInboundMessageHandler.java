@@ -24,6 +24,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
@@ -413,6 +414,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.COMPUTE_BROADCAST:
                 // TODO
                 return null;
+
+            case ClientOp.CLUSTER_GET_NODES:
+                return ClientClusterGetNodesRequest.process(out, clusterService);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
