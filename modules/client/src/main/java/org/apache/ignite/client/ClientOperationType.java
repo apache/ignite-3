@@ -1,9 +1,31 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.client;
 
+import java.util.Collection;
+import java.util.Set;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
 
+/**
+ * Client operation type.
+ */
 public enum ClientOperationType {
     /**
      * Get tables ({@link IgniteTables#tables()}).
@@ -26,69 +48,72 @@ public enum ClientOperationType {
     TUPLE_GET,
 
     /**
-     * Upsert (<see cref="IRecordView{T}.UpsertAllAsync"/>).
+     * Upsert ({@link RecordView#upsertAll(Transaction, Collection)}).
      */
     TUPLE_UPSERT_ALL,
 
     /**
-     * Get All (<see cref="IRecordView{T}.GetAllAsync"/>).
+     * Get All ({@link RecordView#getAll(Transaction, Collection)}).
      */
     TUPLE_GET_ALL,
 
     /**
-     * Get and Upsert (<see cref="IRecordView{T}.GetAndUpsertAsync"/>).
+     * Get and Upsert ({@link RecordView#getAndUpsert(Transaction, Object)}).
      */
     TUPLE_GET_AND_UPSERT,
 
     /**
-     * Insert (<see cref="IRecordView{T}.InsertAsync"/>).
+     * Insert ({@link RecordView#insert(Transaction, Object)}).
      */
     TUPLE_INSERT,
 
     /**
-     * Insert All (<see cref="IRecordView{T}.InsertAllAsync"/>).
+     * Insert All ({@link RecordView#insertAll(Transaction, Collection)}).
      */
     TUPLE_INSERT_ALL,
 
     /**
-     * Replace (<see cref="IRecordView{T}.ReplaceAsync(Apache.Ignite.Transactions.ITransaction?,T)"/>).
+     * Replace ({@link RecordView#replace(Transaction, Object)}).
      */
     TUPLE_REPLACE,
 
     /**
-     * Replace Exact (<see cref="IRecordView{T}.ReplaceAsync(Apache.Ignite.Transactions.ITransaction?,T, T)"/>).
+     * Replace Exact ({@link RecordView#replace(Transaction, Object, Object)}).
      */
     TUPLE_REPLACE_EXACT,
 
     /**
-     * Get and Replace (<see cref="IRecordView{T}.GetAndReplaceAsync"/>).
+     * Get and Replace ({@link RecordView#getAndReplace(Transaction, Object)}).
      */
     TUPLE_GET_AND_REPLACE,
 
     /**
-     * Delete (<see cref="IRecordView{T}.DeleteAsync"/>).
+     * Delete ({@link RecordView#delete(Transaction, Object)}).
      */
     TUPLE_DELETE,
 
     /**
-     * Delete All (<see cref="IRecordView{T}.DeleteAllAsync"/>).
+     * Delete All ({@link RecordView#deleteAll(Transaction, Collection)}).
      */
     TUPLE_DELETE_ALL,
 
     /**
-     * Delete Exact (<see cref="IRecordView{T}.DeleteExactAsync"/>).
+     * Delete Exact ({@link RecordView#deleteExact(Transaction, Object)}).
      */
     TUPLE_DELETE_EXACT,
 
     /**
-     * Delete All Exact (<see cref="IRecordView{T}.DeleteAllExactAsync"/>).
+     * Delete All Exact ({@link RecordView#deleteAllExact(Transaction, Collection)}).
      */
     TUPLE_DELETE_ALL_EXACT,
 
     /**
-     * Get and Delete (<see cref="IRecordView{T}.GetAndDeleteAsync"/>).
+     * Get and Delete ({@link RecordView#getAndDelete(Transaction, Object)}).
      */
     TUPLE_GET_AND_DELETE,
 
+    /**
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#execute(Set, String, Object...)}).
+     */
     COMPUTE_EXECUTE
 }
