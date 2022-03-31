@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
@@ -61,18 +62,10 @@ public class ClientCompute implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
-            // TODO: Cluster awareness (IGNITE-16771).
-            ClusterNode node = randomNode(nodes);
+        // TODO: Cluster awareness (IGNITE-16771): match specified nodes to known connections.
+        ClusterNode node = randomNode(nodes);
 
-            w.out().packString(node.id());
-            w.out().packString(node.name());
-            w.out().packString(node.address().host());
-            w.out().packInt(node.address().port());
-
-            w.out().packString(jobClassName);
-            w.out().packObjectArray(args);
-        }, r -> (R)r.in().unpackObjectWithType());
+        return executeOnOneNode(node, jobClassName, args);
     }
 
     /** {@inheritDoc} */
@@ -85,9 +78,31 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        // TODO: Send request to all known nodes.
-        // How to match connection to node? Extend handshake.
-        return null;
+        Objects.requireNonNull(nodes);
+        Objects.requireNonNull(jobClassName);
+
+        Map<ClusterNode, CompletableFuture<R>> map = new HashMap<>();
+
+        for (ClusterNode node : nodes) {
+            if (map.put(node, executeOnOneNode(node, jobClassName, args)) != null) {
+                throw new IllegalStateException("Node can't be specified more than once: " + node);
+            }
+        }
+
+        return map;
+    }
+
+    private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, String jobClassName, Object[] args) {
+        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
+            // TODO: Cluster awareness (IGNITE-16771): if the specified node matches existing connection, send nil.
+            w.out().packString(node.id());
+            w.out().packString(node.name());
+            w.out().packString(node.address().host());
+            w.out().packInt(node.address().port());
+
+            w.out().packString(jobClassName);
+            w.out().packObjectArray(args);
+        }, r -> (R) r.in().unpackObjectWithType());
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
