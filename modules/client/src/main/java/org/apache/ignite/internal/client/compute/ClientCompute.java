@@ -56,6 +56,9 @@ public class ClientCompute implements IgniteCompute {
 
             for (var n : nodes) {
                 w.out().packString(n.id());
+                w.out().packString(n.name());
+                w.out().packString(n.address().host());
+                w.out().packInt(n.address().port());
             }
 
             w.out().packString(jobClassName);

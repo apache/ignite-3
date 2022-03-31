@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -36,9 +37,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testClusterNodes() {
-        List<ClusterNode> nodes = client().clusterNodes().stream()
-                .sorted(Comparator.comparing(ClusterNode::name))
-                .collect(Collectors.toList());
+        List<ClusterNode> nodes = sortedNodes();
 
         assertEquals(2, nodes.size());
 
@@ -53,10 +52,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecute() {
-        var nodes = new HashSet<>(client().clusterNodes());
-        String res = client().compute().execute(nodes, NodeNameJob.class).join();
+        String res = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
 
-        assertEquals("ItThinClientComputeTest_null_334", res);
+        assertEquals("ItThinClientComputeTest_null_3344", res);
     }
 
     @Test
@@ -65,6 +63,16 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String res = client().compute().execute(nodes, ConcatJob.class, 1, "2", 3.3).join();
 
         assertEquals("1_2_3.3", res);
+    }
+
+    private ClusterNode node(int idx) {
+        return sortedNodes().get(idx);
+    }
+
+    private List<ClusterNode> sortedNodes() {
+        return client().clusterNodes().stream()
+                .sorted(Comparator.comparing(ClusterNode::name))
+                .collect(Collectors.toList());
     }
 
     private static class NodeNameJob implements ComputeJob<String> {

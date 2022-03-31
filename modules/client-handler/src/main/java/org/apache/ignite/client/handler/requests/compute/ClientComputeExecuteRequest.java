@@ -50,7 +50,7 @@ public class ClientComputeExecuteRequest {
         var nodes = new HashSet<ClusterNode>(nodeCnt);
 
         for (int i = 0; i < nodeCnt; i++) {
-            var node = new ClusterNode(in.unpackString(), null, null);
+            var node = new ClusterNode(in.unpackString(), in.unpackString(), new NetworkAddress(in.unpackString(), in.unpackInt()));
             nodes.add(node);
         }
 
