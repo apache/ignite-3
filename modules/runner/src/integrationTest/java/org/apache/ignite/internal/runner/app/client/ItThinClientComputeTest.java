@@ -19,11 +19,19 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -128,16 +136,33 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testAllSupportedArgTypes() {
-        // TODO: Test all types and arrays of them.
-        testEchoArg(1);
-        testEchoArg("1");
+        testEchoArg(Byte.MAX_VALUE);
+        testEchoArg(Short.MAX_VALUE);
+        testEchoArg(Integer.MAX_VALUE);
+        testEchoArg(Long.MAX_VALUE);
+        testEchoArg(Float.MAX_VALUE);
+        testEchoArg(Double.MAX_VALUE);
+        testEchoArg(BigDecimal.TEN);
         testEchoArg(UUID.randomUUID());
+        testEchoArg("string");
+        testEchoArg(new byte[] {1,2,3});
+        testEchoArg(new BitSet(10));
+        testEchoArg(LocalDate.now());
+        testEchoArg(LocalTime.now());
+        testEchoArg(LocalDateTime.now());
+        testEchoArg(Instant.now());
+        testEchoArg(BigInteger.TEN);
+        testEchoArg(true);
     }
 
     private void testEchoArg(Object arg) {
         Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg).join();
 
-        assertEquals(arg, res);
+        if (arg instanceof byte[]) {
+            assertArrayEquals((byte[])arg, (byte[])res);
+        } else {
+            assertEquals(arg, res);
+        }
     }
 
     private ClusterNode node(int idx) {

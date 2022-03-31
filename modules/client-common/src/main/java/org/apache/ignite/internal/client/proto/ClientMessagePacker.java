@@ -857,6 +857,9 @@ public class ClientMessagePacker implements AutoCloseable {
         } else if (cls == BigInteger.class) {
             packInt(ClientDataType.BIGINTEGER);
             packBigInteger(((BigInteger) obj));
+        } else if (cls == BitSet.class) {
+            packInt(ClientDataType.BITMASK);
+            packBitSet((BitSet)obj);
         } else {
             throw new UnsupportedOperationException("Custom objects are not supported");
         }
