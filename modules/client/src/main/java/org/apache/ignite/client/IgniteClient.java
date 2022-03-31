@@ -80,6 +80,9 @@ public interface IgniteClient extends Ignite {
         /** Heartbeat interval. */
         private long heartbeatInterval = DFLT_HEARTBEAT_INTERVAL;
 
+        /** Retry policy. */
+        private RetryPolicy retryPolicy;
+
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
          * If port is not set then Ignite will generate multiple addresses for default port range. See {@link
@@ -107,6 +110,19 @@ public interface IgniteClient extends Ignite {
          */
         public Builder retryLimit(int retryLimit) {
             this.retryLimit = retryLimit;
+
+            return this;
+        }
+
+        /**
+         * Sets the retry policy. When a request fails due to a connection error, and multiple server connections
+         * are available, Ignite will retry the request if the specified policy allows it.
+         *
+         * @param retryPolicy Retry policy.
+         * @return This instance.
+         */
+        public Builder retryPolicy(RetryPolicy retryPolicy) {
+            this.retryPolicy = retryPolicy;
 
             return this;
         }
@@ -238,7 +254,8 @@ public interface IgniteClient extends Ignite {
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
                     asyncContinuationExecutor,
-                    heartbeatInterval);
+                    heartbeatInterval,
+                    retryPolicy);
 
             return TcpIgniteClient.startAsync(cfg);
         }

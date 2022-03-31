@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
+import org.apache.ignite.client.RetryPolicy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +51,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Heartbeat interval. */
     private final long heartbeatInterval;
 
+    /** Retry policy */
+    private final RetryPolicy retryPolicy;
+
     /**
      * Constructor.
      *
@@ -59,6 +63,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param connectTimeout            Socket connect timeout.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval         Heartbeat message interval.
+     * @param retryPolicy               Retry policy.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
@@ -68,7 +73,8 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
             Executor asyncContinuationExecutor,
-            long heartbeatInterval) {
+            long heartbeatInterval,
+            RetryPolicy retryPolicy) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
@@ -80,6 +86,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
+        this.retryPolicy = retryPolicy;
     }
 
     /** {@inheritDoc} */
@@ -128,5 +135,11 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public long heartbeatInterval() {
         return heartbeatInterval;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable RetryPolicy retryPolicy() {
+        return retryPolicy;
     }
 }

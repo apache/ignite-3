@@ -71,6 +71,14 @@ public interface IgniteClientConfiguration {
     int retryLimit();
 
     /**
+     * Gets the retry policy. When a request fails due to a connection error, and multiple server connections
+     * are available, Ignite will retry the request if the specified policy allows it.
+     *
+     * @return Retry policy.
+     */
+    @Nullable RetryPolicy retryPolicy();
+
+    /**
      * Gets the socket connect timeout, in milliseconds.
      *
      * @return Socket connect timeout, in milliseconds.
