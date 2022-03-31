@@ -18,15 +18,15 @@
 package org.apache.ignite.client;
 
 /**
- * Retry policy context. See {@link ClientRetryPolicy#shouldRetry}.
+ * Retry policy context. See {@link RetryPolicy#shouldRetry}.
  */
-public interface ClientRetryPolicyContext {
+public interface RetryPolicyContext {
     /**
      * Gets the client configuration.
      *
      * @return Client configuration.
      */
-    public ClientConfiguration configuration();
+    public IgniteClientConfiguration configuration();
 
     /**
      * Gets the operation type.
