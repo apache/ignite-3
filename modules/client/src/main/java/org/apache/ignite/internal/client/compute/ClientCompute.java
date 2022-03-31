@@ -45,13 +45,12 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return null;
+        return execute(nodes, jobClass.getName(), args);
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
-        // TODO Add simple public API to retrieve cluster nodes.
         return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
             w.out().packArrayHeader(nodes.size());
 
