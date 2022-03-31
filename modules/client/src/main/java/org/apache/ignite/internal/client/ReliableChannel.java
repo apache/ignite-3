@@ -37,10 +37,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 
@@ -169,7 +171,7 @@ public final class ReliableChannel implements AutoCloseable {
         var attemptsCnt = new int[1];
 
         try {
-            ch = applyOnDefaultChannel(channel -> channel, attemptsLimit, v -> attemptsCnt[0] = v);
+            ch = applyOnDefaultChannel(channel -> channel, opCode, attemptsLimit, v -> attemptsCnt[0] = v);
         } catch (Throwable ex) {
             if (failure != null) {
                 failure.addSuppressed(ex);
@@ -469,20 +471,21 @@ public final class ReliableChannel implements AutoCloseable {
         }
 
         // Apply no-op function. Establish default channel connection.
-        applyOnDefaultChannel(channel -> null);
+        applyOnDefaultChannel(channel -> null, -1);
 
         // TODO: Async startup IGNITE-15357.
         return CompletableFuture.completedFuture(null);
     }
 
-    private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function) {
-        return applyOnDefaultChannel(function, getRetryLimit(), DO_NOTHING);
+    private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function, int opCode) {
+        return applyOnDefaultChannel(function, opCode, getRetryLimit(), DO_NOTHING);
     }
 
     /**
      * Apply specified {@code function} on any of available channel.
      */
     private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function,
+            int opCode,
             int attemptsLimit,
             Consumer<Integer> attemptsCallback) {
         Throwable failure = null;
@@ -536,6 +539,23 @@ public final class ReliableChannel implements AutoCloseable {
         int size = holders.size();
 
         return clientCfg.retryLimit() > 0 ? Math.min(clientCfg.retryLimit(), size) : size;
+    }
+
+    /** Determines whether specified operation should be retried. */
+    private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
+        ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
+
+        if (opType == null)
+            return true; // System operation.
+
+        RetryPolicy plc = clientCfg.retryPolicy();
+
+        if (plc == null)
+            return false;
+
+        ClientRetryPolicyContext ctx = new ClientRetryPolicyContextImpl(clientCfg, opType, iteration, exception);
+
+        return plc.shouldRetry(ctx);
     }
 
     /**

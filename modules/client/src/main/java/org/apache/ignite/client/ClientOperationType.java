@@ -113,6 +113,11 @@ public enum ClientOperationType {
     TUPLE_GET_AND_DELETE,
 
     /**
+     * Contains Key ({@link org.apache.ignite.table.KeyValueView#contains(Transaction, Object)}).
+     */
+    TUPLE_CONTAINS_KEY,
+
+    /**
      * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#execute(Set, String, Object...)}).
      */
     COMPUTE_EXECUTE

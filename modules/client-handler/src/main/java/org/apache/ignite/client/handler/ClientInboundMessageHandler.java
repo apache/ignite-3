@@ -38,7 +38,6 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataReq
 import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
@@ -311,9 +310,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
                 return null;
-
-            case ClientOp.TABLE_DROP:
-                return ClientTableDropRequest.process(in, igniteTables);
 
             case ClientOp.TABLES_GET:
                 return ClientTablesGetRequest.process(out, igniteTables);
