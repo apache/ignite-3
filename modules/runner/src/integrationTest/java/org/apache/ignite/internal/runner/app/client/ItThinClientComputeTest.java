@@ -144,7 +144,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(BigDecimal.TEN);
         testEchoArg(UUID.randomUUID());
         testEchoArg("string");
-        testEchoArg(new byte[] {1,2,3});
+        testEchoArg(new byte[] {1, 2, 3});
         testEchoArg(new BitSet(10));
         testEchoArg(LocalDate.now());
         testEchoArg(LocalTime.now());
@@ -160,7 +160,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         Object res = client().compute().execute(Set.of(node(0)), EchoJob.class, arg).join();
 
         if (arg instanceof byte[]) {
-            assertArrayEquals((byte[])arg, (byte[])res);
+            assertArrayEquals((byte[]) arg, (byte[]) res);
         } else {
             assertEquals(arg, res);
         }
