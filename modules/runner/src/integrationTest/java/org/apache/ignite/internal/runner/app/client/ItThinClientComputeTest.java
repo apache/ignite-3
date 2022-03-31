@@ -59,7 +59,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testExecute() {
+    void testExecuteOnSpecificNode() {
         String res1 = client().compute().execute(Set.of(node(0)), NodeNameJob.class).join();
         String res2 = client().compute().execute(Set.of(node(1)), NodeNameJob.class).join();
 
@@ -68,12 +68,36 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void testBroadcast() {
+    void testExecuteOnRandomNode() {
+        String res = client().compute().execute(new HashSet<>(sortedNodes()), NodeNameJob.class).join();
+
+        assertTrue(Set.of("ItThinClientComputeTest_null_3344", "ItThinClientComputeTest_null_3345").contains(res));
+    }
+
+    @Test
+    void testBroadcastOneNode() {
+        Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
+                Set.of(node(1)),
+                NodeNameJob.class,
+                "_",
+                123);
+
+        assertEquals(1, futuresPerNode.size());
+
+        String res = futuresPerNode.get(node(1)).join();
+
+        assertEquals("ItThinClientComputeTest_null_3345__123", res);
+    }
+
+    @Test
+    void testBroadcastAllNodes() {
         Map<ClusterNode, CompletableFuture<String>> futuresPerNode = client().compute().broadcast(
                 new HashSet<>(sortedNodes()),
                 NodeNameJob.class,
                 "_",
                 123);
+
+        assertEquals(2, futuresPerNode.size());
 
         String res1 = futuresPerNode.get(node(0)).join();
         String res2 = futuresPerNode.get(node(1)).join();
