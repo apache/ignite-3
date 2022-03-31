@@ -128,7 +128,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private void close(Exception cause) {
         if (closed.compareAndSet(false, true)) {
-            heartbeatTimer.cancel();
+            // Disconnect can happen before we initialize the timer.
+            var timer = heartbeatTimer;
+
+            if (timer != null) {
+                timer.cancel();
+            }
 
             sock.close();
 
@@ -141,7 +146,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** {@inheritDoc} */
     @Override
     public void onMessage(ByteBuf buf) {
-        processNextMessage(buf);
+        try {
+            processNextMessage(buf);
+        } catch (Throwable t) {
+            buf.release();
+            throw t;
+        }
     }
 
     /** {@inheritDoc} */
@@ -225,7 +235,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      */
     private <T> CompletableFuture<T> receiveAsync(ClientRequestFuture pendingReq, PayloadReader<T> payloadReader) {
         return pendingReq.thenApplyAsync(payload -> {
-            if (payload == null || payloadReader == null) {
+            if (payload == null) {
+                return null;
+            }
+
+            if (payloadReader == null) {
+                payload.close();
                 return null;
             }
 

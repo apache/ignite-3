@@ -57,16 +57,16 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public SqlSchemaManagerImpl(
             TableManager tableManager,
-            Consumer<Consumer<Long>> storageRevisionUpdater,
+            Consumer<Consumer<Long>> registry,
             Runnable onSchemaUpdatedCallback
     ) {
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
 
         this.tableManager = tableManager;
-        schemasVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
-        tablesVv = new VersionedValue<>(null, storageRevisionUpdater, 2, HashMap::new);
+        schemasVv = new VersionedValue<>(registry, HashMap::new);
+        tablesVv = new VersionedValue<>(registry, HashMap::new);
 
-        calciteSchemaVv = new VersionedValue<>(null, storageRevisionUpdater, 2, () -> {
+        calciteSchemaVv = new VersionedValue<>(registry, () -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
             newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
             return newCalciteSchema;
@@ -85,9 +85,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     @Override
     @NotNull
     public IgniteTable tableById(UUID id, int ver) {
-        Map<UUID, IgniteTable> tablesById = tablesVv.latest();
-
-        IgniteTable table = tablesById.get(id);
+        IgniteTable table = tablesVv.latest().get(id);
 
         // there is a chance that someone tries to resolve table before
         // the distributed event of that table creation has been processed
@@ -133,10 +131,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      */
     public synchronized void onSchemaCreated(String schemaName, long causalityToken) {
-        schemasVv.update(
+        Map<String, IgniteSchema> schemasMap = schemasVv.update(
                 causalityToken,
                 schemas -> {
-                    Map<String, IgniteSchema> res = new HashMap<>(schemas);
+                    Map<String, IgniteSchema> res =  new HashMap<>(schemas);
 
                     res.putIfAbsent(schemaName, new IgniteSchema(schemaName));
 
@@ -147,7 +145,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        rebuild(causalityToken);
+        rebuild(causalityToken, schemasMap);
     }
 
     /**
@@ -157,7 +155,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      */
     public synchronized void onSchemaDropped(String schemaName, long causalityToken) {
-        schemasVv.update(
+        Map<String, IgniteSchema> schemasMap = schemasVv.update(
                     causalityToken,
                     schemas -> {
                         Map<String, IgniteSchema> res = new HashMap<>(schemas);
@@ -171,7 +169,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     }
         );
 
-        rebuild(causalityToken);
+        rebuild(causalityToken, schemasMap);
     }
 
     /**
@@ -183,7 +181,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table,
             long causalityToken
     ) {
-        schemasVv.update(
+        Map<String, IgniteSchema> schemasMap = schemasVv.update(
                 causalityToken,
                 schemas -> {
                     Map<String, IgniteSchema> res = new HashMap<>(schemas);
@@ -215,7 +213,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        rebuild(causalityToken);
+        rebuild(causalityToken, schemasMap);
     }
 
     /**
@@ -239,7 +237,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String tableName,
             long causalityToken
     ) {
-        schemasVv.update(causalityToken,
+        Map<String, IgniteSchema> schemasMap = schemasVv.update(causalityToken,
                 schemas -> {
                     Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
@@ -273,17 +271,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 }
         );
 
-        rebuild(causalityToken);
+        rebuild(causalityToken, schemasMap);
     }
 
-    private void rebuild(long causalityToken) {
+    private void rebuild(long causalityToken, Map<String, IgniteSchema> schemas) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
-
-        // TODO rewrite with VersionedValue#update to get the current (maybe temporary) value for current token
-        // TODO https://issues.apache.org/jira/browse/IGNITE-16543
-        Map<String, IgniteSchema> schemas = schemasVv.latest();
 
         schemas.forEach(newCalciteSchema::add);
 

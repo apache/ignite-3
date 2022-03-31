@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
@@ -26,10 +27,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -37,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -94,11 +98,11 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table manager.
@@ -192,219 +196,42 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         engine = new RocksDbStorageEngine();
 
-        tablesVv = new VersionedValue<>(registry);
-        tablesByIdVv = new VersionedValue<>(registry);
+        tablesVv = new VersionedValue<>(registry, HashMap::new);
+        tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        tablesCfg.tables()
-                .listenElements(new ConfigurationNamedListListener<>() {
-                    @Override
-                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
-                        if (!busyLock.enterBusy()) {
-                            String tblName = ctx.newValue().name();
-                            UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
+        ((ExtendedTableConfiguration) tablesCfg.tables().any()).schemas().listenElements(new ConfigurationNamedListListener<>() {
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+                return onSchemaCreate(schemasCtx);
+            }
+        });
 
-                            fireEvent(TableEvent.CREATE,
-                                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
-                                    new NodeStoppingException()
-                            );
+        ((ExtendedTableConfiguration) tablesCfg.tables().any()).assignments().listen(assignmentsCtx -> {
+            return onUpdateAssignments(assignmentsCtx);
+        });
 
-                            return CompletableFuture.failedFuture(new NodeStoppingException());
-                        }
+        tablesCfg.tables().listenElements(new ConfigurationNamedListListener<>() {
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<TableView> ctx) {
+                return onTableCreate(ctx);
+            }
 
-                        try {
-                            onTableCreateInternal(ctx);
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
+            @Override
+            public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<TableView> ctx) {
+                // TODO: IGNITE-15485 Support table rename operation.
 
-                        return CompletableFuture.completedFuture(null);
-                    }
+                return CompletableFuture.completedFuture(null);
+            }
 
-                    /**
-                     * Method for handle a table configuration event.
-                     *
-                     * @param ctx Configuration event.
-                     */
-                    private void onTableCreateInternal(ConfigurationNotificationEvent<TableView> ctx) {
-                        String tblName = ctx.newValue().name();
-                        UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
-
-                        // Empty assignments might be a valid case if tables are created from within cluster init HOCON
-                        // configuration, which is not supported now.
-                        assert ((ExtendedTableView) ctx.newValue()).assignments() != null :
-                                IgniteStringFormatter.format("Table [id={}, name={}] has empty assignments.", tblId, tblName);
-
-                        // TODO: IGNITE-16369 Listener with any placeholder should be used instead.
-                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).schemas()
-                                .listenElements(new ConfigurationNamedListListener<>() {
-                                    @Override
-                                    public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
-                                        long causalityToken = schemasCtx.storageRevision();
-
-                                        if (!busyLock.enterBusy()) {
-                                            fireEvent(
-                                                    TableEvent.ALTER,
-                                                    new TableEventParameters(causalityToken, tblId, tblName),
-                                                    new NodeStoppingException()
-                                            );
-
-                                            return CompletableFuture.failedFuture(new NodeStoppingException());
-                                        }
-
-                                        try {
-                                            // Avoid calling listener immediately after the listener completes to create the current table.
-                                            // FIXME: https://issues.apache.org/jira/browse/IGNITE-16369
-                                            if (ctx.storageRevision() != schemasCtx.storageRevision()) {
-                                                return tablesByIdVv.get(causalityToken).thenAccept(tablesById -> {
-                                                    TableImpl table = tablesById.get(tblId);
-
-                                                    ((SchemaRegistryImpl) table.schemaView())
-                                                            .onSchemaRegistered(
-                                                                    SchemaSerializerImpl.INSTANCE.deserialize(
-                                                                            (schemasCtx.newValue().schema())));
-
-                                                    fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken,
-                                                            table), null);
-
-                                                });
-                                            }
-
-                                            return CompletableFuture.completedFuture(null);
-                                        } catch (Exception e) {
-                                            fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken, tblId,
-                                                    tblName), e);
-
-                                            return CompletableFuture.failedFuture(e);
-                                        } finally {
-                                            busyLock.leaveBusy();
-                                        }
-                                    }
-                                });
-
-                        ((ExtendedTableConfiguration) tablesCfg.tables().get(tblName)).assignments()
-                                .listen(assignmentsCtx -> {
-                                    if (!busyLock.enterBusy()) {
-                                        return CompletableFuture.failedFuture(new NodeStoppingException());
-                                    }
-
-                                    try {
-                                        // Avoid calling listener immediately after the listener completes to create the current table.
-                                        // FIXME: https://issues.apache.org/jira/browse/IGNITE-16369
-                                        if (ctx.storageRevision() == assignmentsCtx.storageRevision()) {
-                                            return CompletableFuture.completedFuture(null);
-                                        } else {
-                                            return updateAssignmentInternal(assignmentsCtx.storageRevision(), tblId, assignmentsCtx);
-                                        }
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
-                                });
-
-                        createTableLocally(
-                                ctx.storageRevision(),
-                                tblName,
-                                tblId,
-                                (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.newValue()).assignments()),
-                                SchemaSerializerImpl.INSTANCE.deserialize(((ExtendedTableView) ctx.newValue()).schemas()
-                                        .get(String.valueOf(INITIAL_SCHEMA_VERSION)).schema())
-                        );
-                    }
-
-                    private CompletableFuture<?> updateAssignmentInternal(
-                            long causalityToken,
-                            UUID tblId,
-                            ConfigurationNotificationEvent<byte[]> assignmentsCtx
-                    ) {
-                        List<List<ClusterNode>> oldAssignments =
-                                (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
-
-                        List<List<ClusterNode>> newAssignments =
-                                (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
-
-                        CompletableFuture<?>[] futures = new CompletableFuture<?>[oldAssignments.size()];
-
-                        // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
-                        // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
-                        // TODO: be exact same amount of partitions and replicas for both old and new assignments
-                        for (int i = 0; i < oldAssignments.size(); i++) {
-                            int partId = i;
-
-                            List<ClusterNode> oldPartitionAssignment = oldAssignments.get(partId);
-                            List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
-
-                            var toAdd = new HashSet<>(newPartitionAssignment);
-
-                            toAdd.removeAll(oldPartitionAssignment);
-
-                            // Create new raft nodes according to new assignments.
-                            futures[i] = tablesByIdVv.get(causalityToken).thenCompose(tablesById -> {
-                                InternalTable internalTable = tablesById.get(tblId).internalTable();
-
-                                try {
-                                    return raftMgr.updateRaftGroup(
-                                            raftGroupName(tblId, partId),
-                                            newPartitionAssignment,
-                                            toAdd,
-                                            () -> new PartitionListener(tblId,
-                                                    new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId),
-                                                            txManager))
-                                    ).thenAccept(
-                                            updatedRaftGroupService -> ((InternalTableImpl) internalTable)
-                                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
-                                    ).exceptionally(th -> {
-                                        LOG.error("Failed to update raft groups one the node", th);
-
-                                        return null;
-                                    });
-                                } catch (NodeStoppingException e) {
-                                    throw new AssertionError("Loza was stopped before Table manager", e);
-                                }
-                            });
-                        }
-
-                        return CompletableFuture.allOf(futures);
-                    }
-
-                    @Override
-                    public CompletableFuture<?> onRename(String oldName, String newName, ConfigurationNotificationEvent<TableView> ctx) {
-                        // TODO: IGNITE-15485 Support table rename operation.
-
-                        return CompletableFuture.completedFuture(null);
-                    }
-
-                    @Override
-                    public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
-                        if (!busyLock.enterBusy()) {
-                            String tblName = ctx.oldValue().name();
-                            UUID tblId = ((ExtendedTableView) ctx.oldValue()).id();
-
-                            fireEvent(
-                                    TableEvent.DROP,
-                                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
-                                    new NodeStoppingException()
-                            );
-
-                            return CompletableFuture.failedFuture(new NodeStoppingException());
-                        }
-
-                        try {
-                            dropTableLocally(
-                                    ctx.storageRevision(),
-                                    ctx.oldValue().name(),
-                                    ((ExtendedTableView) ctx.oldValue()).id(),
-                                    (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
-                            );
-                        } finally {
-                            busyLock.leaveBusy();
-                        }
-
-                        return CompletableFuture.completedFuture(null);
-                    }
-                });
+            @Override
+            public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
+                return onTableDelete(ctx);
+            }
+        });
 
         engine.start();
 
@@ -413,6 +240,235 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
 
         defaultDataRegion.start();
+    }
+
+    /**
+     * Listener of table create configuration change.
+     *
+     * @param ctx Table configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onTableCreate(ConfigurationNotificationEvent<TableView> ctx) {
+        if (!busyLock.enterBusy()) {
+            String tblName = ctx.newValue().name();
+            UUID tblId = ((ExtendedTableView) ctx.newValue()).id();
+
+            fireEvent(TableEvent.CREATE,
+                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
+                    new NodeStoppingException()
+            );
+
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            createTableLocally(
+                    ctx.storageRevision(),
+                    ctx.newValue().name(),
+                    ((ExtendedTableView) ctx.newValue()).id(),
+                    ctx.newValue().partitions()
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of table drop configuration change.
+     *
+     * @param ctx Table configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onTableDelete(ConfigurationNotificationEvent<TableView> ctx) {
+        if (!busyLock.enterBusy()) {
+            String tblName = ctx.oldValue().name();
+            UUID tblId = ((ExtendedTableView) ctx.oldValue()).id();
+
+            fireEvent(
+                    TableEvent.DROP,
+                    new TableEventParameters(ctx.storageRevision(), tblId, tblName),
+                    new NodeStoppingException()
+            );
+
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            dropTableLocally(
+                    ctx.storageRevision(),
+                    ctx.oldValue().name(),
+                    ((ExtendedTableView) ctx.oldValue()).id(),
+                    (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableView) ctx.oldValue()).assignments())
+            );
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of assignment configuration changes.
+     *
+     * @param assignmentsCtx Assignment configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onUpdateAssignments(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            updateAssignmentInternal(assignmentsCtx);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of schema configuration changes.
+     *
+     * @param schemasCtx Schemas configuration context.
+     * @return A future.
+     */
+    private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+        long causalityToken = schemasCtx.storageRevision();
+
+        ExtendedTableConfiguration tblCfg = schemasCtx.config(TableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        String tblName = tblCfg.name().value();
+
+        SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
+
+        if (!busyLock.enterBusy()) {
+            if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
+                fireEvent(
+                        TableEvent.ALTER,
+                        new TableEventParameters(causalityToken, tblId, tblName),
+                        new NodeStoppingException()
+                );
+            }
+
+            return CompletableFuture.failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            createSchemaInternal(schemasCtx);
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Internal method to create a schema.
+     *
+     * @param schemasCtx Create schema configuration event.
+     */
+    private void createSchemaInternal(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+        ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) schemasCtx.config(TableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        long causalityToken = schemasCtx.storageRevision();
+
+        SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
+
+        tablesByIdVv.update(causalityToken, tablesById -> {
+            TableImpl table = tablesById.get(tblId);
+
+            ((SchemaRegistryImpl) table.schemaView()).onSchemaRegistered(schemaDescriptor);
+
+            if (schemaDescriptor.version() != INITIAL_SCHEMA_VERSION) {
+                fireEvent(TableEvent.ALTER, new TableEventParameters(causalityToken, table), null);
+            }
+
+            return tablesById;
+        }, th -> {
+            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a schema for table"
+                    + " [tableId={}, schemaVer={}]", tblId, schemaDescriptor.version()), th);
+        });
+    }
+
+    /**
+     * Updates or creates partition raft groups.
+     *
+     * @param assignmentsCtx Change assignment event.
+     */
+    private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(TableConfiguration.class);
+
+        UUID tblId = tblCfg.id().value();
+
+        long causalityToken = assignmentsCtx.storageRevision();
+
+        List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null :
+                (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
+
+        List<List<ClusterNode>> newAssignments = (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.newValue());
+
+        // Empty assignments might be a valid case if tables are created from within cluster init HOCON
+        // configuration, which is not supported now.
+        assert newAssignments != null : IgniteStringFormatter.format("Table [id={}] has empty assignments.", tblId);
+
+        int partitions = newAssignments.size();
+
+        CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
+
+        // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
+        // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
+        // TODO: be exact same amount of partitions and replicas for both old and new assignments
+        for (int i = 0; i < partitions; i++) {
+            int partId = i;
+
+            List<ClusterNode> oldPartitionAssignment = oldAssignments == null ? Collections.emptyList() :
+                    oldAssignments.get(partId);
+
+            List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
+
+            var toAdd = new HashSet<>(newPartitionAssignment);
+
+            toAdd.removeAll(oldPartitionAssignment);
+
+            // Create new raft nodes according to new assignments.
+            tablesByIdVv.update(causalityToken, tablesById -> {
+                InternalTable internalTable = tablesById.get(tblId).internalTable();
+
+                try {
+                    futures[partId] = raftMgr.updateRaftGroup(
+                            raftGroupName(tblId, partId),
+                            newPartitionAssignment,
+                            toAdd,
+                            () -> new PartitionListener(tblId,
+                                    new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId),
+                                            txManager))
+                    ).thenAccept(
+                            updatedRaftGroupService -> ((InternalTableImpl) internalTable)
+                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                    ).exceptionally(th -> {
+                        LOG.error("Failed to update raft groups one the node", th);
+
+                        return null;
+                    });
+                } catch (NodeStoppingException e) {
+                    throw new AssertionError("Loza was stopped before Table manager", e);
+                }
+
+                return tablesById;
+            }, th -> {
+                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot start RAFT group for table"
+                        + " [tableId={}, part={}]", tblId, partId), th);
+            });
+        }
+
+        CompletableFuture.allOf(futures).join();
     }
 
     /** {@inheritDoc} */
@@ -426,23 +482,21 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         Map<String, TableImpl> tables = tablesVv.latest();
 
-        if (tables != null) {
-            for (TableImpl table : tables.values()) {
-                try {
-                    table.internalTable().storage().stop();
-                    table.internalTable().close();
+        for (TableImpl table : tables.values()) {
+            try {
+                table.internalTable().storage().stop();
+                table.internalTable().close();
 
-                    for (int p = 0; p < table.internalTable().partitions(); p++) {
-                        raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
-                    }
-                } catch (Exception e) {
-                    LOG.error("Failed to stop a table {}", e, table.name());
+                for (int p = 0; p < table.internalTable().partitions(); p++) {
+                    raftMgr.stopRaftGroup(raftGroupName(table.tableId(), p));
                 }
+            } catch (Exception e) {
+                LOG.error("Failed to stop a table {}", e, table.name());
             }
         }
 
         // Stop all data regions when all table storages are stopped.
-        for (Map.Entry<String, DataRegion> entry : dataRegions.entrySet()) {
+        for (Entry<String, DataRegion> entry : dataRegions.entrySet()) {
             try {
                 entry.getValue().stop();
             } catch (Exception e) {
@@ -459,19 +513,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param causalityToken Causality token.
      * @param name  Table name.
      * @param tblId Table id.
-     * @param assignment Affinity assignment.
+     * @param partitions Count of partitions.
      */
-    private void createTableLocally(
-            long causalityToken,
-            String name,
-            UUID tblId,
-            List<List<ClusterNode>> assignment,
-            SchemaDescriptor schemaDesc
-    ) {
-        int partitions = assignment.size();
-
-        var partitionsGroupsFutures = new ArrayList<CompletableFuture<RaftGroupService>>();
-
+    private void createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
         Path storageDir = partitionsStoreDir.resolve(name);
 
         try {
@@ -507,98 +551,58 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tableStorage.start();
 
-        for (int p = 0; p < partitions; p++) {
-            int partId = p;
+        InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
+                partitions, netAddrResolver, txManager, tableStorage);
+
+        var schemaRegistry = new SchemaRegistryImpl(v -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
 
             try {
-                partitionsGroupsFutures.add(
-                        raftMgr.prepareRaftGroup(
-                                raftGroupName(tblId, p),
-                                assignment.get(p),
-                                () -> new PartitionListener(tblId,
-                                        new VersionedRowStore(tableStorage.getOrCreatePartition(partId), txManager))
-                        )
-                );
-            } catch (NodeStoppingException e) {
-                throw new AssertionError("Loza was stopped before Table manager", e);
+                return tableSchema(tblId, v);
+            } finally {
+                busyLock.leaveBusy();
             }
-        }
+        }, () -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
 
-        CompletableFuture.allOf(partitionsGroupsFutures.toArray(CompletableFuture[]::new)).thenRun(() -> {
             try {
-                Int2ObjectOpenHashMap<RaftGroupService> partitionMap = new Int2ObjectOpenHashMap<>(partitions);
-
-                for (int p = 0; p < partitions; p++) {
-                    CompletableFuture<RaftGroupService> future = partitionsGroupsFutures.get(p);
-
-                    assert future.isDone();
-
-                    RaftGroupService service = future.join();
-
-                    partitionMap.put(p, service);
-                }
-
-                InternalTableImpl internalTable = new InternalTableImpl(name, tblId, partitionMap, partitions, netAddrResolver,
-                        txManager, tableStorage);
-
-                var schemaRegistry = new SchemaRegistryImpl(v -> {
-                    if (!busyLock.enterBusy()) {
-                        throw new IgniteException(new NodeStoppingException());
-                    }
-
-                    try {
-                        return tableSchema(tblId, v);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                }, () -> {
-                    if (!busyLock.enterBusy()) {
-                        throw new IgniteException(new NodeStoppingException());
-                    }
-
-                    try {
-                        return latestSchemaVersion(tblId);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
-
-                schemaRegistry.onSchemaRegistered(schemaDesc);
-
-                var table = new TableImpl(
-                        internalTable,
-                        schemaRegistry
-                );
-
-                tablesVv.update(causalityToken, previous -> {
-                    var val = previous == null ? new HashMap() : new HashMap<>(previous);
-
-                    val.put(name, table);
-
-                    return val;
-                }, th -> {
-                    throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
-                            th);
-                });
-
-                tablesByIdVv.update(causalityToken, previous -> {
-                    var val = previous == null ? new HashMap() : new HashMap<>(previous);
-
-                    val.put(tblId, table);
-
-                    return val;
-                }, th -> {
-                    throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId),
-                            th);
-                });
-
-                completeApiCreateFuture(table);
-
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
-            } catch (Exception e) {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, tblId, name), e);
+                return latestSchemaVersion(tblId);
+            } finally {
+                busyLock.leaveBusy();
             }
-        }).join();
+        });
+
+        var table = new TableImpl(internalTable, schemaRegistry);
+
+        tablesVv.update(causalityToken, previous -> {
+            var val = new HashMap<>(previous);
+
+            val.put(name, table);
+
+            return val;
+        }, th -> {
+            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId), th);
+        });
+
+        tablesByIdVv.update(causalityToken, previous -> {
+            var val = new HashMap<>(previous);
+
+            val.put(tblId, table);
+
+            return val;
+        }, th -> {
+            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId), th);
+        });
+
+        CompletableFuture.allOf(tablesByIdVv.get(causalityToken), tablesVv.get(causalityToken)).thenRun(() -> {
+            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+
+            completeApiCreateFuture(table);
+        });
     }
 
     /**
@@ -624,9 +628,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @return Schema descriptor.
      */
     private SchemaDescriptor tableSchema(UUID tblId, int schemaVer) {
-        Map<UUID, TableImpl> tablesById = tablesByIdVv.latest();
-
-        TableImpl table = tablesById == null ? null : tablesById.get(tblId);
+        TableImpl table = tablesByIdVv.latest().get(tblId);
 
         assert table != null : "Table is undefined [tblId=" + tblId + ']';
 
@@ -712,24 +714,30 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         th);
             });
 
-            Map<UUID, TableImpl> tablesByIdFut = tablesByIdVv.update(causalityToken, previousVal -> {
+            AtomicReference<TableImpl> tableHolder = new AtomicReference<>();
+
+            tablesByIdVv.update(causalityToken, previousVal -> {
                 var map = new HashMap<>(previousVal);
 
-                map.remove(tblId);
+                TableImpl table = map.remove(tblId);
+
+                tableHolder.set(table);
 
                 return map;
             }, th -> {
                 throw new IgniteInternalException(IgniteStringFormatter.format("Cannot drop a table [name={}, id={}]", name, tblId),
-                        th);
+                    th);
             });
 
-            TableImpl table = tablesByIdFut.get(tblId);
+            TableImpl table = tableHolder.get();
 
             assert table != null : "There is no table with the name specified [name=" + name + ']';
 
             table.internalTable().storage().destroy();
 
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null);
+            CompletableFuture.allOf(tablesByIdVv.get(causalityToken), tablesVv.get(causalityToken)).thenRun(() ->
+                    fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null)
+            );
         } catch (Exception e) {
             fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, tblId, name), e);
         }
@@ -1176,6 +1184,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
     }
 
+    /**
+     * Actual tables map.
+     *
+     * @return Actual tables map.
+     */
+    @TestOnly
+    public Map<String, TableImpl> latestTables() {
+        return unmodifiableMap(tablesVv.latest());
+    }
+
     /** {@inheritDoc} */
     @Override
     public Table table(String name) {
@@ -1244,9 +1262,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return CompletableFuture.completedFuture(null);
         }
 
-        Map<UUID, TableImpl> tablesById = tablesByIdVv.latest();
-
-        var tbl = tablesById == null ? null : tablesById.get(id);
+        var tbl = tablesByIdVv.latest().get(id);
 
         if (tbl != null) {
             return CompletableFuture.completedFuture(tbl);
@@ -1278,9 +1294,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         listen(TableEvent.CREATE, clo);
 
-        tablesById = tablesByIdVv.latest();
-
-        tbl = tablesById == null ? null : tablesById.get(id);
+        tbl = tablesByIdVv.latest().get(id);
 
         if (tbl != null && getTblFut.complete(tbl) || !isTableConfigured(id) && getTblFut.complete(null)) {
             removeListener(TableEvent.CREATE, clo, null);
