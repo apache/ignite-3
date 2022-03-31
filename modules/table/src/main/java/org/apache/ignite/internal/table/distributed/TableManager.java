@@ -19,7 +19,6 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -47,6 +46,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -64,6 +64,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.schema.SchemaConfiguration;
 import org.apache.ignite.internal.configuration.schema.SchemaView;
+import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
@@ -92,6 +93,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -113,6 +115,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final IgniteLogger LOG = IgniteLogger.forClass(TableManager.class);
 
     private static final int INITIAL_SCHEMA_VERSION = 1;
+
+    /**
+     * If the property is set as {@code true} the attempt to get configuration property direct from Metastorage will be skipped, and the
+     * local one local will be returned. Otherwise, when the property is set as {@code false}, the direct property will be returned.
+     * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
+     * TODO: will be removed after fix of the issue.
+     */
+    private final boolean getMetadataLocallyOnly = IgniteSystemProperties.getBoolean("IGNITE_GET_METADATA_LOCALLY_ONLY");
 
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
@@ -1506,5 +1516,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return CompletableFuture.allOf(futures);
+    }
+
+    /**
+     * Gets a direct accessor for the configuration distributed property.
+     * If the metadata access only locally configured the method will return local property accessor.
+     * @see #getMetadataLocallyOnly
+     *
+     * @param property Distributed configuration property to receive direct access.
+     * @param <T> Type of the property accessor.
+     * @return An accessor for distributive property.
+     */
+    private <T extends ConfigurationProperty<?>> T directProxy(T property) {
+        return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
     }
 }
