@@ -429,7 +429,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
     }
 
     private static @Nullable DataRow wrap(TableDataRow tableDataRow) {
-        return tableDataRow == null ? null : new DelegatingDataRow(tableDataRow);
+        return tableDataRow == null ? null : new TableDataRowAdapter(tableDataRow);
     }
 
     private static class InsertClosure implements IgniteTree.InvokeClosure<TableDataRow> {

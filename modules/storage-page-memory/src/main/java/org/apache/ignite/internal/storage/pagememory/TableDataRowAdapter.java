@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.DataRow;
 /**
  * Delegating implementation of {@link DataRow}.
  */
-class DelegatingDataRow implements DataRow {
+class TableDataRowAdapter implements DataRow {
     private final TableDataRow tableDataRow;
 
     /**
@@ -33,7 +33,7 @@ class DelegatingDataRow implements DataRow {
      *
      * @param tableDataRow Table data row.
      */
-    DelegatingDataRow(TableDataRow tableDataRow) {
+    TableDataRowAdapter(TableDataRow tableDataRow) {
         this.tableDataRow = tableDataRow;
     }
 
