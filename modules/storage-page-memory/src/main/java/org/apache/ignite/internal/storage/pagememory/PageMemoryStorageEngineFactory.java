@@ -42,6 +42,6 @@ public class PageMemoryStorageEngineFactory implements StorageEngineFactory {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryStorageEngine(engineConfig, storagePath, ioRegistry);
+        return new PageMemoryStorageEngine(engineConfig, ioRegistry);
     }
 }

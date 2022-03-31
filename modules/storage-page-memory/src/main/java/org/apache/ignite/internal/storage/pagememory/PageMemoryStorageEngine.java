@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -42,8 +41,6 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
     private final PageMemoryStorageEngineConfiguration engineConfig;
 
-    private final Path storagePath;
-
     private final PageIoRegistry ioRegistry;
 
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
@@ -52,16 +49,13 @@ public class PageMemoryStorageEngine implements StorageEngine {
      * Constructor.
      *
      * @param engineConfig PageMemory storage engine configuration.
-     * @param storagePath Storage path.
      * @param ioRegistry IO registry.
      */
     public PageMemoryStorageEngine(
             PageMemoryStorageEngineConfiguration engineConfig,
-            Path storagePath,
             PageIoRegistry ioRegistry
     ) {
         this.engineConfig = engineConfig;
-        this.storagePath = storagePath;
         this.ioRegistry = ioRegistry;
     }
 

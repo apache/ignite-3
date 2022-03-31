@@ -88,7 +88,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     @BeforeEach
     void setUp() throws Exception {
-        engine = new PageMemoryStorageEngine(engineConfig, null, ioRegistry);
+        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry);
 
         engine.start();
 
