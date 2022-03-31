@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -25,10 +28,13 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -65,6 +71,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals("1_2_3.3", res);
     }
 
+    @Test
+    void testJobErrorPropagatesToClientWithClassAndMessage() {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () ->  client().compute().execute(Set.of(node(0)), ErrorJob.class).join());
+
+        IgniteClientException cause = (IgniteClientException) ex.getCause();
+
+        assertThat(cause.getMessage(), containsString("TransactionException: Custom job error"));
+    }
+
     private ClusterNode node(int idx) {
         return sortedNodes().get(idx);
     }
@@ -86,6 +103,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             return Arrays.stream(args).map(Object::toString).collect(Collectors.joining("_"));
+        }
+    }
+
+    private static class ErrorJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            throw new TransactionException("Custom job error");
         }
     }
 }
