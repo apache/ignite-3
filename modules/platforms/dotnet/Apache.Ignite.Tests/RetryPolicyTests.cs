@@ -61,7 +61,8 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFailoverWithRetryPolicyDoesNotRetryTxCommit()
         {
-            var cfg = new IgniteClientConfiguration { RetryPolicy = RetryAllPolicy.Instance };
+            var testRetryPolicy = new TestRetryPolicy();
+            var cfg = new IgniteClientConfiguration { RetryPolicy = testRetryPolicy };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
@@ -69,6 +70,7 @@ namespace Apache.Ignite.Tests
             var tx = await client.Transactions.BeginAsync();
 
             Assert.ThrowsAsync<IgniteClientException>(async () => await tx.CommitAsync());
+            Assert.IsEmpty(testRetryPolicy.Invocations);
         }
 
         [Test]
