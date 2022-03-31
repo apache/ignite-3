@@ -61,7 +61,7 @@ public class ClientCompute implements IgniteCompute {
             w.out().packString(jobClassName);
             w.out().packArrayHeader(args.length);
             w.out().packObjectArray(args);
-        }, r -> (R)r.in().unpackObject(r.in().unpackInt()));
+        }, r -> (R)r.in().unpackObjectWithType());
     }
 
     /** {@inheritDoc} */
