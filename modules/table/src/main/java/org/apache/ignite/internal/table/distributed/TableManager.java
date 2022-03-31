@@ -1521,11 +1521,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Gets a direct accessor for the configuration distributed property.
      * If the metadata access only locally configured the method will return local property accessor.
-     * @see #getMetadataLocallyOnly
      *
      * @param property Distributed configuration property to receive direct access.
      * @param <T> Type of the property accessor.
      * @return An accessor for distributive property.
+     * @see #getMetadataLocallyOnly
      */
     private <T extends ConfigurationProperty<?>> T directProxy(T property) {
         return getMetadataLocallyOnly ? property : ConfigurationUtil.directProxy(property);
