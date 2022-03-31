@@ -52,7 +52,9 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
+import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
@@ -60,10 +62,12 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
@@ -78,7 +82,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -93,8 +96,8 @@ import org.mockito.quality.Strictness;
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
-    /** The name of the table which is statically configured. */
-    private static final String STATIC_TABLE_NAME = "t1";
+    /** The name of the table which is preconfigured. */
+    private static final String PRECONFIGURED_TABLE_NAME = "t1";
 
     /** The name of the table which will be configured dynamically. */
     private static final String DYNAMIC_TABLE_NAME = "t2";
@@ -195,11 +198,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     /**
-     * Tests a table which was defined before start through bootstrap configuration.
+     * Tests a table which was preconfigured.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16433")
     @Test
-    public void testStaticTableConfigured() {
+    public void testPreconfiguredTable()  throws Exception {
+        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
+                CompletableFuture.completedFuture(mock(RaftGroupService.class)));
+
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -211,9 +216,46 @@ public class TableManagerTest extends IgniteAbstractTest {
                 tm
         );
 
+        tblManagerFut.complete(tableManager);
+
+        tableManager.start();
+
+        TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        tblsCfg.tables().change(tablesChange -> {
+            tablesChange.create(scmTbl.canonicalName(), tableChange -> {
+                ((ExtendedTableChange) SchemaConfigurationConverter.convert(scmTbl, tableChange))
+                        .changeReplicas(REPLICAS)
+                        .changePartitions(PARTITIONS);
+
+                var extConfCh = ((ExtendedTableChange) tableChange);
+
+                ArrayList<List<ClusterNode>> assignment = new ArrayList<>(PARTITIONS);
+
+                for (int part = 0; part < PARTITIONS; part++) {
+                    assignment.add(new ArrayList<>(Collections.singleton(node)));
+                }
+
+                extConfCh.changeAssignments(ByteUtils.toBytes(assignment))
+                        .changeSchemas(schemasCh -> schemasCh.create(
+                                String.valueOf(1),
+                                schemaCh -> {
+                                    SchemaDescriptor schemaDesc = SchemaUtils.prepareSchemaDescriptor(
+                                            ((ExtendedTableView) tableChange).schemas().size(),
+                                            tableChange);
+
+                                    schemaCh.changeSchema(SchemaSerializerImpl.INSTANCE.serialize(schemaDesc));
+                                }
+                        ));
+            });
+        }).join();
+
         assertEquals(1, tableManager.tables().size());
 
-        assertNotNull(tableManager.table(STATIC_TABLE_NAME));
+        assertNotNull(tableManager.table(scmTbl.canonicalName()));
     }
 
     /**
@@ -343,7 +385,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).prepareRaftGroup(anyString(), any(), any());
+        verify(rm, times(PARTITIONS)).updateRaftGroup(anyString(), any(), any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -453,7 +495,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
     ) throws NodeStoppingException {
-        when(rm.prepareRaftGroup(any(), any(), any())).thenAnswer(mock -> {
+        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));

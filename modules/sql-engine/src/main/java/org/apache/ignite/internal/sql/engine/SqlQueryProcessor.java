@@ -78,7 +78,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final TableManager tableManager;
 
-    private final Consumer<Consumer<Long>> revisionUpdater;
+    private final Consumer<Consumer<Long>> registry;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -109,11 +109,11 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** Constructor. */
     public SqlQueryProcessor(
-            Consumer<Consumer<Long>> revisionUpdater,
+            Consumer<Consumer<Long>> registry,
             ClusterService clusterSrvc,
             TableManager tableManager
     ) {
-        this.revisionUpdater = revisionUpdater;
+        this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
     }
@@ -141,7 +141,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             queryRegistry
         ));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, revisionUpdater, planCache::clear);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, registry, planCache::clear);
 
         executionSrvc = registerService(new ExecutionServiceImpl<>(
                 clusterSrvc.topologyService(),

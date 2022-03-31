@@ -56,6 +56,8 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
+import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -155,6 +157,10 @@ public class IgniteImpl implements Ignite {
     /** Node status. Adds ability to stop currently starting node. */
     private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
 
+    /** Distributed configuration storage. */
+    private final ConfigurationStorage cfgStorage;
+
+    /** Compute. */
     private final IgniteCompute compute;
 
     /** JVM pause detector. */
@@ -223,7 +229,7 @@ public class IgniteImpl implements Ignite {
                 new RocksDbKeyValueStorage(workDir.resolve(METASTORAGE_DB_PATH))
         );
 
-        ConfigurationStorage cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
+        this.cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vaultMgr);
 
         clusterCfgMgr = new ConfigurationManager(
                 modules.distributed().rootKeys(),
@@ -358,6 +364,8 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry().initializeDefaults();
             }
 
+            waitForJoinPermission();
+
             // Start the remaining components.
             List<IgniteComponent> otherComponents = List.of(
                     nettyBootstrapFactory,
@@ -378,10 +386,18 @@ public class IgniteImpl implements Ignite {
                 doStartComponent(name, startedComponents, component);
             }
 
+            CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
+                    metaStorageMgr,
+                    clusterCfgMgr,
+                    fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
+            );
+
             notifyConfigurationListeners();
 
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
+
+            configurationCatchUpFuture.join();
 
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
@@ -395,6 +411,14 @@ public class IgniteImpl implements Ignite {
 
             throw new IgniteException(errMsg, e);
         }
+    }
+
+    /**
+     * Awaits for a permission to join the cluster, i.e. node join response from Cluster Management group.
+     * After the completion of this method, the node is considered as validated.
+     */
+    private void waitForJoinPermission() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-15114
     }
 
     /**
