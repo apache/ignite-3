@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +32,18 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testClusterNodes() {
-        Collection<ClusterNode> nodes = client().clusterNodes();
+        List<ClusterNode> nodes = client().clusterNodes().stream()
+                .sorted(Comparator.comparing(ClusterNode::name))
+                .collect(Collectors.toList());
 
         assertEquals(2, nodes.size());
+
+        assertEquals("ItThinClientComputeTest_null_3344", nodes.get(0).name());
+        assertEquals(3344, nodes.get(0).address().port());
+        assertTrue(nodes.get(0).id().length() > 10);
+
+        assertEquals("ItThinClientComputeTest_null_3345", nodes.get(1).name());
+        assertEquals(3345, nodes.get(1).address().port());
+        assertTrue(nodes.get(1).id().length() > 10);
     }
 }
