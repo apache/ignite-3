@@ -65,16 +65,6 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
     /**
      * Constructor.
      *
-     * @param source An iterator to wrap.
-     * @param exec An executor to delegate execution.
-     */
-    public AsyncWrapper(Iterator<T> source, Executor exec) {
-        this(CompletableFuture.completedFuture(source), exec);
-    }
-
-    /**
-     * Constructor.
-     *
      * @param initFut Initialization future.
      * @param exec An executor to delegate execution.
      */
@@ -102,13 +92,14 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
         prev.thenCompose(tmp -> cursorFut).thenAcceptAsync(cursor -> {
             int remains = rows;
-            List<T> batch = new ArrayList<>(rows);
 
             if (!cursor.hasNext() && !firstRequest) {
                 next.completeExceptionally(new NoSuchElementException());
 
                 return;
             }
+
+            List<T> batch = new ArrayList<>(rows);
 
             firstRequest = false;
 

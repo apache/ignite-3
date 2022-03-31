@@ -112,14 +112,14 @@ public class AsyncWrapperSelfTest {
      */
     @Test
     public void testRequestsChainedAndExecutedAfterCursorInited() {
-        var data = List.of(1, 2);
+        var data = List.of(1, 2, 3, 4, 5, 6);
         var initFut = new CompletableFuture<Iterator<Integer>>();
         var cursor = new AsyncWrapper<>(initFut, ForkJoinPool.commonPool());
 
-        var stage1 = cursor.requestNext(1)
-                .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(0, 1))));
-        var stage2 = cursor.requestNext(1)
-                .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(1, 2))));
+        var stage1 = cursor.requestNext(3)
+                .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(0, 3))));
+        var stage2 = cursor.requestNext(3)
+                .thenAccept(batch -> assertThat(batch.items(), equalTo(data.subList(3, 6))));
         var stage3 = cursor.requestNext(1)
                 .exceptionally(ex -> {
                     assertInstanceOf(NoSuchElementException.class, ex);
