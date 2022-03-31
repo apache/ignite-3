@@ -30,11 +30,13 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -206,7 +208,7 @@ public class ItClientHandlerTest {
         bootstrapFactory.start();
 
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTables.class), mock(IgniteTransactions.class), registry,
-                compute, clusterService, bootstrapFactory);
+                mock(IgniteCompute.class), mock(ClusterService.class), bootstrapFactory);
 
         module.start();
 

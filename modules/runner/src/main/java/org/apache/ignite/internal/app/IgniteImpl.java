@@ -272,7 +272,9 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 new IgniteTransactionsImpl(txManager),
                 nodeCfgMgr.configurationRegistry(),
-                compute, clusterService, nettyBootstrapFactory
+                compute,
+                clusterSvc,
+                nettyBootstrapFactory
         );
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
