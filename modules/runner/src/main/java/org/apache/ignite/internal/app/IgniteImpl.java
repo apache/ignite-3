@@ -155,8 +155,7 @@ public class IgniteImpl implements Ignite {
     /** Node status. Adds ability to stop currently starting node. */
     private final AtomicReference<Status> status = new AtomicReference<>(Status.STARTING);
 
-    @Nullable
-    private transient IgniteCompute compute;
+    private final IgniteCompute compute;
 
     /** JVM pause detector. */
     private final LongJvmPauseDetector longJvmPauseDetector;
@@ -266,6 +265,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 distributedTblMgr
         );
+
+        compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
@@ -447,9 +448,6 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        if (compute == null) {
-            compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
-        }
         return compute;
     }
 
