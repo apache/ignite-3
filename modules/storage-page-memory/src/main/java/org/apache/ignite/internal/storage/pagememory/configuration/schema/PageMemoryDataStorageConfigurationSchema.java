@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
+package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 
 /**
- * Data storage configuration for {@link RocksDbStorageEngine}.
+ * Data storage configuration for {@link PageMemoryStorageEngine}.
  */
 @PolymorphicConfigInstance(ENGINE_NAME)
-public class RocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+public class PageMemoryDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
     /** Data region. */
     @Immutable
     @Value(hasDefault = true)

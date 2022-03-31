@@ -56,7 +56,7 @@ public class RocksDbPartitionStorageTest extends AbstractPartitionStorageTest {
     @BeforeEach
     public void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig,
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
                     polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
@@ -67,9 +67,9 @@ public class RocksDbPartitionStorageTest extends AbstractPartitionStorageTest {
 
         tableCfg.change(c -> c.changeName("table")).get(1, SECONDS);
 
-        rocksDbEngineConfig.defaultRegion().change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)).get(1, SECONDS);
+        engineConfig.defaultRegion().change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)).get(1, SECONDS);
 
-        engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
+        engine = new RocksDbStorageEngine(engineConfig, workDir);
 
         engine.start();
 

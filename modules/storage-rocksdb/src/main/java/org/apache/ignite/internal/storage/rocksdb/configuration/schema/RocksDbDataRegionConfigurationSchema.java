@@ -22,9 +22,10 @@ import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
 /**
- * Data region configuration for rocksdb storage engine.
+ * Data region configuration for {@link RocksDbStorageEngine}.
  */
 @Config
 public class RocksDbDataRegionConfigurationSchema {

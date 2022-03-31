@@ -15,33 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
+package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.validation.ExceptKeys;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 
 /**
- * Root configuration for {@link RocksDbStorageEngine}.
+ * Root configuration for {@link PageMemoryStorageEngine}.
  */
 @ConfigurationRoot(rootName = ENGINE_NAME, type = DISTRIBUTED)
-public class RocksDbStorageEngineConfigurationSchema {
+public class PageMemoryStorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";
 
     /** Default data region. */
     @Name(DEFAULT_DATA_REGION_NAME)
     @ConfigValue
-    public RocksDbDataRegionConfigurationSchema defaultRegion;
+    public PageMemoryDataRegionConfigurationSchema defaultRegion;
 
     /** Other data regions. */
     @ExceptKeys(DEFAULT_DATA_REGION_NAME)
     @NamedConfigValue
-    public RocksDbDataRegionConfigurationSchema regions;
+    public PageMemoryDataRegionConfigurationSchema regions;
 }

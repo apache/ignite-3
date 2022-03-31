@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.engine;
+package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
-import org.apache.ignite.internal.manager.IgniteComponent;
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
+
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 
 /**
- * Interface that represents Ignite data region. Data region is a memory segment of fixed size, usually located offheap,
- * that caches user data in memory.
+ * Test RocksDB data storage configuration schema for tables.
  */
-// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
-public interface DataRegion extends IgniteComponent {
+@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
+public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }

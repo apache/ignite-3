@@ -27,7 +27,6 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
@@ -66,12 +65,6 @@ abstract class PageMemoryTableStorage implements TableStorage {
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public DataRegion dataRegion() {
-        return dataRegion;
     }
 
     /** {@inheritDoc} */

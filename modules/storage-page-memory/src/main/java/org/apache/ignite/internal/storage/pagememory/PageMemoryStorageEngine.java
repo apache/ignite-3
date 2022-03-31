@@ -17,51 +17,103 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Storage engine implementation based on {@link PageMemory}.
  */
 public class PageMemoryStorageEngine implements StorageEngine {
+    /** Engine name. */
+    public static final String ENGINE_NAME = "pagememory";
+
+    private final PageMemoryStorageEngineConfiguration engineConfig;
+
+    private final Path storagePath;
+
     private final PageIoRegistry ioRegistry;
+
+    private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
      *
+     * @param engineConfig PageMemory storage engine configuration.
+     * @param storagePath Storage path.
      * @param ioRegistry IO registry.
      */
-    public PageMemoryStorageEngine(PageIoRegistry ioRegistry) {
+    public PageMemoryStorageEngine(
+            PageMemoryStorageEngineConfiguration engineConfig,
+            Path storagePath,
+            PageIoRegistry ioRegistry
+    ) {
+        this.engineConfig = engineConfig;
+        this.storagePath = storagePath;
         this.ioRegistry = ioRegistry;
     }
 
     /** {@inheritDoc} */
     @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public void start() {
+        VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(engineConfig.defaultRegion(), ioRegistry);
+
+        defaultRegion.start();
+
+        regions.put(DEFAULT_DATA_REGION_NAME, defaultRegion);
+
+        for (String regionName : engineConfig.regions().value().namedListKeys()) {
+            VolatilePageMemoryDataRegion region = new VolatilePageMemoryDataRegion(engineConfig.regions().get(regionName), ioRegistry);
+
+            region.start();
+
+            regions.put(regionName, region);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws StorageException {
+        try {
+            IgniteUtils.closeAll(regions.values().stream().map(region -> region::stop));
+        } catch (Exception e) {
+            throw new StorageException("Error when stopping regions", e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public DataRegion createDataRegion(DataRegionConfiguration regionCfg) {
-        return new VolatilePageMemoryDataRegion((PageMemoryDataRegionConfiguration) regionCfg, ioRegistry);
-    }
+    public TableStorage createTable(TableConfiguration tableCfg) {
+        TableView tableView = tableCfg.value();
 
-    /** {@inheritDoc} */
-    @Override
-    public TableStorage createTable(Path tablePath, TableConfiguration tableCfg, DataRegion dataRegion) {
-        return new VolatilePageMemoryTableStorage(tableCfg, (VolatilePageMemoryDataRegion) dataRegion);
+        assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
+
+        PageMemoryDataStorageView dataStorageView = (PageMemoryDataStorageView) tableView.dataStorage();
+
+        VolatilePageMemoryDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
+
+        if (dataRegion == null) {
+            throw new StorageException("Date region not found: " + dataStorageView.dataRegion());
+        }
+
+        return new VolatilePageMemoryTableStorage(tableCfg, dataRegion);
     }
 }

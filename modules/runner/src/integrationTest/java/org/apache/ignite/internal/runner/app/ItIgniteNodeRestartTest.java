@@ -41,7 +41,6 @@ import java.util.function.IntFunction;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -229,15 +229,19 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             });
         };
 
+        DataStorageManager dataStorageManager = new DataStorageManager(
+                clusterCfgMgr.configurationRegistry(),
+                getPartitionsStorePath(dir)
+        );
+
         TableManager tableManager = new TableManager(
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-                clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,
                 Mockito.mock(BaselineManager.class),
                 clusterSvc.topologyService(),
-                getPartitionsStorePath(dir),
-                txManager
+                txManager,
+                dataStorageManager
         );
 
         // Preparing the result map.
@@ -268,6 +272,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
+                dataStorageManager,
                 txManager,
                 metaStorageMgr,
                 clusterCfgMgr,
