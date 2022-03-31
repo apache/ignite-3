@@ -232,6 +232,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
+        LOG.error("Error processing client request", err);
+
         var packer = getPacker(ctx.alloc());
 
         try {
