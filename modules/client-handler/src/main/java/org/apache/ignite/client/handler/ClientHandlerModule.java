@@ -77,7 +77,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /**
      * Constructor.
-     *  @param queryProcessor    Sql query processor.
+     * @param queryProcessor     Sql query processor.
      * @param igniteTables       Ignite.
      * @param igniteTransactions Transactions.
      * @param registry           Configuration registry.

@@ -111,7 +111,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
     /**
      * Constructor.
-     *  @param igniteTables      Ignite tables API entry point.
+     * @param igniteTables       Ignite tables API entry point.
      * @param igniteTransactions Transactions API.
      * @param processor          Sql query processor.
      * @param configuration      Configuration.
