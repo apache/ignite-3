@@ -81,7 +81,7 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(jobClassName);
 
-        Map<ClusterNode, CompletableFuture<R>> map = new HashMap<>();
+        Map<ClusterNode, CompletableFuture<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
             if (map.put(node, executeOnOneNode(node, jobClassName, args)) != null) {
