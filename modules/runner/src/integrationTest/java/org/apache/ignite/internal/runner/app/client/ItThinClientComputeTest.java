@@ -82,6 +82,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cause.getMessage(), containsString("TransactionException: Custom job error"));
     }
 
+    @Test
+    void testAllSupportedArgTypes() {
+        // TODO: Test all types and arrays of them.
+    }
+
     private ClusterNode node(int idx) {
         return sortedNodes().get(idx);
     }
