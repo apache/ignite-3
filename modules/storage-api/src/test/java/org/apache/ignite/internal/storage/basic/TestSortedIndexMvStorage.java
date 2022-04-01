@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.basic;
 
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -47,11 +48,10 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
-    private final TableView tableCfg;
-
     private final NavigableSet<BinaryRow> index;
 
     private final SchemaDescriptor descriptor;
+
     private final Map<Integer, TestMvPartitionStorage> pk;
 
     private final int partitions;
@@ -62,29 +62,19 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
 
     private final NativeType[] nativeTypes;
 
-    protected TestSortedIndexMvStorage(
+    public TestSortedIndexMvStorage(
             String name,
             TableView tableCfg,
             SchemaDescriptor descriptor,
             Map<Integer, TestMvPartitionStorage> pk
     ) {
-        this.tableCfg = tableCfg;
-
         this.descriptor = descriptor;
 
         this.pk = pk;
 
         partitions = tableCfg.partitions();
 
-        index = new ConcurrentSkipListSet<>((l, r) -> {
-            int cmp = compareColumns(l, r);
-
-            if (cmp != 0) {
-                return cmp;
-            }
-
-            return l.keySlice().compareTo(r.keySlice());
-        });
+        index = new ConcurrentSkipListSet<>(((Comparator<BinaryRow>) this::compareColumns).thenComparing(BinaryRow::keySlice));
 
         // Init columns.
         NamedListView<? extends ColumnView> tblColumns = tableCfg.columns();
@@ -190,12 +180,8 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         ToIntFunction<BinaryRow> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
 
         Iterator<IndexRowEx> iterator = index.stream()
-                .dropWhile(binaryRow -> {
-                    return lowerCmp.applyAsInt(binaryRow) < 0;
-                })
-                .takeWhile(binaryRow -> {
-                    return upperCmp.applyAsInt(binaryRow) <= 0;
-                })
+                .dropWhile(binaryRow -> lowerCmp.applyAsInt(binaryRow) < 0)
+                .takeWhile(binaryRow -> upperCmp.applyAsInt(binaryRow) <= 0)
                 .map(binaryRow -> {
                     int partition = binaryRow.hash() % partitions;
 

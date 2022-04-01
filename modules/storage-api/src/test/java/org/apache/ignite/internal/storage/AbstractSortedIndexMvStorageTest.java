@@ -19,7 +19,9 @@ package org.apache.ignite.internal.storage;
 
 import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.BACKWARDS;
 import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.FORWARD;
+import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.GREATER_OR_EQUAL;
+import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.LESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexMvStorage.LESS_OR_EQUAL;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -141,19 +143,19 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Lower bound exclusive.
         assertEquals(List.of(val8020, val9020), convert(index1.scan(
-                prefix("10"), null, FORWARD, null, null
+                prefix("10"), null, GREATER | FORWARD, null, null
         )));
 
         assertEquals(List.of(val9020, val8020), convert(index1.scan(
-                prefix("10"), null, BACKWARDS, null, null
+                prefix("10"), null, GREATER | BACKWARDS, null, null
         )));
 
         assertEquals(List.of(val9020, val8020), convert(index2.scan(
-                prefix("10"), null, FORWARD, null, null
+                prefix("10"), null, GREATER | FORWARD, null, null
         )));
 
         assertEquals(List.of(val8020, val9020), convert(index2.scan(
-                prefix("10"), null, BACKWARDS, null, null
+                prefix("10"), null, GREATER | BACKWARDS, null, null
         )));
 
         // Lower bound inclusive.
@@ -175,19 +177,19 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Upper bound exclusive.
         assertEquals(List.of(val8010, val9010), convert(index1.scan(
-                null, prefix("20"), FORWARD, null, null
+                null, prefix("20"), LESS | FORWARD, null, null
         )));
 
         assertEquals(List.of(val9010, val8010), convert(index1.scan(
-                null, prefix("20"), BACKWARDS, null, null
+                null, prefix("20"), LESS | BACKWARDS, null, null
         )));
 
         assertEquals(List.of(val9010, val8010), convert(index2.scan(
-                null, prefix("20"), FORWARD, null, null
+                null, prefix("20"), LESS | FORWARD, null, null
         )));
 
         assertEquals(List.of(val8010, val9010), convert(index2.scan(
-                null, prefix("20"), BACKWARDS, null, null
+                null, prefix("20"), LESS | BACKWARDS, null, null
         )));
 
         // Lower bound inclusive.

@@ -68,7 +68,7 @@ public class BaseMvStoragesTest {
         marshallerFactory = null;
     }
 
-    protected BinaryRow binaryKey(TestKey key) {
+    protected static BinaryRow binaryKey(TestKey key) {
         try {
             return kvMarshaller.marshal(key);
         } catch (MarshallerException e) {
@@ -76,7 +76,7 @@ public class BaseMvStoragesTest {
         }
     }
 
-    protected BinaryRow binaryRow(TestKey key, TestValue value) {
+    protected static BinaryRow binaryRow(TestKey key, TestValue value) {
         try {
             return kvMarshaller.marshal(key, value);
         } catch (MarshallerException e) {
@@ -85,7 +85,7 @@ public class BaseMvStoragesTest {
     }
 
     @Nullable
-    protected TestKey key(BinaryRow binaryRow) {
+    protected static TestKey key(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
@@ -94,7 +94,7 @@ public class BaseMvStoragesTest {
     }
 
     @Nullable
-    protected TestValue value(BinaryRow binaryRow) {
+    protected static TestValue value(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalValue(new Row(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {

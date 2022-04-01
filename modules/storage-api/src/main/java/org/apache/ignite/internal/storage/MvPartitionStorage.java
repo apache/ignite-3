@@ -18,12 +18,10 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,13 +31,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvPartitionStorage {
     /**
-     * Exception class that describes the situation when two independent transactions attempt to write values for the same key.
-     */
-    class TxIdMismatchException extends IgniteException {
-    }
-
-    /**
-     * Reads the value from the storage as it was at the given timestamp.
+     * Reads the value from the storage as it was at the given timestamp. {@code null} timestamp means reading the latest value.
      *
      * @param key Key.
      * @param timestamp Timestamp.
@@ -74,16 +66,6 @@ public interface MvPartitionStorage {
      * @throws StorageException If failed to write data to the storage.
      */
     void commitWrite(BinaryRow key, Timestamp timestamp) throws StorageException;
-
-    /**
-     * Removes data associated with old timestamps.
-     *
-     * @param from Start of hashes range to process. Inclusive.
-     * @param to End of hashes range to process. Inclusive.
-     * @param timestamp Timestamp to remove all data with a smaller timestamp.
-     * @return Future for the operation.
-     */
-    CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp);
 
     /**
      * Scans the partition and returns a cursor of values in at the given timestamp.

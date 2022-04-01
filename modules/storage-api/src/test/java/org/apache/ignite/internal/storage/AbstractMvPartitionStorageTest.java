@@ -28,7 +28,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.MvPartitionStorage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
@@ -196,7 +195,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
             List<TestValue> list = StreamSupport.stream(cursor.spliterator(), false)
-                    .map(this::value)
+                    .map(BaseMvStoragesTest::value)
                     .collect(Collectors.toList());
 
             Collections.sort(list);

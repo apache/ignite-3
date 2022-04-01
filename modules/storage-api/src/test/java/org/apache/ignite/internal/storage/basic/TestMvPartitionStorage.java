@@ -22,11 +22,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -35,8 +35,6 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private static final VersionChain NULL = new VersionChain(null, null, null, null);
-
     private final ConcurrentHashMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestSortedIndexMvStorage> indexes;
@@ -46,12 +44,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static class VersionChain {
-        final BinaryRow row;
-        final Timestamp begin;
-        final UUID txId;
-        final VersionChain next;
+        final @Nullable BinaryRow row;
+        final @Nullable Timestamp begin;
+        final @Nullable UUID txId;
+        final @Nullable VersionChain next;
 
-        VersionChain(BinaryRow row, Timestamp begin, UUID txId, VersionChain next) {
+        VersionChain(@Nullable BinaryRow row, @Nullable Timestamp begin, @Nullable UUID txId, @Nullable VersionChain next) {
             this.row = row;
             this.begin = begin;
             this.txId = txId;
@@ -62,7 +60,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException {
-        //TODO Make it idempotent?
         map.compute(row.keySlice(), (keyBuf, versionChain) -> {
             if (versionChain != null && versionChain.begin == null && !txId.equals(versionChain.txId)) {
                 throw new TxIdMismatchException();
@@ -79,7 +76,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void abortWrite(BinaryRow key) {
-        map.merge(key.keySlice(), NULL, (versionChain, ignored) -> {
+        map.computeIfPresent(key.keySlice(), (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
@@ -162,11 +159,5 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 .iterator();
 
         return Cursor.fromIterator(iterator);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp) {
-        throw new UnsupportedOperationException("cleanup");
     }
 }
