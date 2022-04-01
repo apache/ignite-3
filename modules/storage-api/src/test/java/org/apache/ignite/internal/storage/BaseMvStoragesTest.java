@@ -154,7 +154,6 @@ public class BaseMvStoragesTest {
 
         @Override
         public int compareTo(TestValue o) {
-            //TODO Compare nullable values.
             int cmp = Integer.compare(intVal, o.intVal);
 
             return cmp != 0 ? cmp : strVal.compareTo(o.strVal);
