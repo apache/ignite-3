@@ -148,5 +148,5 @@ public interface InternalIgniteTable extends IgniteTable {
      *
      * @param idxName Index name.
      */
-    void removeIndex(String idxName);
+    IgniteIndex removeIndex(String idxName);
 }

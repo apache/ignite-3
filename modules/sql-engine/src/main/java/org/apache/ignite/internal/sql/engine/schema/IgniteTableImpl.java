@@ -212,8 +212,8 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
 
     /** {@inheritDoc} */
     @Override
-    public void removeIndex(String idxName) {
-        indexes.remove(idxName);
+    public IgniteIndex removeIndex(String idxName) {
+        return indexes.remove(idxName);
     }
 
     /** {@inheritDoc} */

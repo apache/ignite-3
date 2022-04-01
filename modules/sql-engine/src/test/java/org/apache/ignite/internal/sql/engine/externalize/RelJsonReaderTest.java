@@ -29,10 +29,10 @@ import java.util.UUID;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.schema.Statistic;
-import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
@@ -83,7 +83,7 @@ public class RelJsonReaderTest {
         UUID tableId = UUID.randomUUID();
 
         IgniteTable igniteTableMock = mock(IgniteTable.class);
-        InternalSortedIndex igniteIdxMock = mock(InternalSortedIndex.class);
+        IgniteIndex igniteIdxMock = mock(IgniteIndex.class);
         when(igniteTableMock.getStatistic()).thenReturn(new Statistic() {});
         when(mock(RelInputEx.class).getIndexById(any(), any())).thenReturn(igniteIdxMock);
         when(igniteTableMock.getRowType(any())).thenReturn(mock(RelDataType.class));

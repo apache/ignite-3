@@ -33,11 +33,9 @@ import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.util.IndexConditions;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,9 +55,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     protected AbstractIndexScan(RelInput input) {
         super(input);
         String idxName = input.getString("indexName");
-        InternalSortedIndex idx = ((RelInputEx) input).getIndexById("indexId", idxName);
-        InternalIgniteTable tbl = table.unwrap(InternalIgniteTable.class);
-        index = new IgniteIndex(input.getCollation(), idx, tbl);
+        index = ((RelInputEx) input).getIndexById("indexId", idxName);
         idxCond = new IndexConditions(input);
     }
 

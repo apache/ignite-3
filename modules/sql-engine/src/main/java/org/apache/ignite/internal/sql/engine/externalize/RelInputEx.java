@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.externalize;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelInput;
-import org.apache.ignite.internal.idx.InternalSortedIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.lang.IndexNotFoundException;
 
 /**
@@ -52,5 +52,5 @@ public interface RelInputEx extends RelInput {
      * @param idxName Index name.
      * @throws IndexNotFoundException If not found.
      */
-    InternalSortedIndex getIndexById(String tag, String idxName);
+    IgniteIndex getIndexById(String tag, String idxName);
 }

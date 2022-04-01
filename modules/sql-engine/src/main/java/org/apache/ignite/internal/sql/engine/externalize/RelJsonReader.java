@@ -48,7 +48,7 @@ import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.internal.idx.InternalSortedIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -171,14 +171,14 @@ public class RelJsonReader {
 
         /** {@inheritDoc} */
         @Override
-        public InternalSortedIndex getIndexById(String tag, String idxName) {
+        public IgniteIndex getIndexById(String tag, String idxName) {
             String idxId = getString(tag);
 
             Objects.requireNonNull(idxId);
 
             UUID id = UUID.fromString(idxId);
 
-            InternalSortedIndex idx = schemaManager.indexById(id);
+            IgniteIndex idx = schemaManager.indexById(id);
 
             if (idx == null) {
                 throw new IndexNotFoundException(idxName, id);

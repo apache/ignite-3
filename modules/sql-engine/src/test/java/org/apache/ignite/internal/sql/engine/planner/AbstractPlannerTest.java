@@ -37,9 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -74,13 +72,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
-import org.apache.ignite.configuration.schemas.table.TableIndexChange;
-import org.apache.ignite.internal.idx.IndexManager;
-import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.apache.ignite.internal.idx.InternalSortedIndexImpl;
-import org.apache.ignite.internal.idx.event.IndexEvent;
-import org.apache.ignite.internal.idx.event.IndexEventParameters;
-import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -116,7 +108,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -533,8 +524,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 .map(InternalIgniteTable.class::cast)
                 .collect(Collectors.toMap(IgniteTable::id, Function.identity()));
 
+        Map<UUID, IgniteIndex> idxMap = tableMap.values().stream().map(InternalIgniteTable::indexes).flatMap(i -> i.values().stream())
+                .collect(Collectors.toMap(IgniteIndex::id, Function.identity()));
+
         for (String s : serialized) {
-            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap, new TestIndexManager(tableMap)));
+            RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap, idxMap));
             deserializedNodes.add(reader.read(s));
         }
 
@@ -760,7 +754,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         /** {@inheritDoc} */
         @Override
-        public void removeIndex(String idxName) {
+        public IgniteIndex removeIndex(String idxName) {
             throw new AssertionError();
         }
 
@@ -788,76 +782,6 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         @Override
         public <RowT> ModifyRow toModifyRow(ExecutionContext<RowT> ectx, RowT row, Operation op, @Nullable List<String> arg) {
             throw new AssertionError();
-        }
-    }
-
-    private static class TestIndexManager implements IndexManager {
-        /** Indexes by id. */
-        private final Map<UUID, InternalSortedIndex> idxsById = new HashMap<>();
-
-        TestIndexManager(Map<UUID, InternalIgniteTable> tableMap) {
-            for (InternalIgniteTable tbl : tableMap.values()) {
-                for (IgniteIndex idx : tbl.indexes().values()) {
-                    idxsById.put(idx.id(), idx.index());
-                }
-            }
-        }
-
-        @Override
-        public void listen(IndexEvent evt, EventListener<IndexEventParameters> closure) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void removeListener(IndexEvent evt, EventListener<IndexEventParameters> closure) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void removeListener(IndexEvent evt, EventListener<IndexEventParameters> closure,
-                @Nullable IgniteInternalCheckedException cause) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public InternalSortedIndex createIndex(String idxCanonicalName, String tblCanonicalName, Consumer<TableIndexChange> idxChange) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<InternalSortedIndex> createIndexAsync(String idxCanonicalName, String tblCanonicalName,
-                Consumer<TableIndexChange> idxChange) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void dropIndex(String idxCanonicalName) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletableFuture<Void> dropIndexAsync(String idxCanonicalName) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<InternalSortedIndex> indexes(UUID tblId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public InternalSortedIndex index(String idxCanonicalName) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public CompletableFuture<InternalSortedIndex> indexAsync(String idxCanonicalName) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public InternalSortedIndex getIndexById(UUID id) {
-            return idxsById.get(id);
         }
     }
 
@@ -1012,11 +936,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     static class SqlSchemaManagerImpl implements SqlSchemaManager {
         private final Map<UUID, InternalIgniteTable> tablesById;
 
-        private final IndexManager indexManager;
+        private final Map<UUID, IgniteIndex> idxMap;
 
-        public SqlSchemaManagerImpl(Map<UUID, InternalIgniteTable> tablesById, IndexManager idxManager) {
+        public SqlSchemaManagerImpl(Map<UUID, InternalIgniteTable> tablesById, Map<UUID, IgniteIndex> idxMap) {
             this.tablesById = tablesById;
-            indexManager = idxManager;
+            this.idxMap = idxMap;
         }
 
         @Override
@@ -1030,16 +954,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         @Override
-        public InternalSortedIndex indexById(UUID id) {
-            return indexManager.getIndexById(id);
+        public IgniteIndex indexById(UUID id) {
+            return idxMap.get(id);
         }
     }
 
     static class TestIgniteIndex extends IgniteIndex {
-        public TestIgniteIndex(RelCollation collation, InternalSortedIndex idx, InternalIgniteTable tbl) {
-            super(collation, idx, tbl);
-        }
-
         public TestIgniteIndex(RelCollation collation, String idxName, InternalIgniteTable tbl) {
             super(collation, new InternalSortedIndexImpl(UUID.randomUUID(), idxName, mock(SortedIndexStorage.class),
                     mock(TableImpl.class)), tbl);

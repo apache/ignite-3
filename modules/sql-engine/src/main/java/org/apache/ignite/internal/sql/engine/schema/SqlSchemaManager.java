@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.UUID;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.ignite.internal.idx.InternalSortedIndex;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,5 +45,5 @@ public interface SqlSchemaManager {
      * @param id An id of required index.
      * @return The index instance or {@code null} if not found.
      */
-    InternalSortedIndex indexById(UUID id);
+    IgniteIndex indexById(UUID id);
 }
