@@ -164,18 +164,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public Integer getRetryLimit() {
-        return retryLimit.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setRetryLimit(Integer limit) throws SQLException {
-        retryLimit.setValue(limit);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public Long getReconnectThrottlingPeriod() {
         return reconnectThrottlingPeriod.value();
     }
