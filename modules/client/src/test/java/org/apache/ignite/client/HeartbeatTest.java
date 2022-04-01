@@ -70,11 +70,7 @@ public class HeartbeatTest {
                     .addresses("127.0.0.1:" + getPort(srv.module()))
                     .heartbeatInterval(-50);
 
-            Throwable ex = assertThrows(IgniteClientException.class, builder::build);
-
-            while (ex.getCause() != null) {
-                ex = ex.getCause();
-            }
+            Throwable ex = assertThrows(IllegalArgumentException.class, builder::build);
 
             assertEquals("Negative delay.", ex.getMessage());
         }
