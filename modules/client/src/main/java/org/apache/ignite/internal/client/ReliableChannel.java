@@ -144,7 +144,7 @@ public final class ReliableChannel implements AutoCloseable {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, 1, null);
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null);
 
         return fut;
     }
@@ -165,14 +165,13 @@ public final class ReliableChannel implements AutoCloseable {
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
-            int attemptsLimit,
             IgniteClientConnectionException failure) {
         ClientChannel ch;
         // Workaround to store used attempts value within lambda body.
         var attemptsCnt = new int[1];
 
         try {
-            ch = applyOnDefaultChannel(channel -> channel, opCode, attemptsLimit, v -> attemptsCnt[0] = v);
+            ch = applyOnDefaultChannel(channel -> channel, opCode, v -> attemptsCnt[0] = v);
         } catch (Throwable ex) {
             if (failure != null) {
                 failure.addSuppressed(ex);
@@ -199,6 +198,8 @@ public final class ReliableChannel implements AutoCloseable {
                     IgniteClientConnectionException failure0 = failure;
 
                     if (err instanceof IgniteClientConnectionException) {
+                        var connectionErr = (IgniteClientConnectionException) err;
+
                         try {
                             // Will try to reinit channels if topology changed.
                             onChannelFailure(ch);
@@ -209,20 +210,15 @@ public final class ReliableChannel implements AutoCloseable {
                         }
 
                         if (failure0 == null) {
-                            failure0 = (IgniteClientConnectionException) err;
+                            failure0 = connectionErr;
                         } else {
                             failure0.addSuppressed(err);
                         }
 
-                        int leftAttempts = attemptsLimit - attemptsCnt[0];
+                        int attempt = attemptsCnt[0];
 
-                        // If it is a first retry then reset attempts (as for initialization we use only 1 attempt).
-                        if (failure == null) {
-                            leftAttempts = getRetryLimit() - 1;
-                        }
-
-                        if (leftAttempts > 0) {
-                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, leftAttempts, failure0);
+                        if (shouldRetry(opCode, attempt, connectionErr)) {
+                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, failure0);
 
                             return null;
                         }
@@ -479,7 +475,7 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function, int opCode) {
-        return applyOnDefaultChannel(function, opCode, getRetryLimit(), DO_NOTHING);
+        return applyOnDefaultChannel(function, opCode, DO_NOTHING);
     }
 
     /**
@@ -487,11 +483,10 @@ public final class ReliableChannel implements AutoCloseable {
      */
     private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function,
             int opCode,
-            int attemptsLimit,
             Consumer<Integer> attemptsCallback) {
-        Throwable failure = null;
+        IgniteClientConnectionException failure = null;
 
-        for (int attempt = 0; attempt < attemptsLimit; attempt++) {
+        for (int attempt = 0; attempt < channels.size(); attempt++) {
             ClientChannelHolder hld = null;
             ClientChannel c = null;
 
@@ -515,7 +510,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                     return function.apply(c);
                 }
-            } catch (Throwable e) {
+            } catch (IgniteClientConnectionException e) {
                 if (failure == null) {
                     failure = e;
                 } else {
@@ -523,23 +518,13 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 onChannelFailure(hld, c);
+
+                if (!shouldRetry(opCode, attempt, e))
+                    break;
             }
         }
 
         throw new IgniteClientConnectionException("Failed to connect", failure);
-    }
-
-    /** Get retry limit. */
-    private int getRetryLimit() {
-        List<ClientChannelHolder> holders = channels;
-
-        if (holders == null) {
-            throw new IgniteClientException("Connections to nodes aren't initialized.");
-        }
-
-        int size = holders.size();
-
-        return clientCfg.retryLimit() > 0 ? Math.min(clientCfg.retryLimit(), size) : size;
     }
 
     /** Determines whether specified operation should be retried. */

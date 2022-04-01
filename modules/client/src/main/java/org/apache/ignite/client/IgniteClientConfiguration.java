@@ -64,13 +64,6 @@ public interface IgniteClientConfiguration {
     String[] addresses();
 
     /**
-     * Gets the retry limit.
-     *
-     * @return Retry limit.
-     */
-    int retryLimit();
-
-    /**
      * Gets the retry policy. When a request fails due to a connection error, and multiple server connections
      * are available, Ignite will retry the request if the specified policy allows it.
      *

@@ -33,9 +33,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Addresses. */
     private final String[] addresses;
 
-    /** Retry limit. */
-    private final int retryLimit;
-
     /** Connect timeout, in milliseconds. */
     private final long connectTimeout;
 
@@ -59,7 +56,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      *
      * @param addressFinder             Address finder.
      * @param addresses                 Addresses.
-     * @param retryLimit                Retry limit.
      * @param connectTimeout            Socket connect timeout.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval         Heartbeat message interval.
@@ -68,7 +64,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
             String[] addresses,
-            int retryLimit,
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
@@ -80,7 +75,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
         this.addresses = addresses;
 
-        this.retryLimit = retryLimit;
         this.connectTimeout = connectTimeout;
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
@@ -99,12 +93,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public String[] addresses() {
         return addresses == null ? null : addresses.clone();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int retryLimit() {
-        return retryLimit;
     }
 
     /** {@inheritDoc} */

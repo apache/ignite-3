@@ -21,7 +21,6 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TI
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RETRY_LIMIT;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Objects;
@@ -62,9 +61,6 @@ public interface IgniteClient extends Ignite {
         /** Address finder. */
         private IgniteClientAddressFinder addressFinder;
 
-        /** Retry limit. */
-        private int retryLimit = DFLT_RETRY_LIMIT;
-
         /** Connect timeout. */
         private long connectTimeout = DFLT_CONNECT_TIMEOUT;
 
@@ -95,21 +91,6 @@ public interface IgniteClient extends Ignite {
             Objects.requireNonNull(addrs, "addrs is null");
 
             addresses = addrs.clone();
-
-            return this;
-        }
-
-        /**
-         * Sets the retry limit. When a request fails due to a connection error, and multiple server connections are available, Ignite will
-         * retry the request on every connection. When this property is greater than zero, Ignite will limit the number of retries.
-         *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RETRY_LIMIT}.
-         *
-         * @param retryLimit Retry limit.
-         * @return This instance.
-         */
-        public Builder retryLimit(int retryLimit) {
-            this.retryLimit = retryLimit;
 
             return this;
         }
@@ -249,7 +230,6 @@ public interface IgniteClient extends Ignite {
             var cfg = new IgniteClientConfigurationImpl(
                     addressFinder,
                     addresses,
-                    retryLimit,
                     connectTimeout,
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
