@@ -24,7 +24,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 
 /**
- * Implementation for creating {@link TestConcurrentHashMapStorageEngine}'s.
+ * Implementation for creating {@link TestConcurrentHashMapStorageEngine}s.
  */
 public class TestConcurrentHashMapStorageEngineFactory implements StorageEngineFactory {
     /** {@inheritDoc} */

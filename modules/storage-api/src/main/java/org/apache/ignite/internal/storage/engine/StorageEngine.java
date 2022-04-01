@@ -28,7 +28,7 @@ public interface StorageEngine {
     /**
      * Returns the unique name of the storage engine.
      *
-     * <p>NOTE: Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine#name}.
+     * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine#name}.
      */
     String name();
 

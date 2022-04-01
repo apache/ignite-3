@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 
 /**
- * Implementation for creating {@link RocksDbStorageEngine}'s.
+ * Implementation for creating {@link RocksDbStorageEngine}s.
  */
 public class RocksDbStorageEngineFactory implements StorageEngineFactory {
     /** {@inheritDoc} */
@@ -33,9 +33,7 @@ public class RocksDbStorageEngineFactory implements StorageEngineFactory {
     public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
         RocksDbStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY);
 
-        if (engineConfig == null) {
-            throw new StorageException("Configuration root not found: " + RocksDbStorageEngineConfiguration.KEY);
-        }
+        assert engineConfig != null;
 
         return new RocksDbStorageEngine(engineConfig, storagePath);
     }

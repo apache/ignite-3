@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -184,7 +183,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry
         );
     }

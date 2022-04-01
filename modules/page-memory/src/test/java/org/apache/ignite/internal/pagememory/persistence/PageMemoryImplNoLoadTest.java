@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.stream.LongStream;
@@ -45,7 +44,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry,
                 LongStream.range(0, 10).map(i -> 5 * MiB).toArray(),
                 new TestPageReadWriteManager(),

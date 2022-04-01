@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.impl;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -317,7 +316,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
             provider,
-            fixConfiguration(dataRegionCfg),
+            dataRegionCfg,
             ioRegistry
         );
     }

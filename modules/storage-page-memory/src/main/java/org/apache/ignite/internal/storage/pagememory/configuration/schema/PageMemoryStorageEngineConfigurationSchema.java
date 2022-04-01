@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -31,7 +30,7 @@ import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 /**
  * Root configuration for {@link PageMemoryStorageEngine}.
  */
-@ConfigurationRoot(rootName = ENGINE_NAME, type = DISTRIBUTED)
+@ConfigurationRoot(rootName = "pageMemory", type = DISTRIBUTED)
 public class PageMemoryStorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";

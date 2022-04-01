@@ -47,7 +47,7 @@ abstract class PageMemoryDataRegion implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         if (pageMemory != null) {
             pageMemory.stop(true);
         }

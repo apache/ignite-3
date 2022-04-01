@@ -26,7 +26,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 
 /**
- * Implementation for creating {@link PageMemoryStorageEngine}'s.
+ * Implementation for creating {@link PageMemoryStorageEngine}s.
  */
 public class PageMemoryStorageEngineFactory implements StorageEngineFactory {
     /** {@inheritDoc} */
@@ -34,9 +34,7 @@ public class PageMemoryStorageEngineFactory implements StorageEngineFactory {
     public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
         PageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(PageMemoryStorageEngineConfiguration.KEY);
 
-        if (engineConfig == null) {
-            throw new StorageException("Configuration root not found: " + PageMemoryStorageEngineConfiguration.KEY);
-        }
+        assert engineConfig != null;
 
         PageIoRegistry ioRegistry = new PageIoRegistry();
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
@@ -48,7 +47,7 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),

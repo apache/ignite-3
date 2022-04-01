@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.DISTRIBUTED;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -30,7 +29,7 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 /**
  * Root configuration for {@link RocksDbStorageEngine}.
  */
-@ConfigurationRoot(rootName = ENGINE_NAME, type = DISTRIBUTED)
+@ConfigurationRoot(rootName = "rocksDb", type = DISTRIBUTED)
 public class RocksDbStorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";

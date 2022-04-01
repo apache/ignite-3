@@ -83,7 +83,7 @@ class VolatilePageMemoryDataRegion extends PageMemoryDataRegion {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         super.stop();
 
         if (freeList != null) {

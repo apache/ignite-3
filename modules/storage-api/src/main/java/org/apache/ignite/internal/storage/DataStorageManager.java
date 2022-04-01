@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toUnmodifiableMap;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -34,12 +37,8 @@ import org.jetbrains.annotations.Nullable;
  * Data storage manager.
  */
 public class DataStorageManager implements IgniteComponent {
-    private final ConfigurationRegistry clusterConfigRegistry;
-
-    private final Path storagePath;
-
     /** Mapping: {@link StorageEngine#name} -> {@link StorageEngine}. */
-    private final Map<String, StorageEngine> engines = new ConcurrentHashMap<>();
+    private final Map<String, StorageEngine> engines;
 
     /**
      * Constructor.
@@ -51,28 +50,15 @@ public class DataStorageManager implements IgniteComponent {
             ConfigurationRegistry clusterConfigRegistry,
             Path storagePath
     ) {
-        this.clusterConfigRegistry = clusterConfigRegistry;
-        this.storagePath = storagePath;
+        this.engines = StreamSupport.stream(engineFactories().spliterator(), false)
+                .map(engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath))
+                .collect(toUnmodifiableMap(StorageEngine::name, identity()));
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        for (StorageEngineFactory engineFactory : engineFactories()) {
-            StorageEngine engine = engineFactory.createEngine(clusterConfigRegistry, storagePath);
-
-            engine.start();
-
-            String name = engine.name();
-
-            if (engines.containsKey(name)) {
-                throw new StorageException(
-                        "There is already a storage engine with the same name: [name=" + name + ", engine=" + engines.get(name) + "]"
-                );
-            } else {
-                engines.put(name, engine);
-            }
-        }
+        engines.values().forEach(StorageEngine::start);
     }
 
     /** {@inheritDoc} */
@@ -91,21 +77,12 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
-     * Returns the data storage engine by name.
-     *
-     * @param name Engine name.
-     */
-    public @Nullable StorageEngine engine(String name) {
-        return engines.get(name);
-    }
-
-    /**
      * Returns the data storage engine by data storage configuration.
      *
      * @param config Data storage configuration.
      */
     public @Nullable StorageEngine engine(DataStorageConfiguration config) {
-        return engine(config.value().name());
+        return engines.get(config.value().name());
     }
 
     /** {@inheritDoc} */

@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.storage.pagememory.configuration.schema
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 
 /**
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 @PolymorphicConfigInstance(ENGINE_NAME)
 public class PageMemoryDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
     /** Data region. */
-    @Immutable
     @Value(hasDefault = true)
     public String dataRegion = DEFAULT_DATA_REGION_NAME;
 }

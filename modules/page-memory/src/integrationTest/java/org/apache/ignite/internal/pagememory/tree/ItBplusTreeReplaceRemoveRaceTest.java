@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
@@ -100,7 +99,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry
         );
     }

@@ -21,7 +21,6 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Collections.shuffle;
 import static java.util.Collections.singleton;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
@@ -2745,7 +2744,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry
         );
     }
