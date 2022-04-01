@@ -80,7 +80,7 @@ public interface SortedIndexMvStorage {
      *      {@code null} means unbounded.
      * @param flags Control flags. {@link #GREATER} | {@link #LESS} | {@link #FORWARD} by default. Other available values
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL} and {@link #BACKWARDS}.
-     * @param timestamp Timestamp value for consistent multiversioned index scan.
+     * @param timestamp Timestamp value for consistent multi-versioned index scan.
      * @param partitionFilter Partition filter predicate. {@code null} means returning data from all partitions.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.

@@ -84,7 +84,7 @@ public class PrefixComparator {
     /**
      * Compares a particular column of a {@code row} with the given value.
      */
-    public static int compareColumns(Row row, int schemaIndex, NativeTypeSpec typeSpec, Object value) {
+    public static int compareColumns(Row row, int schemaIndex, NativeTypeSpec typeSpec, @Nullable Object value) {
         boolean nullRow = row.hasNullValue(schemaIndex, typeSpec);
 
         if (nullRow && value == null) {

@@ -158,7 +158,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         Iterator<BinaryRow> iterator = map.values().stream()
                 .map(versionChain -> read(versionChain, timestamp))
                 .filter(Objects::nonNull)
-                .filter(keyFilter::test)
+                .filter(keyFilter)
                 .iterator();
 
         return Cursor.fromIterator(iterator);

@@ -29,11 +29,11 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Multi-versioned partition storage.
  * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Their API are very similar,
- * althouh there are very important differences that will be addressed in the future.
+ * although there are very important differences that will be addressed in the future.
  */
 public interface MvPartitionStorage {
     /**
-     * Exception class that describes the situation where two independant transactions attempting to write values for the same key.
+     * Exception class that describes the situation when two independent transactions attempt to write values for the same key.
      */
     class TxIdMismatchException extends IgniteException {
     }
@@ -49,7 +49,7 @@ public interface MvPartitionStorage {
     BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp);
 
     /**
-     * Creates uncommited version, assigned to the passed transaction id..
+     * Creates an uncommitted version, assigned to the given transaction id.
      *
      * @param row Binary row to update. Key only row means value removal.
      * @param txId Transaction id.
@@ -59,7 +59,7 @@ public interface MvPartitionStorage {
     void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
-     * Aborts a pending update of the ongoing uncommited transaction. Invoked during rollback.
+     * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
      * @param key Key.
      * @throws StorageException If failed to write data to the storage.
@@ -67,10 +67,10 @@ public interface MvPartitionStorage {
     void abortWrite(BinaryRow key) throws StorageException;
 
     /**
-     * Commits a pending update of the ongoing transaction. Invoked during commit. Commited value will be versioned by the given timestamp.
+     * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
      * @param key Key.
-     * @param timestamp Timestamp to associate with commited value.
+     * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
     void commitWrite(BinaryRow key, Timestamp timestamp) throws StorageException;
@@ -80,7 +80,7 @@ public interface MvPartitionStorage {
      *
      * @param from Start of hashes range to process. Inclusive.
      * @param to End of hashes range to process. Inclusive.
-     * @param timestamp Timestamp to remove all the data with a lesser timestamp.
+     * @param timestamp Timestamp to remove all data with a smaller timestamp.
      * @return Future for the operation.
      */
     CompletableFuture<?> cleanup(int from, int to, Timestamp timestamp);
