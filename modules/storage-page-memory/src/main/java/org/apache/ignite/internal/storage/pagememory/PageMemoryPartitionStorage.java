@@ -409,6 +409,19 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         }
     }
 
+    @Override
+    public long rowsCount() {
+        Cursor<DataRow> it = scan(t -> true);
+        long size = 0;
+
+        while (it.hasNext()) {
+            ++size;
+            it.next();
+        }
+
+        return size;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() {
