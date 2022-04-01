@@ -46,7 +46,7 @@ public interface RelInputEx extends RelInput {
     RelOptTable getTableById(String tag);
 
     /**
-     * Check that appropriate index is available.
+     * Returns an index by its id.
      *
      * @param tag Tag represents id serialization.
      * @param idxName Index name.

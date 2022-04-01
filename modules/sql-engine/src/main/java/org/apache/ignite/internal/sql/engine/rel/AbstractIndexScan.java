@@ -95,7 +95,7 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
     }
 
     /**
-     * Get index name.
+     * Get index instance.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public IgniteIndex getIndex() {

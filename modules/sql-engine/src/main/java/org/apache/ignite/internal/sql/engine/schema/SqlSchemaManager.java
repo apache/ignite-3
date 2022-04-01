@@ -44,7 +44,7 @@ public interface SqlSchemaManager {
      * Returns the index by id.
      *
      * @param id An id of required index.
-     * @return The index.
+     * @return The index instance or {@code null} if not found.
      */
-    InternalSortedIndex indexById(UUID id, String idxName);
+    InternalSortedIndex indexById(UUID id);
 }

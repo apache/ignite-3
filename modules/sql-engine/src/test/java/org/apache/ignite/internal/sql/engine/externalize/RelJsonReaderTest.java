@@ -92,7 +92,7 @@ public class RelJsonReaderTest {
         SqlSchemaManager schemaMock = mock(SqlSchemaManager.class);
 
         when(schemaMock.tableById(tableId)).thenReturn(igniteTableMock);
-        when(schemaMock.indexById(any(UUID.class), any())).thenReturn(igniteIdxMock);
+        when(schemaMock.indexById(any(UUID.class))).thenReturn(igniteIdxMock);
 
         String json = ""
                 + "{\n"
@@ -115,6 +115,6 @@ public class RelJsonReaderTest {
         assertThat(IgniteTestUtils.getFieldValue(node, AbstractIndexScan.class, "index"), notNullValue());
 
         Mockito.verify(schemaMock).tableById(tableId);
-        Mockito.verify(schemaMock).indexById(any(UUID.class), any());
+        Mockito.verify(schemaMock).indexById(indexId);
     }
 }

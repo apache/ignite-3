@@ -43,7 +43,6 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.IndexNotFoundException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -113,14 +112,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public InternalSortedIndex indexById(UUID id, String idxName) {
-        InternalSortedIndex idx = indexManager.getIndexById(id);
-
-        if (idx == null) {
-            throw new IndexNotFoundException(idxName, id);
-        }
-
-        return idx;
+    public InternalSortedIndex indexById(UUID id) {
+        return indexManager.getIndexById(id);
     }
 
     private void ensureTableStructuresCreated(UUID id) {

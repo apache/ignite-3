@@ -1030,7 +1030,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         @Override
-        public InternalSortedIndex indexById(UUID id, String idxName) {
+        public InternalSortedIndex indexById(UUID id) {
             return indexManager.getIndexById(id);
         }
     }
