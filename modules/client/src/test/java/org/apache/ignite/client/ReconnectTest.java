@@ -53,6 +53,7 @@ public class ReconnectTest {
 
         var client = IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
+                .retryPolicy(new RetryLimitPolicy().retryLimit(5))
                 .build();
 
         assertEquals("t", client.tables().tables().get(0).name());
