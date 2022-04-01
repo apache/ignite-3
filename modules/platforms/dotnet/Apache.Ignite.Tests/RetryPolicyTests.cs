@@ -119,6 +119,22 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
+        public async Task TestNullRetryPolicyIsSameAsNoRetry()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = null!
+            };
+
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            await client.Tables.GetTablesAsync();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+        }
+
+        [Test]
         public async Task TestCustomRetryPolicyIsInvokedWithCorrectContext()
         {
             var testRetryPolicy = new TestRetryPolicy { RetryLimit = 3 };

@@ -298,7 +298,7 @@ namespace Apache.Ignite.Internal
                 return false;
             }
 
-            if (Configuration.RetryPolicy is RetryNonePolicy)
+            if (Configuration.RetryPolicy is null or RetryNonePolicy)
             {
                 return false;
             }
