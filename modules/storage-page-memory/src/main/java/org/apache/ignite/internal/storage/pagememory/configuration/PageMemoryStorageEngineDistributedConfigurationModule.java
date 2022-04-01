@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 
@@ -44,6 +45,9 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(PageMemoryDataStorageConfigurationSchema.class);
+        return List.of(
+                PageMemoryDataStorageConfigurationSchema.class,
+                UnsafeMemoryAllocatorConfigurationSchema.class
+        );
     }
 }

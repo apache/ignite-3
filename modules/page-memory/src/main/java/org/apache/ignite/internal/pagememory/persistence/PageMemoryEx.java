@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.lang.IgniteInternalCheckedException;

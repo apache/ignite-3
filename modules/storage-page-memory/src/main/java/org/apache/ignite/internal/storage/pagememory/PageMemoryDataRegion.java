@@ -17,10 +17,9 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionView;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,7 +47,7 @@ abstract class PageMemoryDataRegion implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
+    public void stop() throws Exception {
         if (pageMemory != null) {
             pageMemory.stop(true);
         }
@@ -58,7 +57,7 @@ abstract class PageMemoryDataRegion implements IgniteComponent {
      * Returns {@link true} if the date region is persistent.
      */
     public boolean persistent() {
-        return ((PageMemoryDataRegionView) cfg.value()).persistent();
+        return cfg.value().persistent();
     }
 
     /**

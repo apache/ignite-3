@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -28,7 +28,6 @@ import org.apache.ignite.configuration.validation.OneOf;
  * Data region configuration for Page Memory storage engine.
  */
 @Config
-// TODO: IGNITE-16691 подумать позже о том чтобы это перенести в другой модуль
 public class PageMemoryDataRegionConfigurationSchema {
     /** Default initial size. */
     public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * 1024 * 1024;

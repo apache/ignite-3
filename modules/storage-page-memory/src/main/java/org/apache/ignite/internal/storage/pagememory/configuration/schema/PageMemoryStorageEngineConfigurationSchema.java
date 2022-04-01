@@ -24,8 +24,8 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.validation.ExceptKeys;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 
 /**

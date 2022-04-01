@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.pagememory.configuration.schema;
 
-import static org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
 /**
- * Configuration schema for memory allocation strategies.
+ * Memory allocator that allocates data in offheap using {@link sun.misc.Unsafe}.
  */
-@PolymorphicConfig
-// TODO: IGNITE-16691 Don't forget to redo after IGNITE-16280
-public class MemoryAllocatorConfigurationSchema {
-    @PolymorphicId(hasDefault = true)
-    public String type = UNSAFE_MEMORY_ALLOCATOR_TYPE;
+@PolymorphicConfigInstance(UNSAFE_MEMORY_ALLOCATOR_TYPE)
+public class UnsafeMemoryAllocatorConfigurationSchema extends MemoryAllocatorConfigurationSchema {
+    public static final String UNSAFE_MEMORY_ALLOCATOR_TYPE = "unsafe";
 }
