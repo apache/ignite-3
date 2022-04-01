@@ -272,10 +272,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
-                dataStorageManager,
                 txManager,
                 metaStorageMgr,
                 clusterCfgMgr,
+                dataStorageManager,
                 tableManager
         );
 
