@@ -106,6 +106,9 @@ public class InternalTableImpl implements InternalTable {
     /** Storage for table data. */
     private final TableStorage tableStorage;
 
+    /** Mutex for the partition map update. */
+    public Object updatePartMapMux = new Object();
+
     /**
      * Constructor.
      *
@@ -143,7 +146,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public int partitions() {
-        return partitionMap.size();
+        return partitions;
     }
 
     /** {@inheritDoc} */
@@ -465,7 +468,11 @@ public class InternalTableImpl implements InternalTable {
      * @param raftGrpSvc Raft group service.
      */
     public void updateInternalTableRaftGroupService(int p, RaftGroupService raftGrpSvc) {
-        RaftGroupService oldSrvc = partitionMap.put(p, raftGrpSvc);
+        RaftGroupService oldSrvc;
+
+        synchronized (updatePartMapMux) {
+            oldSrvc = partitionMap.put(p, raftGrpSvc);
+        }
 
         if (oldSrvc != null) {
             oldSrvc.shutdown();

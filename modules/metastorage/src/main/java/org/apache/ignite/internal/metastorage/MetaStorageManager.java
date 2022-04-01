@@ -293,6 +293,15 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     /**
+     * Gets an indicator which shown if Metastorage initialized on start or not.
+     *
+     * @return True when Metastorage knows nodes on start, false otherwise.
+     */
+    public boolean isMetaStorageInitializedOnStart() {
+        return metaStorageNodesOnStart;
+    }
+
+    /**
      * Deploy all registered watches.
      */
     public synchronized void deployWatches() throws NodeStoppingException {

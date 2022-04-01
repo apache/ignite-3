@@ -15,24 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.network;
+package org.apache.ignite.internal.storage.pagememory.io;
+
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.storage.pagememory.TableTree;
 
 /**
- * Interface for handling events related to topology changes.
+ * IO routines for {@link TableTree} meta pages.
  */
-public interface TopologyEventHandler {
-    /**
-     * Called when a new member has been detected joining a cluster.
-     *
-     * @param member Appeared cluster member.
-     */
-    void onAppeared(ClusterNode member);
+public class TableMetaIo extends BplusMetaIo {
+    /** Page IO type. */
+    public static final short T_TABLE_META_IO = 3;
+
+    /** I/O versions. */
+    public static final IoVersions<TableMetaIo> VERSIONS = new IoVersions<>(new TableMetaIo(1));
 
     /**
-     * Indicates that a member has left a cluster. This method is only called when a member leaves permanently (i.e. it is not possible to
-     * re-establish a connection to it).
+     * Constructor.
      *
-     * @param member Disappeared cluster member.
+     * @param ver Page format version.
      */
-    void onDisappeared(ClusterNode member);
+    protected TableMetaIo(int ver) {
+        super(T_TABLE_META_IO, ver);
+    }
 }
