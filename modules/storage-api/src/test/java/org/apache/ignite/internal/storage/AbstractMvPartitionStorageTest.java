@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -145,6 +145,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         pk.commitWrite(binaryKey(key), Timestamp.nextVersion());
 
+        assertEquals(value, value(pk.read(binaryRow, tsExact)));
+        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+
         assertEquals(newValue, value(pk.read(binaryRow, null)));
         assertEquals(newValue, value(pk.read(binaryRow, Timestamp.nextVersion())));
     }
@@ -194,13 +197,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {
         try (cursor) {
-            List<TestValue> list = StreamSupport.stream(cursor.spliterator(), false)
+            return StreamSupport.stream(cursor.spliterator(), false)
                     .map(BaseMvStoragesTest::value)
+                    .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
                     .collect(Collectors.toList());
-
-            Collections.sort(list);
-
-            return list;
         }
     }
 }

@@ -192,7 +192,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
                 null, prefix("20"), LESS | BACKWARDS, null, null
         )));
 
-        // Lower bound inclusive.
+        // Upper bound inclusive.
         assertEquals(List.of(val8010, val9010, val8020, val9020), convert(index1.scan(
                 null, prefix("20"), LESS_OR_EQUAL | FORWARD, null, null
         )));

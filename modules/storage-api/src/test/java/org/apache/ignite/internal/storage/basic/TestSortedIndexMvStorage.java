@@ -62,6 +62,9 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
 
     private final NativeType[] nativeTypes;
 
+    /**
+     * Constructor.
+     */
     public TestSortedIndexMvStorage(
             String name,
             TableView tableCfg,

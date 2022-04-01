@@ -55,7 +55,6 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.WALRecoveryMode;
 
 /**
  * Table storage implementation based on {@link RocksDB} instance.
@@ -139,7 +138,6 @@ class RocksDbTableStorage implements TableStorage {
         DBOptions dbOptions = new DBOptions()
                 .setCreateIfMissing(true)
                 .setCreateMissingColumnFamilies(true)
-                .setWalRecoveryMode(WALRecoveryMode.SkipAnyCorruptedRecords)
                 .setWriteBufferManager(dataRegion.writeBufferManager());
 
         try {
