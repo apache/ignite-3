@@ -85,10 +85,13 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             ClientMessageHandler msgHnd,
             ClientConnectionStateHandler stateHnd)
             throws IgniteClientConnectionException {
+        try {
+            // TODO: Async startup IGNITE-15357.
+            ChannelFuture f = bootstrap.connect(addr).syncUninterruptibly();
 
-        // TODO: Async startup IGNITE-15357.
-        ChannelFuture f = bootstrap.connect(addr).syncUninterruptibly();
-
-        return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
+            return new NettyClientConnection(f.channel(), msgHnd, stateHnd);
+        } catch (Throwable t) {
+            throw new IgniteClientConnectionException(t.getMessage(), t);
+        }
     }
 }
