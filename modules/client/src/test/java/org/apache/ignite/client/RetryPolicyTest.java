@@ -100,6 +100,29 @@ public class RetryPolicyTest {
         }
     }
 
+    @Test
+    public void testCustomRetryPolicyIsInvokedWithCorrectContext() {
+        // TODO
+    }
+
+    @Test
+    public void testTableOperationWithoutTxIsRetried() {
+        // TODO
+
+    }
+
+    @Test
+    public void testTableOperationWithTxIsNotRetried() {
+        // TODO
+
+    }
+
+    @Test
+    public void testRetryReadPolicyDoesNotRetryWriteOperations() {
+        // TODO
+
+    }
+
     private IgniteClient getClient(RetryPolicy retryPolicy) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
