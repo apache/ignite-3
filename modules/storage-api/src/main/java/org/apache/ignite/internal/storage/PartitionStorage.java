@@ -148,4 +148,12 @@ public interface PartitionStorage extends AutoCloseable {
      * @throws StorageException If failed to destroy the data or storage is already stopped.
      */
     void destroy() throws StorageException;
+
+    /**
+     * Returns rows count belongs to current storage.
+     *
+     * @return Rows count.
+     * @throws StorageException If failed to obtain size.
+     */
+    long rowsCount();
 }
