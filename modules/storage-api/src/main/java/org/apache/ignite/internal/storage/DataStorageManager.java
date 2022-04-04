@@ -21,6 +21,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.stream.StreamSupport;
@@ -45,6 +46,7 @@ public class DataStorageManager implements IgniteComponent {
      *
      * @param clusterConfigRegistry Register of the (distributed) cluster configuration.
      * @param storagePath Storage path.
+     * @throws StorageException If there are duplicates of the data storage engine.
      */
     public DataStorageManager(
             ConfigurationRegistry clusterConfigRegistry,
@@ -52,7 +54,17 @@ public class DataStorageManager implements IgniteComponent {
     ) {
         this.engines = StreamSupport.stream(engineFactories().spliterator(), false)
                 .map(engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath))
-                .collect(toUnmodifiableMap(StorageEngine::name, identity()));
+                .collect(toUnmodifiableMap(
+                        StorageEngine::name,
+                        identity(),
+                        (storageEngine1, storageEngine2) -> {
+                            throw new StorageException(String.format(
+                                    "Duplicate key [key=%s, engines=%s]",
+                                    storageEngine1.name(),
+                                    List.of(storageEngine1, storageEngine2)
+                            ));
+                        }
+                ));
     }
 
     /** {@inheritDoc} */

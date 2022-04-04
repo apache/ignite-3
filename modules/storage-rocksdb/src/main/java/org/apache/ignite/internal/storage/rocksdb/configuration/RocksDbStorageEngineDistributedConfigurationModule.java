@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.storage.rocksdb.configuration;
 
+import java.lang.annotation.Annotation;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -45,5 +49,11 @@ public class RocksDbStorageEngineDistributedConfigurationModule implements Confi
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
         return List.of(RocksDbDataStorageConfigurationSchema.class);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
+        return Map.of(RocksDbDataRegionValidator.class, Set.of(RocksDbDataRegionValidatorImpl.INSTANCE));
     }
 }

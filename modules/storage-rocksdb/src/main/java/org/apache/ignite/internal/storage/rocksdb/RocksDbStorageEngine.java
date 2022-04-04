@@ -118,10 +118,6 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         RocksDbDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
-        if (dataRegion == null) {
-            throw new StorageException("Date region not found: " + dataStorageView.dataRegion());
-        }
-
         Path tablePath = storagePath.resolve(tableView.name());
 
         try {

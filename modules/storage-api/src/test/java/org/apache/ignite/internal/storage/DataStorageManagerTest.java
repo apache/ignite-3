@@ -45,20 +45,20 @@ public class DataStorageManagerTest {
     void testStorageEngineDuplicate() {
         String sameName = UUID.randomUUID().toString();
 
-        DataStorageManager dataStorageMgr = new DataStorageManager(Mockito.mock(ConfigurationRegistry.class), workDir) {
-            /** {@inheritDoc} */
-            @Override
-            protected Iterable<StorageEngineFactory> engineFactories() {
-                return List.of(
-                        (configRegistry, storagePath) -> createMockedStorageEngine(sameName),
-                        (configRegistry, storagePath) -> createMockedStorageEngine(sameName)
-                );
-            }
-        };
+        StorageException exception = assertThrows(
+                StorageException.class,
+                () -> new DataStorageManager(Mockito.mock(ConfigurationRegistry.class), workDir) {
+                    /** {@inheritDoc} */
+                    @Override
+                    protected Iterable<StorageEngineFactory> engineFactories() {
+                        return List.of(
+                                (configRegistry, storagePath) -> createMockedStorageEngine(sameName),
+                                (configRegistry, storagePath) -> createMockedStorageEngine(sameName)
+                        );
+                    }
+                });
 
-        StorageException exception = assertThrows(StorageException.class, dataStorageMgr::start);
-
-        assertThat(exception.getMessage(), Matchers.startsWith("There is already a storage engine with the same name"));
+        assertThat(exception.getMessage(), Matchers.startsWith("Duplicate key"));
     }
 
     private StorageEngine createMockedStorageEngine(String name) {

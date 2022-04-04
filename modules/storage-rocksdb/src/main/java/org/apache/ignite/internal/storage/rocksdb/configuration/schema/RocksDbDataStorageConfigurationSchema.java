@@ -24,6 +24,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.configuration.RocksDbDataRegionValidator;
 
 /**
  * Data storage configuration for {@link RocksDbStorageEngine}.
@@ -32,5 +33,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 public class RocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
     /** Data region. */
     @Value(hasDefault = true)
+    @RocksDbDataRegionValidator
     public String dataRegion = DEFAULT_DATA_REGION_NAME;
 }
