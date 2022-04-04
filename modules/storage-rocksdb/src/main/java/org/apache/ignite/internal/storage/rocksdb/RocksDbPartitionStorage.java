@@ -62,8 +62,6 @@ class RocksDbPartitionStorage implements PartitionStorage {
      */
     private static final int PARTITION_KEY_PREFIX_SIZE = Short.BYTES + Integer.BYTES;
 
-    private static final byte[] EMPTY_VAL = new byte[0];
-
     /**
      * Partition ID (should be treated as an unsigned short).
      *
@@ -363,25 +361,17 @@ class RocksDbPartitionStorage implements PartitionStorage {
 
         it.seek(partitionStartPrefix());
 
-        ScanCursor it0 = new ScanCursor(it, t -> true) {
-            @Override
-            public void close() throws Exception {
-                super.close();
-
-                IgniteUtils.closeAll(options, upperBound);
-            }
-
-            @Override
-            protected DataRow decodeEntry(byte[] key, byte[] value) {
-                return new SimpleDataRow(EMPTY_VAL, EMPTY_VAL);
-            }
-        };
-
         long size = 0;
 
-        while (it0.hasNext()) {
+        while (it.isValid()) {
             ++size;
-            it0.next();
+            it.next();
+        }
+
+        try {
+            IgniteUtils.closeAll(options, upperBound);
+        } catch (Exception e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
         }
 
         return size;

@@ -153,6 +153,7 @@ public interface PartitionStorage extends AutoCloseable {
      * Returns rows count belongs to current storage.
      *
      * @return Rows count.
+     * @throws StorageException If failed to obtain size.
      */
     long rowsCount();
 }
