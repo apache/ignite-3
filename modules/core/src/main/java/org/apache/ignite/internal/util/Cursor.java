@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.util;
 
-import java.io.Closeable;
 import java.util.Iterator;
 
 /**
@@ -44,8 +43,8 @@ public interface Cursor<T> extends Iterator<T>, Iterable<T>, AutoCloseable {
             /** {@inheritDoc} */
             @Override
             public void close() throws Exception {
-                if (it instanceof Closeable) {
-                    ((Closeable) it).close();
+                if (it instanceof AutoCloseable) {
+                    ((AutoCloseable) it).close();
                 }
             }
 
