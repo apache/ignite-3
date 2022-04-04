@@ -24,6 +24,8 @@ import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -105,15 +107,33 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testTableOperationWithoutTxIsRetried() {
-        // TODO
+    public void testTableOperationWithoutTxIsRetried() throws Exception {
+        initServer(reqId -> reqId % 4 == 0);
+        TestRetryPolicy plc = new TestRetryPolicy();
 
+        try (var client = getClient(plc)) {
+            RecordView<Tuple> recView = client.tables().table("t").recordView();
+            recView.get(null, Tuple.create().set("id", 1));
+            recView.get(null, Tuple.create().set("id", 1));
+
+            assertEquals(1, plc.invocations.size());
+        }
     }
 
     @Test
-    public void testTableOperationWithTxIsNotRetried() {
-        // TODO
+    public void testTableOperationWithTxIsNotRetried() throws Exception {
+        initServer(reqId -> reqId % 4 == 0);
+        TestRetryPolicy plc = new TestRetryPolicy();
 
+        try (var client = getClient(plc)) {
+            RecordView<Tuple> recView = client.tables().table("t").recordView();
+            Transaction tx = client.transactions().begin();
+
+            var ex = assertThrows(IgniteClientException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
+            assertEquals("Transaction context has been lost due to connection errors.", ex.getMessage());
+
+            assertEquals(0, plc.invocations.size());
+        }
     }
 
     @Test
