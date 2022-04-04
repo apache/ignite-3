@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import static org.apache.ignite.client.AbstractClientTest.getPort;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -32,7 +31,7 @@ public class HeartbeatTest {
     @Test
     public void testHeartbeatLongerThanIdleTimeoutCausesDisconnect() throws Exception {
         try (var srv = new TestServer(10800, 10, 50, new FakeIgnite())) {
-            int srvPort = getPort(srv.module());
+            int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srvPort);
@@ -48,7 +47,7 @@ public class HeartbeatTest {
     @Test
     public void testHeartbeatShorterThanIdleTimeoutKeepsConnectionAlive() throws Exception {
         try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
-            int srvPort = getPort(srv.module());
+            int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
                     .addresses("127.0.0.1:" + srvPort)
@@ -67,7 +66,7 @@ public class HeartbeatTest {
         try (var srv = new TestServer(10800, 10, 300, new FakeIgnite())) {
 
             Builder builder = IgniteClient.builder()
-                    .addresses("127.0.0.1:" + getPort(srv.module()))
+                    .addresses("127.0.0.1:" + srv.port())
                     .heartbeatInterval(-50);
 
             Throwable ex = assertThrows(IllegalArgumentException.class, builder::build);

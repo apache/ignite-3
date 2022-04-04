@@ -20,8 +20,11 @@ package org.apache.ignite.client;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Mockito.mock;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -30,6 +33,7 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 
@@ -39,7 +43,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 public class TestServer implements AutoCloseable {
     private final ConfigurationRegistry cfg;
 
-    private final ClientHandlerModule module;
+    private final IgniteComponent module;
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -92,8 +96,10 @@ public class TestServer implements AutoCloseable {
         return cfg;
     }
 
-    public ClientHandlerModule module() {
-        return module;
+    public int port() {
+        SocketAddress addr = ((ClientHandlerModule) module).localAddress();
+
+        return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
     }
 
     public NettyBootstrapFactory bootstrapFactory() {

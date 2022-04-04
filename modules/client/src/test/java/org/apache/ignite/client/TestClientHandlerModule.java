@@ -32,6 +32,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
@@ -41,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client handler module for tests.
  */
-public class TestClientHandlerModule {
+public class TestClientHandlerModule implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
 
@@ -74,9 +75,8 @@ public class TestClientHandlerModule {
         this.bootstrapFactory = bootstrapFactory;
     }
 
-    /**
-     * Starts the module.
-     */
+    /** {@inheritDoc} */
+    @Override
     public void start() {
         if (channel != null) {
             throw new IgniteException("ClientHandlerModule is already started.");
@@ -89,9 +89,8 @@ public class TestClientHandlerModule {
         }
     }
 
-    /**
-     * Stops the module.
-     */
+    /** {@inheritDoc} */
+    @Override
     public void stop() throws Exception {
         if (channel != null) {
             channel.close().await();
