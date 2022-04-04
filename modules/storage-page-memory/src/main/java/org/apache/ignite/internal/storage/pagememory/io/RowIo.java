@@ -15,21 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import java.nio.ByteBuffer;
+package org.apache.ignite.internal.storage.pagememory.io;
 
 /**
- * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ * Interface for row IO.
  */
-public interface DataRow extends SearchRow {
+public interface RowIo {
     /**
-     * Returns value bytes.
+     * Returns the link for the row in the page by index.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index.
      */
-    byte[] valueBytes();
+    long link(long pageAddr, int idx);
 
     /**
-     * Returns value object as a byte buffer. Allows more effective memory management in certain cases.
+     * Returns the hash for the row in the page by index.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index.
      */
-    ByteBuffer value();
+    int hash(long pageAddr, int idx);
 }

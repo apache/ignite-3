@@ -15,21 +15,51 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.storage.pagememory;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.storage.SearchRow;
 
 /**
- * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ * {@link SearchRow} implementation.
  */
-public interface DataRow extends SearchRow {
-    /**
-     * Returns value bytes.
-     */
-    byte[] valueBytes();
+public class TableSearchRow {
+    protected final int hash;
+
+    protected final ByteBuffer key;
 
     /**
-     * Returns value object as a byte buffer. Allows more effective memory management in certain cases.
+     * Constructor.
+     *
+     * @param hash Key hash.
+     * @param key Key byte buffer.
      */
-    ByteBuffer value();
+    public TableSearchRow(int hash, ByteBuffer key) {
+        assert !key.isReadOnly();
+        assert key.position() == 0;
+
+        this.hash = hash;
+        this.key = key;
+    }
+
+    /**
+     * Returns key object as a byte buffer.
+     */
+    public ByteBuffer key() {
+        return key.rewind();
+    }
+
+    /**
+     * Returns hash of row.
+     */
+    public int hash() {
+        return hash;
+    }
+
+    /**
+     * Returns a row link.
+     */
+    public long link() {
+        return 0;
+    }
 }

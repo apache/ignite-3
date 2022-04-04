@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
-
-import java.nio.ByteBuffer;
+package org.apache.ignite.network;
 
 /**
- * Interface that represents a data row from the storage - a key-value pair. Can be used as a {@link SearchRow}.
+ * Interface for handling events related to topology changes.
  */
-public interface DataRow extends SearchRow {
+public interface TopologyEventHandler {
     /**
-     * Returns value bytes.
+     * Called when a new member has been detected joining a cluster.
+     *
+     * @param member Appeared cluster member.
      */
-    byte[] valueBytes();
+    default void onAppeared(ClusterNode member) {
+        // no-op
+    }
 
     /**
-     * Returns value object as a byte buffer. Allows more effective memory management in certain cases.
+     * Indicates that a member has left a cluster. This method is only called when a member leaves permanently (i.e. it is not possible to
+     * re-establish a connection to it).
+     *
+     * @param member Disappeared cluster member.
      */
-    ByteBuffer value();
+    default void onDisappeared(ClusterNode member) {
+        // no-op
+    }
 }
