@@ -22,10 +22,13 @@ import static org.mockito.Mockito.mock;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.compute.IgniteCompute;
@@ -131,6 +134,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                     protected void initChannel(Channel ch) {
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
+                                new ConnectionDropHandler(),
                                 new ClientInboundMessageHandler(
                                         ignite.tables(),
                                         ignite.transactions(),
@@ -162,5 +166,20 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
 
         return ch.closeFuture();
+    }
+
+
+    private static class ConnectionDropHandler extends ChannelInboundHandlerAdapter {
+        private final AtomicInteger cnt = new AtomicInteger();
+
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+            // TODO: Configurable condition.
+            if (cnt.incrementAndGet() % 3 == 0) {
+                ctx.close();
+            } else {
+                super.channelRead(ctx, msg);
+            }
+        }
     }
 }
