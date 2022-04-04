@@ -409,6 +409,15 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         }
     }
 
+    @Override
+    public long rowsCount() {
+        try {
+            return tree.size();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() {

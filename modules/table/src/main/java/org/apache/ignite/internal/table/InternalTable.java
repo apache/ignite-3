@@ -213,7 +213,7 @@ public interface InternalTable extends AutoCloseable {
     /**
      * Gets a count of partitions of the table.
      *
-     * @return Count of partitons.
+     * @return Count of partitions.
      */
     int partitions();
 
