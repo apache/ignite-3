@@ -21,6 +21,7 @@ package org.apache.ignite.client;
  * Retry policy that always returns {@code true}.
  */
 public class RetryAllPolicy implements RetryPolicy {
+    /** {@inheritDoc} */
     @Override
     public boolean shouldRetry(RetryPolicyContext context) {
         return true;
