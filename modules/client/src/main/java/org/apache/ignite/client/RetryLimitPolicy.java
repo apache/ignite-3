@@ -55,6 +55,7 @@ public class RetryLimitPolicy implements RetryPolicy {
             return true;
         }
 
-        return context.iteration() < retryLimit;
+        boolean res = context.iteration() < retryLimit;
+        return res;
     }
 }

@@ -33,8 +33,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.ClientOperationType;
@@ -51,10 +49,6 @@ import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplex
  * Communication channel with failover and partition awareness.
  */
 public final class ReliableChannel implements AutoCloseable {
-    /** Do nothing helper function. */
-    private static final Consumer<Integer> DO_NOTHING = (v) -> {
-    };
-
     /** Channel factory. */
     private final BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory;
 
@@ -144,7 +138,7 @@ public final class ReliableChannel implements AutoCloseable {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null);
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, 1);
 
         return fut;
     }
@@ -165,13 +159,11 @@ public final class ReliableChannel implements AutoCloseable {
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
-            IgniteClientConnectionException failure) {
+            IgniteClientConnectionException failure,
+            int attempt) {
         ClientChannel ch;
-        // Workaround to store used attempts value within lambda body.
-        var attemptsCnt = new int[1];
-
         try {
-            ch = applyOnDefaultChannel(channel -> channel, opCode, v -> attemptsCnt[0] = v);
+            ch = getDefaultChannel();
         } catch (Throwable ex) {
             if (failure != null) {
                 failure.addSuppressed(ex);
@@ -215,10 +207,8 @@ public final class ReliableChannel implements AutoCloseable {
                             failure0.addSuppressed(err);
                         }
 
-                        int attempt = attemptsCnt[0];
-
                         if (shouldRetry(opCode, attempt, connectionErr)) {
-                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, failure0);
+                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, failure0, attempt + 1);
 
                             return null;
                         }
@@ -468,22 +458,16 @@ public final class ReliableChannel implements AutoCloseable {
         }
 
         // Apply no-op function. Establish default channel connection.
-        applyOnDefaultChannel(channel -> null, -1);
+        getDefaultChannel();
 
         // TODO: Async startup IGNITE-15357.
         return CompletableFuture.completedFuture(null);
     }
 
-    private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function, int opCode) {
-        return applyOnDefaultChannel(function, opCode, DO_NOTHING);
-    }
-
     /**
      * Apply specified {@code function} on any of available channel.
      */
-    private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function,
-            int opCode,
-            Consumer<Integer> attemptsCallback) {
+    private ClientChannel getDefaultChannel() {
         IgniteClientConnectionException failure = null;
 
         for (int attempt = 0; attempt < channels.size(); attempt++) {
@@ -506,9 +490,7 @@ public final class ReliableChannel implements AutoCloseable {
                 c = hld.getOrCreateChannel();
 
                 if (c != null) {
-                    attemptsCallback.accept(attempt + 1);
-
-                    return function.apply(c);
+                    return c;
                 }
             } catch (IgniteClientConnectionException e) {
                 if (failure == null) {
@@ -518,9 +500,6 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 onChannelFailure(hld, c);
-
-                if (!shouldRetry(opCode, attempt, e))
-                    break;
             }
         }
 
