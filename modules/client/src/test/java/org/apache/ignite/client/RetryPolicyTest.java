@@ -30,30 +30,43 @@ import org.junit.jupiter.api.Test;
  * Tests thin client retry behavior.
  */
 public class RetryPolicyTest {
-    /** Test server. */
-    TestServer server;
+    private static final int ITER = 100;
 
-    /** Test server 2. */
-    TestServer server2;
+    /** Test server. */
+    private TestServer server;
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server, server2);
+        IgniteUtils.closeAll(server);
     }
 
     @Test
     public void testNoRetryPolicySecondRequestFails() throws Exception {
         initServer(reqId -> reqId % 3 == 0);
 
-        try (var client = getClient()) {
+        try (var client = getClient(null)) {
             assertEquals("t", client.tables().tables().get(0).name());
             assertThrows(IgniteClientException.class, () -> client.tables().tables().get(0).name());
         }
     }
 
-    private IgniteClient getClient() {
+    @Test
+    public void testRetryPolicyCompletesOperationWithoutException() throws Exception {
+        initServer(reqId -> reqId % 3 == 0);
+
+        try (var client = getClient(new RetryLimitPolicy().retryLimit(20))) {
+            // for (int i = 0; i < ITER; i++) {
+                assertEquals("t", client.tables().tables().get(0).name());
+                assertEquals("t", client.tables().tables().get(0).name());
+                assertEquals("t", client.tables().tables().get(0).name());
+            // }
+        }
+    }
+
+    private IgniteClient getClient(RetryPolicy retryPolicy) {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10910")
+                .retryPolicy(retryPolicy)
                 .build();
     }
 
