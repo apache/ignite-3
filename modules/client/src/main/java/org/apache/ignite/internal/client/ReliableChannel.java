@@ -138,7 +138,7 @@ public final class ReliableChannel implements AutoCloseable {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, 1);
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, 0);
 
         return fut;
     }
