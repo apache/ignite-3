@@ -54,6 +54,6 @@ public class RocksDbStorageEngineDistributedConfigurationModule implements Confi
     /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(RocksDbDataRegionValidator.class, Set.of(RocksDbDataRegionValidatorImpl.INSTANCE));
+        return Map.of(RocksDbDataRegionName.class, Set.of(RocksDbDataRegionValidatorImpl.INSTANCE));
     }
 }

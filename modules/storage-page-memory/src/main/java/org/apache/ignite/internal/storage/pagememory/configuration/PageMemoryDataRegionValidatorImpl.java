@@ -24,15 +24,15 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineView;
 
 /**
- * Implementing a validator for {@link PageMemoryDataRegionValidator}.
+ * Implementing a validator for {@link PageMemoryDataRegionName}.
  */
-public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDataRegionValidator, String> {
+public class PageMemoryDataRegionValidatorImpl implements Validator<PageMemoryDataRegionName, String> {
     /** Static instance. */
     public static final PageMemoryDataRegionValidatorImpl INSTANCE = new PageMemoryDataRegionValidatorImpl();
 
     /** {@inheritDoc} */
     @Override
-    public void validate(PageMemoryDataRegionValidator annotation, ValidationContext<String> ctx) {
+    public void validate(PageMemoryDataRegionName annotation, ValidationContext<String> ctx) {
         String dataRegion = ctx.getNewValue();
 
         PageMemoryStorageEngineView engineConfig = ctx.getNewRoot(PageMemoryStorageEngineConfiguration.KEY);

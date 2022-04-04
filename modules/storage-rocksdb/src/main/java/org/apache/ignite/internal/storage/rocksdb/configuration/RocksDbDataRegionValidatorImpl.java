@@ -24,15 +24,15 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineView;
 
 /**
- * Implementing a validator for {@link RocksDbDataRegionValidator}.
+ * Implementing a validator for {@link RocksDbDataRegionName}.
  */
-public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegionValidator, String> {
+public class RocksDbDataRegionValidatorImpl implements Validator<RocksDbDataRegionName, String> {
     /** Static instance. */
     public static final RocksDbDataRegionValidatorImpl INSTANCE = new RocksDbDataRegionValidatorImpl();
 
     /** {@inheritDoc} */
     @Override
-    public void validate(RocksDbDataRegionValidator annotation, ValidationContext<String> ctx) {
+    public void validate(RocksDbDataRegionName annotation, ValidationContext<String> ctx) {
         String dataRegion = ctx.getNewValue();
 
         RocksDbStorageEngineView engineConfig = ctx.getNewRoot(RocksDbStorageEngineConfiguration.KEY);

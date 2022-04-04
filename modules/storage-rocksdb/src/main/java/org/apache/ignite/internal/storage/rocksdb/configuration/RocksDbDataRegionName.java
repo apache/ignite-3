@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.configuration;
+package org.apache.ignite.internal.storage.rocksdb.configuration;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema;
 
 /**
- * Annotation for checking the existence of a data region in {@link PageMemoryStorageEngineConfigurationSchema}.
+ * Annotation for checking the existence of a data region in {@link RocksDbStorageEngineConfigurationSchema}.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface PageMemoryDataRegionValidator {
+public @interface RocksDbDataRegionName {
 }

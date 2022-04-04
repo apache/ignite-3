@@ -58,6 +58,6 @@ public class PageMemoryStorageEngineDistributedConfigurationModule implements Co
     /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(PageMemoryDataRegionValidator.class, Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE));
+        return Map.of(PageMemoryDataRegionName.class, Set.of(PageMemoryDataRegionValidatorImpl.INSTANCE));
     }
 }
