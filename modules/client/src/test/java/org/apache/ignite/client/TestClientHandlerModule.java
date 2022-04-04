@@ -26,6 +26,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import java.net.BindException;
 import java.net.SocketAddress;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
@@ -35,8 +36,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
-import org.apache.ignite.table.manager.IgniteTables;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,8 +45,8 @@ public class TestClientHandlerModule {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
 
-    /** Ignite tables API. */
-    private final IgniteTables igniteTables;
+    /** Ignite. */
+    private final FakeIgnite ignite;
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -58,19 +57,19 @@ public class TestClientHandlerModule {
     /**
      * Constructor.
      *
-     * @param igniteTables       Ignite.
+     * @param ignite       Ignite.
      * @param registry           Configuration registry.
      * @param bootstrapFactory   Bootstrap factory.
      */
     public TestClientHandlerModule(
-            IgniteTables igniteTables,
+            FakeIgnite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory) {
-        assert igniteTables != null;
+        assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
 
-        this.igniteTables = igniteTables;
+        this.ignite = ignite;
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
     }
@@ -134,8 +133,8 @@ public class TestClientHandlerModule {
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
                                 new ClientInboundMessageHandler(
-                                        igniteTables,
-                                        mock(IgniteTransactions.class),
+                                        ignite.tables(),
+                                        ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,
                                         mock(IgniteCompute.class),
