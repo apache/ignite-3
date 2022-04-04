@@ -117,8 +117,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private static final int INITIAL_SCHEMA_VERSION = 1;
 
     /**
-     * If the property is set as {@code true} the attempt to get configuration property direct from Metastorage will be skipped, and the
-     * local one local will be returned. Otherwise, when the property is set as {@code false}, the direct property will be returned.
+     * If this property is set to {@code true} then an attempt to get the configuration property directly from the meta storage will be
+     * skipped, and the local property will be returned.
      * TODO: IGNITE-16774 This property and overall approach, access configuration directly through the Metostorage,
      * TODO: will be removed after fix of the issue.
      */
