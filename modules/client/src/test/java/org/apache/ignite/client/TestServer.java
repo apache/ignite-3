@@ -25,6 +25,7 @@ import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -61,7 +62,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, false);
+        this(port, portRange, idleTimeout, ignite, null);
     }
 
     /**
@@ -77,7 +78,7 @@ public class TestServer implements AutoCloseable {
             int portRange,
             long idleTimeout,
             Ignite ignite,
-            boolean useTestHandler
+            Function<Integer, Boolean> shouldDropConnection
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -97,8 +98,8 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory.start();
 
-        module = useTestHandler
-                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory)
+        module = shouldDropConnection != null
+                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         ignite.tables(),

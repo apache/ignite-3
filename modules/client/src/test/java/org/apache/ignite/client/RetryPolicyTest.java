@@ -20,6 +20,7 @@ package org.apache.ignite.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -41,17 +42,25 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testNoRetryPolicySecondRequestFails() {
+    public void testNoRetryPolicySecondRequestFails() throws Exception {
+        initServer(reqId -> reqId % 3 == 0);
+
+        try (var client = getClient()) {
+            assertEquals("t", client.tables().tables().get(0).name());
+            assertThrows(IgniteClientException.class, () -> client.tables().tables().get(0).name());
+        }
+    }
+
+    private IgniteClient getClient() {
+        return IgniteClient.builder()
+                .addresses("127.0.0.1:10900..10910")
+                .build();
+    }
+
+    private void initServer(Function<Integer, Boolean> integerBooleanFunction) {
         FakeIgnite ign = new FakeIgnite();
         ign.tables().createTable("t", c -> c.changeName("t"));
 
-        server = new TestServer(10900, 10, 0, ign, true);
-
-        var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910")
-                .build();
-
-        assertEquals("t", client.tables().tables().get(0).name());
-        assertThrows(IgniteClientException.class, () -> client.tables().tables().get(0).name());
+        server = new TestServer(10900, 10, 0, ign, integerBooleanFunction);
     }
 }

@@ -29,8 +29,8 @@ import io.netty.channel.ChannelOption;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
@@ -53,6 +53,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Ignite. */
     private final Ignite ignite;
 
+    /** Connection drop condition. */
+    private final Function<Integer, Boolean> shouldDropConnection;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -62,14 +65,16 @@ public class TestClientHandlerModule implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param ignite       Ignite.
-     * @param registry           Configuration registry.
-     * @param bootstrapFactory   Bootstrap factory.
+     * @param ignite               Ignite.
+     * @param registry             Configuration registry.
+     * @param bootstrapFactory     Bootstrap factory.
+     * @param shouldDropConnection Connection drop condition.
      */
     public TestClientHandlerModule(
             Ignite ignite,
             ConfigurationRegistry registry,
-            NettyBootstrapFactory bootstrapFactory) {
+            NettyBootstrapFactory bootstrapFactory,
+            Function<Integer, Boolean> shouldDropConnection) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -77,6 +82,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.ignite = ignite;
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
+        this.shouldDropConnection = shouldDropConnection;
     }
 
     /** {@inheritDoc} */
@@ -135,7 +141,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                     protected void initChannel(Channel ch) {
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                new ConnectionDropHandler(),
+                                new ConnectionDropHandler(shouldDropConnection),
                                 new ClientInboundMessageHandler(
                                         ignite.tables(),
                                         ignite.transactions(),
@@ -171,12 +177,24 @@ public class TestClientHandlerModule implements IgniteComponent {
 
 
     private static class ConnectionDropHandler extends ChannelInboundHandlerAdapter {
+        /** */
         private final AtomicInteger cnt = new AtomicInteger();
+
+        /** Connection drop condition. */
+        private final Function<Integer, Boolean> shouldDropConnection;
+
+        /**
+         * Constructor.
+         *
+         * @param shouldDropConnection Connection drop condition.
+         */
+        private ConnectionDropHandler(Function<Integer, Boolean> shouldDropConnection) {
+            this.shouldDropConnection = shouldDropConnection;
+        }
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            // TODO: Configurable condition.
-            if (cnt.incrementAndGet() % 3 == 0) {
+            if (shouldDropConnection.apply(cnt.incrementAndGet())) {
                 ctx.close();
             } else {
                 super.channelRead(ctx, msg);
