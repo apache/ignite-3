@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
@@ -46,12 +47,26 @@ public class IgniteComputeImpl implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, Class<? extends ComputeJob<R>> jobClass, Object... args) {
+        Objects.requireNonNull(nodes);
+        Objects.requireNonNull(jobClass);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("nodes must not be empty.");
+        }
+
         return executeOnOneNode(randomNode(nodes), jobClass, args);
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> execute(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+        Objects.requireNonNull(nodes);
+        Objects.requireNonNull(jobClassName);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("nodes must not be empty.");
+        }
+
         return executeOnOneNode(randomNode(nodes), jobClassName, args);
     }
 
@@ -93,6 +108,9 @@ public class IgniteComputeImpl implements IgniteCompute {
             Class<? extends ComputeJob<R>> jobClass,
             Object... args
     ) {
+        Objects.requireNonNull(nodes);
+        Objects.requireNonNull(jobClass);
+
         return nodes.stream()
                 .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClass, args)));
     }
@@ -100,6 +118,9 @@ public class IgniteComputeImpl implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> Map<ClusterNode, CompletableFuture<R>> broadcast(Set<ClusterNode> nodes, String jobClassName, Object... args) {
+        Objects.requireNonNull(nodes);
+        Objects.requireNonNull(jobClassName);
+
         return nodes.stream()
                 .collect(toUnmodifiableMap(node -> node, node -> executeOnOneNode(node, jobClassName, args)));
     }

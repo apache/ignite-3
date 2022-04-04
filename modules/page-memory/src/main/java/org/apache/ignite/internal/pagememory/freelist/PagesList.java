@@ -1930,7 +1930,7 @@ public abstract class PagesList extends DataStructure {
         private int emptyFlushCnt;
 
         /** Global (per data region) limit of caches for page lists. */
-        private final AtomicLong pagesCacheLimit;
+        private final @Nullable AtomicLong pagesCacheLimit;
 
         /**
          * Constructor.

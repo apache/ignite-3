@@ -467,7 +467,12 @@ public abstract class AbstractPartitionStorageTest {
     public void testReadAll() {
         List<DataRow> rows = insertBulk(100);
 
-        assertThat(storage.readAll(rows), containsInAnyOrder(rows.toArray()));
+        Collection<DataRow> readRows = storage.readAll(rows);
+
+        assertThat(
+                readRows.stream().map(DataRow::value).collect(Collectors.toList()),
+                containsInAnyOrder(rows.stream().map(DataRow::value).toArray(ByteBuffer[]::new))
+        );
     }
 
     /**
@@ -661,7 +666,7 @@ public abstract class AbstractPartitionStorageTest {
      * @param key String key.
      * @return Search row.
      */
-    private static SearchRow searchRow(String key) {
+    protected static SearchRow searchRow(String key) {
         return new SearchRow() {
             @Override
             public byte[] keyBytes() {
@@ -682,7 +687,7 @@ public abstract class AbstractPartitionStorageTest {
      * @param value String value.
      * @return Data row.
      */
-    private static DataRow dataRow(String key, String value) {
+    protected static DataRow dataRow(String key, String value) {
         return new SimpleDataRow(
                 key.getBytes(StandardCharsets.UTF_8),
                 value.getBytes(StandardCharsets.UTF_8)
