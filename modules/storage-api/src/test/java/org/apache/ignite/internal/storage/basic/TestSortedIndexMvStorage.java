@@ -147,7 +147,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
     }
 
     public boolean matches(BinaryRow aborted, BinaryRow existing) {
-        return compareColumns(aborted, existing) == 0;
+        return existing != null && compareColumns(aborted, existing) == 0;
     }
 
     /** {@inheritDoc} */

@@ -68,8 +68,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return new VersionChain(row, null, txId, versionChain);
         });
 
-        for (TestSortedIndexMvStorage index : indexes) {
-            index.append(row);
+        if (row.hasValue()) {
+            for (TestSortedIndexMvStorage index : indexes) {
+                index.append(row);
+            }
         }
     }
 
@@ -82,8 +84,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             BinaryRow aborted = versionChain.row;
 
-            for (TestSortedIndexMvStorage index : indexes) {
-                abortWrite(versionChain.next, aborted, index);
+            if (aborted.hasValue()) {
+                for (TestSortedIndexMvStorage index : indexes) {
+                    abortWrite(versionChain.next, aborted, index);
+                }
             }
 
             return versionChain.next;
@@ -127,7 +131,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         if (timestamp == null) {
-            return versionChain.row;
+            return versionChain.row.hasValue() ? versionChain.row : null;
         }
 
         VersionChain cur = versionChain;

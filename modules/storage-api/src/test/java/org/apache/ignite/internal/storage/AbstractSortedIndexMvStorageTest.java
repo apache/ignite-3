@@ -110,7 +110,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
     }
 
     @Test
-    public void testBounds() throws Exception {
+    public void testBoundsAndOrder() throws Exception {
         SortedIndexMvStorage index1 = createIndexStorage(INDEX1, tableCfg.value());
         SortedIndexMvStorage index2 = createIndexStorage(INDEX2, tableCfg.value());
 
@@ -208,6 +208,131 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(val8020, val9020, val8010, val9010), convert(index2.scan(
                 null, prefix("20"), LESS_OR_EQUAL | BACKWARDS, null, null
         )));
+    }
+
+    @Test
+    public void testAbort() throws Exception {
+        MvPartitionStorage pk = partitionStorage();
+
+        SortedIndexMvStorage index = createIndexStorage(INDEX1, tableCfg.value());
+
+        TestKey key = new TestKey(1, "1");
+        TestValue val = new TestValue(10, "10");
+
+        pk.addWrite(binaryRow(key, val), UUID.randomUUID());
+
+        // Timestamp is null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+
+        // Abort write.
+        pk.abortWrite(binaryKey(key));
+
+        // Timestamp is null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+    }
+
+    @Test
+    public void testAbortRemove() throws Exception {
+        MvPartitionStorage pk = partitionStorage();
+
+        SortedIndexMvStorage index = createIndexStorage(INDEX1, tableCfg.value());
+
+        TestKey key = new TestKey(1, "1");
+        TestValue val = new TestValue(10, "10");
+
+        Timestamp insertTs = Timestamp.nextVersion();
+        insert(key, val, insertTs);
+
+        // Remove.
+        pk.addWrite(binaryKey(key), UUID.randomUUID());
+
+        // Timestamp is null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+
+        // Abort remove.
+        pk.abortWrite(binaryKey(key));
+
+        // Timestamp is null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+    }
+
+    @Test
+    public void testCommit() throws Exception {
+        MvPartitionStorage pk = partitionStorage();
+
+        SortedIndexMvStorage index = createIndexStorage(INDEX1, tableCfg.value());
+
+        TestKey key = new TestKey(1, "1");
+        TestValue val = new TestValue(10, "10");
+
+        pk.addWrite(binaryRow(key, val), UUID.randomUUID());
+
+        // Timestamp is null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+
+        // Commit write.
+        Timestamp commitTs = Timestamp.nextVersion();
+        pk.commitWrite(binaryKey(key), commitTs);
+
+        // Timestamp is null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, commitTs, null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+    }
+
+    @Test
+    public void testCommitRemove() throws Exception {
+        MvPartitionStorage pk = partitionStorage();
+
+        SortedIndexMvStorage index = createIndexStorage(INDEX1, tableCfg.value());
+
+        TestKey key = new TestKey(1, "1");
+        TestValue val = new TestValue(10, "10");
+
+        Timestamp insertTs = Timestamp.nextVersion();
+        insert(key, val, insertTs);
+
+        // Remove.
+        pk.addWrite(binaryKey(key), UUID.randomUUID());
+
+        // Timestamp is null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
+
+        // Commit remove.
+        Timestamp removeTs = Timestamp.nextVersion();
+        pk.commitWrite(binaryKey(key), removeTs);
+
+        // Timestamp is null.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+
+        // Timestamp is not null.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
+
+        assertEquals(List.of(), convert(index.scan(null, null, 0, removeTs, null)));
+        assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
     protected void insert(TestKey key, TestValue value, Timestamp ts) {

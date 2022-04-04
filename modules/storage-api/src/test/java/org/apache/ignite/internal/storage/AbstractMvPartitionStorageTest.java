@@ -143,13 +143,40 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertEquals(value, value(pk.read(binaryRow, tsAfter)));
         assertEquals(value, value(pk.read(binaryRow, Timestamp.nextVersion())));
 
+        // Only latest time behavior changes after commit.
         pk.commitWrite(binaryKey(key), Timestamp.nextVersion());
+
+        assertEquals(newValue, value(pk.read(binaryRow, null)));
 
         assertEquals(value, value(pk.read(binaryRow, tsExact)));
         assertEquals(value, value(pk.read(binaryRow, tsAfter)));
 
-        assertEquals(newValue, value(pk.read(binaryRow, null)));
         assertEquals(newValue, value(pk.read(binaryRow, Timestamp.nextVersion())));
+
+        // Remove.
+        pk.addWrite(binaryKey(key), UUID.randomUUID());
+
+        assertNull(pk.read(binaryRow, tsBefore));
+
+        assertNull(pk.read(binaryRow, null));
+
+        assertEquals(value, value(pk.read(binaryRow, tsExact)));
+        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+
+        assertEquals(newValue, value(pk.read(binaryRow, Timestamp.nextVersion())));
+
+        // Commit remove.
+        Timestamp removeTs = Timestamp.nextVersion();
+        pk.commitWrite(binaryKey(key), removeTs);
+
+        assertNull(pk.read(binaryRow, tsBefore));
+
+        assertNull(pk.read(binaryRow, null));
+        assertNull(pk.read(binaryRow, removeTs));
+        assertNull(pk.read(binaryRow, Timestamp.nextVersion()));
+
+        assertEquals(value, value(pk.read(binaryRow, tsExact)));
+        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
     }
 
     /**
