@@ -24,6 +24,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,9 +66,24 @@ public class RetryPolicyTest {
     @Test
     public void testRetryPolicyDoesNotRetryUnrelatedErrors() throws Exception {
         initServer(reqId -> reqId % 33 == 0);
+        var plc = new TestRetryPolicy();
 
-        try (var client = getClient(new RetryLimitPolicy().retryLimit(20))) {
+        try (var client = getClient(plc)) {
             assertThrows(IgniteClientException.class, () -> client.tables().table(FakeIgniteTables.BAD_TABLE));
+            assertEquals(0, plc.invocations.size());
+        }
+    }
+
+    @Test
+    public void testRetryPolicyDoesNotRetryTxCommit() throws Exception {
+        initServer(reqId -> reqId % 3 == 0);
+        var plc = new TestRetryPolicy();
+
+        try (var client = getClient(plc)) {
+            Transaction tx = client.transactions().begin();
+
+            assertThrows(IgniteClientConnectionException.class, tx::commit);
+            assertEquals(0, plc.invocations.size());
         }
     }
 

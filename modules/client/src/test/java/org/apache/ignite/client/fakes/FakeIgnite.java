@@ -27,6 +27,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * Fake Ignite.
@@ -67,7 +68,27 @@ public class FakeIgnite implements Ignite {
 
             @Override
             public CompletableFuture<Transaction> beginAsync() {
-                throw new UnsupportedOperationException();
+                return CompletableFuture.completedFuture(new Transaction() {
+                    @Override
+                    public void commit() throws TransactionException {
+
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> commitAsync() {
+                        return CompletableFuture.completedFuture(null);
+                    }
+
+                    @Override
+                    public void rollback() throws TransactionException {
+
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> rollbackAsync() {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                });
             }
         };
     }
