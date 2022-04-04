@@ -411,15 +411,11 @@ class PageMemoryPartitionStorage implements PartitionStorage {
 
     @Override
     public long rowsCount() {
-        Cursor<DataRow> it = scan(t -> true);
-        long size = 0;
-
-        while (it.hasNext()) {
-            ++size;
-            it.next();
+        try {
+            return tree.size();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
         }
-
-        return size;
     }
 
     /** {@inheritDoc} */
