@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -54,10 +55,19 @@ public class RetryPolicyTest {
     public void testRetryPolicyCompletesOperationWithoutException() throws Exception {
         initServer(reqId -> reqId % 3 == 0);
 
-        try (var client = getClient(new RetryLimitPolicy().retryLimit(20))) {
+        try (var client = getClient(new RetryLimitPolicy().retryLimit(1))) {
              for (int i = 0; i < ITER; i++) {
                 assertEquals("t", client.tables().tables().get(0).name());
              }
+        }
+    }
+
+    @Test
+    public void testRetryPolicyDoesNotRetryUnrelatedErrors() throws Exception {
+        initServer(reqId -> reqId % 33 == 0);
+
+        try (var client = getClient(new RetryLimitPolicy().retryLimit(20))) {
+            assertThrows(IgniteClientException.class, () -> client.tables().table(FakeIgniteTables.BAD_TABLE));
         }
     }
 

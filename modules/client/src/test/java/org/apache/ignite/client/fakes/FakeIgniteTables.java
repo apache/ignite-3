@@ -47,6 +47,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
 
     public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
 
+    public static final String BAD_TABLE = "bad-table";
+
+    public static final String BAD_TABLE_ERR = "Err!";
+
     private final ConcurrentHashMap<String, TableImpl> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<UUID, TableImpl> tablesById = new ConcurrentHashMap<>();
@@ -117,6 +121,10 @@ public class FakeIgniteTables implements IgniteTables, IgniteTablesInternal {
     /** {@inheritDoc} */
     @Override
     public Table table(String name) {
+        if (BAD_TABLE.equals(name)) {
+            throw new RuntimeException(BAD_TABLE_ERR);
+        }
+
         return tables.get(name);
     }
 
