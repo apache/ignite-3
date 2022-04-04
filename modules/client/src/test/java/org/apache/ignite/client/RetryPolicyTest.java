@@ -55,12 +55,18 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryPolicyCompletesOperationWithoutException() throws Exception {
-        initServer(reqId -> reqId % 3 == 0);
+        // Every 3 network message fails, including handshake.
+        initServer(reqId -> reqId % 4 == 0);
 
-        try (var client = getClient(new RetryLimitPolicy().retryLimit(1))) {
-             for (int i = 0; i < ITER; i++) {
+        var plc = new TestRetryPolicy();
+        plc.retryLimit(1);
+
+        try (var client = getClient(plc)) {
+            for (int i = 0; i < ITER; i++) {
                 assertEquals("t", client.tables().tables().get(0).name());
-             }
+            }
+
+            assertEquals(ITER / 2 - 1, plc.invocations.size());
         }
     }
 
