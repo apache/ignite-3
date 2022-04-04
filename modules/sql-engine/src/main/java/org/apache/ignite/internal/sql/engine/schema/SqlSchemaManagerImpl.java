@@ -119,9 +119,15 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     /** {@inheritDoc} */
     @Override
     public IgniteIndex indexById(UUID id) {
-        InternalSortedIndex idx0 = indexManager.getIndexById(id);
+        IgniteIndex idx = indexById.get(id);
 
-        return indexById.get(idx0.id());
+        if (idx == null) {
+            indexManager.getIndexById(id);
+
+            idx = indexById.get(id);
+        }
+
+        return idx;
     }
 
     private void ensureTableStructuresCreated(UUID id) {

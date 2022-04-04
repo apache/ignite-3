@@ -34,9 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -85,14 +83,12 @@ public class RelJsonReaderTest {
         IgniteTable igniteTableMock = mock(IgniteTable.class);
         IgniteIndex igniteIdxMock = mock(IgniteIndex.class);
         when(igniteTableMock.getStatistic()).thenReturn(new Statistic() {});
-        when(mock(RelInputEx.class).getIndexById(any(), any())).thenReturn(igniteIdxMock);
         when(igniteTableMock.getRowType(any())).thenReturn(mock(RelDataType.class));
-        when(igniteTableMock.unwrap(InternalIgniteTable.class)).thenReturn(mock(InternalIgniteTable.class));
 
         SqlSchemaManager schemaMock = mock(SqlSchemaManager.class);
 
         when(schemaMock.tableById(tableId)).thenReturn(igniteTableMock);
-        when(schemaMock.indexById(any(UUID.class))).thenReturn(igniteIdxMock);
+        when(schemaMock.indexById(indexId)).thenReturn(igniteIdxMock);
 
         String json = ""
                 + "{\n"
@@ -112,7 +108,10 @@ public class RelJsonReaderTest {
         assertThat(node, isA(IgniteIndexScan.class));
         assertThat(node.getTable(), notNullValue());
         assertThat(node.getTable().unwrap(IgniteTable.class), is(igniteTableMock));
-        assertThat(IgniteTestUtils.getFieldValue(node, AbstractIndexScan.class, "index"), notNullValue());
+
+        AbstractIndexScan scan = (AbstractIndexScan) node;
+        assertThat(scan.getIndex(), notNullValue());
+        assertThat(scan.getIndex(), is(igniteIdxMock));
 
         Mockito.verify(schemaMock).tableById(tableId);
         Mockito.verify(schemaMock).indexById(indexId);
