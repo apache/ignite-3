@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -40,35 +41,17 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
-        FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> c.changeName("t"));
+    public void testNoRetryPolicySecondRequestFails() {
+        FakeIgnite ign = new FakeIgnite();
+        ign.tables().createTable("t", c -> c.changeName("t"));
 
-        server = AbstractClientTest.startServer(
-                10900,
-                10,
-                0,
-                ignite1);
+        server = new TestServer(10900, 10, 0, ign, true);
 
-        // TODO: Retry limit counts towards reconnect, this is not correct?
         var client = IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryPolicy(new RetryLimitPolicy().retryLimit(3))
+                .addresses("127.0.0.1:10900..10910")
                 .build();
 
         assertEquals("t", client.tables().tables().get(0).name());
-
-        server.close();
-
-        FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> c.changeName("t2"));
-
-        server2 = AbstractClientTest.startServer(
-                10950,
-                10,
-                0,
-                ignite2);
-
-        assertEquals("t2", client.tables().tables().get(0).name());
+        assertThrows(IgniteClientException.class, () -> client.tables().tables().get(0).name());
     }
 }

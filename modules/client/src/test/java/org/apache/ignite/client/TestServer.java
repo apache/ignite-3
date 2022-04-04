@@ -61,7 +61,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, null);
+        this(port, portRange, idleTimeout, ignite, false);
     }
 
     /**
@@ -77,7 +77,7 @@ public class TestServer implements AutoCloseable {
             int portRange,
             long idleTimeout,
             Ignite ignite,
-            IgniteComponent module
+            boolean useTestHandler
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -97,8 +97,8 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory.start();
 
-        this.module = module != null
-                ? module
+        module = useTestHandler
+                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         ignite.tables(),
@@ -109,7 +109,7 @@ public class TestServer implements AutoCloseable {
                         bootstrapFactory
                 );
 
-        this.module.start();
+        module.start();
     }
 
     public ConfigurationRegistry configurationRegistry() {

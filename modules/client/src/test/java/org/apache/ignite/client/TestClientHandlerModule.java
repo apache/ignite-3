@@ -29,6 +29,7 @@ import io.netty.channel.ChannelOption;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.compute.IgniteCompute;
@@ -50,7 +51,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     private final ConfigurationRegistry registry;
 
     /** Ignite. */
-    private final FakeIgnite ignite;
+    private final Ignite ignite;
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -66,7 +67,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param bootstrapFactory   Bootstrap factory.
      */
     public TestClientHandlerModule(
-            FakeIgnite ignite,
+            Ignite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory) {
         assert ignite != null;
