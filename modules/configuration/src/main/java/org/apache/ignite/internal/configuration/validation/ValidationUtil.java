@@ -37,6 +37,7 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Utility class for configuration validation.
@@ -105,7 +106,7 @@ public class ValidationUtil {
                         return field.getDeclaredAnnotations();
                     } catch (NoSuchFieldException e) {
                         // Should be impossible.
-                        return new Annotation[0];
+                        throw new IgniteInternalException(e);
                     }
                 });
 
