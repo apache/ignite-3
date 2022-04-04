@@ -6,13 +6,13 @@ import java.util.List;
 /**
  * Test retry policy.
   */
-public class TestRetryPolicy implements RetryPolicy {
+public class TestRetryPolicy extends RetryLimitPolicy {
     public final List<RetryPolicyContext> invocations = new ArrayList<>();
 
     @Override
     public boolean shouldRetry(RetryPolicyContext context) {
         invocations.add(context);
 
-        return true;
+        return super.shouldRetry(context);
     }
 }
