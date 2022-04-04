@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 public class RetryPolicyTest {
     private static final int ITER = 100;
 
-    /** Test server. */
     private TestServer server;
 
     @AfterEach
