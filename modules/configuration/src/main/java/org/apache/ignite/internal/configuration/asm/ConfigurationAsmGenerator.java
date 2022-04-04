@@ -85,6 +85,7 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -229,6 +230,12 @@ public class ConfigurationAsmGenerator {
     /** {@link DynamicConfiguration#isRemovedFromNamedList}. */
     private static final Method IS_REMOVED_FROM_NAMED_LIST_MTD;
 
+    /** {@link InnerNode#isPolymorphic}. */
+    private static final Method IS_POLYMORPHIC_MTD;
+
+    /** {@link InnerNode#internalSchemaTypes}. */
+    private static final Method INTERNAL_SCHEMA_TYPES_MTD;
+
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
 
@@ -306,6 +313,10 @@ public class ConfigurationAsmGenerator {
             CURRENT_VALUE_MTD = ConfigurationNode.class.getDeclaredMethod("currentValue");
 
             IS_REMOVED_FROM_NAMED_LIST_MTD = DynamicConfiguration.class.getDeclaredMethod("isRemovedFromNamedList");
+
+            IS_POLYMORPHIC_MTD = InnerNode.class.getDeclaredMethod("isPolymorphic");
+
+            INTERNAL_SCHEMA_TYPES_MTD = InnerNode.class.getDeclaredMethod("internalSchemaTypes");
         } catch (NoSuchMethodException nsme) {
             throw new ExceptionInInitializerError(nsme);
         }
@@ -315,7 +326,8 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
+            .dumpClassFilesTo(new File("c:/test").toPath());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.
@@ -615,8 +627,27 @@ public class ConfigurationAsmGenerator {
         // org.apache.ignite.internal.configuration.tree.InnerNode#schemaType
         addNodeSchemaTypeMethod(classDef, schemaClass, polymorphicExtensions, polymorphicTypeIdFieldDef);
 
+        FieldDefinition internalSchemaTypesFieldDef = null;
+
+        if (!internalExtensions.isEmpty()) {
+            internalSchemaTypesFieldDef = classDef.declareField(
+                    of(PRIVATE, FINAL),
+                    "_" + INTERNAL_SCHEMA_TYPES_MTD.getName(),
+                    Class[].class
+            );
+        }
+
         // Constructor.
-        addNodeConstructor(classDef, specFields, fieldDefs, schemaFields, internalFields, polymorphicFields);
+        addNodeConstructor(
+                classDef,
+                specFields,
+                fieldDefs,
+                schemaFields,
+                internalFields,
+                polymorphicFields,
+                internalExtensions,
+                internalSchemaTypesFieldDef
+        );
 
         // Add view method for internal id.
         if (internalIdField != null) {
@@ -731,6 +762,14 @@ public class ConfigurationAsmGenerator {
             addInjectedNameFieldMethods(classDef, injectedNameFieldDef);
         }
 
+        if (polymorphicTypeIdFieldDef != null) {
+            addIsPolymorphicMethod(classDef);
+        }
+
+        if (internalSchemaTypesFieldDef != null) {
+            addInternalSchemaTypesMethod(classDef, internalSchemaTypesFieldDef);
+        }
+
         return classDef;
     }
 
@@ -827,13 +866,15 @@ public class ConfigurationAsmGenerator {
      * Implements default constructor for the node class. It initializes {@code _spec} field and every other field that represents named
      * list configuration.
      *
-     * @param classDef          Node class definition.
-     * @param specFields        Definition of fields for the {@code _spec#} fields of the node class. Mapping: configuration schema class ->
-     *                          {@code _spec#} field.
-     * @param fieldDefs         Field definitions for all fields of node class excluding {@code _spec}.
-     * @param schemaFields      Fields of the schema class.
-     * @param internalFields    Fields of internal extensions of the configuration schema.
+     * @param classDef Node class definition.
+     * @param specFields Definition of fields for the {@code _spec#} fields of the node class. Mapping: configuration schema class -> {@code
+     * _spec#} field.
+     * @param fieldDefs Field definitions for all fields of node class excluding {@code _spec}.
+     * @param schemaFields Fields of the schema class.
+     * @param internalFields Fields of internal extensions of the configuration schema.
      * @param polymorphicFields Fields of polymorphic extensions of the configuration schema.
+     * @param internalExtensions Internal extensions of the configuration schema.
+     * @param internalSchemaTypesFieldDef Final field which stores {@code internalExtensions}.
      */
     private void addNodeConstructor(
             ClassDefinition classDef,
@@ -841,18 +882,22 @@ public class ConfigurationAsmGenerator {
             Map<String, FieldDefinition> fieldDefs,
             Collection<Field> schemaFields,
             Collection<Field> internalFields,
-            Collection<Field> polymorphicFields
+            Collection<Field> polymorphicFields,
+            Set<Class<?>> internalExtensions,
+            @Nullable FieldDefinition internalSchemaTypesFieldDef
     ) {
         MethodDefinition ctor = classDef.declareConstructor(of(PUBLIC));
 
+        BytecodeBlock ctorBody = ctor.getBody();
+
         // super();
-        ctor.getBody()
+        ctorBody
                 .append(ctor.getThis())
                 .invokeConstructor(InnerNode.class);
 
         // this._spec# = new MyConfigurationSchema();
         for (Map.Entry<Class<?>, FieldDefinition> e : specFields.entrySet()) {
-            ctor.getBody().append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
+            ctorBody.append(ctor.getThis().setField(e.getValue(), newInstance(e.getKey())));
         }
 
         for (Field schemaField : concat(schemaFields, internalFields, polymorphicFields)) {
@@ -863,11 +908,39 @@ public class ConfigurationAsmGenerator {
             FieldDefinition fieldDef = fieldDefs.get(fieldName(schemaField));
 
             // this.values = new NamedListNode<>(key, ValueNode::new, "polymorphicIdFieldName");
-            ctor.getBody().append(setThisFieldCode(ctor, newNamedListNode(schemaField), fieldDef));
+            ctorBody.append(setThisFieldCode(ctor, newNamedListNode(schemaField), fieldDef));
+        }
+
+        if (!internalExtensions.isEmpty()) {
+            assert internalSchemaTypesFieldDef != null : classDef;
+
+            // Class[] tmp;
+            Variable tmpVar = ctor.getScope().createTempVariable(Class[].class);
+
+            BytecodeBlock initInternalSchemaTypesField = new BytecodeBlock();
+
+            // tmp = new Class[size];
+            initInternalSchemaTypesField.append(tmpVar.set(newArray(type(Class[].class), internalExtensions.size())));
+
+            int i = 0;
+
+            for (Class<?> extension : internalExtensions) {
+                // tmp[i] = InternalTableConfigurationSchema.class;
+                initInternalSchemaTypesField.append(set(
+                        tmpVar,
+                        constantInt(i++),
+                        constantClass(extension)
+                ));
+            }
+
+            // this._internalConfigTypes = tmp;
+            initInternalSchemaTypesField.append(setThisFieldCode(ctor, tmpVar, internalSchemaTypesFieldDef));
+
+            ctorBody.append(initInternalSchemaTypesField);
         }
 
         // return;
-        ctor.getBody().ret();
+        ctorBody.ret();
     }
 
     /**
@@ -3202,5 +3275,43 @@ public class ConfigurationAsmGenerator {
                         valueVar,
                         injectedNameFieldDef
                 )).ret();
+    }
+
+    /**
+     * Adds an override for the {@link InnerNode#isPolymorphic} method that returns {@code true}.
+     *
+     * @param innerNodeClassDef {@link InnerNode} class definition.
+     */
+    private static void addIsPolymorphicMethod(ClassDefinition innerNodeClassDef) {
+        MethodDefinition mtd = innerNodeClassDef.declareMethod(
+                of(PUBLIC),
+                IS_POLYMORPHIC_MTD.getName(),
+                type(boolean.class)
+        );
+
+        mtd.getBody()
+                .push(true)
+                .retBoolean();
+    }
+
+    /**
+     * Adds an override for the {@link InnerNode#internalSchemaTypes} method that returns field {@code internalSchemaTypesFieldDef}.
+     *
+     * @param innerNodeClassDef {@link InnerNode} class definition.
+     * @param internalSchemaTypesFieldDef Final field of {@link InnerNode}, which stores all schemes for internal configuration extensions.
+     */
+    private static void addInternalSchemaTypesMethod(
+            ClassDefinition innerNodeClassDef,
+            FieldDefinition internalSchemaTypesFieldDef
+    ) {
+        MethodDefinition mtd = innerNodeClassDef.declareMethod(
+                of(PUBLIC),
+                INTERNAL_SCHEMA_TYPES_MTD.getName(),
+                type(Class[].class)
+        );
+
+        mtd.getBody()
+                .append(getThisFieldCode(mtd, internalSchemaTypesFieldDef))
+                .retObject();
     }
 }
