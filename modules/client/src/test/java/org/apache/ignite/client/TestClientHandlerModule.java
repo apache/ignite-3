@@ -134,6 +134,8 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         Channel ch = null;
 
+        var requestCounter = new AtomicInteger();
+
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
         bootstrap.childHandler(new ChannelInitializer<>() {
@@ -141,7 +143,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                     protected void initChannel(Channel ch) {
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                new ConnectionDropHandler(shouldDropConnection),
+                                new ConnectionDropHandler(requestCounter, shouldDropConnection),
                                 new ClientInboundMessageHandler(
                                         ignite.tables(),
                                         ignite.transactions(),
@@ -178,7 +180,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     private static class ConnectionDropHandler extends ChannelInboundHandlerAdapter {
         /** */
-        private final AtomicInteger cnt = new AtomicInteger();
+        private final AtomicInteger cnt;
 
         /** Connection drop condition. */
         private final Function<Integer, Boolean> shouldDropConnection;
@@ -186,9 +188,11 @@ public class TestClientHandlerModule implements IgniteComponent {
         /**
          * Constructor.
          *
+         * @param cnt Request counter.
          * @param shouldDropConnection Connection drop condition.
          */
-        private ConnectionDropHandler(Function<Integer, Boolean> shouldDropConnection) {
+        private ConnectionDropHandler(AtomicInteger cnt, Function<Integer, Boolean> shouldDropConnection) {
+            this.cnt = cnt;
             this.shouldDropConnection = shouldDropConnection;
         }
 

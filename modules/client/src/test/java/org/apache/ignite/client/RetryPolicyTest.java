@@ -89,15 +89,11 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryLimitPolicyThrowsOnLimitExceeded() throws Exception {
-        initServer(reqId -> reqId > 2);
+        initServer(reqId -> reqId > 3);
         var plc = new TestRetryPolicy();
         plc.retryLimit(3);
 
         try (var client = getClient(plc)) {
-            assertEquals("t", client.tables().tables().get(0).name());
-            assertEquals("t", client.tables().tables().get(0).name());
-            assertEquals("t", client.tables().tables().get(0).name());
-            assertEquals("t", client.tables().tables().get(0).name());
             assertEquals("t", client.tables().tables().get(0).name());
             assertEquals("t", client.tables().tables().get(0).name());
             assertThrows(IgniteClientException.class, () -> client.tables().tables());
