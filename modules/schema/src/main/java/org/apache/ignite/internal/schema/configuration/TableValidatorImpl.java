@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import java.util.Objects;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.TableIndexView;
@@ -28,7 +27,6 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.schema.definition.TableDefinitionImpl;
 import org.apache.ignite.internal.schema.definition.builder.TableDefinitionBuilderImpl;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Table schema configuration validator implementation.
@@ -58,25 +56,7 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
                         + newTable.columns().size() + " columns"));
             }
 
-            validateDataStorage(oldTables == null ? null : oldTables.get(tableName), newTable, ctx);
-
             validateNamedListKeys(newTable, ctx);
-        }
-    }
-
-    private static void validateDataStorage(@Nullable TableView oldTable, TableView newTable, ValidationContext<?> ctx) {
-        if (oldTable != null) {
-            String oldDataStorage = oldTable.dataStorage().name();
-            String newDataStorage = newTable.dataStorage().name();
-
-            if (!Objects.equals(oldDataStorage, newDataStorage)) {
-                ctx.addIssue(new ValidationIssue(String.format(
-                        "Unable to change data storage from '%s' to '%s' for table '%s'",
-                        oldDataStorage,
-                        newDataStorage,
-                        newTable.name()
-                )));
-            }
         }
     }
 

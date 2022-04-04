@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.schemas.store;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * Configuration schema for data storage.
@@ -29,6 +30,7 @@ public class DataStorageConfigurationSchema {
     public static final String DEFAULT_DATA_STORAGE_NAME = "rocksdb";
 
     /** Type of data storage. */
+    @Immutable
     @PolymorphicId(hasDefault = true)
     public String name = DEFAULT_DATA_STORAGE_NAME;
 }

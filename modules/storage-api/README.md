@@ -26,7 +26,7 @@ Take `org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine`
 
 ## Usage
 
-Used in table configuration see `org.apache.ignite.configuration.schemas.table.TableConfigurationSchema.dataStorage`.
+For each table, you need to specify the data storage, which is located in `org.apache.ignite.configuration.schemas.table.TableConfigurationSchema.dataStorage`.
 
 Configuration example in HOCON:
 ```
@@ -35,7 +35,7 @@ tables.table {
     columns.id {name = id, type.type = STRING, nullable = true},
     primaryKey {columns = [id], colocationColumns = [id]},
     indices.foo {type = HASH, name = foo, colNames = [id]},
-    dataSorage {name = rocksdb, dataRegion = default}
+    dataStorage {name = rocksdb, dataRegion = default}
 }
 ```
 

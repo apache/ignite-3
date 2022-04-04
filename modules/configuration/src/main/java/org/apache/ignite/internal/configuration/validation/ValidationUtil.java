@@ -99,7 +99,8 @@ public class ValidationUtil {
 
                 Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
                     try {
-                        Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
+                        // All fields in the schema must be public, must also receive the fields of the parent.
+                        Field field = lastInnerNode.schemaType().getField(fieldName);
 
                         return field.getDeclaredAnnotations();
                     } catch (NoSuchFieldException e) {
