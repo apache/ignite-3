@@ -55,18 +55,17 @@ public class RetryPolicyTest {
         initServer(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(new RetryLimitPolicy().retryLimit(20))) {
-            // for (int i = 0; i < ITER; i++) {
+             for (int i = 0; i < ITER; i++) {
                 assertEquals("t", client.tables().tables().get(0).name());
-                assertEquals("t", client.tables().tables().get(0).name());
-                assertEquals("t", client.tables().tables().get(0).name());
-            // }
+             }
         }
     }
 
     private IgniteClient getClient(RetryPolicy retryPolicy) {
         return IgniteClient.builder()
-                .addresses("127.0.0.1:10900..10910")
+                .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
+                .reconnectThrottlingPeriod(0)
                 .build();
     }
 

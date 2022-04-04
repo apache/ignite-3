@@ -118,7 +118,9 @@ public class TestServer implements AutoCloseable {
     }
 
     public int port() {
-        SocketAddress addr = ((ClientHandlerModule) module).localAddress();
+        SocketAddress addr = module instanceof ClientHandlerModule
+                ? ((ClientHandlerModule) module).localAddress()
+                : ((TestClientHandlerModule) module).localAddress();
 
         return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
     }
