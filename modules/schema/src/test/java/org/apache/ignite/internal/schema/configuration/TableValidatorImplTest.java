@@ -49,12 +49,12 @@ import org.mockito.ArgumentCaptor;
 public class TableValidatorImplTest {
     /** Basic table configuration to mutate and then validate. */
     @InjectConfiguration(
-            value = "mock.tables.table {\n"
-                    + "    columns.id {name = id, type.type = STRING, nullable = true},\n"
+            value = "mock.tables = [{\n"
+                    + "    name = schema.table,\n"
+                    + "    columns.id {type.type = STRING, nullable = true},\n"
                     + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
-                    + "    indices.foo {type = HASH, name = foo, colNames = [id]}"
-                    + "}",
-            name = "schema.table",
+                    + "    indices.foo {type = HASH, colNames = [id]}\n"
+                    + "}]",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
