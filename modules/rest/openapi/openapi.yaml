@@ -1,0 +1,135 @@
+openapi: 3.0.1
+info:
+  title: Ignite REST module
+  contact:
+    email: user@ignite.apache.org
+  license:
+    name: Apache 2.0
+    url: https://ignite.apache.org
+  version: 3.0.0-alpha
+paths:
+  /management/v1/cluster/init:
+    post:
+      tags:
+      - clusterManagement
+      operationId: init
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitCommand'
+        required: true
+      responses:
+        "200":
+          description: Cluster initialized
+        "409":
+          description: Cluster already initialized with another nodes
+  /management/v1/configuration/cluster:
+    get:
+      tags:
+      - clusterConfiguration
+      operationId: getClusterConfiguration
+      parameters: []
+      responses:
+        "200":
+          description: Get cluster configuration
+          content:
+            text/plain:
+              schema:
+                type: string
+    patch:
+      tags:
+      - clusterConfiguration
+      operationId: updateClusterConfiguration
+      parameters: []
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Configuration updated
+  /management/v1/configuration/cluster/{path}:
+    get:
+      tags:
+      - clusterConfiguration
+      operationId: getClusterConfigurationByPath
+      parameters:
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Configuration represented by path
+          content:
+            text/plain:
+              schema:
+                type: string
+  /management/v1/configuration/node:
+    get:
+      tags:
+      - nodeConfiguration
+      operationId: getNodeConfiguration
+      parameters: []
+      responses:
+        "200":
+          description: Whole node configuration
+          content:
+            text/plain:
+              schema:
+                type: string
+    patch:
+      tags:
+      - nodeConfiguration
+      operationId: updateNodeConfiguration
+      parameters: []
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          description: Configuration updated
+  /management/v1/configuration/node/{path}:
+    get:
+      tags:
+      - nodeConfiguration
+      operationId: getNodeConfigurationByPath
+      parameters:
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Configuration represented by path
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    InitCommand:
+      required:
+      - clusterName
+      - metaStorageNodes
+      type: object
+      properties:
+        metaStorageNodes:
+          type: array
+          items:
+            type: string
+        cmgNodes:
+          type: array
+          items:
+            type: string
+        clusterName:
+          type: string

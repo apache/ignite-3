@@ -48,7 +48,7 @@ public class ClusterInitializer {
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Constructor. */
-    ClusterInitializer(ClusterService clusterService) {
+    public ClusterInitializer(ClusterService clusterService) {
         this.clusterService = clusterService;
     }
 

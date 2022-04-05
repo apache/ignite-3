@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -42,7 +40,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Fake node for integration tests.
  */
-class MockNode {
+public class MockNode {
     private ClusterManagementGroupManager clusterManager;
 
     private ClusterService clusterService;
@@ -57,7 +55,10 @@ class MockNode {
 
     private CompletableFuture<Void> startFuture;
 
-    MockNode(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) throws IOException {
+    /**
+     * Fake node constructor.
+     */
+    public MockNode(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) throws IOException {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
         this.workDir = workDir;
@@ -78,7 +79,6 @@ class MockNode {
                 vaultManager,
                 clusterService,
                 raftManager,
-                mock(RestComponent.class),
                 new RocksDbClusterStateStorage(workDir.resolve("cmg"))
         );
 
@@ -88,23 +88,35 @@ class MockNode {
         components.add(clusterManager);
     }
 
-    void startComponents() {
+    /**
+     * Start fake node.
+     */
+    public void startComponents() {
         components.forEach(IgniteComponent::start);
     }
 
-    void start() {
+    /**
+     * Start fake node.
+     */
+    public void start() {
         startComponents();
 
         startFuture = clusterManager.onJoinReady();
     }
 
-    void beforeNodeStop() {
+    /**
+     * Method should be called before node stop.
+     */
+    public void beforeNodeStop() {
         ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
 
         it.forEachRemaining(IgniteComponent::beforeNodeStop);
     }
 
-    void stop() {
+    /**
+     * Stop fake node.
+     */
+    public void stop() {
         ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
 
         it.forEachRemaining(component -> {
@@ -116,7 +128,10 @@ class MockNode {
         });
     }
 
-    void restart() throws Exception {
+    /**
+     * Restart fake node.
+     */
+    public void restart() throws Exception {
         int port = localMember().address().port();
 
         beforeNodeStop();
@@ -129,15 +144,19 @@ class MockNode {
         start();
     }
 
-    ClusterNode localMember() {
+    public ClusterNode localMember() {
         return clusterService.topologyService().localMember();
     }
 
-    ClusterManagementGroupManager clusterManager() {
+    public ClusterManagementGroupManager getClusterManager() {
         return clusterManager;
     }
 
     CompletableFuture<Void> startFuture() {
         return startFuture;
+    }
+
+    public ClusterService getClusterService() {
+        return clusterService;
     }
 }

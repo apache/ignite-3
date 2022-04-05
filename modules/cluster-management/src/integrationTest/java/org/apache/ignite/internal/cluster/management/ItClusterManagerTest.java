@@ -107,13 +107,13 @@ public class ItClusterManagerTest {
 
         initCluster(metaStorageNodes, cmgNodes);
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
-        assertThat(cluster.get(1).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(cluster.get(0).getClusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(cluster.get(1).getClusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
         ClusterNode[] expectedTopology = currentPhysicalTopology();
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
-        assertThat(cluster.get(1).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(0).getClusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(1).getClusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
     }
 
     /**
@@ -157,9 +157,9 @@ public class ItClusterManagerTest {
 
         initCluster(aliveNodes, aliveNodes);
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(aliveNodes)));
+        assertThat(cluster.get(0).getClusterManager().metaStorageNodes(), will(containsInAnyOrder(aliveNodes)));
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).getClusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
 
     /**
@@ -175,19 +175,19 @@ public class ItClusterManagerTest {
 
         initCluster(metaStorageNodes, cmgNodes);
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
-        assertThat(cluster.get(1).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(cluster.get(0).getClusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(cluster.get(1).getClusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
         cluster.get(0).restart();
 
         assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
+        assertThat(cluster.get(0).getClusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
         ClusterNode[] expectedTopology = currentPhysicalTopology();
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
-        assertThat(cluster.get(1).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(0).getClusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
+        assertThat(cluster.get(1).getClusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
     }
 
     /**
@@ -218,7 +218,7 @@ public class ItClusterManagerTest {
             assertThat(node.startFuture(), willCompleteSuccessfully());
         }
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).getClusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
 
     /**
@@ -245,7 +245,7 @@ public class ItClusterManagerTest {
 
         assertThat(node.startFuture(), willCompleteSuccessfully());
 
-        assertThat(node.clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(node.getClusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
 
     /**
@@ -259,7 +259,7 @@ public class ItClusterManagerTest {
 
         initCluster(cmgNodes, cmgNodes);
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).getClusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
 
         MockNode nodeToStop = cluster.remove(1);
 
@@ -268,7 +268,7 @@ public class ItClusterManagerTest {
 
         waitForLogicalTopology();
 
-        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+        assertThat(cluster.get(0).getClusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
 
     /**
@@ -296,14 +296,14 @@ public class ItClusterManagerTest {
 
         // Initialize the cluster again, but with a different name. It is expected that the second node will try to join the CMG
         // and will be rejected.
-        cluster.get(0).clusterManager().initCluster(
+        cluster.get(0).getClusterManager().initCluster(
                 Arrays.asList(cmgNodes),
                 Arrays.asList(cmgNodes),
                 "cluster2"
         );
 
         assertThrowsWithCause(
-                () -> cluster.get(1).clusterManager().joinFuture().get(10, TimeUnit.SECONDS),
+                () -> cluster.get(1).getClusterManager().joinFuture().get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 "Join request denied, reason: Cluster tags do not match"
         );
@@ -331,14 +331,14 @@ public class ItClusterManagerTest {
 
         node.startComponents();
 
-        assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+        assertThat(node.getClusterManager().joinFuture(), willCompleteSuccessfully());
 
         cluster.add(node);
 
         // Find the CMG leader and stop it
         MockNode leaderNode = cluster.stream()
                 .filter(n -> {
-                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
+                    CompletableFuture<Boolean> isLeader = n.getClusterManager().isCmgLeader();
 
                     assertThat(isLeader, willCompleteSuccessfully());
 
@@ -350,7 +350,7 @@ public class ItClusterManagerTest {
         leaderNode.stop();
 
         // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
-        assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
+        assertThat(node.getClusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
     private ClusterNode[] currentPhysicalTopology() {
@@ -375,7 +375,7 @@ public class ItClusterManagerTest {
 
     private void waitForLogicalTopology() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Collection<ClusterNode>> logicalTopology = cluster.get(0).clusterManager().logicalTopology();
+            CompletableFuture<Collection<ClusterNode>> logicalTopology = cluster.get(0).getClusterManager().logicalTopology();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 
@@ -384,7 +384,7 @@ public class ItClusterManagerTest {
     }
 
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException {
-        cluster.get(0).clusterManager().initCluster(
+        cluster.get(0).getClusterManager().initCluster(
                 Arrays.asList(metaStorageNodes),
                 Arrays.asList(cmgNodes),
                 "cluster"

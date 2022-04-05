@@ -1,0 +1,151 @@
+package org.apache.ignite.internal.cluster.management.rest;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
+import io.micronaut.context.annotation.Replaces;
+import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
+import io.micronaut.http.client.HttpClient;
+import io.micronaut.http.client.annotation.Client;
+import io.micronaut.http.client.exceptions.HttpClientResponseException;
+import io.micronaut.runtime.server.EmbeddedServer;
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.cluster.management.ClusterInitializer;
+import org.apache.ignite.internal.cluster.management.MockNode;
+import org.apache.ignite.internal.rest.api.ErrorResult;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.StaticNodeFinder;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+/**
+ * Cluster management REST test.
+ */
+@MicronautTest
+@ExtendWith(WorkDirectoryExtension.class)
+public class ClusterManagementControllerTest {
+
+    private static final int PORT_BASE = 10000;
+
+    private static final List<MockNode> cluster = new ArrayList<>();
+    static ClusterService clusterService;
+    @WorkDirectory
+    private static Path workDir;
+    @Inject
+    EmbeddedServer server;
+    @Inject
+    @Client("/management/v1/cluster/init/")
+    HttpClient client;
+    @Inject
+    ClusterInitializer clusterInitializer;
+
+    @BeforeAll
+    static void setUp(TestInfo testInfo) throws IOException {
+        var addr1 = new NetworkAddress("localhost", PORT_BASE);
+        var addr2 = new NetworkAddress("localhost", PORT_BASE + 1);
+
+        var nodeFinder = new StaticNodeFinder(List.of(addr1, addr2));
+
+        cluster.add(new MockNode(testInfo, addr1, nodeFinder, workDir.resolve("node0")));
+        cluster.add(new MockNode(testInfo, addr2, nodeFinder, workDir.resolve("node1")));
+
+        for (MockNode node : cluster) {
+            node.start();
+        }
+
+        clusterService = cluster.get(0).getClusterService();
+
+    }
+
+    @AfterAll
+    static void tearDown() {
+        for (MockNode node : cluster) {
+            node.beforeNodeStop();
+        }
+
+        for (MockNode node : cluster) {
+            node.stop();
+        }
+    }
+
+    @Test
+    void testControllerLoaded() {
+        assertNotNull(server.getApplicationContext().getBean(ClusterManagementController.class));
+    }
+
+    @Test
+    void testInitNoSuchNode() {
+        // Given body with nodename that does not exist
+        String givenInvalidBody = "{\"metaStorageNodes\": [\"nodename\"], \"cmgNodes\": [], \"clusterName\": \"cluster\"}";
+
+        try {
+            // When
+            client.toBlocking().exchange(HttpRequest.POST("", givenInvalidBody));
+        } catch (HttpClientResponseException e) {
+            // Then
+            assertThat(e.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
+            // And
+            var errorResult = getErrorResult(e);
+            assertEquals("INVALID_NODES", errorResult.type());
+        }
+    }
+
+    @Test
+    void testInitAlreadyInitializedWithAnotherNodes() {
+        // Given cluster initialized
+        String givenFirstRequestBody =
+                "{\"metaStorageNodes\": [\"" + cluster.get(0).getClusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
+                        + "\"clusterName\": \"cluster\"}";
+        // When
+        HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("", givenFirstRequestBody));
+        // Then
+        assertThat(response.getStatus(), is(equalTo((HttpStatus.OK))));
+
+        // And second request with different node name
+        String givenSecondRequestBody =
+                "{\"metaStorageNodes\": [\"" + cluster.get(1).getClusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
+                        + "\"clusterName\": \"cluster\" }";
+
+        try {
+            // When
+            client.toBlocking().exchange(HttpRequest.POST("", givenSecondRequestBody));
+        } catch (HttpClientResponseException e) {
+            // Then
+            assertThat(e.getResponse().getStatus(), is(equalTo((HttpStatus.CONFLICT))));
+            // And
+            var errorResult = getErrorResult(e);
+            assertEquals("ALREADY_INITIALIZED", errorResult.type());
+        }
+    }
+
+    @Factory
+    @Bean
+    @Replaces(ClusterManagementRestFactory.class)
+    public ClusterManagementRestFactory clusterManagementRestFactory() {
+        return new ClusterManagementRestFactory(clusterService);
+    }
+
+    @NotNull
+    private ErrorResult getErrorResult(HttpClientResponseException exception) {
+        return exception.getResponse().getBody(ErrorResult.class).orElseThrow();
+    }
+}

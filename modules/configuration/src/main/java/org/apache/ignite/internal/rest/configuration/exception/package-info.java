@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains REST component core implementation.
+ * This package contains classes that represent exceptions that can be thrown and their handlers.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.internal.rest.configuration.exception;

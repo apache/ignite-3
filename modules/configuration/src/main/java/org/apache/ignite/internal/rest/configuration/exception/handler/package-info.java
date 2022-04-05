@@ -16,7 +16,8 @@
  */
 
 /**
- * This package contains REST component core implementation.
+ * This package contains classes that implement the number of ExceptionHandlers. They wrap plain exceptions into human-readable rest
+ * responses.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.internal.rest.configuration.exception.handler;

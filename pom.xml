@@ -70,6 +70,7 @@
         <module>modules/raft-client</module>
         <module>modules/rest</module>
         <module>modules/rest-api</module>
+        <module>modules/rest-client</module>
         <module>modules/rocksdb-common</module>
         <module>modules/runner</module>
         <module>modules/schema</module>

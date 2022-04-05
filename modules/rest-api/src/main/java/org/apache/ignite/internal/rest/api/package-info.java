@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains REST component core implementation.
+ * This package contains common DTOs and interfaces for REST API.
  */
 
-package org.apache.ignite.internal.rest;
+package org.apache.ignite.internal.rest.api;

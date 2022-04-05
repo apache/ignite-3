@@ -17,151 +17,147 @@
 
 package org.apache.ignite.internal.rest;
 
-import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
+import io.micronaut.context.ApplicationContext;
+import io.micronaut.http.server.exceptions.ServerStartupException;
+import io.micronaut.openapi.annotation.OpenAPIInclude;
+import io.micronaut.runtime.Micronaut;
+import io.micronaut.runtime.exceptions.ApplicationStartupException;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.info.Contact;
+import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.info.License;
 import java.net.BindException;
-import java.net.InetSocketAddress;
-import java.util.function.Consumer;
+import java.util.List;
+import java.util.Map;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
-import org.apache.ignite.internal.configuration.ConfigurationManager;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.cluster.management.rest.ClusterManagementController;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.rest.api.RestHandlersRegister;
-import org.apache.ignite.internal.rest.api.Routes;
-import org.apache.ignite.internal.rest.netty.RestApiInitializer;
-import org.apache.ignite.internal.rest.routes.Router;
-import org.apache.ignite.internal.rest.routes.SimpleRouter;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.internal.rest.api.RestFactory;
+import org.apache.ignite.internal.rest.configuration.ClusterConfigurationController;
+import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.network.NettyBootstrapFactory;
 
 /**
- * Rest component is responsible for starting REST endpoints.
+ * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
  *
- * <p>It is started on port 10300 by default, but it is possible to change this in configuration itself. Refer to default config file in
+ * <p>It is started on port 10300 by default but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
  */
-public class RestComponent implements RestHandlersRegister, IgniteComponent {
+@OpenAPIDefinition(info = @Info(title = "Ignite REST module", version = "3.0.0-alpha", license = @License(name = "Apache 2.0", url = "https://ignite.apache.org"), contact = @Contact(email = "user@ignite.apache.org")))
+@OpenAPIInclude(classes = {ClusterConfigurationController.class, NodeConfigurationController.class, ClusterManagementController.class})
+public class RestComponent implements IgniteComponent {
+    /** Default port. */
+    public static final int DFLT_PORT = 10300;
+
     /** Ignite logger. */
     private final IgniteLogger log = IgniteLogger.forClass(RestComponent.class);
 
-    /** Node configuration register. */
-    private final ConfigurationRegistry nodeCfgRegistry;
-
-    /** Netty bootstrap factory. */
-    private final NettyBootstrapFactory bootstrapFactory;
-
-    private final SimpleRouter router = new SimpleRouter();
-
-    /** Netty channel. */
-    private volatile Channel channel;
+    /** Factories that produce beans needed for REST controllers. */
+    private final List<RestFactory> restFactories;
+    private final RestConfiguration restConfiguration;
+    /** Server host. */
+    private final String host = "localhost";
+    /** Micronaut application context. */
+    private ApplicationContext context;
+    /** Server port. */
+    private int port;
 
     /**
      * Creates a new instance of REST module.
-     *
-     * @param nodeCfgMgr       Node configuration manager.
-     * @param bootstrapFactory Netty bootstrap factory.
      */
-    public RestComponent(ConfigurationManager nodeCfgMgr, NettyBootstrapFactory bootstrapFactory) {
-        nodeCfgRegistry = nodeCfgMgr.configurationRegistry();
-
-        this.bootstrapFactory = bootstrapFactory;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void registerHandlers(Consumer<Routes> registerAction) {
-        registerAction.accept(router);
+    public RestComponent(List<RestFactory> restFactories, RestConfiguration restConfiguration) {
+        this.restFactories = restFactories;
+        this.restConfiguration = restConfiguration;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-        if (channel != null) {
-            throw new IgniteException("RestModule is already started.");
-        }
-
-        channel = startRestEndpoint(router).channel();
-    }
-
-    /**
-     * Start endpoint.
-     *
-     * @param router Dispatcher of http requests.
-     * @return Future which will be notified when this channel is closed.
-     * @throws RuntimeException if this module cannot be bound to a port.
-     */
-    private ChannelFuture startRestEndpoint(Router router) {
-        RestView restConfigurationView = nodeCfgRegistry.getConfiguration(RestConfiguration.KEY).value();
+        RestView restConfigurationView = restConfiguration.value();
 
         int desiredPort = restConfigurationView.port();
         int portRange = restConfigurationView.portRange();
 
-        int port = 0;
-        Channel ch = null;
-
-        ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap()
-                .handler(new LoggingHandler(LogLevel.INFO))
-                .childHandler(new RestApiInitializer(router));
-
         for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
-            ChannelFuture bindRes = bootstrap.bind(portCandidate).awaitUninterruptibly();
-
-            if (bindRes.isSuccess()) {
-                ch = bindRes.channel();
+            try {
+                context = buildMicronautContext(portCandidate).start();
                 port = portCandidate;
+                log.info("REST protocol started successfully");
                 break;
-            } else if (!(bindRes.cause() instanceof BindException)) {
-                throw new RuntimeException(bindRes.cause());
+            } catch (ApplicationStartupException e) {
+                log.error("Got exception " + e.getCause() + " during node start on port " + portCandidate + " , trying again");
             }
         }
 
-        if (ch == null) {
-            String msg = "Cannot start REST endpoint. "
-                    + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange) + "] are in use.";
+        if (context == null) {
+            String msg = "Cannot start REST endpoint. " + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange)
+                    + "] are in use.";
 
             log.error(msg);
 
             throw new RuntimeException(msg);
         }
+    }
 
-        if (log.isInfoEnabled()) {
-            log.info("REST protocol started successfully on port " + port);
+    private Micronaut buildMicronautContext(int portCandidate) {
+        Micronaut micronaut = Micronaut.build("");
+        setFactories(micronaut);
+        return micronaut
+                .properties(Map.of("micronaut.server.port", portCandidate))
+                .banner(false)
+                .mapError(ServerStartupException.class, this::mapServerStartupException)
+                .mapError(ApplicationStartupException.class, ex -> -1);
+    }
+
+    private void setFactories(Micronaut micronaut) {
+        for (var factory : restFactories) {
+            micronaut.singletons(factory);
         }
+    }
 
-        return ch.closeFuture();
+    private int mapServerStartupException(ServerStartupException exception) {
+        if (exception.getCause() instanceof BindException) {
+            return -1;
+        } else {
+            return 1;
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public synchronized void stop() throws Exception {
         // TODO: IGNITE-16636 Use busy-lock approach to guard stopping RestComponent
-
-        if (channel != null) {
-            channel.close().await();
-
-            channel = null;
+        if (context != null) {
+            context.stop();
+            context = null;
         }
     }
 
     /**
-     * Returns the local address that the REST endpoint is bound to.
+     * Returns server port.
      *
-     * @return local REST address.
      * @throws IgniteInternalException if the component has not been started yet.
      */
-    public InetSocketAddress localAddress() {
-        Channel channel = this.channel;
-
-        if (channel == null) {
+    public int port() {
+        if (context == null) {
             throw new IgniteInternalException("RestComponent has not been started");
         }
 
-        return (InetSocketAddress) channel.localAddress();
+        return port;
+    }
+
+    /**
+     * Returns server host.
+     *
+     * @throws IgniteInternalException if the component has not been started yet.
+     */
+    public String host() {
+        if (context == null) {
+            throw new IgniteInternalException("RestComponent has not been started");
+        }
+
+        return host;
     }
 }
