@@ -50,11 +50,11 @@ public class TableValidatorImplTest {
     /** Basic table configuration to mutate and then validate. */
     @InjectConfiguration(
             value = "mock.tables.table {\n"
-                    + "    name = schema.table,\n"
                     + "    columns.id {name = id, type.type = STRING, nullable = true},\n"
                     + "    primaryKey {columns = [id], colocationColumns = [id]},\n"
                     + "    indices.foo {type = HASH, name = foo, colNames = [id]}"
                     + "}",
+            name = "schema.table",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
