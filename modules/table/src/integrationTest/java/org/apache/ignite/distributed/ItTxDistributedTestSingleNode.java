@@ -32,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.Loza;
@@ -91,6 +92,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
     private ScheduledThreadPoolExecutor executor;
+
+    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+        throw new UnsupportedOperationException();
+    };
 
     /**
      * Returns a count of nodes.
@@ -220,6 +225,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 accRaftClients,
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txMgr,
                 Mockito.mock(TableStorage.class)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
@@ -230,6 +236,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 custRaftClients,
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txMgr,
                 Mockito.mock(TableStorage.class)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
