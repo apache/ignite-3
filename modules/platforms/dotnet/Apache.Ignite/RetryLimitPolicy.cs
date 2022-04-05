@@ -26,9 +26,14 @@ namespace Apache.Ignite
     public class RetryLimitPolicy : IRetryPolicy
     {
         /// <summary>
-        /// Gets or sets the retry limit. 0 or less for no limit.
+        /// Default retry limit.
         /// </summary>
-        public int RetryLimit { get; set; }
+        public const int DefaultRetryLimit = 16;
+
+        /// <summary>
+        /// Gets or sets the retry limit. 0 or less for no limit. Default is <see cref="DefaultRetryLimit"/>.
+        /// </summary>
+        public int RetryLimit { get; set; } = DefaultRetryLimit;
 
         /// <inheritdoc />
         public virtual bool ShouldRetry(IRetryPolicyContext context)
