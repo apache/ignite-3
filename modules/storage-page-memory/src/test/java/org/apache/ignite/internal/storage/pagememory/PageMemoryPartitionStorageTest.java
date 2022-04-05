@@ -71,7 +71,8 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
                     HashIndexConfigurationSchema.class,
                     TestRocksDbDataStorageConfigurationSchema.class,
                     PageMemoryDataStorageConfigurationSchema.class
-            }
+            },
+            name = "table"
     )
     private TableConfiguration tableCfg;
 
@@ -92,7 +93,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         engine.start();
 
-        tableCfg.change(c -> c.changeName("table").changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
+        tableCfg.change(c -> c.changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
                 .get(1, TimeUnit.SECONDS);
 
         assertEquals(

@@ -43,7 +43,7 @@ public class ReconnectTest {
     @Test
     public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> c.changeName("t"));
+        ignite1.tables().createTable("t", c -> {});
 
         server = AbstractClientTest.startServer(
                 10900,
@@ -61,7 +61,7 @@ public class ReconnectTest {
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> c.changeName("t2"));
+        ignite2.tables().createTable("t2", c -> {});
 
         server2 = AbstractClientTest.startServer(
                 10950,
@@ -76,7 +76,7 @@ public class ReconnectTest {
     @SuppressWarnings("ThrowableNotThrown")
     public void testOperationFailsWhenAllServersFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> c.changeName("t"));
+        ignite1.tables().createTable("t", c -> {});
 
         server = AbstractClientTest.startServer(
                 10900,

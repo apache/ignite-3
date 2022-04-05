@@ -61,6 +61,11 @@ public @interface InjectConfiguration {
     String value() default "mock : {}";
 
     /**
+     * Name value to imitate named list elements. Default empty string value is treated like the absence of the name.
+     */
+    String name() default "";
+
+    /**
      * Array of configuration schema extensions. Every class in the array must be annotated with {@link InternalConfiguration} and extend
      * some public configuration.
      *

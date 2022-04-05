@@ -72,19 +72,19 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
                 .changePartitions(1)
                 .changePrimaryKey(pk -> pk.changeColumns("intKey", "strKey"))
                 .changeColumns(columns -> columns
-                        .create("intKey", column("intKey", "INT32"))
-                        .create("strKey", column("strKey", "STRING"))
-                        .create("intVal", column("intVal", "INT32"))
-                        .create("strVal", column("strVal", "STRING"))
+                        .create("intKey", column("INT32"))
+                        .create("strKey", column("STRING"))
+                        .create("intVal", column("INT32"))
+                        .create("strVal", column("STRING"))
                 )
                 .changeIndices(indexes -> indexes
                         .create(INDEX1, idx -> idx.convert(SortedIndexChange.class).changeColumns(idxColumns -> idxColumns
-                                .create("strVal", c -> c.changeName("strVal").changeAsc(true))
-                                .create("intVal", c -> c.changeName("intVal").changeAsc(true))
+                                .create("strVal", c -> c.changeAsc(true))
+                                .create("intVal", c -> c.changeAsc(true))
                         ))
                         .create(INDEX2, idx -> idx.convert(SortedIndexChange.class).changeColumns(idxColumns -> idxColumns
-                                .create("strVal", c -> c.changeName("strVal").changeAsc(true))
-                                .create("intVal", c -> c.changeName("intVal").changeAsc(false))
+                                .create("strVal", c -> c.changeAsc(true))
+                                .create("intVal", c -> c.changeAsc(false))
                         ))
                 )
         ).join();
@@ -92,8 +92,8 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         this.tableCfg = tableCfg;
     }
 
-    private static Consumer<ColumnChange> column(String name, String typeName) {
-        return c -> c.changeName(name).changeNullable(false).changeType(type -> type.changeType(typeName));
+    private static Consumer<ColumnChange> column(String typeName) {
+        return c -> c.changeNullable(false).changeType(type -> type.changeType(typeName));
     }
 
     /**
