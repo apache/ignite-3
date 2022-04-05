@@ -177,9 +177,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         return ch.closeFuture();
     }
 
-
     private static class ConnectionDropHandler extends ChannelInboundHandlerAdapter {
-        /** */
+        /** Counter. */
         private final AtomicInteger cnt;
 
         /** Connection drop condition. */
