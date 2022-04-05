@@ -48,7 +48,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Heartbeat interval. */
     private final long heartbeatInterval;
 
-    /** Retry policy */
+    /** Retry policy. */
     private final RetryPolicy retryPolicy;
 
     /**

@@ -26,16 +26,16 @@ import org.apache.ignite.client.RetryPolicyContext;
  * Retry policy context.
  */
 public class RetryPolicyContextImpl implements RetryPolicyContext {
-    /** */
+    /** Configuration. */
     private final IgniteClientConfiguration configuration;
 
-    /** */
+    /** Operation type. */
     private final ClientOperationType operation;
 
-    /** */
+    /** Iteration count. */
     private final int iteration;
 
-    /** */
+    /** Exception that caused current iteration. */
     private final IgniteClientConnectionException exception;
 
     /**
