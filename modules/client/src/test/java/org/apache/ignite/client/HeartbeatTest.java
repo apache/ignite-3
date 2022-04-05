@@ -34,7 +34,8 @@ public class HeartbeatTest {
             int srvPort = srv.port();
 
             Builder builder = IgniteClient.builder()
-                    .addresses("127.0.0.1:" + srvPort);
+                    .addresses("127.0.0.1:" + srvPort)
+                    .retryPolicy(null);
 
             try (var client = builder.build()) {
                 Thread.sleep(300);
