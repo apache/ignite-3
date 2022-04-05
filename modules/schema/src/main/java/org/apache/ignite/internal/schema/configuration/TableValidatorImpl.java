@@ -38,7 +38,6 @@ public class TableValidatorImpl implements Validator<TableValidator, NamedListVi
     /** {@inheritDoc} */
     @Override
     public void validate(TableValidator annotation, ValidationContext<NamedListView<TableView>> ctx) {
-        NamedListView<TableView> oldTables = ctx.getOldValue();
         NamedListView<TableView> newTables = ctx.getNewValue();
 
         for (String tableName : newTables.namedListKeys()) {
