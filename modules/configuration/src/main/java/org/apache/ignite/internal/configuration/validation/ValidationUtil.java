@@ -97,7 +97,7 @@ public class ValidationUtil {
                     return;
                 }
 
-                MemberKey memberKey = new MemberKey(lastInnerNode.schemaType().getClass(), fieldName);
+                MemberKey memberKey = new MemberKey(lastInnerNode.schemaType(), fieldName);
 
                 Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
                     try {
