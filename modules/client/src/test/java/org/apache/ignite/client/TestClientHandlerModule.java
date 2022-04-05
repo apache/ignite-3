@@ -20,12 +20,14 @@ package org.apache.ignite.client;
 import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -198,6 +200,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
             if (shouldDropConnection.apply(cnt.incrementAndGet())) {
+                ((ReferenceCounted) msg).release();
+
                 ctx.close();
             } else {
                 super.channelRead(ctx, msg);
