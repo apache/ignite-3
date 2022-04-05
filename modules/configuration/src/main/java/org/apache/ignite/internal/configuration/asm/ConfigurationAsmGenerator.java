@@ -85,7 +85,6 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import java.io.File;
 import java.io.Serializable;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -326,8 +325,7 @@ public class ConfigurationAsmGenerator {
     private final Map<Class<?>, SchemaClassesInfo> schemasInfo = new HashMap<>();
 
     /** Class generator instance. */
-    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader())
-            .dumpClassFilesTo(new File("c:/test").toPath());
+    private final ClassGenerator generator = ClassGenerator.classGenerator(getClass().getClassLoader());
 
     /**
      * Creates new instance of {@code *Node} class corresponding to the given Configuration Schema.

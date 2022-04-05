@@ -97,7 +97,7 @@ public class ValidationUtil {
                     return;
                 }
 
-                MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
+                MemberKey memberKey = new MemberKey(lastInnerNode.schemaType().getClass(), fieldName);
 
                 Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
                     try {
@@ -192,14 +192,17 @@ public class ValidationUtil {
         Class<?> schemaType = innerNode.schemaType();
 
         if (innerNode.isPolymorphic()) {
+            // Linear search to not fight with NoSuchFieldException.
             for (Field field : schemaType.getDeclaredFields()) {
                 if (field.getName().equals(schemaFieldName)) {
                     return field;
                 }
             }
 
+            // Get parent schema.
             schemaType = schemaType.getSuperclass();
         } else if (innerNode.internalSchemaTypes() != null) {
+            // Linear search to not fight with NoSuchFieldException.
             for (Class<?> internalSchemaType : innerNode.internalSchemaTypes()) {
                 for (Field field : internalSchemaType.getDeclaredFields()) {
                     if (field.getName().equals(schemaFieldName)) {
