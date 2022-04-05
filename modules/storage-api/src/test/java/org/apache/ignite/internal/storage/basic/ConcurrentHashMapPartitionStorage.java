@@ -269,6 +269,11 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
         map.clear();
     }
 
+    @Override
+    public long rowsCount() {
+        return map.size();
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object o) {

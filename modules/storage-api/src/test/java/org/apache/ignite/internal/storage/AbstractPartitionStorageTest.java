@@ -134,6 +134,8 @@ public abstract class AbstractPartitionStorageTest {
 
         storage.write(dataRow1);
 
+        assertEquals(1, storage.rowsCount());
+
         list = toList(storage.scan(key -> true));
 
         assertThat(list, hasSize(1));
