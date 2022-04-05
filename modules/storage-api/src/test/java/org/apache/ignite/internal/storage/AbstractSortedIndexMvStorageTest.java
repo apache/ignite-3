@@ -40,6 +40,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
+import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage.IndexRowEx;
@@ -61,7 +63,11 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
     protected TableConfiguration tableCfg;
 
     @BeforeEach
-    void setUp(@InjectConfiguration(polymorphicExtensions = SortedIndexConfigurationSchema.class) TableConfiguration tableCfg) {
+    void setUp(@InjectConfiguration(
+            polymorphicExtensions = {SortedIndexConfigurationSchema.class, TestConcurrentHashMapDataStorageConfigurationSchema.class},
+            // This value only required for configuration validity, it's not used otherwise.
+            value = "mock.dataStorage.name = " + TestConcurrentHashMapStorageEngine.ENGINE_NAME
+    ) TableConfiguration tableCfg) {
         tableCfg.change(tableChange -> tableChange
                 .changePartitions(1)
                 .changePrimaryKey(pk -> pk.changeColumns("intKey", "strKey"))
