@@ -67,12 +67,12 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
     PageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
+            name = "table",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
                     TestRocksDbDataStorageConfigurationSchema.class,
                     PageMemoryDataStorageConfigurationSchema.class
-            },
-            name = "table"
+            }
     )
     private TableConfiguration tableCfg;
 

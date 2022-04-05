@@ -72,8 +72,8 @@ public class RocksDbTableStorageTest {
     public void setUp(
             @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig,
             @InjectConfiguration(
-                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class},
-                    name = "table"
+                    name = "table",
+                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
     ) throws Exception {
         assertThat(tableCfg.dataStorage(), is(instanceOf(RocksDbDataStorageConfiguration.class)));
@@ -192,8 +192,8 @@ public class RocksDbTableStorageTest {
     @Test
     void testRestart(
             @InjectConfiguration(
-                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class},
-                    name = "table"
+                    name = "table",
+                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
     ) throws Exception {
         var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));

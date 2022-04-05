@@ -58,8 +58,8 @@ public class RocksDbPartitionStorageTest extends AbstractPartitionStorageTest {
             @WorkDirectory Path workDir,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
-                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class},
-                    name = "table"
+                    name = "table",
+                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
     ) throws Exception {
         assertThat(tableCfg.dataStorage(), is(instanceOf(RocksDbDataStorageConfiguration.class)));
