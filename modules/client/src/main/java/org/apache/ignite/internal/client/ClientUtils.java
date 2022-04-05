@@ -136,7 +136,7 @@ public class ClientUtils {
                 return ClientOperationType.TUPLE_CONTAINS_KEY;
 
             case ClientOp.SQL_EXEC:
-                return null; // TODO: Here and below - ???
+                return null;
 
             case ClientOp.SQL_NEXT:
                 return null;
