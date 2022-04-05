@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -34,18 +34,19 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionChange;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -64,36 +65,35 @@ public class RocksDbTableStorageTest {
     @WorkDirectory
     private Path workDir;
 
-    private final StorageEngine engine = new RocksDbStorageEngine();
+    private StorageEngine engine;
 
     private TableStorage storage;
 
-    private DataRegion dataRegion;
-
     @BeforeEach
     public void setUp(
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataRegionConfiguration dataRegionCfg,
-            @InjectConfiguration(polymorphicExtensions = HashIndexConfigurationSchema.class) TableConfiguration tableCfg
+            @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig,
+            @InjectConfiguration(
+                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
+            ) TableConfiguration tableCfg
     ) throws Exception {
-        CompletableFuture<Void> changeFuture = dataRegionCfg.change(cfg ->
-                cfg.convert(RocksDbDataRegionChange.class).changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)
-        );
+        assertThat(tableCfg.dataStorage(), is(instanceOf(RocksDbDataStorageConfiguration.class)));
+
+        assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
+
+        CompletableFuture<Void> changeFuture = rocksDbEngineConfig.defaultRegion()
+                .change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
 
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
-        changeFuture = tableCfg.change(cfg -> cfg.changePartitions(512));
+        changeFuture = tableCfg.change(cfg -> cfg.changeName("table").changePartitions(512));
 
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
-        dataRegionCfg = fixConfiguration(dataRegionCfg);
+        engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
-        dataRegion = engine.createDataRegion(dataRegionCfg);
+        engine.start();
 
-        assertThat(dataRegion, is(instanceOf(RocksDbDataRegion.class)));
-
-        dataRegion.start();
-
-        storage = engine.createTable(workDir, tableCfg, dataRegion);
+        storage = engine.createTable(tableCfg);
 
         assertThat(storage, is(instanceOf(RocksDbTableStorage.class)));
 
@@ -104,8 +104,7 @@ public class RocksDbTableStorageTest {
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 storage == null ? null : storage::stop,
-                dataRegion == null ? null : dataRegion::stop,
-                engine::stop
+                engine == null ? null : engine::stop
         );
     }
 
@@ -192,15 +191,19 @@ public class RocksDbTableStorageTest {
      */
     @Test
     void testRestart(
-            @InjectConfiguration(polymorphicExtensions = HashIndexConfigurationSchema.class) TableConfiguration tableCfg
-    ) {
+            @InjectConfiguration(
+                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
+            ) TableConfiguration tableCfg
+    ) throws Exception {
+        tableCfg.change(c -> c.changeName("table")).get(1, TimeUnit.SECONDS);
+
         var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
 
         storage.getOrCreatePartition(0).write(testData);
 
         storage.stop();
 
-        storage = engine.createTable(workDir, tableCfg, dataRegion);
+        storage = engine.createTable(tableCfg);
 
         storage.start();
 

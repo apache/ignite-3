@@ -18,27 +18,31 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.TestRocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -59,25 +63,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration(
-            value = "mock.type = pagemem",
-            polymorphicExtensions = {
-                    PageMemoryDataRegionConfigurationSchema.class,
-                    UnsafeMemoryAllocatorConfigurationSchema.class
-            })
-    private DataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    PageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
-            value = "mock.name = default",
-            polymorphicExtensions = HashIndexConfigurationSchema.class
+            polymorphicExtensions = {
+                    HashIndexConfigurationSchema.class,
+                    TestRocksDbDataStorageConfigurationSchema.class,
+                    PageMemoryDataStorageConfigurationSchema.class
+            }
     )
     private TableConfiguration tableCfg;
 
     private StorageEngine engine;
 
     private TableStorage table;
-
-    private DataRegion dataRegion;
 
     @BeforeAll
     static void beforeAll() {
@@ -87,18 +87,20 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
     }
 
     @BeforeEach
-    void setUp() {
-        engine = new PageMemoryStorageEngine(ioRegistry);
+    void setUp() throws Exception {
+        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry);
 
         engine.start();
 
-        dataRegion = engine.createDataRegion(fixConfiguration(dataRegionCfg));
+        tableCfg.change(c -> c.changeName("table").changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
+                .get(1, TimeUnit.SECONDS);
 
-        assertThat(dataRegion, is(instanceOf(PageMemoryDataRegion.class)));
+        assertEquals(
+                PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
+                ((PageMemoryDataStorageView) tableCfg.dataStorage().value()).dataRegion()
+        );
 
-        dataRegion.start();
-
-        table = engine.createTable(null, tableCfg, dataRegion);
+        table = engine.createTable(tableCfg);
 
         assertThat(table, is(instanceOf(PageMemoryTableStorage.class)));
 
@@ -114,7 +116,6 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
         IgniteUtils.closeAll(
                 storage,
                 table == null ? null : table::stop,
-                dataRegion == null ? null : dataRegion::stop,
                 engine == null ? null : engine::stop
         );
     }
@@ -139,7 +140,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
      */
     @Test
     void testFragments() {
-        int pageSize = ((PageMemoryDataRegion) dataRegion).pageMemory().pageSize();
+        int pageSize = engineConfig.defaultRegion().value().pageSize();
 
         DataRow dataRow = dataRow(createRandomString(pageSize), createRandomString(pageSize));
 

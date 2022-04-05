@@ -33,7 +33,7 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -697,7 +697,7 @@ public class RecordBinaryViewOperationsTest {
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager),
                 txManager);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));

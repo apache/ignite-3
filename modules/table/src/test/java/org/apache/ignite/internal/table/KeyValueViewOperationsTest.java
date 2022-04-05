@@ -50,7 +50,7 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -359,7 +359,7 @@ public class KeyValueViewOperationsTest {
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
+                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager), txManager);
 
         Mapper<TestKeyObject> keyMapper = Mapper.of(TestKeyObject.class);
         Mapper<TestObjectWithAllTypes> valMapper = Mapper.of(TestObjectWithAllTypes.class);

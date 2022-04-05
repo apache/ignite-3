@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.storage.chm.schema;
 
-import static org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 
 /**
- * Configuration schema for memory allocation strategies.
+ * Test RocksDB data storage configuration schema for tables.
  */
-@PolymorphicConfig
-public class MemoryAllocatorConfigurationSchema {
-    @PolymorphicId(hasDefault = true)
-    public String type = UNSAFE_MEMORY_ALLOCATOR_TYPE;
+@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
+public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }

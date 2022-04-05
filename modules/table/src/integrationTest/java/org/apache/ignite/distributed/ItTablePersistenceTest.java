@@ -38,7 +38,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -212,7 +212,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionListener listener = new PartitionListener(
                             UUID.randomUUID(),
-                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
+                            new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager));
 
                     paths.put(listener, workDir);
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.chm;
 
 import static java.util.stream.Collectors.toList;
 
@@ -42,6 +42,7 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -51,17 +52,30 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage implementation based on {@link ConcurrentHashMap}.
  */
-public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
+public class TestConcurrentHashMapPartitionStorage implements PartitionStorage {
     /** Name of the snapshot file. */
     private static final String SNAPSHOT_FILE = "snapshot_file";
 
     /** Storage content. */
     private final ConcurrentSkipListMap<ByteArray, byte[]> map = new ConcurrentSkipListMap<>();
 
+    private final int partId;
+
+    /**
+     * Constructor.
+     *
+     * @param partId Partition id.
+     */
+    public TestConcurrentHashMapPartitionStorage(int partId) {
+        assert partId >= 0 : partId;
+
+        this.partId = partId;
+    }
+
     /** {@inheritDoc} */
     @Override
     public int partitionId() {
-        return 0;
+        return partId;
     }
 
     /** {@inheritDoc} */
@@ -284,7 +298,7 @@ public class ConcurrentHashMapPartitionStorage implements PartitionStorage {
             return false;
         }
 
-        ConcurrentHashMapPartitionStorage that = (ConcurrentHashMapPartitionStorage) o;
+        TestConcurrentHashMapPartitionStorage that = (TestConcurrentHashMapPartitionStorage) o;
 
         if (!map.equals(that.map)) {
             return false;

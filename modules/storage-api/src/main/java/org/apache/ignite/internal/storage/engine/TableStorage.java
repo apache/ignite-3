@@ -80,17 +80,8 @@ public interface TableStorage {
 
     /**
      * Returns the table configuration.
-     *
-     * @return Table configuration.
      */
     TableConfiguration configuration();
-
-    /**
-     * Returns the data region containing table's data.
-     *
-     * @return Data region containing table's data.
-     */
-    DataRegion dataRegion();
 
     /**
      * Starts the storage.

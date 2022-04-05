@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -55,11 +54,6 @@ class CoreDistributedConfigurationModuleTest {
     @Test
     void hasTablesConfigurationRoot() {
         assertThat(module.rootKeys(), hasItem(TablesConfiguration.KEY));
-    }
-
-    @Test
-    void hasDataStorageConfigurationRoot() {
-        assertThat(module.rootKeys(), hasItem(DataStorageConfiguration.KEY));
     }
 
     @Test

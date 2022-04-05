@@ -29,8 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -39,6 +37,7 @@ import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.schema.configuration.schema.TestRocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -77,13 +76,15 @@ public class SchemaConfigurationConverterTest {
     @BeforeEach
     public void createRegistry() throws ExecutionException, InterruptedException {
         confRegistry = new ConfigurationRegistry(
-                List.of(TablesConfiguration.KEY, DataStorageConfiguration.KEY),
+                List.of(TablesConfiguration.KEY),
                 Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(
-                        HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class,
-                        RocksDbDataRegionConfigurationSchema.class
+                        HashIndexConfigurationSchema.class,
+                        SortedIndexConfigurationSchema.class,
+                        PartialIndexConfigurationSchema.class,
+                        TestRocksDbDataStorageConfigurationSchema.class
                 )
         );
 

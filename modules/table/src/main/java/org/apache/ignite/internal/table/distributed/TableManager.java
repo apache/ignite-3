@@ -18,20 +18,15 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
@@ -50,7 +45,6 @@ import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
@@ -73,10 +67,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
-import org.apache.ignite.internal.storage.engine.DataRegion;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -127,23 +119,17 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Tables configuration. */
     private final TablesConfiguration tablesCfg;
 
-    /** Data storage configuration. */
-    private final DataStorageConfiguration dataStorageCfg;
-
     /** Raft manager. */
     private final Loza raftMgr;
 
     /** Baseline manager. */
     private final BaselineManager baselineMgr;
 
-    /** Storage engine instance. Only one type is available right now, which is the {@link RocksDbStorageEngine}. */
-    private final StorageEngine engine;
-
     /** Transaction manager. */
     private final TxManager txManager;
 
-    /** Partitions store directory. */
-    private final Path partitionsStoreDir;
+    /** Data storage manager. */
+    private final DataStorageManager dataStorageMgr;
 
     /** Here a table future stores during creation (until the table can be provided to client). */
     private final Map<UUID, CompletableFuture<Table>> tableCreateFuts = new ConcurrentHashMap<>();
@@ -160,9 +146,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Resolver that resolves a network address to cluster node. */
     private final Function<NetworkAddress, ClusterNode> clusterNodeResolver;
 
-    /** Data region instances. */
-    private final Map<String, DataRegion> dataRegions = new ConcurrentHashMap<>();
-
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -172,30 +155,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /**
      * Creates a new table manager.
      *
-     * @param registry           Registry for versioned values.
-     * @param tablesCfg          Tables configuration.
-     * @param dataStorageCfg     Data storage configuration.
-     * @param raftMgr            Raft manager.
-     * @param baselineMgr        Baseline manager.
-     * @param partitionsStoreDir Partitions store directory.
-     * @param txManager          TX manager.
+     * @param registry Registry for versioned values.
+     * @param tablesCfg Tables configuration.
+     * @param raftMgr Raft manager.
+     * @param baselineMgr Baseline manager.
+     * @param txManager Transaction manager.
+     * @param dataStorageMgr Data storage manager.
      */
     public TableManager(
             Consumer<Consumer<Long>> registry,
             TablesConfiguration tablesCfg,
-            DataStorageConfiguration dataStorageCfg,
             Loza raftMgr,
             BaselineManager baselineMgr,
             TopologyService topologyService,
-            Path partitionsStoreDir,
-            TxManager txManager
+            TxManager txManager,
+            DataStorageManager dataStorageMgr
     ) {
         this.tablesCfg = tablesCfg;
-        this.dataStorageCfg = dataStorageCfg;
         this.raftMgr = raftMgr;
         this.baselineMgr = baselineMgr;
-        this.partitionsStoreDir = partitionsStoreDir;
         this.txManager = txManager;
+        this.dataStorageMgr = dataStorageMgr;
 
         netAddrResolver = addr -> {
             ClusterNode node = topologyService.getByAddress(addr);
@@ -207,8 +187,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return node.id();
         };
         clusterNodeResolver = topologyService::getByAddress;
-
-        engine = new RocksDbStorageEngine();
 
         tablesVv = new VersionedValue<>(registry, HashMap::new);
         tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
@@ -246,14 +224,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return onTableDelete(ctx);
             }
         });
-
-        engine.start();
-
-        DataRegion defaultDataRegion = engine.createDataRegion(dataStorageCfg.defaultRegion());
-
-        dataRegions.put(DEFAULT_DATA_REGION_NAME, defaultDataRegion);
-
-        defaultDataRegion.start();
     }
 
     /**
@@ -508,17 +478,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.error("Failed to stop a table {}", e, table.name());
             }
         }
-
-        // Stop all data regions when all table storages are stopped.
-        for (Entry<String, DataRegion> entry : dataRegions.entrySet()) {
-            try {
-                entry.getValue().stop();
-            } catch (Exception e) {
-                LOG.error("Failed to stop data region " + entry.getKey(), e);
-            }
-        }
-
-        engine.stop();
     }
 
     /**
@@ -530,38 +489,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param partitions Count of partitions.
      */
     private void createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
-        Path storageDir = partitionsStoreDir.resolve(name);
-
-        try {
-            Files.createDirectories(storageDir);
-        } catch (IOException e) {
-            throw new IgniteInternalException(
-                    "Failed to create partitions store directory for " + name + ": " + e.getMessage(),
-                    e
-            );
-        }
-
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
-        DataRegion dataRegion = dataRegions.computeIfAbsent(tableCfg.dataRegion().value(), dataRegionName -> {
-            DataRegion newDataRegion = engine.createDataRegion(dataStorageCfg.regions().get(dataRegionName));
-
-            try {
-                newDataRegion.start();
-            } catch (Exception e) {
-                try {
-                    newDataRegion.stop();
-                } catch (Exception stopException) {
-                    e.addSuppressed(stopException);
-                }
-
-                throw e;
-            }
-
-            return newDataRegion;
-        });
-
-        TableStorage tableStorage = engine.createTable(storageDir, tableCfg, dataRegion);
+        TableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createTable(tableCfg);
 
         tableStorage.start();
 
@@ -1126,7 +1056,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * Collects a list of direct table ids.
      *
      * @return A list of direct table ids.
-     * @see DirectConfigurationProperty
      */
     private List<UUID> directTableIds() {
         NamedListView<TableView> views = directProxy(tablesCfg.tables()).value();
@@ -1147,7 +1076,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param tblName Name of the table.
      * @return Direct id of the table, or {@code null} if the table with the {@code tblName} has not been found.
-     * @see DirectConfigurationProperty
      */
     @Nullable
     private UUID directTableId(String tblName) {
