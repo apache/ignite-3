@@ -119,7 +119,7 @@ public class RetryPolicyTest {
     @Test
     public void testTableOperationWithoutTxIsRetried() throws Exception {
         initServer(reqId -> reqId % 4 == 0);
-        TestRetryPolicy plc = new TestRetryPolicy();
+        var plc = new TestRetryPolicy();
 
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
@@ -133,7 +133,7 @@ public class RetryPolicyTest {
     @Test
     public void testTableOperationWithTxIsNotRetried() throws Exception {
         initServer(reqId -> reqId % 4 == 0);
-        TestRetryPolicy plc = new TestRetryPolicy();
+        var plc = new TestRetryPolicy();
 
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
@@ -147,9 +147,25 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testRetryReadPolicyDoesNotRetryWriteOperations() {
-        // TODO
+    public void testRetryReadPolicyRetriesReadOperations() throws Exception {
+        initServer(reqId -> reqId % 3 == 0);
 
+        try (var client = getClient(new RetryReadPolicy())) {
+            RecordView<Tuple> recView = client.tables().table("t").recordView();
+            recView.get(null, Tuple.create().set("id", 1));
+            recView.get(null, Tuple.create().set("id", 1));
+        }
+    }
+
+    @Test
+    public void testRetryReadPolicyDoesNotRetryWriteOperations() throws Exception {
+        initServer(reqId -> reqId % 5 == 0);
+
+        try (var client = getClient(new RetryReadPolicy())) {
+            RecordView<Tuple> recView = client.tables().table("t").recordView();
+            recView.upsert(null, Tuple.create().set("id", 1));
+            assertThrows(IgniteClientConnectionException.class, () -> recView.upsert(null, Tuple.create().set("id", 1)));
+        }
     }
 
     @Test
