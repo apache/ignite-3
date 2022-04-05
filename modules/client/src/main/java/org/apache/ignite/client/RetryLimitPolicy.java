@@ -23,7 +23,7 @@ import java.util.Objects;
  * Retry policy that returns true when {@link RetryPolicyContext#iteration()} is less than the specified {@link #retryLimit()}.
  */
 public class RetryLimitPolicy implements RetryPolicy {
-    /** */
+    /** Retry limit. */
     private int retryLimit;
 
     /**

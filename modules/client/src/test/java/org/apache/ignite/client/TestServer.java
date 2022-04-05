@@ -113,10 +113,11 @@ public class TestServer implements AutoCloseable {
         module.start();
     }
 
-    public ConfigurationRegistry configurationRegistry() {
-        return cfg;
-    }
-
+    /**
+     * Gets the port where this instance is listening.
+     *
+     * @return TCP port.
+     */
     public int port() {
         SocketAddress addr = module instanceof ClientHandlerModule
                 ? ((ClientHandlerModule) module).localAddress()
@@ -125,10 +126,7 @@ public class TestServer implements AutoCloseable {
         return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
     }
 
-    public NettyBootstrapFactory bootstrapFactory() {
-        return bootstrapFactory;
-    }
-
+    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         module.stop();
