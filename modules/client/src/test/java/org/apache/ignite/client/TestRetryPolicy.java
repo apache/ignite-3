@@ -24,8 +24,10 @@ import java.util.List;
  * Test retry policy.
   */
 public class TestRetryPolicy extends RetryLimitPolicy {
+    /** Policy invocations. */
     public final List<RetryPolicyContext> invocations = new ArrayList<>();
 
+    /** {@inheritDoc} */
     @Override
     public boolean shouldRetry(RetryPolicyContext context) {
         invocations.add(context);
