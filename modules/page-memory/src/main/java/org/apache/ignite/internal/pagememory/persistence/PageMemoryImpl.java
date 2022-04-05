@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
-import static org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-import static org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-import static org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -66,9 +66,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
@@ -193,7 +193,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             @Nullable PageChangeTracker changeTracker
     ) {
         this.directMemoryProvider = directMemoryProvider;
-        this.dataRegionCfg = (PageMemoryDataRegionView) dataRegionCfg.value();
+        this.dataRegionCfg = dataRegionCfg.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
         this.pmPageMgr = pmPageMgr;

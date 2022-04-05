@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
-import org.junit.jupiter.api.BeforeEach;
+import java.nio.file.Path;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
- * Storage test implementation for {@link ConcurrentHashMapPartitionStorage}.
+ * Factory for creating storage engines.
  */
-public class ConcurrentHashMapStorageTest extends AbstractPartitionStorageTest {
-    @BeforeEach
-    public void setUp() {
-        storage = new ConcurrentHashMapPartitionStorage();
-    }
+public interface StorageEngineFactory {
+    /**
+     * Creates a new storage engine.
+     *
+     * @param configRegistry Configuration register.
+     * @param storagePath Storage path.
+     * @throws StorageException If there is an error when creating the storage engine.
+     */
+    StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException;
 }

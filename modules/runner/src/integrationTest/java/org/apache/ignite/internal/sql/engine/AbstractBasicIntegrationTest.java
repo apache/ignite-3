@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -242,6 +244,26 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
             view.insertAll(null, batch);
 
             batch.clear();
+        }
+    }
+
+    protected static void checkData(Table table, String[] columnNames, Object[]... tuples) {
+        RecordView<Tuple> view = table.recordView();
+
+        for (Object[] tuple : tuples) {
+            assert tuple != null && tuple.length == columnNames.length;
+
+            Object id = tuple[0];
+
+            assert id != null : "Primary key cannot be null";
+
+            Tuple row  = view.get(null, Tuple.create().set(columnNames[0], id));
+
+            assertNotNull(row);
+
+            for (int i = 0; i < columnNames.length; i++) {
+                assertEquals(tuple[i], row.value(columnNames[i]));
+            }
         }
     }
 

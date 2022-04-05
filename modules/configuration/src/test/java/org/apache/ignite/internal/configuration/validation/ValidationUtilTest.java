@@ -19,7 +19,10 @@ package org.apache.ignite.internal.configuration.validation;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.configuration.validation.ValidationUtilTest.PolyValidatedChildConfigurationSchema.DEFAULT_POLY_TYPE;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
@@ -27,13 +30,18 @@ import java.lang.annotation.Target;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -42,6 +50,8 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,19 +63,17 @@ import org.junit.jupiter.api.Test;
 public class ValidationUtilTest {
     private static ConfigurationAsmGenerator cgen;
 
-    /**
-     * Before all.
-     */
     @BeforeAll
     public static void beforeAll() {
         cgen = new ConfigurationAsmGenerator();
 
-        cgen.compileRootSchema(ValidatedRootConfigurationSchema.class, Map.of(), Map.of());
+        cgen.compileRootSchema(
+                ValidatedRootConfigurationSchema.class,
+                Map.of(ValidatedChildConfigurationSchema.class, Set.of(InternalValidatedChildConfigurationSchema.class)),
+                Map.of(PolyValidatedChildConfigurationSchema.class, Set.of(FirstPolyValidatedChildConfigurationSchema.class))
+        );
     }
 
-    /**
-     * After all.
-     */
     @AfterAll
     public static void afterAll() {
         cgen = null;
@@ -98,6 +106,14 @@ public class ValidationUtilTest {
         @NamedListValidation
         @NamedConfigValue
         public ValidatedChildConfigurationSchema elements;
+
+        @InnerValidation
+        @ConfigValue
+        public PolyValidatedChildConfigurationSchema poly;
+
+        @NamedListValidation
+        @NamedConfigValue
+        public PolyValidatedChildConfigurationSchema polyChildren;
     }
 
     /**
@@ -110,11 +126,40 @@ public class ValidationUtilTest {
         public String str = "foo";
     }
 
-    private InnerNode root;
+    /**
+     * Child internal extension configuration schema.
+     */
+    @InternalConfiguration
+    public static class InternalValidatedChildConfigurationSchema extends ValidatedChildConfigurationSchema {
+        @LeafValidation
+        @Value(hasDefault = true)
+        public String strInternal = "fooInternal";
+    }
 
     /**
-     * Before each.
+     * Child polymorphic configuration schema.
      */
+    @PolymorphicConfig
+    public static class PolyValidatedChildConfigurationSchema {
+        public static final String DEFAULT_POLY_TYPE = "first";
+
+        @PolymorphicId(hasDefault = true)
+        @LeafValidation
+        public String type = DEFAULT_POLY_TYPE;
+    }
+
+    /**
+     * Child first polymorphic instance configuration schema.
+     */
+    @PolymorphicConfigInstance(DEFAULT_POLY_TYPE)
+    public static class FirstPolyValidatedChildConfigurationSchema extends PolyValidatedChildConfigurationSchema {
+        @LeafValidation
+        @Value(hasDefault = true)
+        public String strPoly = "fooPolyFirst";
+    }
+
+    private InnerNode root;
+
     @BeforeEach
     public void before() {
         root = cgen.instantiateNode(ValidatedRootConfigurationSchema.class);
@@ -127,73 +172,162 @@ public class ValidationUtilTest {
         var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<LeafValidation, String> validator = new Validator<>() {
+            /** {@inheritDoc} */
             @Override
             public void validate(LeafValidation annotation, ValidationContext<String> ctx) {
-                assertEquals("root.child.str", ctx.currentKey());
-
-                assertEquals("foo", ctx.getOldValue());
-                assertEquals("foo", ctx.getNewValue());
-
-                ctx.addIssue(new ValidationIssue("bar"));
+                ctx.addIssue(new ExValidationIssue("bar", ctx.currentKey(), ctx.getOldValue(), ctx.getNewValue()));
             }
         };
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(LeafValidation.class, Set.of(validator));
 
-        List<ValidationIssue> issues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
-        assertEquals(1, issues.size());
+        List<ValidationIssue> expected = List.of(
+                new ExValidationIssue("bar", "root.child.str", "foo", "foo"),
+                new ExValidationIssue("bar", "root.child.strInternal", "fooInternal", "fooInternal"),
+                new ExValidationIssue("bar", "root.poly.type", DEFAULT_POLY_TYPE, DEFAULT_POLY_TYPE),
+                new ExValidationIssue("bar", "root.poly.strPoly", "fooPolyFirst", "fooPolyFirst")
+        );
 
-        assertEquals("bar", issues.get(0).message());
+        assertThat(
+                ExValidationIssue.sortedByCurrentKey(actual),
+                equalTo(ExValidationIssue.sortedByCurrentKey(expected))
+        );
     }
 
     @Test
     public void validateInnerNode() throws Exception {
         var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
-        Validator<InnerValidation, ValidatedChildView> validator = new Validator<>() {
+        Validator<InnerValidation, Object> validator = new Validator<>() {
+            /** {@inheritDoc} */
             @Override
-            public void validate(InnerValidation annotation, ValidationContext<ValidatedChildView> ctx) {
-                assertEquals("root.child", ctx.currentKey());
+            public void validate(InnerValidation annotation, ValidationContext<Object> ctx) {
+                Object oldValue = ctx.getOldValue();
+                Object newValue = ctx.getNewValue();
 
-                assertEquals("foo", ctx.getOldValue().str());
-                assertEquals("foo", ctx.getNewValue().str());
+                if (oldValue instanceof ValidatedChildView) {
+                    oldValue = ((ValidatedChildView) oldValue).str();
+                    newValue = ((ValidatedChildView) newValue).str();
+                } else {
+                    oldValue = ((PolyValidatedChildView) oldValue).type();
+                    newValue = ((PolyValidatedChildView) newValue).type();
+                }
 
-                ctx.addIssue(new ValidationIssue("bar"));
+                ctx.addIssue(new ExValidationIssue("bar", ctx.currentKey(), oldValue, newValue));
             }
         };
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(InnerValidation.class, Set.of(validator));
 
-        List<ValidationIssue> issues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
-        assertEquals(1, issues.size());
+        List<ValidationIssue> expected = List.of(
+                new ExValidationIssue("bar", "root.child", "foo", "foo"),
+                new ExValidationIssue("bar", "root.poly", DEFAULT_POLY_TYPE, DEFAULT_POLY_TYPE)
+        );
 
-        assertEquals("bar", issues.get(0).message());
+        assertThat(
+                ExValidationIssue.sortedByCurrentKey(actual),
+                equalTo(ExValidationIssue.sortedByCurrentKey(expected))
+        );
     }
 
     @Test
-    public void validateNamedListNode() throws Exception {
+    public void validateNamedListNode() {
         var rootsNode = new SuperRoot(key -> null, Map.of(ValidatedRootConfiguration.KEY, root));
 
         Validator<NamedListValidation, NamedListView<?>> validator = new Validator<>() {
+            /** {@inheritDoc} */
             @Override
             public void validate(NamedListValidation annotation, ValidationContext<NamedListView<?>> ctx) {
-                assertEquals("root.elements", ctx.currentKey());
-
-                assertEquals(List.of(), ctx.getOldValue().namedListKeys());
-                assertEquals(List.of(), ctx.getNewValue().namedListKeys());
-
-                ctx.addIssue(new ValidationIssue("bar"));
+                ctx.addIssue(new ExValidationIssue(
+                        "bar",
+                        ctx.currentKey(),
+                        ctx.getOldValue().namedListKeys(),
+                        ctx.getNewValue().namedListKeys()
+                ));
             }
         };
 
         Map<Class<? extends Annotation>, Set<Validator<?, ?>>> validators = Map.of(NamedListValidation.class, Set.of(validator));
 
-        List<ValidationIssue> issues = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
+        List<ValidationIssue> actual = ValidationUtil.validate(rootsNode, rootsNode, null, new HashMap<>(), validators);
 
-        assertEquals(1, issues.size());
+        List<ValidationIssue> expected = List.of(
+                new ExValidationIssue("bar", "root.elements", List.of(), List.of()),
+                new ExValidationIssue("bar", "root.polyChildren", List.of(), List.of())
+        );
 
-        assertEquals("bar", issues.get(0).message());
+        assertThat(
+                ExValidationIssue.sortedByCurrentKey(actual),
+                equalTo(ExValidationIssue.sortedByCurrentKey(expected))
+        );
+    }
+
+    private static class ExValidationIssue extends ValidationIssue {
+        final String currentKey;
+
+        @Nullable
+        final Object oldVal;
+
+        final Object newVal;
+
+        ExValidationIssue(
+                String message,
+                String currentKey,
+                @Nullable Object oldVal,
+                Object newVal
+        ) {
+            super(message);
+            this.currentKey = currentKey;
+            this.oldVal = oldVal;
+            this.newVal = newVal;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ExValidationIssue that = (ExValidationIssue) o;
+
+            return Objects.equals(currentKey, that.currentKey)
+                    && Objects.equals(oldVal, that.oldVal)
+                    && Objects.equals(newVal, that.newVal);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public int hashCode() {
+            return Objects.hash(currentKey, oldVal, newVal);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(ExValidationIssue.class, this);
+        }
+
+        static int compareByCurrentKey(ValidationIssue o1, ValidationIssue o2) {
+            ExValidationIssue ex1 = (ExValidationIssue) o1;
+            ExValidationIssue ex2 = (ExValidationIssue) o2;
+
+            return ex1.currentKey.compareTo(ex2.currentKey);
+        }
+
+        static List<ExValidationIssue> sortedByCurrentKey(List<ValidationIssue> issues) {
+            return issues.stream()
+                    .sorted(ExValidationIssue::compareByCurrentKey)
+                    .map(ExValidationIssue.class::cast)
+                    .collect(toList());
+        }
     }
 }

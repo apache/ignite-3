@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -214,7 +215,7 @@ public interface InternalTable extends AutoCloseable {
     /**
      * Gets a count of partitions of the table.
      *
-     * @return Count of partitons.
+     * @return Count of partitions.
      */
     int partitions();
 
@@ -227,6 +228,15 @@ public interface InternalTable extends AutoCloseable {
      * @return List of current assignments.
      */
     @NotNull List<String> assignments();
+
+    /**
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
+     * it cannot be found.
+     *
+     * @param partition partition number
+     * @return leader node of the partition group corresponding to the partition
+     */
+    ClusterNode leaderAssignment(int partition);
 
     //TODO: IGNITE-14488. Add invoke() methods.
 }

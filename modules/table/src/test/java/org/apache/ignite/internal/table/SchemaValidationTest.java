@@ -26,7 +26,7 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaMismatchException;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -65,7 +65,7 @@ public class SchemaValidationTest {
         MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
-        return new DummyInternalTableImpl(new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager), txManager);
+        return new DummyInternalTableImpl(new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager), txManager);
     }
 
     @Test

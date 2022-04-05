@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.engine;
+package org.apache.ignite.internal.schema.configuration.schema;
 
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 
 /**
- * Interface that represents Ignite data region. Data region is a memory segment of fixed size, usually located offheap,
- * that caches user data in memory.
+ * Test data storage configuration schema for tables.
  */
-public interface DataRegion extends IgniteComponent {
+@PolymorphicConfigInstance("test_data_storage")
+public class TestDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
 }

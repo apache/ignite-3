@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -271,6 +272,12 @@ public class FakeInternalTable implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public @NotNull List<String> assignments() {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ClusterNode leaderAssignment(int partition) {
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 

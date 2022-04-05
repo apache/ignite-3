@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.storage.rocksdb.configuration;
 
-import static org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema.UNSAFE_MEMORY_ALLOCATOR_TYPE;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema;
 
 /**
- * Memory allocator that allocates data in offheap using {@link sun.misc.Unsafe}.
+ * Annotation for checking the existence of a data region in {@link RocksDbStorageEngineConfigurationSchema}.
  */
-@PolymorphicConfigInstance(UNSAFE_MEMORY_ALLOCATOR_TYPE)
-public class UnsafeMemoryAllocatorConfigurationSchema extends MemoryAllocatorConfigurationSchema {
-    public static final String UNSAFE_MEMORY_ALLOCATOR_TYPE = "unsafe";
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface RocksDbDataRegionName {
 }

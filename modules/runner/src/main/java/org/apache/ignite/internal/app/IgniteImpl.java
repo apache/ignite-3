@@ -35,7 +35,6 @@ import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
@@ -62,6 +61,7 @@ import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
@@ -166,6 +166,9 @@ public class IgniteImpl implements Ignite {
     /** JVM pause detector. */
     private final LongJvmPauseDetector longJvmPauseDetector;
 
+    /** Data storage manager. */
+    private final DataStorageManager dataStorageMgr;
+
     /**
      * The Constructor.
      *
@@ -255,15 +258,19 @@ public class IgniteImpl implements Ignite {
             });
         };
 
+        dataStorageMgr = new DataStorageManager(
+                clusterCfgMgr.configurationRegistry(),
+                getPartitionsStorePath(workDir)
+        );
+
         distributedTblMgr = new TableManager(
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
-                clusterCfgMgr.configurationRegistry().getConfiguration(DataStorageConfiguration.KEY),
                 raftMgr,
                 baselineMgr,
                 clusterSvc.topologyService(),
-                getPartitionsStorePath(workDir),
-                txManager
+                txManager,
+                dataStorageMgr
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -272,7 +279,7 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr
         );
 
-        compute = new IgniteComputeImpl(clusterSvc.topologyService(), computeComponent);
+        compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
@@ -376,6 +383,7 @@ public class IgniteImpl implements Ignite {
                     metaStorageMgr,
                     clusterCfgMgr,
                     baselineMgr,
+                    dataStorageMgr,
                     distributedTblMgr,
                     qryEngine,
                     restComponent,
@@ -427,7 +435,8 @@ public class IgniteImpl implements Ignite {
     public void stop() {
         if (status.getAndSet(Status.STOPPING) == Status.STARTED) {
             doStopNode(List.of(longJvmPauseDetector, vaultMgr, nodeCfgMgr, clusterSvc, computeComponent, raftMgr, txManager, metaStorageMgr,
-                    clusterCfgMgr, baselineMgr, distributedTblMgr, qryEngine, restComponent, clientHandlerModule, nettyBootstrapFactory));
+                    clusterCfgMgr, baselineMgr, dataStorageMgr, distributedTblMgr, qryEngine, restComponent, clientHandlerModule,
+                    nettyBootstrapFactory));
         }
     }
 
