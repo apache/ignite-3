@@ -24,23 +24,14 @@ import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.AbstractSortedIndexMvStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
-import org.junit.jupiter.api.BeforeEach;
 
 /**
  * MV sorted index storage test implementation for {@link TestSortedIndexMvStorage} class.
  */
 public class TestSortedIndexMvStorageTest extends AbstractSortedIndexMvStorageTest {
+    private List<TestSortedIndexMvStorage> indexes = new CopyOnWriteArrayList<>();
 
-    private List<TestSortedIndexMvStorage> indexes;
-
-    private TestMvPartitionStorage partitionStorage;
-
-    @BeforeEach
-    void setUp() {
-        indexes = new CopyOnWriteArrayList<>();
-
-        partitionStorage = new TestMvPartitionStorage(indexes);
-    }
+    private TestMvPartitionStorage partitionStorage = new TestMvPartitionStorage(indexes);
 
     @Override
     protected MvPartitionStorage partitionStorage() {

@@ -36,7 +36,7 @@ import org.junit.jupiter.api.BeforeAll;
 /**
  * Base test for MV storages, contains pojo classes, their descriptor and a marshaller instance.
  */
-public class BaseMvStoragesTest {
+public abstract class BaseMvStoragesTest {
     /** Default reflection marshaller factory. */
     protected static MarshallerFactory marshallerFactory;
 

@@ -20,19 +20,13 @@ package org.apache.ignite.internal.storage.basic;
 import java.util.List;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.junit.jupiter.api.BeforeEach;
 
 /**
  * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
 public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     /** Test partition storage instance. */
-    private TestMvPartitionStorage storage;
-
-    @BeforeEach
-    void setUp() {
-        storage = new TestMvPartitionStorage(List.of());
-    }
+    private final TestMvPartitionStorage storage = new TestMvPartitionStorage(List.of());
 
     /** {@inheritDoc} */
     @Override

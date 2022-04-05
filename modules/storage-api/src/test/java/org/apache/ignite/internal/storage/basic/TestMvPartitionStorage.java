@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentHashMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestSortedIndexMvStorage> indexes;
 
@@ -55,6 +56,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             this.txId = txId;
             this.next = next;
         }
+
+        public static VersionChain createUncommitted(BinaryRow row, UUID txId, VersionChain next) {
+            return new VersionChain(row, null, txId, next);
+        }
+
+        public static VersionChain createCommitted(Timestamp timestamp, VersionChain uncommittedVersionChain) {
+            return new VersionChain(uncommittedVersionChain.row, timestamp, null, uncommittedVersionChain.next);
+        }
     }
 
     /** {@inheritDoc} */
@@ -65,7 +74,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 throw new TxIdMismatchException();
             }
 
-            return new VersionChain(row, null, txId, versionChain);
+            return VersionChain.createUncommitted(row, txId, versionChain);
         });
 
         if (row.hasValue()) {
@@ -111,7 +120,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
-            return new VersionChain(versionChain.row, timestamp, null, versionChain.next);
+            return VersionChain.createCommitted(timestamp, versionChain);
         });
     }
 

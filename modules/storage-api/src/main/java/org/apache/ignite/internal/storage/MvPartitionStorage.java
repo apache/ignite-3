@@ -68,7 +68,7 @@ public interface MvPartitionStorage {
     void commitWrite(BinaryRow key, Timestamp timestamp) throws StorageException;
 
     /**
-     * Scans the partition and returns a cursor of values in at the given timestamp.
+     * Scans the partition and returns a cursor of values at the given timestamp.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp.

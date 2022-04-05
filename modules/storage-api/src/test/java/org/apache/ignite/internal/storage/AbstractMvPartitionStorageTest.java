@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.stream.Collectors.toList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -25,7 +26,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -227,7 +227,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
             return StreamSupport.stream(cursor.spliterator(), false)
                     .map(BaseMvStoragesTest::value)
                     .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
-                    .collect(Collectors.toList());
+                    .collect(toList());
         }
     }
 }
