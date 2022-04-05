@@ -20,7 +20,10 @@ package org.apache.ignite.internal.configuration.tree;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InternalConfiguration;
 import org.apache.ignite.configuration.annotation.InternalId;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration node implementation.
@@ -32,17 +35,14 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
     /** Configuration field name with {@link InjectedName}. */
     public static final String INJECTED_NAME = "<injected_name>";
 
-    /**
-     * Internal id of the node. May be {@code null}.
-     */
+    /** Internal id of the node. */
+    @Nullable
     private UUID internalId;
 
     /**
      * Returns internal id of the node.
-     *
-     * @return Internal id of the node.
      */
-    public final UUID internalId() {
+    public final @Nullable UUID internalId() {
         return internalId;
     }
 
@@ -79,9 +79,9 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *
      * <p>Order of fields must be the same as they are described in configuration schema.
      *
-     * @param visitor         Configuration visitor.
+     * @param visitor Configuration visitor.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     * @param <T>             Parameter type of the passed visitor.
+     * @param <T> Parameter type of the passed visitor.
      */
     public abstract <T> void traverseChildren(ConfigurationVisitor<T> visitor, boolean includeInternal);
 
@@ -119,10 +119,10 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * }
      * </code></pre>
      *
-     * @param key             Name of the child.
-     * @param visitor         Configuration visitor.
+     * @param key Name of the child.
+     * @param visitor Configuration visitor.
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
-     * @param <T>             Parameter type of passed visitor.
+     * @param <T> Parameter type of passed visitor.
      * @return Whatever {@code visitor} returned.
      * @throws NoSuchElementException If field {@code key} is not found.
      */
@@ -194,8 +194,6 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
 
     /**
      * Returns class of corresponding configuration schema.
-     *
-     * @return Class of corresponding configuration schema.
      */
     public abstract Class<?> schemaType();
 
@@ -214,7 +212,6 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      * instance.
      *
      * @param <NODET> Type of the {@code Node}.
-     * @return Specific {@code Node} of the value.
      */
     public <NODET> NODET specificNode() {
         return (NODET) this;
@@ -232,5 +229,20 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      */
     public void setInjectedNameFieldValue(String value) {
         // No-op.
+    }
+
+    /**
+     * Returns schemas for {@link InternalConfiguration internal configuration extensions}.
+     */
+    @Nullable
+    public Class<?>[] internalSchemaTypes() {
+        return null;
+    }
+
+    /**
+     * Returns {@code true} if the configuration is {@link PolymorphicConfig polymorphic}.
+     */
+    public boolean isPolymorphic() {
+        return false;
     }
 }

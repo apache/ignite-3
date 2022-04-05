@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.store;
+package org.apache.ignite.internal.pagememory.configuration.schema;
 
-import static org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema.PAGE_MEMORY_DATA_REGION_TYPE;
-
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.OneOf;
@@ -28,11 +27,8 @@ import org.apache.ignite.configuration.validation.OneOf;
 /**
  * Data region configuration for Page Memory storage engine.
  */
-@PolymorphicConfigInstance(PAGE_MEMORY_DATA_REGION_TYPE)
-public class PageMemoryDataRegionConfigurationSchema extends DataRegionConfigurationSchema {
-    /** Type of the Page Memory data region. */
-    public static final String PAGE_MEMORY_DATA_REGION_TYPE = "pagemem";
-
+@Config
+public class PageMemoryDataRegionConfigurationSchema {
     /** Default initial size. */
     public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * 1024 * 1024;
 
@@ -56,6 +52,10 @@ public class PageMemoryDataRegionConfigurationSchema extends DataRegionConfigura
 
     /** CLOCK algorithm. */
     public static final String CLOCK_REPLACEMENT_MODE = "CLOCK";
+
+    /** Name of the data region. */
+    @InjectedName
+    public String name;
 
     @Immutable
     @Value(hasDefault = true)

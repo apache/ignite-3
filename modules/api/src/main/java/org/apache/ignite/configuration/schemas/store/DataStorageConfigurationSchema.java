@@ -17,28 +17,20 @@
 
 package org.apache.ignite.configuration.schemas.store;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Name;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-import org.apache.ignite.configuration.validation.ExceptKeys;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.validation.Immutable;
 
 /**
- * Root configuration for data storages.
+ * Configuration schema for data storage.
  */
-@ConfigurationRoot(rootName = "db", type = ConfigurationType.DISTRIBUTED)
+@PolymorphicConfig
 public class DataStorageConfigurationSchema {
-    /** Name of the default data region. */
-    public static final String DEFAULT_DATA_REGION_NAME = "default";
+    /** Default data storage name. */
+    public static final String DEFAULT_DATA_STORAGE_NAME = "rocksdb";
 
-    /** Default data region. */
-    @ConfigValue
-    @Name(DEFAULT_DATA_REGION_NAME)
-    public DataRegionConfigurationSchema defaultRegion;
-
-    /** Other data regions. */
-    @ExceptKeys(DEFAULT_DATA_REGION_NAME)
-    @NamedConfigValue
-    public DataRegionConfigurationSchema regions;
+    /** Type of data storage. */
+    @Immutable
+    @PolymorphicId(hasDefault = true)
+    public String name = DEFAULT_DATA_STORAGE_NAME;
 }

@@ -22,10 +22,6 @@ import java.util.List;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -46,8 +42,7 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(
                 ClusterConfiguration.KEY,
-                TablesConfiguration.KEY,
-                DataStorageConfiguration.KEY
+                TablesConfiguration.KEY
         );
     }
 
@@ -57,10 +52,7 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
         return List.of(
                 HashIndexConfigurationSchema.class,
                 SortedIndexConfigurationSchema.class,
-                PartialIndexConfigurationSchema.class,
-                RocksDbDataRegionConfigurationSchema.class,
-                PageMemoryDataRegionConfigurationSchema.class,
-                UnsafeMemoryAllocatorConfigurationSchema.class
+                PartialIndexConfigurationSchema.class
         );
     }
 }

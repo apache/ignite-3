@@ -17,18 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionView;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract data region for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
  */
 // TODO: IGNITE-16641 Add support for persistent case.
-abstract class PageMemoryDataRegion implements DataRegion {
+abstract class PageMemoryDataRegion implements IgniteComponent {
     protected final PageMemoryDataRegionConfiguration cfg;
 
     protected final PageIoRegistry ioRegistry;
@@ -58,7 +57,7 @@ abstract class PageMemoryDataRegion implements DataRegion {
      * Returns {@link true} if the date region is persistent.
      */
     public boolean persistent() {
-        return ((PageMemoryDataRegionView) cfg.value()).persistent();
+        return cfg.value().persistent();
     }
 
     /**
