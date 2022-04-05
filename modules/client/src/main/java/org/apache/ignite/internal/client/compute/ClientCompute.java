@@ -29,6 +29,8 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 
 /**
  * Client compute implementation.
@@ -66,6 +68,40 @@ public class ClientCompute implements IgniteCompute {
         ClusterNode node = randomNode(nodes);
 
         return executeOnOneNode(node, jobClassName, args);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<R> executeColocated(String table, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
+        // TODO: IGNITE-16786 - implement this
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> CompletableFuture<R> executeColocated(
+            String table,
+            K key,
+            Mapper<K> keyMapper,
+            Class<? extends ComputeJob<R>> jobClass,
+            Object... args
+    ) {
+        // TODO: IGNITE-16786 - implement this
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
+        // TODO: IGNITE-16786 - implement this
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
+        // TODO: IGNITE-16786 - implement this
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

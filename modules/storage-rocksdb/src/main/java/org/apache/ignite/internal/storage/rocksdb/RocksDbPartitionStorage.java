@@ -350,6 +350,33 @@ class RocksDbPartitionStorage implements PartitionStorage {
         };
     }
 
+    // TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
+    @Override
+    public long rowsCount() {
+        var upperBound = new Slice(partitionEndPrefix());
+
+        var options = new ReadOptions().setIterateUpperBound(upperBound);
+
+        RocksIterator it = data.newIterator(options);
+
+        it.seek(partitionStartPrefix());
+
+        long size = 0;
+
+        while (it.isValid()) {
+            ++size;
+            it.next();
+        }
+
+        try {
+            IgniteUtils.closeAll(options, upperBound);
+        } catch (Exception e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
+        }
+
+        return size;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
