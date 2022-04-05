@@ -92,6 +92,7 @@
         <!-- Plugins versions -->
         <apache.rat.plugin.version>0.13</apache.rat.plugin.version>
         <checkstyle.puppycrawl.version>8.45</checkstyle.puppycrawl.version>
+        <jacoco.maven.plugin.version>0.8.7</jacoco.maven.plugin.version>
         <launch.maven.plugin.version>2.1.2</launch.maven.plugin.version>
         <maven.antrun.plugin.version>3.0.0</maven.antrun.plugin.version>
         <maven.assembly.plugin.version>3.2.0</maven.assembly.plugin.version>
@@ -112,6 +113,21 @@
         <maven.shade.plugin.version>3.2.4</maven.shade.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
+
+        <!-- We leave it empty so that, when jacoco does not run, the unreplaced @{argLine} does not impede the build. -->
+        <additional.test.argLine/>
+        <common.test.argLine>
+            ${additional.test.argLine}
+            --add-opens java.base/java.lang=ALL-UNNAMED
+            --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+            --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+            --add-opens java.base/java.io=ALL-UNNAMED
+            --add-opens java.base/java.nio=ALL-UNNAMED
+            --add-opens java.base/java.util=ALL-UNNAMED
+            --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
+            -Dio.netty.tryReflectionSetAccessible=true
+            -Djava.util.logging.config.file=../../config/java.util.logging.properties
+        </common.test.argLine>
     </properties>
 
     <distributionManagement>
@@ -169,6 +185,12 @@
                 <groupId>org.immutables</groupId>
                 <artifactId>value-annotations</artifactId>
                 <version>${immutables.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-cli</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -336,6 +358,12 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-marshaller-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-page-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -914,6 +942,41 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>jacoco</id>
+            <properties>
+                <additional.test.argLine>@{argLine}</additional.test.argLine>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <!-- Calcite does not work well under JaCoCo: https://issues.apache.org/jira/browse/CALCITE-5008 -->
+                                <exclude>org/apache/calcite/**/*</exclude>
+                            </excludes>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>jacoco-prepare-agent-unit</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>jacoco-prepare-agent-it</id>
+                                <goals>
+                                    <goal>prepare-agent-integration</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <build>
@@ -1052,6 +1115,12 @@
                     <artifactId>modernizer-maven-plugin</artifactId>
                     <version>${maven.modernizer.plugin.version}</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.maven.plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -1100,15 +1169,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>
-                        --add-opens java.base/java.lang=ALL-UNNAMED
-                        --add-opens java.base/java.lang.invoke=ALL-UNNAMED
-                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
-                        --add-opens java.base/java.io=ALL-UNNAMED
-                        --add-opens java.base/java.nio=ALL-UNNAMED
-                        --add-opens java.base/java.util=ALL-UNNAMED
-                        --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
-                        -Dio.netty.tryReflectionSetAccessible=true
-                        -Djava.util.logging.config.file=../../config/java.util.logging.properties
+                        ${common.test.argLine}
                     </argLine>
                     <excludes>
                         <exclude>%regex[.*(It)[A-Z].*]</exclude>
@@ -1126,15 +1187,7 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>
-                        --add-opens java.base/java.lang=ALL-UNNAMED
-                        --add-opens java.base/java.lang.invoke=ALL-UNNAMED
-                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
-                        --add-opens java.base/java.io=ALL-UNNAMED
-                        --add-opens java.base/java.nio=ALL-UNNAMED
-                        --add-opens java.base/java.util=ALL-UNNAMED
-                        --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
-                        -Dio.netty.tryReflectionSetAccessible=true
-                        -Djava.util.logging.config.file=../../config/java.util.logging.properties
+                        ${common.test.argLine}
                     </argLine>
                     <useModulePath>false</useModulePath>
                     <includes>
