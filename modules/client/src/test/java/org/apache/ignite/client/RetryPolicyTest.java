@@ -21,9 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
 import java.util.function.Function;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -182,21 +185,25 @@ public class RetryPolicyTest {
     }
 
     @Test
-    public void testRetryPolicyConvertOpAllOperationsSupported() {
-        // TODO
-//        List<ClientOp> nullOps = Arrays.stream(ClientOp.values())
-//                .filter(o -> o.toPublicOperationType() == null)
-//                .collect(Collectors.toList());
-//
-//        String nullOpsNames = nullOps.stream().map(Enum::name).collect(Collectors.joining(", "));
-//
-//        long expectedNullCount = 14;
-//
-//        String msg = nullOps.size()
-//                + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
-//                + nullOpsNames;
-//
-//        assertEquals(msg, expectedNullCount, nullOps.size());
+    public void testRetryPolicyConvertOpAllOperationsSupported() throws IllegalAccessException {
+        var nullOpFields = new ArrayList<String>();
+
+        for (var field : ClientOp.class.getDeclaredFields()) {
+            var opCode = (int) field.get(null);
+            var publicOp = ClientUtils.opCodeToClientOperationType(opCode);
+
+            if (publicOp == null) {
+                nullOpFields.add(field.getName());
+            }
+        }
+
+        long expectedNullCount = 16;
+
+        String msg = nullOpFields.size()
+                + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "
+                + String.join(", ", nullOpFields);
+
+        assertEquals(expectedNullCount, nullOpFields.size(), msg);
     }
 
     private IgniteClient getClient(RetryPolicy retryPolicy) {
