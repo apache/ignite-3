@@ -34,7 +34,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryPolicy = new RetryAllPolicy { RetryLimit = 1 }
+                RetryPolicy = new RetryLimitPolicy { RetryLimit = 1 }
             };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
@@ -49,7 +49,7 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
         {
-            var cfg = new IgniteClientConfiguration { RetryPolicy = RetryAllPolicy.Instance };
+            var cfg = new IgniteClientConfiguration { RetryPolicy = new RetryLimitPolicy() };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
@@ -95,7 +95,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryPolicy = new RetryAllPolicy { RetryLimit = 0 }
+                RetryPolicy = new RetryLimitPolicy()
             };
 
             using var server = new FakeServer(reqId => reqId % 10 != 0);

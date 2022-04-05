@@ -21,7 +21,7 @@ namespace Apache.Ignite
 
     /// <summary>
     /// Retry policy that returns <c>true</c> when <see cref="IRetryPolicyContext.Iteration"/> is less than
-    /// the specified <see cref="RetryLimit"/>.
+    /// the specified <see cref="RetryLimit"/>, or the limit is zero or less.
     /// </summary>
     public class RetryLimitPolicy : IRetryPolicy
     {

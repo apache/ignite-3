@@ -35,7 +35,7 @@ namespace Apache.Ignite.Tests
             {
                 var ctx = new RetryPolicyContext(new(), opType, 1, new());
 
-                Assert.DoesNotThrow(() => RetryReadPolicy.Instance.ShouldRetry(ctx), opType.ToString());
+                Assert.DoesNotThrow(() => new RetryReadPolicy().ShouldRetry(ctx), opType.ToString());
             }
         }
     }
