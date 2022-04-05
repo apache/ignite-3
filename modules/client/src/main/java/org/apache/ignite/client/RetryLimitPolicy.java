@@ -23,8 +23,11 @@ import java.util.Objects;
  * Retry policy that returns true when {@link RetryPolicyContext#iteration()} is less than the specified {@link #retryLimit()}.
  */
 public class RetryLimitPolicy implements RetryPolicy {
+    /** Default retry limit. */
+    public static final int DFLT_RETRY_LIMIT = 16;
+
     /** Retry limit. */
-    private int retryLimit;
+    private int retryLimit = DFLT_RETRY_LIMIT;
 
     /**
      * Gets the retry limit. 0 or less for no limit.

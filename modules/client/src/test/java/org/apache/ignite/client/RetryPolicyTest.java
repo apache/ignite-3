@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -204,6 +205,18 @@ public class RetryPolicyTest {
                 + String.join(", ", nullOpFields);
 
         assertEquals(expectedNullCount, nullOpFields.size(), msg);
+    }
+
+    @Test
+    public void testDefaultRetryPolicyIsRetryReadPolicyWithLimit() throws Exception {
+        initServer(reqId -> false);
+
+        try (var client = IgniteClient.builder().addresses("127.0.0.1:" + server.port()).build()) {
+            var plc = client.configuration().retryPolicy();
+
+            var readPlc = assertInstanceOf(RetryReadPolicy.class, plc);
+            assertEquals(RetryReadPolicy.DFLT_RETRY_LIMIT, readPlc.retryLimit());
+        }
     }
 
     private IgniteClient getClient(RetryPolicy retryPolicy) {

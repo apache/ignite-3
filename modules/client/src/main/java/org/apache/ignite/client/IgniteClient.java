@@ -77,7 +77,7 @@ public interface IgniteClient extends Ignite {
         private long heartbeatInterval = DFLT_HEARTBEAT_INTERVAL;
 
         /** Retry policy. */
-        private RetryPolicy retryPolicy;
+        private RetryPolicy retryPolicy = new RetryReadPolicy();
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -98,6 +98,8 @@ public interface IgniteClient extends Ignite {
         /**
          * Sets the retry policy. When a request fails due to a connection error, and multiple server connections
          * are available, Ignite will retry the request if the specified policy allows it.
+         *
+         * <p>Default is {@link RetryReadPolicy}.
          *
          * @param retryPolicy Retry policy.
          * @return This instance.
