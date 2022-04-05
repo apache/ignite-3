@@ -21,11 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.netty.util.ResourceLeakDetector;
-import java.net.InetSocketAddress;
-import java.util.Objects;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
-import org.apache.ignite.client.handler.ClientHandlerModule;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -56,7 +53,7 @@ public abstract class AbstractClientTest {
 
         testServer = startServer(10800, 10, 0, server);
 
-        serverPort = getPort(testServer.module());
+        serverPort = testServer.port();
 
         client = startClient();
     }
@@ -138,9 +135,5 @@ public abstract class AbstractClientTest {
             assertEquals(x.columnName(i), y.columnName(i));
             assertEquals((Object) x.value(i), y.value(i));
         }
-    }
-
-    public static int getPort(ClientHandlerModule hnd) {
-        return ((InetSocketAddress) Objects.requireNonNull(hnd.localAddress())).getPort();
     }
 }

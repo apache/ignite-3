@@ -59,8 +59,13 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFakeServerDropsConnectionOnSpecifiedRequestCount()
         {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = RetryNonePolicy.Instance
+            };
+
             using var server = new FakeServer(reqId => reqId % 3 == 0);
-            using var client = await server.ConnectClientAsync();
+            using var client = await server.ConnectClientAsync(cfg);
 
             // 2 requests succeed, 3rd fails.
             await client.Tables.GetTablesAsync();

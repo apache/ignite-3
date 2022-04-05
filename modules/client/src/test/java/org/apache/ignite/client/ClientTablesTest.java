@@ -101,18 +101,4 @@ public class ClientTablesTest extends AbstractClientTest {
         var serverTables = server.tables().tables();
         assertEquals(1, serverTables.size());
     }
-
-    @Test
-    public void testDropTable() {
-        server.tables().createTable("t", t -> t.changeReplicas(0));
-
-        client.tables().dropTable("t");
-
-        assertEquals(0, server.tables().tables().size());
-    }
-
-    @Test
-    public void testDropTableInvalidName() {
-        client.tables().dropTable("foo");
-    }
 }

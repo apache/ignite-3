@@ -15,26 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+package org.apache.ignite.client;
 
 /**
- * Client table drop request.
+ * Retry policy context. See {@link RetryPolicy#shouldRetry}.
  */
-public class ClientTableDropRequest {
+public interface RetryPolicyContext {
     /**
-     * Processes the request.
+     * Gets the client configuration.
      *
-     * @param in     Unpacker.
-     * @param tables Ignite tables.
-     * @return Future.
+     * @return Client configuration.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
-        var tableName = in.unpackString();
+    public IgniteClientConfiguration configuration();
 
-        return tables.dropTableAsync(tableName);
-    }
+    /**
+     * Gets the operation type.
+     *
+     * @return Operation type.
+     */
+    public ClientOperationType operation();
+
+    /**
+     * Gets the current iteration number (zero-based).
+     *
+     * @return Zero-based iteration counter.
+     */
+    public int iteration();
+
+    /**
+     * Gets the connection exception that caused current retry iteration.
+     *
+     * @return Exception.
+     */
+    public IgniteClientConnectionException exception();
 }

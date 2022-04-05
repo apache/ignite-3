@@ -34,7 +34,7 @@ namespace Apache.Ignite.Tests
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryPolicy = new RetryAllPolicy { RetryLimit = 1 }
+                RetryPolicy = new RetryLimitPolicy { RetryLimit = 1 }
             };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
@@ -49,13 +49,28 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestFailoverWithRetryPolicyDoesNotRetryUnrelatedErrors()
         {
-            var cfg = new IgniteClientConfiguration { RetryPolicy = RetryAllPolicy.Instance };
+            var cfg = new IgniteClientConfiguration { RetryPolicy = new RetryLimitPolicy() };
 
             using var server = new FakeServer(reqId => reqId % 2 == 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTableAsync("bad-table"));
             Assert.AreEqual(FakeServer.Err, ex!.Message);
+        }
+
+        [Test]
+        public async Task TestFailoverWithRetryPolicyDoesNotRetryTxCommit()
+        {
+            var testRetryPolicy = new TestRetryPolicy();
+            var cfg = new IgniteClientConfiguration { RetryPolicy = testRetryPolicy };
+
+            using var server = new FakeServer(reqId => reqId % 2 == 0);
+            using var client = await server.ConnectClientAsync(cfg);
+
+            var tx = await client.Transactions.BeginAsync();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await tx.CommitAsync());
+            Assert.IsEmpty(testRetryPolicy.Invocations);
         }
 
         [Test]
@@ -76,14 +91,29 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
+        public async Task TestFailoverWithRetryPolicyThrowsOnDefaultRetryLimitExceeded()
+        {
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync();
+
+            await client.Tables.GetTablesAsync();
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+            Assert.AreEqual("Operation failed after 16 retries, examine InnerException for details.", ex!.Message);
+        }
+
+        [Test]
         public async Task TestZeroRetryLimitDoesNotLimitRetryCount()
         {
             var cfg = new IgniteClientConfiguration
             {
-                RetryPolicy = new RetryAllPolicy { RetryLimit = 0 }
+                RetryPolicy = new RetryLimitPolicy
+                {
+                    RetryLimit = 0
+                }
             };
 
-            using var server = new FakeServer(reqId => reqId % 10 != 0);
+            using var server = new FakeServer(reqId => reqId % 30 != 0);
             using var client = await server.ConnectClientAsync(cfg);
 
             for (var i = 0; i < IterCount; i++)
@@ -97,6 +127,22 @@ namespace Apache.Ignite.Tests
         {
             using var server = new FakeServer(reqId => reqId > 1);
             using var client = await server.ConnectClientAsync();
+
+            await client.Tables.GetTablesAsync();
+
+            Assert.ThrowsAsync<IgniteClientException>(async () => await client.Tables.GetTablesAsync());
+        }
+
+        [Test]
+        public async Task TestNullRetryPolicyIsSameAsNoRetry()
+        {
+            var cfg = new IgniteClientConfiguration
+            {
+                RetryPolicy = null!
+            };
+
+            using var server = new FakeServer(reqId => reqId > 1);
+            using var client = await server.ConnectClientAsync(cfg);
 
             await client.Tables.GetTablesAsync();
 

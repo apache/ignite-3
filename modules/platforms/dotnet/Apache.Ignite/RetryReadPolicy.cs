@@ -25,11 +25,6 @@ namespace Apache.Ignite
     /// </summary>
     public sealed class RetryReadPolicy : RetryLimitPolicy
     {
-        /// <summary>
-        /// Singleton instance.
-        /// </summary>
-        public static readonly RetryReadPolicy Instance = new();
-
         /// <inheritdoc />
         public override bool ShouldRetry(IRetryPolicyContext context)
         {
