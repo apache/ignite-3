@@ -18,15 +18,12 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -100,20 +97,36 @@ public class RetryPolicyTest {
 
     @Test
     public void testRetryLimitPolicyThrowsOnLimitExceeded() throws Exception {
-        initServer(reqId -> reqId > 3);
+        initServer(reqId -> reqId % 2 == 0);
         var plc = new TestRetryPolicy();
-        plc.retryLimit(3);
+        plc.retryLimit(5);
 
         try (var client = getClient(plc)) {
-            assertEquals("t", client.tables().tables().get(0).name());
-            assertEquals("t", client.tables().tables().get(0).name());
             assertThrows(IgniteClientException.class, () -> client.tables().tables());
         }
+
+        assertEquals(6, plc.invocations.size());
+        assertEquals(5, plc.invocations.get(5).iteration());
     }
 
     @Test
-    public void testCustomRetryPolicyIsInvokedWithCorrectContext() {
-        // TODO
+    public void testCustomRetryPolicyIsInvokedWithCorrectContext() throws Exception {
+        initServer(reqId -> reqId % 2 == 0);
+        var plc = new TestRetryPolicy();
+        plc.retryLimit(2);
+
+        try (var client = getClient(plc)) {
+            assertThrows(IgniteClientException.class, () -> client.tables().tables());
+        }
+
+        assertEquals(3, plc.invocations.size());
+
+        RetryPolicyContext ctx = plc.invocations.get(1);
+
+        assertEquals(1, ctx.iteration());
+        assertEquals(ClientOperationType.TABLES_GET, ctx.operation());
+        assertSame(plc, ctx.configuration().retryPolicy());
+        assertEquals("Channel is closed", ctx.exception().getMessage());
     }
 
     @Test
