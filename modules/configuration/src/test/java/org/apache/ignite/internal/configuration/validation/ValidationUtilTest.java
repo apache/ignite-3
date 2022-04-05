@@ -191,8 +191,8 @@ public class ValidationUtilTest {
         );
 
         assertThat(
-                ExValidationIssue.compareByCurrentKey(actual),
-                equalTo(ExValidationIssue.compareByCurrentKey(expected))
+                ExValidationIssue.sortedByCurrentKey(actual),
+                equalTo(ExValidationIssue.sortedByCurrentKey(expected))
         );
     }
 
@@ -229,8 +229,8 @@ public class ValidationUtilTest {
         );
 
         assertThat(
-                ExValidationIssue.compareByCurrentKey(actual),
-                equalTo(ExValidationIssue.compareByCurrentKey(expected))
+                ExValidationIssue.sortedByCurrentKey(actual),
+                equalTo(ExValidationIssue.sortedByCurrentKey(expected))
         );
     }
 
@@ -261,8 +261,8 @@ public class ValidationUtilTest {
         );
 
         assertThat(
-                ExValidationIssue.compareByCurrentKey(actual),
-                equalTo(ExValidationIssue.compareByCurrentKey(expected))
+                ExValidationIssue.sortedByCurrentKey(actual),
+                equalTo(ExValidationIssue.sortedByCurrentKey(expected))
         );
     }
 
@@ -323,7 +323,7 @@ public class ValidationUtilTest {
             return ex1.currentKey.compareTo(ex2.currentKey);
         }
 
-        static List<ExValidationIssue> compareByCurrentKey(List<ValidationIssue> issues) {
+        static List<ExValidationIssue> sortedByCurrentKey(List<ValidationIssue> issues) {
             return issues.stream()
                     .sorted(ExValidationIssue::compareByCurrentKey)
                     .map(ExValidationIssue.class::cast)
