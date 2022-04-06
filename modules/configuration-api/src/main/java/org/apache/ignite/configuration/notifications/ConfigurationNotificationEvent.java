@@ -56,7 +56,7 @@ public interface ConfigurationNotificationEvent<VIEWT> {
      * @param configClass Configuration interface, for example {@code RootConfiguration}.
      * @param <T> Configuration type.
      */
-    @Nullable <T extends ConfigurationProperty> T config(Class<?> configClass);
+    @Nullable <T extends ConfigurationProperty> T config(Class<T> configClass);
 
     /**
      * Returns the key of a named list item for the parent (any from the root) or current configuration.
@@ -66,5 +66,5 @@ public interface ConfigurationNotificationEvent<VIEWT> {
      *
      * @param configClass Configuration interface, for example {@code TableConfiguration}.
      */
-    @Nullable String name(Class<?> configClass);
+    @Nullable String name(Class<? extends ConfigurationProperty> configClass);
 }

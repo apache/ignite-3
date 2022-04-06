@@ -322,7 +322,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
         long causalityToken = schemasCtx.storageRevision();
 
-        ExtendedTableConfiguration tblCfg = schemasCtx.config(TableConfiguration.class);
+        ExtendedTableConfiguration tblCfg = schemasCtx.config(ExtendedTableConfiguration.class);
 
         UUID tblId = tblCfg.id().value();
 
@@ -387,7 +387,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param assignmentsCtx Change assignment event.
      */
     private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
-        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(TableConfiguration.class);
+        ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
         UUID tblId = tblCfg.id().value();
 

@@ -81,7 +81,7 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
 
     /** {@inheritDoc} */
     @Override
-    public <T extends ConfigurationProperty> @Nullable T config(Class<?> configClass) {
+    public <T extends ConfigurationProperty> @Nullable T config(Class<T> configClass) {
         ConfigurationContainer container = findContainer(configClass);
 
         return container == null ? null : (T) container.specificConfig();
@@ -89,7 +89,7 @@ class ConfigurationNotificationEventImpl<VIEWT> implements ConfigurationNotifica
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable String name(Class<?> configClass) {
+    public @Nullable String name(Class<? extends ConfigurationProperty> configClass) {
         ConfigurationContainer container = findContainer(configClass);
 
         return container == null ? null : container.name;

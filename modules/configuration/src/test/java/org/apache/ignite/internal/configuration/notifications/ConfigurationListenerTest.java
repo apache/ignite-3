@@ -39,8 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -442,7 +442,7 @@ public class ConfigurationListenerTest {
 
             ChildView newValue = ctx.newValue().get("newName");
 
-            assertSame(oldValue, newValue);
+            assertNotSame(oldValue, newValue);
 
             log.add("elements");
 
@@ -483,7 +483,7 @@ public class ConfigurationListenerTest {
 
                 ChildView newValue = ctx.newValue();
 
-                assertSame(oldValue, newValue);
+                assertNotSame(oldValue, newValue);
 
                 log.add("rename");
 

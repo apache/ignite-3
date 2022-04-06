@@ -17,10 +17,10 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * SQL index configuration.
@@ -41,8 +41,7 @@ public class TableIndexConfigurationSchema {
     public String type;
 
     /** Index name. */
-    @Value
-    @Immutable
+    @InjectedName
     public String name;
 
     /** Has default value flag. */

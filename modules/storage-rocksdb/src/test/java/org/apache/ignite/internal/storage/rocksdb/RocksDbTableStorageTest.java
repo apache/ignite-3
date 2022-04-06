@@ -34,7 +34,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -73,6 +72,7 @@ public class RocksDbTableStorageTest {
     public void setUp(
             @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig,
             @InjectConfiguration(
+                    name = "table",
                     polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
     ) throws Exception {
@@ -85,7 +85,7 @@ public class RocksDbTableStorageTest {
 
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
-        changeFuture = tableCfg.change(cfg -> cfg.changeName("table").changePartitions(512));
+        changeFuture = tableCfg.change(cfg -> cfg.changePartitions(512));
 
         assertThat(changeFuture, willBe(nullValue(Void.class)));
 
@@ -192,11 +192,10 @@ public class RocksDbTableStorageTest {
     @Test
     void testRestart(
             @InjectConfiguration(
+                    name = "table",
                     polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
     ) throws Exception {
-        tableCfg.change(c -> c.changeName("table")).get(1, TimeUnit.SECONDS);
-
         var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
 
         storage.getOrCreatePartition(0).write(testData);

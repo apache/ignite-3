@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
@@ -33,8 +34,7 @@ import org.apache.ignite.configuration.validation.Min;
 @Config
 public class TableConfigurationSchema {
     /** Table name. */
-    @Value
-    @Immutable
+    @InjectedName
     public String name;
 
     /** Table partitions. */

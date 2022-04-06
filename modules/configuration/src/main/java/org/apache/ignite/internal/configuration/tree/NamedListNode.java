@@ -279,9 +279,13 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
             throw elementRemovedException(oldKey);
         }
 
+        element = element.copy();
+
         checkNewKey(newKey);
 
         map.rename(oldKey, newKey);
+
+        map.put(newKey, element);
 
         reverseIdMap.put(element.internalId, newKey);
 
