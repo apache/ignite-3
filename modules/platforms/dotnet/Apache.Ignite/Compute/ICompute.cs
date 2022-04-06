@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,43 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+namespace Apache.Ignite.Compute
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
-    using Compute;
     using Network;
-    using Table;
-    using Transactions;
 
     /// <summary>
-    /// Ignite API entry point.
-    /// <para />
-    /// Implementation can be a thin client (see <see cref="IIgniteClient"/> and <see cref="IgniteClient.StartAsync"/>),
-    /// or a direct IPC connection for server-side functionality like compute.
+    /// Ignite Compute API provides distributed job execution functionality.
     /// </summary>
-    public interface IIgnite
+    public interface ICompute
     {
         /// <summary>
-        /// Gets the tables API.
+        /// Executes a compute job represented by the given class on one of the specified nodes.
         /// </summary>
-        ITables Tables { get; }
-
-        /// <summary>
-        /// Gets the transactions API.
-        /// </summary>
-        ITransactions Transactions { get; }
-
-        /// <summary>
-        /// Gets the compute API.
-        /// </summary>
-        ICompute Compute { get; }
-
-        /// <summary>
-        /// Gets the cluster nodes.
-        /// NOTE: Temporary API to enable Compute until we have proper Cluster API.
-        /// </summary>
+        /// <param name="nodes">Nodes to use for the job execution.</param>
+        /// <param name="jobClassName">Java class name of the job to execute.</param>
+        /// <param name="args">Job arguments.</param>
+        /// <typeparam name="T">Job result type.</typeparam>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task<IList<IClusterNode>> GetClusterNodesAsync();
+        Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args);
     }
 }

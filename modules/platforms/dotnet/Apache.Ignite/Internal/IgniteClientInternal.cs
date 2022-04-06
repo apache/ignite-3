@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using System.Net;
     using System.Threading.Tasks;
+    using Ignite.Compute;
     using Ignite.Network;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -44,6 +45,7 @@ namespace Apache.Ignite.Internal
             _socket = socket;
             Tables = new Tables(socket);
             Transactions = new Transactions.Transactions(socket);
+            Compute = new Compute.Compute(socket);
         }
 
         /// <inheritdoc/>
@@ -55,6 +57,9 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public ITransactions Transactions { get; }
+
+        /// <inheritdoc/>
+        public ICompute Compute { get; }
 
         /// <inheritdoc/>
         public async Task<IList<IClusterNode>> GetClusterNodesAsync()
