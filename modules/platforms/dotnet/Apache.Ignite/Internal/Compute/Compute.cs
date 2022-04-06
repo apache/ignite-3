@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Compute
 {
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Network;
@@ -42,6 +43,13 @@ namespace Apache.Ignite.Internal.Compute
 
         /// <inheritdoc/>
         public async Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
+        {
+            // TODO: Random node.
+            // TODO: Validate args.
+            return await ExecuteOnOneNode<T>(nodes.First(), jobClassName, args).ConfigureAwait(false);
+        }
+
+        private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
         {
             // TODO: ser/de
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute).ConfigureAwait(false);
