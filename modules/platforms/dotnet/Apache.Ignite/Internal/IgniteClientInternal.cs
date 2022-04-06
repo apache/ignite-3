@@ -66,7 +66,7 @@ namespace Apache.Ignite.Internal
             IList<IClusterNode> Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadInt32();
+                var count = r.ReadArrayHeader();
                 var res = new List<IClusterNode>(count);
 
                 for (var i = 0; i < count; i++)
