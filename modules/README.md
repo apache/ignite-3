@@ -16,7 +16,7 @@ Module Name | Description
 [cli-common](cli-common/README.md)|Shared interfaces definitions for pluggable CLIng
 [configuration](configuration/README.md)|Ignite configuration classes and configuration management framework
 [configuration-annotation-processor](configuration-annotation-processor/README.md)|Tooling for generating Ignite configuration model classes from configuration schema definition
-[core: causality tokens](core/src/main/java/org/apache/ignite/internal/causality/README.md)| Causality tokens
+[core: causality tokens](core/src/main/java/org/apache/ignite/internal/causality/README.md)|Causality tokens
 [core: local state recovery](core/src/main/java/org/apache/ignite/internal/manager/RECOVERY.md)|Local state recovery
 [network](network/README.md)|Networking module: group membership and message passi
 [rest](rest/README.md)|REST management endpoint bindings and command handlers
