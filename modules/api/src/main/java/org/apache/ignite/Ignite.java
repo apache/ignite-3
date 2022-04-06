@@ -93,8 +93,7 @@ public interface Ignite extends AutoCloseable {
 
     /**
      * Gets the cluster nodes.
-     * NOTE: Temporary API to enable Compute until we have proper Cluster API.
-     *
+c     *
      * @return Collection of cluster nodes.
      */
     CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();

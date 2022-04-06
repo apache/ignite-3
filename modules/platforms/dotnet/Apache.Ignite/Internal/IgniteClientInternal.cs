@@ -17,8 +17,14 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System.Collections.Generic;
+    using System.Net;
+    using System.Threading.Tasks;
+    using Ignite.Network;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Network;
+    using Proto;
     using Table;
 
     /// <summary>
@@ -49,6 +55,31 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public ITransactions Transactions { get; }
+
+        /// <inheritdoc/>
+        public async Task<IList<IClusterNode>> GetClusterNodesAsync()
+        {
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.ClusterGetNodes).ConfigureAwait(false);
+
+            return Read();
+
+            IList<IClusterNode> Read()
+            {
+                var r = resBuf.GetReader();
+                var count = r.ReadInt32();
+                var res = new List<IClusterNode>(count);
+
+                for (var i = 0; i < count; i++)
+                {
+                    res.Add(new ClusterNode(
+                        id: r.ReadString(),
+                        name: r.ReadString(),
+                        address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                }
+
+                return res;
+            }
+        }
 
         /// <inheritdoc/>
         public void Dispose()

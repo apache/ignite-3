@@ -17,6 +17,9 @@
 
 namespace Apache.Ignite
 {
+    using System.Collections.Generic;
+    using System.Threading.Tasks;
+    using Network;
     using Table;
     using Transactions;
 
@@ -37,5 +40,12 @@ namespace Apache.Ignite
         /// Gets the transactions API.
         /// </summary>
         ITransactions Transactions { get; }
+
+        /// <summary>
+        /// Gets the cluster nodes.
+        /// NOTE: Temporary API to enable Compute until we have proper Cluster API.
+        /// </summary>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task<IList<IClusterNode>> GetClusterNodesAsync();
     }
 }
