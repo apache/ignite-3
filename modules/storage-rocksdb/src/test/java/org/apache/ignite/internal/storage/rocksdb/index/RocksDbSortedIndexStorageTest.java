@@ -107,7 +107,7 @@ public class RocksDbSortedIndexStorageTest {
             HashIndexConfigurationSchema.class,
             SortedIndexConfigurationSchema.class,
             RocksDbDataStorageConfigurationSchema.class
-    })
+    }, name = "table")
     private TableConfiguration tableCfg;
 
     private TableStorage tableStorage;

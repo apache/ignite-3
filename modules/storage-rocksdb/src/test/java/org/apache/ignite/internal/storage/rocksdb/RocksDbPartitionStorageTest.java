@@ -58,14 +58,13 @@ public class RocksDbPartitionStorageTest extends AbstractPartitionStorageTest {
             @WorkDirectory Path workDir,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
+                    name = "table",
                     polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
             ) TableConfiguration tableCfg
     ) throws Exception {
         assertThat(tableCfg.dataStorage(), is(instanceOf(RocksDbDataStorageConfiguration.class)));
 
         assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
-
-        tableCfg.change(c -> c.changeName("table")).get(1, SECONDS);
 
         engineConfig.defaultRegion().change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)).get(1, SECONDS);
 

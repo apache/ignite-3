@@ -19,6 +19,7 @@ package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 
@@ -28,7 +29,7 @@ import org.apache.ignite.configuration.validation.Immutable;
 @Config
 public class ColumnConfigurationSchema {
     /** Column name. */
-    @Value
+    @InjectedName
     public String name;
 
     /** Column type. */

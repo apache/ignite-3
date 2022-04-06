@@ -229,7 +229,7 @@ public class RetryPolicyTest {
 
     private void initServer(Function<Integer, Boolean> integerBooleanFunction) {
         FakeIgnite ign = new FakeIgnite();
-        ign.tables().createTable("t", c -> c.changeName("t"));
+        ign.tables().createTable("t", c -> {});
 
         server = new TestServer(10900, 10, 0, ign, integerBooleanFunction);
     }

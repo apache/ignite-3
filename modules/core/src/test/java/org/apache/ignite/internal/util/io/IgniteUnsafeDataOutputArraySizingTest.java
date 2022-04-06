@@ -112,8 +112,6 @@ class IgniteUnsafeDataOutputArraySizingTest {
                 out.write(bytes);
                 out.cleanup();
 
-                System.out.println("L=" + out.internalArray().length);
-
                 return out.internalArray().length == len;
             } catch (Exception e) {
                 throw new RuntimeException(e);

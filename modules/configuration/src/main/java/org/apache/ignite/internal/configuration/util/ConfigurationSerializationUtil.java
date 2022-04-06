@@ -200,7 +200,7 @@ public class ConfigurationSerializationUtil {
                 buf.put(header);
 
                 for (int i = 0; i < strings.length; i++) {
-                    buf.putInt(strings[i].length());
+                    buf.putInt(strBytes[i].length);
 
                     buf.put(strBytes[i]);
                 }

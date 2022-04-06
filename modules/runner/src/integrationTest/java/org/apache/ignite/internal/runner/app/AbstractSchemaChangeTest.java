@@ -241,10 +241,6 @@ abstract class AbstractSchemaChangeTest {
                 tblChanger -> tblChanger.changeColumns(
                         colListChanger -> colListChanger
                                 .rename(IgniteObjectName.parse(oldName), IgniteObjectName.parse(newName))
-                                .update(
-                                        IgniteObjectName.parse(newName),
-                                        colChanger -> colChanger.changeName(IgniteObjectName.parse(newName))
-                                )
                 )
         );
     }
