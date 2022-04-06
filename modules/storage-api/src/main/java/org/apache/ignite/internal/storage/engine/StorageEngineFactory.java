@@ -28,6 +28,8 @@ public interface StorageEngineFactory {
     /**
      * Creates a new storage engine.
      *
+     * <p>NOTE: {@code configRegistry} has not started yet, so only the root configuration can be retrieved.
+     *
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
      * @throws StorageException If there is an error when creating the storage engine.

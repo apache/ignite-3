@@ -32,8 +32,4 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface KnownDataStorage {
-    /**
-     * Should the data storage be known initially or after the first change.
-     */
-    boolean initially() default true;
 }

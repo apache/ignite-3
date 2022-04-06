@@ -19,19 +19,25 @@ package org.apache.ignite.internal.storage;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
+import org.apache.ignite.configuration.schemas.store.DataStorageView;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
+import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -52,7 +58,7 @@ public class DataStorageManager implements IgniteComponent {
             ConfigurationRegistry clusterConfigRegistry,
             Path storagePath
     ) {
-        this.engines = StreamSupport.stream(engineFactories().spliterator(), false)
+        engines = StreamSupport.stream(engineFactories().spliterator(), false)
                 .map(engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath))
                 .collect(toUnmodifiableMap(
                         StorageEngine::name,
@@ -69,14 +75,14 @@ public class DataStorageManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public void start() throws StorageException {
         engines.values().forEach(StorageEngine::start);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
-        IgniteUtils.closeAll(engines.values().stream().map(engine -> engine::stop));
+    public void stop() throws StorageException {
+        engines.values().forEach(StorageEngine::stop);
     }
 
     /**
@@ -85,6 +91,7 @@ public class DataStorageManager implements IgniteComponent {
      * <p>NOTE: It is recommended to override only in tests.
      */
     protected Iterable<StorageEngineFactory> engineFactories() {
+        // TODO: IGNITE-16792 переделать на конструктор
         return ServiceLoader.load(StorageEngineFactory.class);
     }
 
@@ -94,7 +101,31 @@ public class DataStorageManager implements IgniteComponent {
      * @param config Data storage configuration.
      */
     public @Nullable StorageEngine engine(DataStorageConfiguration config) {
-        return engines.get(config.value().name());
+        return engine(config.value());
+    }
+
+    private @Nullable StorageEngine engine(DataStorageView view) {
+        return engines.get(view.name());
+    }
+
+    /**
+     * Returns a consumer that will set the default {@link TableConfigurationSchema#dataStorage table data storage} depending on the {@link
+     * StorageEngine engine}.
+     *
+     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}.
+     */
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
+        if (!(defaultDataStorageView instanceof UnknownDataStorageView)) {
+            return engine(defaultDataStorageView).defaultTableDataStorageConsumer(defaultDataStorageView);
+        }
+
+        if (engines.size() == 1) {
+            return first(engines.values()).defaultTableDataStorageConsumer(defaultDataStorageView);
+        }
+
+        // Do nothing.
+        return c -> {
+        };
     }
 
     /** {@inheritDoc} */

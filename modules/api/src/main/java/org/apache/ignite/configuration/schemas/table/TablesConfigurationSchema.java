@@ -22,7 +22,6 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
 
 /**
  * Tables configuration schema.
@@ -36,7 +35,6 @@ public class TablesConfigurationSchema {
     public TableConfigurationSchema tables;
 
     /** Default data storage for tables. */
-    @KnownDataStorage(initially = false)
     @ConfigValue
     public DataStorageConfigurationSchema defaultDataStorage;
 }

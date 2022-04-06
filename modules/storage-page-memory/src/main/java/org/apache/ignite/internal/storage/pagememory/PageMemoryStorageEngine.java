@@ -21,6 +21,10 @@ import static org.apache.ignite.internal.storage.pagememory.configuration.schema
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.schemas.store.DataStorageChange;
+import org.apache.ignite.configuration.schemas.store.DataStorageView;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -28,6 +32,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -105,5 +110,20 @@ public class PageMemoryStorageEngine implements StorageEngine {
         VolatilePageMemoryDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
         return new VolatilePageMemoryTableStorage(tableCfg, dataRegion);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
+        assert defaultDataStorageView instanceof UnknownDataStorageView
+                || defaultDataStorageView instanceof PageMemoryDataStorageView : defaultDataStorageView;
+
+        return tableDataStorageChange -> {
+            PageMemoryDataStorageChange convert = tableDataStorageChange.convert(PageMemoryDataStorageChange.class);
+
+            if (defaultDataStorageView instanceof PageMemoryDataStorageView) {
+                convert.changeDataRegion(((PageMemoryDataStorageView) defaultDataStorageView).dataRegion());
+            }
+        };
     }
 }

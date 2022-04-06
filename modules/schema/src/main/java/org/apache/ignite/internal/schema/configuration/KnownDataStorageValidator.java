@@ -35,17 +35,14 @@ public class KnownDataStorageValidator implements Validator<KnownDataStorage, Da
     /** {@inheritDoc} */
     @Override
     public void validate(KnownDataStorage annotation, ValidationContext<DataStorageView> ctx) {
-        DataStorageView oldValue = ctx.getOldValue();
         DataStorageView newValue = ctx.getNewValue();
 
-        if (annotation.initially() || oldValue != newValue) {
-            if (newValue.name().equals(UNKNOWN_DATA_STORAGE)) {
-                ctx.addIssue(new ValidationIssue(String.format(
-                        "Data storage cannot be '%s': %s",
-                        UNKNOWN_DATA_STORAGE,
-                        ctx.currentKey()
-                )));
-            }
+        if (newValue.name().equals(UNKNOWN_DATA_STORAGE)) {
+            ctx.addIssue(new ValidationIssue(String.format(
+                    "Data storage cannot be '%s': %s",
+                    UNKNOWN_DATA_STORAGE,
+                    ctx.currentKey()
+            )));
         }
     }
 }

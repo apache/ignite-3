@@ -17,8 +17,14 @@
 
 package org.apache.ignite.internal.storage.engine;
 
+import java.util.function.Consumer;
+import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.DataStorageView;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.storage.StorageException;
 
 /**
@@ -53,4 +59,13 @@ public interface StorageEngine {
      * @throws StorageException If an error has occurs while creating the table.
      */
     TableStorage createTable(TableConfiguration tableCfg) throws StorageException;
+
+    /**
+     * Returns a consumer that will set the default {@link TableConfigurationSchema#dataStorage table data storage}.
+     *
+     * @param defaultDataStorageView View of the {@link TablesConfigurationSchema#defaultDataStorage}. Either {@link UnknownDataStorageView}
+     *      or a view of {@link DataStorageConfigurationSchema} extension of the current engine, for example {@code
+     *      ConcurrentHashMapDataStorageView}.
+     */
+    Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView);
 }
