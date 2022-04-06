@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.schema;
 
 import java.util.UUID;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,7 +44,8 @@ public interface SqlSchemaManager {
      * Returns the index by id.
      *
      * @param id An id of required index.
-     * @return The index instance or {@code null} if not found.
+     * @return Appropriate index instance.
+     * @throws IgniteInternalException if not found.
      */
     IgniteIndex indexById(UUID id);
 }

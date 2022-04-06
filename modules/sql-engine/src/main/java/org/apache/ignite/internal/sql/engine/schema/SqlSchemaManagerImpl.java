@@ -118,13 +118,18 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteIndex indexById(UUID id) {
+    public IgniteIndex indexById(UUID id) throws IgniteInternalException {
         IgniteIndex idx = indexById.get(id);
 
         if (idx == null) {
             indexManager.getIndexById(id);
 
             idx = indexById.get(id);
+        }
+
+        if (idx == null) {
+            throw new IgniteInternalException(
+                    IgniteStringFormatter.format("Index not found [idxId={}]", id));
         }
 
         return idx;

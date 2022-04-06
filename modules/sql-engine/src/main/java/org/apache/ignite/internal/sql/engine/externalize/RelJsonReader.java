@@ -53,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IndexNotFoundException;
 
 /**
  * RelJsonReader.
@@ -178,13 +177,7 @@ public class RelJsonReader {
 
             UUID id = UUID.fromString(idxId);
 
-            IgniteIndex idx = schemaManager.indexById(id);
-
-            if (idx == null) {
-                throw new IndexNotFoundException(idxName, id);
-            }
-
-            return idx;
+            return schemaManager.indexById(id);
         }
 
         /** {@inheritDoc} */
