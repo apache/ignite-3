@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
+import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockAddIssue;
+import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -24,12 +26,10 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexChange;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
@@ -42,8 +42,6 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.schema.TestRocksDbDataStorageConfigurationSchema;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -66,7 +64,7 @@ public class TableValidatorImplTest {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
                     PartialIndexConfigurationSchema.class,
-                    TestRocksDbDataStorageConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
                     TestDataStorageConfigurationSchema.class
             }
     )
@@ -75,9 +73,11 @@ public class TableValidatorImplTest {
     /** Tests that validator finds no issues in a simple valid configuration. */
     @Test
     public void testNoIssues() {
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(null);
+        ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
 
-        ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
+        ArgumentCaptor<ValidationIssue> issuesCaptor = mockAddIssue(ctx);
+
+        TableValidatorImpl.INSTANCE.validate(null, ctx);
 
         assertThat(issuesCaptor.getAllValues(), is(empty()));
     }
@@ -98,9 +98,11 @@ public class TableValidatorImplTest {
 
         assertThat(tableChangeFuture, willBe(nullValue(Void.class)));
 
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue);
+        ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(oldValue, tablesCfg.tables().value());
 
-        ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
+        ArgumentCaptor<ValidationIssue> issuesCaptor = mockAddIssue(ctx);
+
+        TableValidatorImpl.INSTANCE.validate(null, ctx);
 
         assertThat(issuesCaptor.getAllValues(), hasSize(1));
 
@@ -126,9 +128,11 @@ public class TableValidatorImplTest {
 
         assertThat(tableChangeFuture, willBe(nullValue(Void.class)));
 
-        ValidationContext<NamedListView<TableView>> ctx = mockContext(oldValue);
+        ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(oldValue, tablesCfg.tables().value());
 
-        ArgumentCaptor<ValidationIssue> issuesCaptor = validate(ctx);
+        ArgumentCaptor<ValidationIssue> issuesCaptor = mockAddIssue(ctx);
+
+        TableValidatorImpl.INSTANCE.validate(null, ctx);
 
         assertThat(issuesCaptor.getAllValues(), hasSize(1));
 
@@ -136,28 +140,5 @@ public class TableValidatorImplTest {
                 issuesCaptor.getValue().message(),
                 is(equalTo("Index name \"not ololo\" does not match its Named List key: \"ololo\""))
         );
-    }
-
-    private ValidationContext<NamedListView<TableView>> mockContext(
-            @Nullable NamedListView<TableView> oldValue
-    ) {
-        ValidationContext<NamedListView<TableView>> ctx = mock(ValidationContext.class);
-
-        NamedListView<TableView> newValue = tablesCfg.tables().value();
-
-        when(ctx.getOldValue()).thenReturn(oldValue);
-        when(ctx.getNewValue()).thenReturn(newValue);
-
-        return ctx;
-    }
-
-    private static ArgumentCaptor<ValidationIssue> validate(ValidationContext<NamedListView<TableView>> ctx) {
-        ArgumentCaptor<ValidationIssue> issuesCaptor = ArgumentCaptor.forClass(ValidationIssue.class);
-
-        doNothing().when(ctx).addIssue(issuesCaptor.capture());
-
-        TableValidatorImpl.INSTANCE.validate(null, ctx);
-
-        return issuesCaptor;
     }
 }

@@ -22,6 +22,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
@@ -49,6 +50,8 @@ public class TableConfigurationSchema {
     public int replicas = 1;
 
     /** Data storage configuration. */
+    @Immutable
+    @KnownDataStorage
     @ConfigValue
     public DataStorageConfigurationSchema dataStorage;
 
