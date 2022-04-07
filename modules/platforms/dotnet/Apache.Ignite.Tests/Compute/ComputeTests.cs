@@ -18,8 +18,11 @@
 namespace Apache.Ignite.Tests.Compute
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Net;
     using System.Threading.Tasks;
+    using Network;
     using NUnit.Framework;
 
     /// <summary>
@@ -46,12 +49,11 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            // TODO: Start two nodes.
-            // TODO: Test type mismatch.
-            var nodes = await Client.GetClusterNodesAsync();
-            var res = await Client.Compute.ExecuteAsync<string>(nodes, NodeNameJob);
+            var res1 = await Client.Compute.ExecuteAsync<string>(await GetNode(0), NodeNameJob);
+            var res2 = await Client.Compute.ExecuteAsync<string>(await GetNode(1), NodeNameJob);
 
-            Assert.AreEqual(PlatformTestNodeRunner, res);
+            Assert.AreEqual(PlatformTestNodeRunner, res1);
+            Assert.AreEqual(PlatformTestNodeRunner + "_2", res2);
         }
 
         [Test]
@@ -60,5 +62,8 @@ namespace Apache.Ignite.Tests.Compute
             Assert.ThrowsAsync<InvalidCastException>(async () =>
                 await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), NodeNameJob));
         }
+
+        private async Task<IEnumerable<IClusterNode>> GetNode(int index) =>
+            (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1);
     }
 }
