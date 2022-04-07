@@ -70,6 +70,8 @@ namespace Apache.Ignite.Internal.Compute
 
                 w.Write(jobClassName);
                 w.WriteObjectArray(args);
+
+                w.Flush();
             }
 
             T Read()

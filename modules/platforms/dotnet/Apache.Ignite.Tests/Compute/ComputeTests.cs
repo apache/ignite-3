@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute
 {
+    using System;
     using System.Net;
     using System.Threading.Tasks;
     using NUnit.Framework;
@@ -28,13 +29,15 @@ namespace Apache.Ignite.Tests.Compute
     {
         private const string NodeNameJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$NodeNameJob";
 
+        private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
+
         [Test]
         public async Task TestGetClusterNodes()
         {
             var res = await Client.GetClusterNodesAsync();
 
             Assert.AreEqual(1, res.Count);
-            Assert.AreEqual("org.apache.ignite.internal.runner.app.PlatformTestNodeRunner", res[0].Name);
+            Assert.AreEqual(PlatformTestNodeRunner, res[0].Name);
             Assert.IsNotEmpty(res[0].Id);
             Assert.AreEqual(3344, res[0].Address.Port);
             Assert.IsTrue(IPAddress.IsLoopback(res[0].Address.Address), res[0].Address.ToString());
@@ -46,7 +49,16 @@ namespace Apache.Ignite.Tests.Compute
             // TODO: Start two nodes.
             // TODO: Test type mismatch.
             var nodes = await Client.GetClusterNodesAsync();
-            await Client.Compute.ExecuteAsync<string>(nodes, NodeNameJob);
+            var res = await Client.Compute.ExecuteAsync<string>(nodes, NodeNameJob);
+
+            Assert.AreEqual(PlatformTestNodeRunner, res);
+        }
+
+        [Test]
+        public void TestExecuteResultTypeMismatchThrowsInvalidCastException()
+        {
+            Assert.ThrowsAsync<InvalidCastException>(async () =>
+                await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), NodeNameJob));
         }
     }
 }
