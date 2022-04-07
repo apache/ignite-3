@@ -25,6 +25,7 @@ namespace Apache.Ignite.Tests.Compute
     using Ignite.Compute;
     using Network;
     using NUnit.Framework;
+    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
@@ -128,32 +129,37 @@ namespace Apache.Ignite.Tests.Compute
 
         // TODO: Support all types (IGNITE-15431).
         [Test]
-        public async Task TestAllSupportedArgTypes([Values(
-            byte.MinValue,
-            byte.MaxValue,
-            sbyte.MinValue,
-            sbyte.MaxValue,
-            short.MinValue,
-            short.MaxValue,
-            ushort.MinValue,
-            ushort.MaxValue,
-            int.MinValue,
-            int.MaxValue,
-            uint.MinValue,
-            uint.MaxValue,
-            long.MinValue,
-            long.MaxValue,
-            ulong.MinValue,
-            ulong.MaxValue,
-            float.MinValue,
-            float.MaxValue,
-            double.MinValue,
-            double.MaxValue,
-            "Ignite 🔥")] object val)
+        public async Task TestAllSupportedArgTypes()
         {
-            var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
+            await Test(byte.MinValue);
+            await Test(byte.MaxValue);
+            await Test(sbyte.MinValue);
+            await Test(sbyte.MaxValue);
+            await Test(short.MinValue);
+            await Test(short.MaxValue);
+            await Test(ushort.MinValue);
+            await Test(ushort.MaxValue);
+            await Test(int.MinValue);
+            await Test(int.MaxValue);
+            await Test(uint.MinValue);
+            await Test(uint.MaxValue);
+            await Test(long.MinValue);
+            await Test(long.MaxValue);
+            await Test(ulong.MinValue);
+            await Test(ulong.MaxValue);
+            await Test(float.MinValue);
+            await Test(float.MaxValue);
+            await Test(double.MinValue);
+            await Test(double.MaxValue);
+            await Test("Ignite 🔥");
+            await Test(Guid.NewGuid());
 
-            Assert.AreEqual(val, res);
+            async Task Test(object val, object? expected = null)
+            {
+                var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
+
+                Assert.AreEqual(expected ?? val, res);
+            }
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
