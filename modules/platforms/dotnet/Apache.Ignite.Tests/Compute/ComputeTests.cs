@@ -52,11 +52,11 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            var res1 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(0), NodeNameJob);
-            var res2 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), NodeNameJob);
+            var res1 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(0), NodeNameJob, "-", 11);
+            var res2 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), NodeNameJob, ":", 22);
 
-            Assert.AreEqual(PlatformTestNodeRunner, res1);
-            Assert.AreEqual(PlatformTestNodeRunner + "_2", res2);
+            Assert.AreEqual(PlatformTestNodeRunner + "-_11", res1);
+            Assert.AreEqual(PlatformTestNodeRunner + "_2:_22", res2);
         }
 
         [Test]
@@ -72,6 +72,12 @@ namespace Apache.Ignite.Tests.Compute
         {
             Assert.ThrowsAsync<InvalidCastException>(async () =>
                 await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), NodeNameJob));
+        }
+
+        [Test]
+        public async Task TestBroadcastOneNode()
+        {
+            IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(await GetNodeAsync(0), NodeNameJob);
         }
 
         private async Task<IEnumerable<IClusterNode>> GetNodeAsync(int index) =>

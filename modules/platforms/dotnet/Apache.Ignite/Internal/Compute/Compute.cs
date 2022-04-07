@@ -86,6 +86,8 @@ namespace Apache.Ignite.Internal.Compute
 
         private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
         {
+            IgniteArgumentCheck.NotNull(node, nameof(node));
+
             using var writer = new PooledArrayBufferWriter();
             Write();
 
