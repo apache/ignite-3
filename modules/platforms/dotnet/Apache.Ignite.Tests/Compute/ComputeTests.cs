@@ -78,11 +78,14 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestBroadcastOneNode()
         {
             var nodes = await GetNodeAsync(0);
-            IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, NodeNameJob);
 
-            // TODO:
+            IDictionary<IClusterNode, Task<string>> taskMap = Client.Compute.BroadcastAsync<string>(nodes, NodeNameJob, "123");
+            var res = await taskMap[nodes[0]];
+
             Assert.AreEqual(1, taskMap.Count);
             Assert.AreSame(nodes[0], taskMap.Keys.Single());
+
+            Assert.AreEqual(PlatformTestNodeRunner + "123", res);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
