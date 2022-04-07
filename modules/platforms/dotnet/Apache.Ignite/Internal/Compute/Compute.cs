@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Compute
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+    using Buffers;
     using Ignite.Compute;
     using Ignite.Network;
     using Proto;
@@ -51,10 +52,32 @@ namespace Apache.Ignite.Internal.Compute
 
         private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
         {
-            // TODO: ser/de
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute).ConfigureAwait(false);
+            using var writer = new PooledArrayBufferWriter();
+            Write();
 
-            return default!;
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer).ConfigureAwait(false);
+
+            return Read();
+
+            void Write()
+            {
+                var w = writer.GetMessageWriter();
+
+                w.Write(node.Id);
+                w.Write(node.Name);
+                w.Write(node.Address.Address.ToString());
+                w.Write(node.Address.Port);
+
+                w.Write(jobClassName);
+                w.WriteObjectArray(args);
+            }
+
+            T Read()
+            {
+                var reader = resBuf.GetReader();
+
+                return (T)reader.ReadObjectWithType()!;
+            }
         }
     }
 }

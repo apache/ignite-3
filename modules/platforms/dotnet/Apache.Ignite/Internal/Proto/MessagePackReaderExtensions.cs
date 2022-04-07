@@ -69,6 +69,21 @@ namespace Apache.Ignite.Internal.Proto
         }
 
         /// <summary>
+        /// Reads <see cref="ClientDataType"/> and value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Value.</returns>
+        public static object? ReadObjectWithType(this ref MessagePackReader reader)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            return ReadObject(ref reader, (ClientDataType)reader.ReadInt32());
+        }
+
+        /// <summary>
         /// Reads nullable integer.
         /// </summary>
         /// <param name="reader">Reader.</param>
