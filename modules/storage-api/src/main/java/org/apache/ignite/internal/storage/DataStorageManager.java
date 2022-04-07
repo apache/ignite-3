@@ -28,7 +28,6 @@ import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -94,11 +93,7 @@ public class DataStorageManager implements IgniteComponent {
      * @param config Data storage configuration.
      */
     public @Nullable StorageEngine engine(DataStorageConfiguration config) {
-        return engine(config.value());
-    }
-
-    private @Nullable StorageEngine engine(DataStorageView view) {
-        return engines.get(view.name());
+        return engines.get(config.value().name());
     }
 
     /**
@@ -117,7 +112,7 @@ public class DataStorageManager implements IgniteComponent {
             return first(engines.values()).defaultTableDataStorageConsumer(defaultDataStorageView);
         }
 
-        return change -> {
+        return tableDataStorageChange -> {
         };
     }
 

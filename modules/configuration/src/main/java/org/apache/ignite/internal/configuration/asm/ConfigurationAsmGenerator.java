@@ -699,7 +699,7 @@ public class ConfigurationAsmGenerator {
                     polymorphicTypeIdFieldDef
             );
 
-            addNodeConvertMethod(classDef, schemaClass, polymorphicExtensions, changePolymorphicTypeIdMtd);
+            addNodeConvertMethods(classDef, schemaClass, polymorphicExtensions, changePolymorphicTypeIdMtd);
 
             polymorphicFieldsByExtension = new LinkedHashMap<>();
 
@@ -2461,8 +2461,8 @@ public class ConfigurationAsmGenerator {
 
         ParameterizedType returnType = typeFromJavaClassName(schemaClassInfo.changeClassName);
 
-        // Creates Node#convert.
-        MethodDefinition convertMtd = classDef.declareMethod(
+        // Creates Node#convert(Class<T> changeClass).
+        MethodDefinition convertByChangeClassMtd = classDef.declareMethod(
                 of(PUBLIC),
                 CONVERT_MTD_NAME,
                 returnType,
@@ -2470,10 +2470,25 @@ public class ConfigurationAsmGenerator {
         );
 
         // return this.this$0.convert(changeClass);
-        convertMtd.getBody()
-                .append(getThisFieldCode(convertMtd, parentInnerNodeFieldDef))
-                .append(convertMtd.getScope().getVariable("changeClass"))
+        convertByChangeClassMtd.getBody()
+                .append(getThisFieldCode(convertByChangeClassMtd, parentInnerNodeFieldDef))
+                .append(convertByChangeClassMtd.getScope().getVariable("changeClass"))
                 .invokeVirtual(schemaInnerNodeClassDef.getType(), CONVERT_MTD_NAME, returnType, type(Class.class))
+                .retObject();
+
+        // Creates Node#convert(String polymorphicId).
+        MethodDefinition convertByPolymorphicTypeIdMtd = classDef.declareMethod(
+                of(PUBLIC),
+                CONVERT_MTD_NAME,
+                returnType,
+                arg("polymorphicTypeId", String.class)
+        );
+
+        // return this.this$0.convert(polymorphicTypeId);
+        convertByPolymorphicTypeIdMtd.getBody()
+                .append(getThisFieldCode(convertByPolymorphicTypeIdMtd, parentInnerNodeFieldDef))
+                .append(convertByPolymorphicTypeIdMtd.getScope().getVariable("polymorphicTypeId"))
+                .invokeVirtual(schemaInnerNodeClassDef.getType(), CONVERT_MTD_NAME, returnType, type(String.class))
                 .retObject();
 
         return classDef;
@@ -2586,14 +2601,15 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Adds a {@code *Node#convert} for the polymorphic configuration case.
+     * Adds a {@code *Node#convert(Class changeClass)} and {@code *Node#convert(String polymorphicTypeId)} for the polymorphic configuration
+     * case.
      *
-     * @param classDef                   Definition of a polymorphic configuration class {@code schemaClass}.
-     * @param schemaClass                Polymorphic configuration schema (parent).
-     * @param polymorphicExtensions      Polymorphic configuration instance schemas (children).
+     * @param classDef Definition of a polymorphic configuration class {@code schemaClass}.
+     * @param schemaClass Polymorphic configuration schema (parent).
+     * @param polymorphicExtensions Polymorphic configuration instance schemas (children).
      * @param changePolymorphicTypeIdMtd Method for changing the type of polymorphic configuration.
      */
-    private void addNodeConvertMethod(
+    private void addNodeConvertMethods(
             ClassDefinition classDef,
             Class<?> schemaClass,
             Set<Class<?>> polymorphicExtensions,
@@ -2601,43 +2617,80 @@ public class ConfigurationAsmGenerator {
     ) {
         SchemaClassesInfo schemaClassInfo = schemasInfo.get(schemaClass);
 
-        MethodDefinition convertMtd = classDef.declareMethod(
+        MethodDefinition convertByChangeClassMtd = classDef.declareMethod(
                 of(PUBLIC),
                 CONVERT_MTD_NAME,
                 typeFromJavaClassName(schemaClassInfo.changeClassName),
                 arg("changeClass", Class.class)
         );
 
+        MethodDefinition convertByPolymorphicTypeIdMtd = classDef.declareMethod(
+                of(PUBLIC),
+                CONVERT_MTD_NAME,
+                typeFromJavaClassName(schemaClassInfo.changeClassName),
+                arg("polymorphicTypeId", String.class)
+        );
+
         // changeClass.getName();
-        BytecodeExpression changeClassName = convertMtd.getScope()
+        BytecodeExpression changeClassName = convertByChangeClassMtd.getScope()
                 .getVariable("changeClass")
                 .invoke(CLASS_GET_NAME_MTD);
 
-        StringSwitchBuilder switchBuilder = new StringSwitchBuilder(convertMtd.getScope())
+        StringSwitchBuilder switchByChangeClassBuilder = new StringSwitchBuilder(convertByChangeClassMtd.getScope())
                 .expression(changeClassName)
                 .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, changeClassName));
+
+        Variable polymorphicTypeId = convertByPolymorphicTypeIdMtd.getScope()
+                .getVariable("polymorphicTypeId");
+
+        StringSwitchBuilder switchByPolymorphicTypeIdBuilder = new StringSwitchBuilder(convertByPolymorphicTypeIdMtd.getScope())
+                .expression(polymorphicTypeId)
+                .defaultCase(throwException(ConfigurationWrongPolymorphicTypeIdException.class, polymorphicTypeId));
 
         for (Class<?> polymorphicExtension : polymorphicExtensions) {
             SchemaClassesInfo polymorphicExtensionClassInfo = schemasInfo.get(polymorphicExtension);
 
-            // this.changePolymorphicTypeId(polymorphicTypeId);
-            // return new ChildNode(this);
-            switchBuilder.addCase(
+            String polymorphicInstanceId = polymorphicInstanceId(polymorphicExtension);
+
+            // case "HashIndexChange":
+            //     this.changePolymorphicTypeId("hashIndex");
+            //     return new HashIndexNode(this);
+            switchByChangeClassBuilder.addCase(
                     polymorphicExtensionClassInfo.changeClassName,
                     new BytecodeBlock()
-                            .append(constantString(polymorphicInstanceId(polymorphicExtension)))
+                            .append(constantString(polymorphicInstanceId))
                             .invokeVirtual(changePolymorphicTypeIdMtd)
                             .append(newInstance(
                                     typeFromJavaClassName(polymorphicExtensionClassInfo.nodeClassName),
-                                    convertMtd.getThis()
+                                    convertByChangeClassMtd.getThis()
+                            ))
+                            .retObject()
+            );
+
+            // case "hashIndex":
+            //     this.changePolymorphicTypeId("hashIndex");
+            //     return new HashIndexNode(this);
+            switchByPolymorphicTypeIdBuilder.addCase(
+                    polymorphicInstanceId,
+                    new BytecodeBlock()
+                            .append(constantString(polymorphicInstanceId))
+                            .invokeVirtual(changePolymorphicTypeIdMtd)
+                            .append(newInstance(
+                                    typeFromJavaClassName(polymorphicExtensionClassInfo.nodeClassName),
+                                    convertByPolymorphicTypeIdMtd.getThis()
                             ))
                             .retObject()
             );
         }
 
-        convertMtd.getBody()
-                .append(convertMtd.getThis())
-                .append(switchBuilder.build())
+        convertByChangeClassMtd.getBody()
+                .append(convertByChangeClassMtd.getThis())
+                .append(switchByChangeClassBuilder.build())
+                .ret();
+
+        convertByPolymorphicTypeIdMtd.getBody()
+                .append(convertByPolymorphicTypeIdMtd.getThis())
+                .append(switchByPolymorphicTypeIdBuilder.build())
                 .ret();
     }
 

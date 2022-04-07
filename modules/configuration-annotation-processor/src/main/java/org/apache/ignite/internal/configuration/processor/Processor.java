@@ -487,13 +487,22 @@ public class Processor extends AbstractProcessor {
             TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName, POLYMORPHIC_CHANGE_CLASSNAME);
 
             // Method like: <T extends SimpleChange> T convert(Class<T> changeClass);
-            MethodSpec.Builder convertMtdBuilder = MethodSpec.methodBuilder("convert")
+            MethodSpec.Builder convertByChangeClassMtdBuilder = MethodSpec.methodBuilder("convert")
                     .addModifiers(PUBLIC, ABSTRACT)
                     .addTypeVariable(typeVariable)
                     .addParameter(parameterType, "changeClass")
                     .returns(TypeVariableName.get("T"));
 
-            changeClsBuilder.addMethod(convertMtdBuilder.build());
+            changeClsBuilder.addMethod(convertByChangeClassMtdBuilder.build());
+
+            // Method like: <T extends SimpleChange> T convert(String polymorphicId);
+            MethodSpec.Builder convertByStringMtdBuilder = MethodSpec.methodBuilder("convert")
+                    .addModifiers(PUBLIC, ABSTRACT)
+                    .addTypeVariable(typeVariable)
+                    .addParameter(ClassName.get(String.class), "polymorphicTypeId")
+                    .returns(TypeVariableName.get("T"));
+
+            changeClsBuilder.addMethod(convertByStringMtdBuilder.build());
         }
 
         TypeSpec viewCls = viewClsBuilder.build();

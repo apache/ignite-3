@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -63,6 +65,8 @@ public class DataStorageManagerTest {
         StorageEngineFactory mock = mock(StorageEngineFactory.class);
 
         when(mock.name()).thenReturn(name);
+
+        when(mock.createEngine(any(), any())).thenReturn(mock(StorageEngine.class));
 
         return mock;
     }
