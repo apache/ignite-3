@@ -66,6 +66,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -243,6 +244,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
+
+                tableChange.changeDataStorage(c -> c.convert(RocksDbDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
