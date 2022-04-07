@@ -132,21 +132,21 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestAllSupportedArgTypes()
         {
             await Test(byte.MinValue);
-            await Test(byte.MaxValue);
+            await Test(byte.MaxValue, -1);
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
             await Test(short.MinValue);
             await Test(short.MaxValue);
             await Test(ushort.MinValue);
-            await Test(ushort.MaxValue);
+            await Test(ushort.MaxValue, -1);
             await Test(int.MinValue);
             await Test(int.MaxValue);
             await Test(uint.MinValue);
-            await Test(uint.MaxValue);
+            await Test(uint.MaxValue, -1);
             await Test(long.MinValue);
             await Test(long.MaxValue);
             await Test(ulong.MinValue);
-            await Test(ulong.MaxValue);
+            await Test(ulong.MaxValue, -1);
             await Test(float.MinValue);
             await Test(float.MaxValue);
             await Test(double.MinValue);
