@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Compute
     using System.Linq;
     using System.Threading.Tasks;
     using Buffers;
+    using Common;
     using Ignite.Compute;
     using Ignite.Network;
     using Proto;
@@ -45,10 +46,25 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public async Task<T> ExecuteAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
         {
-            // TODO: Random node.
-            // TODO: Validate args.
-            return await ExecuteOnOneNode<T>(nodes.First(), jobClassName, args).ConfigureAwait(false);
+            IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
+            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+
+            return await ExecuteOnOneNode<T>(GetRandomNode(nodes), jobClassName, args).ConfigureAwait(false);
         }
+
+        private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
+        {
+            var nodesCol = GetNodesCollection(nodes);
+
+            IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
+
+            var idx = ThreadLocalRandom.Instance.Next(0, nodesCol.Count);
+
+            return nodesCol.ElementAt(idx);
+        }
+
+        private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
+            nodes is ICollection<IClusterNode> col ? col : nodes.ToList();
 
         private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
         {

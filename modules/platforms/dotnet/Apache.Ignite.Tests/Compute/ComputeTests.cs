@@ -22,11 +22,12 @@ namespace Apache.Ignite.Tests.Compute
     using System.Linq;
     using System.Net;
     using System.Threading.Tasks;
+    using Ignite.Compute;
     using Network;
     using NUnit.Framework;
 
     /// <summary>
-    /// TODO.
+    /// Tests <see cref="ICompute"/>.
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
