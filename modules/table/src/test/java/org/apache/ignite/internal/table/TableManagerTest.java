@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,11 +45,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableChange;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.baseline.BaselineManager;
@@ -206,7 +210,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Stop configuration manager. */
     @AfterEach
-    void after() throws Exception {
+    void after() {
         assertTrue(tblManagerFut.isDone());
 
         tblManagerFut.join().beforeNodeStop();
@@ -275,6 +279,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, tableManager.tables().size());
 
         assertNotNull(tableManager.table(scmTbl.canonicalName()));
+
+        checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -294,6 +300,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
+
+        checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -628,5 +636,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         manager.start();
 
         return manager;
+    }
+
+    private void checkTableDataStorage(NamedListView<TableView> tables, String expDataStorage) {
+        for (String tableName : tables.namedListKeys()) {
+            assertThat(tables.get(tableName).dataStorage().name(), equalTo(expDataStorage));
+        }
     }
 }

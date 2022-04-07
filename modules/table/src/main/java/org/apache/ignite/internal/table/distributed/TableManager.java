@@ -744,14 +744,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     tablesListChange.create(name, (tableChange) -> {
-                        // TODO: IGNITE-16792 Написать тест на это все.
                         tableChange.changeDataStorage(
                                 dataStorageMgr.defaultTableDataStorageConsumer(tablesChange.defaultDataStorage())
                         );
 
                         tableInitChange.accept(tableChange);
-
-                        // TODO: IGNITE-16792 думаю тут надо сделать проверку и если что ругаться нет хранилища.
 
                         var extConfCh = ((ExtendedTableChange) tableChange);
 
