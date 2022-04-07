@@ -102,17 +102,13 @@ public class DataStorageManager implements IgniteComponent {
      *
      * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}.
      */
-    // TODO: IGNITE-16792 исправить это
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
-        if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
-            return engines.get(defaultDataStorageView).defaultTableDataStorageConsumer(defaultDataStorageView);
-        }
-
-        if (engines.size() == 1) {
-            return first(engines.values()).defaultTableDataStorageConsumer(defaultDataStorageView);
-        }
-
         return tableDataStorageChange -> {
+            if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
+                tableDataStorageChange.convert(defaultDataStorageView);
+            } else if (engines.size() == 1) {
+                tableDataStorageChange.convert(first(engines.keySet()));
+            }
         };
     }
 

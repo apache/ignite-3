@@ -18,11 +18,8 @@
 package org.apache.ignite.internal.storage.chm;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageChange;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 
@@ -51,11 +48,5 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
         assert tableCfg.dataStorage().name().value().equals(ENGINE_NAME) : tableCfg.dataStorage().name().value();
 
         return new TestConcurrentHashMapTableStorage(tableCfg);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
-        return tableDataStorageChange -> tableDataStorageChange.convert(TestConcurrentHashMapDataStorageChange.class);
     }
 }

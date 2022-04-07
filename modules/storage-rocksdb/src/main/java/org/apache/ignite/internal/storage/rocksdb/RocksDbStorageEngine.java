@@ -27,14 +27,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -124,11 +121,5 @@ public class RocksDbStorageEngine implements StorageEngine {
         }
 
         return new RocksDbTableStorage(tablePath, tableCfg, threadPool, dataRegion);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
-        return tableDataStorageChange -> tableDataStorageChange.convert(RocksDbDataStorageChange.class);
     }
 }
