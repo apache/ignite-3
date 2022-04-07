@@ -31,7 +31,13 @@ namespace Apache.Ignite.Tests.Compute
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
+        private const string ConcatJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$ConcatJob";
+
         private const string NodeNameJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$NodeNameJob";
+
+        private const string ErrorJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$ErrorJob";
+
+        private const string EchoJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob";
 
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
@@ -101,6 +107,31 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.AreEqual(nodes[0].Name + "123", res1);
             Assert.AreEqual(nodes[1].Name + "123", res2);
+        }
+
+        [Test]
+        public async Task TestExecuteWithArgs()
+        {
+            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ConcatJob, 1.1, Guid.Empty, "3");
+
+            Assert.AreEqual("1.1_00000000-0000-0000-0000-000000000000_3", res);
+        }
+
+        [Test]
+        public void TestJobErrorPropagatesToClientWithClassAndMessage()
+        {
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+                await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ErrorJob, "unused"));
+
+            Assert.AreEqual("class org.apache.ignite.tx.TransactionException: Custom job error", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestAllSupportedArgTypes([Values(byte.MaxValue, short.MinValue)] object val) // TODO: all types
+        {
+            var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
+
+            Assert.AreEqual(val, res);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
