@@ -52,6 +52,24 @@ namespace Apache.Ignite.Internal.Compute
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), jobClassName, args).ConfigureAwait(false);
         }
 
+        /// <inheritdoc/>
+        public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
+        {
+            IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
+            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+
+            var res = new Dictionary<IClusterNode, Task<T>>();
+
+            foreach (var node in nodes)
+            {
+                var task = ExecuteOnOneNode<T>(node, jobClassName, args);
+
+                res[node] = task;
+            }
+
+            return res;
+        }
+
         private static IClusterNode GetRandomNode(IEnumerable<IClusterNode> nodes)
         {
             var nodesCol = GetNodesCollection(nodes);

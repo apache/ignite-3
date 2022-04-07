@@ -77,9 +77,9 @@ namespace Apache.Ignite.Internal
                 for (var i = 0; i < count; i++)
                 {
                     res.Add(new ClusterNode(
-                        id: r.ReadString(),
-                        name: r.ReadString(),
-                        address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                        Id: r.ReadString(),
+                        Name: r.ReadString(),
+                        Address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
                 }
 
                 return res;
