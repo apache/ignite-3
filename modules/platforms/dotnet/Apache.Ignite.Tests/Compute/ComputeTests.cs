@@ -126,8 +126,30 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual("class org.apache.ignite.tx.TransactionException: Custom job error", ex!.Message);
         }
 
+        // TODO: Support all types (IGNITE-15431).
         [Test]
-        public async Task TestAllSupportedArgTypes([Values(byte.MaxValue, short.MinValue)] object val) // TODO: all types
+        public async Task TestAllSupportedArgTypes([Values(
+            byte.MinValue,
+            byte.MaxValue,
+            sbyte.MinValue,
+            sbyte.MaxValue,
+            short.MinValue,
+            short.MaxValue,
+            ushort.MinValue,
+            ushort.MaxValue,
+            int.MinValue,
+            int.MaxValue,
+            uint.MinValue,
+            uint.MaxValue,
+            long.MinValue,
+            long.MaxValue,
+            ulong.MinValue,
+            ulong.MaxValue,
+            float.MinValue,
+            float.MaxValue,
+            double.MinValue,
+            double.MaxValue,
+            "Ignite 🔥")] object val)
         {
             var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
 
