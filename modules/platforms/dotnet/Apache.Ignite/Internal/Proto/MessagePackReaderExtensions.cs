@@ -40,7 +40,7 @@ namespace Apache.Ignite.Internal.Proto
             switch (type)
             {
                 case ClientDataType.Int8:
-                    return reader.ReadByte();
+                    return reader.ReadSByte();
 
                 case ClientDataType.Int16:
                     return reader.ReadInt16();
