@@ -20,12 +20,9 @@ package org.apache.ignite.internal.storage.chm;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageChange;
-import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 
@@ -35,12 +32,6 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 public class TestConcurrentHashMapStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "test_chm";
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return ENGINE_NAME;
-    }
 
     /** {@inheritDoc} */
     @Override
@@ -64,10 +55,7 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
-        assert defaultDataStorageView instanceof UnknownDataStorageView
-                || defaultDataStorageView instanceof TestConcurrentHashMapDataStorageView : defaultDataStorageView;
-
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> tableDataStorageChange.convert(TestConcurrentHashMapDataStorageChange.class);
     }
 }

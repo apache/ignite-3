@@ -23,8 +23,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -62,12 +60,6 @@ public class PageMemoryStorageEngine implements StorageEngine {
     ) {
         this.engineConfig = engineConfig;
         this.ioRegistry = ioRegistry;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return ENGINE_NAME;
     }
 
     /** {@inheritDoc} */
@@ -114,16 +106,7 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
-        assert defaultDataStorageView instanceof UnknownDataStorageView
-                || defaultDataStorageView instanceof PageMemoryDataStorageView : defaultDataStorageView;
-
-        return tableDataStorageChange -> {
-            PageMemoryDataStorageChange convert = tableDataStorageChange.convert(PageMemoryDataStorageChange.class);
-
-            if (defaultDataStorageView instanceof PageMemoryDataStorageView) {
-                convert.changeDataRegion(((PageMemoryDataStorageView) defaultDataStorageView).dataRegion());
-            }
-        };
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
+        return tableDataStorageChange -> tableDataStorageChange.convert(PageMemoryDataStorageChange.class);
     }
 }

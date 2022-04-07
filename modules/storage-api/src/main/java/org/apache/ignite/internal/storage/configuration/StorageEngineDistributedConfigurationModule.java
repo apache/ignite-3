@@ -15,29 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm;
+package org.apache.ignite.internal.storage.configuration;
 
-import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
-
-import java.nio.file.Path;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import java.lang.annotation.Annotation;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.Set;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.schemas.store.ExistDataStorage;
+import org.apache.ignite.configuration.validation.Validator;
+import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 
 /**
- * Implementation for creating {@link TestConcurrentHashMapStorageEngine}s.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-api.
  */
-public class TestConcurrentHashMapStorageEngineFactory implements StorageEngineFactory {
+public class StorageEngineDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
-    public String name() {
-        return ENGINE_NAME;
+    public ConfigurationType type() {
+        return ConfigurationType.DISTRIBUTED;
     }
 
     /** {@inheritDoc} */
     @Override
-    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
-        return new TestConcurrentHashMapStorageEngine();
+    public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
+        return Map.of(ExistDataStorage.class, Set.of(new ExistDataStorageValidator(ServiceLoader.load(StorageEngineFactory.class))));
     }
 }

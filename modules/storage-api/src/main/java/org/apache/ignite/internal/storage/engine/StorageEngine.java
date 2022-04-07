@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.engine;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
@@ -31,13 +30,6 @@ import org.apache.ignite.internal.storage.StorageException;
  * General storage engine interface.
  */
 public interface StorageEngine {
-    /**
-     * Returns the unique name of the storage engine.
-     *
-     * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine#name}.
-     */
-    String name();
-
     /**
      * Starts the engine.
      *
@@ -67,5 +59,6 @@ public interface StorageEngine {
      *      or a view of {@link DataStorageConfigurationSchema} extension of the current engine, for example {@code
      *      ConcurrentHashMapDataStorageView}.
      */
-    Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView);
+    // TODO: IGNITE-16792 удалить это
+    Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView);
 }

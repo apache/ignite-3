@@ -18,27 +18,20 @@
 package org.apache.ignite.internal.schema.configuration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockAddIssue;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.startsWith;
+import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
 import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageChange;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 
 /**
  * For {@link KnownDataStorageValidator} testing.
@@ -56,7 +49,7 @@ public class KnownDataStorageValidatorTest {
 
         DataStorageView value = dataStorageConfig.value();
 
-        validate(annotation, mockValidationContext(value, value), false);
+        validate(KnownDataStorageValidator.INSTANCE, annotation, mockValidationContext(value, value), "Data storage cannot be 'unknown'");
     }
 
     @Test
@@ -67,24 +60,6 @@ public class KnownDataStorageValidatorTest {
 
         DataStorageView value = dataStorageConfig.value();
 
-        validate(annotation, mockValidationContext(value, value), true);
-    }
-
-    private static void validate(
-            KnownDataStorage annotation,
-            ValidationContext<DataStorageView> ctx,
-            boolean expEmpty
-    ) {
-        ArgumentCaptor<ValidationIssue> argumentCaptor = mockAddIssue(ctx);
-
-        KnownDataStorageValidator.INSTANCE.validate(annotation, ctx);
-
-        if (expEmpty) {
-            assertThat(argumentCaptor.getAllValues(), empty());
-        } else {
-            assertThat(argumentCaptor.getAllValues(), hasSize(1));
-
-            assertThat(argumentCaptor.getValue().message(), startsWith("Data storage cannot be 'unknown'"));
-        }
+        validate(KnownDataStorageValidator.INSTANCE, annotation, mockValidationContext(value, value), null);
     }
 }

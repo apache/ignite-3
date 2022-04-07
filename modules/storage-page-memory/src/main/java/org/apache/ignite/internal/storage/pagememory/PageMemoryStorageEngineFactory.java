@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
+
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -29,6 +31,12 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
  * Implementation for creating {@link PageMemoryStorageEngine}s.
  */
 public class PageMemoryStorageEngineFactory implements StorageEngineFactory {
+    /** {@inheritDoc} */
+    @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
     /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {

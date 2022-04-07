@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -50,6 +51,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -198,7 +202,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         dsm = new DataStorageManager(
                 configRegistry,
                 workDir,
-                List.of((configurationRegistry, storePath) -> new RocksDbStorageEngine(rocksDbEngineConfig, storePath))
+                List.of(new StorageEngineFactory() {
+                    /** {@inheritDoc} */
+                    @Override
+                    public String name() {
+                        return RocksDbStorageEngine.ENGINE_NAME;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
+                        return new RocksDbStorageEngine(rocksDbEngineConfig, storagePath);
+                    }
+                })
         );
 
         dsm.start();

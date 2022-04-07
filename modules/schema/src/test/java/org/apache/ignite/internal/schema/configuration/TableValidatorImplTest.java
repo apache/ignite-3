@@ -17,27 +17,24 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockAddIssue;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.is;
+import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
+import static org.mockito.Mockito.mock;
 
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.ValidationContext;
-import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.schema.configuration.schema.TestDataStorageConfigurationSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 
 /**
  * TableValidatorImplTest.
@@ -68,10 +65,6 @@ public class TableValidatorImplTest {
     public void testNoIssues() {
         ValidationContext<NamedListView<TableView>> ctx = mockValidationContext(null, tablesCfg.tables().value());
 
-        ArgumentCaptor<ValidationIssue> issuesCaptor = mockAddIssue(ctx);
-
-        TableValidatorImpl.INSTANCE.validate(null, ctx);
-
-        assertThat(issuesCaptor.getAllValues(), is(empty()));
+        validate(TableValidatorImpl.INSTANCE, mock(TableValidator.class), ctx, null);
     }
 }

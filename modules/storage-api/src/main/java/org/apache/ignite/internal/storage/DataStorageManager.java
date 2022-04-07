@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.function.Consumer;
@@ -30,7 +29,6 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -44,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  * Data storage manager.
  */
 public class DataStorageManager implements IgniteComponent {
-    /** Mapping: {@link StorageEngine#name} -> {@link StorageEngine}. */
+    /** Mapping: {@link StorageEngineFactory#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
     /**
@@ -53,7 +51,7 @@ public class DataStorageManager implements IgniteComponent {
      * @param clusterConfigRegistry Register of the (distributed) cluster configuration.
      * @param storagePath Storage path.
      * @param engineFactories Storage engine factories.
-     * @throws StorageException If there are duplicates of the data storage engine.
+     * @throws IllegalStateException If there are duplicates of the data storage engine.
      */
     public DataStorageManager(
             ConfigurationRegistry clusterConfigRegistry,
@@ -61,17 +59,9 @@ public class DataStorageManager implements IgniteComponent {
             Iterable<StorageEngineFactory> engineFactories
     ) {
         engines = StreamSupport.stream(engineFactories.spliterator(), false)
-                .map(engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath))
                 .collect(toUnmodifiableMap(
-                        StorageEngine::name,
-                        identity(),
-                        (storageEngine1, storageEngine2) -> {
-                            throw new StorageException(String.format(
-                                    "Duplicate key [key=%s, engines=%s]",
-                                    storageEngine1.name(),
-                                    List.of(storageEngine1, storageEngine2)
-                            ));
-                        }
+                        StorageEngineFactory::name,
+                        engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath)
                 ));
     }
 
@@ -117,19 +107,17 @@ public class DataStorageManager implements IgniteComponent {
      *
      * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}.
      */
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
-        // TODO: IGNITE-16792 попробовать исправить на траверс и прочее
-
-        if (!(defaultDataStorageView instanceof UnknownDataStorageView)) {
-            return engine(defaultDataStorageView).defaultTableDataStorageConsumer(defaultDataStorageView);
+    // TODO: IGNITE-16792 исправить это
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
+        if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
+            return engines.get(defaultDataStorageView).defaultTableDataStorageConsumer(defaultDataStorageView);
         }
 
         if (engines.size() == 1) {
             return first(engines.values()).defaultTableDataStorageConsumer(defaultDataStorageView);
         }
 
-        // Do nothing.
-        return c -> {
+        return change -> {
         };
     }
 

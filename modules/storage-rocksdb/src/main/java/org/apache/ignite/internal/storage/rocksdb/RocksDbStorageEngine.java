@@ -29,8 +29,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
-import org.apache.ignite.configuration.schemas.store.DataStorageView;
-import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.StorageException;
@@ -74,12 +72,6 @@ public class RocksDbStorageEngine implements StorageEngine {
     public RocksDbStorageEngine(RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
         this.engineConfig = engineConfig;
         this.storagePath = storagePath;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String name() {
-        return ENGINE_NAME;
     }
 
     /** {@inheritDoc} */
@@ -136,16 +128,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
-        assert defaultDataStorageView instanceof UnknownDataStorageView
-                || defaultDataStorageView instanceof RocksDbDataStorageView : defaultDataStorageView;
-
-        return tableDataStorageChange -> {
-            RocksDbDataStorageChange convert = tableDataStorageChange.convert(RocksDbDataStorageChange.class);
-
-            if (defaultDataStorageView instanceof RocksDbDataStorageView) {
-                convert.changeDataRegion(((RocksDbDataStorageView) defaultDataStorageView).dataRegion());
-            }
-        };
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
+        return tableDataStorageChange -> tableDataStorageChange.convert(RocksDbDataStorageChange.class);
     }
 }

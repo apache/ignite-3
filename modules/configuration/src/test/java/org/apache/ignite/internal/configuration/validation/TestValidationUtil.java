@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.lang.annotation.Annotation;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
@@ -61,5 +66,34 @@ public class TestValidationUtil {
         doNothing().when(mock).addIssue(issuesCaptor.capture());
 
         return issuesCaptor;
+    }
+
+    /**
+     * Performs validation checking whether there are errors.
+     *
+     * @param validator Checked validator.
+     * @param annotation Mocked annotation.
+     * @param ctx Mocked validation context.
+     * @param errorMessagePrefix Error prefix, if {@code null} it is expected that there will be no errors.
+     */
+    public static <A extends Annotation, VIEWT> void validate(
+            Validator<A, VIEWT> validator,
+            A annotation,
+            ValidationContext<VIEWT> ctx,
+            @Nullable String errorMessagePrefix
+    ) {
+        ArgumentCaptor<ValidationIssue> argumentCaptor = mockAddIssue(ctx);
+
+        validator.validate(annotation, ctx);
+
+        if (errorMessagePrefix == null) {
+            assertThat(argumentCaptor.getAllValues(), empty());
+        } else {
+            assertThat(argumentCaptor.getAllValues(), not(empty()));
+
+            for (ValidationIssue value : argumentCaptor.getAllValues()) {
+                assertThat(value.message(), startsWith(errorMessagePrefix));
+            }
+        }
     }
 }

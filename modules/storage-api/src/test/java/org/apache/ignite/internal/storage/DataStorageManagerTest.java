@@ -19,18 +19,19 @@ package org.apache.ignite.internal.storage;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 /**
  * For {@link DataStorageManager} testing.
@@ -44,25 +45,25 @@ public class DataStorageManagerTest {
     void testStorageEngineDuplicate() {
         String sameName = UUID.randomUUID().toString();
 
-        StorageException exception = assertThrows(
-                StorageException.class,
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
                 () -> new DataStorageManager(
-                        Mockito.mock(ConfigurationRegistry.class),
+                        mock(ConfigurationRegistry.class),
                         workDir,
                         List.of(
-                                (configRegistry, storagePath) -> createMockedStorageEngine(sameName),
-                                (configRegistry, storagePath) -> createMockedStorageEngine(sameName)
+                                createMockedStorageEngineFactory(sameName),
+                                createMockedStorageEngineFactory(sameName)
                         )
                 ));
 
         assertThat(exception.getMessage(), Matchers.startsWith("Duplicate key"));
     }
 
-    private StorageEngine createMockedStorageEngine(String name) {
-        StorageEngine mocked = Mockito.mock(StorageEngine.class);
+    private StorageEngineFactory createMockedStorageEngineFactory(String name) {
+        StorageEngineFactory mock = mock(StorageEngineFactory.class);
 
-        Mockito.when(mocked.name()).thenReturn(name);
+        when(mock.name()).thenReturn(name);
 
-        return mocked;
+        return mock;
     }
 }

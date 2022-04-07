@@ -65,6 +65,9 @@ import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
@@ -607,7 +610,19 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageManager manager = new DataStorageManager(
                 registry,
                 storagePath,
-                List.of((registry1, storagePath1) -> new RocksDbStorageEngine(config, storagePath1))
+                List.of(new StorageEngineFactory() {
+                    /** {@inheritDoc} */
+                    @Override
+                    public String name() {
+                        return RocksDbStorageEngine.ENGINE_NAME;
+                    }
+
+                    /** {@inheritDoc} */
+                    @Override
+                    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
+                        return new RocksDbStorageEngine(config, storagePath);
+                    }
+                })
         );
 
         manager.start();
