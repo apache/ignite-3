@@ -52,11 +52,19 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteOnSpecificNode()
         {
-            var res1 = await Client.Compute.ExecuteAsync<string>(await GetNode(0), NodeNameJob);
-            var res2 = await Client.Compute.ExecuteAsync<string>(await GetNode(1), NodeNameJob);
+            var res1 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(0), NodeNameJob);
+            var res2 = await Client.Compute.ExecuteAsync<string>(await GetNodeAsync(1), NodeNameJob);
 
             Assert.AreEqual(PlatformTestNodeRunner, res1);
             Assert.AreEqual(PlatformTestNodeRunner + "_2", res2);
+        }
+
+        [Test]
+        public async Task TestExecuteOnRandomNode()
+        {
+            var res = await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), NodeNameJob);
+
+            CollectionAssert.Contains(new[] { PlatformTestNodeRunner, PlatformTestNodeRunner + "_2" }, res);
         }
 
         [Test]
@@ -66,7 +74,7 @@ namespace Apache.Ignite.Tests.Compute
                 await Client.Compute.ExecuteAsync<Guid>(await Client.GetClusterNodesAsync(), NodeNameJob));
         }
 
-        private async Task<IEnumerable<IClusterNode>> GetNode(int index) =>
+        private async Task<IEnumerable<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1);
     }
 }
