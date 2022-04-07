@@ -28,10 +28,10 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -74,11 +74,11 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     public static void beforeAll(TestInfo testInfo) throws Exception {
         String nodeName = testNodeName(testInfo, 47500);
 
-        clusterNodes.add(IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName)));
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+        IgnitionManager.init(nodeName, List.of(nodeName));
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        clusterNodes.add(future.join());
 
         conn = DriverManager.getConnection(URL);
 

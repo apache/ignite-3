@@ -25,10 +25,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -75,9 +75,11 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        try (IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName))) {
-            ignite.init(List.of(ignite.name()));
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
+        IgnitionManager.init(nodeName, List.of(nodeName));
+
+        try (Ignite ignite = future.join()) {
             Table tbl = createTable(ignite, SCHEMA, SHORT_TABLE_NAME);
 
             assertNotNull(tbl);

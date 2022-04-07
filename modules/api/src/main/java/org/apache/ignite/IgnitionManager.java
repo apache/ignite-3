@@ -22,8 +22,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.ServiceLoader;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,7 +62,7 @@ public class IgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static Ignite start(String nodeName, @Nullable String configStr, Path workDir) {
+    public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
         loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         if (configStr == null) {
@@ -84,7 +87,7 @@ public class IgnitionManager {
      * @return Started Ignite node.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static Ignite start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
+    public static CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
         loadIgnitionService(clsLdr);
 
         return ignition.start(nodeName, cfgPath, workDir, clsLdr);
@@ -116,6 +119,37 @@ public class IgnitionManager {
         loadIgnitionService(clsLdr);
 
         ignition.stop(name);
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public static synchronized void init(String name, Collection<String> metaStorageNodeNames) throws NodeStoppingException {
+        if (ignition == null) {
+            throw new IgniteException("Ignition service has not been started");
+        }
+
+        ignition.init(name, metaStorageNodeNames);
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames names of nodes that will host the CMG.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public static synchronized void init(
+            String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames
+    ) throws NodeStoppingException {
+        if (ignition == null) {
+            throw new IgniteException("Ignition service has not been started");
+        }
+
+        ignition.init(name, metaStorageNodeNames, cmgNodeNames);
     }
 
     private static synchronized void loadIgnitionService(@Nullable ClassLoader clsLdr) {

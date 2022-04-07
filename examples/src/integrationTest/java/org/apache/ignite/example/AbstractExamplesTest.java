@@ -19,8 +19,9 @@ package org.apache.ignite.example;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,14 +40,16 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
      */
     @BeforeEach
     public void startNode() throws Exception {
-        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(
+        CompletableFuture<Ignite> ignite = IgnitionManager.start(
                 TEST_NODE_NAME,
                 Path.of("config", "ignite-config.json"),
                 workDir,
                 null
         );
 
-        ignite.init(List.of(ignite.name()));
+        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME));
+
+        ignite.join();
     }
 
     /**

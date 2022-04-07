@@ -22,8 +22,9 @@ import static picocli.CommandLine.Model.OptionSpec;
 import static picocli.CommandLine.Model.PositionalParamSpec;
 
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgnitionImpl;
+import org.apache.ignite.IgnitionManager;
 import picocli.CommandLine;
 
 /**
@@ -39,7 +40,7 @@ public class IgniteCliRunner {
      */
     public static void main(String[] args) {
         try {
-            start(args);
+            start(args).join();
         } catch (CommandLine.ParameterException e) {
             System.out.println(e.getMessage());
 
@@ -55,7 +56,7 @@ public class IgniteCliRunner {
      * @param args CLI args to start a new node.
      * @return New Ignite node.
      */
-    public static Ignite start(String[] args) {
+    public static CompletableFuture<Ignite> start(String[] args) {
         CommandSpec spec = CommandSpec.create();
 
         spec.addOption(
@@ -97,12 +98,10 @@ public class IgniteCliRunner {
                 pr.matchedOptionValue("--work-dir", null)
         );
 
-        var ignition = new IgnitionImpl();
-
         if (parsedArgs.config != null) {
-            return ignition.start(parsedArgs.nodeName, parsedArgs.config.toAbsolutePath(), parsedArgs.nodeWorkDir);
+            return IgnitionManager.start(parsedArgs.nodeName, parsedArgs.config.toAbsolutePath(), parsedArgs.nodeWorkDir, null);
         } else {
-            return ignition.start(parsedArgs.nodeName, parsedArgs.nodeWorkDir);
+            return IgnitionManager.start(parsedArgs.nodeName, null, parsedArgs.nodeWorkDir);
         }
     }
 

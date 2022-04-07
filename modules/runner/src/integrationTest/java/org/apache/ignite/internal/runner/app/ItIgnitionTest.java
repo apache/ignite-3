@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
@@ -42,6 +44,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -125,10 +128,10 @@ class ItIgnitionTest {
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    void testNodesStartWithBootstrapConfiguration() {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+    void testNodesStartWithBootstrapConfiguration() throws NodeStoppingException {
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startNode(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
+        }
 
         Assertions.assertEquals(3, startedNodes.size());
 
@@ -139,8 +142,8 @@ class ItIgnitionTest {
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
-        startedNodes.add(IgnitionManager.start(testNodeName(testInfo, 47500), null, workDir));
+    void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) throws NodeStoppingException {
+        startNode(testNodeName(testInfo, 47500), name -> IgnitionManager.start(name, null, workDir.resolve(name)));
 
         Assertions.assertNotNull(startedNodes.get(0));
     }
@@ -151,10 +154,7 @@ class ItIgnitionTest {
     @Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
         try {
-            startedNodes.add(IgnitionManager.start("invalid-config-name",
-                    "{Invalid-Configuration}",
-                    workDir.resolve("invalid-config-name"))
-            );
+            startNode("invalid-config-name", name -> IgnitionManager.start(name, "{Invalid-Configuration}", workDir.resolve(name)));
 
             fail();
         } catch (Throwable t) {
@@ -182,7 +182,17 @@ class ItIgnitionTest {
 
         URL url = buildUrl("testURL.txt", cfg);
 
-        startedNodes.add(ign.start(nodeName, url, workDir.resolve(nodeName)));
+        startNode(nodeName, name -> ign.start(nodeName, url, workDir.resolve(nodeName)));
+    }
+
+    private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) throws NodeStoppingException {
+        CompletableFuture<Ignite> future = starter.apply(nodeName);
+
+        if (startedNodes.isEmpty()) {
+            IgnitionManager.init(nodeName, List.of(nodeName));
+        }
+
+        startedNodes.add(future.join());
     }
 
     /**

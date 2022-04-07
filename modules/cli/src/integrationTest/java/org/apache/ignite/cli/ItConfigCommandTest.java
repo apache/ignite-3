@@ -34,13 +34,17 @@ import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,8 +70,14 @@ public class ItConfigCommandTest extends AbstractCliTest {
     private IgniteImpl node;
 
     @BeforeEach
-    void setup(@WorkDirectory Path workDir, TestInfo testInfo) {
-        node = (IgniteImpl) IgnitionManager.start(testNodeName(testInfo, 0), null, workDir);
+    void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws NodeStoppingException {
+        String nodeName = testNodeName(testInfo, 0);
+
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
+
+        IgnitionManager.init(nodeName, List.of(nodeName));
+
+        node = (IgniteImpl) future.join();
 
         ctx = ApplicationContext.run(Environment.TEST);
     }

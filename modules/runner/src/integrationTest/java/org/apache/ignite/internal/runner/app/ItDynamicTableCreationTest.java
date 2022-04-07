@@ -17,17 +17,19 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
@@ -35,7 +37,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -66,7 +67,7 @@ class ItDynamicTableCreationTest {
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    private final List<Ignite> clusterNodes = new ArrayList<>();
+    private List<Ignite> clusterNodes;
 
     @WorkDirectory
     private Path workDir;
@@ -105,15 +106,17 @@ class ItDynamicTableCreationTest {
      * Returns grid nodes.
      */
     protected List<Ignite> startGrid() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
 
-        assertEquals(3, clusterNodes.size());
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        clusterNodes = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(toUnmodifiableList());
 
         return clusterNodes;
     }

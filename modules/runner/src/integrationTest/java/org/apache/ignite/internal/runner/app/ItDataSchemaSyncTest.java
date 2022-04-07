@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -102,20 +103,24 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Cluster nodes.
      */
-    private final List<Ignite> clusterNodes = new ArrayList<>();
+    private List<Ignite> clusterNodes;
 
     /**
      * Starts a cluster before every test started.
      */
     @BeforeEach
     void beforeEach() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        clusterNodes = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -127,8 +132,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     /**
-     * The test executes various operation over the lagging node.
-     * The operations can be executed only the node overtakes a distributed cluster state.
+     * The test executes various operation over the lagging node. The operations can be executed only the node overtakes a distributed
+     * cluster state.
      */
     @Test
     public void test() throws Exception {
@@ -238,8 +243,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Creates a table with the passed name on the specific schema.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void createTable(Ignite node, String schemaName, String shortTableName) {

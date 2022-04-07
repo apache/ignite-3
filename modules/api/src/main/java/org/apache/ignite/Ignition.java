@@ -20,12 +20,14 @@ package org.apache.ignite;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry point for handling the grid lifecycle.
  */
-@SuppressWarnings("UnnecessaryInterfaceModifier")
 public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
@@ -35,7 +37,7 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
-    public Ignite start(String name, @Nullable Path configPath, Path workDir);
+    public CompletableFuture<Ignite> start(String name, @Nullable Path configPath, Path workDir);
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file, with an optional class loader for further usage by
@@ -48,7 +50,9 @@ public interface Ignition {
      * null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
      * @return Started Ignite node.
      */
-    public Ignite start(String name, @Nullable Path configPath, Path workDir, @Nullable ClassLoader serviceLoaderClassLoader);
+    public CompletableFuture<Ignite> start(
+            String name, @Nullable Path configPath, Path workDir, @Nullable ClassLoader serviceLoaderClassLoader
+    );
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a URL linking to HOCON configs.
@@ -58,7 +62,7 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
-    public Ignite start(String name, @Nullable URL cfgUrl, Path workDir);
+    public CompletableFuture<Ignite> start(String name, @Nullable URL cfgUrl, Path workDir);
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
@@ -83,7 +87,7 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
-    public Ignite start(String name, @Nullable InputStream config, Path workDir);
+    public CompletableFuture<Ignite> start(String name, @Nullable InputStream config, Path workDir);
 
     /**
      * Starts an Ignite node with the default configuration.
@@ -92,7 +96,7 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Started Ignite node.
      */
-    public Ignite start(String name, Path workDir);
+    public CompletableFuture<Ignite> start(String name, Path workDir);
 
     /**
      * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
@@ -102,4 +106,21 @@ public interface Ignition {
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
     public void stop(String name);
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public void init(String name, Collection<String> metaStorageNodeNames) throws NodeStoppingException;
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames names of nodes that will host the CMG.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException;
 }

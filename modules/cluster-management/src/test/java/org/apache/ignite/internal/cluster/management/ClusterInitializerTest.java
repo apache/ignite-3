@@ -146,7 +146,7 @@ public class ClusterInitializerTest {
 
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
 
-        InitException e = assertFutureThrows(InitException.class, initFuture);
+        InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
 
         assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
 

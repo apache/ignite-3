@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -25,9 +26,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
@@ -77,6 +78,8 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
+    private static final List<String> NODE_NAMES = new ArrayList<>();
+
     /** Work directory. */
     @WorkDirectory
     private static Path WORK_DIR;
@@ -90,17 +93,25 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     void startNodes(TestInfo testInfo) throws Exception {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
+        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
+
         for (int i = 0; i < nodes(); i++) {
-            String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
+            String nodeName = IgniteTestUtils.testNodeName(testInfo, i);
 
             String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
 
-            CLUSTER_NODES.add(IgnitionManager.start(curNodeName, config, WORK_DIR.resolve(curNodeName)));
+            NODE_NAMES.add(nodeName);
+
+            futures.add(IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
 
-        IgniteImpl metastorageNode = (IgniteImpl) CLUSTER_NODES.get(0);
+        String metaStorageNodeName = NODE_NAMES.get(0);
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+
+        futures.stream()
+                .map(CompletableFuture::join)
+                .forEach(CLUSTER_NODES::add);
     }
 
     /**
@@ -119,9 +130,15 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     void stopNodes() throws Exception {
         LOG.info("Start tearDown()");
 
-        IgniteUtils.closeAll(ItUtils.reverse(CLUSTER_NODES));
+        List<AutoCloseable> closeables = NODE_NAMES.stream()
+                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
+                .collect(toList());
 
         CLUSTER_NODES.clear();
+
+        NODE_NAMES.clear();
+
+        IgniteUtils.closeAll(closeables);
 
         LOG.info("End tearDown()");
     }

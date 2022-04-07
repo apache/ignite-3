@@ -19,6 +19,7 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,12 +35,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -101,22 +99,24 @@ public class ItTablesApiTest extends IgniteAbstractTest {
      */
     @BeforeEach
     void beforeEach(TestInfo testInfo) throws Exception {
-        clusterNodes = IntStream.range(0, nodesBootstrapCfg.size())
-                .mapToObj(value -> {
-                    String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
+        List<String> nodeNames = new ArrayList<>();
+        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
-                    return IgnitionManager.start(
-                            nodeName,
-                            nodesBootstrapCfg.get(value),
-                            // Avoid a long file path name (260 characters) for windows.
-                            workDir.resolve(Integer.toString(value))
-                    );
-                })
-                .collect(Collectors.toList());
+        for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
+            String nodeName = IgniteTestUtils.testNodeName(testInfo, i);
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+            nodeNames.add(nodeName);
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+            futures.add(IgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
+        }
+
+        String metaStorageNodeName = nodeNames.get(0);
+
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+
+        clusterNodes = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(toUnmodifiableList());
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -26,10 +27,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -43,7 +44,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,7 +51,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Test for baseline changes.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16471")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItBaselineChangesTest {
     /** Start network port for test nodes. */
@@ -90,15 +89,9 @@ public class ItBaselineChangesTest {
      */
     @Test
     void testBaselineExtending(TestInfo testInfo) throws NodeStoppingException {
-        initClusterNodes.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        startCluster();
 
         assertEquals(3, clusterNodes.size());
-
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
-
-        metastorageNode.init(List.of(metastorageNode.name()));
 
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -124,11 +117,11 @@ public class ItBaselineChangesTest {
         var node4Name = testNodeName(testInfo, nodePort(4));
 
         // Start 2 new nodes after
-        var node3 = IgnitionManager.start(node3Name, buildConfig(3), workDir.resolve(node3Name));
+        Ignite node3 = IgnitionManager.start(node3Name, buildConfig(3), workDir.resolve(node3Name)).join();
 
         clusterNodes.add(node3);
 
-        var node4 = IgnitionManager.start(node4Name, buildConfig(4), workDir.resolve(node4Name));
+        Ignite node4 = IgnitionManager.start(node4Name, buildConfig(4), workDir.resolve(node4Name)).join();
 
         clusterNodes.add(node4);
 
@@ -158,5 +151,17 @@ public class ItBaselineChangesTest {
 
     private static int nodePort(int nodeIdx) {
         return BASE_PORT + nodeIdx;
+    }
+
+    private void startCluster() throws NodeStoppingException {
+        List<CompletableFuture<Ignite>> futures = initClusterNodes.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
+
+        String metaStorageNode = initClusterNodes.keySet().iterator().next();
+
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        futures.stream().map(CompletableFuture::join).forEach(clusterNodes::add);
     }
 }

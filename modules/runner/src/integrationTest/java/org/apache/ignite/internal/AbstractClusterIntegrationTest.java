@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal;
 
+import static java.util.stream.Collectors.toList;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -59,7 +62,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
             + "}";
 
     /** Cluster nodes. */
-    protected final List<Ignite> clusterNodes = new ArrayList<>();
+    protected List<Ignite> clusterNodes;
 
     /** Work directory. */
     @WorkDirectory
@@ -68,24 +71,32 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
     /**
      * Before all.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      */
     @BeforeEach
     void startNodes(TestInfo testInfo) throws NodeStoppingException {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
-        for (int i = 0; i < nodes(); i++) {
-            String curNodeName = IgniteTestUtils.testNodeName(testInfo, i);
+        List<String> nodeNames = new ArrayList<>();
+        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
-            clusterNodes.add(IgnitionManager.start(curNodeName, IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
-                    BASE_PORT + i,
-                    connectNodeAddr
-            ), WORK_DIR.resolve(curNodeName)));
+        for (int i = 0; i < nodes(); i++) {
+            String nodeName = IgniteTestUtils.testNodeName(testInfo, i);
+
+            String config = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, BASE_PORT + i, connectNodeAddr);
+
+            nodeNames.add(nodeName);
+
+            futures.add(IgnitionManager.start(nodeName, config, WORK_DIR.resolve(nodeName)));
         }
 
-        IgniteImpl metaStorageNode = (IgniteImpl) clusterNodes.get(0);
+        String metaStorageNodeName = nodeNames.get(0);
 
-        metaStorageNode.init(List.of(metaStorageNode.name()));
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+
+        clusterNodes = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(toList());
     }
 
     /**

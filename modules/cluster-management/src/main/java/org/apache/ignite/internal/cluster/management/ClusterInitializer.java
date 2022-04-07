@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
@@ -76,10 +77,20 @@ public class ClusterInitializer {
 
             return invokeMessage(cmgNodes, initMessage)
                     .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(e -> cancelInit(cmgNodes, e))
+                    .exceptionally(e -> {
+                        if (e instanceof InternalInitException) {
+                            if (((InternalInitException) e).shouldCancelInit()) {
+                                return cancelInit(cmgNodes, e);
+                            } else {
+                                return failedFuture(e);
+                            }
+                        } else {
+                            return cancelInit(cmgNodes, e);
+                        }
+                    })
                     .thenCompose(Function.identity());
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return failedFuture(e);
         }
     }
 
@@ -98,7 +109,7 @@ public class ClusterInitializer {
 
                     return null;
                 })
-                .thenCompose(v -> CompletableFuture.failedFuture(e));
+                .thenCompose(v -> failedFuture(e));
     }
 
     /**
@@ -114,15 +125,18 @@ public class ClusterInitializer {
                         .invoke(node, message, 10000)
                         .thenAccept(response -> {
                             if (response instanceof InitErrorMessage) {
-                                throw new InitException(String.format(
+                                String msg = String.format(
                                         "Got error response from node \"%s\": %s", node.name(), ((InitErrorMessage) response).cause()
-                                ));
-                            }
+                                );
 
-                            if (!(response instanceof InitCompleteMessage)) {
-                                throw new InitException(String.format(
-                                        "Unexpected response from node \"%s\": %s", node.name(), response.getClass()
-                                ));
+                                boolean shouldCancelInit = !((InitErrorMessage) response).isInternal();
+
+                                throw new InternalInitException(msg, shouldCancelInit);
+                            } else if (!(response instanceof InitCompleteMessage)) {
+                                throw new InternalInitException(
+                                        String.format("Unexpected response from node \"%s\": %s", node.name(), response.getClass()),
+                                        true
+                                );
                             }
                         })
         );

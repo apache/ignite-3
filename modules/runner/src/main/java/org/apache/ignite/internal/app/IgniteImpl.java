@@ -190,7 +190,7 @@ public class IgniteImpl implements Ignite {
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *      {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name, Path workDir, ClassLoader serviceProviderClassLoader) {
+    IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
         vaultMgr = createVault(workDir);
@@ -352,7 +352,7 @@ public class IgniteImpl implements Ignite {
      *      previously use default values. Please pay attention that previously specified properties are searched in the
      *      {@code workDir} specified by the user.
      */
-    public void start(@Language("HOCON") @Nullable String cfg) {
+    public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
@@ -420,11 +420,11 @@ public class IgniteImpl implements Ignite {
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
-            configurationCatchUpFuture.join();
-
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
             }
+
+            return configurationCatchUpFuture.thenApply(v -> this);
         } catch (Exception e) {
             String errMsg = "Unable to start node=[" + name + "].";
 
@@ -573,16 +573,6 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress clientAddress() {
         return NetworkAddress.from(clientHandlerModule.localAddress());
-    }
-
-    /**
-     * Initializes the cluster that this node is present in.
-     *
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    public void init(Collection<String> metaStorageNodeNames) throws NodeStoppingException {
-        init(metaStorageNodeNames, List.of());
     }
 
     /**

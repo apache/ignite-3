@@ -15,20 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
-
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.cluster.management;
 
 /**
- * Message that represents an error condition that has occurred during cluster initialization.
+ * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
  */
-@Transferable(CmgMessageGroup.INIT_ERROR)
-public interface InitErrorMessage extends NetworkMessage {
-    /**
-     * Text representation of the occurred error.
-     */
-    String cause();
-
-    boolean isInternal();
+class IllegalCmgStateException extends RuntimeException {
+    IllegalCmgStateException(String message) {
+        super(message);
+    }
 }

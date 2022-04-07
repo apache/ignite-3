@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static org.apache.ignite.internal.cluster.management.RestClusterInitializer.DEFAULT_REST_ADDR;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
@@ -27,8 +25,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.app.IgniteCliRunner;
-import org.apache.ignite.internal.cluster.management.RestClusterInitializer;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
@@ -39,7 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class IgniteCliRunnerTest {
-    private final RestClusterInitializer initializer = new RestClusterInitializer();
+    private static final String NODE_NAME = "node";
 
     @WorkDirectory
     private Path workDir;
@@ -49,15 +47,15 @@ public class IgniteCliRunnerTest {
     public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
 
-        CompletableFuture<Ignite> ign = supplyAsync(() -> IgniteCliRunner.start(
+        CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 new String[]{
                         "--config", configPath.toAbsolutePath().toString(),
                         "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
-                        "node"
+                        NODE_NAME
                 }
-        ));
+        );
 
-        initializer.init(DEFAULT_REST_ADDR, List.of("node"));
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME));
 
         assertThat(ign, willBe(notNullValue(Ignite.class)));
 
@@ -66,14 +64,14 @@ public class IgniteCliRunnerTest {
 
     @Test
     public void smokeTestArgsNullConfig() throws Exception {
-        CompletableFuture<Ignite> ign = supplyAsync(() -> IgniteCliRunner.start(
+        CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 new String[]{
                         "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
-                        "node"
+                        NODE_NAME
                 }
-        ));
+        );
 
-        initializer.init(DEFAULT_REST_ADDR, List.of("node"));
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME));
 
         assertThat(ign, willBe(notNullValue(Ignite.class)));
 

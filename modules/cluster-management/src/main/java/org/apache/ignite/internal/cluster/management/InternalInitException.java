@@ -15,20 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
+package org.apache.ignite.internal.cluster.management;
 
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Message that represents an error condition that has occurred during cluster initialization.
+ * Internal exception thrown when cluster initialization fails for some reason.
  */
-@Transferable(CmgMessageGroup.INIT_ERROR)
-public interface InitErrorMessage extends NetworkMessage {
-    /**
-     * Text representation of the occurred error.
-     */
-    String cause();
+class InternalInitException extends IgniteInternalException {
+    private final boolean shouldCancelInit;
 
-    boolean isInternal();
+    InternalInitException(String message, boolean shouldCancelInit) {
+        super(message);
+
+        this.shouldCancelInit = shouldCancelInit;
+    }
+
+    boolean shouldCancelInit() {
+        return shouldCancelInit;
+    }
 }

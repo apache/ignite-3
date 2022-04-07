@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 import java.nio.file.Path;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
@@ -60,7 +63,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    private final List<Ignite> startedNodes = new ArrayList<>();
+    private List<Ignite> startedNodes;
 
     private IgniteClient client;
 
@@ -90,13 +93,17 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
                         + "}"
         );
 
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
 
-        IgniteImpl metastorageNode = (IgniteImpl) startedNodes.get(0);
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        startedNodes = futures.stream()
+                .map(CompletableFuture::join)
+                .collect(toUnmodifiableList());
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(COLUMN_KEY, ColumnType.INT32).build(),
