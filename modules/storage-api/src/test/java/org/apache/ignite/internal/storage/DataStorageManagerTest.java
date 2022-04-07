@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.hamcrest.Matchers;
@@ -47,16 +46,14 @@ public class DataStorageManagerTest {
 
         StorageException exception = assertThrows(
                 StorageException.class,
-                () -> new DataStorageManager(Mockito.mock(ConfigurationRegistry.class), workDir) {
-                    /** {@inheritDoc} */
-                    @Override
-                    protected Iterable<StorageEngineFactory> engineFactories() {
-                        return List.of(
+                () -> new DataStorageManager(
+                        Mockito.mock(ConfigurationRegistry.class),
+                        workDir,
+                        List.of(
                                 (configRegistry, storagePath) -> createMockedStorageEngine(sameName),
                                 (configRegistry, storagePath) -> createMockedStorageEngine(sameName)
-                        );
-                    }
-                });
+                        )
+                ));
 
         assertThat(exception.getMessage(), Matchers.startsWith("Duplicate key"));
     }

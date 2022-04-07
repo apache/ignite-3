@@ -52,13 +52,15 @@ public class DataStorageManager implements IgniteComponent {
      *
      * @param clusterConfigRegistry Register of the (distributed) cluster configuration.
      * @param storagePath Storage path.
+     * @param engineFactories Storage engine factories.
      * @throws StorageException If there are duplicates of the data storage engine.
      */
     public DataStorageManager(
             ConfigurationRegistry clusterConfigRegistry,
-            Path storagePath
+            Path storagePath,
+            Iterable<StorageEngineFactory> engineFactories
     ) {
-        engines = StreamSupport.stream(engineFactories().spliterator(), false)
+        engines = StreamSupport.stream(engineFactories.spliterator(), false)
                 .map(engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath))
                 .collect(toUnmodifiableMap(
                         StorageEngine::name,
@@ -73,6 +75,17 @@ public class DataStorageManager implements IgniteComponent {
                 ));
     }
 
+    /**
+     * Constructor, overloads {@link DataStorageManager#DataStorageManager(ConfigurationRegistry, Path, Iterable)} with loading factories
+     * through a {@link ServiceLoader}.
+     */
+    public DataStorageManager(
+            ConfigurationRegistry clusterConfigRegistry,
+            Path storagePath
+    ) {
+        this(clusterConfigRegistry, storagePath, ServiceLoader.load(StorageEngineFactory.class));
+    }
+
     /** {@inheritDoc} */
     @Override
     public void start() throws StorageException {
@@ -83,16 +96,6 @@ public class DataStorageManager implements IgniteComponent {
     @Override
     public void stop() throws StorageException {
         engines.values().forEach(StorageEngine::stop);
-    }
-
-    /**
-     * Returns the storage engine factories.
-     *
-     * <p>NOTE: It is recommended to override only in tests.
-     */
-    protected Iterable<StorageEngineFactory> engineFactories() {
-        // TODO: IGNITE-16792 переделать на конструктор
-        return ServiceLoader.load(StorageEngineFactory.class);
     }
 
     /**
@@ -115,6 +118,8 @@ public class DataStorageManager implements IgniteComponent {
      * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}.
      */
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(DataStorageView defaultDataStorageView) {
+        // TODO: IGNITE-16792 попробовать исправить на траверс и прочее
+
         if (!(defaultDataStorageView instanceof UnknownDataStorageView)) {
             return engine(defaultDataStorageView).defaultTableDataStorageConsumer(defaultDataStorageView);
         }

@@ -43,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -64,7 +65,6 @@ import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -158,6 +158,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
                     PartialIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class
             }
     )
@@ -214,7 +215,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Tests a table which was preconfigured.
      */
     @Test
-    public void testPreconfiguredTable()  throws Exception {
+    public void testPreconfiguredTable() throws Exception {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
@@ -239,7 +240,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tblsCfg.tables().change(tablesChange -> {
             tablesChange.create(scmTbl.canonicalName(), tableChange -> {
-                ((ExtendedTableChange) SchemaConfigurationConverter.convert(scmTbl, tableChange))
+                (SchemaConfigurationConverter.convert(scmTbl, tableChange))
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
@@ -328,9 +329,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         Consumer<TableChange> createTableChange = (TableChange change) ->
                 SchemaConfigurationConverter.convert(SchemaBuilders.tableBuilder("PUBLIC", DYNAMIC_TABLE_FOR_DROP_NAME).columns(
-                        SchemaBuilders.column("key", ColumnType.INT64).build(),
-                        SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
-                ).withPrimaryKey("key").build(), change)
+                                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                                SchemaBuilders.column("val", ColumnType.INT64).asNullable(true).build()
+                        ).withPrimaryKey("key").build(), change)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
@@ -481,7 +482,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Instantiates Table manager and creates a table in it.
      *
      * @param tableDefinition Configuration schema for a table.
-     * @param tblManagerFut   Future for table manager.
+     * @param tblManagerFut Future for table manager.
      * @return Table.
      * @throws NodeStoppingException If something went wrong.
      */
@@ -496,8 +497,8 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Instantiates a table and prepares Table manager. When the latch would open, the method completes.
      *
      * @param tableDefinition Configuration schema for a table.
-     * @param tblManagerFut   Future for table manager.
-     * @param phaser          Phaser for the wait.
+     * @param tblManagerFut Future for table manager.
+     * @param phaser Phaser for the wait.
      * @return Table manager.
      * @throws NodeStoppingException If something went wrong.
      */
@@ -600,13 +601,11 @@ public class TableManagerTest extends IgniteAbstractTest {
             Path storagePath,
             RocksDbStorageEngineConfiguration config
     ) {
-        DataStorageManager manager = new DataStorageManager(registry, storagePath) {
-            /** {@inheritDoc} */
-            @Override
-            protected Iterable<StorageEngineFactory> engineFactories() {
-                return List.of((registry1, storagePath1) -> new RocksDbStorageEngine(config, storagePath1));
-            }
-        };
+        DataStorageManager manager = new DataStorageManager(
+                registry,
+                storagePath,
+                List.of((registry1, storagePath1) -> new RocksDbStorageEngine(config, storagePath1))
+        );
 
         manager.start();
 

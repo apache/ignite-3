@@ -25,6 +25,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -32,7 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -59,10 +60,14 @@ public class RocksDbPartitionStorageTest extends AbstractPartitionStorageTest {
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration(
                     name = "table",
-                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
+                    polymorphicExtensions = {
+                            HashIndexConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            RocksDbDataStorageConfigurationSchema.class
+                    }
             ) TableConfiguration tableCfg
     ) throws Exception {
-        assertThat(tableCfg.dataStorage(), is(instanceOf(RocksDbDataStorageConfiguration.class)));
+        tableCfg.dataStorage().change(c -> c.convert(RocksDbDataStorageChange.class)).get(1, SECONDS);
 
         assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
 

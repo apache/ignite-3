@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -58,7 +59,7 @@ class CoreDistributedConfigurationModuleTest {
 
     @Test
     void providesNoValidators() {
-        assertThat(module.validators(), is(anEmptyMap()));
+        assertThat(module.validators(), not(anEmptyMap()));
     }
 
     @Test
