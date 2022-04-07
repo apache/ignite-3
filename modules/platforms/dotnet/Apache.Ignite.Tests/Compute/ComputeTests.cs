@@ -26,6 +26,8 @@ namespace Apache.Ignite.Tests.Compute
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
+        private const string NodeNameJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$NodeNameJob";
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -36,6 +38,15 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotEmpty(res[0].Id);
             Assert.AreEqual(3344, res[0].Address.Port);
             Assert.IsTrue(IPAddress.IsLoopback(res[0].Address.Address), res[0].Address.ToString());
+        }
+
+        [Test]
+        public async Task TestExecuteOnSpecificNode()
+        {
+            // TODO: Start two nodes.
+            // TODO: Test type mismatch.
+            var nodes = await Client.GetClusterNodesAsync();
+            await Client.Compute.ExecuteAsync<string>(nodes, NodeNameJob);
         }
     }
 }
