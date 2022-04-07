@@ -234,7 +234,7 @@ namespace Apache.Ignite.Internal.Proto
         /// </summary>
         /// <param name="writer">Writer.</param>
         /// <param name="arr">Array.</param>
-        public static void WriteObjectArray(this ref MessagePackWriter writer, object[]? arr)
+        public static void WriteObjectArrayWithTypes(this ref MessagePackWriter writer, object[]? arr)
         {
             if (arr == null)
             {

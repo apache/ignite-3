@@ -105,7 +105,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(node.Address.Port);
 
                 w.Write(jobClassName);
-                w.WriteObjectArray(args);
+                w.WriteObjectArrayWithTypes(args);
 
                 w.Flush();
             }
