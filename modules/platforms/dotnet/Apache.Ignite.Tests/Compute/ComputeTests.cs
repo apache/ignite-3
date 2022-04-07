@@ -25,7 +25,6 @@ namespace Apache.Ignite.Tests.Compute
     using Ignite.Compute;
     using Network;
     using NUnit.Framework;
-    using NUnit.Framework.Internal;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
