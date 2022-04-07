@@ -20,6 +20,8 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -31,6 +33,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Table;
@@ -73,16 +76,14 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     public void test(TestInfo testInfo) throws Exception {
         Set<Thread> threadsBefore = getCurrentThreads();
 
-        String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
+        try {
+            Ignite ignite = startNode(testInfo);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
-
-        IgnitionManager.init(nodeName, List.of(nodeName));
-
-        try (Ignite ignite = future.join()) {
             Table tbl = createTable(ignite, SCHEMA, SHORT_TABLE_NAME);
 
             assertNotNull(tbl);
+        } finally {
+            stopNode(testInfo);
         }
 
         boolean threadsKilled = waitForCondition(() -> threadsBefore.size() == getCurrentThreads().size(), 3_000);
@@ -95,6 +96,24 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
             fail(leakedThreadNames);
         }
+    }
+
+    private Ignite startNode(TestInfo testInfo) throws NodeStoppingException {
+        String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
+
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
+
+        IgnitionManager.init(nodeName, List.of(nodeName));
+
+        assertThat(future, willCompleteSuccessfully());
+
+        return future.join();
+    }
+
+    private static void stopNode(TestInfo testInfo) {
+        String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
+
+        IgnitionManager.stop(nodeName);
     }
 
     /**

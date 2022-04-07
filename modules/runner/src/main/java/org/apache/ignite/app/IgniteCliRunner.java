@@ -23,6 +23,7 @@ import static picocli.CommandLine.Model.PositionalParamSpec;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import picocli.CommandLine;
@@ -40,11 +41,17 @@ public class IgniteCliRunner {
      */
     public static void main(String[] args) {
         try {
-            start(args).join();
+            start(args).get();
         } catch (CommandLine.ParameterException e) {
             System.out.println(e.getMessage());
 
             e.getCommandLine().usage(System.out);
+
+            System.exit(1);
+        } catch (ExecutionException | InterruptedException e) {
+            System.out.println("Error when starting the node: " + e.getMessage());
+
+            e.printStackTrace(System.out);
 
             System.exit(1);
         }

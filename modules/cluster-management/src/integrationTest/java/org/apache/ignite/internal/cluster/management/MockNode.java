@@ -24,8 +24,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbRaftStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -90,15 +91,21 @@ class MockNode {
     }
 
     void beforeNodeStop() {
-        Collections.reverse(components);
+        ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
 
-        components.forEach(IgniteComponent::beforeNodeStop);
+        it.forEachRemaining(IgniteComponent::beforeNodeStop);
     }
 
-    void stop() throws Exception {
-        for (IgniteComponent component : components) {
-            component.stop();
-        }
+    void stop() {
+        ReverseIterator<IgniteComponent> it = new ReverseIterator<>(components);
+
+        it.forEachRemaining(component -> {
+            try {
+                component.stop();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     void restart() throws Exception {
@@ -120,5 +127,23 @@ class MockNode {
 
     ClusterManagementGroupManager clusterManager() {
         return clusterManager;
+    }
+
+    private static class ReverseIterator<T> implements Iterator<T> {
+        private final ListIterator<T> it;
+
+        ReverseIterator(List<T> list) {
+            this.it = list.listIterator(list.size());
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasPrevious();
+        }
+
+        @Override
+        public T next() {
+            return it.previous();
+        }
     }
 }

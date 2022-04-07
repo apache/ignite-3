@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -63,7 +63,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
 
-    private List<Ignite> startedNodes;
+    private final List<Ignite> startedNodes = new ArrayList<>();
 
     private IgniteClient client;
 
@@ -101,9 +101,11 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
         IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
 
-        startedNodes = futures.stream()
-                .map(CompletableFuture::join)
-                .collect(toUnmodifiableList());
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            startedNodes.add(future.join());
+        }
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(COLUMN_KEY, ColumnType.INT32).build(),
@@ -124,13 +126,15 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      */
     @AfterAll
     void afterAll() throws Exception {
-        client.close();
+        var closeables = new ArrayList<AutoCloseable>();
 
-        IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
-    }
+        closeables.add(client);
 
-    protected void stopNode() throws Exception {
-        startedNodes.remove(0).close();
+        nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .forEach(closeables::add);
+
+        IgniteUtils.closeAll(closeables);
     }
 
     protected String getNodeAddress() {

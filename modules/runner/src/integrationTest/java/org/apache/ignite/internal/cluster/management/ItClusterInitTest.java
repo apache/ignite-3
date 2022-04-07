@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -38,8 +39,12 @@ public class ItClusterInitTest extends IgniteAbstractTest {
     private final List<String> nodeNames = new ArrayList<>();
 
     @AfterEach
-    void tearDown() {
-        nodeNames.forEach(IgnitionManager::stop);
+    void tearDown() throws Exception {
+        List<AutoCloseable> closeables = nodeNames.stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(Collectors.toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -75,9 +80,9 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
             String nodeName = testNodeName(testInfo, port);
 
-            nodeNames.add(nodeName);
-
             IgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
+
+            nodeNames.add(nodeName);
         }
     }
 }

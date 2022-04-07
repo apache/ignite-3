@@ -84,7 +84,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
-        node.stop();
+        IgnitionManager.stop(testNodeName(testInfo, 0));
 
         ctx.stop();
     }

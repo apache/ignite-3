@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.C
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -71,6 +73,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
@@ -126,6 +129,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /** Cluster nodes. */
     private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
 
+    private static final List<String> CLUSTER_NODES_NAMES = new ArrayList<>();
+
     /** Cluster nodes. */
     private List<IgniteComponent> partialNode = null;
 
@@ -133,18 +138,23 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Stops all started nodes.
      */
     @AfterEach
-    public void afterEach() {
-        for (int i = 0; i < CLUSTER_NODES.size(); i++) {
-            stopNode(i);
+    public void afterEach() throws Exception {
+        var closeables = new ArrayList<AutoCloseable>();
+
+        for (String name : CLUSTER_NODES_NAMES) {
+            if (name != null) {
+                closeables.add(() -> IgnitionManager.stop(name));
+            }
         }
 
         CLUSTER_NODES.clear();
+        CLUSTER_NODES_NAMES.clear();
 
         if (partialNode != null) {
-            stopPartialNode(partialNode);
-
-            partialNode = null;
+            closeables.add(() -> stopPartialNode(partialNode));
         }
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -431,7 +441,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     private static IgniteImpl startNode(int idx, String nodeName, @Nullable String cfgString, Path workDir) {
         assertTrue(CLUSTER_NODES.size() == idx || CLUSTER_NODES.get(idx) == null);
 
-        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir);
+        CLUSTER_NODES_NAMES.add(idx, nodeName);
+
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
             try {
@@ -440,6 +452,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 throw new IgniteInternalException(e);
             }
         }
+
+        assertThat(future, willCompleteSuccessfully());
 
         Ignite ignite = future.join();
 
@@ -511,6 +525,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             IgnitionManager.stop(node.name());
 
             CLUSTER_NODES.set(idx, null);
+            CLUSTER_NODES_NAMES.set(idx, null);
         }
     }
 
@@ -903,9 +918,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         log.info("Starting the node.");
 
-        Ignite newNode = IgnitionManager.start(igniteName, null, workDir.resolve(igniteName)).join();
-
-        CLUSTER_NODES.set(nodes - 1, newNode);
+        Ignite newNode = startNode(nodes - 1, igniteName, null, workDir);
 
         checkTableWithData(CLUSTER_NODES.get(0), "t1");
         checkTableWithData(CLUSTER_NODES.get(0), "t2");

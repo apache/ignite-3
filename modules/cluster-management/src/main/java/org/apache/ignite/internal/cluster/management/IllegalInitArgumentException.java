@@ -20,8 +20,8 @@ package org.apache.ignite.internal.cluster.management;
 /**
  * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
  */
-class IllegalCmgStateException extends RuntimeException {
-    IllegalCmgStateException(String message) {
+class IllegalInitArgumentException extends RuntimeException {
+    IllegalInitArgumentException(String message) {
         super(message);
     }
 }

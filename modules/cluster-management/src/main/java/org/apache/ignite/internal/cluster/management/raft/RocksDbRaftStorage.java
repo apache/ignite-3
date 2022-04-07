@@ -115,13 +115,15 @@ public class RocksDbRaftStorage implements RaftStorage {
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
         byte[] upperBound = prefix.clone();
 
+        assert upperBound[upperBound.length - 1] < Byte.MAX_VALUE;
+
         upperBound[upperBound.length - 1] += 1;
 
         Slice upperBoundSlice = new Slice(upperBound);
 
-        ReadOptions options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
+        ReadOptions readOptions = new ReadOptions().setIterateUpperBound(upperBoundSlice);
 
-        RocksIterator it = db.newIterator(options);
+        RocksIterator it = db.newIterator(readOptions);
 
         it.seek(prefix);
 
@@ -135,7 +137,7 @@ public class RocksDbRaftStorage implements RaftStorage {
             public void close() throws Exception {
                 super.close();
 
-                IgniteUtils.closeAll(options, upperBoundSlice);
+                IgniteUtils.closeAll(readOptions, upperBoundSlice);
             }
         };
     }

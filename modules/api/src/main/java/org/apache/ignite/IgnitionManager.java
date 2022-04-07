@@ -58,7 +58,8 @@ public class IgnitionManager {
      *      {@code workDir} specified by the user.
      *
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      * @throws IgniteException If error occurs while reading node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
@@ -84,7 +85,8 @@ public class IgnitionManager {
      * @param workDir  Work directory for the started node. Must not be {@code null}.
      * @param clsLdr   The class loader to be used to load provider-configuration files and provider classes, or {@code null} if the system
      *                 class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
@@ -124,6 +126,7 @@ public class IgnitionManager {
     /**
      * Initializes the cluster that this node is present in.
      *
+     * @param name name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
@@ -138,6 +141,7 @@ public class IgnitionManager {
     /**
      * Initializes the cluster that this node is present in.
      *
+     * @param name name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames names of nodes that will host the CMG.
      * @throws NodeStoppingException If node stopping intention was detected.

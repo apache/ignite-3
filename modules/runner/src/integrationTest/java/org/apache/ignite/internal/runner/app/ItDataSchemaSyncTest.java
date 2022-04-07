@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -103,7 +105,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Cluster nodes.
      */
-    private List<Ignite> clusterNodes;
+    private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /**
      * Starts a cluster before every test started.
@@ -118,9 +120,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
 
-        clusterNodes = futures.stream()
-                .map(CompletableFuture::join)
-                .collect(toUnmodifiableList());
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
+        }
     }
 
     /**
@@ -128,7 +132,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
+        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -193,7 +201,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             );
         }
 
-        CompletableFuture insertFut = IgniteTestUtils.runAsync(() ->
+        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() ->
                 table1.recordView().insert(
                         null,
                         Tuple.create()
@@ -203,11 +211,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                                 .set("valStr2", "str2_" + 0)
                 ));
 
-        CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture<?> getFut = IgniteTestUtils.runAsync(() -> {
             table1.recordView().get(null, Tuple.create().set("key", 10L));
         });
 
-        CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture<?> checkDefaultFut = IgniteTestUtils.runAsync(() -> {
             assertEquals("default",
                     table1.recordView().get(null, Tuple.create().set("key", 0L))
                             .value("valStr2"));

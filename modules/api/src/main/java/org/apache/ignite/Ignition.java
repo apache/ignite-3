@@ -35,7 +35,8 @@ public interface Ignition {
      * @param name Name of the node. Must not be {@code null}.
      * @param configPath Path to the node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     public CompletableFuture<Ignite> start(String name, @Nullable Path configPath, Path workDir);
 
@@ -48,7 +49,8 @@ public interface Ignition {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
      * null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     public CompletableFuture<Ignite> start(
             String name, @Nullable Path configPath, Path workDir, @Nullable ClassLoader serviceLoaderClassLoader
@@ -60,7 +62,8 @@ public interface Ignition {
      * @param name Name of the node. Must not be {@code null}.
      * @param cfgUrl URL linking to the node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     public CompletableFuture<Ignite> start(String name, @Nullable URL cfgUrl, Path workDir);
 
@@ -85,7 +88,8 @@ public interface Ignition {
      *      {@code workDir} specified by the user.
      *
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     public CompletableFuture<Ignite> start(String name, @Nullable InputStream config, Path workDir);
 
@@ -94,7 +98,8 @@ public interface Ignition {
      *
      * @param name Name of the node. Must not be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     public CompletableFuture<Ignite> start(String name, Path workDir);
 
@@ -108,16 +113,18 @@ public interface Ignition {
     public void stop(String name);
 
     /**
-     * Initializes the cluster that this node is present in.
+     * Initializes the cluster that the given node is present in.
      *
+     * @param name name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     public void init(String name, Collection<String> metaStorageNodeNames) throws NodeStoppingException;
 
     /**
-     * Initializes the cluster that this node is present in.
+     * Initializes the cluster that the given node is present in.
      *
+     * @param name name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames names of nodes that will host the CMG.
      * @throws NodeStoppingException If node stopping intention was detected.

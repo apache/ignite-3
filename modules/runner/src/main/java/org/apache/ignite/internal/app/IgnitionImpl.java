@@ -161,7 +161,8 @@ public class IgnitionImpl implements Ignition {
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param cfgContent Node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     private static CompletableFuture<Ignite> doStart(
             String nodeName,

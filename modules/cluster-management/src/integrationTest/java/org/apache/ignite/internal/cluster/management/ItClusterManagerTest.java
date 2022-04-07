@@ -21,8 +21,9 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -70,7 +71,7 @@ public class ItClusterManagerTest {
     }
 
     @AfterEach
-    void tearDown() throws Exception {
+    void tearDown() {
         for (MockNode node : cluster) {
             node.beforeNodeStop();
         }
@@ -105,7 +106,7 @@ public class ItClusterManagerTest {
      */
     @Test
     void testInitCancel() throws Exception {
-        String[] cmgNodes = { cluster.get(0).localMember().name(), cluster.get(1).localMember().name() };
+        String[] allNodes = { cluster.get(0).localMember().name(), cluster.get(1).localMember().name() };
 
         // stop a CMG node to make the init fail
 
@@ -114,15 +115,15 @@ public class ItClusterManagerTest {
         nodeToStop.beforeNodeStop();
         nodeToStop.stop();
 
-        assertThrows(InitException.class, () -> initCluster(cmgNodes, cmgNodes));
+        assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
 
         // complete initialization with one node to check that it finishes correctly
 
-        String[] correctCmgNodes = { cluster.get(0).localMember().name() };
+        String[] aliveNodes = { cluster.get(0).localMember().name() };
 
-        initCluster(correctCmgNodes, correctCmgNodes);
+        initCluster(aliveNodes, aliveNodes);
 
-        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(correctCmgNodes)));
+        assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(aliveNodes)));
 
         assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
@@ -175,7 +176,7 @@ public class ItClusterManagerTest {
 
         assertThat(node.clusterManager().metaStorageNodes(), will(containsInAnyOrder(cmgNodes)));
 
-        assertThat(Arrays.asList(currentPhysicalTopology()), hasSize(cluster.size()));
+        assertThat(currentPhysicalTopology(), is(arrayWithSize(cluster.size())));
 
         assertThat(node.clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }

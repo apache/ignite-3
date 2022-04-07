@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -67,7 +69,7 @@ class ItTableCreationTest {
      * Before each.
      */
     @BeforeEach
-    void setUp(TestInfo testInfo) {
+    void setUp(TestInfo testInfo) throws NodeStoppingException {
         String node0Name = testNodeName(testInfo, PORTS[0]);
         String node1Name = testNodeName(testInfo, PORTS[1]);
         String node2Name = testNodeName(testInfo, PORTS[2]);
@@ -182,21 +184,7 @@ class ItTableCreationTest {
                         + "  }\n"
                         + "}"
         );
-    }
 
-    /**
-     * After each.
-     */
-    @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
-    }
-
-    /**
-     * Check table creation via bootstrap configuration with pre-configured table.
-     */
-    @Test
-    void testInitialSimpleTableConfiguration() throws NodeStoppingException {
         List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
                 .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
                 .collect(toList());
@@ -205,8 +193,30 @@ class ItTableCreationTest {
 
         IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
 
-        futures.stream().map(CompletableFuture::join).forEach(clusterNodes::add);
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
 
+            clusterNodes.add(future.join());
+        }
+    }
+
+    /**
+     * After each.
+     */
+    @AfterEach
+    void tearDown() throws Exception {
+        List<AutoCloseable> autoCloseables = nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(autoCloseables);
+    }
+
+    /**
+     * Check table creation via bootstrap configuration with pre-configured table.
+     */
+    @Test
+    void testInitialSimpleTableConfiguration() throws NodeStoppingException {
         assertEquals(3, clusterNodes.size());
 
         clusterNodes.forEach(Assertions::assertNotNull);

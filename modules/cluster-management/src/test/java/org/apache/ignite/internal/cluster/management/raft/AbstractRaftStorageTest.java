@@ -69,7 +69,7 @@ public abstract class AbstractRaftStorageTest {
      * Tests the {@link RaftStorage#get} and {@link RaftStorage#put} methods.
      */
     @Test
-    void testGet() {
+    void testGetAndPut() {
         byte[] key1 = "key1".getBytes(UTF_8);
         byte[] key2 = "key2".getBytes(UTF_8);
 
@@ -193,7 +193,7 @@ public abstract class AbstractRaftStorageTest {
      * Tests the {@link RaftStorage#destroy()} method.
      */
     @Test
-    void testClear() {
+    void testDestroy() {
         byte[] key = "key".getBytes(UTF_8);
 
         byte[] value = "value".getBytes(UTF_8);

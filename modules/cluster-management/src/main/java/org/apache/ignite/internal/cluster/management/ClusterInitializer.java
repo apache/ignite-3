@@ -78,12 +78,8 @@ public class ClusterInitializer {
             return invokeMessage(cmgNodes, initMessage)
                     .thenApply(CompletableFuture::completedFuture)
                     .exceptionally(e -> {
-                        if (e instanceof InternalInitException) {
-                            if (((InternalInitException) e).shouldCancelInit()) {
-                                return cancelInit(cmgNodes, e);
-                            } else {
-                                return failedFuture(e);
-                            }
+                        if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                            return failedFuture(e);
                         } else {
                             return cancelInit(cmgNodes, e);
                         }
@@ -125,13 +121,12 @@ public class ClusterInitializer {
                         .invoke(node, message, 10000)
                         .thenAccept(response -> {
                             if (response instanceof InitErrorMessage) {
-                                String msg = String.format(
-                                        "Got error response from node \"%s\": %s", node.name(), ((InitErrorMessage) response).cause()
+                                var errorResponse = (InitErrorMessage) response;
+
+                                throw new InternalInitException(
+                                        String.format("Got error response from node \"%s\": %s", node.name(), errorResponse.cause()),
+                                        errorResponse.shouldCancel()
                                 );
-
-                                boolean shouldCancelInit = !((InitErrorMessage) response).isInternal();
-
-                                throw new InternalInitException(msg, shouldCancelInit);
                             } else if (!(response instanceof InitCompleteMessage)) {
                                 throw new InternalInitException(
                                         String.format("Unexpected response from node \"%s\": %s", node.name(), response.getClass()),

@@ -30,5 +30,9 @@ public interface InitErrorMessage extends NetworkMessage {
      */
     String cause();
 
-    boolean isInternal();
+    /**
+     * Flag declaring that the cause of this error is an internal message, in which case the init procedure should be cancelled.
+     * If {@code false} - this means that the error is caused by invalid user input and the command should be retried.
+     */
+    boolean shouldCancel();
 }
