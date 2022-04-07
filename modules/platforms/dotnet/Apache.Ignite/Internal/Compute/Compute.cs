@@ -49,6 +49,7 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
+            // TODO: Cluster awareness (IGNITE-16823): match specified nodes to known connections.
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), jobClassName, args).ConfigureAwait(false);
         }
 
