@@ -58,7 +58,7 @@ public class InteractiveWrapper {
      * @param cmd Prepared CommandLine instance to use for interactive mode.
      */
     public void run(CommandLine cmd) {
-        PicocliCommands picocliCommands = new PicocliCommands(workDir(), cmd) {
+        PicocliCommands picocliCommands = new PicocliCommands(cmd) {
             @Override
             public Object invoke(CommandSession ses, String cmd, Object... args) throws Exception {
                 return execute(ses, cmd, (String[]) args);

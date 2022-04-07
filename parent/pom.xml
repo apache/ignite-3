@@ -58,12 +58,14 @@
         <javapoet.version>1.13.0</javapoet.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
+        <jline.version>3.21.0</jline.version>
         <jmh.framework.version>1.13</jmh.framework.version>
         <junit.version>5.8.1</junit.version>
-        <micronaut.version>2.1.2</micronaut.version>
+        <micronaut.version>3.2.7</micronaut.version>
+        <micronaunt-picocli.version>4.1.0</micronaunt-picocli.version>
         <micronaut.test.junit5.version>2.3.1</micronaut.test.junit5.version>
         <mockito.version>4.3.1</mockito.version>
-        <picocli.version>4.5.2</picocli.version>
+        <picocli.version>4.6.2</picocli.version>
         <slf4j.version>1.7.32</slf4j.version>
         <spoon.framework.version>8.4.0-beta-18</spoon.framework.version>
         <typesafe.version>1.4.1</typesafe.version>
@@ -105,6 +107,7 @@
         <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
         <maven.flatten.plugin.version>1.2.2</maven.flatten.plugin.version>
         <maven.javacc.plugin.version>2.6</maven.javacc.plugin.version>
+        <maven.micronaut.build.plugin.version>3.1.0</maven.micronaut.build.plugin.version>
         <maven.fmpp.plugin.version>1.0</maven.fmpp.plugin.version>
         <maven.javadoc.plugin.version>3.2.0</maven.javadoc.plugin.version>
         <maven.modernizer.plugin.version>2.3.0</maven.modernizer.plugin.version>
@@ -455,6 +458,18 @@
             </dependency>
 
             <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-runtime</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut.picocli</groupId>
+                <artifactId>micronaut-picocli</artifactId>
+                <version>${micronaunt-picocli.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.typesafe</groupId>
                 <artifactId>config</artifactId>
                 <version>${typesafe.version}</version>
@@ -470,6 +485,12 @@
                 <groupId>info.picocli</groupId>
                 <artifactId>picocli</artifactId>
                 <version>${picocli.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jline</groupId>
+                <artifactId>jline</artifactId>
+                <version>${jline.version}</version>
             </dependency>
 
             <dependency>
@@ -1012,6 +1033,12 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven.failsafe.plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.micronaut.build</groupId>
+                    <artifactId>micronaut-maven-plugin</artifactId>
+                    <version>${maven.micronaut.build.plugin.version}</version>
                 </plugin>
 
                 <plugin>
