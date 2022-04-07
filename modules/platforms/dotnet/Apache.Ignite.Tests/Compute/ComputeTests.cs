@@ -39,11 +39,13 @@ namespace Apache.Ignite.Tests.Compute
         {
             var res = await Client.GetClusterNodesAsync();
 
-            Assert.AreEqual(1, res.Count);
-            Assert.AreEqual(PlatformTestNodeRunner, res[0].Name);
-            Assert.IsNotEmpty(res[0].Id);
-            Assert.AreEqual(3344, res[0].Address.Port);
-            Assert.IsTrue(IPAddress.IsLoopback(res[0].Address.Address), res[0].Address.ToString());
+            Assert.AreEqual(2, res.Count);
+
+            var firstNode = res.Single(x => x.Name == PlatformTestNodeRunner);
+
+            Assert.IsNotEmpty(firstNode.Id);
+            Assert.AreEqual(3344, firstNode.Address.Port);
+            Assert.IsTrue(IPAddress.IsLoopback(firstNode.Address.Address), firstNode.Address.ToString());
         }
 
         [Test]
