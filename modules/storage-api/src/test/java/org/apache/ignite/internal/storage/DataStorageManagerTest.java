@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -26,14 +30,17 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 
 /**
  * For {@link DataStorageManager} testing.
@@ -61,7 +68,65 @@ public class DataStorageManagerTest {
         assertThat(exception.getMessage(), Matchers.startsWith("Duplicate key"));
     }
 
-    private StorageEngineFactory createMockedStorageEngineFactory(String name) {
+    @Test
+    void testDefaultTableDataStorageConsumerSingleStorageEngine() {
+        String engineName = UUID.randomUUID().toString();
+
+        DataStorageManager dataStorageManager = new DataStorageManager(
+                mock(ConfigurationRegistry.class),
+                workDir,
+                List.of(createMockedStorageEngineFactory(engineName))
+        );
+
+        checkDefaultTableDataStorageConsumer(dataStorageManager, engineName, engineName);
+
+        checkDefaultTableDataStorageConsumer(dataStorageManager, UNKNOWN_DATA_STORAGE, engineName);
+    }
+
+    @Test
+    void testDefaultTableDataStorageConsumerMultipleStorageEngines() {
+        String engineName1 = UUID.randomUUID().toString();
+        String engineName2 = UUID.randomUUID().toString();
+
+        DataStorageManager dataStorageManager = new DataStorageManager(
+                mock(ConfigurationRegistry.class),
+                workDir,
+                List.of(
+                        createMockedStorageEngineFactory(engineName1),
+                        createMockedStorageEngineFactory(engineName2)
+                )
+        );
+
+        checkDefaultTableDataStorageConsumer(dataStorageManager, engineName1, engineName1);
+
+        checkDefaultTableDataStorageConsumer(dataStorageManager, engineName2, engineName2);
+
+        checkDefaultTableDataStorageConsumer(dataStorageManager, UNKNOWN_DATA_STORAGE, null);
+    }
+
+    private static void checkDefaultTableDataStorageConsumer(
+            DataStorageManager dataStorageManager,
+            String defaultDataStorageView,
+            @Nullable String expPolymorphicTypeId
+    ) {
+        DataStorageChange mock = mock(DataStorageChange.class);
+
+        ArgumentCaptor<String> stringArgumentCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(mock.convert(stringArgumentCaptor.capture())).thenReturn(mock);
+
+        dataStorageManager.defaultTableDataStorageConsumer(defaultDataStorageView).accept(mock);
+
+        if (expPolymorphicTypeId != null) {
+            assertThat(stringArgumentCaptor.getAllValues(), hasSize(1));
+
+            assertThat(stringArgumentCaptor.getValue(), equalTo(expPolymorphicTypeId));
+        } else {
+            assertThat(stringArgumentCaptor.getAllValues(), empty());
+        }
+    }
+
+    private static StorageEngineFactory createMockedStorageEngineFactory(String name) {
         StorageEngineFactory mock = mock(StorageEngineFactory.class);
 
         when(mock.name()).thenReturn(name);

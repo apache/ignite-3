@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -100,11 +101,15 @@ public class DataStorageManager implements IgniteComponent {
      * Returns a consumer that will set the default {@link TableConfigurationSchema#dataStorage table data storage} depending on the {@link
      * StorageEngine engine}.
      *
-     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}.
+     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
+     *      DataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise there
+     *      will be no default.
      */
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> {
             if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
+                assert engines.containsKey(defaultDataStorageView) : defaultDataStorageView;
+
                 tableDataStorageChange.convert(defaultDataStorageView);
             } else if (engines.size() == 1) {
                 tableDataStorageChange.convert(first(engines.keySet()));
