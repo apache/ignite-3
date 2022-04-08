@@ -69,10 +69,8 @@ import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -210,7 +208,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Stop configuration manager. */
     @AfterEach
-    void after() {
+    void after() throws Exception {
         assertTrue(tblManagerFut.isDone());
 
         tblManagerFut.join().beforeNodeStop();
@@ -611,26 +609,16 @@ public class TableManagerTest extends IgniteAbstractTest {
     }
 
     private DataStorageManager createDataStorageManager(
-            ConfigurationRegistry registry,
+            ConfigurationRegistry mockedRegistry,
             Path storagePath,
             RocksDbStorageEngineConfiguration config
     ) {
-        DataStorageManager manager = new DataStorageManager(
-                registry,
-                storagePath,
-                List.of(new StorageEngineFactory() {
-                    /** {@inheritDoc} */
-                    @Override
-                    public String name() {
-                        return RocksDbStorageEngine.ENGINE_NAME;
-                    }
+        when(mockedRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(config);
 
-                    /** {@inheritDoc} */
-                    @Override
-                    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
-                        return new RocksDbStorageEngine(config, storagePath);
-                    }
-                })
+        DataStorageManager manager = new DataStorageManager(
+                mockedRegistry,
+                storagePath,
+                List.of(new RocksDbStorageEngineFactory())
         );
 
         manager.start();

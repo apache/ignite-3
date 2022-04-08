@@ -17,7 +17,7 @@
 
 package org.apache.ignite.configuration.schemas.store;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 
@@ -26,4 +26,6 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
  */
 @PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
 public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+    /** Default data storage name. */
+    public static final String UNKNOWN_DATA_STORAGE = "unknown";
 }

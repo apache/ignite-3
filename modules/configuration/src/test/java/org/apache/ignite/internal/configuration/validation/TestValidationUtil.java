@@ -19,7 +19,7 @@ package org.apache.ignite.internal.configuration.validation;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -60,7 +60,7 @@ public class TestValidationUtil {
      * @param mock Mocked validation context.
      * @return New {@link ArgumentCaptor}.
      */
-    public static <VIEWT> ArgumentCaptor<ValidationIssue> mockAddIssue(ValidationContext<VIEWT> mock) {
+    public static <VIEWT> ArgumentCaptor<ValidationIssue> addIssuesCaptor(ValidationContext<VIEWT> mock) {
         ArgumentCaptor<ValidationIssue> issuesCaptor = ArgumentCaptor.forClass(ValidationIssue.class);
 
         doNothing().when(mock).addIssue(issuesCaptor.capture());
@@ -82,18 +82,16 @@ public class TestValidationUtil {
             ValidationContext<VIEWT> ctx,
             @Nullable String errorMessagePrefix
     ) {
-        ArgumentCaptor<ValidationIssue> argumentCaptor = mockAddIssue(ctx);
+        ArgumentCaptor<ValidationIssue> argumentCaptor = addIssuesCaptor(ctx);
 
         validator.validate(annotation, ctx);
 
         if (errorMessagePrefix == null) {
             assertThat(argumentCaptor.getAllValues(), empty());
         } else {
-            assertThat(argumentCaptor.getAllValues(), not(empty()));
+            assertThat(argumentCaptor.getAllValues(), hasSize(1));
 
-            for (ValidationIssue value : argumentCaptor.getAllValues()) {
-                assertThat(value.message(), startsWith(errorMessagePrefix));
-            }
+            assertThat(argumentCaptor.getValue().message(), startsWith(errorMessagePrefix));
         }
     }
 }

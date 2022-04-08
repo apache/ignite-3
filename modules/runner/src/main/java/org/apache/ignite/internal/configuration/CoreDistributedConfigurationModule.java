@@ -27,16 +27,12 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.ColumnTypeValidator;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
-import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.schema.configuration.ColumnTypeValidatorImpl;
 import org.apache.ignite.internal.schema.configuration.KnownDataStorageValidator;
-import org.apache.ignite.internal.schema.configuration.TableValidatorImpl;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-api.
@@ -71,10 +67,6 @@ public class CoreDistributedConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(
-                KnownDataStorage.class, Set.of(KnownDataStorageValidator.INSTANCE),
-                TableValidator.class, Set.of(TableValidatorImpl.INSTANCE),
-                ColumnTypeValidator.class, Set.of(ColumnTypeValidatorImpl.INSTANCE)
-        );
+        return Map.of(KnownDataStorage.class, Set.of(new KnownDataStorageValidator()));
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.configuration;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.validate;
 import static org.mockito.Mockito.mock;
@@ -25,22 +25,22 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
-import org.apache.ignite.configuration.schemas.store.ExistDataStorage;
+import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link ExistDataStorageValidator} testing.
+ * For {@link ExistingDataStorageValidator} testing.
  */
-public class ExistDataStorageValidatorTest {
+public class ExistingDataStorageValidatorTest {
     @Test
     void testFailValidation() {
-        ExistDataStorage annotation = mock(ExistDataStorage.class);
+        ExistingDataStorage annotation = mock(ExistingDataStorage.class);
 
         String dataStorage1 = UUID.randomUUID().toString();
         String dataStorage2 = UUID.randomUUID().toString();
 
-        ExistDataStorageValidator validator = new ExistDataStorageValidator(List.of(
+        ExistingDataStorageValidator validator = new ExistingDataStorageValidator(List.of(
                 createMockedStorageEngineFactory(dataStorage1),
                 createMockedStorageEngineFactory(dataStorage2)
         ));
@@ -52,12 +52,12 @@ public class ExistDataStorageValidatorTest {
 
     @Test
     void testSuccessValidation() {
-        ExistDataStorage annotation = mock(ExistDataStorage.class);
+        ExistingDataStorage annotation = mock(ExistingDataStorage.class);
 
         String dataStorage1 = UUID.randomUUID().toString();
         String dataStorage2 = UUID.randomUUID().toString();
 
-        ExistDataStorageValidator validator = new ExistDataStorageValidator(List.of(
+        ExistingDataStorageValidator validator = new ExistingDataStorageValidator(List.of(
                 createMockedStorageEngineFactory(dataStorage1),
                 createMockedStorageEngineFactory(dataStorage2)
         ));

@@ -18,21 +18,21 @@
 package org.apache.ignite.internal.storage.configuration;
 
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import org.apache.ignite.configuration.schemas.store.ExistDataStorage;
+import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 
 /**
- * Implementing a validator for {@link ExistDataStorage}.
+ * Implementing a validator for {@link ExistingDataStorage}.
  */
-public class ExistDataStorageValidator implements Validator<ExistDataStorage, String> {
+public class ExistingDataStorageValidator implements Validator<ExistingDataStorage, String> {
     private final Set<String> dataStorages;
 
     /**
@@ -40,7 +40,7 @@ public class ExistDataStorageValidator implements Validator<ExistDataStorage, St
      *
      * @param engineFactories Storage engine factories.
      */
-    public ExistDataStorageValidator(Iterable<StorageEngineFactory> engineFactories) {
+    public ExistingDataStorageValidator(Iterable<StorageEngineFactory> engineFactories) {
         dataStorages = Stream.concat(
                 Stream.of(UNKNOWN_DATA_STORAGE),
                 StreamSupport.stream(engineFactories.spliterator(), false).map(StorageEngineFactory::name)
@@ -49,7 +49,7 @@ public class ExistDataStorageValidator implements Validator<ExistDataStorage, St
 
     /** {@inheritDoc} */
     @Override
-    public void validate(ExistDataStorage annotation, ValidationContext<String> ctx) {
+    public void validate(ExistingDataStorage annotation, ValidationContext<String> ctx) {
         String newValue = ctx.getNewValue();
 
         if (!dataStorages.contains(newValue)) {

@@ -49,7 +49,7 @@ public class KnownDataStorageValidatorTest {
 
         DataStorageView value = dataStorageConfig.value();
 
-        validate(KnownDataStorageValidator.INSTANCE, annotation, mockValidationContext(value, value), "Data storage cannot be 'unknown'");
+        validate(new KnownDataStorageValidator(), annotation, mockValidationContext(value, value), "Data storage cannot be 'unknown'");
     }
 
     @Test
@@ -60,6 +60,6 @@ public class KnownDataStorageValidatorTest {
 
         DataStorageView value = dataStorageConfig.value();
 
-        validate(KnownDataStorageValidator.INSTANCE, annotation, mockValidationContext(value, value), null);
+        validate(new KnownDataStorageValidator(), annotation, mockValidationContext(value, value), null);
     }
 }

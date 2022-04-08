@@ -483,10 +483,10 @@ public class Processor extends AbstractProcessor {
                     TypeVariableName.get("T")
             );
 
-            // Variable type, for example: <T extends SimpleChange & PolymorphicInstance>.
+            // Variable type, for example: <T extends SimpleChange & PolymorphicChange>.
             TypeVariableName typeVariable = TypeVariableName.get("T", changeClsName, POLYMORPHIC_CHANGE_CLASSNAME);
 
-            // Method like: <T extends SimpleChange> T convert(Class<T> changeClass);
+            // Method like: <T extends SimpleChange & PolymorphicChange> T convert(Class<T> changeClass);
             MethodSpec.Builder convertByChangeClassMtdBuilder = MethodSpec.methodBuilder("convert")
                     .addModifiers(PUBLIC, ABSTRACT)
                     .addTypeVariable(typeVariable)
@@ -495,12 +495,11 @@ public class Processor extends AbstractProcessor {
 
             changeClsBuilder.addMethod(convertByChangeClassMtdBuilder.build());
 
-            // Method like: <T extends SimpleChange> T convert(String polymorphicId);
+            // Method like: SimpleChange convert(String polymorphicTypeId);
             MethodSpec.Builder convertByStringMtdBuilder = MethodSpec.methodBuilder("convert")
                     .addModifiers(PUBLIC, ABSTRACT)
-                    .addTypeVariable(typeVariable)
                     .addParameter(ClassName.get(String.class), "polymorphicTypeId")
-                    .returns(TypeVariableName.get("T"));
+                    .returns(changeClsName);
 
             changeClsBuilder.addMethod(convertByStringMtdBuilder.build());
         }

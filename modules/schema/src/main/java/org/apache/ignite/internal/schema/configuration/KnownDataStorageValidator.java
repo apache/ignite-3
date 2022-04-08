@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.schema.configuration;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
@@ -29,9 +29,6 @@ import org.apache.ignite.configuration.validation.Validator;
  * Implementing a validator for {@link KnownDataStorage}.
  */
 public class KnownDataStorageValidator implements Validator<KnownDataStorage, DataStorageView> {
-    /** Static instance. */
-    public static final KnownDataStorageValidator INSTANCE = new KnownDataStorageValidator();
-
     /** {@inheritDoc} */
     @Override
     public void validate(KnownDataStorage annotation, ValidationContext<DataStorageView> ctx) {

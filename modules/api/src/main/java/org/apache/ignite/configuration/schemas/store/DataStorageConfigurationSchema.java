@@ -25,10 +25,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicId;
  */
 @PolymorphicConfig
 public class DataStorageConfigurationSchema {
-    /** Default data storage name. */
-    public static final String UNKNOWN_DATA_STORAGE = "unknown";
-
     /** Name of data storage. */
     @PolymorphicId(hasDefault = true)
-    public String name = UNKNOWN_DATA_STORAGE;
+    public String name = UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 }

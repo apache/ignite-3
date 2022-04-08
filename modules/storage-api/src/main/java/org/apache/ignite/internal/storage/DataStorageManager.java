@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toUnmodifiableMap;
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.nio.file.Path;
@@ -28,7 +28,7 @@ import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -36,6 +36,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -84,8 +85,8 @@ public class DataStorageManager implements IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws StorageException {
-        engines.values().forEach(StorageEngine::stop);
+    public void stop() throws Exception {
+        IgniteUtils.closeAll(engines.values().stream().map(engine -> engine::stop));
     }
 
     /**
@@ -102,8 +103,8 @@ public class DataStorageManager implements IgniteComponent {
      * StorageEngine engine}.
      *
      * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
-     *      DataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise there
-     *      will be no default.
+     *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default,
+     *      otherwise there will be no default.
      */
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> {
