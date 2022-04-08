@@ -115,7 +115,8 @@ public class RocksDbRaftStorage implements RaftStorage {
     public <T> Cursor<T> getWithPrefix(byte[] prefix, BiFunction<byte[], byte[], T> entryTransformer) {
         byte[] upperBound = prefix.clone();
 
-        assert upperBound[upperBound.length - 1] < Byte.MAX_VALUE;
+        // using 0xFF as max value since RocksDB uses unsigned byte comparison
+        assert upperBound[upperBound.length - 1] != (byte) 0xFF;
 
         upperBound[upperBound.length - 1] += 1;
 
