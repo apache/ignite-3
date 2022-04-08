@@ -15,19 +15,48 @@
  * limitations under the License.
  */
 
+import org.apache.ignite.client.handler.ClientResource;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for {@link org.apache.ignite.client.handler.ClientResourceRegistry}.
  */
 public class ClientResourceRegistryTest {
     @Test
-    public void testCloseReleasesAllResourcesAndBlocksUsage() {
-        // TODO
+    public void testPutGetRemove() {
+        var reg = new ClientResourceRegistry();
+        ClientResource resource = new ClientResource(1, null);
+
+        var id = reg.put(resource);
+        var returned = reg.get(id);
+        var removed = reg.remove(id);
+
+        assertSame(resource, returned);
+        assertSame(resource, removed);
+        assertThrows(IgniteException.class, () -> reg.get(id));
     }
 
     @Test
-    public void testPutGetRemove() {
+    public void testCloseReleasesAllResourcesAndBlocksUsage() {
         // TODO
+        var reg = new ClientResourceRegistry();
+        var closed = new AtomicLong();
+
+        reg.put(new ClientResource(1, closed::incrementAndGet));
+        reg.put(new ClientResource(2, closed::incrementAndGet));
+
+        reg.close();
+
+        assertEquals(2, closed.get());
+        assertThrows(IgniteException.class, () -> reg.get(0));
+        assertThrows(IgniteException.class, () -> reg.put(new ClientResource(1, null)));
+        assertThrows(IgniteException.class, () -> reg.remove(0));
     }
 }
