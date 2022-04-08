@@ -22,22 +22,31 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Per-connection resource registry.
  */
 public class ClientResourceRegistry {
-    /** Resources. */
+    /**
+     * Resources.
+     */
     private final Map<Long, ClientResource> res = new ConcurrentHashMap<>();
 
-    /** ID generator. */
+    /**
+     * ID generator.
+     */
     private final AtomicLong idGen = new AtomicLong();
 
-    /** RW lock. */
+    /**
+     * RW lock.
+     */
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    /** Closed flag. */
+    /**
+     * Closed flag.
+     */
     private volatile boolean closed;
 
     /**
@@ -46,7 +55,7 @@ public class ClientResourceRegistry {
      * @param obj Object.
      * @return Id.
      */
-    public long put(ClientResource obj) {
+    public long put(ClientResource obj) throws IgniteInternalCheckedException {
         enter();
 
         try {
@@ -66,14 +75,14 @@ public class ClientResourceRegistry {
      * @param id Id.
      * @return Object.
      */
-    public ClientResource get(long id) {
+    public ClientResource get(long id) throws IgniteInternalCheckedException {
         enter();
 
         try {
             ClientResource res = this.res.get(id);
 
             if (res == null) {
-                throw new IgniteException("Failed to find resource with id: " + id);
+                throw new IgniteInternalException("Failed to find resource with id: " + id);
             }
 
             return res;
@@ -87,14 +96,14 @@ public class ClientResourceRegistry {
      *
      * @param id Id.
      */
-    public ClientResource remove(long id) {
+    public ClientResource remove(long id) throws IgniteInternalCheckedException {
         enter();
 
         try {
             ClientResource res = this.res.remove(id);
 
             if (res == null) {
-                throw new IgniteException("Failed to find resource with id: " + id);
+                throw new IgniteInternalException("Failed to find resource with id: " + id);
             }
 
             return res;
@@ -111,14 +120,14 @@ public class ClientResourceRegistry {
         closed = true;
 
         try {
-            IgniteException ex = null;
+            IgniteInternalException ex = null;
 
             for (ClientResource r : res.values()) {
                 try {
                     r.release();
                 } catch (Exception e) {
                     if (ex == null) {
-                        ex = new IgniteException(e);
+                        ex = new IgniteInternalException(e);
                     } else {
                         ex.addSuppressed(e);
                     }
@@ -138,9 +147,9 @@ public class ClientResourceRegistry {
     /**
      * Enters the lock.
      */
-    private void enter() {
+    private void enter() throws IgniteInternalCheckedException {
         if (!rwLock.readLock().tryLock() || closed) {
-            throw new IgniteException("Resource registry is closed.");
+            throw new IgniteInternalCheckedException("Resource registry is closed.");
         }
     }
 

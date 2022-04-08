@@ -18,8 +18,10 @@
 package org.apache.ignite.client.handler.requests.tx;
 
 import java.util.concurrent.CompletableFuture;
+
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.tx.Transaction;
 
 /**
@@ -33,7 +35,8 @@ public class ClientTransactionCommitRequest {
      * @param resources Resources.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientResourceRegistry resources) {
+    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientResourceRegistry resources)
+            throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
         Transaction t = resources.remove(resourceId).get(Transaction.class);

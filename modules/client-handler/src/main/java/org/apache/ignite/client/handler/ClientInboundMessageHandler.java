@@ -71,6 +71,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -306,7 +307,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode
-    ) {
+    ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
                 return null;

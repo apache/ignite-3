@@ -22,7 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,7 +31,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ClientResourceRegistryTest {
     @Test
-    public void testPutGetRemove() {
+    public void testPutGetRemove() throws IgniteInternalCheckedException {
         var reg = new ClientResourceRegistry();
         ClientResource resource = new ClientResource(1, null);
 
@@ -41,12 +42,12 @@ public class ClientResourceRegistryTest {
         assertSame(resource, returned);
         assertSame(resource, removed);
 
-        var ex = assertThrows(IgniteException.class, () -> reg.get(id));
+        var ex = assertThrows(IgniteInternalException.class, () -> reg.get(id));
         assertEquals("Failed to find resource with id: 1", ex.getMessage());
     }
 
     @Test
-    public void testCloseReleasesAllResourcesAndBlocksUsage() {
+    public void testCloseReleasesAllResourcesAndBlocksUsage() throws IgniteInternalCheckedException {
         var reg = new ClientResourceRegistry();
         var closed = new AtomicLong();
 
@@ -57,13 +58,13 @@ public class ClientResourceRegistryTest {
 
         assertEquals(2, closed.get());
 
-        var ex = assertThrows(IgniteException.class, () -> reg.put(new ClientResource(1, null)));
+        var ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.put(new ClientResource(1, null)));
         assertEquals("Resource registry is closed.", ex.getMessage());
 
-        ex = assertThrows(IgniteException.class, () -> reg.get(0));
+        ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.get(0));
         assertEquals("Resource registry is closed.", ex.getMessage());
 
-        ex = assertThrows(IgniteException.class, () -> reg.remove(0));
+        ex = assertThrows(IgniteInternalCheckedException.class, () -> reg.remove(0));
         assertEquals("Resource registry is closed.", ex.getMessage());
     }
 }
