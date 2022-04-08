@@ -102,7 +102,22 @@ public class ItClusterManagerTest {
     }
 
     /**
-     * Tests cancelling an init command due to a node failure.
+     * Tests that init fails in case some nodes cannot be found.
+     */
+    @Test
+    void testInitDeadNodes() {
+        String[] allNodes = { cluster.get(0).localMember().name(), cluster.get(1).localMember().name() };
+
+        MockNode nodeToStop = cluster.remove(0);
+
+        nodeToStop.beforeNodeStop();
+        nodeToStop.stop();
+
+        assertThrows(InitException.class, () -> initCluster(allNodes, allNodes));
+    }
+
+    /**
+     * Tests that re-running init after a failed init attempt can succeed.
      */
     @Test
     void testInitCancel() throws Exception {

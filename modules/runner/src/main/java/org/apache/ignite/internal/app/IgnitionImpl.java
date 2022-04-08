@@ -196,15 +196,15 @@ public class IgnitionImpl implements Ignition {
 
                             return ignite;
                         } else {
-                            throw handleException(nodeName, e);
+                            throw handleStartException(nodeName, e);
                         }
                     });
         } catch (Exception e) {
-            throw handleException(nodeName, e);
+            throw handleStartException(nodeName, e);
         }
     }
 
-    private static IgniteException handleException(String nodeName, Throwable e) {
+    private static IgniteException handleStartException(String nodeName, Throwable e) {
         nodes.remove(nodeName);
 
         if (e instanceof IgniteException) {

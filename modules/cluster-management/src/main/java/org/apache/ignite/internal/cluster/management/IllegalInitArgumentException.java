@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import org.apache.ignite.lang.IgniteInternalException;
+
 /**
  * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
  */
-class IllegalInitArgumentException extends RuntimeException {
+class IllegalInitArgumentException extends IgniteInternalException {
     IllegalInitArgumentException(String message) {
         super(message);
     }
