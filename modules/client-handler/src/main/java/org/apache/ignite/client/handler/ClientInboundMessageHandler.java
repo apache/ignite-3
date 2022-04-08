@@ -160,7 +160,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        resources.clean();
+        resources.close();
 
         super.channelInactive(ctx);
     }
