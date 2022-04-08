@@ -57,7 +57,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Test is based on {@link ItBplusTreeSelfTest} and has a partial copy of its code.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-16548
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     private static final short PAIR_INNER_IO = 30000;
