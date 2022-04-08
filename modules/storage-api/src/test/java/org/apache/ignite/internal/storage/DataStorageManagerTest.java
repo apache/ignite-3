@@ -31,6 +31,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
@@ -104,6 +106,15 @@ public class DataStorageManagerTest {
         checkDefaultTableDataStorageConsumer(dataStorageManager, UNKNOWN_DATA_STORAGE, null);
     }
 
+    /**
+     * Checks that the consumer from {@link DataStorageManager#defaultTableDataStorageConsumer} will correctly set the {@link
+     * DataStorageConfigurationSchema data storage} type via {@link DataStorageChange#convert(String)}.
+     *
+     * @param dataStorageManager Data storage manager.
+     * @param defaultDataStorageView One of the options for the value of the {@link TablesConfigurationSchema#defaultDataStorage}.
+     * @param expPolymorphicTypeId Expected value that should get into the {@link DataStorageChange#convert(String)}. {@code null} if
+     *      nothing should go into the method.
+     */
     private static void checkDefaultTableDataStorageConsumer(
             DataStorageManager dataStorageManager,
             String defaultDataStorageView,
