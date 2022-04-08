@@ -20,7 +20,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,12 +39,13 @@ public class ClientResourceRegistryTest {
 
         assertSame(resource, returned);
         assertSame(resource, removed);
-        assertThrows(IgniteException.class, () -> reg.get(id));
+
+        var ex = assertThrows(IgniteException.class, () -> reg.get(id));
+        assertEquals("Failed to find resource with id: 1", ex.getMessage());
     }
 
     @Test
     public void testCloseReleasesAllResourcesAndBlocksUsage() {
-        // TODO
         var reg = new ClientResourceRegistry();
         var closed = new AtomicLong();
 
@@ -55,8 +55,14 @@ public class ClientResourceRegistryTest {
         reg.close();
 
         assertEquals(2, closed.get());
-        assertThrows(IgniteException.class, () -> reg.get(0));
-        assertThrows(IgniteException.class, () -> reg.put(new ClientResource(1, null)));
-        assertThrows(IgniteException.class, () -> reg.remove(0));
+
+        var ex = assertThrows(IgniteException.class, () -> reg.put(new ClientResource(1, null)));
+        assertEquals("Resource registry is closed.", ex.getMessage());
+
+        ex = assertThrows(IgniteException.class, () -> reg.get(0));
+        assertEquals("Resource registry is closed.", ex.getMessage());
+
+        ex = assertThrows(IgniteException.class, () -> reg.remove(0));
+        assertEquals("Resource registry is closed.", ex.getMessage());
     }
 }

@@ -38,6 +38,9 @@ public class ClientResourceRegistry {
     /** RW lock. */
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
+    /** Closed flag. */
+    private volatile boolean closed;
+
     /**
      * Stores the resource and returns the generated id.
      *
@@ -106,25 +109,30 @@ public class ClientResourceRegistry {
      */
     public void close() {
         rwLock.writeLock().lock();
+        closed = true;
 
-        IgniteException ex = null;
+        try {
+            IgniteException ex = null;
 
-        for (ClientResource r : res.values()) {
-            try {
-                r.release();
-            } catch (Exception e) {
-                if (ex == null) {
-                    ex = new IgniteException(e);
-                } else {
-                    ex.addSuppressed(e);
+            for (ClientResource r : res.values()) {
+                try {
+                    r.release();
+                } catch (Exception e) {
+                    if (ex == null) {
+                        ex = new IgniteException(e);
+                    } else {
+                        ex.addSuppressed(e);
+                    }
                 }
             }
-        }
 
-        res.clear();
+            res.clear();
 
-        if (ex != null) {
-            throw ex;
+            if (ex != null) {
+                throw ex;
+            }
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -132,7 +140,7 @@ public class ClientResourceRegistry {
      * Enters the lock.
      */
     private void enter() {
-        if (!rwLock.readLock().tryLock()) {
+        if (!rwLock.readLock().tryLock() || closed) {
             throw new IgniteException("Resource registry is closed.");
         }
     }
