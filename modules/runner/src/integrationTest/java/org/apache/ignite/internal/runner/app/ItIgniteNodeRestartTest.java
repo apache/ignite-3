@@ -563,6 +563,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts a node with changing configuration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16865")
     public void changeConfigurationOnStartTest(TestInfo testInfo) {
         IgniteImpl ignite = startNode(testInfo, 0);
 
