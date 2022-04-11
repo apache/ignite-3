@@ -23,8 +23,10 @@ namespace Apache.Ignite.Tests
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Internal.Network;
     using Internal.Proto;
     using MessagePack;
+    using Network;
 
     /// <summary>
     /// Fake Ignite server for test purposes.
@@ -41,19 +43,20 @@ namespace Apache.Ignite.Tests
 
         private readonly Func<int, bool> _shouldDropConnection;
 
-        private readonly string _nodeName;
-
         public FakeServer(Func<int, bool>? shouldDropConnection = null, string nodeName = "fake-server")
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
-            _nodeName = nodeName;
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
 
+            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint);
+
             Task.Run(ListenLoop);
         }
+
+        public IClusterNode Node { get; }
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
@@ -117,7 +120,7 @@ namespace Apache.Ignite.Tests
                 var handshakeBufferWriter = new ArrayBufferWriter<byte>();
                 var handshakeWriter = new MessagePackWriter(handshakeBufferWriter);
                 handshakeWriter.Write(0); // Idle timeout.
-                handshakeWriter.Write(_nodeName); // Node name (consistent id).
+                handshakeWriter.Write(Node.Name); // Node name (consistent id).
                 handshakeWriter.WriteBinHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.
                 handshakeWriter.Flush();
