@@ -44,13 +44,16 @@ namespace Apache.Ignite.Tests.Compute
             // ReSharper disable once AccessToDisposedClosure
             TestUtils.WaitForCondition(() => client.GetConnections().Count == 3);
 
-            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
+            var res2 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server2.Node }, jobClassName: string.Empty);
+            var res3 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
 
-            Assert.AreEqual("s3", res);
-            Assert.AreEqual(ClientOp.ComputeExecute, server3.ClientOps.Last());
+            Assert.AreEqual("s2", res2);
+            Assert.AreEqual("s3", res3);
+
+            Assert.AreEqual(ClientOp.ComputeExecute, server2.ClientOps.Single());
+            Assert.AreEqual(ClientOp.ComputeExecute, server3.ClientOps.Single());
 
             Assert.IsEmpty(server1.ClientOps);
-            Assert.IsEmpty(server2.ClientOps);
         }
 
         [Test]
@@ -61,10 +64,13 @@ namespace Apache.Ignite.Tests.Compute
             using var server3 = new FakeServer(nodeName: "s3");
 
             using var client = await server1.ConnectClientAsync();
-            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
 
-            Assert.AreEqual("s1", res);
-            Assert.AreEqual(ClientOp.ComputeExecute, server1.ClientOps.Last());
+            var res2 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server2.Node }, jobClassName: string.Empty);
+            var res3 = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
+
+            Assert.AreEqual("s1", res2);
+            Assert.AreEqual("s1", res3);
+            Assert.AreEqual(new[] { ClientOp.ComputeExecute, ClientOp.ComputeExecute }, server1.ClientOps);
 
             Assert.IsEmpty(server2.ClientOps);
             Assert.IsEmpty(server3.ClientOps);
