@@ -28,7 +28,6 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
-    using Ignite.Network;
     using Log;
     using Proto;
 

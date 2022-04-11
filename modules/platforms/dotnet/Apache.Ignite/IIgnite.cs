@@ -20,7 +20,6 @@ namespace Apache.Ignite
     using System.Collections.Generic;
     using System.Threading.Tasks;
     using Compute;
-    using Internal.Network;
     using Network;
     using Table;
     using Transactions;
