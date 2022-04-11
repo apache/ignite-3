@@ -35,7 +35,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Test with reuse list.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-16548
 public class ItBplusTreeReuseSelfTest extends ItBplusTreeSelfTest {
     /** {@inheritDoc} */
     @Override
