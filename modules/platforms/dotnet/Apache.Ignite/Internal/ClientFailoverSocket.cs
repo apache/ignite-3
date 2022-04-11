@@ -61,7 +61,7 @@ namespace Apache.Ignite.Internal
         /// Initializes a new instance of the <see cref="ClientFailoverSocket"/> class.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
-        public ClientFailoverSocket(IgniteClientConfiguration configuration)
+        private ClientFailoverSocket(IgniteClientConfiguration configuration)
         {
             if (configuration.Endpoints.Count == 0)
             {
@@ -84,10 +84,15 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Connects the socket.
         /// </summary>
+        /// <param name="configuration">Client configuration.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        public async Task ConnectAsync()
+        public static async Task<ClientFailoverSocket> ConnectAsync(IgniteClientConfiguration configuration)
         {
-            await GetSocketAsync().ConfigureAwait(false);
+            var socket = new ClientFailoverSocket(configuration);
+
+            await socket.GetSocketAsync().ConfigureAwait(false);
+
+            return socket;
         }
 
         /// <summary>
