@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -43,6 +44,9 @@ namespace Apache.Ignite.Internal
 
         /** Endpoints with corresponding hosts - from configuration. */
         private readonly IReadOnlyList<SocketEndpoint> _endPoints;
+
+        /** Cluster node unique name to endpoint map. */
+        private readonly ConcurrentDictionary<string, SocketEndpoint> _endPointsMap = new();
 
         /** <see cref="_socket"/> lock. */
         [SuppressMessage(
@@ -274,6 +278,8 @@ namespace Apache.Ignite.Internal
             var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, Configuration).ConfigureAwait(false);
 
             endPoint.Socket = socket;
+
+            _endPointsMap[socket.ConnectionContext.ClusterNodeName] = endPoint;
 
             return socket;
         }
