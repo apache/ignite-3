@@ -74,6 +74,8 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.IsEmpty(server2.ClientOps);
             Assert.IsEmpty(server3.ClientOps);
+
+            Assert.AreEqual(server1.Node, client.GetConnections().Single());
         }
 
         [Test]
