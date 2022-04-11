@@ -24,28 +24,60 @@ namespace Apache.Ignite.Tests.Compute
 
     /// <summary>
     /// Tests compute cluster awareness: client requests can be sent to correct server nodes when a direct connection is available.
+    /// TODO: Test retry behavior.
     /// </summary>
     public class ComputeClusterAwarenessTests
     {
         [Test]
-        public async Task TestClusterAwareness()
+        public async Task TestClientSendsComputeJobToTargetNodeWhenDirectConnectionExists()
         {
-            // TODO: Test with fake server (start 3 of them):
-            // - Check that request arrives to proper node
-            // - Check that retry works properly for cluster aware calls
-            // - Check that default node is used when no direct connection exists
             using var server1 = new FakeServer(nodeName: "s1");
             using var server2 = new FakeServer(nodeName: "s2");
+            using var server3 = new FakeServer(nodeName: "s3");
+
+            var clientCfg = new IgniteClientConfiguration
+            {
+                Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString(), server3.Node.Address.ToString() }
+            };
+
+            using var client = await IgniteClient.StartAsync(clientCfg);
+
+            // ReSharper disable once AccessToDisposedClosure
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == 3);
+
+            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
+
+            Assert.AreEqual("s3", res);
+            Assert.AreEqual(ClientOp.ComputeExecute, server3.ClientOps.Last());
+
+            Assert.IsEmpty(server1.ClientOps);
+            Assert.IsEmpty(server2.ClientOps);
+        }
+
+        [Test]
+        public async Task TestClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist()
+        {
+            using var server1 = new FakeServer(nodeName: "s1");
+            using var server2 = new FakeServer(nodeName: "s2");
+            using var server3 = new FakeServer(nodeName: "s3");
 
             var clientCfg = new IgniteClientConfiguration
             {
                 Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString() }
             };
+
             using var client = await IgniteClient.StartAsync(clientCfg);
 
-            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server1.Node }, jobClassName: string.Empty);
-            Assert.AreEqual("s1", res);
-            Assert.AreEqual(ClientOp.ComputeExecute, server1.ClientOps.Last());
+            // ReSharper disable once AccessToDisposedClosure
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+
+            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
+
+            Assert.AreEqual("s2", res);
+            Assert.AreEqual(ClientOp.ComputeExecute, server2.ClientOps.Last());
+
+            Assert.IsEmpty(server1.ClientOps);
+            Assert.IsEmpty(server3.ClientOps);
         }
     }
 }
