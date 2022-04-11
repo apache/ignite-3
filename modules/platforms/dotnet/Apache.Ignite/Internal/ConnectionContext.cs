@@ -18,12 +18,13 @@
 namespace Apache.Ignite.Internal
 {
     using System;
+    using Ignite.Network;
 
     /// <summary>
     /// Socket connection context.
     /// </summary>
     /// <param name="Version">Protocol version.</param>
     /// <param name="IdleTimeout">Server idle timeout.</param>
-    /// <param name="ClusterNodeName">Cluster node name.</param>
-    internal record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout, string ClusterNodeName);
+    /// <param name="ClusterNode">Cluster node.</param>
+    internal record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout, IClusterNode ClusterNode);
 }

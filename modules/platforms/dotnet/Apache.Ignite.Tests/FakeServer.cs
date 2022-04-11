@@ -127,6 +127,7 @@ namespace Apache.Ignite.Tests
                 var handshakeBufferWriter = new ArrayBufferWriter<byte>();
                 var handshakeWriter = new MessagePackWriter(handshakeBufferWriter);
                 handshakeWriter.Write(0); // Idle timeout.
+                handshakeWriter.Write(Node.Id); // Node id.
                 handshakeWriter.Write(Node.Name); // Node name (consistent id).
                 handshakeWriter.WriteBinHeader(0); // Features.
                 handshakeWriter.WriteMapHeader(0); // Extensions.

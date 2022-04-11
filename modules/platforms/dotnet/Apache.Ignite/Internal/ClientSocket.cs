@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal
     using Buffers;
     using Log;
     using MessagePack;
+    using Network;
     using Proto;
 
     /// <summary>
@@ -134,7 +135,7 @@ namespace Apache.Ignite.Internal
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IgniteClientConfiguration configuration)
+        public static async Task<ClientSocket> ConnectAsync(IPEndPoint endPoint, IgniteClientConfiguration configuration)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -150,7 +151,7 @@ namespace Apache.Ignite.Internal
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                var context = await HandshakeAsync(stream).ConfigureAwait(false);
+                var context = await HandshakeAsync(stream, endPoint).ConfigureAwait(false);
                 logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
 
                 return new ClientSocket(stream, configuration, context);
@@ -224,7 +225,8 @@ namespace Apache.Ignite.Internal
         /// Performs the handshake exchange.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream)
+        /// <param name="endPoint">Endpoint.</param>
+        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream, IPEndPoint endPoint)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
             await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
@@ -234,7 +236,7 @@ namespace Apache.Ignite.Internal
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
-            return ReadHandshakeResponse(response.GetReader());
+            return ReadHandshakeResponse(response.GetReader(), endPoint);
         }
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
@@ -260,7 +262,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader)
+        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader, IPEndPoint endPoint)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -277,12 +279,16 @@ namespace Apache.Ignite.Internal
             }
 
             var idleTimeoutMs = reader.ReadInt64();
+            var clusterNodeId = reader.ReadString();
             var clusterNodeName = reader.ReadString();
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
 
-            return new ConnectionContext(serverVer, TimeSpan.FromMilliseconds(idleTimeoutMs), clusterNodeName);
+            return new ConnectionContext(
+                serverVer,
+                TimeSpan.FromMilliseconds(idleTimeoutMs),
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint));
         }
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)

@@ -340,7 +340,7 @@ namespace Apache.Ignite.Internal
 
             endpoint.Socket = socket;
 
-            _endpointsMap[socket.ConnectionContext.ClusterNodeName] = endpoint;
+            _endpointsMap[socket.ConnectionContext.ClusterNode.Name] = endpoint;
 
             return socket;
         }
