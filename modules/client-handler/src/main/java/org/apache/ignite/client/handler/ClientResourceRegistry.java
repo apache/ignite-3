@@ -20,17 +20,34 @@ package org.apache.ignite.client.handler;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.lang.IgniteException;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Per-connection resource registry.
  */
 public class ClientResourceRegistry {
-    /** Resources. */
+    /**
+     * Resources.
+     */
     private final Map<Long, ClientResource> res = new ConcurrentHashMap<>();
 
-    /** ID generator. */
+    /**
+     * ID generator.
+     */
     private final AtomicLong idGen = new AtomicLong();
+
+    /**
+     * RW lock.
+     */
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    /**
+     * Closed flag.
+     */
+    private volatile boolean closed;
 
     /**
      * Stores the resource and returns the generated id.
@@ -38,12 +55,18 @@ public class ClientResourceRegistry {
      * @param obj Object.
      * @return Id.
      */
-    public long put(ClientResource obj) {
-        long id = idGen.incrementAndGet();
+    public long put(ClientResource obj) throws IgniteInternalCheckedException {
+        enter();
 
-        res.put(id, obj);
+        try {
+            long id = idGen.incrementAndGet();
 
-        return id;
+            res.put(id, obj);
+
+            return id;
+        } finally {
+            leave();
+        }
     }
 
     /**
@@ -52,14 +75,20 @@ public class ClientResourceRegistry {
      * @param id Id.
      * @return Object.
      */
-    public ClientResource get(long id) {
-        ClientResource res = this.res.get(id);
+    public ClientResource get(long id) throws IgniteInternalCheckedException {
+        enter();
 
-        if (res == null) {
-            throw new IgniteException("Failed to find resource with id: " + id);
+        try {
+            ClientResource res = this.res.get(id);
+
+            if (res == null) {
+                throw new IgniteInternalException("Failed to find resource with id: " + id);
+            }
+
+            return res;
+        } finally {
+            leave();
         }
-
-        return res;
     }
 
     /**
@@ -67,38 +96,67 @@ public class ClientResourceRegistry {
      *
      * @param id Id.
      */
-    public ClientResource remove(long id) {
-        ClientResource res = this.res.remove(id);
+    public ClientResource remove(long id) throws IgniteInternalCheckedException {
+        enter();
 
-        if (res == null) {
-            throw new IgniteException("Failed to find resource with id: " + id);
+        try {
+            ClientResource res = this.res.remove(id);
+
+            if (res == null) {
+                throw new IgniteInternalException("Failed to find resource with id: " + id);
+            }
+
+            return res;
+        } finally {
+            leave();
         }
-
-        return res;
     }
 
     /**
-     * Releases all resources.
+     * Closes the registry and releases all resources.
      */
-    public void clean() {
-        IgniteException ex = null;
+    public void close() {
+        rwLock.writeLock().lock();
+        closed = true;
 
-        for (ClientResource r : res.values()) {
-            try {
-                r.release();
-            } catch (Exception e) {
-                if (ex == null) {
-                    ex = new IgniteException(e);
-                } else {
-                    ex.addSuppressed(e);
+        try {
+            IgniteInternalException ex = null;
+
+            for (ClientResource r : res.values()) {
+                try {
+                    r.release();
+                } catch (Exception e) {
+                    if (ex == null) {
+                        ex = new IgniteInternalException(e);
+                    } else {
+                        ex.addSuppressed(e);
+                    }
                 }
             }
-        }
 
-        res.clear();
+            res.clear();
 
-        if (ex != null) {
-            throw ex;
+            if (ex != null) {
+                throw ex;
+            }
+        } finally {
+            rwLock.writeLock().unlock();
         }
+    }
+
+    /**
+     * Enters the lock.
+     */
+    private void enter() throws IgniteInternalCheckedException {
+        if (!rwLock.readLock().tryLock() || closed) {
+            throw new IgniteInternalCheckedException("Resource registry is closed.");
+        }
+    }
+
+    /**
+     * Leaves the lock.
+     */
+    private void leave() {
+        rwLock.readLock().unlock();
     }
 }
