@@ -189,11 +189,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             // Response.
             ProtocolVersion.LATEST_VER.pack(packer);
-
             packer.packInt(ClientErrorCode.SUCCESS);
+
+            // TODO: Update handshake format in IEP
+            packer.packLong(configuration.idleTimeout());
+            packer.packString(clusterService.topologyService().localMember().name());
+
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
-            packer.packLong(configuration.idleTimeout());
 
             write(packer, ctx);
         } catch (Throwable t) {

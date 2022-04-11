@@ -409,13 +409,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 throw new IgniteClientConnectionException(msg);
             }
 
+            var serverIdleTimeout = unpacker.unpackLong();
+            var clusterNodeName = unpacker.unpackString();
+
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);
 
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
-
-            var serverIdleTimeout = unpacker.unpackLong();
 
             protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout);
         }
