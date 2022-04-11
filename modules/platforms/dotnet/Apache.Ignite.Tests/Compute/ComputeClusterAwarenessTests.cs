@@ -63,20 +63,16 @@ namespace Apache.Ignite.Tests.Compute
 
             var clientCfg = new IgniteClientConfiguration
             {
-                Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString() }
+                Endpoints = { server1.Node.Address.ToString() }
             };
 
             using var client = await IgniteClient.StartAsync(clientCfg);
-
-            // ReSharper disable once AccessToDisposedClosure
-            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
-
             var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
 
-            Assert.AreEqual("s2", res);
-            Assert.AreEqual(ClientOp.ComputeExecute, server2.ClientOps.Last());
+            Assert.AreEqual("s1", res);
+            Assert.AreEqual(ClientOp.ComputeExecute, server1.ClientOps.Last());
 
-            Assert.IsEmpty(server1.ClientOps);
+            Assert.IsEmpty(server2.ClientOps);
             Assert.IsEmpty(server3.ClientOps);
         }
     }
