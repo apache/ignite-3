@@ -41,9 +41,12 @@ namespace Apache.Ignite.Tests
 
         private readonly Func<int, bool> _shouldDropConnection;
 
-        public FakeServer(Func<int, bool>? shouldDropConnection = null)
+        private readonly string _nodeName;
+
+        public FakeServer(Func<int, bool>? shouldDropConnection = null, string nodeName = "fake-server")
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
+            _nodeName = nodeName;
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
@@ -110,8 +113,19 @@ namespace Apache.Ignite.Tests
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
-                handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128, 0 });
+
+                var handshakeBufferWriter = new ArrayBufferWriter<byte>();
+                var handshakeWriter = new MessagePackWriter(handshakeBufferWriter);
+                handshakeWriter.Write(0); // Idle timeout.
+                handshakeWriter.Write(_nodeName); // Node name (consistent id).
+                handshakeWriter.WriteBinHeader(0); // Features.
+                handshakeWriter.WriteMapHeader(0); // Extensions.
+                handshakeWriter.Flush();
+
+                handler.Send(new byte[] { 0, 0, 0, (byte)(4 + handshakeBufferWriter.WrittenCount) }); // Size.
+                handler.Send(new byte[] { 3, 0, 0, 0 }); // Version and success flag.
+
+                handler.Send(handshakeBufferWriter.WrittenSpan);
 
                 while (!_cts.IsCancellationRequested)
                 {
