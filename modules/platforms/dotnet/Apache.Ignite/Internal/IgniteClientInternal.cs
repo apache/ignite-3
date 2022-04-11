@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal
 {
     using System.Collections.Generic;
+    using System.Linq;
     using System.Net;
     using System.Threading.Tasks;
     using Ignite.Compute;
@@ -85,6 +86,10 @@ namespace Apache.Ignite.Internal
                 return res;
             }
         }
+
+        /// <inheritdoc/>
+        public IList<IClusterNode> GetConnections() =>
+            _socket.GetConnections().Select(ctx => ctx.ClusterNode).ToList();
 
         /// <inheritdoc/>
         public void Dispose()

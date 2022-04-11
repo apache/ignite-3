@@ -28,6 +28,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Ignite.Network;
     using Log;
     using Proto;
 
@@ -239,6 +240,16 @@ namespace Apache.Ignite.Internal
                 _socketLock.Release();
             }
         }
+
+        /// <summary>
+        /// Gets active connections.
+        /// </summary>
+        /// <returns>Active connections.</returns>
+        public IEnumerable<ConnectionContext> GetConnections() =>
+            _endpoints
+                .Select(e => e.Socket?.ConnectionContext)
+                .Where(ctx => ctx != null)
+                .ToList()!;
 
         [SuppressMessage(
             "Microsoft.Design",
