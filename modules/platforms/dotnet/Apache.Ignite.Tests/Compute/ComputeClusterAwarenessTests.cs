@@ -32,11 +32,11 @@ namespace Apache.Ignite.Tests.Compute
             // - Check that request arrives to proper node
             // - Check that retry works properly for cluster aware calls
             // - Check that default node is used when no direct connection exists
-            using var server = new FakeServer();
+            using var server = new FakeServer(nodeName: nameof(TestClusterAwareness));
             using var client = await server.ConnectClientAsync();
 
             var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server.Node }, jobClassName: string.Empty);
-            Assert.AreEqual(server.Node.Name, res);
+            Assert.AreEqual(nameof(TestClusterAwareness), res);
         }
     }
 }

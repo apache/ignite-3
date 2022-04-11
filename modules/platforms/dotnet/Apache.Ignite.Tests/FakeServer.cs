@@ -206,6 +206,18 @@ namespace Apache.Ignite.Tests
                         continue;
                     }
 
+                    if (opCode == ClientOp.ComputeExecute)
+                    {
+                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var writer = new MessagePackWriter(arrayBufferWriter);
+                        writer.Write(Node.Name);
+                        writer.Flush();
+
+                        handler.Send(new byte[] { 0, 0, 0, (byte)(4 + arrayBufferWriter.WrittenCount) }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0, (byte)ClientDataType.String });
+                        handler.Send(arrayBufferWriter.WrittenSpan);
+                    }
+
                     // Fake error message for any other op code.
                     handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
                     handler.Send(new byte[] { 0, requestId, 1, 160 | 4, (byte)Err[0], (byte)Err[1], (byte)Err[2], (byte)Err[3] });
