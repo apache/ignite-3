@@ -119,6 +119,7 @@ namespace Apache.Ignite.Internal.Compute
 
                 if (writeNode)
                 {
+                    // TODO: Only name is necessary here.
                     w.Write(node.Id);
                     w.Write(node.Name);
                     w.Write(node.Address.Address.ToString());
