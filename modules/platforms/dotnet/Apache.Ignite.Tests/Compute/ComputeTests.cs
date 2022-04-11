@@ -165,6 +165,16 @@ namespace Apache.Ignite.Tests.Compute
             }
         }
 
+        [Test]
+        public async Task TestClusterAwareness()
+        {
+            // TODO: Test with fake server (start 3 of them):
+            // - Check that request arrives to proper node
+            // - Check that retry works properly for cluster aware calls
+            // - Check that default node is used when no direct connection exists
+            await Task.Yield();
+        }
+
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
     }
