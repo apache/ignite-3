@@ -24,7 +24,6 @@ namespace Apache.Ignite.Tests.Compute
 
     /// <summary>
     /// Tests compute cluster awareness: client requests can be sent to correct server nodes when a direct connection is available.
-    /// TODO: Test retry behavior.
     /// </summary>
     public class ComputeClusterAwarenessTests
     {
@@ -61,12 +60,7 @@ namespace Apache.Ignite.Tests.Compute
             using var server2 = new FakeServer(nodeName: "s2");
             using var server3 = new FakeServer(nodeName: "s3");
 
-            var clientCfg = new IgniteClientConfiguration
-            {
-                Endpoints = { server1.Node.Address.ToString() }
-            };
-
-            using var client = await IgniteClient.StartAsync(clientCfg);
+            using var client = await server1.ConnectClientAsync();
             var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server3.Node }, jobClassName: string.Empty);
 
             Assert.AreEqual("s1", res);
@@ -74,6 +68,33 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.IsEmpty(server2.ClientOps);
             Assert.IsEmpty(server3.ClientOps);
+        }
+
+        [Test]
+        public async Task TestClientRetriesComputeJobOnPrimaryAndDefaultNodes()
+        {
+            using var server1 = new FakeServer(shouldDropConnection: cnt => cnt % 2 == 0, nodeName: "s1");
+            using var server2 = new FakeServer(shouldDropConnection: cnt => cnt % 2 == 0, nodeName: "s2");
+
+            var clientCfg = new IgniteClientConfiguration
+            {
+                Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString() },
+                RetryPolicy = new RetryLimitPolicy { RetryLimit = 2 }
+            };
+
+            using var client = await IgniteClient.StartAsync(clientCfg);
+
+            // ReSharper disable once AccessToDisposedClosure
+            TestUtils.WaitForCondition(() => client.GetConnections().Count == 2);
+
+            for (int i = 0; i < 100; i++)
+            {
+                var node = i % 2 == 0 ? server1.Node : server2.Node;
+
+                var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { node }, jobClassName: string.Empty);
+
+                Assert.AreEqual(node.Name, res);
+            }
         }
     }
 }
