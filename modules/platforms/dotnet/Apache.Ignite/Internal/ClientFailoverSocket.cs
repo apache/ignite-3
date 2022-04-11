@@ -51,7 +51,7 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in SemaphoreSlim, no need to dispose.")]
         private readonly SemaphoreSlim _socketLock = new(1);
 
-        /** Primary socket. */
+        /** Primary socket. Guarded by <see cref="_socketLock"/>. */
         private ClientSocket? _socket;
 
         /** Disposed flag. */
@@ -91,6 +91,10 @@ namespace Apache.Ignite.Internal
             var socket = new ClientFailoverSocket(configuration);
 
             await socket.GetSocketAsync().ConfigureAwait(false);
+
+            // Because this call is not awaited, execution of the current method continues before the call is completed.
+            // Secondary connections are established in the background.
+            _ = socket.ConnectAllSockets();
 
             return socket;
         }
@@ -169,6 +173,42 @@ namespace Apache.Ignite.Internal
                 }
 
                 return _socket;
+            }
+            finally
+            {
+                _socketLock.Release();
+            }
+        }
+
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Secondary connection errors can be ignored.")]
+        private async Task ConnectAllSockets()
+        {
+            await _socketLock.WaitAsync().ConfigureAwait(false);
+
+            var tasks = new List<Task>(_endPoints.Count);
+
+            _logger?.Debug("Establishing secondary connections...");
+
+            try
+            {
+                foreach (var endpoint in _endPoints)
+                {
+                    if (endpoint.Socket?.IsDisposed == false)
+                    {
+                        continue;
+                    }
+
+                    tasks.Add(ConnectAsync(endpoint));
+                }
+
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger?.Warn("Error while trying to establish secondary connections: " + e.Message, e);
             }
             finally
             {
