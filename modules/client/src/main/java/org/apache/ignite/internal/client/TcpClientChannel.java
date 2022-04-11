@@ -49,6 +49,8 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -368,18 +370,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         write(req).syncUninterruptibly();
     }
 
-    /**
-     * Returns protocol context for a version.
-     *
-     * @param ver Protocol version.
-     * @param serverIdleTimeout Server idle timeout.
-     * @param clusterNodeName Cluster node name.
-     * @return Protocol context for a version.
-     */
-    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver, long serverIdleTimeout, String clusterNodeName) {
-        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNodeName);
-    }
-
     /** Receive and handle handshake response. */
     private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException {
@@ -411,7 +401,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             }
 
             var serverIdleTimeout = unpacker.unpackLong();
+            var clusterNodeId = unpacker.unpackString();
             var clusterNodeName = unpacker.unpackString();
+            var addr = sock.remoteAddress();
+            var clusterNode = new ClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
 
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);
@@ -419,7 +412,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
 
-            protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout, clusterNodeName);
+            protocolCtx = new ProtocolContext(srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode);
         }
     }
 

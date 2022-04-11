@@ -73,6 +73,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -193,7 +194,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             // TODO: Update handshake format in IEP
             packer.packLong(configuration.idleTimeout());
-            packer.packString(clusterService.topologyService().localMember().name());
+
+            ClusterNode localMember = clusterService.topologyService().localMember();
+            packer.packString(localMember.id());
+            packer.packString(localMember.name());
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.

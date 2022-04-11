@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.io;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
+import java.net.InetSocketAddress;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -39,6 +40,13 @@ public interface ClientConnection extends AutoCloseable {
      * @return Buffer.
      */
     ByteBuf getBuffer();
+
+    /**
+     * Gets the remote address.
+     *
+     * @return Remote address.
+     */
+    InetSocketAddress remoteAddress();
 
     /**
      * Closes the connection.
