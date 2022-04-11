@@ -41,7 +41,8 @@ public class ProtocolContext {
 
     /**
      * Constructor.
-     *  @param ver Protocol version.
+     *
+     * @param ver Protocol version.
      * @param features Supported features.
      * @param serverIdleTimeout Server idle timeout.
      * @param clusterNodeName Cluster node name.
