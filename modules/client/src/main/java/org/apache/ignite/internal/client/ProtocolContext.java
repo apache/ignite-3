@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.client;
 
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Set;
 import org.apache.ignite.client.IgniteClientFeatureNotSupportedByServerException;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 
@@ -29,22 +31,30 @@ public class ProtocolContext {
     private final ProtocolVersion ver;
 
     /** Features. */
-    private final EnumSet<ProtocolBitmaskFeature> features;
+    private final Set<ProtocolBitmaskFeature> features;
 
     /** Server idle timeout. */
     private final long serverIdleTimeout;
 
+    /** Cluster node name. */
+    private final String clusterNodeName;
+
     /**
      * Constructor.
-     *
-     * @param ver Protocol version.
+     *  @param ver Protocol version.
      * @param features Supported features.
      * @param serverIdleTimeout Server idle timeout.
+     * @param clusterNodeName Cluster node name.
      */
-    public ProtocolContext(ProtocolVersion ver, EnumSet<ProtocolBitmaskFeature> features, long serverIdleTimeout) {
+    public ProtocolContext(
+            ProtocolVersion ver,
+            EnumSet<ProtocolBitmaskFeature> features,
+            long serverIdleTimeout,
+            String clusterNodeName) {
         this.ver = ver;
-        this.features = features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class);
+        this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
+        this.clusterNodeName = clusterNodeName;
     }
 
     /**
@@ -74,7 +84,7 @@ public class ProtocolContext {
      *
      * @return Supported features.
      */
-    public EnumSet<ProtocolBitmaskFeature> features() {
+    public Set<ProtocolBitmaskFeature> features() {
         return features;
     }
 
@@ -92,7 +102,16 @@ public class ProtocolContext {
      *
      * @return Server idle timeout.
      */
-    public long getServerIdleTimeout() {
+    public long serverIdleTimeout() {
         return serverIdleTimeout;
+    }
+
+    /**
+     * Returns cluster node name.
+     *
+     * @return Cluster node name.
+     */
+    public String clusterNodeName() {
+        return clusterNodeName;
     }
 }

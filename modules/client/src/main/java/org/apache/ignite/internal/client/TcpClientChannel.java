@@ -373,10 +373,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      *
      * @param ver Protocol version.
      * @param serverIdleTimeout Server idle timeout.
+     * @param clusterNodeName Cluster node name.
      * @return Protocol context for a version.
      */
-    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver, long serverIdleTimeout) {
-        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout);
+    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver, long serverIdleTimeout, String clusterNodeName) {
+        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNodeName);
     }
 
     /** Receive and handle handshake response. */
@@ -418,7 +419,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
 
-            protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout);
+            protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout, clusterNodeName);
         }
     }
 
@@ -454,7 +455,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Resolved interval.
      */
     private long getHeartbeatInterval(long configuredInterval) {
-        long serverIdleTimeoutMs = protocolCtx.getServerIdleTimeout();
+        long serverIdleTimeoutMs = protocolCtx.serverIdleTimeout();
 
         if (serverIdleTimeoutMs <= 0) {
             return configuredInterval;
