@@ -192,7 +192,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ProtocolVersion.LATEST_VER.pack(packer);
             packer.packInt(ClientErrorCode.SUCCESS);
 
-            // TODO: Update handshake format in IEP
             packer.packLong(configuration.idleTimeout());
 
             ClusterNode localMember = clusterService.topologyService().localMember();
