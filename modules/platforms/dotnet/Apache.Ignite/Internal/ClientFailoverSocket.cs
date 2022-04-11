@@ -43,10 +43,10 @@ namespace Apache.Ignite.Internal
         private readonly IIgniteLogger? _logger;
 
         /** Endpoints with corresponding hosts - from configuration. */
-        private readonly IReadOnlyList<SocketEndpoint> _endPoints;
+        private readonly IReadOnlyList<SocketEndpoint> _endpoints;
 
         /** Cluster node unique name to endpoint map. */
-        private readonly ConcurrentDictionary<string, SocketEndpoint> _endPointsMap = new();
+        private readonly ConcurrentDictionary<string, SocketEndpoint> _endpointsMap = new();
 
         /** <see cref="_socket"/> lock. */
         [SuppressMessage(
@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal
             }
 
             _logger = configuration.Logger.GetLogger(GetType());
-            _endPoints = GetIpEndPoints(configuration).ToList();
+            _endpoints = GetIpEndPoints(configuration).ToList();
 
             Configuration = new(configuration); // Defensive copy.
         }
@@ -132,6 +132,59 @@ namespace Apache.Ignite.Internal
             }
         }
 
+        /// <summary>
+        /// Gets the endpoint by unique cluster node name.
+        /// </summary>
+        /// <param name="clusterNodeName">Cluster node name.</param>
+        /// <returns>Endpoint or null.</returns>
+        public SocketEndpoint? GetEndpoint(string clusterNodeName)
+        {
+            return _endpointsMap.TryGetValue(clusterNodeName, out var e) ? e : null;
+        }
+
+        /// <summary>
+        /// Performs an in-out operation on the specified endpoint.
+        /// </summary>
+        /// <param name="endpoint">Endpoint.</param>
+        /// <param name="clientOp">Client op code.</param>
+        /// <param name="request">Request data.</param>
+        /// <returns>Response data.</returns>
+        public async Task<PooledBuffer?> TryDoOutInOpAsync(SocketEndpoint endpoint, ClientOp clientOp, PooledArrayBufferWriter? request)
+        {
+            try
+            {
+                var socket = endpoint.Socket;
+
+                if (socket == null || socket.IsDisposed)
+                {
+                    await _socketLock.WaitAsync().ConfigureAwait(false);
+
+                    try
+                    {
+                        socket = await ConnectAsync(endpoint).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        _socketLock.Release();
+                    }
+                }
+
+                return await socket.DoOutInOpAsync(clientOp, request).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                int attempt = 0;
+                List<Exception>? errors = null;
+
+                if (HandleOpError(e, clientOp, ref attempt, ref errors))
+                {
+                    return null;
+                }
+
+                throw;
+            }
+        }
+
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -146,7 +199,10 @@ namespace Apache.Ignite.Internal
 
                 _disposed = true;
 
-                _socket?.Dispose();
+                foreach (var endpoint in _endpoints)
+                {
+                    endpoint.Socket?.Dispose();
+                }
             }
             finally
             {
@@ -190,20 +246,20 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
-            if (_endPoints.Count == 1)
+            if (_endpoints.Count == 1)
             {
                 return;
             }
 
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
-            var tasks = new List<Task>(_endPoints.Count);
+            var tasks = new List<Task>(_endpoints.Count);
 
             _logger?.Debug("Establishing secondary connections...");
 
             try
             {
-                foreach (var endpoint in _endPoints)
+                foreach (var endpoint in _endpoints)
                 {
                     if (endpoint.Socket?.IsDisposed == false)
                     {
@@ -244,10 +300,10 @@ namespace Apache.Ignite.Internal
             List<Exception>? errors = null;
             var startIdx = (int) Interlocked.Increment(ref _endPointIndex);
 
-            for (var i = 0; i < _endPoints.Count; i++)
+            for (var i = 0; i < _endpoints.Count; i++)
             {
-                var idx = (startIdx + i) % _endPoints.Count;
-                var endPoint = _endPoints[idx];
+                var idx = (startIdx + i) % _endpoints.Count;
+                var endPoint = _endpoints[idx];
 
                 if (endPoint.Socket is { IsDisposed: false })
                 {
@@ -273,13 +329,18 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Connects to the given endpoint.
         /// </summary>
-        private async Task<ClientSocket> ConnectAsync(SocketEndpoint endPoint)
+        private async Task<ClientSocket> ConnectAsync(SocketEndpoint endpoint)
         {
-            var socket = await ClientSocket.ConnectAsync(endPoint.EndPoint, Configuration).ConfigureAwait(false);
+            if (endpoint.Socket?.IsDisposed == false)
+            {
+                return endpoint.Socket;
+            }
 
-            endPoint.Socket = socket;
+            var socket = await ClientSocket.ConnectAsync(endpoint.EndPoint, Configuration).ConfigureAwait(false);
 
-            _endPointsMap[socket.ConnectionContext.ClusterNodeName] = endPoint;
+            endpoint.Socket = socket;
+
+            _endpointsMap[socket.ConnectionContext.ClusterNodeName] = endpoint;
 
             return socket;
         }
