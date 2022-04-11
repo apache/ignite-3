@@ -216,6 +216,8 @@ namespace Apache.Ignite.Tests
                         handler.Send(new byte[] { 0, 0, 0, (byte)(4 + arrayBufferWriter.WrittenCount) }); // Size.
                         handler.Send(new byte[] { 0, requestId, 0, (byte)ClientDataType.String });
                         handler.Send(arrayBufferWriter.WrittenSpan);
+
+                        continue;
                     }
 
                     // Fake error message for any other op code.
