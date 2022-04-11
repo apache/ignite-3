@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite
 {
+    using Compute;
     using Table;
 
     /// <summary>
@@ -107,6 +108,11 @@ namespace Apache.Ignite
         /// <summary>
         /// Get and Delete (<see cref="IRecordView{T}.GetAndDeleteAsync"/>).
         /// </summary>
-        TupleGetAndDelete
+        TupleGetAndDelete,
+
+        /// <summary>
+        /// Compute (<see cref="ICompute.ExecuteAsync{T}"/>, <see cref="ICompute.BroadcastAsync{T}"/>).
+        /// </summary>
+        ComputeExecute,
     }
 }

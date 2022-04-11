@@ -51,10 +51,12 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TupleDeleteExact => ClientOperationType.TupleDeleteExact,
                 ClientOp.TupleDeleteAllExact => ClientOperationType.TupleDeleteAllExact,
                 ClientOp.TupleGetAndDelete => ClientOperationType.TupleGetAndDelete,
+                ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
                 ClientOp.TxBegin => null,
                 ClientOp.TxCommit => null,
                 ClientOp.TxRollback => null,
                 ClientOp.Heartbeat => null,
+                ClientOp.ClusterGetNodes => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 _ => throw new ArgumentOutOfRangeException(nameof(op), op, message: null)
