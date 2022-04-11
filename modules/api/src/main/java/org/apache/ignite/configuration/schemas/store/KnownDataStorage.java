@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.schema;
+package org.apache.ignite.configuration.schemas.store;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * Test RocksDB data storage configuration schema for tables.
+ * An annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
+ * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
+ *
+ * <p>Can be applied to a {@link ConfigValue}.
  */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface KnownDataStorage {
 }

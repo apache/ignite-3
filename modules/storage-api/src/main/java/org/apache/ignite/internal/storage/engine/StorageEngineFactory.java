@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.engine;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.StorageException;
 
@@ -25,6 +26,13 @@ import org.apache.ignite.internal.storage.StorageException;
  * Factory for creating storage engines.
  */
 public interface StorageEngineFactory {
+    /**
+     * Returns the unique name of the storage engine.
+     *
+     * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine}.
+     */
+    String name();
+
     /**
      * Creates a new storage engine.
      *

@@ -32,12 +32,6 @@ public class TestConcurrentHashMapStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public String name() {
-        return ENGINE_NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void start() throws StorageException {
         // No-op.
     }

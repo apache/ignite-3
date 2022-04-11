@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.internal.util.CollectionUtils.first;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Consumer;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -38,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * Data storage manager.
  */
 public class DataStorageManager implements IgniteComponent {
-    /** Mapping: {@link StorageEngine#name} -> {@link StorageEngine}. */
+    /** Mapping: {@link StorageEngineFactory#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
     /**
@@ -46,30 +51,35 @@ public class DataStorageManager implements IgniteComponent {
      *
      * @param clusterConfigRegistry Register of the (distributed) cluster configuration.
      * @param storagePath Storage path.
-     * @throws StorageException If there are duplicates of the data storage engine.
+     * @param engineFactories Storage engine factories.
+     * @throws IllegalStateException If there are duplicates of the data storage engine.
+     */
+    public DataStorageManager(
+            ConfigurationRegistry clusterConfigRegistry,
+            Path storagePath,
+            Iterable<StorageEngineFactory> engineFactories
+    ) {
+        engines = StreamSupport.stream(engineFactories.spliterator(), false)
+                .collect(toUnmodifiableMap(
+                        StorageEngineFactory::name,
+                        engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath)
+                ));
+    }
+
+    /**
+     * Constructor, overloads {@link DataStorageManager#DataStorageManager(ConfigurationRegistry, Path, Iterable)} with loading factories
+     * through a {@link ServiceLoader}.
      */
     public DataStorageManager(
             ConfigurationRegistry clusterConfigRegistry,
             Path storagePath
     ) {
-        this.engines = StreamSupport.stream(engineFactories().spliterator(), false)
-                .map(engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath))
-                .collect(toUnmodifiableMap(
-                        StorageEngine::name,
-                        identity(),
-                        (storageEngine1, storageEngine2) -> {
-                            throw new StorageException(String.format(
-                                    "Duplicate key [key=%s, engines=%s]",
-                                    storageEngine1.name(),
-                                    List.of(storageEngine1, storageEngine2)
-                            ));
-                        }
-                ));
+        this(clusterConfigRegistry, storagePath, ServiceLoader.load(StorageEngineFactory.class));
     }
 
     /** {@inheritDoc} */
     @Override
-    public void start() {
+    public void start() throws StorageException {
         engines.values().forEach(StorageEngine::start);
     }
 
@@ -80,21 +90,32 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
-     * Returns the storage engine factories.
-     *
-     * <p>NOTE: It is recommended to override only in tests.
-     */
-    protected Iterable<StorageEngineFactory> engineFactories() {
-        return ServiceLoader.load(StorageEngineFactory.class);
-    }
-
-    /**
      * Returns the data storage engine by data storage configuration.
      *
      * @param config Data storage configuration.
      */
     public @Nullable StorageEngine engine(DataStorageConfiguration config) {
         return engines.get(config.value().name());
+    }
+
+    /**
+     * Returns a consumer that will set the default {@link TableConfigurationSchema#dataStorage table data storage} depending on the {@link
+     * StorageEngine engine}.
+     *
+     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
+     *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default,
+     *      otherwise there will be no default.
+     */
+    public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
+        return tableDataStorageChange -> {
+            if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
+                assert engines.containsKey(defaultDataStorageView) : defaultDataStorageView;
+
+                tableDataStorageChange.convert(defaultDataStorageView);
+            } else if (engines.size() == 1) {
+                tableDataStorageChange.convert(first(engines.keySet()));
+            }
+        };
     }
 
     /** {@inheritDoc} */

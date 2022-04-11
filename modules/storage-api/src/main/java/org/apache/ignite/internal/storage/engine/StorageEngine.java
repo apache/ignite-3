@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 
@@ -25,13 +24,6 @@ import org.apache.ignite.internal.storage.StorageException;
  * General storage engine interface.
  */
 public interface StorageEngine {
-    /**
-     * Returns the unique name of the storage engine.
-     *
-     * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine#name}.
-     */
-    String name();
-
     /**
      * Starts the engine.
      *

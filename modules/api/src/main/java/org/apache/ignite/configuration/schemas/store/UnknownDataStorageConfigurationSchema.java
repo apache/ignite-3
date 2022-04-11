@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm.schema;
+package org.apache.ignite.configuration.schemas.store;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 
 /**
- * Test RocksDB data storage configuration schema for tables.
+ * Configuration schema of an unknown data storage.
  */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+@PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
+public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+    /** Default data storage name. */
+    public static final String UNKNOWN_DATA_STORAGE = "unknown";
 }

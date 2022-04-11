@@ -738,23 +738,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             if (tbl != null) {
                 tblFut.completeExceptionally(new TableAlreadyExistsException(name));
             } else {
-                tablesCfg.tables().change(change -> {
-                    if (change.get(name) != null) {
+                tablesCfg.change(tablesChange -> tablesChange.changeTables(tablesListChange -> {
+                    if (tablesListChange.get(name) != null) {
                         throw new TableAlreadyExistsException(name);
                     }
 
-                    change.create(name, (ch) -> {
-                        tableInitChange.accept(ch);
+                    tablesListChange.create(name, (tableChange) -> {
+                        tableChange.changeDataStorage(
+                                dataStorageMgr.defaultTableDataStorageConsumer(tablesChange.defaultDataStorage())
+                        );
 
-                        var extConfCh = ((ExtendedTableChange) ch);
+                        tableInitChange.accept(tableChange);
+
+                        var extConfCh = ((ExtendedTableChange) tableChange);
 
                         tableCreateFuts.put(extConfCh.id(), tblFut);
 
                         // Affinity assignments calculation.
                         extConfCh.changeAssignments(ByteUtils.toBytes(AffinityUtils.calculateAssignments(
                                         baselineMgr.nodes(),
-                                        ch.partitions(),
-                                        ch.replicas())))
+                                        tableChange.partitions(),
+                                        tableChange.replicas())))
                                 // Table schema preparation.
                                 .changeSchemas(schemasCh -> schemasCh.create(
                                         String.valueOf(INITIAL_SCHEMA_VERSION),
@@ -766,8 +770,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                             // prepareSchemaDescriptor() method.
                                             try {
                                                 schemaDesc = SchemaUtils.prepareSchemaDescriptor(
-                                                        ((ExtendedTableView) ch).schemas().size(),
-                                                        ch);
+                                                        ((ExtendedTableView) tableChange).schemas().size(),
+                                                        tableChange);
                                             } catch (IllegalArgumentException ex) {
                                                 throw new ConfigurationValidationException(ex.getMessage());
                                             }
@@ -776,7 +780,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                         }
                                 ));
                     });
-                }).exceptionally(t -> {
+                })).exceptionally(t -> {
                     Throwable ex = getRootCause(t);
 
                     if (ex instanceof TableAlreadyExistsException) {

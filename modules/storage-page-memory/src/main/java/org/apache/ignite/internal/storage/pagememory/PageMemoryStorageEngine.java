@@ -61,12 +61,6 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public String name() {
-        return ENGINE_NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void start() {
         VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(engineConfig.defaultRegion(), ioRegistry);
 

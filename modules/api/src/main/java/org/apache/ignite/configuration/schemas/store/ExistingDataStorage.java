@@ -15,16 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.configuration.schema;
+package org.apache.ignite.configuration.schemas.store;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Test RocksDB data storage configuration schema for tables.
+ * An annotation to check that the value is equal to the {@link DataStorageConfigurationSchema#name name} of one of the {@link
+ * DataStorageConfigurationSchema data storages}.
  */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ExistingDataStorage {
 }
