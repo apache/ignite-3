@@ -186,6 +186,11 @@ namespace Apache.Ignite.Internal
             Justification = "Secondary connection errors can be ignored.")]
         private async Task ConnectAllSockets()
         {
+            if (_endPoints.Count == 1)
+            {
+                return;
+            }
+
             await _socketLock.WaitAsync().ConfigureAwait(false);
 
             var tasks = new List<Task>(_endPoints.Count);
