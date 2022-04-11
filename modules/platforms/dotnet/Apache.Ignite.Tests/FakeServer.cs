@@ -19,6 +19,9 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Buffers;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
@@ -43,6 +46,8 @@ namespace Apache.Ignite.Tests
 
         private readonly Func<int, bool> _shouldDropConnection;
 
+        private readonly ConcurrentQueue<ClientOp> _ops = new();
+
         public FakeServer(Func<int, bool>? shouldDropConnection = null, string nodeName = "fake-server")
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
@@ -57,6 +62,8 @@ namespace Apache.Ignite.Tests
         }
 
         public IClusterNode Node { get; }
+
+        internal IList<ClientOp> ClientOps => _ops.ToList();
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
@@ -143,6 +150,8 @@ namespace Apache.Ignite.Tests
                     // Assume fixint8.
                     var opCode = (ClientOp)msg[0];
                     var requestId = msg[1];
+
+                    _ops.Enqueue(opCode);
 
                     if (opCode == ClientOp.TablesGet)
                     {

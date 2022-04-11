@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Tests.Compute
 {
+    using System.Linq;
     using System.Threading.Tasks;
+    using Internal.Proto;
     using NUnit.Framework;
 
     /// <summary>
@@ -32,11 +34,18 @@ namespace Apache.Ignite.Tests.Compute
             // - Check that request arrives to proper node
             // - Check that retry works properly for cluster aware calls
             // - Check that default node is used when no direct connection exists
-            using var server = new FakeServer(nodeName: nameof(TestClusterAwareness));
-            using var client = await server.ConnectClientAsync();
+            using var server1 = new FakeServer(nodeName: "s1");
+            using var server2 = new FakeServer(nodeName: "s2");
 
-            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server.Node }, jobClassName: string.Empty);
-            Assert.AreEqual(nameof(TestClusterAwareness), res);
+            var clientCfg = new IgniteClientConfiguration
+            {
+                Endpoints = { server1.Node.Address.ToString(), server2.Node.Address.ToString() }
+            };
+            using var client = await IgniteClient.StartAsync(clientCfg);
+
+            var res = await client.Compute.ExecuteAsync<string>(nodes: new[] { server1.Node }, jobClassName: string.Empty);
+            Assert.AreEqual("s1", res);
+            Assert.AreEqual(ClientOp.ComputeExecute, server1.ClientOps.Last());
         }
     }
 }
