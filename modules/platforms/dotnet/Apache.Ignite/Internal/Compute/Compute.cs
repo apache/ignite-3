@@ -89,6 +89,10 @@ namespace Apache.Ignite.Internal.Compute
         {
             IgniteArgumentCheck.NotNull(node, nameof(node));
 
+            // TODO:
+            // 1. Locate matching active connection in ClientFailoverSocket
+            // 2. If there is one, write without node details, send request.
+            // 3. If failed, fallback to default socket with retry policy.
             using var writer = new PooledArrayBufferWriter();
             Write();
 

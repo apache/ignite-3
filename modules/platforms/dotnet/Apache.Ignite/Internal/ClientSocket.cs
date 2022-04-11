@@ -38,8 +38,6 @@ namespace Apache.Ignite.Internal
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal sealed class ClientSocket : IDisposable
     {
-        private record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout);
-
         /** General-purpose client type code. */
         private const byte ClientType = 2;
 
@@ -95,13 +93,14 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="stream">Network stream.</param>
         /// <param name="configuration">Configuration.</param>
-        /// <param name="context">Connection context.</param>
-        private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext context)
+        /// <param name="connectionContext">Connection context.</param>
+        private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext connectionContext)
         {
             _stream = stream;
+            ConnectionContext = connectionContext;
             _logger = configuration.Logger.GetLogger(GetType());
 
-            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, _logger);
+            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
@@ -121,6 +120,11 @@ namespace Apache.Ignite.Internal
         /// Gets a value indicating whether this socket is disposed.
         /// </summary>
         public bool IsDisposed => _disposeTokenSource.IsCancellationRequested;
+
+        /// <summary>
+        /// Gets the connection context.
+        /// </summary>
+        public ConnectionContext ConnectionContext { get; }
 
         /// <summary>
         /// Connects the socket to the specified endpoint and performs handshake.
@@ -274,12 +278,13 @@ namespace Apache.Ignite.Internal
                 throw exception;
             }
 
+            var idleTimeoutMs = reader.ReadInt64();
+            var clusterNodeName = reader.ReadString();
+
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
 
-            var idleTimeoutMs = reader.ReadInt64();
-
-            return new ConnectionContext(serverVer, TimeSpan.FromMilliseconds(idleTimeoutMs));
+            return new ConnectionContext(serverVer, TimeSpan.FromMilliseconds(idleTimeoutMs), clusterNodeName);
         }
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
