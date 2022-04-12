@@ -15,10 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.lang;
 
-import org.apache.ignite.network.annotations.MessageGroup;
-
-@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
-public class ITTestMessageGroup {
+/**
+ * Exception is thrown when failed to marshall or unmarshall value.
+ * E.g. due to a value mismatch a schema or any other reason.
+ */
+public class MarshallerException extends IgniteException {
+    /**
+     * Creates a new exception with the given error message.
+     *
+     * @param cause Non-null throwable cause.
+     */
+    public MarshallerException(Throwable cause) {
+        super(cause);
+    }
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.schema.registry;
 
-import static java.util.stream.Collectors.toList;
-
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -121,15 +121,15 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /** {@inheritDoc} */
-    @Override public SchemaDescriptor waitLatestSchema() {
+    @Override
+    public SchemaDescriptor waitLatestSchema() {
         int lastVer0 = latestVersionStore.getAsInt();
 
         if (lastVer0 == INITIAL_SCHEMA_VERSION) {
             return schema();
         }
 
-        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer
-                + ", consLastVer=" + lastVer0 + ']';
+        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer + ", consLastVer=" + lastVer0 + ']';
 
         return schema(lastVer0);
     }
@@ -156,31 +156,34 @@ public class SchemaRegistryImpl implements SchemaRegistry {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Row> resolve(Collection<BinaryRow> rows) {
+    public Collection<Row> resolve(Collection<BinaryRow> binaryRows) {
         final SchemaDescriptor curSchema = waitLatestSchema();
 
-        return rows.stream().map(row -> resolveInternal(row, curSchema)).collect(toList());
+        List<Row> rows = new ArrayList<>(binaryRows.size());
+
+        for (BinaryRow r : binaryRows) {
+            rows.add(resolveInternal(r, curSchema));
+        }
+
+        return rows;
     }
 
     /**
-     * Resolves a schema for row.
-     * The method is optimal when the latest schema is already gotten.
+     * Resolves a schema for row. The method is optimal when the latest schema is already got.
      *
-     * @param row       Binary row.
+     * @param row Binary row.
      * @param curSchema The latest available local schema.
-     * @return Schema-aware rows.
+     * @return Schema-aware row.
+     * @throws SchemaRegistryException if no schema exists for the given row.
      */
-    @Nullable
     private Row resolveInternal(BinaryRow row, SchemaDescriptor curSchema) {
-        if (row == null) {
-            return null;
+        if (curSchema == null) {
+            throw new SchemaRegistryException("No schema found for the row: schemaVersion=" + row.schemaVersion());
+        } else if (row.schemaVersion() == 0 || curSchema.version() == row.schemaVersion()) {
+            return new Row(curSchema, row);
         }
 
         final SchemaDescriptor rowSchema = schema(row.schemaVersion());
-
-        if (curSchema.version() == rowSchema.version()) {
-            return new Row(rowSchema, row);
-        }
 
         ColumnMapper mapping = resolveMapping(curSchema, rowSchema);
 
@@ -188,8 +191,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     }
 
     /**
-     * ResolveMapping.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Get cached or create a column mapper that maps column of current schema to the row schema as they may have different schema indices.
      *
      * @param curSchema Target schema.
      * @param rowSchema Row schema.
@@ -226,7 +228,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      *
      * @param desc Schema descriptor.
      * @throws SchemaRegistrationConflictException If schema of provided version was already registered.
-     * @throws SchemaRegistryException             If schema of incorrect version provided.
+     * @throws SchemaRegistryException If schema of incorrect version provided.
      */
     public void onSchemaRegistered(SchemaDescriptor desc) {
         if (lastVer == INITIAL_SCHEMA_VERSION) {

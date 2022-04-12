@@ -72,6 +72,10 @@ abstract class AbstractTableView {
      * @return Public exception.
      */
     protected IgniteException convertException(Throwable th) {
+        if (th instanceof IgniteException) {
+            return (IgniteException) th;
+        }
+
         //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
         return new IgniteException(th);
     }

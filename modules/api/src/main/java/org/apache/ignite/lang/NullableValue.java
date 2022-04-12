@@ -17,20 +17,76 @@
 
 package org.apache.ignite.lang;
 
-import org.apache.ignite.tx.Transaction;
+import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents a value that can be {@code null}. Used to distinguish 'value is absent' and `value is null` cases.
+ * A container object which contains a nullable value. {@code NullableValue} is primarily intended for use as a method return type where
+ * it's not clear if the value is absent or value is {@code null}.
+ *
+ * <p>In contrast to {@link java.util.Optional} this class allows {@code null} values, and allow a method with {@code NullableValue}
+ * returning type to return a {@code null} as well as {@code NullableValue} object. Thus, if the method returns {@code null} that means no
+ * value present, and {@code NullableValue} object means the value is present, but value itself can be {@code null} though.
  *
  * @param <T> Value type.
- * @see org.apache.ignite.table.KeyValueView#getNullable(Transaction, Object)
  */
-public interface NullableValue<T> {
+public final class NullableValue<T> {
+    /** Null value instance. */
+    private static final NullableValue<?> NULL = new NullableValue<>(null);
+
+    /**
+     * Wraps nullable object.
+     *
+     * @param obj Value to wrap, or {@code null}.
+     * @return Nullable value.
+     */
+    public static <T> NullableValue<T> of(@Nullable T obj) {
+        return obj == null ? (NullableValue<T>) NULL : new NullableValue<>(obj);
+    }
+
+    /** Wrapped value. */
+    private T value;
+
+    /**
+     * Creates a wrapper for nullable value.
+     *
+     * @param value Value.
+     */
+    private NullableValue(@Nullable T value) {
+        this.value = value;
+    }
+
     /**
      * Returns wrapped value.
      *
      * @return Value.
      */
-    @Nullable T get();
+    public @Nullable T get() {
+        return value;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        NullableValue<?> that = (NullableValue<?>) o;
+        return Objects.equals(value, that.value);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(value);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return "NullableValue[value=" + value + ']';
+    }
 }
