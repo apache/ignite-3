@@ -149,7 +149,7 @@ public class DdlCommandHandler {
                     .columns(colsInner)
                     .withPrimaryKey(pkeyDef.build()).build(), tableChange);
 
-            String dataStorage = dataStorageManager.dataStorage(defaultDataStorageViewSupplier.get());
+            String dataStorage = dataStorageManager.defaultDataStorage(defaultDataStorageViewSupplier.get());
 
             tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(dataStorage, Map.of()));
 

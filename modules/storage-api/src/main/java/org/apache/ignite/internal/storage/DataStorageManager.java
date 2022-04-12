@@ -83,7 +83,7 @@ public class DataStorageManager implements IgniteComponent {
      *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise
      *      there will be no default.
      */
-    // TODO: IGNITE-16797 Remove it.
+    // TODO: IGNITE-16835 Remove it.
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> {
             if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
@@ -97,12 +97,12 @@ public class DataStorageManager implements IgniteComponent {
     }
 
     /**
-     * Returns the name of the data storage.
+     * Returns the default data storage.
      *
      * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
-     * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the data storage.
+     * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default.
      */
-    public String dataStorage(String defaultDataStorageView) {
+    public String defaultDataStorage(String defaultDataStorageView) {
         return !defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE) || engines.size() > 1
                 ? defaultDataStorageView : first(engines.keySet());
     }

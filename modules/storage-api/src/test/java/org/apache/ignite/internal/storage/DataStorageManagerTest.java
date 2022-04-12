@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageView;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageChange;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -68,7 +69,7 @@ public class DataStorageManagerTest {
     private DataStorageConfiguration dataStorageConfig;
 
     @Test
-    void testDataStorageSingleStorage() {
+    void testDefaultDataStorageSingleStorage() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class)
         ));
@@ -77,13 +78,13 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
-        assertThat(SECOND, equalTo(dataStorageManager.dataStorage(SECOND)));
+        assertThat(SECOND, equalTo(dataStorageManager.defaultDataStorage(SECOND)));
 
-        assertThat(FIRST, equalTo(dataStorageManager.dataStorage(UNKNOWN_DATA_STORAGE)));
+        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage(UNKNOWN_DATA_STORAGE)));
     }
 
     @Test
-    void testDataStorageMultipleStorages() {
+    void testDefaultDataStorageMultipleStorages() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
                 createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
@@ -93,11 +94,11 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
-        assertThat(FIRST, equalTo(dataStorageManager.dataStorage(FIRST)));
+        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage(FIRST)));
 
-        assertThat(SECOND, equalTo(dataStorageManager.dataStorage(SECOND)));
+        assertThat(SECOND, equalTo(dataStorageManager.defaultDataStorage(SECOND)));
 
-        assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.dataStorage(UNKNOWN_DATA_STORAGE)));
+        assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.defaultDataStorage(UNKNOWN_DATA_STORAGE)));
     }
 
     @Test
@@ -155,8 +156,6 @@ public class DataStorageManagerTest {
 
         DataStorageView dataStorageView = dataStorageConfig.value();
 
-        assertThat(dataStorageView, instanceOf(UnknownDataStorageView.class));
-
         // Just change type and check defaults.
         dataStorageConfig
                 .change(dataStorageManager.tableDataStorageConsumer(FIRST, Map.of()))
@@ -180,5 +179,47 @@ public class DataStorageManagerTest {
 
         assertThat(((SecondDataStorageView) dataStorageView).strVal(), equalTo("foobar"));
         assertThat(((SecondDataStorageView) dataStorageView).longVal(), equalTo(666L));
+    }
+
+    @Test
+    void testDefaultTableDataStorageConsumerSingleEngine() throws Exception {
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class)
+        ));
+
+        DataStorageManager dataStorageManager = new DataStorageManager(
+                dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
+        );
+
+        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
+        assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
+
+        dataStorageConfig.change(c -> c.convert(UnknownDataStorageChange.class)).get(1, TimeUnit.SECONDS);
+
+        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(UNKNOWN_DATA_STORAGE)).get(1, TimeUnit.SECONDS);
+        assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
+    }
+
+    @Test
+    void testDefaultTableDataStorageConsumerMultipleEngines() throws Exception {
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
+                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+        ));
+
+        DataStorageManager dataStorageManager = new DataStorageManager(
+                dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
+        );
+
+        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(FIRST)).get(1, TimeUnit.SECONDS);
+        assertThat(dataStorageConfig.value(), instanceOf(FirstDataStorageView.class));
+
+        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(SECOND)).get(1, TimeUnit.SECONDS);
+        assertThat(dataStorageConfig.value(), instanceOf(SecondDataStorageView.class));
+
+        dataStorageConfig.change(c -> c.convert(UnknownDataStorageChange.class)).get(1, TimeUnit.SECONDS);
+
+        dataStorageConfig.change(dataStorageManager.defaultTableDataStorageConsumer(UNKNOWN_DATA_STORAGE)).get(1, TimeUnit.SECONDS);
+        assertThat(dataStorageConfig.value(), instanceOf(UnknownDataStorageView.class));
     }
 }
