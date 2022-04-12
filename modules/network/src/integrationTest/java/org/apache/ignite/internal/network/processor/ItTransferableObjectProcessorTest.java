@@ -94,7 +94,7 @@ public class ItTransferableObjectProcessorTest {
     @Test
     void testCompileMultipleMessage() {
         Compilation compilation = compiler.compile(
-                sources("AllTypesMessage", "TransitiveMessage", "ITTestMessageGroup")
+                sources("AllTypesMessage", "TransitiveMessage", "ItTestMessageGroup")
         );
 
         assertThat(compilation).succeededWithoutWarnings();
@@ -182,12 +182,12 @@ public class ItTransferableObjectProcessorTest {
     @Test
     void testMultipleMessageGroups() {
         Compilation compilation = compiler.compile(
-                sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup", "SecondGroup")
+                sources("AllTypesMessage", "ConflictingTypeMessage", "ItTestMessageGroup", "SecondGroup")
         );
 
         assertThat(compilation).hadErrorContaining(String.format(
                 "Invalid number of message groups (classes annotated with @%s), "
-                    + "only one can be present in a compilation unit: [%s.ITTestMessageGroup, %s.SecondGroup]",
+                    + "only one can be present in a compilation unit: [%s.ItTestMessageGroup, %s.SecondGroup]",
                 MessageGroup.class.getSimpleName(),
                 RESOURCE_PACKAGE_NAME,
                 RESOURCE_PACKAGE_NAME
@@ -222,7 +222,7 @@ public class ItTransferableObjectProcessorTest {
     @Test
     void testConflictingMessageTypes() {
         Compilation compilation = compiler.compile(
-                sources("AllTypesMessage", "ConflictingTypeMessage", "ITTestMessageGroup")
+                sources("AllTypesMessage", "ConflictingTypeMessage", "ItTestMessageGroup")
         );
 
         assertThat(compilation).hadErrorContaining("message with type 1 already exists");
@@ -242,7 +242,7 @@ public class ItTransferableObjectProcessorTest {
      * Compiles the given network message.
      */
     private Compilation compile(String messageSource) {
-        return compiler.compile(sources(messageSource, "ITTestMessageGroup"));
+        return compiler.compile(sources(messageSource, "ItTestMessageGroup"));
     }
 
     /**
