@@ -20,5 +20,5 @@ package org.apache.ignite.internal.network.processor;
 import org.apache.ignite.network.annotations.MessageGroup;
 
 @MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
-public class ITTestMessageGroup {
+public class ItTestMessageGroup {
 }
