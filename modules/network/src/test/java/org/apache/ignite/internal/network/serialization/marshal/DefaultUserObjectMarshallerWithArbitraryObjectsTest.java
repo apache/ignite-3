@@ -41,6 +41,7 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -551,6 +552,13 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
         WithStringField unmarshalled = marshalAndUnmarshalNonNull(new WithStringField("щ"));
 
         assertThat(unmarshalled.value, is("щ"));
+    }
+
+    @Test
+    void bigIntegerIsSupported() throws Exception {
+        BigInteger result = marshalAndUnmarshalNonNull(BigInteger.TEN);
+
+        assertThat(result, is(BigInteger.TEN));
     }
 
     private static boolean noArgs(Method method) {

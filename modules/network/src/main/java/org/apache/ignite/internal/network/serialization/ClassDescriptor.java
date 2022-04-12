@@ -243,7 +243,7 @@ public class ClassDescriptor implements DeclaredType {
     private static int computeFieldNullsBitmapSize(List<FieldDescriptor> fields) {
         int count = 0;
         for (FieldDescriptor fieldDescriptor : fields) {
-            if (!fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront()) {
+            if (isIncludedInNullsBitmap(fieldDescriptor)) {
                 count++;
             }
         }
@@ -251,12 +251,16 @@ public class ClassDescriptor implements DeclaredType {
         return count;
     }
 
+    private static boolean isIncludedInNullsBitmap(FieldDescriptor fieldDescriptor) {
+        return !fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront();
+    }
+
     private static Object2IntMap<String> computeFieldNullsBitmapIndices(List<FieldDescriptor> fields) {
         Object2IntMap<String> map = new Object2IntOpenHashMap<>();
 
         int index = 0;
         for (FieldDescriptor fieldDescriptor : fields) {
-            int indexToPut = !fieldDescriptor.isPrimitive() && fieldDescriptor.isRuntimeTypeKnownUpfront() ? (index++) : -1;
+            int indexToPut = isIncludedInNullsBitmap(fieldDescriptor) ? (index++) : -1;
             map.put(fieldDescriptor.name(), indexToPut);
         }
 

@@ -342,7 +342,7 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private void readFields() throws IOException {
-            @Nullable BitSet nullsBitSet = defaultFieldsReaderWriter.readNullsBitSet(input, descriptor);
+            @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
 
             int objectFieldIndex = 0;
             for (FieldDescriptor fieldDesc : descriptor.fields()) {

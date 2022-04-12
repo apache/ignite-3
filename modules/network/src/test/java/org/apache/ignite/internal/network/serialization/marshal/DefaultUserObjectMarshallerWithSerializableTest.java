@@ -274,6 +274,15 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         assertThat(unmarshalled.notListed, is(42));
     }
 
+    @Test
+    void supportsSerialPersistedFieldsNamesDifferentFromRealFieldNamesWithPutFields() throws Exception {
+        var oririnalObject = new SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields(42);
+
+        SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields result = marshalAndUnmarshalNonNull(oririnalObject);
+
+        assertThat(result.value, is(42));
+    }
+
     /**
      * An {@link Serializable} that does not have {@code writeReplace()}/{@code readResolve()} methods or other customizations.
      */
@@ -551,5 +560,32 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         private static final ObjectStreamField[] serialPersistentFields = {
                 new ObjectStreamField("listed", int.class)
         };
+    }
+
+    private static class SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields implements Serializable {
+        private static final ObjectStreamField[] serialPersistentFields = {
+                new ObjectStreamField("val", Integer.class)
+        };
+
+        /**
+         * The type of value must be non-primitive and known-upfront for this test, hence String is not a good choice
+         * (as internally we have 2 String 'types': Latin1 and all just String), but Integer is ok.
+         */
+        private Integer value;
+
+        public SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields(Integer value) {
+            this.value = value;
+        }
+
+        private void writeObject(ObjectOutputStream stream) throws IOException {
+            ObjectOutputStream.PutField putFields = stream.putFields();
+            putFields.put("val", value);
+            putFields.write(stream);
+        }
+
+        private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+            ObjectInputStream.GetField getFields = stream.readFields();
+            value = (Integer) getFields.get("val", null);
+        }
     }
 }
