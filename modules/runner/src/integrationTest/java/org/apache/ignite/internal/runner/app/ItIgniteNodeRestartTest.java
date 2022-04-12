@@ -31,6 +31,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.CompletableFuture;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -676,6 +678,28 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
+     * Check that the table with given name is present in TableManager.
+     *
+     * @param tableManager Table manager.
+     * @param tableName Table name.
+     */
+    private void assertTablePresent(TableManager tableManager, String tableName) {
+        Collection<TableImpl> tables = tableManager.latestTables().values();
+
+        boolean isPresent = false;
+
+        for (TableImpl table : tables) {
+            if (table.name().equals(tableName)) {
+                isPresent = true;
+
+                break;
+            }
+        }
+
+        assertTrue(isPresent, "tableName=" + tableName + ", tables=" + tables);
+    }
+
+    /**
      * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent.
      * Also checks that the table created before node stop, is not available when majority if lost.
      *
@@ -707,8 +731,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager);
 
-        assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + TABLE_NAME.toUpperCase()));
-        assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase()));
+        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -734,7 +758,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager);
 
-        assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + TABLE_NAME.toUpperCase()));
+        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
     }
 
     /**
@@ -769,7 +793,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
-        assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + TABLE_NAME.toUpperCase()));
+        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
     }
 
     /**
@@ -802,8 +826,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
-        assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + TABLE_NAME.toUpperCase()));
-        assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase()));
+        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, SCHEMA_PREFIX + TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -856,7 +880,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         TableManager tableManager = findComponent(components, TableManager.class);
 
         for (int i = 0; i < cfgGap; i++) {
-            assertNotNull(tableManager.latestTables().get(SCHEMA_PREFIX + "T" + i), SCHEMA_PREFIX + "T" + i);
+            assertTablePresent(tableManager, SCHEMA_PREFIX + "T" + i);
         }
     }
 

@@ -43,7 +43,7 @@ public class VersionedValue<T> {
     private static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
-    private static final int DEFAULT_HISTORY_SIZE = 2;
+    public static final int DEFAULT_HISTORY_SIZE = 2;
 
     /** Last applied causality token. */
     private volatile long actualToken = NOT_INITIALIZED;

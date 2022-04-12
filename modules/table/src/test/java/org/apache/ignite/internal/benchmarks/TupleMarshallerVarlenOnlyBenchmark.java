@@ -20,7 +20,7 @@ package org.apache.ignite.internal.benchmarks;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
-import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.table.SchemaManager.INITIAL_SCHEMA_VERSION;
 
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
