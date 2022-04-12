@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
@@ -53,6 +52,8 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             new SerializableInstantiation(),
             new UnsafeInstantiation()
     );
+
+    private final NullsBitsetWriter nullsBitsetWriter = new DefaultNullsBitsetWriter();
 
     StructuredObjectMarshaller(
             DescriptorRegistry localDescriptors,
@@ -114,7 +115,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     @Override
     public void defaultWriteFields(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
-        @Nullable BitSet nullsBitSet = writeNullsBitSet(object, descriptor, output);
+        @Nullable BitSet nullsBitSet = nullsBitsetWriter.writeNullsBitSet(object, descriptor, output);
 
         for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
             if (cannotAvoidWritingNull(fieldDescriptor, descriptor, nullsBitSet)) {
@@ -129,30 +130,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         assert maybeIndexInBitmap < 0 || nullsBitSet != null : "Index is " + maybeIndexInBitmap;
 
         return maybeIndexInBitmap < 0 || !nullsBitSet.get(maybeIndexInBitmap);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException {
-        BitSet nullsBitSet = descriptor.fieldIndexInNullsBitmapSize() == 0 ? null : new BitSet(descriptor.fieldIndexInNullsBitmapSize());
-
-        for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
-            int indexInBitmap = descriptor.fieldIndexInNullsBitmap(fieldDescriptor.name());
-            if (indexInBitmap >= 0) {
-                Object fieldValue = getFieldValue(object, fieldDescriptor);
-                if (fieldValue == null) {
-                    assert nullsBitSet != null;
-                    nullsBitSet.set(indexInBitmap);
-                }
-            }
-        }
-
-        if (nullsBitSet != null) {
-            ProtocolMarshalling.writeFixedLengthBitSet(nullsBitSet, descriptor.fieldIndexInNullsBitmapSize(), output);
-        }
-
-        return nullsBitSet;
     }
 
     private void writeField(Object object, FieldDescriptor fieldDescriptor, IgniteDataOutput output, MarshallingContext context)
@@ -257,7 +234,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
     @Override
     public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        @Nullable BitSet nullsBitSet = readNullsBitSet(input, descriptor);
+        @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
 
         for (MergedField mergedField : descriptor.mergedFields()) {
             if (mergedField.hasRemote()) {
@@ -289,17 +266,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         assert maybeIndexInBitmap < 0 || nullsBitSet != null : "Index is " + maybeIndexInBitmap;
 
         return maybeIndexInBitmap >= 0 && nullsBitSet.get(maybeIndexInBitmap);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public BitSet readNullsBitSet(DataInput input, ClassDescriptor descriptor) throws IOException {
-        if (descriptor.fieldIndexInNullsBitmapSize() == 0) {
-            return null;
-        }
-
-        return ProtocolMarshalling.readFixedLengthBitSet(descriptor.fieldIndexInNullsBitmapSize(), input);
     }
 
     private void fillFieldFrom(
