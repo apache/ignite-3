@@ -385,7 +385,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 if (errCode == ClientErrorCode.AUTH_FAILED) {
                     throw new IgniteClientAuthenticationException(msg);
                 } else if (proposedVer.equals(srvVer)) {
-                    throw new IgniteClientException("Client protocol error: unexpected server response.");
+                    throw new IgniteClientException("Client protocol error: unexpected server response '" + msg + "'.");
                 } else if (!supportedVers.contains(srvVer)) {
                     throw new IgniteClientException(String.format(
                             "Protocol version mismatch: client %s / server %s. Server details: %s",

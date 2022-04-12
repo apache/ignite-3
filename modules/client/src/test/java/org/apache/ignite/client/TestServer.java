@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.net.InetSocketAddress;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.mockito.Mockito;
 
 /**
  * Test server.
@@ -98,6 +100,10 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory.start();
 
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection)
                 : new ClientHandlerModule(
@@ -106,7 +112,7 @@ public class TestServer implements AutoCloseable {
                         ignite.transactions(),
                         cfg,
                         mock(IgniteCompute.class),
-                        mock(ClusterService.class),
+                        clusterService,
                         bootstrapFactory
                 );
 
