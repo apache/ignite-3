@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm.schema;
-
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+package org.apache.ignite.lang;
 
 /**
- * Test RocksDB data storage configuration schema for tables.
+ * Exception is thrown when failed to marshall or unmarshall value.
+ * E.g. due to a value mismatch a schema or any other reason.
  */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+public class MarshallerException extends IgniteException {
+    /**
+     * Creates a new exception with the given error message.
+     *
+     * @param cause Non-null throwable cause.
+     */
+    public MarshallerException(Throwable cause) {
+        super(cause);
+    }
 }

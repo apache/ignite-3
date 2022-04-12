@@ -15,16 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration.schema;
+package org.apache.ignite.internal.network.processor;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
+import org.apache.ignite.network.annotations.MessageGroup;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
-
-/**
- * Test RocksDB data storage configuration schema for tables.
- */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
+public class ItTestMessageGroup {
 }

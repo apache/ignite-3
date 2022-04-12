@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -37,7 +38,6 @@ import org.apache.ignite.configuration.schemas.table.TableValidator;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
-import org.apache.ignite.internal.schema.configuration.schema.TestRocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -84,7 +84,7 @@ public class SchemaConfigurationConverterTest {
                         HashIndexConfigurationSchema.class,
                         SortedIndexConfigurationSchema.class,
                         PartialIndexConfigurationSchema.class,
-                        TestRocksDbDataStorageConfigurationSchema.class
+                        UnknownDataStorageConfigurationSchema.class
                 )
         );
 

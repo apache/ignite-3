@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
-
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+package org.apache.ignite.lang;
 
 /**
- * This annotation marks the class as an instance of polymorphic configuration schema. Has basically the same properties as {@link Config},
- * but must inherit from the {@link PolymorphicConfig}.
- *
- * <p>NOTE: Field name conflicts with the parent ({@link PolymorphicConfig}) are not allowed.
+ * This exception is thrown instead of returning a null value from a method which doesn't respect {@code null}-value to avoid ambiguity
+ * whether the value is absent or value is {@code null}.
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface PolymorphicConfigInstance {
+public class UnexpectedNullValueException extends IgniteException {
     /**
-     * Unique identifier for an extension within a single {@link PolymorphicConfig polymorphic configuration}.
+     * Creates a new exception.
+     *
+     * @param msg Message.
      */
-    String value();
+    public UnexpectedNullValueException(String msg) {
+        super("Got unexpected null value: " + msg);
+    }
 }

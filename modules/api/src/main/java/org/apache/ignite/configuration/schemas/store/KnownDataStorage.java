@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.annotation;
+package org.apache.ignite.configuration.schemas.store;
 
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.apache.ignite.configuration.annotation.ConfigValue;
 
 /**
- * This annotation marks the class as an instance of polymorphic configuration schema. Has basically the same properties as {@link Config},
- * but must inherit from the {@link PolymorphicConfig}.
+ * An annotation to check that the {@link DataStorageConfigurationSchema data storage} is known, i.e. its {@link
+ * DataStorageConfigurationSchema#name name} is not {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE "unknown"}.
  *
- * <p>NOTE: Field name conflicts with the parent ({@link PolymorphicConfig}) are not allowed.
+ * <p>Can be applied to a {@link ConfigValue}.
  */
-@Target(TYPE)
-@Retention(RUNTIME)
-@Documented
-public @interface PolymorphicConfigInstance {
-    /**
-     * Unique identifier for an extension within a single {@link PolymorphicConfig polymorphic configuration}.
-     */
-    String value();
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface KnownDataStorage {
 }

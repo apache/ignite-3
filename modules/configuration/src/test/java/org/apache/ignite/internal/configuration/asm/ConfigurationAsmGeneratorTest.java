@@ -37,6 +37,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
+import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -301,7 +302,19 @@ public class ConfigurationAsmGeneratorTest {
 
         // Check convert.
 
-        rootConfig.polymorphicSubCfg().change(c -> c.convert(SecondPolymorphicInstanceTestChange.class)).get(1, SECONDS);
+        rootConfig.polymorphicSubCfg()
+                .change(c -> {
+                    assertThat(c.convert(FirstPolymorphicInstanceTestChange.class), instanceOf(FirstPolymorphicInstanceTestChange.class));
+
+                    assertThat(c.convert(SecondPolymorphicInstanceTestChange.class), instanceOf(SecondPolymorphicInstanceTestChange.class));
+
+                    assertThat(c.convert(PolymorphicTestConfigurationSchema.FIRST), instanceOf(FirstPolymorphicInstanceTestChange.class));
+
+                    assertThat(c.convert(PolymorphicTestConfigurationSchema.SECOND), instanceOf(SecondPolymorphicInstanceTestChange.class));
+
+                    assertThrows(ConfigurationWrongPolymorphicTypeIdException.class, () -> c.convert(UUID.randomUUID().toString()));
+                })
+                .get(1, SECONDS);
 
         SecondPolymorphicInstanceTestConfiguration secondCfg = (SecondPolymorphicInstanceTestConfiguration) rootConfig.polymorphicSubCfg();
         assertEquals("second", secondCfg.typeId().value());
@@ -657,6 +670,12 @@ public class ConfigurationAsmGeneratorTest {
      */
     @PolymorphicConfig
     public static class PolymorphicTestConfigurationSchema {
+        static final String FIRST = "first";
+
+        static final String SECOND = "second";
+
+        static final String NON_DEFAULT = "non_default";
+
         /** Polymorphic type id field. */
         @PolymorphicId(hasDefault = true)
         public String typeId = "first";
@@ -669,7 +688,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * First instance of the polymorphic configuration schema.
      */
-    @PolymorphicConfigInstance("first")
+    @PolymorphicConfigInstance(PolymorphicTestConfigurationSchema.FIRST)
     public static class FirstPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
@@ -679,7 +698,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * Second instance of the polymorphic configuration schema.
      */
-    @PolymorphicConfigInstance("second")
+    @PolymorphicConfigInstance(PolymorphicTestConfigurationSchema.SECOND)
     public static class SecondPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
         /** Integer value. */
         @Value(hasDefault = true)
@@ -693,7 +712,7 @@ public class ConfigurationAsmGeneratorTest {
     /**
      * Instance of the polymorphic configuration schema that has a field without a default value.
      */
-    @PolymorphicConfigInstance("non_default")
+    @PolymorphicConfigInstance(PolymorphicTestConfigurationSchema.NON_DEFAULT)
     public static class NonDefaultPolymorphicInstanceTestConfigurationSchema extends PolymorphicTestConfigurationSchema {
         @Value
         public String nonDefaultValue;

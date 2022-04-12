@@ -15,10 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.processor;
+package org.apache.ignite.configuration.schemas.store;
 
-import org.apache.ignite.network.annotations.MessageGroup;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
-@MessageGroup(groupType = 1, groupName = "NetworkMessageProcessorTest")
-public class ITTestMessageGroup {
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+
+/**
+ * Configuration schema of an unknown data storage.
+ */
+@PolymorphicConfigInstance(UNKNOWN_DATA_STORAGE)
+public class UnknownDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+    /** Default data storage name. */
+    public static final String UNKNOWN_DATA_STORAGE = "unknown";
 }
