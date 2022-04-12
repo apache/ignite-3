@@ -15,21 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb;
+package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 
 /**
- * Implementation for creating {@link RocksDbStorageEngine}s.
+ * Implementation for creating {@link PageMemoryStorageEngine}s.
  */
-public class RocksDbStorageEngineFactory implements StorageEngineFactory {
+public class PageMemoryDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override
     public String name() {
@@ -38,11 +41,21 @@ public class RocksDbStorageEngineFactory implements StorageEngineFactory {
 
     /** {@inheritDoc} */
     @Override
+    public Class<? extends DataStorageConfigurationSchema> schema() {
+        return PageMemoryDataStorageConfigurationSchema.class;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
-        RocksDbStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY);
+        PageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(PageMemoryStorageEngineConfiguration.KEY);
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(engineConfig, storagePath);
+        PageIoRegistry ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        return new PageMemoryStorageEngine(engineConfig, ioRegistry);
     }
 }

@@ -20,19 +20,27 @@ package org.apache.ignite.internal.storage.chm;
 import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 
 /**
  * Implementation for creating {@link TestConcurrentHashMapStorageEngine}s.
  */
-public class TestConcurrentHashMapStorageEngineFactory implements StorageEngineFactory {
+public class TestConcurrentHashMapDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override
     public String name() {
         return ENGINE_NAME;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Class<? extends DataStorageConfigurationSchema> schema() {
+        return TestConcurrentHashMapDataStorageConfigurationSchema.class;
     }
 
     /** {@inheritDoc} */

@@ -143,6 +143,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Handle;
@@ -237,6 +238,9 @@ public class ConfigurationAsmGenerator {
 
     /** {@code Node#convert} method name. */
     private static final String CONVERT_MTD_NAME = "convert";
+
+    /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
+    private static final String CONSTRUCT_MTD_NAME = "construct";
 
     /** Field name for method {@link DynamicConfiguration#internalConfigTypes}. */
     private static final String INTERNAL_CONFIG_TYPES_FIELD_NAME = "_internalConfigTypes";
@@ -1421,7 +1425,7 @@ public class ConfigurationAsmGenerator {
     ) {
         MethodDefinition constructMtd = classDef.declareMethod(
                 of(PUBLIC),
-                "construct",
+                CONSTRUCT_MTD_NAME,
                 type(void.class),
                 arg("key", type(String.class)),
                 arg("src", type(ConfigurationSource.class)),
@@ -2367,7 +2371,7 @@ public class ConfigurationAsmGenerator {
                 of(PUBLIC, FINAL),
                 internalName(polymorphicExtensionClassInfo.nodeClassName),
                 type(Object.class),
-                nodeClassInterfaces(polymorphicExtension, Set.of())
+                ArrayUtils.concat(nodeClassInterfaces(polymorphicExtension, Set.of()), type(ConstructableTreeNode.class))
         );
 
         // private final ParentNode this$0;
@@ -2489,6 +2493,43 @@ public class ConfigurationAsmGenerator {
                 .append(getThisFieldCode(convertByPolymorphicTypeIdMtd, parentInnerNodeFieldDef))
                 .append(convertByPolymorphicTypeIdMtd.getScope().getVariable("polymorphicTypeId"))
                 .invokeVirtual(schemaInnerNodeClassDef.getType(), CONVERT_MTD_NAME, returnType, type(String.class))
+                .retObject();
+
+        // Creates ConstructableTreeNode#construct.
+        MethodDefinition constructMtd = classDef.declareMethod(
+                of(PUBLIC),
+                CONSTRUCT_MTD_NAME,
+                type(void.class),
+                arg("key", type(String.class)),
+                arg("src", type(ConfigurationSource.class)),
+                arg("includeInternal", type(boolean.class))
+        ).addException(NoSuchElementException.class);
+
+        // return this.this$0.construct(key, src, includeInternal);
+        constructMtd.getBody()
+                .append(getThisFieldCode(constructMtd, parentInnerNodeFieldDef))
+                .append(constructMtd.getScope().getVariable("key"))
+                .append(constructMtd.getScope().getVariable("src"))
+                .append(constructMtd.getScope().getVariable("includeInternal"))
+                .invokeVirtual(
+                        schemaInnerNodeClassDef.getType(),
+                        CONSTRUCT_MTD_NAME,
+                        type(void.class),
+                        type(String.class), type(ConfigurationSource.class), type(boolean.class)
+                )
+                .ret();
+
+        // Creates ConstructableTreeNode#copy.
+        MethodDefinition copyMtd = classDef.declareMethod(
+                of(PUBLIC),
+                "copy",
+                type(ConstructableTreeNode.class)
+        );
+
+        // return this.this$0.copy();
+        copyMtd.getBody()
+                .append(getThisFieldCode(copyMtd, parentInnerNodeFieldDef))
+                .invokeVirtual(schemaInnerNodeClassDef.getType(), "copy", type(ConstructableTreeNode.class))
                 .retObject();
 
         return classDef;

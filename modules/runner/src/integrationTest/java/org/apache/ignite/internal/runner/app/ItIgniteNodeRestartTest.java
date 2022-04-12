@@ -33,6 +33,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,6 +59,8 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.DataStorageModule;
+import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -229,9 +232,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             });
         };
 
+        DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
+
         DataStorageManager dataStorageManager = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry(),
-                getPartitionsStorePath(dir)
+                dataStorageModules.createStorageEngines(
+                        clusterCfgMgr.configurationRegistry(),
+                        getPartitionsStorePath(dir)
+                )
         );
 
         TableManager tableManager = new TableManager(

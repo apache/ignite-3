@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,6 +63,8 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.DataStorageModule;
+import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.tx.TxManager;
@@ -258,9 +261,15 @@ public class IgniteImpl implements Ignite {
             });
         };
 
+        DataStorageModules dataStorageModules = new DataStorageModules(
+                ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
+        );
+
         dataStorageMgr = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry(),
-                getPartitionsStorePath(workDir)
+                dataStorageModules.createStorageEngines(
+                        clusterCfgMgr.configurationRegistry(),
+                        getPartitionsStorePath(workDir)
+                )
         );
 
         distributedTblMgr = new TableManager(

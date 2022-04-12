@@ -15,23 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.engine;
+package org.apache.ignite.internal.storage;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
-import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 
 /**
- * Factory for creating storage engines.
+ * Data storage module.
  */
-public interface StorageEngineFactory {
+public interface DataStorageModule {
     /**
-     * Returns the unique name of the storage engine.
+     * Returns the unique name of the data storage.
      *
      * <p>Used to map {@link DataStorageConfigurationSchema#name} to {@link StorageEngine}.
      */
     String name();
+
+    /**
+     * Returns the data storage configuration schema.
+     */
+    Class<? extends DataStorageConfigurationSchema> schema();
 
     /**
      * Creates a new storage engine.
