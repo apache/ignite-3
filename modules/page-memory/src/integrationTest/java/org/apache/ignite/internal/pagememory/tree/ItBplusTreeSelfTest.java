@@ -110,7 +110,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Class to test the {@link BplusTree}.
  */
-// TODO: https://issues.apache.org/jira/browse/IGNITE-16548
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     private static final short LONG_INNER_IO = 30000;

@@ -108,27 +108,7 @@ public class InMemoryVaultService implements VaultService {
             }
         }
 
-        return new Cursor<>() {
-            @Override
-            public void close() {
-            }
-
-            @NotNull
-            @Override
-            public Iterator<VaultEntry> iterator() {
-                return this;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return it.hasNext();
-            }
-
-            @Override
-            public VaultEntry next() {
-                return it.next();
-            }
-        };
+        return Cursor.fromIterator(it);
     }
 
     /** {@inheritDoc} */

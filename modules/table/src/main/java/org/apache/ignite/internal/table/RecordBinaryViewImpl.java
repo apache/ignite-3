@@ -372,11 +372,7 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param rows Binary rows.
      */
     private Collection<Tuple> wrap(Collection<BinaryRow> rows) {
-        if (rows == null) {
-            return null;
-        }
-
-        return schemaReg.resolve(rows).stream().filter(Objects::nonNull).map(TableRow::tuple).collect(toList());
+        return rows.stream().filter(Objects::nonNull).map(schemaReg::resolve).map(TableRow::tuple).collect(toList());
     }
 
     /**

@@ -15,16 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.chm.schema;
-
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+package org.apache.ignite.client;
 
 /**
- * Test RocksDB data storage configuration schema for tables.
+ * Retry policy context. See {@link RetryPolicy#shouldRetry}.
  */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+public interface RetryPolicyContext {
+    /**
+     * Gets the client configuration.
+     *
+     * @return Client configuration.
+     */
+    public IgniteClientConfiguration configuration();
+
+    /**
+     * Gets the operation type.
+     *
+     * @return Operation type.
+     */
+    public ClientOperationType operation();
+
+    /**
+     * Gets the current iteration number (zero-based).
+     *
+     * @return Zero-based iteration counter.
+     */
+    public int iteration();
+
+    /**
+     * Gets the connection exception that caused current retry iteration.
+     *
+     * @return Exception.
+     */
+    public IgniteClientConnectionException exception();
 }

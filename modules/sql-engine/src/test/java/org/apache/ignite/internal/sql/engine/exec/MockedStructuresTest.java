@@ -33,6 +33,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -49,8 +50,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngineFactory;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -129,6 +129,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     HashIndexConfigurationSchema.class,
                     SortedIndexConfigurationSchema.class,
                     PartialIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
                     RocksDbDataStorageConfigurationSchema.class
             }
     )
@@ -194,13 +195,13 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             });
         };
 
-        dsm = new DataStorageManager(configRegistry, workDir) {
-            /** {@inheritDoc} */
-            @Override
-            protected Iterable<StorageEngineFactory> engineFactories() {
-                return List.of((configurationRegistry, storePath) -> new RocksDbStorageEngine(rocksDbEngineConfig, storePath));
-            }
-        };
+        when(configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(rocksDbEngineConfig);
+
+        dsm = new DataStorageManager(
+                configRegistry,
+                workDir,
+                List.of(new RocksDbStorageEngineFactory())
+        );
 
         dsm.start();
 

@@ -25,11 +25,6 @@ namespace Apache.Ignite
     /// </summary>
     public sealed class RetryReadPolicy : RetryLimitPolicy
     {
-        /// <summary>
-        /// Singleton instance.
-        /// </summary>
-        public static readonly RetryReadPolicy Instance = new();
-
         /// <inheritdoc />
         public override bool ShouldRetry(IRetryPolicyContext context)
         {
@@ -59,6 +54,7 @@ namespace Apache.Ignite
                 ClientOperationType.TupleDeleteExact => false,
                 ClientOperationType.TupleDeleteAllExact => false,
                 ClientOperationType.TupleGetAndDelete => false,
+                ClientOperationType.ComputeExecute => false,
                 var unsupported => throw new NotSupportedException("Unsupported operation type: " + unsupported)
             };
         }

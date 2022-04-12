@@ -226,6 +226,10 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
         ConfigurationUtil.addDefaults(superRoot);
 
+        if (!annotation.name().isEmpty()) {
+            superRoot.getRoot(rootKey).setInjectedNameFieldValue(annotation.name());
+        }
+
         // Reference to the super root is required to make DynamicConfigurationChanger#change method atomic.
         var superRootRef = new AtomicReference<>(superRoot);
 

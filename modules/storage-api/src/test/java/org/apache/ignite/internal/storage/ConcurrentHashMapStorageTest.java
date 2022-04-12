@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -26,7 +27,6 @@ import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStor
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageChange;
 import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.chm.schema.TestRocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -48,7 +48,7 @@ public class ConcurrentHashMapStorageTest extends AbstractPartitionStorageTest {
             @InjectConfiguration(
                     polymorphicExtensions = {
                             HashIndexConfigurationSchema.class,
-                            TestRocksDbDataStorageConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
                             TestConcurrentHashMapDataStorageConfigurationSchema.class
                     }
             ) TableConfiguration tableCfg

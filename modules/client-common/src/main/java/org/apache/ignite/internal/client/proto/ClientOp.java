@@ -24,9 +24,6 @@ public class ClientOp {
     /** Heartbeat. */
     public static final int HEARTBEAT = 1;
 
-    /** Drop table. */
-    public static final int TABLE_DROP = 2;
-
     /** Get tables. */
     public static final int TABLES_GET = 3;
 

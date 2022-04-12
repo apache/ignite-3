@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.TestRocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -67,9 +67,10 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
     PageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(
+            name = "table",
             polymorphicExtensions = {
                     HashIndexConfigurationSchema.class,
-                    TestRocksDbDataStorageConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
                     PageMemoryDataStorageConfigurationSchema.class
             }
     )
@@ -92,7 +93,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         engine.start();
 
-        tableCfg.change(c -> c.changeName("table").changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
+        tableCfg.change(c -> c.changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
                 .get(1, TimeUnit.SECONDS);
 
         assertEquals(

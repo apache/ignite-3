@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Function;
@@ -111,18 +112,18 @@ public class FakeSchemaRegistry implements SchemaRegistry {
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row, SchemaDescriptor desc) {
-        return row == null ? null : new Row(desc, row);
+        return new Row(desc, row);
     }
 
     /** {@inheritDoc} */
     @Override
     public Row resolve(BinaryRow row) {
-        return row == null ? null : new Row(schema(row.schemaVersion()), row);
+        return new Row(schema(row.schemaVersion()), row);
     }
 
     /** {@inheritDoc} */
     @Override
     public Collection<Row> resolve(Collection<BinaryRow> rows) {
-        return rows.stream().map(this::resolve).collect(Collectors.toList());
+        return rows.stream().filter(Objects::nonNull).map(this::resolve).collect(Collectors.toList());
     }
 }

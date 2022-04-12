@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema;
 import java.util.Collection;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryException;
 import org.apache.ignite.internal.schema.row.Row;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Table schema registry interface.
@@ -51,7 +50,7 @@ public interface SchemaRegistry {
      * @return Schema descriptor of given version.
      * @throws SchemaRegistryException If no schema found for given version.
      */
-    @NotNull SchemaDescriptor schema(int ver) throws SchemaRegistryException;
+    SchemaDescriptor schema(int ver) throws SchemaRegistryException;
 
     /**
      * Gets schema descriptor for the latest version in cluster.
@@ -61,22 +60,21 @@ public interface SchemaRegistry {
     SchemaDescriptor waitLatestSchema();
 
     /**
-     * Get last registereg schema version.
+     * Get last registered schema version.
      */
     public int lastSchemaVersion();
 
     /**
-     * Resolve row for the give schema.
+     * Resolve binary row against given schema.
      *
      * @param row  Binary row.
-     * @param desc Desired schema.
+     * @param desc Schema descriptor.
      * @return Schema-aware row.
      */
     Row resolve(BinaryRow row, SchemaDescriptor desc);
 
     /**
-     * Resolve row.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Resolve row against the latest schema.
      *
      * @param row Binary row.
      * @return Schema-aware row.
@@ -84,7 +82,7 @@ public interface SchemaRegistry {
     Row resolve(BinaryRow row);
 
     /**
-     * Resolves a schema for batch operation.
+     * Resolves batch of binary row against the latest schema.
      *
      * @param rows Binary rows.
      * @return Schema-aware rows.

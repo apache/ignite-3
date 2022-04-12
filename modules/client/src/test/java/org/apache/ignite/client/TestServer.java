@@ -20,8 +20,12 @@ package org.apache.ignite.client;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Mockito.mock;
 
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -30,6 +34,7 @@ import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorCo
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 
@@ -39,7 +44,7 @@ import org.apache.ignite.network.NettyBootstrapFactory;
 public class TestServer implements AutoCloseable {
     private final ConfigurationRegistry cfg;
 
-    private final ClientHandlerModule module;
+    private final IgniteComponent module;
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -56,6 +61,24 @@ public class TestServer implements AutoCloseable {
             int portRange,
             long idleTimeout,
             Ignite ignite
+    ) {
+        this(port, portRange, idleTimeout, ignite, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param port Port.
+     * @param portRange Port range.
+     * @param idleTimeout Idle timeout.
+     * @param ignite Ignite.
+     */
+    public TestServer(
+            int port,
+            int portRange,
+            long idleTimeout,
+            Ignite ignite,
+            Function<Integer, Boolean> shouldDropConnection
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -75,31 +98,35 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory.start();
 
-        module = new ClientHandlerModule(
-                ((FakeIgnite) ignite).queryEngine(),
-                ignite.tables(),
-                ignite.transactions(),
-                cfg,
-                mock(IgniteCompute.class),
-                mock(ClusterService.class),
-                bootstrapFactory
-        );
+        module = shouldDropConnection != null
+                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection)
+                : new ClientHandlerModule(
+                        ((FakeIgnite) ignite).queryEngine(),
+                        ignite.tables(),
+                        ignite.transactions(),
+                        cfg,
+                        mock(IgniteCompute.class),
+                        mock(ClusterService.class),
+                        bootstrapFactory
+                );
 
         module.start();
     }
 
-    public ConfigurationRegistry configurationRegistry() {
-        return cfg;
+    /**
+     * Gets the port where this instance is listening.
+     *
+     * @return TCP port.
+     */
+    public int port() {
+        SocketAddress addr = module instanceof ClientHandlerModule
+                ? ((ClientHandlerModule) module).localAddress()
+                : ((TestClientHandlerModule) module).localAddress();
+
+        return ((InetSocketAddress) Objects.requireNonNull(addr)).getPort();
     }
 
-    public ClientHandlerModule module() {
-        return module;
-    }
-
-    public NettyBootstrapFactory bootstrapFactory() {
-        return bootstrapFactory;
-    }
-
+    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
         module.stop();

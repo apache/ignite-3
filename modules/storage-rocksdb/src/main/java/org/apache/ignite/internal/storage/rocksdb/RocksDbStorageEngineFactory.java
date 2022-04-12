@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
+
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.StorageException;
@@ -28,6 +30,12 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
  * Implementation for creating {@link RocksDbStorageEngine}s.
  */
 public class RocksDbStorageEngineFactory implements StorageEngineFactory {
+    /** {@inheritDoc} */
+    @Override
+    public String name() {
+        return ENGINE_NAME;
+    }
+
     /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {

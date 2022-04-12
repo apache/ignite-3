@@ -21,7 +21,6 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TI
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RETRY_LIMIT;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Objects;
@@ -62,9 +61,6 @@ public interface IgniteClient extends Ignite {
         /** Address finder. */
         private IgniteClientAddressFinder addressFinder;
 
-        /** Retry limit. */
-        private int retryLimit = DFLT_RETRY_LIMIT;
-
         /** Connect timeout. */
         private long connectTimeout = DFLT_CONNECT_TIMEOUT;
 
@@ -79,6 +75,9 @@ public interface IgniteClient extends Ignite {
 
         /** Heartbeat interval. */
         private long heartbeatInterval = DFLT_HEARTBEAT_INTERVAL;
+
+        /** Retry policy. */
+        private RetryPolicy retryPolicy = new RetryReadPolicy();
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -97,16 +96,16 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the retry limit. When a request fails due to a connection error, and multiple server connections are available, Ignite will
-         * retry the request on every connection. When this property is greater than zero, Ignite will limit the number of retries.
+         * Sets the retry policy. When a request fails due to a connection error, and multiple server connections
+         * are available, Ignite will retry the request if the specified policy allows it.
          *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RETRY_LIMIT}.
+         * <p>Default is {@link RetryReadPolicy}.
          *
-         * @param retryLimit Retry limit.
+         * @param retryPolicy Retry policy.
          * @return This instance.
          */
-        public Builder retryLimit(int retryLimit) {
-            this.retryLimit = retryLimit;
+        public Builder retryPolicy(RetryPolicy retryPolicy) {
+            this.retryPolicy = retryPolicy;
 
             return this;
         }
@@ -233,12 +232,12 @@ public interface IgniteClient extends Ignite {
             var cfg = new IgniteClientConfigurationImpl(
                     addressFinder,
                     addresses,
-                    retryLimit,
                     connectTimeout,
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
                     asyncContinuationExecutor,
-                    heartbeatInterval);
+                    heartbeatInterval,
+                    retryPolicy);
 
             return TcpIgniteClient.startAsync(cfg);
         }

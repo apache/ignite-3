@@ -1,10 +1,10 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
-{
-    /// <summary>
-    /// Retry policy that always returns <c>true</c>.
-    /// </summary>
-    public sealed class RetryAllPolicy : RetryLimitPolicy
-    {
-        /// <summary>
-        /// Singleton instance.
-        /// </summary>
-        public static readonly RetryAllPolicy Instance = new();
-    }
+package org.apache.ignite.client;
+
+/**
+ * Client retry policy determines whether client operations that have failed due to a connection issue should be retried.
+ */
+public interface RetryPolicy {
+    /**
+     * Gets a value indicating whether a client operation that has failed due to a connection issue should be retried.
+     *
+     * @param context Context.
+     * @return {@code true} if the operation should be retried on another connection, {@code false} otherwise.
+     */
+    public boolean shouldRetry(RetryPolicyContext context);
 }

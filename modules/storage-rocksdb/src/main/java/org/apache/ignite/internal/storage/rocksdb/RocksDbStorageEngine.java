@@ -73,12 +73,6 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public String name() {
-        return ENGINE_NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void start() throws StorageException {
         RocksDbDataRegion defaultRegion = new RocksDbDataRegion(engineConfig.defaultRegion());
 

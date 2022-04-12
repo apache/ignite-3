@@ -86,6 +86,12 @@ namespace Apache.Ignite.Internal.Proto
         TxCommit = 44,
 
         /** Rollback transaction. */
-        TxRollback = 45
+        TxRollback = 45,
+
+        /** Execute compute job. */
+        ComputeExecute = 47,
+
+        /** Get cluster nodes. */
+        ClusterGetNodes = 48
     }
 }

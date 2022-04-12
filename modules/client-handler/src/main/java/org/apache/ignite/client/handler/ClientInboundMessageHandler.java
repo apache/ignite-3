@@ -38,7 +38,6 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataReq
 import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
@@ -72,6 +71,7 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -161,7 +161,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        resources.clean();
+        resources.close();
 
         super.channelInactive(ctx);
     }
@@ -307,13 +307,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode
-    ) {
+    ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
                 return null;
-
-            case ClientOp.TABLE_DROP:
-                return ClientTableDropRequest.process(in, igniteTables);
 
             case ClientOp.TABLES_GET:
                 return ClientTablesGetRequest.process(out, igniteTables);

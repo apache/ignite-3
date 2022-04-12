@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.index;
+package org.apache.ignite.internal.storage.index;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -23,15 +23,13 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.storage.index.IndexRowPrefix;
-import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Class for comparing a {@link BinaryRow} representing an Index Key with a given prefix of index columns.
  */
-class PrefixComparator {
+public class PrefixComparator {
     private final SortedIndexDescriptor descriptor;
     private final @Nullable Object[] prefix;
 
@@ -41,7 +39,7 @@ class PrefixComparator {
      * @param descriptor Index Descriptor of the enclosing index.
      * @param prefix Prefix to compare the incoming rows against.
      */
-    PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
+    public PrefixComparator(SortedIndexDescriptor descriptor, IndexRowPrefix prefix) {
         assert descriptor.indexRowColumns().size() >= prefix.prefixColumnValues().length;
 
         this.descriptor = descriptor;
@@ -56,7 +54,7 @@ class PrefixComparator {
      *         a value less than {@code 0} if the row's prefix is smaller than the prefix; and
      *         a value greater than {@code 0} if the row's prefix is larger than the prefix.
      */
-    int compare(BinaryRow binaryRow) {
+    public int compare(BinaryRow binaryRow) {
         var row = new Row(descriptor.asSchemaDescriptor(), binaryRow);
 
         for (int i = 0; i < prefix.length; ++i) {
@@ -76,7 +74,18 @@ class PrefixComparator {
      * Compares a particular column of a {@code row} with the given value.
      */
     private static int compare(Column column, Row row, @Nullable Object value) {
-        boolean nullRow = row.hasNullValue(column.schemaIndex(), column.type().spec());
+        int schemaIndex = column.schemaIndex();
+
+        NativeTypeSpec typeSpec = column.type().spec();
+
+        return compareColumns(row, schemaIndex, typeSpec, value);
+    }
+
+    /**
+     * Compares a particular column of a {@code row} with the given value.
+     */
+    public static int compareColumns(Row row, int schemaIndex, NativeTypeSpec typeSpec, @Nullable Object value) {
+        boolean nullRow = row.hasNullValue(schemaIndex, typeSpec);
 
         if (nullRow && value == null) {
             return 0;
@@ -85,10 +94,6 @@ class PrefixComparator {
         } else if (value == null) {
             return 1;
         }
-
-        int schemaIndex = column.schemaIndex();
-
-        NativeTypeSpec typeSpec = column.type().spec();
 
         switch (typeSpec) {
             case INT8:
@@ -127,11 +132,7 @@ class PrefixComparator {
                 return ((Comparable) typeSpec.objectValue(row, schemaIndex)).compareTo(value);
 
             default:
-                // should never reach here, this invariant is checked during the index creation
-                throw new IllegalStateException(String.format(
-                        "Invalid column schema. Column name: %s, column type: %s",
-                        column.name(), column.type()
-                ));
+                throw new AssertionError("Unknown type spec: " + typeSpec);
         }
     }
 }

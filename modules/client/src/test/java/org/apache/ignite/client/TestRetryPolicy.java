@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.configuration.schema;
+package org.apache.ignite.client;
 
-import static org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema.DEFAULT_DATA_STORAGE_NAME;
-
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Test RocksDB data storage configuration schema for tables.
- */
-@PolymorphicConfigInstance(DEFAULT_DATA_STORAGE_NAME)
-public class TestRocksDbDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
+ * Test retry policy.
+  */
+public class TestRetryPolicy extends RetryLimitPolicy {
+    /** Policy invocations. */
+    public final List<RetryPolicyContext> invocations = new ArrayList<>();
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean shouldRetry(RetryPolicyContext context) {
+        invocations.add(context);
+
+        return super.shouldRetry(context);
+    }
 }

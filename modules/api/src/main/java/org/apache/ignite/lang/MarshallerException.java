@@ -15,26 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.table;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.table.manager.IgniteTables;
+package org.apache.ignite.lang;
 
 /**
- * Client table drop request.
+ * Exception is thrown when failed to marshall or unmarshall value.
+ * E.g. due to a value mismatch a schema or any other reason.
  */
-public class ClientTableDropRequest {
+public class MarshallerException extends IgniteException {
     /**
-     * Processes the request.
+     * Creates a new exception with the given error message.
      *
-     * @param in     Unpacker.
-     * @param tables Ignite tables.
-     * @return Future.
+     * @param cause Non-null throwable cause.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, IgniteTables tables) {
-        var tableName = in.unpackString();
-
-        return tables.dropTableAsync(tableName);
+    public MarshallerException(Throwable cause) {
+        super(cause);
     }
 }
