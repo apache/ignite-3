@@ -86,7 +86,7 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<Void> dropTableAsync(String name) {
         Objects.requireNonNull(name);
 
-        return ch.requestAsync(ClientOp.TABLE_DROP, w -> w.out().packString(name));
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */

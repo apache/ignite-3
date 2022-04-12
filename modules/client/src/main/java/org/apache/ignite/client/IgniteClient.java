@@ -18,9 +18,9 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RETRY_LIMIT;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
 import java.util.Objects;
@@ -53,15 +53,13 @@ public interface IgniteClient extends Ignite {
     }
 
     /** Client builder. */
+    @SuppressWarnings("PublicInnerClass")
     class Builder {
         /** Addresses. */
         private String[] addresses;
 
         /** Address finder. */
         private IgniteClientAddressFinder addressFinder;
-
-        /** Retry limit. */
-        private int retryLimit = DFLT_RETRY_LIMIT;
 
         /** Connect timeout. */
         private long connectTimeout = DFLT_CONNECT_TIMEOUT;
@@ -74,6 +72,12 @@ public interface IgniteClient extends Ignite {
 
         /** Async continuation executor. */
         private Executor asyncContinuationExecutor;
+
+        /** Heartbeat interval. */
+        private long heartbeatInterval = DFLT_HEARTBEAT_INTERVAL;
+
+        /** Retry policy. */
+        private RetryPolicy retryPolicy = new RetryReadPolicy();
 
         /**
          * Sets the addresses of Ignite server nodes within a cluster. An address can be an IP address or a hostname, with or without port.
@@ -92,16 +96,16 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
-         * Sets the retry limit. When a request fails due to a connection error, and multiple server connections are available, Ignite will
-         * retry the request on every connection. When this property is greater than zero, Ignite will limit the number of retries.
+         * Sets the retry policy. When a request fails due to a connection error, and multiple server connections
+         * are available, Ignite will retry the request if the specified policy allows it.
          *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RETRY_LIMIT}.
+         * <p>Default is {@link RetryReadPolicy}.
          *
-         * @param retryLimit Retry limit.
+         * @param retryPolicy Retry policy.
          * @return This instance.
          */
-        public Builder retryLimit(int retryLimit) {
-            this.retryLimit = retryLimit;
+        public Builder retryPolicy(RetryPolicy retryPolicy) {
+            this.retryPolicy = retryPolicy;
 
             return this;
         }
@@ -193,6 +197,24 @@ public interface IgniteClient extends Ignite {
         }
 
         /**
+         * Sets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
+         *
+         * <p>When server-side idle timeout is not zero, effective heartbeat
+         * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
+         *
+         * <p>When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+         * to keep the connection alive and detect potential half-open state.
+         *
+         * @param heartbeatInterval Heartbeat interval.
+         * @return This instance.
+         */
+        public Builder heartbeatInterval(long heartbeatInterval) {
+            this.heartbeatInterval = heartbeatInterval;
+
+            return this;
+        }
+
+        /**
          * Builds the client.
          *
          * @return Ignite client.
@@ -210,11 +232,12 @@ public interface IgniteClient extends Ignite {
             var cfg = new IgniteClientConfigurationImpl(
                     addressFinder,
                     addresses,
-                    retryLimit,
                     connectTimeout,
                     reconnectThrottlingPeriod,
                     reconnectThrottlingRetries,
-                    asyncContinuationExecutor);
+                    asyncContinuationExecutor,
+                    heartbeatInterval,
+                    retryPolicy);
 
             return TcpIgniteClient.startAsync(cfg);
         }

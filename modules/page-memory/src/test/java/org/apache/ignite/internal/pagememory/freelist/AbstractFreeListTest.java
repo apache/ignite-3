@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.freelist;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -39,15 +38,12 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
@@ -72,13 +68,8 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
     private static final int BATCH_SIZE = 100;
 
-    @InjectConfiguration(
-            value = "mock.type = pagemem",
-            polymorphicExtensions = {
-                    PageMemoryDataRegionConfigurationSchema.class,
-                    UnsafeMemoryAllocatorConfigurationSchema.class
-            })
-    private DataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    private PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
     private PageMemory pageMemory;
@@ -180,12 +171,9 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     }
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
-        dataRegionCfg.change(c ->
-                c.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(pageSize)
-                        .changeInitSize(MAX_SIZE)
-                        .changeMaxSize(MAX_SIZE)
-        ).get(1, TimeUnit.SECONDS);
+        dataRegionCfg
+                .change(c -> c.changePageSize(pageSize).changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE))
+                .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
@@ -195,7 +183,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                (PageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry
         );
     }

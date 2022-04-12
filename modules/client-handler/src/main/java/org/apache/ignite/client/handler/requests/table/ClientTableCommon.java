@@ -42,6 +42,8 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -394,7 +396,11 @@ class ClientTableCommon {
             return null;
         }
 
-        return resources.get(in.unpackLong()).get(Transaction.class);
+        try {
+            return resources.get(in.unpackLong()).get(Transaction.class);
+        } catch (IgniteInternalCheckedException e) {
+            throw new IgniteInternalException(e.getMessage(), e);
+        }
     }
 
     private static void readAndSetColumnValue(ClientMessageUnpacker unpacker, Tuple tuple, Column col) {

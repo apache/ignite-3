@@ -183,7 +183,7 @@ public class NettyServerTest {
                 () -> handshakeManager,
                 sender -> {
                 },
-                (socketAddress, message) -> {
+                (message) -> {
                 },
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                 bootstrapFactory

@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
+import org.apache.ignite.configuration.schemas.compute.ComputeConfiguration;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.runner.NodeConfiguration;
@@ -43,7 +44,8 @@ public class CoreLocalConfigurationModule implements ConfigurationModule {
                 NetworkConfiguration.KEY,
                 NodeConfiguration.KEY,
                 RestConfiguration.KEY,
-                ClientConnectorConfiguration.KEY
+                ClientConnectorConfiguration.KEY,
+                ComputeConfiguration.KEY
         );
     }
 }

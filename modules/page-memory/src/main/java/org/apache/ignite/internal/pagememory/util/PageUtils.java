@@ -279,4 +279,39 @@ public class PageUtils {
     public static void copyMemory(long srcAddr, long srcOff, long dstAddr, long dstOff, long cnt) {
         GridUnsafe.copyMemory(null, srcAddr + srcOff, null, dstAddr + dstOff, cnt);
     }
+
+    /**
+     * Writes a {@link ByteBuffer} into the memory.
+     *
+     * <p>NOTE: Will be written from {@link ByteBuffer#position()} to {@link ByteBuffer#limit()}.
+     *
+     * @param addr Address.
+     * @param off Offset.
+     * @param buf Byte buffer.
+     */
+    public static void putByteBuffer(long addr, int off, ByteBuffer buf) {
+        assert addr > 0 : addr;
+        assert off >= 0 : off;
+        assert buf != null;
+
+        Object srcBase;
+
+        long srcOff;
+
+        if (buf.isDirect()) {
+            srcBase = null;
+
+            srcOff = GridUnsafe.bufferAddress(buf);
+        } else {
+            assert !buf.isReadOnly();
+
+            byte[] arr = buf.array();
+
+            srcBase = arr;
+
+            srcOff = GridUnsafe.BYTE_ARR_OFF + buf.arrayOffset();
+        }
+
+        GridUnsafe.copyMemory(srcBase, srcOff + buf.position(), null, addr + off, buf.limit() - buf.position());
+    }
 }

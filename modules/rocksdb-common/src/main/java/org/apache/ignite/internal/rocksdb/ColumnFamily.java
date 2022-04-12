@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.rocksdb;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.IngestExternalFileOptions;
-import org.rocksdb.Options;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -34,7 +33,7 @@ import org.rocksdb.WriteBatch;
 /**
  * Wrapper for the column family that encapsulates {@link ColumnFamilyHandle} and RocksDB's operations with it.
  */
-public class ColumnFamily implements AutoCloseable {
+public class ColumnFamily {
     /** RocksDB instance. */
     private final RocksDB db;
 
@@ -44,53 +43,53 @@ public class ColumnFamily implements AutoCloseable {
     /** Column family handle. */
     private final ColumnFamilyHandle cfHandle;
 
-    /** Column family options. */
-    private final ColumnFamilyOptions cfOptions;
-
-    /** Options for the column family options. */
-    private final Options options;
-
     /**
      * Constructor.
      *
-     * @param db        Db.
-     * @param handle    Column family handle.
-     * @param cfName    Column family name.
-     * @param cfOptions Column family options.
-     * @param options   Options for the column family options (for resource management purposes).
+     * @param db Db.
+     * @param handle Column family handle.
      */
-    public ColumnFamily(
-            RocksDB db,
-            ColumnFamilyHandle handle,
-            String cfName,
-            ColumnFamilyOptions cfOptions,
-            @Nullable Options options
-    ) {
+    private ColumnFamily(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
         this.db = db;
-        this.cfName = cfName;
-        this.cfOptions = cfOptions;
-        this.options = options;
         this.cfHandle = handle;
+        this.cfName = new String(cfHandle.getName(), StandardCharsets.UTF_8);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void close() throws Exception {
-        // cfHandle is closed by the owning RocksDB instance
-        IgniteUtils.closeAll(cfOptions, options);
+    /**
+     * Creates a new Column Family in the provided RocksDB instance.
+     *
+     * @param db RocksDB instance.
+     * @param descriptor Column Family descriptor.
+     * @return new Column Family.
+     * @throws RocksDBException If an error has occurred during creation.
+     */
+    public static ColumnFamily create(RocksDB db, ColumnFamilyDescriptor descriptor) throws RocksDBException {
+        ColumnFamilyHandle cfHandle = db.createColumnFamily(descriptor);
+
+        return new ColumnFamily(db, cfHandle);
+    }
+
+    /**
+     * Creates a wrapper around an already created Column Family.
+     *
+     * @param db RocksDB instance.
+     * @param handle Column Family handle.
+     * @return Column Family wrapper.
+     * @throws RocksDBException If an error has occurred during creation.
+     */
+    public static ColumnFamily wrap(RocksDB db, ColumnFamilyHandle handle) throws RocksDBException {
+        return new ColumnFamily(db, handle);
     }
 
     /**
      * Removes all data associated with this Column Family and frees its resources.
      *
-     * @throws Exception if an error has occurred during the destruction.
+     * @throws RocksDBException if an error has occurred during the destruction.
      */
-    public void destroy() throws Exception {
+    public void destroy() throws RocksDBException {
         db.dropColumnFamily(cfHandle);
 
         db.destroyColumnFamilyHandle(cfHandle);
-
-        close();
     }
 
     /**
@@ -108,7 +107,7 @@ public class ColumnFamily implements AutoCloseable {
     /**
      * Puts a key-value pair into this column family.
      *
-     * @param key   Key.
+     * @param key Key.
      * @param value Value.
      * @throws RocksDBException If failed.
      * @see RocksDB#put(ColumnFamilyHandle, byte[], byte[])
@@ -121,7 +120,7 @@ public class ColumnFamily implements AutoCloseable {
      * Puts a key-value pair into this column family within the write batch.
      *
      * @param batch Write batch.
-     * @param key   Key.
+     * @param key Key.
      * @param value Value.
      * @throws RocksDBException If failed.
      * @see WriteBatch#put(ColumnFamilyHandle, byte[], byte[])
@@ -145,7 +144,7 @@ public class ColumnFamily implements AutoCloseable {
      * Deletes the entry mapped by the key and associated with this column family within the write batch.
      *
      * @param batch Write batch.
-     * @param key   Key.
+     * @param key Key.
      * @throws RocksDBException If failed.
      * @see WriteBatch#delete(ColumnFamilyHandle, byte[])
      */
@@ -188,7 +187,7 @@ public class ColumnFamily implements AutoCloseable {
     /**
      * Ingests external files into this column family.
      *
-     * @param paths   Paths to the external files.
+     * @param paths Paths to the external files.
      * @param options Ingestion options.
      * @throws RocksDBException If failed.
      * @see RocksDB#ingestExternalFile(ColumnFamilyHandle, List, IngestExternalFileOptions)

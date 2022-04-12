@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schema.definition.index;
 
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.schema.definition.AbstractSchemaObject;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.schema.definition.PrimaryKeyDefinition;
 
 /**
@@ -31,21 +33,33 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
     @IgniteToStringInclude
     private final Set<String> columns;
 
-    /** Affinity columns. */
+    /** Colocation columns. */
     @IgniteToStringInclude
-    private final Set<String> affCols;
+    private final List<String> colocationColumns;
 
     /**
      * Constructor.
      *
-     * @param columns         Index columns.
-     * @param affinityColumns Affinity columns.
+     * @param columns Index columns.
+     * @param colocationColumns Colocation columns.
      */
-    public PrimaryKeyDefinitionImpl(Set<String> columns, Set<String> affinityColumns) {
+    public PrimaryKeyDefinitionImpl(Set<String> columns, List<String> colocationColumns) {
         super(PrimaryKeyDefinition.PRIMARY_KEY_NAME);
 
+        if (CollectionUtils.nullOrEmpty(columns)) {
+            throw new IllegalStateException("Primary key column(s) must be configured.");
+        }
+
+        Set<String> colocationColumnsSet = Set.copyOf(colocationColumns);
+
+        if (!columns.containsAll(colocationColumnsSet)) {
+            throw new IllegalStateException("Schema definition error: All colocation columns must be part of primary key.");
+        } else if (colocationColumns.size() != colocationColumnsSet.size()) {
+            throw new IllegalStateException("Schema definition error: Colocation columns must not be duplicated.");
+        }
+
         this.columns = columns;
-        this.affCols = affinityColumns;
+        this.colocationColumns = colocationColumns;
     }
 
     /** {@inheritDoc} */
@@ -56,8 +70,8 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
 
     /** {@inheritDoc} */
     @Override
-    public Set<String> affinityColumns() {
-        return affCols;
+    public List<String> colocationColumns() {
+        return colocationColumns;
     }
 
     /** {@inheritDoc} */
@@ -66,6 +80,6 @@ public class PrimaryKeyDefinitionImpl extends AbstractSchemaObject implements Pr
         return S.toString(PrimaryKeyDefinitionImpl.class, this,
                 "name", name(),
                 "cols", columns(),
-                "affCols", affinityColumns());
+                "colocationCols", colocationColumns());
     }
 }

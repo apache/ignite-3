@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.nio.file.Path;
 import java.sql.BatchUpdateException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -38,15 +37,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Statement test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** SQL CREATE TABLE query. */
     private static final String SQL_CREATE = "CREATE TABLE Person(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)";
@@ -65,8 +61,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     private PreparedStatement pstmt;
 
     @BeforeAll
-    public static void beforeAll(@TempDir Path temp, TestInfo testInfo) throws SQLException {
-        AbstractJdbcSelfTest.beforeAll(temp, testInfo);
+    public static void beforeAll(TestInfo testInfo) throws SQLException {
+        AbstractJdbcSelfTest.beforeAll(testInfo);
 
         try (Statement statement = conn.createStatement()) {
             statement.executeUpdate(SQL_CREATE);
@@ -85,8 +81,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @BeforeEach
     @Override
-    protected void beforeTest() throws Exception {
-        super.beforeTest();
+    protected void beforeTest(TestInfo testInfo) throws Exception {
+        super.beforeTest(testInfo);
 
         pstmt = conn.prepareStatement(SQL_PREPARED);
 
@@ -101,14 +97,14 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
     /** {@inheritDoc} */
     @AfterEach
     @Override
-    protected void afterTest() throws Exception {
+    protected void afterTest(TestInfo testInfo) throws Exception {
         if (pstmt != null && !pstmt.isClosed()) {
             pstmt.close();
         }
 
         assertTrue(pstmt.isClosed());
 
-        super.afterTest();
+        super.afterTest(testInfo);
     }
 
     @Test
@@ -247,64 +243,46 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16489")
     @Test
     public void testBatchMerge() throws SQLException {
-        final int batchSize = 7;
+        final int batchSize = 5;
 
-        for (int idx = 0, i = 0; i < batchSize; ++i, idx += i) {
-            stmt.addBatch("merge into Person (id, firstName, lastName, age) values "
-                    + generateValues(idx, i + 1));
+        try (Statement statement = conn.createStatement()) {
+            statement.executeUpdate("CREATE TABLE Src(id INT PRIMARY KEY, firstName VARCHAR, lastName VARCHAR, age INT)");
         }
-
-        int[] updCnts = stmt.executeBatch();
-
-        assertEquals(batchSize, updCnts.length, "Invalid update counts size");
-
-        for (int i = 0; i < batchSize; ++i) {
-            assertEquals(i + 1, updCnts[i], "Invalid update count");
-        }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16489")
-    @Test
-    public void testBatchMergeParseException() throws Exception {
-        final int batchSize = 7;
-
-        final int failedIdx = 5;
-
-        for (int idx = 0, i = 0; i < failedIdx; ++i, idx += i) {
-            stmt.addBatch("merge into Person (id, firstName, lastName, age) values "
-                    + generateValues(idx, i + 1));
-        }
-
-        stmt.addBatch("merge into Person (id, firstName, lastName, age) values (4444, 'FAIL', 1, 1, 1)");
-
-        stmt.addBatch("merge into Person (id, firstName, lastName, age) values "
-                + generateValues(100, 7));
 
         try {
+            for (int idx = 0, i = 0; i < batchSize; ++i, idx += i) {
+                stmt.addBatch("INSERT INTO Person (id, firstName, lastName, age) values "
+                        + generateValues(idx, i + 1));
+
+                stmt.addBatch("INSERT INTO Src (id, firstName, lastName, age) values "
+                        + generateValues(idx + 1, i + 1));
+            }
+
             stmt.executeBatch();
 
-            fail("BatchUpdateException must be thrown");
-        } catch (BatchUpdateException e) {
-            int[] updCnts = e.getUpdateCounts();
+            String sql = "MERGE INTO Person dst USING Src src ON dst.id = src.id "
+                    + "WHEN MATCHED THEN UPDATE SET firstName = src.firstName "
+                    + "WHEN NOT MATCHED THEN INSERT (id, firstName, lastName) VALUES (src.id, src.firstName, src.lastName)";
 
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
+            stmt.addBatch(sql);
 
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? i + 1 : Statement.EXECUTE_FAILED, updCnts[i],
-                        "Invalid update count: " + i);
+            stmt.addBatch("INSERT INTO Person (id, firstName, lastName, age) values " + valuesRow(100));
+
+            stmt.addBatch(sql);
+
+            int[] updCnts = stmt.executeBatch();
+
+            assertEquals(3, updCnts.length, "Invalid update counts size");
+
+            // result size is equal to mathematical progression:
+            assertEquals((1 + batchSize) * batchSize / 2, updCnts[0], "Invalid update counts");
+            assertEquals((1 + batchSize) * batchSize / 2, updCnts[2], "Invalid update counts");
+        } finally {
+            try (Statement statement = conn.createStatement()) {
+                statement.executeUpdate("DROP TABLE Src;");
             }
-
-            if (!e.getMessage().contains("Value conversion failed")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
-            }
-
-            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
-            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
         }
     }
 
@@ -464,99 +442,6 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
 
             for (int i = 0; i < failedIdx; ++i) {
                 assertEquals(1, updCnts[i], "Invalid update count");
-            }
-
-            assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");
-            assertEquals(IgniteQueryErrorCode.UNKNOWN, e.getErrorCode(), "Invalid error code.");
-        }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16489")
-    @Test
-    public void testBatchMergePrepared() throws SQLException {
-        final int batchSize = 10;
-
-        pstmt = conn.prepareStatement("merge into Person(_key, id, firstName, lastName, age) values "
-                + "(?, ?, ?, ?, ?)");
-
-        for (int i = 0; i < batchSize; ++i) {
-            int paramCnt = 1;
-
-            pstmt.setString(paramCnt++, "p" + i);
-            pstmt.setInt(paramCnt++, i);
-            pstmt.setString(paramCnt++, "Name" + i);
-            pstmt.setString(paramCnt++, "Lastname" + i);
-            pstmt.setInt(paramCnt++, 20 + i);
-
-            pstmt.addBatch();
-        }
-
-        int[] updCnts = pstmt.executeBatch();
-
-        assertEquals(batchSize, updCnts.length, "Invalid update counts size");
-
-        for (int i = 0; i < batchSize; ++i) {
-            assertEquals(1, updCnts[i], "Invalid update count");
-        }
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16489")
-    @Test
-    public void testBatchMergeExceptionPrepared() throws Exception {
-        final int batchSize = 7;
-
-        final int failedIdx = 5;
-
-        pstmt = conn.prepareStatement("merge into Person(_key, id, firstName, lastName, age) values "
-                + "(?, ?, ?, ?, ?)");
-
-        for (int i = 0; i < failedIdx; ++i) {
-            int paramCnt = 1;
-
-            pstmt.setString(paramCnt++, "p" + i);
-            pstmt.setInt(paramCnt++, i);
-            pstmt.setString(paramCnt++, "Name" + i);
-            pstmt.setString(paramCnt++, "Lastname" + i);
-            pstmt.setInt(paramCnt++, 20 + i);
-
-            pstmt.addBatch();
-        }
-
-        int paramCnt = 1;
-        pstmt.setString(paramCnt++, "p" + failedIdx);
-        pstmt.setString(paramCnt++, "FAIL");
-        pstmt.setString(paramCnt++, "Name" + failedIdx);
-        pstmt.setString(paramCnt++, "Lastname" + failedIdx);
-        pstmt.setInt(paramCnt++, 20 + failedIdx);
-
-        pstmt.addBatch();
-
-        paramCnt = 1;
-        pstmt.setString(paramCnt++, "p" + failedIdx + 1);
-        pstmt.setInt(paramCnt++, failedIdx + 1);
-        pstmt.setString(paramCnt++, "Name" + failedIdx + 1);
-        pstmt.setString(paramCnt++, "Lastname" + failedIdx + 1);
-        pstmt.setInt(paramCnt++, 20 + failedIdx + 1);
-
-        pstmt.addBatch();
-
-        try {
-            int[] res = pstmt.executeBatch();
-
-            fail("BatchUpdateException must be thrown res=" + Arrays.toString(res));
-        } catch (BatchUpdateException e) {
-            int[] updCnts = e.getUpdateCounts();
-
-            assertEquals(batchSize, updCnts.length, "Invalid update counts size");
-
-            for (int i = 0; i < batchSize; ++i) {
-                assertEquals(i != failedIdx ? 1 : Statement.EXECUTE_FAILED, updCnts[i], "Invalid update count");
-            }
-
-            if (!e.getMessage().contains("Value conversion failed")) {
-                log.error("Invalid exception: ", e);
-
-                fail();
             }
 
             assertEquals(SqlStateCode.INTERNAL_ERROR, e.getSQLState(), "Invalid SQL state.");

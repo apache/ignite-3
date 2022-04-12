@@ -19,9 +19,9 @@ package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.generateRandomValue;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.randomBytes;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.schema.SchemaBuilders.column;
@@ -47,9 +47,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionChange;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -57,13 +55,17 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.DataRegion;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor.ColumnDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -96,60 +98,44 @@ import org.junit.jupiter.params.ParameterizedTest;
 public class RocksDbSortedIndexStorageTest {
     private static final IgniteLogger log = IgniteLogger.forClass(RocksDbSortedIndexStorageTest.class);
 
-    /**
-     * Definitions of all supported column types.
-     */
+    /** Definitions of all supported column types. */
     private static final List<ColumnDefinition> ALL_TYPES_COLUMN_DEFINITIONS = allTypesColumnDefinitions();
 
     private Random random;
 
     @InjectConfiguration(polymorphicExtensions = {
             HashIndexConfigurationSchema.class,
-            SortedIndexConfigurationSchema.class
-    })
+            SortedIndexConfigurationSchema.class,
+            UnknownDataStorageConfigurationSchema.class,
+            RocksDbDataStorageConfigurationSchema.class
+    }, name = "table")
     private TableConfiguration tableCfg;
 
-    /**
-     * Table Storage for creating indices.
-     */
     private TableStorage tableStorage;
 
-    /**
-     * List of resources that need to be closed at the end of each test.
-     */
+    /** List of resources that need to be closed at the end of each test. */
     private final List<AutoCloseable> resources = new ArrayList<>();
 
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataRegionConfiguration dataRegionCfg
-    ) {
+            @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig
+    ) throws Exception {
         long seed = System.currentTimeMillis();
 
         log.info("Using random seed: " + seed);
 
         random = new Random(seed);
 
-        createTestConfiguration(dataRegionCfg);
+        createTestConfiguration(rocksDbEngineConfig);
 
-        dataRegionCfg = fixConfiguration(dataRegionCfg);
-
-        var engine = new RocksDbStorageEngine();
+        StorageEngine engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
         engine.start();
 
         resources.add(engine::stop);
 
-        DataRegion dataRegion = engine.createDataRegion(dataRegionCfg);
-
-        dataRegion.start();
-
-        resources.add(() -> {
-            dataRegion.beforeNodeStop();
-            dataRegion.stop();
-        });
-
-        tableStorage = engine.createTable(workDir, tableCfg, dataRegion);
+        tableStorage = engine.createTable(tableCfg);
 
         tableStorage.start();
 
@@ -159,9 +145,9 @@ public class RocksDbSortedIndexStorageTest {
     /**
      * Configures a test table with columns of all supported types.
      */
-    private void createTestConfiguration(DataRegionConfiguration dataRegionCfg) {
-        CompletableFuture<Void> dataRegionChangeFuture = dataRegionCfg
-                .change(cfg -> cfg.convert(RocksDbDataRegionChange.class).changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
+    private void createTestConfiguration(RocksDbStorageEngineConfiguration rocksDbEngineConfig) throws Exception {
+        CompletableFuture<Void> dataRegionChangeFuture = rocksDbEngineConfig.defaultRegion()
+                .change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
 
         assertThat(dataRegionChangeFuture, willBe(nullValue(Void.class)));
 
@@ -169,6 +155,12 @@ public class RocksDbSortedIndexStorageTest {
                 .columns(ALL_TYPES_COLUMN_DEFINITIONS.toArray(new ColumnDefinition[0]))
                 .withPrimaryKey(ALL_TYPES_COLUMN_DEFINITIONS.get(0).name())
                 .build();
+
+        CompletableFuture<Void> dataStorageChangeFuture = tableCfg.dataStorage().change(c -> c.convert(RocksDbDataStorageChange.class));
+
+        assertThat(dataStorageChangeFuture, willBe(nullValue(Void.class)));
+
+        assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
 
         CompletableFuture<Void> createTableFuture = tableCfg.change(cfg -> convert(tableDefinition, cfg));
 

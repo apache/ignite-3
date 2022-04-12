@@ -39,16 +39,26 @@ public class IgniteSqlCreateTable extends SqlCreate {
 
     private final @Nullable SqlNodeList columnList;
 
+    private final @Nullable SqlNodeList colocationColumns;
+
     private final @Nullable SqlNodeList createOptionList;
 
     private static final SqlOperator OPERATOR = new SqlSpecialOperator("CREATE TABLE", SqlKind.CREATE_TABLE);
 
     /** Creates a SqlCreateTable. */
-    public IgniteSqlCreateTable(SqlParserPos pos, boolean ifNotExists,
-            SqlIdentifier name, @Nullable SqlNodeList columnList, @Nullable SqlNodeList createOptionList) {
+    public IgniteSqlCreateTable(
+            SqlParserPos pos,
+            boolean ifNotExists,
+            SqlIdentifier name,
+            @Nullable SqlNodeList columnList,
+            @Nullable SqlNodeList colocationColumns,
+            @Nullable SqlNodeList createOptionList
+    ) {
         super(OPERATOR, pos, false, ifNotExists);
+
         this.name = Objects.requireNonNull(name, "name");
         this.columnList = columnList;
+        this.colocationColumns = colocationColumns;
         this.createOptionList = createOptionList;
     }
 
@@ -78,6 +88,14 @@ public class IgniteSqlCreateTable extends SqlCreate {
             writer.endList(frame);
         }
 
+        if (colocationColumns != null) {
+            writer.keyword("COLOCATE BY");
+
+            SqlWriter.Frame frame = writer.startList("(", ")");
+            colocationColumns.unparse(writer, 0, 0);
+            writer.endList(frame);
+        }
+
         if (createOptionList != null) {
             writer.keyword("WITH");
 
@@ -93,14 +111,21 @@ public class IgniteSqlCreateTable extends SqlCreate {
     }
 
     /**
-     * GEt list of the specified columns and constraints.
+     * Get list of the specified columns and constraints.
      */
     public SqlNodeList columnList() {
         return columnList;
     }
 
     /**
-     * GEt list of the specified options to create table with.
+     * Get list of the colocation columns.
+     */
+    public SqlNodeList colocationColumns() {
+        return colocationColumns;
+    }
+
+    /**
+     * Get list of the specified options to create table with.
      */
     public SqlNodeList createOptionList() {
         return createOptionList;

@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.META_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.PARTITION_CF_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.columnFamilyType;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexName;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -38,7 +39,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -46,7 +46,6 @@ import org.apache.ignite.internal.storage.rocksdb.index.BinaryRowComparator;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -72,9 +71,6 @@ class RocksDbTableStorage implements TableStorage {
     /** Data region for the table. */
     private final RocksDbDataRegion dataRegion;
 
-    /** List of closeable resources to close on {@link #stop()}. Better than having a field for each one of them. */
-    private final List<AutoCloseable> autoCloseables = new ArrayList<>();
-
     /** Rocks DB instance. */
     private volatile RocksDB db;
 
@@ -96,8 +92,8 @@ class RocksDbTableStorage implements TableStorage {
     /**
      * Constructor.
      *
-     * @param tablePath  Path for the directory that stores table data.
-     * @param tableCfg   Table configuration.
+     * @param tablePath Path for the directory that stores table data.
+     * @param tableCfg Table configuration.
      * @param threadPool Thread pool for async operations.
      * @param dataRegion Data region for the table.
      */
@@ -121,12 +117,6 @@ class RocksDbTableStorage implements TableStorage {
 
     /** {@inheritDoc} */
     @Override
-    public DataRegion dataRegion() {
-        return dataRegion;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void start() throws StorageException {
         try {
             Files.createDirectories(tablePath);
@@ -140,70 +130,48 @@ class RocksDbTableStorage implements TableStorage {
 
         DBOptions dbOptions = new DBOptions()
                 .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true)
                 .setWriteBufferManager(dataRegion.writeBufferManager());
 
         try {
             db = RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles);
+
+            // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
+            for (ColumnFamilyHandle cfHandle : cfHandles) {
+                ColumnFamily cf = ColumnFamily.wrap(db, cfHandle);
+
+                switch (columnFamilyType(cf.name())) {
+                    case META:
+                        meta = new RocksDbMetaStorage(cf);
+
+                        break;
+
+                    case PARTITION:
+                        partitionCf = cf;
+
+                        break;
+
+                    case SORTED_INDEX:
+                        String indexName = sortedIndexName(cf.name());
+
+                        var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
+
+                        sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
+
+                        break;
+
+                    default:
+                        throw new StorageException("Unidentified column family [name=" + cf.name() + ", table=" + tableCfg.name() + ']');
+                }
+            }
         } catch (RocksDBException e) {
             throw new StorageException("Failed to initialize RocksDB instance", e);
-        }
-
-        addToCloseableResources(db::closeE);
-
-        // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
-        for (int i = 0; i < cfHandles.size(); i++) {
-            ColumnFamilyHandle cfHandle = cfHandles.get(i);
-
-            ColumnFamilyDescriptor cfDescriptor = cfDescriptors.get(i);
-
-            String handleName = cfHandleName(cfHandle);
-
-            ColumnFamily cf = new ColumnFamily(db, cfHandle, handleName, cfDescriptor.getOptions(), null);
-
-            switch (columnFamilyType(handleName)) {
-                case META:
-                    meta = addToCloseableResources(new RocksDbMetaStorage(cf));
-
-                    break;
-
-                case PARTITION:
-                    partitionCf = addToCloseableResources(cf);
-
-                    break;
-
-                case SORTED_INDEX:
-                    String indexName = sortedIndexName(handleName);
-
-                    var indexDescriptor = new SortedIndexDescriptor(indexName, tableCfg.value());
-
-                    sortedIndices.put(indexName, new RocksDbSortedIndexStorage(cf, indexDescriptor));
-
-                    break;
-
-                default:
-                    throw new StorageException("Unidentified column family [name=" + handleName + ", table=" + tableCfg.name() + ']');
-            }
-        }
-
-        if (partitionCf == null) {
-            partitionCf = addToCloseableResources(createColumnFamily(PARTITION_CF_NAME, partitionCfDescriptor()));
         }
 
         partitions = new AtomicReferenceArray<>(tableCfg.value().partitions());
 
         for (int partId : meta.getPartitionIds()) {
-            partitions.set(partId, new RocksDbPartitionStorage(threadPool, partId, db, partitionCf));
-        }
-    }
-
-    /**
-     * Extracts the Column Family name from the given handle.
-     */
-    private static String cfHandleName(ColumnFamilyHandle handle) {
-        try {
-            return new String(handle.getName(), StandardCharsets.UTF_8);
-        } catch (RocksDBException e) {
-            throw new StorageException("Failed to read RocksDB column family name.", e);
+            partitions.set(partId, new RocksDbPartitionStorage(db, partitionCf, partId, threadPool));
         }
     }
 
@@ -214,7 +182,7 @@ class RocksDbTableStorage implements TableStorage {
 
         List<AutoCloseable> resources = new ArrayList<>();
 
-        resources.addAll(autoCloseables);
+        resources.add(db);
 
         resources.addAll(sortedIndices.values());
 
@@ -254,7 +222,7 @@ class RocksDbTableStorage implements TableStorage {
 
         // Possible races when creating the partitions with the same ID are safe, since both the storage creation and the meta update
         // are cheap and idempotent.
-        storage = new RocksDbPartitionStorage(threadPool, partId, db, partitionCf);
+        storage = new RocksDbPartitionStorage(db, partitionCf, partId, threadPool);
 
         partitions.set(partId, storage);
 
@@ -297,7 +265,12 @@ class RocksDbTableStorage implements TableStorage {
 
             ColumnFamilyDescriptor cfDescriptor = sortedIndexCfDescriptor(indexDescriptor);
 
-            ColumnFamily cf = createColumnFamily(sortedIndexCfName(name), cfDescriptor);
+            ColumnFamily cf;
+            try {
+                cf = ColumnFamily.create(db, cfDescriptor);
+            } catch (RocksDBException e) {
+                throw new StorageException("Failed to create new RocksDB column family: " + new String(cfDescriptor.getName(), UTF_8), e);
+            }
 
             return new RocksDbSortedIndexStorage(cf, indexDescriptor);
         });
@@ -312,21 +285,6 @@ class RocksDbTableStorage implements TableStorage {
 
             return null;
         });
-    }
-
-    /**
-     * Creates a Column Family using the given descriptor.
-     */
-    private ColumnFamily createColumnFamily(String cfName, ColumnFamilyDescriptor cfDescriptor) {
-        try {
-            ColumnFamilyHandle cfHandle = db.createColumnFamily(cfDescriptor);
-
-            return new ColumnFamily(db, cfHandle, cfName, cfDescriptor.getOptions(), null);
-        } catch (RocksDBException e) {
-            cfDescriptor.getOptions().close();
-
-            throw new StorageException("Failed to create new RocksDB column family: " + cfName, e);
-        }
     }
 
     /**
@@ -357,12 +315,12 @@ class RocksDbTableStorage implements TableStorage {
         try (Options opts = new Options()) {
             List<String> existingNames = RocksDB.listColumnFamilies(opts, absolutePathStr)
                     .stream()
-                    .map(cfNameBytes -> new String(cfNameBytes, StandardCharsets.UTF_8))
+                    .map(cfNameBytes -> new String(cfNameBytes, UTF_8))
                     .collect(Collectors.toList());
 
-            // even if the database is new (no existing Column Families), we should still return the default Column Family,
-            // which happens to be the same as the Meta Column Family.
-            return existingNames.isEmpty() ? List.of(ColumnFamilyUtils.META_CF_NAME) : existingNames;
+            // even if the database is new (no existing Column Families), we return the names of mandatory column families, that
+            // will be created automatically.
+            return existingNames.isEmpty() ? List.of(META_CF_NAME, PARTITION_CF_NAME) : existingNames;
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to read list of column families names for the RocksDB instance located at path " + absolutePathStr, e
@@ -375,7 +333,6 @@ class RocksDbTableStorage implements TableStorage {
      *
      * @return List of CF descriptors.
      */
-    @NotNull
     private List<ColumnFamilyDescriptor> getExistingCfDescriptors() {
         return getExistingCfNames().stream()
                 .map(this::cfDescriptorFromName)
@@ -389,7 +346,7 @@ class RocksDbTableStorage implements TableStorage {
         switch (columnFamilyType(cfName)) {
             case META:
             case PARTITION:
-                return new ColumnFamilyDescriptor(cfName.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions());
+                return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), new ColumnFamilyOptions());
 
             case SORTED_INDEX:
                 var indexDescriptor = new SortedIndexDescriptor(sortedIndexName(cfName), tableCfg.value());
@@ -402,13 +359,6 @@ class RocksDbTableStorage implements TableStorage {
     }
 
     /**
-     * Creates a descriptor of the "partition" Column Family.
-     */
-    private static ColumnFamilyDescriptor partitionCfDescriptor() {
-        return new ColumnFamilyDescriptor(PARTITION_CF_NAME.getBytes(StandardCharsets.UTF_8), new ColumnFamilyOptions());
-    }
-
-    /**
      * Creates a Column Family descriptor for a Sorted Index.
      */
     private static ColumnFamilyDescriptor sortedIndexCfDescriptor(SortedIndexDescriptor descriptor) {
@@ -416,19 +366,6 @@ class RocksDbTableStorage implements TableStorage {
 
         ColumnFamilyOptions options = new ColumnFamilyOptions().setComparator(new BinaryRowComparator(descriptor));
 
-        return new ColumnFamilyDescriptor(cfName.getBytes(StandardCharsets.UTF_8), options);
-    }
-
-    /**
-     * Adds resource to the {@link #autoCloseables} list.
-     *
-     * @param autoCloseable Closeable resource.
-     * @param <R>           Type of the resource.
-     * @return Passed resource with the same type.
-     */
-    private <R extends AutoCloseable> R addToCloseableResources(R autoCloseable) {
-        autoCloseables.add(autoCloseable);
-
-        return autoCloseable;
+        return new ColumnFamilyDescriptor(cfName.getBytes(UTF_8), options);
     }
 }

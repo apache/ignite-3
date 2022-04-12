@@ -21,11 +21,8 @@ package org.apache.ignite.internal.client.proto;
  * Client operation codes.
  */
 public class ClientOp {
-    /** Create table. */
-    public static final int TABLE_CREATE = 1;
-
-    /** Drop table. */
-    public static final int TABLE_DROP = 2;
+    /** Heartbeat. */
+    public static final int HEARTBEAT = 1;
 
     /** Get tables. */
     public static final int TABLES_GET = 3;
@@ -122,4 +119,10 @@ public class ClientOp {
 
     /** Execute prepared statement batch query. */
     public static final int SQL_EXEC_PS_BATCH = 46;
+
+    /** Execute compute job. */
+    public static final int COMPUTE_EXECUTE = 47;
+
+    /** Get cluster nodes. */
+    public static final int CLUSTER_GET_NODES = 48;
 }

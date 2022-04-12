@@ -28,6 +28,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -168,10 +169,26 @@ public final class IgniteTestUtils {
             @NotNull RunnableX run,
             @NotNull Class<? extends Throwable> cls
     ) {
+        return assertThrowsWithCause(run, cls, null);
+    }
+
+    /**
+     * Checks whether runnable throws exception, which is itself of a specified class, or has a cause of the specified class.
+     *
+     * @param run Runnable to check.
+     * @param cls Expected exception class.
+     * @param msg Message text that should be in cause (if {@code null}, message won't be checked).
+     * @return Thrown throwable.
+     */
+    public static Throwable assertThrowsWithCause(
+            @NotNull RunnableX run,
+            @NotNull Class<? extends Throwable> cls,
+            @Nullable String msg
+    ) {
         try {
             run.run();
         } catch (Throwable e) {
-            if (!hasCause(e, cls, null)) {
+            if (!hasCause(e, cls, msg)) {
                 fail("Exception is neither of a specified class, nor has a cause of the specified class: " + cls, e);
             }
 
@@ -478,16 +495,22 @@ public final class IgniteTestUtils {
     /**
      * Creates a unique Ignite node name for the given test.
      *
+     * <p>If the operating system is {@link #isWindowsOs Windows}, then the name will be short
+     * due to the fact that the length of the paths must be up to 260 characters.
+     *
      * @param testInfo Test info.
      * @param idx Node index.
      *
      * @return Node name.
      */
     public static String testNodeName(TestInfo testInfo, int idx) {
-        return IgniteStringFormatter.format("{}_{}_{}",
-                testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "null"),
-                testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "null"),
-                idx);
+        String testMethodName = testInfo.getTestMethod().map(Method::getName).orElse("null");
+
+        return isWindowsOs() ? shortTestMethodName(testMethodName) + "_" + idx :
+                IgniteStringFormatter.format("{}_{}_{}",
+                        testInfo.getTestClass().map(Class::getSimpleName).orElse("null"),
+                        testMethodName,
+                        idx);
     }
 
     /**
@@ -496,5 +519,37 @@ public final class IgniteTestUtils {
     @FunctionalInterface
     public interface RunnableX {
         void run() throws Throwable;
+    }
+
+    /**
+     * Returns {@code true} if the operating system is Windows.
+     */
+    public static boolean isWindowsOs() {
+        return System.getProperty("os.name").toLowerCase(Locale.US).contains("win");
+    }
+
+    /**
+     * Returns a short version of the method name, such as "testShortMethodName" to "tsmn".
+     *
+     * @param methodName Method name for example "testShortMethodName".
+     */
+    public static String shortTestMethodName(String methodName) {
+        assert !methodName.isBlank() : methodName;
+
+        StringBuilder sb = new StringBuilder();
+
+        char[] chars = methodName.trim().toCharArray();
+
+        sb.append(chars[0]);
+
+        for (int i = 1; i < chars.length; i++) {
+            char c = chars[i];
+
+            if (Character.isUpperCase(c)) {
+                sb.append(c);
+            }
+        }
+
+        return sb.toString().toLowerCase();
     }
 }

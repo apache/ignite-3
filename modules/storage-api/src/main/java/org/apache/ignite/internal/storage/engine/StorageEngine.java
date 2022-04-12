@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.StorageException;
 
@@ -28,8 +26,10 @@ import org.apache.ignite.internal.storage.StorageException;
 public interface StorageEngine {
     /**
      * Starts the engine.
+     *
+     * @throws StorageException If an error has occurred during the engine start.
      */
-    void start();
+    void start() throws StorageException;
 
     /**
      * Stops the engine.
@@ -39,20 +39,10 @@ public interface StorageEngine {
     void stop() throws StorageException;
 
     /**
-     * Creates a new data region.
-     *
-     * @param regionCfg Data region configuration.
-     * @return New data region.
-     */
-    DataRegion createDataRegion(DataRegionConfiguration regionCfg);
-
-    /**
      * Creates new table storage.
      *
-     * @param tablePath              Path to store table data.
-     * @param tableCfg               Table configuration.
-     * @param dataRegion             Data region for the table.
-     * @return New table storage.
+     * @param tableCfg Table configuration.
+     * @throws StorageException If an error has occurs while creating the table.
      */
-    TableStorage createTable(Path tablePath, TableConfiguration tableCfg, DataRegion dataRegion);
+    TableStorage createTable(TableConfiguration tableCfg) throws StorageException;
 }

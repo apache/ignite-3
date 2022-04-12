@@ -19,11 +19,18 @@ package org.apache.ignite.client.handler;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorConfiguration;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -31,6 +38,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -58,6 +66,12 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Processor. */
     private final QueryProcessor queryProcessor;
 
+    /** Compute. */
+    private final IgniteCompute igniteCompute;
+
+    /** Cluster. */
+    private final ClusterService clusterService;
+
     /** Netty bootstrap factory. */
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -68,6 +82,8 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param igniteTables       Ignite.
      * @param igniteTransactions Transactions.
      * @param registry           Configuration registry.
+     * @param igniteCompute      Compute.
+     * @param clusterService     Cluster.
      * @param bootstrapFactory   Bootstrap factory.
      */
     public ClientHandlerModule(
@@ -75,15 +91,21 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteTables igniteTables,
             IgniteTransactions igniteTransactions,
             ConfigurationRegistry registry,
+            IgniteCompute igniteCompute,
+            ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
+        assert igniteCompute != null;
+        assert clusterService != null;
         assert bootstrapFactory != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
+        this.igniteCompute = igniteCompute;
+        this.clusterService = clusterService;
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
     }
@@ -143,9 +165,23 @@ public class ClientHandlerModule implements IgniteComponent {
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
+                        if (configuration.idleTimeout() > 0) {
+                            IdleStateHandler idleStateHandler = new IdleStateHandler(
+                                    configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+
+                            ch.pipeline().addLast(idleStateHandler);
+                            ch.pipeline().addLast(new IdleChannelHandler());
+                        }
+
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
-                                new ClientInboundMessageHandler(igniteTables, igniteTransactions, queryProcessor));
+                                new ClientInboundMessageHandler(
+                                        igniteTables,
+                                        igniteTransactions,
+                                        queryProcessor,
+                                        configuration,
+                                        igniteCompute,
+                                        clusterService));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
@@ -175,5 +211,16 @@ public class ClientHandlerModule implements IgniteComponent {
         LOG.info("Thin client protocol started successfully on port " + port);
 
         return ch.closeFuture();
+    }
+
+    /** Idle channel state handler. */
+    private static class IdleChannelHandler extends ChannelDuplexHandler {
+        /** {@inheritDoc} */
+        @Override
+        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+            if (evt instanceof IdleStateEvent && ((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+                ctx.close();
+            }
+        }
     }
 }

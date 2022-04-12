@@ -73,7 +73,9 @@ public class ScaleCubeClusterServiceFactory {
 
         var topologyService = new ScaleCubeTopologyService();
 
-        var messagingService = new DefaultMessagingService(messageFactory, topologyService);
+        UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
+
+        var messagingService = new DefaultMessagingService(messageFactory, topologyService, userObjectSerialization);
 
         return new AbstractClusterService(context, topologyService, messagingService) {
             private volatile ClusterImpl cluster;
@@ -86,8 +88,6 @@ public class ScaleCubeClusterServiceFactory {
             @Override
             public void start() {
                 String consistentId = context.getName();
-
-                UserObjectSerializationContext userObjectSerialization = createUserObjectSerializationContext();
 
                 var serializationService = new SerializationService(context.getSerializationRegistry(), userObjectSerialization);
 
@@ -104,7 +104,14 @@ public class ScaleCubeClusterServiceFactory {
                         nettyBootstrapFactory
                 );
 
-                var transport = new ScaleCubeDirectMarshallerTransport(connectionMgr, topologyService, messageFactory);
+                connectionMgr.start();
+
+                var transport = new ScaleCubeDirectMarshallerTransport(
+                        connectionMgr.getLocalAddress(),
+                        messagingService,
+                        topologyService,
+                        messageFactory
+                );
 
                 NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder());
 
@@ -121,8 +128,6 @@ public class ScaleCubeClusterServiceFactory {
                         .membership(opts -> opts.seedMembers(parseAddresses(finder.findNodes())));
 
                 shutdownFuture = cluster.onShutdown().toFuture();
-
-                connectionMgr.start();
 
                 // resolve cyclic dependencies
                 topologyService.setCluster(cluster);
@@ -176,21 +181,6 @@ public class ScaleCubeClusterServiceFactory {
             public boolean isStopped() {
                 return shutdownFuture.isDone();
             }
-
-            /**
-             * Creates everything that is needed for the user object serialization.
-             *
-             * @return User object serialization context.
-             */
-            private UserObjectSerializationContext createUserObjectSerializationContext() {
-                var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
-                var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
-
-                var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
-
-                return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
-                        userObjectMarshaller);
-            }
         };
     }
 
@@ -214,6 +204,21 @@ public class ScaleCubeClusterServiceFactory {
                                 .pingReqMembers(scaleCube.failurePingRequestMembers())
                 )
                 .gossip(opts -> opts.gossipInterval(scaleCube.gossipInterval()));
+    }
+
+    /**
+     * Creates everything that is needed for the user object serialization.
+     *
+     * @return User object serialization context.
+     */
+    private UserObjectSerializationContext createUserObjectSerializationContext() {
+        var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
+        var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
+
+        var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
+
+        return new UserObjectSerializationContext(userObjectDescriptorRegistry, userObjectDescriptorFactory,
+            userObjectMarshaller);
     }
 
     /**

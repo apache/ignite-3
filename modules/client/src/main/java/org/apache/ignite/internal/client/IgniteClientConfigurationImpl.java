@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClientAddressFinder;
 import org.apache.ignite.client.IgniteClientConfiguration;
+import org.apache.ignite.client.RetryPolicy;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,9 +32,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** Addresses. */
     private final String[] addresses;
-
-    /** Retry limit. */
-    private final int retryLimit;
 
     /** Connect timeout, in milliseconds. */
     private final long connectTimeout;
@@ -47,33 +45,42 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
 
+    /** Heartbeat interval. */
+    private final long heartbeatInterval;
+
+    /** Retry policy. */
+    private final RetryPolicy retryPolicy;
+
     /**
      * Constructor.
      *
      * @param addressFinder             Address finder.
      * @param addresses                 Addresses.
-     * @param retryLimit                Retry limit.
      * @param connectTimeout            Socket connect timeout.
      * @param asyncContinuationExecutor Async continuation executor.
+     * @param heartbeatInterval         Heartbeat message interval.
+     * @param retryPolicy               Retry policy.
      */
     public IgniteClientConfigurationImpl(
             IgniteClientAddressFinder addressFinder,
             String[] addresses,
-            int retryLimit,
             long connectTimeout,
             long reconnectThrottlingPeriod,
             int reconnectThrottlingRetries,
-            Executor asyncContinuationExecutor) {
+            Executor asyncContinuationExecutor,
+            long heartbeatInterval,
+            RetryPolicy retryPolicy) {
         this.addressFinder = addressFinder;
 
         //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
         this.addresses = addresses;
 
-        this.retryLimit = retryLimit;
         this.connectTimeout = connectTimeout;
         this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
         this.reconnectThrottlingRetries = reconnectThrottlingRetries;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
+        this.heartbeatInterval = heartbeatInterval;
+        this.retryPolicy = retryPolicy;
     }
 
     /** {@inheritDoc} */
@@ -86,12 +93,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public String[] addresses() {
         return addresses == null ? null : addresses.clone();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int retryLimit() {
-        return retryLimit;
     }
 
     /** {@inheritDoc} */
@@ -116,5 +117,17 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public @Nullable Executor asyncContinuationExecutor() {
         return asyncContinuationExecutor;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long heartbeatInterval() {
+        return heartbeatInterval;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable RetryPolicy retryPolicy() {
+        return retryPolicy;
     }
 }

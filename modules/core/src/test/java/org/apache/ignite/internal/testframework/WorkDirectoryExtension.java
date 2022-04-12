@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.isWindowsOs;
 import static org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -172,11 +174,26 @@ public class WorkDirectoryExtension
             return existingDir;
         }
 
-        String testMethodDir = context.getTestMethod()
+        Path workDir;
+
+        Path testClassDir = getTestClassDir(context);
+
+        String testMethodName = context.getTestMethod()
                 .map(Method::getName)
                 .orElse(STATIC_FOLDER_NAME);
 
-        Path workDir = getTestClassDir(context).resolve(testMethodDir + '_' + System.currentTimeMillis());
+        if (isWindowsOs()) {
+            testMethodName = IgniteTestUtils.shortTestMethodName(testMethodName);
+
+            do {
+                // Due to the fact that in the Windows operating system the path length limit is 260 characters.
+                workDir = testClassDir.resolve(testMethodName + "_" + ThreadLocalRandom.current().nextInt(Short.MAX_VALUE));
+            } while (Files.exists(workDir));
+        } else {
+            // Not using currentTimeMillis because some tests can have the same name (e.g. repeated tests) and execute in less than a
+            // millisecond, which will result in identical paths being generated.
+            workDir = testClassDir.resolve(testMethodName + '_' + System.nanoTime());
+        }
 
         Files.createDirectories(workDir);
 
@@ -252,4 +269,5 @@ public class WorkDirectoryExtension
             return list.findAny().isEmpty();
         }
     }
+
 }

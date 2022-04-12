@@ -57,7 +57,7 @@ public class SchemaDescriptorConverterTest {
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
-        assertEquals(2, tblDscr.affinityColumns().length);
+        assertEquals(2, tblDscr.colocationColumns().length);
         assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
 
@@ -70,14 +70,14 @@ public class SchemaDescriptorConverterTest {
         TableDefinition tblSchm = bldr.withPrimaryKey(
                 SchemaBuilders.primaryKey()
                         .withColumns("INT8", "ID")
-                        .withAffinityColumns("INT8")
+                        .withColocationColumns("INT8")
                         .build()
         ).build();
 
         SchemaDescriptor tblDscr = SchemaDescriptorConverter.convert(1, tblSchm);
 
         assertEquals(2, tblDscr.keyColumns().length());
-        assertEquals(1, tblDscr.affinityColumns().length);
+        assertEquals(1, tblDscr.colocationColumns().length);
         assertEquals(columns - 2, tblDscr.valueColumns().length());
     }
 
@@ -118,7 +118,7 @@ public class SchemaDescriptorConverterTest {
                 .withPrimaryKey(
                         SchemaBuilders.primaryKey()
                                 .withColumns("INT32", "ID")
-                                .withAffinityColumns("INT32")
+                                .withColocationColumns("INT32")
                                 .build()
                 ).build();
 

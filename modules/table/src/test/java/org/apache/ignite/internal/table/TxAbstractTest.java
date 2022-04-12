@@ -1432,7 +1432,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      * @param balance The balance.
      * @return The value tuple.
      */
-    private Tuple makeValue(long id, double balance) {
+    protected Tuple makeValue(long id, double balance) {
         return Tuple.create().set("accountNumber", id).set("balance", balance);
     }
 

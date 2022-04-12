@@ -24,17 +24,19 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -84,6 +86,7 @@ import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.Splitter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
@@ -97,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.schema.ModifyRow;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -114,6 +118,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     protected static final IgniteTypeFactory TYPE_FACTORY = new IgniteTypeFactory(IgniteTypeSystem.INSTANCE);
 
     protected static final int DEFAULT_TBL_SIZE = 500_000;
+
+    protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     /** Last error message. */
     private String lastErrorMsg;
@@ -207,19 +213,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      * Create planner context for specified query.
      */
     protected PlanningContext plannerCtx(String sql, IgniteSchema publicSchema, String... disabledRules) {
-        SchemaPlus schema = createRootSchema(false)
-                .add("PUBLIC", publicSchema);
+        return plannerCtx(sql, Collections.singleton(publicSchema), disabledRules);
+    }
 
+    protected PlanningContext plannerCtx(String sql, Collection<IgniteSchema> schemas, String... disabledRules) {
         PlanningContext ctx = PlanningContext.builder()
-                .parentContext(BaseQueryContext.builder()
-                        .frameworkConfig(
-                                newConfigBuilder(FRAMEWORK_CONFIG)
-                                        .defaultSchema(schema)
-                                        .build()
-                        )
-                        .logger(log)
-                        .build()
-                )
+                .parentContext(baseQueryContext(schemas))
                 .query(sql)
                 .build();
 
@@ -227,9 +226,31 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         assertNotNull(planner);
 
-        planner.setDisabledRules(new HashSet<>(Arrays.asList(disabledRules)));
+        planner.setDisabledRules(Set.copyOf(Arrays.asList(disabledRules)));
 
         return ctx;
+    }
+
+    protected BaseQueryContext baseQueryContext(Collection<IgniteSchema> schemas) {
+        SchemaPlus rootSchema = createRootSchema(false);
+        SchemaPlus dfltSchema = null;
+
+        for (IgniteSchema igniteSchema : schemas) {
+            SchemaPlus schema = rootSchema.add(igniteSchema.getName(), igniteSchema);
+
+            if (dfltSchema == null || DEFAULT_SCHEMA.equals(schema.getName())) {
+                dfltSchema = schema;
+            }
+        }
+
+        return BaseQueryContext.builder()
+                .frameworkConfig(
+                        newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(dfltSchema)
+                                .build()
+                )
+                .logger(log)
+                .build();
     }
 
     /**
@@ -267,6 +288,19 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
      */
     protected IgniteRel physicalPlan(String sql, IgniteSchema publicSchema, String... disabledRules) throws Exception {
         return physicalPlan(sql, plannerCtx(sql, publicSchema, disabledRules));
+    }
+
+    protected IgniteRel physicalPlan(String sql, Collection<IgniteSchema> schemas, String... disabledRules) throws Exception {
+        return physicalPlan(plannerCtx(sql, schemas, disabledRules));
+    }
+
+    protected IgniteRel physicalPlan(PlanningContext ctx) throws Exception {
+        try (IgnitePlanner planner = ctx.planner()) {
+            assertNotNull(planner);
+            assertNotNull(ctx.query());
+
+            return physicalPlan(ctx.query(), ctx);
+        }
     }
 
     protected IgniteRel physicalPlan(String sql, PlanningContext ctx) throws Exception {
@@ -311,6 +345,33 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         return res;
     }
 
+    /**
+     * Predicate builder for "Operator has column names" condition.
+     */
+    protected <T extends RelNode> Predicate<T> hasColumns(String... cols) {
+        return node -> {
+            RelDataType rowType = node.getRowType();
+
+            String err = "Unexpected columns [expected=" + Arrays.toString(cols) + ", actual=" + rowType.getFieldNames() + ']';
+
+            if (rowType.getFieldCount() != cols.length) {
+                lastErrorMsg = err;
+
+                return false;
+            }
+
+            for (int i = 0; i < cols.length; i++) {
+                if (!cols[i].equals(rowType.getFieldNames().get(i))) {
+                    lastErrorMsg = err;
+
+                    return false;
+                }
+            }
+
+            return true;
+        };
+    }
+
     protected static void createTable(IgniteSchema schema, String name, RelDataType type, IgniteDistribution distr) {
         TestTable table = new TestTable(type, name) {
             @Override
@@ -320,6 +381,25 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
 
         schema.addTable(name, table);
+    }
+
+    /**
+     * Creates test table with given params and schema.
+     *
+     * @param schema Table schema.
+     * @param name   Name of the table.
+     * @param distr  Distribution of the table.
+     * @param fields List of the required fields. Every odd item should be a string representing a column name, every
+     *               even item should be a class representing column's type.
+     *               E.g. {@code createTable("MY_TABLE", distribution, "ID", Integer.class, "VAL", String.class)}.
+     * @return Instance of the {@link TestTable}.
+     */
+    protected static TestTable createTable(IgniteSchema schema, String name, IgniteDistribution distr, Object... fields) {
+        TestTable tbl = createTable(name, DEFAULT_TBL_SIZE, distr, fields);
+
+        schema.addTable(name, tbl);
+
+        return tbl;
     }
 
     /**
@@ -366,11 +446,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
-    protected <T extends RelNode> void assertPlan(String sql, IgniteSchema schema, Predicate<T> predicate,
-            String... disabledRules) throws Exception {
-        IgniteRel plan = physicalPlan(sql, schema, disabledRules);
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            IgniteSchema schema,
+            Predicate<T> predicate,
+            String... disabledRules
+    ) throws Exception {
+        assertPlan(sql, Collections.singleton(schema), predicate, disabledRules);
+    }
 
-        checkSplitAndSerialization(plan, schema);
+    protected <T extends RelNode> void assertPlan(
+            String sql,
+            Collection<IgniteSchema> schemas,
+            Predicate<T> predicate,
+            String... disabledRules
+    ) throws Exception {
+        IgniteRel plan = physicalPlan(sql, schemas, disabledRules);
+
+        checkSplitAndSerialization(plan, schemas);
 
         if (!predicate.test((T) plan)) {
             String invalidPlanMsg = "Invalid plan (" + lastErrorMsg + "):\n"
@@ -494,7 +587,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     protected void checkSplitAndSerialization(IgniteRel rel, IgniteSchema publicSchema) {
+        checkSplitAndSerialization(rel, Collections.singleton(publicSchema));
+    }
+
+    protected void checkSplitAndSerialization(IgniteRel rel, Collection<IgniteSchema> schemas) {
         assertNotNull(rel);
+        assertFalse(schemas.isEmpty());
 
         rel = Cloner.clone(rel);
 
@@ -515,10 +613,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         List<RelNode> deserializedNodes = new ArrayList<>();
 
-        Map<UUID, IgniteTable> tableMap = publicSchema.getTableNames().stream()
-                .map(publicSchema::getTable)
-                .map(IgniteTable.class::cast)
-                .collect(Collectors.toMap(IgniteTable::id, Function.identity()));
+        Map<UUID, IgniteTable> tableMap = new HashMap<>();
+
+        for (IgniteSchema schema : schemas) {
+            tableMap.putAll(schema.getTableNames().stream()
+                    .map(schema::getTable)
+                    .map(IgniteTable.class::cast)
+                    .collect(Collectors.toMap(IgniteTable::id, Function.identity())));
+        }
 
         for (String s : serialized) {
             RelJsonReader reader = new RelJsonReader(new SqlSchemaManagerImpl(tableMap));
@@ -547,6 +649,30 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 );
             }
         }
+    }
+
+    /**
+     * Predicate builder for "Index scan with given name" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteIndexScan> isIndexScan(String tableName, String idxName) {
+        return isInstanceOf(IgniteIndexScan.class).and(
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
+
+                    if (!tableName.equalsIgnoreCase(scanTableName)) {
+                        lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
+
+                        return false;
+                    }
+
+                    if (!idxName.equals(n.indexName())) {
+                        lastErrorMsg = "Unexpected index name [exp=" + idxName + ", act=" + n.indexName() + ']';
+
+                        return false;
+                    }
+
+                    return true;
+                });
     }
 
     protected void clearTraits(RelNode rel) {
@@ -741,6 +867,12 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
          */
         public TestTable addIndex(RelCollation collation, String name) {
             indexes.put(name, new IgniteIndex(collation, name, this));
+
+            return this;
+        }
+
+        public TestTable addIndex(String name, int... keys) {
+            addIndex(TraitUtils.createCollation(Arrays.stream(keys).boxed().collect(Collectors.toList())), name);
 
             return this;
         }

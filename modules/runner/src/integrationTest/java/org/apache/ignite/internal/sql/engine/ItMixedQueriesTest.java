@@ -105,6 +105,8 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
         assertEquals(1, rows.size());
         assertEquals(Arrays.asList("щщ", "Б"), first(rows));
+
+        sql("DROP TABLE IF EXISTS TEST");
     }
 
     @Test
@@ -216,13 +218,15 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
         }
 
         assertEquals(10_000L, sql("SELECT count(*) FROM t").get(0).get(0));
+
+        sql("DROP TABLE IF EXISTS t");
     }
 
     /**
      * Verifies that table modification events are passed to a calcite schema modification listener.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16558")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void testIgniteSchemaAwaresAlterTableCommand() {
         String selectAllQry = "select * from test_tbl";
 
@@ -260,7 +264,7 @@ public class ItMixedQueriesTest extends AbstractBasicIntegrationTest {
 
     /** Quantified predicates test. */
     @Test
-    public void quantifiedCompTest() throws InterruptedException {
+    public void quantifiedCompTest() {
         assertQuery("select salary from emp2 where salary > SOME (10, 11) ORDER BY salary")
                 .returns(11d)
                 .returns(12d)

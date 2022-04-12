@@ -23,13 +23,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for complex queries with joins.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
     /**
      * Check distributed OUTER join of 3 tables (T1 -> T2 -> T3) returns correct result for non-collocated data.
@@ -43,7 +41,6 @@ public class ItJdbcJoinsSelfTest extends AbstractJdbcSelfTest {
      * @throws Exception If failed.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16219")
     public void testJoin() throws Exception {
         stmt.executeUpdate("CREATE TABLE PUBLIC.PERSON"
                 + " (ID INT, NAME VARCHAR(64), AGE INT, CITY_ID DOUBLE, PRIMARY KEY (NAME));");

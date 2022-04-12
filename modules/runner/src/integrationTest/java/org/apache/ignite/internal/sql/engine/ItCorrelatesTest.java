@@ -19,11 +19,27 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /** Tests for correlated queries. */
 public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
     private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
+
+    /**
+     * Clear tables after each test.
+     *
+     * @param testInfo Test information object.
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    @Override
+    public void tearDown(TestInfo testInfo) throws Exception {
+        dropAllTables();
+
+        super.tearDownBase(testInfo);
+    }
 
     /** Checks correlates are assigned before access. */
     @Test
@@ -56,6 +72,31 @@ public class ItCorrelatesTest extends AbstractBasicIntegrationTest {
                 .matches(containsSubPlan("IgniteTableSpool"))
                 .returns(3)
                 .returns(4)
+                .check();
+    }
+
+    /**
+     * Tests resolving of collisions in correlates.
+     */
+    @Test
+    public void testCorrelatesCollision() {
+        sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
+        sql("INSERT INTO test1 VALUES (11, 1), (12, 2), (13, 3)");
+        sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
+        sql("INSERT INTO test2 VALUES (11, 1), (12, 1), (13, 4)");
+
+        // Collision by correlate variables in the left hand.
+        assertQuery("SELECT * FROM test1 WHERE "
+                + "EXISTS(SELECT * FROM test2 WHERE test1.a=test2.a AND test1.b<>test2.c) "
+                + "AND NOT EXISTS(SELECT * FROM test2 WHERE test1.a=test2.a AND test1.b<test2.c)")
+                .returns(12, 2)
+                .check();
+
+        // Collision by correlate variables in both, left and right hands.
+        assertQuery("SELECT * FROM test1 WHERE "
+                + "EXISTS(SELECT * FROM test2 WHERE (SELECT test1.a)=test2.a AND (SELECT test1.b)<>test2.c) "
+                + "AND NOT EXISTS(SELECT * FROM test2 WHERE (SELECT test1.a)=test2.a AND (SELECT test1.b)<test2.c)")
+                .returns(12, 2)
                 .check();
     }
 }

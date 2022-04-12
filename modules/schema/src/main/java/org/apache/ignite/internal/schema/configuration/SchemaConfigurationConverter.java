@@ -117,8 +117,6 @@ public class SchemaConfigurationConverter {
      * @return IndexColumnChange to get result from.
      */
     public static IndexColumnChange convert(SortedIndexColumnDefinition col, IndexColumnChange colInit) {
-        colInit.changeName(col.name());
-
         colInit.changeAsc(col.sortOrder() == SortOrder.ASC);
 
         return colInit;
@@ -142,8 +140,6 @@ public class SchemaConfigurationConverter {
      * @return TableIndexChange to get result from.
      */
     public static TableIndexChange convert(IndexDefinition idx, TableIndexChange idxChg) {
-        idxChg.changeName(idx.name());
-
         switch (idx.type().toUpperCase()) {
             case HASH_INDEX_TYPE:
                 HashIndexDefinition hashIdx = (HashIndexDefinition) idx;
@@ -230,7 +226,7 @@ public class SchemaConfigurationConverter {
      * @return TableIn.
      */
     public static PrimaryKeyDefinition convert(PrimaryKeyView primaryKey) {
-        return new PrimaryKeyDefinitionImpl(Set.of(primaryKey.columns()), Set.of(primaryKey.affinityColumns()));
+        return new PrimaryKeyDefinitionImpl(Set.of(primaryKey.columns()), List.of(primaryKey.colocationColumns()));
     }
 
     /**
@@ -351,7 +347,6 @@ public class SchemaConfigurationConverter {
      * @return ColumnChange to get result from.
      */
     public static ColumnChange convert(ColumnDefinition col, ColumnChange colChg) {
-        colChg.changeName(col.name());
         colChg.changeType(colTypeInit -> convert(col.type(), colTypeInit));
 
         if (col.defaultValue() != null) {
@@ -385,8 +380,6 @@ public class SchemaConfigurationConverter {
      * @return TableChange to get result from.
      */
     public static TableChange convert(TableDefinition tbl, TableChange tblChg) {
-        tblChg.changeName(tbl.canonicalName());
-
         tblChg.changeIndices(idxsChg -> {
             for (IndexDefinition idx : tbl.indices()) {
                 idxsChg.create(idx.name(), idxInit -> convert(idx, idxInit));
@@ -401,7 +394,7 @@ public class SchemaConfigurationConverter {
 
         tblChg.changePrimaryKey(pkCng -> {
             pkCng.changeColumns(tbl.keyColumns().toArray(String[]::new))
-                    .changeAffinityColumns(tbl.affinityColumns().toArray(String[]::new));
+                    .changeColocationColumns(tbl.colocationColumns().toArray(String[]::new));
         });
 
         return tblChg;

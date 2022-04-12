@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.impl;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,17 +28,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionChange;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.PageMemoryDataRegionConfigurationSchema;
-import org.apache.ignite.configuration.schemas.store.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -63,13 +59,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
     private static final PageIo PAGE_IO = new TestPageIo();
 
-    @InjectConfiguration(
-            value = "mock.type = pagemem",
-            polymorphicExtensions = {
-                PageMemoryDataRegionConfigurationSchema.class,
-                UnsafeMemoryAllocatorConfigurationSchema.class
-            })
-    protected DataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    protected PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Test
     public void testPageTearingInner() throws Exception {
@@ -312,8 +303,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      */
     protected PageMemory memory() throws Exception {
         dataRegionCfg.change(cfg ->
-                cfg.convert(PageMemoryDataRegionChange.class)
-                        .changePageSize(PAGE_SIZE)
+                cfg.changePageSize(PAGE_SIZE)
                         .changeInitSize(MAX_MEMORY_SIZE)
                         .changeMaxSize(MAX_MEMORY_SIZE)
         ).get(1, SECONDS);
@@ -326,7 +316,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
             provider,
-            (PageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+            dataRegionCfg,
             ioRegistry
         );
     }

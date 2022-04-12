@@ -19,7 +19,8 @@ package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.network.NetworkMessage;
 
 /**
@@ -27,20 +28,25 @@ import org.apache.ignite.network.NetworkMessage;
  */
 public class MessageHandler extends ChannelInboundHandlerAdapter {
     /** Message listener. */
-    private final BiConsumer<String, NetworkMessage> messageListener;
+    private final Consumer<InNetworkObject> messageListener;
 
     /** Consistent id of the remote node. */
     private final String consistentId;
+
+    private final PerSessionSerializationService serializationService;
 
     /**
      * Constructor.
      *
      * @param messageListener Message listener.
      * @param consistentId Consistent id of the remote node.
+     * @param serializationService Serialization service.
      */
-    public MessageHandler(BiConsumer<String, NetworkMessage> messageListener, String consistentId) {
+    public MessageHandler(Consumer<InNetworkObject> messageListener, String consistentId,
+            PerSessionSerializationService serializationService) {
         this.messageListener = messageListener;
         this.consistentId = consistentId;
+        this.serializationService = serializationService;
     }
 
     /** {@inheritDoc} */
@@ -48,6 +54,6 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         NetworkMessage message = (NetworkMessage) msg;
 
-        messageListener.accept(consistentId, message);
+        messageListener.accept(new InNetworkObject(message, consistentId, serializationService.compositeDescriptorRegistry()));
     }
 }

@@ -40,6 +40,11 @@ namespace Apache.Ignite
         public static readonly TimeSpan DefaultSocketTimeout = TimeSpan.FromSeconds(5);
 
         /// <summary>
+        /// Default heartbeat interval.
+        /// </summary>
+        public static readonly TimeSpan DefaultHeartbeatInterval = TimeSpan.FromSeconds(30);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientConfiguration"/> class.
         /// </summary>
         public IgniteClientConfiguration()
@@ -73,6 +78,8 @@ namespace Apache.Ignite
             Logger = other.Logger;
             SocketTimeout = other.SocketTimeout;
             Endpoints = other.Endpoints.ToList();
+            RetryPolicy = other.RetryPolicy;
+            HeartbeatInterval = other.HeartbeatInterval;
         }
 
         /// <summary>
@@ -97,5 +104,30 @@ namespace Apache.Ignite
         ///  * my-host.com:780..787 (custom port range).
         /// </summary>
         public IList<string> Endpoints { get; } = new List<string>();
+
+        /// <summary>
+        /// Gets or sets the retry policy. When a request fails due to a connection error,
+        /// Ignite will retry the request if the specified policy allows it.
+        /// <para />
+        /// Default is <see cref="RetryReadPolicy"/> - retry read operations up to <see cref="RetryLimitPolicy.DefaultRetryLimit"/> times.
+        /// <para />
+        /// See also <see cref="RetryLimitPolicy"/>, <see cref="RetryReadPolicy"/>, <see cref="RetryNonePolicy"/>,
+        /// <see cref="RetryLimitPolicy.RetryLimit"/>.
+        /// </summary>
+        public IRetryPolicy RetryPolicy { get; set; } = new RetryReadPolicy();
+
+        /// <summary>
+        /// Gets or sets the heartbeat message interval.
+        /// <para />
+        /// Default is <see cref="DefaultHeartbeatInterval"/>.
+        /// <para />
+        /// When server-side idle timeout is not zero, effective heartbeat
+        /// interval is set to <c>Min(HeartbeatInterval, IdleTimeout / 3)</c>.
+        /// <para />
+        /// When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+        /// to keep the connection alive and detect potential half-open state.
+        /// </summary>
+        [DefaultValue(typeof(TimeSpan), "00:00:30")]
+        public TimeSpan HeartbeatInterval { get; set; } = DefaultHeartbeatInterval;
     }
 }

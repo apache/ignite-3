@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.util.Map;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -51,8 +55,8 @@ public class SchemaConfigurationTest {
                 .withPrimaryKey(
                         SchemaBuilders.primaryKey()  // Declare index column in order.
                                 .withColumns("id", "affId", "name")
-                                .withAffinityColumns(
-                                        "affId") // Optional affinity declaration. If not set, all columns will be affinity cols.
+                                .withColocationColumns(
+                                        "affId") // Optional colocation declaration. If not set, all PK columns will be colocation cols.
                                 .build()
                 )
 
@@ -128,5 +132,41 @@ public class SchemaConfigurationTest {
 
                 .dropIndex("hash_idx")
                 .apply();
+    }
+
+    /**
+     * Check invalid colocation columns configuration:
+     * - not PK columns;
+     * - duplicates colocation columns.
+     */
+    @Test
+    public void invalidColocationColumns() {
+        assertThat(
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                SchemaBuilders.primaryKey()  // Declare index column in order.
+                                        .withColumns("id0", "id1", "id2")
+                                        .withColocationColumns(
+                                                "val")
+                                        .build(),
+                        "Schema definition error: All colocation columns must be part of key."
+                ).getMessage(),
+                containsString("Schema definition error: All colocation columns must be part of primary key")
+        );
+
+        assertThat(
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                SchemaBuilders.primaryKey()  // Declare index column in order.
+                                        .withColumns("id0", "id1", "id2")
+                                        .withColocationColumns(
+                                                "id0, id1, id0")
+                                        .build(),
+                        "Schema definition error: Colocation columns must not be duplicated."
+                ).getMessage(),
+                containsString("Schema definition error: All colocation columns must be part of primary key")
+        );
     }
 }

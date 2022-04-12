@@ -150,5 +150,105 @@ namespace Apache.Ignite.Internal.Proto
 
             throw new IgniteClientException("Unsupported type: " + obj.GetType());
         }
+
+        /// <summary>
+        /// Writes an object with type code.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="obj">Object.</param>
+        public static void WriteObjectWithType(this ref MessagePackWriter writer, object? obj)
+        {
+            // TODO: Support all types (IGNITE-15431).
+            switch (obj)
+            {
+                case null:
+                    writer.WriteNil();
+                    return;
+
+                case string str:
+                    writer.Write((int)ClientDataType.String);
+                    writer.Write(str);
+                    return;
+
+                case Guid g:
+                    writer.Write((int)ClientDataType.Uuid);
+                    writer.Write(g);
+                    return;
+
+                case byte b:
+                    writer.Write((int)ClientDataType.Int8);
+                    writer.Write(b);
+                    return;
+
+                case sbyte sb:
+                    writer.Write((int)ClientDataType.Int8);
+                    writer.Write(sb);
+                    return;
+
+                case short s:
+                    writer.Write((int)ClientDataType.Int16);
+                    writer.Write(s);
+                    return;
+
+                case ushort us:
+                    writer.Write((int)ClientDataType.Int16);
+                    writer.Write(us);
+                    return;
+
+                case int i:
+                    writer.Write((int)ClientDataType.Int32);
+                    writer.Write(i);
+                    return;
+
+                case uint ui:
+                    writer.Write((int)ClientDataType.Int32);
+                    writer.Write(ui);
+                    return;
+
+                case long l:
+                    writer.Write((int)ClientDataType.Int64);
+                    writer.Write(l);
+                    return;
+
+                case ulong ul:
+                    writer.Write((int)ClientDataType.Int64);
+                    writer.Write(ul);
+                    return;
+
+                case float f:
+                    writer.Write((int)ClientDataType.Float);
+                    writer.Write(f);
+                    return;
+
+                case double d:
+                    writer.Write((int)ClientDataType.Double);
+                    writer.Write(d);
+                    return;
+            }
+
+            throw new IgniteClientException("Unsupported type: " + obj.GetType());
+        }
+
+        /// <summary>
+        /// Writes an array of objects with type codes.
+        /// </summary>
+        /// <param name="writer">Writer.</param>
+        /// <param name="arr">Array.</param>
+        public static void WriteObjectArrayWithTypes(this ref MessagePackWriter writer, object[]? arr)
+        {
+            if (arr == null)
+            {
+                writer.WriteNil();
+
+                return;
+            }
+
+            writer.WriteArrayHeader(arr.Length);
+
+            foreach (var obj in arr)
+            {
+                writer.WriteObjectWithType(obj);
+            }
+        }
     }
 }

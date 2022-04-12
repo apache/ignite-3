@@ -21,6 +21,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.tx.IgniteTransactions;
 
 /**
@@ -39,6 +41,14 @@ public class ClientTransactionBeginRequest {
             ClientMessagePacker out,
             IgniteTransactions transactions,
             ClientResourceRegistry resources) {
-        return transactions.beginAsync().thenAccept(t -> out.packLong(resources.put(new ClientResource(t, t::rollback))));
+        return transactions.beginAsync().thenAccept(t -> {
+            try {
+                long resourceId = resources.put(new ClientResource(t, t::rollback));
+                out.packLong(resourceId);
+            } catch (IgniteInternalCheckedException e) {
+                t.rollback();
+                throw new IgniteInternalException(e.getMessage(), e);
+            }
+        });
     }
 }

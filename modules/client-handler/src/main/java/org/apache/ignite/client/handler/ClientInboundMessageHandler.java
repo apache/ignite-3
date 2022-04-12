@@ -24,6 +24,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
@@ -36,7 +38,6 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataReq
 import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
-import org.apache.ignite.client.handler.requests.table.ClientTableDropRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
@@ -59,6 +60,8 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
+import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -68,7 +71,9 @@ import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -92,6 +97,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
 
+    /** Configuration. */
+    private final ClientConnectorView configuration;
+
+    /** Compute. */
+    private final IgniteCompute compute;
+
+    /** Cluster. */
+    private final ClusterService clusterService;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -101,17 +115,29 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
      * @param igniteTables       Ignite tables API entry point.
      * @param igniteTransactions Transactions API.
      * @param processor          Sql query processor.
+     * @param configuration      Configuration.
+     * @param compute            Compute.
+     * @param clusterService     Cluster.
      */
     public ClientInboundMessageHandler(
             IgniteTables igniteTables,
             IgniteTransactions igniteTransactions,
-            QueryProcessor processor) {
+            QueryProcessor processor,
+            ClientConnectorView configuration,
+            IgniteCompute compute,
+            ClusterService clusterService) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
+        assert configuration != null;
+        assert compute != null;
+        assert clusterService != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
+        this.configuration = configuration;
+        this.compute = compute;
+        this.clusterService = clusterService;
 
         this.jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
@@ -135,7 +161,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** {@inheritDoc} */
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        resources.clean();
+        resources.close();
 
         super.channelInactive(ctx);
     }
@@ -167,6 +193,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packInt(ClientErrorCode.SUCCESS);
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
+            packer.packLong(configuration.idleTimeout());
 
             write(packer, ctx);
         } catch (Throwable t) {
@@ -206,6 +233,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void writeError(long requestId, Throwable err, ChannelHandlerContext ctx) {
+        LOG.error("Error processing client request", err);
+
         var packer = getPacker(ctx.alloc());
 
         try {
@@ -278,10 +307,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode
-    ) {
+    ) throws IgniteInternalCheckedException {
         switch (opCode) {
-            case ClientOp.TABLE_DROP:
-                return ClientTableDropRequest.process(in, igniteTables);
+            case ClientOp.HEARTBEAT:
+                return null;
 
             case ClientOp.TABLES_GET:
                 return ClientTablesGetRequest.process(out, igniteTables);
@@ -378,6 +407,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources);
+
+            case ClientOp.COMPUTE_EXECUTE:
+                return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+
+            case ClientOp.CLUSTER_GET_NODES:
+                return ClientClusterGetNodesRequest.process(out, clusterService);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);

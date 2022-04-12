@@ -29,8 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -77,13 +76,15 @@ public class SchemaConfigurationConverterTest {
     @BeforeEach
     public void createRegistry() throws ExecutionException, InterruptedException {
         confRegistry = new ConfigurationRegistry(
-                List.of(TablesConfiguration.KEY, DataStorageConfiguration.KEY),
+                List.of(TablesConfiguration.KEY),
                 Map.of(TableValidator.class, Set.of(TableValidatorImpl.INSTANCE)),
                 new TestConfigurationStorage(DISTRIBUTED),
                 List.of(),
                 List.of(
-                        HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class,
-                        RocksDbDataRegionConfigurationSchema.class
+                        HashIndexConfigurationSchema.class,
+                        SortedIndexConfigurationSchema.class,
+                        PartialIndexConfigurationSchema.class,
+                        UnknownDataStorageConfigurationSchema.class
                 )
         );
 
@@ -252,7 +253,7 @@ public class SchemaConfigurationConverterTest {
         assertEquals(tbl.canonicalName(), tbl2.canonicalName());
         assertEquals(tbl.indices().size(), tbl2.indices().size());
         assertEquals(tbl.keyColumns().size(), tbl2.keyColumns().size());
-        assertEquals(tbl.affinityColumns().size(), tbl2.affinityColumns().size());
+        assertEquals(tbl.colocationColumns().size(), tbl2.colocationColumns().size());
         assertEquals(tbl.columns().size(), tbl2.columns().size());
     }
 

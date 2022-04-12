@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import org.apache.ignite.internal.network.message.ClassDescriptorListMessage;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.FieldDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
@@ -65,4 +66,9 @@ public class NetworkMessageTypes {
      * Type for {@link FieldDescriptorMessage}.
      */
     public static final short FIELD_DESCRIPTOR_MESSAGE = 6;
+
+    /**
+     * Type for {@link ClassDescriptorListMessage}.
+     */
+    public static final short CLASS_DESCRIPTOR_LIST_MESSAGE = 7;
 }

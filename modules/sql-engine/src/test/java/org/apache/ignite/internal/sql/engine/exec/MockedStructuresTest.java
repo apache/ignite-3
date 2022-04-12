@@ -28,17 +28,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListenerHolder;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfigurationSchema;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -48,6 +49,10 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngineFactory;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
@@ -67,7 +72,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -110,7 +114,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
      * Revision listener holder. It uses for the test configurations:
      * <ul>
      * <li>{@link MockedStructuresTest#tblsCfg},</li>
-     * <li>{@link MockedStructuresTest#dataStorageCfg}.</li>
      * </ul>
      */
     @InjectRevisionListenerHolder
@@ -123,14 +126,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @InjectConfiguration(
             internalExtensions = ExtendedTableConfigurationSchema.class,
             polymorphicExtensions = {
-                    HashIndexConfigurationSchema.class, SortedIndexConfigurationSchema.class, PartialIndexConfigurationSchema.class
+                    HashIndexConfigurationSchema.class,
+                    SortedIndexConfigurationSchema.class,
+                    PartialIndexConfigurationSchema.class,
+                    UnknownDataStorageConfigurationSchema.class,
+                    RocksDbDataStorageConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
-
-    /** Data storage configuration. */
-    @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class)
-    private DataStorageConfiguration dataStorageCfg;
 
     TableManager tblManager;
 
@@ -142,6 +145,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             NODE_NAME,
             new NetworkAddress("127.0.0.1", 2245)
     );
+
+    @InjectConfiguration
+    private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
+
+    @Mock
+    private ConfigurationRegistry configRegistry;
+
+    DataStorageManager dsm;
 
     /** Returns current method name. */
     private static String getCurrentMethodName() {
@@ -156,6 +167,12 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     void after() {
         try {
             Objects.requireNonNull(queryProc).stop();
+        } catch (Exception e) {
+            fail(e);
+        }
+
+        try {
+            Objects.requireNonNull(dsm).stop();
         } catch (Exception e) {
             fail(e);
         }
@@ -177,6 +194,16 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 return CompletableFuture.completedFuture(null);
             });
         };
+
+        when(configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(rocksDbEngineConfig);
+
+        dsm = new DataStorageManager(
+                configRegistry,
+                workDir,
+                List.of(new RocksDbStorageEngineFactory())
+        );
+
+        dsm.start();
 
         tblManager = mockManagers();
 
@@ -458,22 +485,15 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         return tableManager;
     }
 
-    /**
-     * Creates Table manager.
-     *
-     * @return Table manager.
-     */
-    @NotNull
     private TableManager createTableManager() {
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
-                dataStorageCfg,
                 rm,
                 bm,
                 ts,
-                workDir,
-                tm
+                tm,
+                dsm
         );
 
         tableManager.start();

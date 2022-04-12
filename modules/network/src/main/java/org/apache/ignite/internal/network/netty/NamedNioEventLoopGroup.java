@@ -50,9 +50,25 @@ public class NamedNioEventLoopGroup extends NioEventLoopGroup {
             /** {@inheritDoc} */
             @Override
             protected Thread newThread(Runnable r, String unused) {
-                return new FastThreadLocalThread(threadGroup, r, namePrefix + '-' + nextId.incrementAndGet());
+                return new NetworkThread(threadGroup, r, namePrefix + '-' + nextId.incrementAndGet());
             }
         };
         return new NamedNioEventLoopGroup(factory);
+    }
+
+    /**
+     * Marker class for network threads. Basically is just a {@link FastThreadLocalThread}.
+     */
+    public static class NetworkThread extends FastThreadLocalThread {
+        /**
+         * Constructor.
+         *
+         * @param group Thread group.
+         * @param target Runnable target.
+         * @param name Thread name.
+         */
+        public NetworkThread(ThreadGroup group, Runnable target, String name) {
+            super(group, target, name);
+        }
     }
 }

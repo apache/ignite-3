@@ -17,9 +17,13 @@
 
 package org.apache.ignite.configuration.schemas.table;
 
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 
 /**
  * Tables configuration schema.
@@ -31,4 +35,9 @@ public class TablesConfigurationSchema {
     @NamedConfigValue
     @TableValidator
     public TableConfigurationSchema tables;
+
+    /** Default data storage for tables. */
+    @ExistingDataStorage
+    @Value(hasDefault = true)
+    public String defaultDataStorage = UNKNOWN_DATA_STORAGE;
 }

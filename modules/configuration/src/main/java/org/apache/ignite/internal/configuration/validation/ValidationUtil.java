@@ -37,6 +37,8 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.util.AnyNodeConfigurationVisitor;
 import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class for configuration validation.
@@ -45,11 +47,11 @@ public class ValidationUtil {
     /**
      * Validate configuration changes.
      *
-     * @param oldRoots               Old known roots.
-     * @param newRoots               New roots.
-     * @param otherRoots             Provider for arbitrary roots that might not be accociated with the same storage.
+     * @param oldRoots Old known roots.
+     * @param newRoots New roots.
+     * @param otherRoots Provider for arbitrary roots that might not be accociated with the same storage.
      * @param memberAnnotationsCache Mutable map that contains annotations associated with corresponding member keys.
-     * @param validators             Current validators map to look into.
+     * @param validators Current validators map to look into.
      * @return List of validation results.
      */
     public static List<ValidationIssue> validate(
@@ -95,16 +97,18 @@ public class ValidationUtil {
                     return;
                 }
 
-                MemberKey memberKey = new MemberKey(lastInnerNode.getClass(), fieldName);
+                MemberKey memberKey = new MemberKey(lastInnerNode.schemaType(), fieldName);
 
                 Annotation[] fieldAnnotations = memberAnnotationsCache.computeIfAbsent(memberKey, k -> {
                     try {
-                        Field field = lastInnerNode.schemaType().getDeclaredField(fieldName);
+                        Field field = findSchemaField(lastInnerNode, fieldName);
+
+                        assert field != null : memberKey;
 
                         return field.getDeclaredAnnotations();
-                    } catch (NoSuchFieldException e) {
+                    } catch (Exception e) {
                         // Should be impossible.
-                        return new Annotation[0];
+                        throw new IgniteInternalException(e);
                     }
                 });
 
@@ -182,5 +186,32 @@ public class ValidationUtil {
         }
 
         return (sndParam instanceof Class) && (val == null || ((Class<?>) sndParam).isInstance(val));
+    }
+
+    private static @Nullable Field findSchemaField(InnerNode innerNode, String schemaFieldName) throws NoSuchFieldException {
+        Class<?> schemaType = innerNode.schemaType();
+
+        if (innerNode.isPolymorphic()) {
+            // Linear search to not fight with NoSuchFieldException.
+            for (Field field : schemaType.getDeclaredFields()) {
+                if (field.getName().equals(schemaFieldName)) {
+                    return field;
+                }
+            }
+
+            // Get parent schema.
+            schemaType = schemaType.getSuperclass();
+        } else if (innerNode.internalSchemaTypes() != null) {
+            // Linear search to not fight with NoSuchFieldException.
+            for (Class<?> internalSchemaType : innerNode.internalSchemaTypes()) {
+                for (Field field : internalSchemaType.getDeclaredFields()) {
+                    if (field.getName().equals(schemaFieldName)) {
+                        return field;
+                    }
+                }
+            }
+        }
+
+        return schemaType.getDeclaredField(schemaFieldName);
     }
 }

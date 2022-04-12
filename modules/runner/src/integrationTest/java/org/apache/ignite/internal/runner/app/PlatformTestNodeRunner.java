@@ -41,6 +41,9 @@ public class PlatformTestNodeRunner {
     /** Test node name. */
     private static final String NODE_NAME = PlatformTestNodeRunner.class.getCanonicalName();
 
+    /** Test node name 2. */
+    private static final String NODE_NAME2 = PlatformTestNodeRunner.class.getCanonicalName() + "_2";
+
     private static final String SCHEMA_NAME = "PUB";
 
     private static final String TABLE_NAME = "tbl1";
@@ -55,9 +58,22 @@ public class PlatformTestNodeRunner {
                     + "  \"node\": {\n"
                     + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
                     + "  },\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10},"
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
+                    + "    \"nodeFinder\": {\n"
+                    + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
+                    + "    }\n"
+                    + "  }\n"
+                    + "}");
+
+            put(NODE_NAME2, "{\n"
+                    + "  \"node\": {\n"
+                    + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
+                    + "  },\n"
+                    + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000},"
+                    + "  \"network\": {\n"
+                    + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
                     + "    }\n"

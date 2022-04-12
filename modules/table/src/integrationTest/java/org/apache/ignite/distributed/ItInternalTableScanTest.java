@@ -44,6 +44,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
@@ -116,6 +118,10 @@ public class ItInternalTableScanTest {
 
     /** Executor for raft group services. */
     ScheduledExecutorService executor;
+
+    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+        throw new UnsupportedOperationException();
+    };
 
     /**
      * Prepare test environment.
@@ -188,6 +194,7 @@ public class ItInternalTableScanTest {
                 Int2ObjectMaps.singleton(0, raftGrpSvc),
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txManager,
                 mock(TableStorage.class)
         );
@@ -252,6 +259,22 @@ public class ItInternalTableScanTest {
                         prepareDataRow("key5", "val5")
                 ),
                 2);
+    }
+
+    /**
+     * Checks whether publisher provides all existing data and then completes if requested by Long.MAX_VALUE rows at a time.
+     */
+    @Test
+    public void testLongMaxValueRowScan() throws Exception {
+        requestNtest(
+                List.of(
+                        prepareDataRow("key1", "val1"),
+                        prepareDataRow("key2", "val2"),
+                        prepareDataRow("key3", "val3"),
+                        prepareDataRow("key4", "val4"),
+                        prepareDataRow("key5", "val5")
+                ),
+                Long.MAX_VALUE);
     }
 
     /**
@@ -495,7 +518,7 @@ public class ItInternalTableScanTest {
      * @param reqAmount      Amount of rows to request at a time.
      * @throws Exception If Any.
      */
-    private void requestNtest(List<DataRow> submittedItems, int reqAmount) throws Exception {
+    private void requestNtest(List<DataRow> submittedItems, long reqAmount) throws Exception {
         AtomicInteger cursorTouchCnt = new AtomicInteger(0);
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());

@@ -209,7 +209,7 @@ class ItDynamicTableCreationTest {
         ).withPrimaryKey(
                 SchemaBuilders.primaryKey()
                         .withColumns("key", "affKey")
-                        .withAffinityColumns("affKey")
+                        .withColocationColumns("affKey")
                         .build()
         ).build();
 
@@ -305,12 +305,12 @@ class ItDynamicTableCreationTest {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
-                        tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        tblChanger -> tblChanger
                                 .changeColumns(cols -> {
-                                    cols.create("0",
-                                            col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
-                                    cols.create("1",
-                                            col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
+                                    cols.create("key",
+                                            col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false));
+                                    cols.create("val",
+                                            col -> col.changeNullable(true).changeType(t -> t.changeType("INT32")));
                                 })
                                 .changeReplicas(1)
                                 .changePartitions(10)
@@ -325,12 +325,12 @@ class ItDynamicTableCreationTest {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
-                        tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        tblChanger -> tblChanger
                                 .changeColumns(cols -> {
-                                    cols.create("0",
-                                            col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
-                                    cols.create("1",
-                                            col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
+                                    cols.create("key",
+                                            col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false));
+                                    cols.create("val",
+                                            col -> col.changeNullable(true).changeType(t -> t.changeType("INT32")));
                                 })
                                 .changePrimaryKey(pk -> pk.changeColumns("key"))
                                 .changeReplicas(1)
@@ -346,14 +346,14 @@ class ItDynamicTableCreationTest {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
-                        tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        tblChanger -> tblChanger
                                 .changeColumns(cols -> {
-                                    cols.create("0",
-                                            col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
-                                    cols.create("1",
-                                            col -> col.changeName("val").changeNullable(true).changeType(t -> t.changeType("INT32")));
+                                    cols.create("key",
+                                            col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false));
+                                    cols.create("val",
+                                            col -> col.changeNullable(true).changeType(t -> t.changeType("INT32")));
                                 })
-                                .changePrimaryKey(pk -> pk.changeAffinityColumns("key"))
+                                .changePrimaryKey(pk -> pk.changeColocationColumns("key"))
                                 .changeReplicas(1)
                                 .changePartitions(10)
                 );
@@ -374,14 +374,13 @@ class ItDynamicTableCreationTest {
             try {
                 grid.get(0).tables().createTable(
                         "PUBLIC.tbl1",
-                        tblChanger -> tblChanger.changeName("PUBLIC.tbl1")
+                        tblChanger -> tblChanger
                                 .changeColumns(cols -> {
-                                    cols.create("0",
-                                            col -> col.changeName("key").changeType(t -> t.changeType("INT64")).changeNullable(false));
+                                    cols.create("key", col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false));
 
-                                    cols.create("1", col -> colChanger.accept(col.changeName("val").changeNullable(true)));
+                                    cols.create("val", col -> colChanger.accept(col.changeNullable(true)));
                                 })
-                                .changePrimaryKey(pk -> pk.changeColumns("key").changeAffinityColumns("key"))
+                                .changePrimaryKey(pk -> pk.changeColumns("key").changeColocationColumns("key"))
                                 .changeReplicas(1)
                                 .changePartitions(10)
                 );

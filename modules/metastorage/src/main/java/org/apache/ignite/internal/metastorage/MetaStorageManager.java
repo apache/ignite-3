@@ -143,7 +143,7 @@ public class MetaStorageManager implements IgniteComponent {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Prevents double stopping the component. */
-    AtomicBoolean stopGuard = new AtomicBoolean();
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /**
      * The constructor.
@@ -290,6 +290,15 @@ public class MetaStorageManager implements IgniteComponent {
         } catch (Exception e) {
             throw new IgniteInternalException("Exception when stopping the storage", e);
         }
+    }
+
+    /**
+     * Gets an indicator which shown if Metastorage initialized on start or not.
+     *
+     * @return True when Metastorage knows nodes on start, false otherwise.
+     */
+    public boolean isMetaStorageInitializedOnStart() {
+        return metaStorageNodesOnStart;
     }
 
     /**

@@ -29,13 +29,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Statement test.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     /** SQL SELECT query for verification. */
     private static final String SQL_SELECT = "select sid, id, firstName, lastName, age from PUBLIC.PERSON";
@@ -85,8 +84,8 @@ public class ItJdbcInsertStatementSelfTest extends ItJdbcAbstractStatementSelfTe
     }
 
     @AfterEach
-    @Override public void afterTest() throws Exception {
-        super.afterTest();
+    @Override public void afterTest(TestInfo testInfo) throws Exception {
+        super.afterTest(testInfo);
 
         if (prepStmt != null && !prepStmt.isClosed()) {
             prepStmt.close();

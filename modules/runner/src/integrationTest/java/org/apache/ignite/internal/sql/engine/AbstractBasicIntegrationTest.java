@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -128,10 +130,17 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         LOG.info("End tearDown()");
     }
 
+    /** Drops all visible tables. */
+    protected void dropAllTables() {
+        for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
+            sql("DROP TABLE " + t.name());
+        }
+    }
+
     /**
      * Invokes before the test will start.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @throws Exception If failed.
      */
     @BeforeEach
@@ -195,6 +204,10 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
         );
     }
 
+    protected static Table table(String canonicalName) {
+        return CLUSTER_NODES.get(0).tables().table(canonicalName);
+    }
+
     protected static void insertData(String tblName, String[] columnNames, Object[]... tuples) {
         insertData(CLUSTER_NODES.get(0).tables().table(tblName), columnNames, tuples);
     }
@@ -231,6 +244,26 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
             view.insertAll(null, batch);
 
             batch.clear();
+        }
+    }
+
+    protected static void checkData(Table table, String[] columnNames, Object[]... tuples) {
+        RecordView<Tuple> view = table.recordView();
+
+        for (Object[] tuple : tuples) {
+            assert tuple != null && tuple.length == columnNames.length;
+
+            Object id = tuple[0];
+
+            assert id != null : "Primary key cannot be null";
+
+            Tuple row  = view.get(null, Tuple.create().set(columnNames[0], id));
+
+            assertNotNull(row);
+
+            for (int i = 0; i < columnNames.length; i++) {
+                assertEquals(tuple[i], row.value(columnNames[i]));
+            }
         }
     }
 

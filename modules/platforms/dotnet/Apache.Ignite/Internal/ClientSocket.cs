@@ -22,6 +22,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
@@ -31,14 +32,14 @@ namespace Apache.Ignite.Internal
     using MessagePack;
     using Proto;
 
-    using static Proto.MessagePackUtil;
-
     /// <summary>
     /// Wrapper over framework socket for Ignite thin client operations.
     /// </summary>
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
     internal sealed class ClientSocket : IDisposable
     {
+        private record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout);
+
         /** General-purpose client type code. */
         private const byte ClientType = 2;
 
@@ -47,6 +48,9 @@ namespace Apache.Ignite.Internal
 
         /** Current version. */
         private static readonly ClientProtocolVersion CurrentProtocolVersion = Ver300;
+
+        /** Minimum supported heartbeat interval. */
+        private static readonly TimeSpan MinRecommendedHeartbeatInterval = TimeSpan.FromMilliseconds(500);
 
         /** Underlying stream. */
         private readonly NetworkStream _stream;
@@ -68,21 +72,43 @@ namespace Apache.Ignite.Internal
             Justification = "WaitHandle is not used in CancellationTokenSource, no need to dispose.")]
         private readonly CancellationTokenSource _disposeTokenSource = new();
 
+        /** Heartbeat timer. */
+        private readonly Timer _heartbeatTimer;
+
+        /** Effective heartbeat interval. */
+        private readonly TimeSpan _heartbeatInterval;
+
         /** Logger. */
         private readonly IIgniteLogger? _logger;
 
+        /** Pre-allocated buffer for message size + op code + request id. To be used under <see cref="_sendLock"/>. */
+        private readonly byte[] _prefixBuffer = new byte[PooledArrayBufferWriter.ReservedPrefixSize];
+
         /** Request id generator. */
         private long _requestId;
+
+        /** Exception that caused this socket to close. */
+        private volatile Exception? _exception;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClientSocket"/> class.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        /// <param name="logger">Logger.</param>
-        private ClientSocket(NetworkStream stream, IIgniteLogger? logger)
+        /// <param name="configuration">Configuration.</param>
+        /// <param name="context">Connection context.</param>
+        private ClientSocket(NetworkStream stream, IgniteClientConfiguration configuration, ConnectionContext context)
         {
             _stream = stream;
-            _logger = logger;
+            _logger = configuration.Logger.GetLogger(GetType());
+
+            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, context.IdleTimeout, _logger);
+
+            // ReSharper disable once AsyncVoidLambda (timer callback)
+            _heartbeatTimer = new Timer(
+                callback: async _ => await SendHeartbeatAsync().ConfigureAwait(false),
+                state: null,
+                dueTime: _heartbeatInterval,
+                period: TimeSpan.FromMilliseconds(-1));
 
             // Because this call is not awaited, execution of the current method continues before the call is completed.
             // Receive loop runs in the background and should not be awaited.
@@ -100,13 +126,13 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
-        /// <param name="logger">Logger.</param>
+        /// <param name="configuration">Configuration.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
             "Microsoft.Reliability",
             "CA2000:Dispose objects before losing scope",
             Justification = "NetworkStream is returned from this method in the socket.")]
-        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IIgniteLogger? logger = null)
+        public static async Task<ClientSocket> ConnectAsync(EndPoint endPoint, IgniteClientConfiguration configuration)
         {
             var socket = new Socket(SocketType.Stream, ProtocolType.Tcp)
             {
@@ -115,14 +141,17 @@ namespace Apache.Ignite.Internal
 
             try
             {
+                var logger = configuration.Logger.GetLogger(typeof(ClientSocket));
+
                 await socket.ConnectAsync(endPoint).ConfigureAwait(false);
-                logger?.Debug("Socket connection established: {0} -> {1}", socket.LocalEndPoint, socket.RemoteEndPoint);
+                logger?.Debug($"Socket connection established: {socket.LocalEndPoint} -> {socket.RemoteEndPoint}");
 
                 var stream = new NetworkStream(socket, ownsSocket: true);
 
-                await HandshakeAsync(stream).ConfigureAwait(false);
+                var context = await HandshakeAsync(stream).ConfigureAwait(false);
+                logger?.Debug($"Handshake succeeded. Server protocol version: {context.Version}, idle timeout: {context.IdleTimeout}");
 
-                return new ClientSocket(stream, logger);
+                return new ClientSocket(stream, configuration, context);
             }
             catch (Exception)
             {
@@ -141,6 +170,13 @@ namespace Apache.Ignite.Internal
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(ClientOp clientOp, PooledArrayBufferWriter? request = null)
         {
+            var ex = _exception;
+
+            if (ex != null)
+            {
+                throw new IgniteClientException("Socket is closed due to an error, examine inner exception for details.", ex);
+            }
+
             if (_disposeTokenSource.IsCancellationRequested)
             {
                 throw new ObjectDisposedException(nameof(ClientSocket));
@@ -148,15 +184,11 @@ namespace Apache.Ignite.Internal
 
             var requestId = Interlocked.Increment(ref _requestId);
 
-            request ??= new PooledArrayBufferWriter(32);
-
-            WritePrefix(request, clientOp, requestId);
-
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
 
             _requests[requestId] = taskCompletionSource;
 
-            SendRequestAsync(request)
+            SendRequestAsync(request, clientOp, requestId)
                 .AsTask()
                 .ContinueWith(
                     (task, state) =>
@@ -183,15 +215,14 @@ namespace Apache.Ignite.Internal
         /// <inheritdoc/>
         public void Dispose()
         {
-            _disposeTokenSource.Cancel();
-            _stream.Dispose();
+            Dispose(null);
         }
 
         /// <summary>
         /// Performs the handshake exchange.
         /// </summary>
         /// <param name="stream">Network stream.</param>
-        private static async Task HandshakeAsync(NetworkStream stream)
+        private static async Task<ConnectionContext> HandshakeAsync(NetworkStream stream)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes).ConfigureAwait(false);
             await WriteHandshakeAsync(stream, CurrentProtocolVersion).ConfigureAwait(false);
@@ -201,7 +232,7 @@ namespace Apache.Ignite.Internal
             await CheckMagicBytesAsync(stream).ConfigureAwait(false);
 
             using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
-            CheckHandshakeResponse(response.GetReader());
+            return ReadHandshakeResponse(response.GetReader());
         }
 
         private static async ValueTask CheckMagicBytesAsync(NetworkStream stream)
@@ -210,7 +241,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await stream.ReadAsync(responseMagic.AsMemory(0, ProtoCommon.MagicBytes.Length)).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, CancellationToken.None).ConfigureAwait(false);
 
                 for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
@@ -227,7 +258,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static void CheckHandshakeResponse(MessagePackReader reader)
+        private static ConnectionContext ReadHandshakeResponse(MessagePackReader reader)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -245,6 +276,10 @@ namespace Apache.Ignite.Internal
 
             reader.Skip(); // Features.
             reader.Skip(); // Extensions.
+
+            var idleTimeoutMs = reader.ReadInt64();
+
+            return new ConnectionContext(serverVer, TimeSpan.FromMilliseconds(idleTimeoutMs));
         }
 
         private static IgniteClientException? ReadError(ref MessagePackReader reader)
@@ -272,7 +307,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await stream.ReadAsync(bytes.AsMemory(0, size), cancellationToken).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, bytes, size, cancellationToken).ConfigureAwait(false);
 
                 return new PooledBuffer(bytes, 0, size);
             }
@@ -292,9 +327,33 @@ namespace Apache.Ignite.Internal
             const int messageSizeByteCount = 4;
             Debug.Assert(buffer.Length >= messageSizeByteCount, "buffer.Length >= messageSizeByteCount");
 
-            await stream.ReadAsync(buffer.AsMemory(0, messageSizeByteCount), cancellationToken).ConfigureAwait(false);
+            await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
 
             return GetMessageSize(buffer);
+        }
+
+        private static async Task ReceiveBytesAsync(
+            NetworkStream stream,
+            byte[] buffer,
+            int size,
+            CancellationToken cancellationToken)
+        {
+            int received = 0;
+
+            while (received < size)
+            {
+                var res = await stream.ReadAsync(buffer.AsMemory(received, size - received), cancellationToken).ConfigureAwait(false);
+
+                if (res == 0)
+                {
+                    // Disconnected.
+                    throw new IgniteClientException(
+                        "Connection lost (failed to read data from socket)",
+                        new SocketException((int) SocketError.ConnectionAborted));
+                }
+
+                received += res;
+            }
         }
 
         private static unsafe int GetMessageSize(byte[] responseLenBytes)
@@ -312,7 +371,13 @@ namespace Apache.Ignite.Internal
             using var bufferWriter = new PooledArrayBufferWriter();
             WriteHandshake(version, bufferWriter.GetMessageWriter());
 
-            await stream.WriteAsync(bufferWriter.GetWrittenMemory()).ConfigureAwait(false);
+            // Prepend size.
+            var buf = bufferWriter.GetWrittenMemory();
+            var size = buf.Length - PooledArrayBufferWriter.ReservedPrefixSize;
+            var resBuf = buf.Slice(PooledArrayBufferWriter.ReservedPrefixSize - 4);
+            WriteMessageSize(resBuf, size);
+
+            await stream.WriteAsync(resBuf).ConfigureAwait(false);
         }
 
         private static void WriteHandshake(ClientProtocolVersion version, MessagePackWriter w)
@@ -330,46 +395,127 @@ namespace Apache.Ignite.Internal
             w.Flush();
         }
 
-        private static void WritePrefix(PooledArrayBufferWriter writer, ClientOp clientOp, long requestId)
+        private static unsafe void WriteMessageSize(Memory<byte> target, int size)
         {
-            var writeSize = GetWriteSize((ulong)clientOp) +
-                            GetWriteSize((ulong)requestId);
-
-            var w = writer.GetPrefixWriter(writeSize);
-
-            w.Write((int)clientOp);
-            w.Write(requestId);
-
-            w.Flush();
+            fixed (byte* bufPtr = target.Span)
+            {
+                *(int*)bufPtr = IPAddress.HostToNetworkOrder(size);
+            }
         }
 
-        private async ValueTask SendRequestAsync(PooledArrayBufferWriter request)
+        private static TimeSpan GetHeartbeatInterval(TimeSpan configuredInterval, TimeSpan serverIdleTimeout, IIgniteLogger? logger)
         {
+            if (configuredInterval <= TimeSpan.Zero)
+            {
+                throw new IgniteClientException(
+                    $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                    "should be greater than zero.");
+            }
+
+            if (serverIdleTimeout <= TimeSpan.Zero)
+            {
+                logger?.Info(
+                    $"Server-side IdleTimeout is not set, using configured {nameof(IgniteClientConfiguration)}." +
+                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: {configuredInterval}");
+
+                return configuredInterval;
+            }
+
+            var recommendedHeartbeatInterval = serverIdleTimeout / 3;
+
+            if (recommendedHeartbeatInterval < MinRecommendedHeartbeatInterval)
+            {
+                recommendedHeartbeatInterval = MinRecommendedHeartbeatInterval;
+            }
+
+            if (configuredInterval < recommendedHeartbeatInterval)
+            {
+                logger?.Info(
+                    $"Server-side IdleTimeout is {serverIdleTimeout}, " +
+                    $"using configured {nameof(IgniteClientConfiguration)}." +
+                    $"{nameof(IgniteClientConfiguration.HeartbeatInterval)}: " +
+                    configuredInterval);
+
+                return configuredInterval;
+            }
+
+            logger?.Warn(
+                $"Server-side IdleTimeout is {serverIdleTimeout}, configured " +
+                $"{nameof(IgniteClientConfiguration)}.{nameof(IgniteClientConfiguration.HeartbeatInterval)} " +
+                $"is {configuredInterval}, which is longer than recommended IdleTimeout / 3. " +
+                $"Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): {recommendedHeartbeatInterval}");
+
+            return recommendedHeartbeatInterval;
+        }
+
+        private async ValueTask SendRequestAsync(PooledArrayBufferWriter? request, ClientOp op, long requestId)
+        {
+            // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
+
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
             try
             {
-                await _stream.WriteAsync(request.GetWrittenMemory(), _disposeTokenSource.Token).ConfigureAwait(false);
+                var prefixMem = _prefixBuffer.AsMemory()[4..];
+                var prefixSize = MessagePackUtil.WriteUnsigned(prefixMem, (int)op);
+                prefixSize += MessagePackUtil.WriteUnsigned(prefixMem[prefixSize..], requestId);
+
+                if (request != null)
+                {
+                    var requestBuf = request.GetWrittenMemory();
+
+                    WriteMessageSize(_prefixBuffer, prefixSize + requestBuf.Length - PooledArrayBufferWriter.ReservedPrefixSize);
+                    var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
+
+                    var requestBufStart = PooledArrayBufferWriter.ReservedPrefixSize - prefixBytes.Length;
+                    var requestBufWithPrefix = requestBuf.Slice(requestBufStart);
+
+                    // Copy prefix to request buf to avoid extra WriteAsync call for the prefix.
+                    prefixBytes.CopyTo(requestBufWithPrefix);
+
+                    await _stream.WriteAsync(requestBufWithPrefix, _disposeTokenSource.Token).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Request without body, send only the prefix.
+                    WriteMessageSize(_prefixBuffer, prefixSize);
+                    var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
+                    await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
+                }
             }
             finally
             {
                 _sendLock.Release();
-                request.Dispose(); // Release pooled buffer as soon as possible.
             }
         }
 
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any exception in receive loop should be handled.")]
         private async Task RunReceiveLoop(CancellationToken cancellationToken)
         {
             // Reuse the same array for all responses.
             var messageSizeBytes = new byte[4];
 
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
-                PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
 
-                // Invoke response handler in another thread to continue the receive loop.
-                // Response buffer should be disposed by the task handler.
-                ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                    // Invoke response handler in another thread to continue the receive loop.
+                    // Response buffer should be disposed by the task handler.
+                    ThreadPool.QueueUserWorkItem(r => HandleResponse((PooledBuffer)r), response);
+                }
+            }
+            catch (Exception e)
+            {
+                const string message = "Exception while reading from socket. Connection closed.";
+
+                _logger?.Error(message, e);
+                Dispose(new IgniteClientException(message, e));
             }
         }
 
@@ -389,8 +535,9 @@ namespace Apache.Ignite.Internal
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
-                _logger?.Error($"Unexpected response ID ({requestId}) received from the server, closing the socket.");
-                Dispose();
+                var message = $"Unexpected response ID ({requestId}) received from the server, closing the socket.";
+                _logger?.Error(message);
+                Dispose(new IgniteClientException(message));
 
                 return;
             }
@@ -407,6 +554,55 @@ namespace Apache.Ignite.Internal
                 var resultBuffer = response.Slice((int)reader.Consumed);
 
                 taskCompletionSource.SetResult(resultBuffer);
+            }
+        }
+
+        /// <summary>
+        /// Sends heartbeat message.
+        /// </summary>
+        [SuppressMessage(
+            "Microsoft.Design",
+            "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Any heartbeat exception should cause this instance to be disposed with an error.")]
+        private async Task SendHeartbeatAsync()
+        {
+            try
+            {
+                await DoOutInOpAsync(ClientOp.Heartbeat).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Dispose(e);
+            }
+        }
+
+        /// <summary>
+        /// Disposes this socket and completes active requests with the specified exception.
+        /// </summary>
+        /// <param name="ex">Exception that caused this socket to close. Null when socket is closed by the user.</param>
+        private void Dispose(Exception? ex)
+        {
+            if (_disposeTokenSource.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _heartbeatTimer.Dispose();
+            _disposeTokenSource.Cancel();
+            _exception = ex;
+            _stream.Dispose();
+
+            ex ??= new ObjectDisposedException("Connection closed.");
+
+            while (!_requests.IsEmpty)
+            {
+                foreach (var reqId in _requests.Keys.ToArray())
+                {
+                    if (_requests.TryRemove(reqId, out var req) && req != null)
+                    {
+                        req.TrySetException(ex);
+                    }
+                }
             }
         }
     }

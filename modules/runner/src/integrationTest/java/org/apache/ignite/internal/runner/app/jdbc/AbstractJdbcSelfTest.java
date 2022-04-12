@@ -31,22 +31,29 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Abstract jdbc self test.
  */
-public class AbstractJdbcSelfTest {
+@ExtendWith(WorkDirectoryExtension.class)
+public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
     /** URL. */
     protected static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
+
+    /** Work directory. */
+    @WorkDirectory
+    private static Path WORK_DIR;
 
     /** Cluster nodes. */
     protected static final List<Ignite> clusterNodes = new ArrayList<>();
@@ -57,21 +64,18 @@ public class AbstractJdbcSelfTest {
     /** Statement. */
     protected Statement stmt;
 
-    /** Logger. */
-    protected IgniteLogger log;
-
     /**
      * Creates a cluster of three nodes.
      *
-     * @param temp Temporal directory.
+     * @param testInfo Test info.
      */
     @BeforeAll
-    public static void beforeAll(@TempDir Path temp, TestInfo testInfo) throws SQLException {
+    public static void beforeAll(TestInfo testInfo) throws SQLException {
         String nodeName = testNodeName(testInfo, 47500);
 
         String configStr = "node.metastorageNodes: [ \"" + nodeName + "\" ]";
 
-        clusterNodes.add(IgnitionManager.start(nodeName, configStr, temp.resolve(nodeName)));
+        clusterNodes.add(IgnitionManager.start(nodeName, configStr, WORK_DIR.resolve(nodeName)));
 
         conn = DriverManager.getConnection(URL);
 
@@ -97,7 +101,9 @@ public class AbstractJdbcSelfTest {
     }
 
     @BeforeEach
-    protected void beforeTest() throws Exception {
+    protected void beforeTest(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, WORK_DIR);
+
         stmt = conn.createStatement();
 
         assert stmt != null;
@@ -105,29 +111,14 @@ public class AbstractJdbcSelfTest {
     }
 
     @AfterEach
-    protected void afterTest() throws Exception {
+    protected void afterTest(TestInfo testInfo) throws Exception {
         if (stmt != null) {
             stmt.close();
 
             assert stmt.isClosed();
         }
-    }
 
-    /**
-     * Constructor.
-     */
-    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
-    protected AbstractJdbcSelfTest() {
-        log = IgniteLogger.forClass(getClass());
-    }
-
-    /**
-     * Returns logger.
-     *
-     * @return Logger.
-     */
-    protected IgniteLogger logger() {
-        return log;
+        tearDownBase(testInfo);
     }
 
     /**

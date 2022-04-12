@@ -24,12 +24,12 @@ import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.ServiceLoader.Provider;
 import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
@@ -58,13 +58,8 @@ class CoreDistributedConfigurationModuleTest {
     }
 
     @Test
-    void hasDataStorageConfigurationRoot() {
-        assertThat(module.rootKeys(), hasItem(DataStorageConfiguration.KEY));
-    }
-
-    @Test
     void providesNoValidators() {
-        assertThat(module.validators(), is(anEmptyMap()));
+        assertThat(module.validators(), not(anEmptyMap()));
     }
 
     @Test

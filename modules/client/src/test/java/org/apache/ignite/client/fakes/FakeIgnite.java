@@ -17,14 +17,18 @@
 
 package org.apache.ignite.client.fakes;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * Fake Ignite.
@@ -65,7 +69,27 @@ public class FakeIgnite implements Ignite {
 
             @Override
             public CompletableFuture<Transaction> beginAsync() {
-                throw new UnsupportedOperationException();
+                return CompletableFuture.completedFuture(new Transaction() {
+                    @Override
+                    public void commit() throws TransactionException {
+
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> commitAsync() {
+                        return CompletableFuture.completedFuture(null);
+                    }
+
+                    @Override
+                    public void rollback() throws TransactionException {
+
+                    }
+
+                    @Override
+                    public CompletableFuture<Void> rollbackAsync() {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                });
             }
         };
     }
@@ -80,6 +104,24 @@ public class FakeIgnite implements Ignite {
     @Override
     public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteCompute compute() {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<ClusterNode> clusterNodes() {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

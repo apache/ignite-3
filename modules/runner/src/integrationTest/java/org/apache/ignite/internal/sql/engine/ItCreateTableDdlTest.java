@@ -17,15 +17,36 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
 public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
+    /**
+     * Clear tables after each test.
+     *
+     * @param testInfo Test information object.
+     * @throws Exception If failed.
+     */
+    @AfterEach
+    @Override
+    public void tearDown(TestInfo testInfo) throws Exception {
+        dropAllTables();
+
+        super.tearDownBase(testInfo);
+    }
+
     @Test
     public void pkWithNullableColumns() {
         assertThrows(
@@ -42,16 +63,76 @@ public class ItCreateTableDdlTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void undefinedColumnsInPrimaryKey() {
-        assertThrows(
-                IgniteException.class,
-                () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))"),
-                " Primary key constrain contains undefined columns: [cols=[ID0, ID2, ID1]]"
+        assertThat(
+                assertThrows(
+                        IgniteException.class,
+                        () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
+                ).getMessage(),
+                containsString("Primary key constrain contains undefined columns: [cols=[ID0, ID2, ID1]]")
         );
     }
 
+    /**
+     * Check invalid colocation columns configuration:
+     * - not PK columns;
+     * - duplicates colocation columns.
+     */
     @Test
-    public void dbg() {
-        sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID))");
+    public void invalidColocationColumns() {
+        assertThat(
+                assertThrows(
+                        IgniteException.class,
+                        () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID0, VAL)")
+                ).getMessage(),
+                containsString("Schema definition error: All colocation columns must be part of primary key")
+        );
+
+        assertThat(
+                assertThrows(
+                        IgniteException.class,
+                        () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE (ID1, ID0, ID1)")
+                ).getMessage(),
+                containsString("Schema definition error: Colocation columns must not be duplicated")
+        );
     }
 
+    /**
+     * Check implicit colocation columns configuration (defined by PK)..
+     */
+    @Test
+    public void implicitColocationColumns() {
+        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
+
+        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+
+        assertEquals(2, colocationColumns.length);
+        assertEquals("ID1", colocationColumns[0].name());
+        assertEquals("ID0", colocationColumns[1].name());
+    }
+
+    /**
+     * Check explicit colocation columns configuration.
+     */
+    @Test
+    public void explicitColocationColumns() {
+        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
+
+        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+
+        assertEquals(1, colocationColumns.length);
+        assertEquals("ID0", colocationColumns[0].name());
+    }
+
+    /**
+     * Check explicit colocation columns configuration.
+     */
+    @Test
+    public void explicitColocationColumnsCaseSensitive() {
+        sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
+
+        Column[] colocationColumns = ((TableImpl) table("PUBLIC.T0")).schemaView().schema().colocationColumns();
+
+        assertEquals(1, colocationColumns.length);
+        assertEquals("Id0", colocationColumns[0].name());
+    }
 }

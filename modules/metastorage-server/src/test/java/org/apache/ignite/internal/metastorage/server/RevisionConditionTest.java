@@ -73,7 +73,7 @@ public class RevisionConditionTest {
     }
 
     /**
-     * Tests that revision is greater than or equal to another one .
+     * Tests that revision is greater than or equal to another one.
      */
     @Test
     public void ge() {
@@ -98,7 +98,7 @@ public class RevisionConditionTest {
     }
 
     /**
-     * Tests that revision is less than or equal to another one .
+     * Tests that revision is less than or equal to another one.
      */
     @Test
     public void le() {

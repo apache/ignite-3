@@ -22,11 +22,8 @@ namespace Apache.Ignite.Internal.Proto
     /// </summary>
     internal enum ClientOp
     {
-        /** Create table. */
-        TableCreate = 1,
-
-        /** Drop table. */
-        TableDrop = 2,
+        /** Heartbeat. */
+        Heartbeat = 1,
 
         /** Get tables. */
         TablesGet = 3,
@@ -89,6 +86,12 @@ namespace Apache.Ignite.Internal.Proto
         TxCommit = 44,
 
         /** Rollback transaction. */
-        TxRollback = 45
+        TxRollback = 45,
+
+        /** Execute compute job. */
+        ComputeExecute = 47,
+
+        /** Get cluster nodes. */
+        ClusterGetNodes = 48
     }
 }

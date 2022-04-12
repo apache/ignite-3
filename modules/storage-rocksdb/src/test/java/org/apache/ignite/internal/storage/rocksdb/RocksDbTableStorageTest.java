@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -26,24 +26,28 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.configuration.schemas.store.DataRegionConfiguration;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionChange;
-import org.apache.ignite.configuration.schemas.store.RocksDbDataRegionConfigurationSchema;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -62,36 +66,42 @@ public class RocksDbTableStorageTest {
     @WorkDirectory
     private Path workDir;
 
-    private final StorageEngine engine = new RocksDbStorageEngine();
+    private StorageEngine engine;
 
     private TableStorage storage;
 
-    private DataRegion dataRegion;
-
     @BeforeEach
     public void setUp(
-            @InjectConfiguration(polymorphicExtensions = RocksDbDataRegionConfigurationSchema.class) DataRegionConfiguration dataRegionCfg,
-            @InjectConfiguration(polymorphicExtensions = HashIndexConfigurationSchema.class) TableConfiguration tableCfg
+            @InjectConfiguration RocksDbStorageEngineConfiguration rocksDbEngineConfig,
+            @InjectConfiguration(
+                    name = "table",
+                    polymorphicExtensions = {
+                            HashIndexConfigurationSchema.class,
+                            UnknownDataStorageConfigurationSchema.class,
+                            RocksDbDataStorageConfigurationSchema.class
+                    }
+            ) TableConfiguration tableCfg
     ) throws Exception {
-        CompletableFuture<Void> changeFuture = dataRegionCfg.change(cfg ->
-                cfg.convert(RocksDbDataRegionChange.class).changeSize(16 * 1024).changeWriteBufferSize(16 * 1024)
-        );
+        CompletableFuture<Void> changeDataStorageFuture = tableCfg.dataStorage().change(c -> c.convert(RocksDbDataStorageChange.class));
 
-        assertThat(changeFuture, willBe(nullValue(Void.class)));
+        assertThat(changeDataStorageFuture, willBe(nullValue(Void.class)));
 
-        changeFuture = tableCfg.change(cfg -> cfg.changePartitions(512));
+        assertThat(((RocksDbDataStorageView) tableCfg.dataStorage().value()).dataRegion(), equalTo(DEFAULT_DATA_REGION_NAME));
 
-        assertThat(changeFuture, willBe(nullValue(Void.class)));
+        CompletableFuture<Void> changeEngineFuture = rocksDbEngineConfig.defaultRegion()
+                .change(c -> c.changeSize(16 * 1024).changeWriteBufferSize(16 * 1024));
 
-        dataRegionCfg = fixConfiguration(dataRegionCfg);
+        assertThat(changeEngineFuture, willBe(nullValue(Void.class)));
 
-        dataRegion = engine.createDataRegion(dataRegionCfg);
+        changeEngineFuture = tableCfg.change(cfg -> cfg.changePartitions(512));
 
-        assertThat(dataRegion, is(instanceOf(RocksDbDataRegion.class)));
+        assertThat(changeEngineFuture, willBe(nullValue(Void.class)));
 
-        dataRegion.start();
+        engine = new RocksDbStorageEngine(rocksDbEngineConfig, workDir);
 
-        storage = engine.createTable(workDir, tableCfg, dataRegion);
+        engine.start();
+
+        storage = engine.createTable(tableCfg);
 
         assertThat(storage, is(instanceOf(RocksDbTableStorage.class)));
 
@@ -102,8 +112,7 @@ public class RocksDbTableStorageTest {
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 storage == null ? null : storage::stop,
-                dataRegion == null ? null : dataRegion::stop,
-                engine::stop
+                engine == null ? null : engine::stop
         );
     }
 
@@ -190,20 +199,107 @@ public class RocksDbTableStorageTest {
      */
     @Test
     void testRestart(
-            @InjectConfiguration(polymorphicExtensions = HashIndexConfigurationSchema.class) TableConfiguration tableCfg
-    ) {
+            @InjectConfiguration(
+                    name = "table",
+                    polymorphicExtensions = {HashIndexConfigurationSchema.class, RocksDbDataStorageConfigurationSchema.class}
+            ) TableConfiguration tableCfg
+    ) throws Exception {
         var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
 
         storage.getOrCreatePartition(0).write(testData);
 
         storage.stop();
 
-        storage = engine.createTable(workDir, tableCfg, dataRegion);
+        tableCfg.dataStorage().change(c -> c.convert(RocksDbDataStorageChange.class)).get(1, TimeUnit.SECONDS);
+
+        storage = engine.createTable(tableCfg);
 
         storage.start();
 
         assertThat(storage.getPartition(0), is(notNullValue()));
         assertThat(storage.getPartition(1), is(nullValue()));
         assertThat(storage.getPartition(0).read(testData), is(equalTo(testData)));
+    }
+
+    /**
+     * Tests that restoring a snapshot clears all previous data.
+     */
+    @Test
+    void testRestoreSnapshot() {
+        PartitionStorage partitionStorage = storage.getOrCreatePartition(0);
+
+        var testData1 = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+        var testData2 = new SimpleDataRow("baz".getBytes(StandardCharsets.UTF_8), "quux".getBytes(StandardCharsets.UTF_8));
+
+        Path snapshotDir = workDir.resolve("snapshot");
+
+        partitionStorage.write(testData1);
+
+        assertThat(partitionStorage.snapshot(snapshotDir), willBe(nullValue(Void.class)));
+
+        partitionStorage.write(testData2);
+
+        partitionStorage.restoreSnapshot(snapshotDir);
+
+        assertThat(partitionStorage.read(testData1), is(testData1));
+        assertThat(partitionStorage.read(testData2), is(nullValue()));
+    }
+
+    /**
+     * Tests that loading snapshots for one partition does not influence data in another.
+     */
+    @Test
+    void testSnapshotIndependence() {
+        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(0);
+        PartitionStorage partitionStorage2 = storage.getOrCreatePartition(1);
+
+        var testData1 = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+        var testData2 = new SimpleDataRow("baz".getBytes(StandardCharsets.UTF_8), "quux".getBytes(StandardCharsets.UTF_8));
+
+        partitionStorage1.writeAll(List.of(testData1, testData2));
+        partitionStorage2.writeAll(List.of(testData1, testData2));
+
+        // take a snapshot of the first partition
+        assertThat(partitionStorage1.snapshot(workDir.resolve("snapshot")), willBe(nullValue(Void.class)));
+
+        // remove all data from partitions
+        partitionStorage1.removeAll(List.of(testData1, testData2));
+        partitionStorage2.removeAll(List.of(testData1, testData2));
+
+        assertThat(partitionStorage1.readAll(List.of(testData1, testData2)), is(empty()));
+        assertThat(partitionStorage2.readAll(List.of(testData1, testData2)), is(empty()));
+
+        // restore a snapshot and check that only the first partition has data
+        partitionStorage1.restoreSnapshot(workDir.resolve("snapshot"));
+
+        assertThat(partitionStorage1.readAll(List.of(testData1, testData2)), containsInAnyOrder(testData1, testData2));
+        assertThat(partitionStorage2.readAll(List.of(testData1, testData2)), is(empty()));
+    }
+
+    /**
+     * Tests that loading snapshots for one partition does not influence data in another when overwriting existing keys.
+     */
+    @Test
+    void testSnapshotIndependenceOverwritesKeys() {
+        PartitionStorage partitionStorage1 = storage.getOrCreatePartition(0);
+        PartitionStorage partitionStorage2 = storage.getOrCreatePartition(1);
+
+        var testData = new SimpleDataRow("foo".getBytes(StandardCharsets.UTF_8), "bar".getBytes(StandardCharsets.UTF_8));
+
+        partitionStorage1.write(testData);
+        partitionStorage2.write(testData);
+
+        assertThat(partitionStorage2.snapshot(workDir.resolve("snapshot")), willBe(nullValue(Void.class)));
+
+        // key is intentionally the same as testData
+        var overwriteData = new SimpleDataRow(testData.keyBytes(), "new value".getBytes(StandardCharsets.UTF_8));
+
+        // test that snapshot restoration overrides existing keys
+        partitionStorage2.write(overwriteData);
+
+        partitionStorage2.restoreSnapshot(workDir.resolve("snapshot"));
+
+        assertThat(partitionStorage1.read(overwriteData), is(testData));
+        assertThat(partitionStorage2.read(overwriteData), is(testData));
     }
 }

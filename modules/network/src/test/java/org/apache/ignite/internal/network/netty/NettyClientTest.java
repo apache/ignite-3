@@ -168,7 +168,7 @@ public class NettyClientTest {
                 address,
                 null,
                 new MockClientHandshakeManager(channel),
-                (address1, message) -> {
+                (message) -> {
                 }
         );
 
@@ -190,7 +190,7 @@ public class NettyClientTest {
                 address,
                 null,
                 new MockClientHandshakeManager(future.channel()),
-                (address1, message) -> {
+                (message) -> {
                 }
         );
 

@@ -32,8 +32,11 @@ public interface IgniteClientConfiguration {
     /** Default port range. */
     int DFLT_PORT_RANGE = 100;
 
-    /** Default socket connect timeout. */
+    /** Default socket connect timeout, in milliseconds. */
     int DFLT_CONNECT_TIMEOUT = 5000;
+
+    /** Default heartbeat interval, in milliseconds. */
+    int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
     /** Default operation retry limit. */
     int DFLT_RETRY_LIMIT = 5;
@@ -61,11 +64,12 @@ public interface IgniteClientConfiguration {
     String[] addresses();
 
     /**
-     * Gets the retry limit.
+     * Gets the retry policy. When a request fails due to a connection error, and multiple server connections
+     * are available, Ignite will retry the request if the specified policy allows it.
      *
-     * @return Retry limit.
+     * @return Retry policy.
      */
-    int retryLimit();
+    @Nullable RetryPolicy retryPolicy();
 
     /**
      * Gets the socket connect timeout, in milliseconds.
@@ -102,4 +106,17 @@ public interface IgniteClientConfiguration {
      * @return Executor for async continuations.
      */
     @Nullable Executor asyncContinuationExecutor();
+
+    /**
+     * Gets the heartbeat message interval, in milliseconds. Default is <code>30_000</code>.
+     *
+     * <p>When server-side idle timeout is not zero, effective heartbeat
+     * interval is set to <code>min(heartbeatInterval, idleTimeout / 3)</code>.
+     *
+     * <p>When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
+     * to keep the connection alive and detect potential half-open state.
+     *
+     * @return Heartbeat interval.
+     */
+    public long heartbeatInterval();
 }

@@ -29,7 +29,7 @@ import java.util.Map;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
@@ -349,8 +350,11 @@ public class KeyValueBinaryViewOperationsTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
 
+        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
+        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
+
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager),
+                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager),
                 txManager);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));

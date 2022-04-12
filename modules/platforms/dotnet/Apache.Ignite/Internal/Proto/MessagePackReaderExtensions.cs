@@ -40,7 +40,7 @@ namespace Apache.Ignite.Internal.Proto
             switch (type)
             {
                 case ClientDataType.Int8:
-                    return reader.ReadByte();
+                    return reader.ReadSByte();
 
                 case ClientDataType.Int16:
                     return reader.ReadInt16();
@@ -66,6 +66,21 @@ namespace Apache.Ignite.Internal.Proto
                 default:
                     throw new IgniteClientException("Unsupported type: " + type);
             }
+        }
+
+        /// <summary>
+        /// Reads <see cref="ClientDataType"/> and value.
+        /// </summary>
+        /// <param name="reader">Reader.</param>
+        /// <returns>Value.</returns>
+        public static object? ReadObjectWithType(this ref MessagePackReader reader)
+        {
+            if (reader.TryReadNil())
+            {
+                return null;
+            }
+
+            return ReadObject(ref reader, (ClientDataType)reader.ReadInt32());
         }
 
         /// <summary>

@@ -48,10 +48,12 @@
         <module>modules/client</module>
         <module>modules/client-common</module>
         <module>modules/client-handler</module>
+        <module>modules/compute</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
         <module>modules/core</module>
+        <module>modules/jacoco-report</module>
         <module>modules/marshaller-common</module>
         <module>modules/metastorage</module>
         <module>modules/metastorage-client</module>
@@ -70,6 +72,7 @@
         <module>modules/schema</module>
         <module>modules/sql-engine</module>
         <module>modules/storage-api</module>
+        <module>modules/storage-page-memory</module>
         <module>modules/storage-rocksdb</module>
         <module>modules/table</module>
         <module>modules/transactions</module>
