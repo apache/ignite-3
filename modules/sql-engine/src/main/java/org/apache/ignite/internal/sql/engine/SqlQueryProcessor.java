@@ -29,6 +29,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCacheImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -79,6 +81,10 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final TableManager tableManager;
 
     private final Consumer<Consumer<Long>> registry;
+
+    private final DataStorageManager dataStorageManager;
+
+    private final TablesConfiguration tablesConfig;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -111,11 +117,15 @@ public class SqlQueryProcessor implements QueryProcessor {
     public SqlQueryProcessor(
             Consumer<Consumer<Long>> registry,
             ClusterService clusterSrvc,
-            TableManager tableManager
+            TableManager tableManager,
+            DataStorageManager dataStorageManager,
+            TablesConfiguration tablesConfig
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.dataStorageManager = dataStorageManager;
+        this.tablesConfig = tablesConfig;
     }
 
     /** {@inheritDoc} */
@@ -153,7 +163,9 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
                 exchangeService,
-                queryRegistry
+                queryRegistry,
+                dataStorageManager,
+                tablesConfig.defaultDataStorage()::value
         ));
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));

@@ -285,7 +285,9 @@ public class IgniteImpl implements Ignite {
         qryEngine = new SqlQueryProcessor(
                 registry,
                 clusterSvc,
-                distributedTblMgr
+                distributedTblMgr,
+                dataStorageMgr,
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
         );
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
