@@ -24,6 +24,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -93,10 +94,15 @@ public class FakeIgnite implements Ignite {
         };
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override public void setBaseline(Set<String> baselineNodes) {
+    /** {@inheritDoc} */
+    @Override
+    public IgniteSql sql() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
     }
 

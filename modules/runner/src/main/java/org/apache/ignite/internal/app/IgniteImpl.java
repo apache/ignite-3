@@ -82,6 +82,7 @@ import org.apache.ignite.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.scalecube.ScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesSerializationRegistryInitializer;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.NotNull;
@@ -454,6 +455,12 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteTransactions transactions() {
         return new IgniteTransactionsImpl(txManager);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IgniteSql sql() {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
