@@ -33,7 +33,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Table;
@@ -98,7 +97,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
         }
     }
 
-    private Ignite startNode(TestInfo testInfo) throws NodeStoppingException {
+    private Ignite startNode(TestInfo testInfo) {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));

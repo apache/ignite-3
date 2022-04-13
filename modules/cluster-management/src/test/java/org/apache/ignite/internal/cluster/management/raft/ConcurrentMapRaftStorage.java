@@ -140,6 +140,6 @@ public class ConcurrentMapRaftStorage implements RaftStorage {
 
     @Override
     public void close() throws Exception {
-        // no-op
+        isStarted = false;
     }
 }

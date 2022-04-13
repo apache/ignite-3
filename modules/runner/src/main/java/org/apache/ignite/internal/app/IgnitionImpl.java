@@ -136,19 +136,23 @@ public class IgnitionImpl implements Ignition {
     }
 
     @Override
-    public void init(String name, Collection<String> metaStorageNodeNames) throws NodeStoppingException {
+    public void init(String name, Collection<String> metaStorageNodeNames) {
         init(name, metaStorageNodeNames, List.of());
     }
 
     @Override
-    public void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
+    public void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
         IgniteImpl node = nodes.get(name);
 
         if (node == null) {
             throw new IgniteException("Node \"" + name + "\" does not exist");
         }
 
-        node.init(metaStorageNodeNames, cmgNodeNames);
+        try {
+            node.init(metaStorageNodeNames, cmgNodeNames);
+        } catch (NodeStoppingException e) {
+            throw new IgniteException("Node stop detected during init", e);
+        }
     }
 
     private static ClassLoader defaultServiceClassLoader() {

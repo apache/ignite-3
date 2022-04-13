@@ -19,6 +19,7 @@ package org.apache.ignite.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
@@ -44,7 +45,6 @@ import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,12 +70,14 @@ public class ItConfigCommandTest extends AbstractCliTest {
     private IgniteImpl node;
 
     @BeforeEach
-    void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws NodeStoppingException {
+    void setup(@WorkDirectory Path workDir, TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, 0);
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
 
         IgnitionManager.init(nodeName, List.of(nodeName));
+
+        assertThat(future, willCompleteSuccessfully());
 
         node = (IgniteImpl) future.join();
 

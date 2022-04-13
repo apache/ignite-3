@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -128,9 +127,10 @@ public class IgnitionManager {
      *
      * @param name name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
-     * @throws NodeStoppingException If node stopping intention was detected.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see Ignition#init(String, Collection)
      */
-    public static synchronized void init(String name, Collection<String> metaStorageNodeNames) throws NodeStoppingException {
+    public static synchronized void init(String name, Collection<String> metaStorageNodeNames) {
         if (ignition == null) {
             throw new IgniteException("Ignition service has not been started");
         }
@@ -144,11 +144,10 @@ public class IgnitionManager {
      * @param name name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames names of nodes that will host the CMG.
-     * @throws NodeStoppingException If node stopping intention was detected.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see Ignition#init(String, Collection, Collection)
      */
-    public static synchronized void init(
-            String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames
-    ) throws NodeStoppingException {
+    public static synchronized void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
         if (ignition == null) {
             throw new IgniteException("Ignition service has not been started");
         }

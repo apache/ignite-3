@@ -71,7 +71,7 @@ class ItDynamicTableCreationTest {
      * Before each.
      */
     @BeforeEach
-    void setUp(TestInfo testInfo, @WorkDirectory Path workDir) throws NodeStoppingException {
+    void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
         var futures = new ArrayList<CompletableFuture<Ignite>>();
 
         for (int port : PORTS) {

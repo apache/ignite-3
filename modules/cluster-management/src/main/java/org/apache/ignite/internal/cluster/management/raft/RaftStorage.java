@@ -88,7 +88,7 @@ public interface RaftStorage extends AutoCloseable {
     void restoreSnapshot(Path snapshotPath);
 
     /**
-     * Removes all data from the storage and closes it.
+     * Removes all data from the storage and frees all resources.
      */
     void destroy();
 }

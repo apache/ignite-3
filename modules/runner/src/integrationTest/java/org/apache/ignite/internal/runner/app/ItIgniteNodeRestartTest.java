@@ -176,8 +176,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param revisionCallback Callback on storage revision update.
      * @return List of started components.
      */
-    private List<IgniteComponent> startPartialNode(String name, @Language("HOCON") String cfgString, Consumer<Long> revisionCallback)
-            throws NodeStoppingException {
+    private List<IgniteComponent> startPartialNode(
+            String name,
+            @Language("HOCON") String cfgString,
+            @Nullable Consumer<Long> revisionCallback
+    ) throws NodeStoppingException {
         Path dir = workDir.resolve(name);
 
         List<IgniteComponent> res = new ArrayList<>();
@@ -446,11 +449,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
-            try {
-                IgnitionManager.init(nodeName, List.of(nodeName));
-            } catch (NodeStoppingException e) {
-                throw new IgniteInternalException(e);
-            }
+            IgnitionManager.init(nodeName, List.of(nodeName));
         }
 
         assertThat(future, willCompleteSuccessfully());

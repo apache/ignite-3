@@ -75,6 +75,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
             } else if (command instanceof NodeJoinCommand) {
                 // TODO: perform validation https://issues.apache.org/jira/browse/IGNITE-16717
                 //  this method must also remain idempotent, as it might be called multiple times on the same node
+                // TODO: node should be added only after receving the NodeJoinFinish command,
+                //  see https://issues.apache.org/jira/browse/IGNITE-16717
                 storage.putLogicalTopologyNode(((NodeJoinCommand) command).node());
             } else if (command instanceof NodeLeaveCommand) {
                 storage.removeLogicalTopologyNode(((NodeLeaveCommand) command).node());

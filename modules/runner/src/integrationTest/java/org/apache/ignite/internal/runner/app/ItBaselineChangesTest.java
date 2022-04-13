@@ -35,7 +35,6 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -69,7 +68,7 @@ public class ItBaselineChangesTest {
      * Before each.
      */
     @BeforeEach
-    void setUp(TestInfo testInfo) throws NodeStoppingException {
+    void setUp(TestInfo testInfo) {
         List<CompletableFuture<Ignite>> futures = IntStream.range(0, NUM_NODES)
                 .mapToObj(i -> startNodeAsync(testInfo, i))
                 .collect(toList());

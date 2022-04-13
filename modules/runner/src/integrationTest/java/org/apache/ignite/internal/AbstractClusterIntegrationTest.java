@@ -36,7 +36,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -77,7 +76,7 @@ public abstract class AbstractClusterIntegrationTest extends BaseIgniteAbstractT
      * @param testInfo Test information object.
      */
     @BeforeEach
-    void startNodes(TestInfo testInfo) throws NodeStoppingException {
+    void startNodes(TestInfo testInfo) {
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
 
         List<CompletableFuture<Ignite>> futures = IntStream.range(0, nodes())

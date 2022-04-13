@@ -344,6 +344,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private CompletableFuture<Void> onLeaderElected(CmgRaftService service, ClusterState state) {
         return updateLogicalTopology(service)
                 .thenRun(() -> {
+                    // TODO: remove listeners if leadership is lost, see https://issues.apache.org/jira/browse/IGNITE-16842
                     clusterService.topologyService().addEventHandler(cmgLeaderTopologyEventHandler(service));
 
                     sendClusterState(state, clusterService.topologyService().allMembers());
@@ -491,6 +492,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void sendClusterState(ClusterState clusterState, Collection<ClusterNode> nodes) {
+        // TODO: add validation information, see https://issues.apache.org/jira/browse/IGNITE-16717
         NetworkMessage msg = msgFactory.clusterStateMessage()
                 .cmgNodes(clusterState.cmgNodes())
                 .metaStorageNodes(clusterState.metaStorageNodes())

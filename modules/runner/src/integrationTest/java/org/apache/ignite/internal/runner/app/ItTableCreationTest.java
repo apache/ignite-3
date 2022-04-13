@@ -35,7 +35,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -69,7 +68,7 @@ class ItTableCreationTest {
      * Before each.
      */
     @BeforeEach
-    void setUp(TestInfo testInfo) throws NodeStoppingException {
+    void setUp(TestInfo testInfo) {
         String node0Name = testNodeName(testInfo, PORTS[0]);
         String node1Name = testNodeName(testInfo, PORTS[1]);
         String node2Name = testNodeName(testInfo, PORTS[2]);
@@ -216,7 +215,7 @@ class ItTableCreationTest {
      * Check table creation via bootstrap configuration with pre-configured table.
      */
     @Test
-    void testInitialSimpleTableConfiguration() throws NodeStoppingException {
+    void testInitialSimpleTableConfiguration() {
         assertEquals(3, clusterNodes.size());
 
         clusterNodes.forEach(Assertions::assertNotNull);

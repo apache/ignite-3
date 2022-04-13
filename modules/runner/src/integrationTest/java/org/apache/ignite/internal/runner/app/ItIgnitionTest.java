@@ -46,7 +46,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -136,7 +135,7 @@ class ItIgnitionTest {
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    void testNodesStartWithBootstrapConfiguration() throws NodeStoppingException {
+    void testNodesStartWithBootstrapConfiguration() {
         for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
             startNode(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
         }
@@ -150,7 +149,7 @@ class ItIgnitionTest {
      * Check that Ignition.start() with bootstrap configuration returns Ignite instance.
      */
     @Test
-    void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) throws NodeStoppingException {
+    void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
         startNode(testNodeName(testInfo, 47500), name -> IgnitionManager.start(name, null, workDir.resolve(name)));
 
         Assertions.assertNotNull(startedNodes.get(0));
@@ -193,7 +192,7 @@ class ItIgnitionTest {
         startNode(nodeName, name -> ign.start(nodeName, url, workDir.resolve(nodeName)));
     }
 
-    private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) throws NodeStoppingException {
+    private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
         startedNodeNames.add(nodeName);
 
         CompletableFuture<Ignite> future = starter.apply(nodeName);

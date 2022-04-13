@@ -51,9 +51,11 @@ public class RocksDbRaftStorage implements RaftStorage {
     private final Path dbPath;
 
     /** RockDB options. */
+    @Nullable
     private volatile Options options;
 
     /** RocksDb instance. */
+    @Nullable
     private volatile RocksDB db;
 
     private volatile RocksSnapshotManager snapshotManager;
@@ -175,5 +177,9 @@ public class RocksDbRaftStorage implements RaftStorage {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
         IgniteUtils.closeAll(options, db);
+
+        db = null;
+
+        options = null;
     }
 }
