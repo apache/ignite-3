@@ -555,7 +555,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     @Test
-    void supportsBigInteger() throws Exception {
+    void bigIntegerIsSupported() throws Exception {
         BigInteger result = marshalAndUnmarshalNonNull(BigInteger.TEN);
 
         assertThat(result, is(BigInteger.TEN));
