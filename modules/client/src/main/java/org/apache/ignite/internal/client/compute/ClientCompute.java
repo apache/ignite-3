@@ -129,7 +129,6 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <R> CompletableFuture<R> executeOnOneNode(ClusterNode node, String jobClassName, Object[] args) {
-        // TODO: Cluster awareness (IGNITE-16771): send to known node when possible.
         return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
             if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
                 w.out().packNil();
@@ -140,7 +139,7 @@ public class ClientCompute implements IgniteCompute {
 
             w.out().packString(jobClassName);
             w.out().packObjectArray(args);
-        }, r -> (R) r.in().unpackObjectWithType());
+        }, r -> (R) r.in().unpackObjectWithType(), node.name());
     }
 
     private ClusterNode randomNode(Set<ClusterNode> nodes) {
