@@ -21,6 +21,7 @@ import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.mockito.Mockito;
 import org.msgpack.core.MessagePack;
 
 /**
@@ -108,7 +110,6 @@ public class ItClientHandlerTest {
 
             packer.packBinaryHeader(0); // Features.
             packer.packMapHeader(0); // Extensions.
-            packer.packInt(0); // Idle timeout.
 
             out.write(packer.toByteArray());
             out.flush();
@@ -123,6 +124,10 @@ public class ItClientHandlerTest {
             final var patch = unpacker.unpackInt();
             final var errorCode = unpacker.unpackInt();
 
+            final var idleTimeout = unpacker.unpackLong();
+            final var nodeId = unpacker.unpackString();
+            final var nodeName = unpacker.unpackString();
+
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValue(featuresLen);
 
@@ -130,11 +135,14 @@ public class ItClientHandlerTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(8, len);
+            assertEquals(26, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
             assertEquals(0, errorCode);
+            assertEquals(0, idleTimeout);
+            assertEquals("id", nodeId);
+            assertEquals("consistent-id", nodeName);
         }
     }
 
@@ -207,8 +215,12 @@ public class ItClientHandlerTest {
 
         bootstrapFactory.start();
 
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+
         var module = new ClientHandlerModule(mock(QueryProcessor.class), mock(IgniteTables.class), mock(IgniteTransactions.class), registry,
-                mock(IgniteCompute.class), mock(ClusterService.class), bootstrapFactory);
+                mock(IgniteCompute.class), clusterService, bootstrapFactory);
 
         module.start();
 
