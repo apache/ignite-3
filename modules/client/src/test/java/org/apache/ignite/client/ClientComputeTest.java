@@ -78,7 +78,7 @@ public class ClientComputeTest {
 
     @Test
     public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
-        initServers(reqId -> reqId % 2 == 0);
+        initServers(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(server3)) {
             for (int i = 0; i < 100; i++) {
