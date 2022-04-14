@@ -47,6 +47,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -493,7 +494,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm
+                dsm,
+                new SchemaManager(revisionUpdater, tblsCfg)
         );
 
         tableManager.start();

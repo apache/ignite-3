@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.schema.event;
 
 import java.util.UUID;
 import org.apache.ignite.internal.manager.EventParameters;

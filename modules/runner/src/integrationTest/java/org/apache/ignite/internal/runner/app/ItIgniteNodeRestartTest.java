@@ -58,6 +58,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -236,14 +237,19 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 getPartitionsStorePath(dir)
         );
 
+        TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
+
+        SchemaManager schemaManager = new SchemaManager(registry, tblCfg);
+
         TableManager tableManager = new TableManager(
                 registry,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                tblCfg,
                 raftMgr,
                 Mockito.mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
-                dataStorageManager
+                dataStorageManager,
+                schemaManager
         );
 
         // Preparing the result map.

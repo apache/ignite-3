@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.schema.event;
 
 import org.apache.ignite.internal.manager.Event;
 
@@ -24,4 +24,3 @@ public enum SchemaEvent implements Event {
     /** This event is fired when a schema was created. */
     CREATE
 }
-

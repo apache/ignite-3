@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.schema;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,8 +33,8 @@ import org.apache.ignite.internal.configuration.schema.SchemaView;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
+import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -147,26 +147,26 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
     private SchemaRegistryImpl createSchemaRegistry(UUID tableId, String tableName, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(ver -> {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(new NodeStoppingException());
-                }
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
 
-                try {
-                    return tableSchema(tableId, tableName, ver);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }, () -> {
-                if (!busyLock.enterBusy()) {
-                    throw new IgniteException(new NodeStoppingException());
-                }
+            try {
+                return tableSchema(tableId, tableName, ver);
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }, () -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteException(new NodeStoppingException());
+            }
 
-                try {
-                    return latestSchemaVersion(tableId);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            },
+            try {
+                return latestSchemaVersion(tableId);
+            } finally {
+                busyLock.leaveBusy();
+            }
+        },
             initialSchema
         );
     }
@@ -278,22 +278,33 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         return SchemaSerializerImpl.INSTANCE.deserialize(schemaCfg.schema().value());
     }
 
-    public CompletableFuture<Map<UUID, SchemaRegistryImpl>> registries(long causalityToken) {
-        return registriesVv.get(causalityToken);
-    }
-
-    public CompletableFuture<SchemaRegistry> schemaRegistry(long causalityToken, UUID tableId) {
+    /**
+     * Get the schema registry for the given causality token and table id.
+     *
+     * @param causalityToken Causality token.
+     * @param tableId Id of a table which the required registry belongs to. If {@code null}, then this method will return
+     *                a future which will be completed with {@code null} result, but only when the schema manager will have
+     *                consistent state regarding given causality token.
+     * @return A future which will be completed when schema registries for given causality token are ready.
+     */
+    public CompletableFuture<SchemaRegistry> schemaRegistry(long causalityToken, @Nullable UUID tableId) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            return registriesVv.get(causalityToken).thenApply(regs -> regs.get(tableId));
+            return registriesVv.get(causalityToken).thenApply(regs -> tableId == null ? null : regs.get(tableId));
         } finally {
             busyLock.leaveBusy();
         }
     }
 
+    /**
+     * Drop schema registry for the given table id.
+     *
+     * @param causalityToken Causality token.
+     * @param tableId Table id.
+     */
     public void dropRegistry(long causalityToken, UUID tableId) {
         registriesVv.update(causalityToken, registries -> {
             registries = new HashMap<>(registries);
