@@ -157,6 +157,6 @@ public class TestServer implements AutoCloseable {
     }
 
     private ClusterNode getClusterNode(String name) {
-        return new ClusterNode(name+ "-id", name, new NetworkAddress("127.0.0.1", 8080));
+        return new ClusterNode(name + "-id", name, new NetworkAddress("127.0.0.1", 8080));
     }
 }
