@@ -27,17 +27,19 @@ import org.junit.jupiter.api.Test;
  * Compute tests.
  */
 public class ClientComputeTest {
-    private TestServer server;
+    private TestServer server1;
+    private TestServer server2;
+    private TestServer server3;
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(server);
+        IgniteUtils.closeAll(server1, server2, server3);
     }
 
     @Test
     public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() {
         // TODO: Multiple servers.
-        initServer(reqId -> false);
+        initServers(reqId -> false);
 
 
     }
@@ -54,12 +56,14 @@ public class ClientComputeTest {
 
     private IgniteClient getClient() {
         return IgniteClient.builder()
-                .addresses("127.0.0.1:" + server.port())
+                .addresses("127.0.0.1:" + server1.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:" + server3.port())
                 .reconnectThrottlingPeriod(0)
                 .build();
     }
 
-    private void initServer(Function<Integer, Boolean> shouldDropConnection) {
-        server = new TestServer(10900, 10, 0, new FakeIgnite(), shouldDropConnection);
+    private void initServers(Function<Integer, Boolean> shouldDropConnection) {
+        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), shouldDropConnection);
+        server2 = new TestServer(10910, 10, 0, new FakeIgnite(), shouldDropConnection);
+        server3 = new TestServer(10920, 10, 0, new FakeIgnite(), shouldDropConnection);
     }
 }
