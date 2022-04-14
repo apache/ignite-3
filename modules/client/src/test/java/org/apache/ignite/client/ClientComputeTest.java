@@ -48,7 +48,7 @@ public class ClientComputeTest {
     public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() throws Exception {
         initServers(reqId -> false);
 
-        try (var client = getClient()) {
+        try (var client = getClient(server1, server2, server3)) {
             IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000);
 
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
@@ -62,8 +62,18 @@ public class ClientComputeTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() {
+    public void testClientSendsComputeJobToDefaultNodeWhenDirectConnectionToTargetDoesNotExist() throws Exception {
+        initServers(reqId -> false);
 
+        try (var client = getClient(server3)) {
+            String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
+            String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
+            String res3 = client.compute().<String>execute(getClusterNodes("s3"), "job").join();
+
+            assertEquals("s3", res1);
+            assertEquals("s3", res2);
+            assertEquals("s3", res3);
+        }
     }
 
     @Test
@@ -71,9 +81,11 @@ public class ClientComputeTest {
 
     }
 
-    private IgniteClient getClient() {
+    private IgniteClient getClient(TestServer... servers) {
+        String[] addresses = Arrays.stream(servers).map(s -> "127.0.0.1:" + s.port()).toArray(String[]::new);
+
         return IgniteClient.builder()
-                .addresses("127.0.0.1:" + server1.port(), "127.0.0.1:" + server2.port(), "127.0.0.1:" + server3.port())
+                .addresses(addresses)
                 .reconnectThrottlingPeriod(0)
                 .build();
     }
