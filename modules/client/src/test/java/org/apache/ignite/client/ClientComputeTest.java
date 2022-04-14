@@ -17,9 +17,16 @@
 
 package org.apache.ignite.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.Arrays;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,11 +44,14 @@ public class ClientComputeTest {
     }
 
     @Test
-    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() {
-        // TODO: Multiple servers.
+    public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() throws Exception {
         initServers(reqId -> false);
 
+        try (var client = getClient()) {
+            String res = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
 
+            assertEquals("x", res);
+        }
     }
 
     @Test
@@ -62,8 +72,14 @@ public class ClientComputeTest {
     }
 
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), shouldDropConnection);
-        server2 = new TestServer(10910, 10, 0, new FakeIgnite(), shouldDropConnection);
-        server3 = new TestServer(10920, 10, 0, new FakeIgnite(), shouldDropConnection);
+        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), shouldDropConnection, "s1");
+        server2 = new TestServer(10910, 10, 0, new FakeIgnite(), shouldDropConnection, "s2");
+        server3 = new TestServer(10920, 10, 0, new FakeIgnite(), shouldDropConnection, "s3");
+    }
+
+    private Set<ClusterNode> getClusterNodes(String... names) {
+        return Arrays.stream(names)
+                .map(s -> new ClusterNode("id", s, new NetworkAddress("127.0.0.1", 8080)))
+                .collect(Collectors.toSet());
     }
 }

@@ -231,6 +231,6 @@ public class RetryPolicyTest {
         FakeIgnite ign = new FakeIgnite();
         ign.tables().createTable("t", c -> {});
 
-        server = new TestServer(10900, 10, 0, ign, shouldDropConnection);
+        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null);
     }
 }

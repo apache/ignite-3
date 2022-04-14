@@ -64,7 +64,7 @@ public class TestServer implements AutoCloseable {
             long idleTimeout,
             Ignite ignite
     ) {
-        this(port, portRange, idleTimeout, ignite, null);
+        this(port, portRange, idleTimeout, ignite, null, null);
     }
 
     /**
@@ -80,7 +80,8 @@ public class TestServer implements AutoCloseable {
             int portRange,
             long idleTimeout,
             Ignite ignite,
-            Function<Integer, Boolean> shouldDropConnection
+            Function<Integer, Boolean> shouldDropConnection,
+            String nodeName
     ) {
         cfg = new ConfigurationRegistry(
                 List.of(ClientConnectorConfiguration.KEY, NetworkConfiguration.KEY),
@@ -101,8 +102,8 @@ public class TestServer implements AutoCloseable {
         bootstrapFactory.start();
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeName == null ? "id" : nodeName + "-id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName == null ? "consistent-id" : nodeName);
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection)
