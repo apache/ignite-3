@@ -59,7 +59,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.manager.EventParameters;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.raft.Loza;
@@ -192,12 +191,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         clusterNodeResolver = topologyService::getByAddress;
 
         tablesByIdVv = new VersionedValue<>(
-            (vv, token) -> {
+                (vv, token) -> {
                     schemaManager.schemaRegistry(token, null).join();
                 },
-            registry,
-            VersionedValue.DEFAULT_HISTORY_SIZE,
-            HashMap::new
+                registry,
+                VersionedValue.DEFAULT_HISTORY_SIZE,
+                HashMap::new
         );
     }
 
@@ -231,7 +230,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             /** {@inheritDoc} */
             @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
                 tablesByIdVv.get(parameters.causalityToken()).thenAccept(tablesById -> {
-                    fireEvent(TableEvent.ALTER, new TableEventParameters(parameters.causalityToken(), tablesById.get(parameters.tableId())), null);
+                    fireEvent(
+                        TableEvent.ALTER,
+                        new TableEventParameters(parameters.causalityToken(), tablesById.get(parameters.tableId())), null
+                    );
                 });
 
                 return false;
