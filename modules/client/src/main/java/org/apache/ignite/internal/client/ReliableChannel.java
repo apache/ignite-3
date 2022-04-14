@@ -26,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -130,12 +129,15 @@ public final class ReliableChannel implements AutoCloseable {
      * @param payloadWriter Payload writer.
      * @param payloadReader Payload reader.
      * @param <T>           response type.
+     * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
+     *                          it will be used to handle the request; otherwise, default connection will be used.
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(
             int opCode,
             PayloadWriter payloadWriter,
-            PayloadReader<T> payloadReader
+            PayloadReader<T> payloadReader,
+            String preferredNodeName
     ) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
@@ -143,6 +145,23 @@ public final class ReliableChannel implements AutoCloseable {
         handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, 0);
 
         return fut;
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCode        Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T>           response type.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            int opCode,
+            PayloadWriter payloadWriter,
+            PayloadReader<T> payloadReader
+    ) {
+        return serviceAsync(opCode, payloadWriter, payloadReader, null);
     }
 
     /**
@@ -154,7 +173,7 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader);
+        return serviceAsync(opCode, null, payloadReader, null);
     }
 
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
@@ -230,17 +249,6 @@ public final class ReliableChannel implements AutoCloseable {
 
                     return null;
                 });
-    }
-
-    /**
-     * Sends request with payload and handles response asynchronously.
-     *
-     * @param opCode        Operation code.
-     * @param payloadWriter Payload writer.
-     * @return Future for the operation.
-     */
-    public CompletableFuture<Void> requestAsync(int opCode, PayloadWriter payloadWriter) {
-        return serviceAsync(opCode, payloadWriter, null);
     }
 
     /**
