@@ -690,6 +690,8 @@ public final class ReliableChannel implements AutoCloseable {
 
                     String newNodeId = ch.protocolContext().clusterNode().name();
 
+                    // There could be multiple holders map to the same serverNodeId if user provide the same
+                    // address multiple times in configuration.
                     nodeChannels.put(newNodeId, this);
 
                     if (serverNodeId != null && !serverNodeId.equals(newNodeId)) {

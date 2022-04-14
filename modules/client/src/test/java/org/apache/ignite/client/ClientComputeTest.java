@@ -48,7 +48,8 @@ public class ClientComputeTest {
     public void testClientSendsComputeJobToTargetNodeWhenDirectConnectionExists() throws Exception {
         initServers(reqId -> false);
 
-        try (var client = getClient(server1, server2, server3)) {
+        // Provide same node multiple times to check this case as well.
+        try (var client = getClient(server1, server2, server3, server1, server2)) {
             IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000);
 
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
