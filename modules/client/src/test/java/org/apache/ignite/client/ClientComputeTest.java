@@ -77,8 +77,19 @@ public class ClientComputeTest {
     }
 
     @Test
-    public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() {
+    public void testClientRetriesComputeJobOnPrimaryAndDefaultNodes() throws Exception {
+        initServers(reqId -> reqId % 2 == 0);
 
+        try (var client = getClient(server3)) {
+            for (int i = 0; i < 100; i++) {
+                var nodeId = i % 3 + 1;
+                var nodeName = "s" + nodeId;
+
+                String res = client.compute().<String>execute(getClusterNodes(nodeName), "job").join();
+
+                assertEquals("s3", res);
+            }
+        }
     }
 
     private IgniteClient getClient(TestServer... servers) {
@@ -87,6 +98,7 @@ public class ClientComputeTest {
         return IgniteClient.builder()
                 .addresses(addresses)
                 .reconnectThrottlingPeriod(0)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(3))
                 .build();
     }
 
