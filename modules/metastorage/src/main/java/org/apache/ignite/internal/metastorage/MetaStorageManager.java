@@ -247,6 +247,8 @@ public class MetaStorageManager implements IgniteComponent {
 
         Optional<IgniteUuid> watchId;
 
+        IgniteInternalException ex = null;
+
         try {
             // If deployed future is not done, that means that stop was called in the middle of
             // IgniteImpl.start, before deployWatches, or before init phase.
@@ -262,13 +264,13 @@ public class MetaStorageManager implements IgniteComponent {
                 } catch (InterruptedException | ExecutionException e) {
                     LOG.error("Failed to get meta storage service.");
 
-                    throw new IgniteInternalException(e);
+                    ex = new IgniteInternalException(e);
                 }
             }
         } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to get watch.");
 
-            throw new IgniteInternalException(e);
+            ex = new IgniteInternalException(e);
         }
 
         try {
@@ -280,7 +282,7 @@ public class MetaStorageManager implements IgniteComponent {
         } catch (InterruptedException | ExecutionException e) {
             LOG.error("Failed to get meta storage raft group service.");
 
-            throw new IgniteInternalException(e);
+            ex = new IgniteInternalException(e);
         } catch (NodeStoppingException e) {
             throw new AssertionError("Loza was stopped before Meta Storage manager", e);
         }
@@ -288,7 +290,11 @@ public class MetaStorageManager implements IgniteComponent {
         try {
             storage.close();
         } catch (Exception e) {
-            throw new IgniteInternalException("Exception when stopping the storage", e);
+            ex = new IgniteInternalException("Exception when stopping the storage", e);
+        }
+
+        if (ex != null) {
+            throw ex;
         }
     }
 
