@@ -41,9 +41,9 @@ import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
 
 /**
- * {@link RaftStorage} implementation based on RocksDB.
+ * {@link ClusterStateStorage} implementation based on RocksDB.
  */
-public class RocksDbRaftStorage implements RaftStorage {
+public class RocksDbClusterStateStorage implements ClusterStateStorage {
     /** Thread-pool for snapshot operations execution. */
     private final ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2);
 
@@ -62,7 +62,7 @@ public class RocksDbRaftStorage implements RaftStorage {
 
     private final Object snapshotRestoreLock = new Object();
 
-    public RocksDbRaftStorage(Path dbPath) {
+    public RocksDbClusterStateStorage(Path dbPath) {
         this.dbPath = dbPath;
     }
 

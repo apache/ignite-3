@@ -51,7 +51,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
-import org.apache.ignite.internal.cluster.management.raft.RocksDbRaftStorage;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -223,7 +223,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterSvc,
                 raftMgr,
                 mock(RestComponent.class),
-                new RocksDbRaftStorage(dir.resolve("cmg"))
+                new RocksDbClusterStateStorage(dir.resolve("cmg"))
         );
 
         var metaStorageMgr = new MetaStorageManager(

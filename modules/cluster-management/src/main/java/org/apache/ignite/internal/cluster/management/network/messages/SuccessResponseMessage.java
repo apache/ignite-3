@@ -21,8 +21,8 @@ import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Successful response for receiving a {@link ClusterStateMessage}.
+ * A successful response.
  */
-@Transferable(CmgMessageGroup.CLUSTER_STATE_RECEIVED)
-public interface ClusterStateReceivedMessage extends NetworkMessage {
+@Transferable(CmgMessageGroup.SUCCESS_RESPONSE)
+public interface SuccessResponseMessage extends NetworkMessage {
 }

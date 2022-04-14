@@ -37,9 +37,9 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMes
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.raft.ClusterState;
+import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftGroupListener;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
-import org.apache.ignite.internal.cluster.management.raft.RaftStorage;
 import org.apache.ignite.internal.cluster.management.rest.InitCommandHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -104,7 +104,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     private final RestComponent restComponent;
 
-    private final RaftStorage raftStorage;
+    private final ClusterStateStorage clusterStateStorage;
 
     /** Local state. */
     private final LocalStateStorage localStateStorage;
@@ -118,12 +118,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterService clusterService,
             Loza raftManager,
             RestComponent restComponent,
-            RaftStorage raftStorage
+            ClusterStateStorage clusterStateStorage
     ) {
         this.clusterService = clusterService;
         this.raftManager = raftManager;
         this.restComponent = restComponent;
-        this.raftStorage = raftStorage;
+        this.clusterStateStorage = clusterStateStorage;
         this.localStateStorage = new LocalStateStorage(vault);
         this.clusterInitializer = new ClusterInitializer(clusterService);
     }
@@ -353,8 +353,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     /**
      * This method must be executed upon CMG leader election in order to regain logical topology consistency in case some nodes left the
-     * physical topology during the election. New node will be added automatically after the new leader broadcasts the current cluster
-     * state.
+     * physical topology during the election. Newly appeared nodes will be added automatically after the new leader broadcasts the current
+     * cluster state.
      */
     private CompletableFuture<Void> updateLogicalTopology(CmgRaftService service) {
         return service.logicalTopology()
@@ -366,7 +366,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                     for (ClusterNode node : logicalTopology) {
                         if (!physicalTopologyIds.contains(node.id())) {
-                            scheduleRemoveFromLogicalTopology(service, node);
+                            service.removeFromCluster(node);
                         }
                     }
                 });
@@ -392,8 +392,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
                 raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME);
 
-                if (raftStorage.isStarted()) {
-                    raftStorage.destroy();
+                if (clusterStateStorage.isStarted()) {
+                    clusterStateStorage.destroy();
                 }
 
                 localStateStorage.clear().get();
@@ -407,7 +407,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * Handler for the {@link ClusterStateMessage}.
      */
     private void handleClusterState(ClusterStateMessage msg, NetworkAddress addr, long correlationId) {
-        clusterService.messagingService().respond(addr, msgFactory.clusterStateReceivedMessage().build(), correlationId);
+        clusterService.messagingService().respond(addr, msgFactory.successResponseMessage().build(), correlationId);
 
         var state = new ClusterState(msg.cmgNodes(), msg.metaStorageNodes());
 
@@ -449,9 +449,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         try {
             return raftManager
                     .prepareRaftGroup(CMG_RAFT_GROUP_NAME, nodes, () -> {
-                        raftStorage.start();
+                        clusterStateStorage.start();
 
-                        return new CmgRaftGroupListener(raftStorage);
+                        return new CmgRaftGroupListener(clusterStateStorage);
                     })
                     .thenApply(service -> new CmgRaftService(service, clusterService));
         } catch (NodeStoppingException e) {
@@ -538,7 +538,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.closeAll(
                 () -> raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME),
-                raftStorage
+                clusterStateStorage
         );
     }
 

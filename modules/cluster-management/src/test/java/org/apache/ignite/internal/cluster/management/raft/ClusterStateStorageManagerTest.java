@@ -41,8 +41,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link RaftStorageManager}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class RaftStorageManagerTest {
-    private final RaftStorage storage = new ConcurrentMapRaftStorage();
+public class ClusterStateStorageManagerTest {
+    private final ClusterStateStorage storage = new ConcurrentMapClusterStateStorage();
 
     private final RaftStorageManager storageManager = new RaftStorageManager(storage);
 

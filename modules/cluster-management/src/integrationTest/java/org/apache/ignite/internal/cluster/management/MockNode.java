@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import org.apache.ignite.internal.cluster.management.raft.RocksDbRaftStorage;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -77,7 +77,7 @@ class MockNode {
                 clusterService,
                 raftManager,
                 mock(RestComponent.class),
-                new RocksDbRaftStorage(workDir.resolve("cmg"))
+                new RocksDbClusterStateStorage(workDir.resolve("cmg"))
         );
 
         components.add(vaultManager);

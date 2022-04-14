@@ -40,16 +40,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Base class for testing {@link RaftStorage} implementations.
+ * Base class for testing {@link ClusterStateStorage} implementations.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractRaftStorageTest {
+public abstract class AbstractClusterStateStorageTest {
     @WorkDirectory
     protected Path workDir;
 
-    private RaftStorage storage;
+    private ClusterStateStorage storage;
 
-    abstract RaftStorage createStorage();
+    abstract ClusterStateStorage createStorage();
 
     @BeforeEach
     void setUp() {
@@ -66,7 +66,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests the {@link RaftStorage#get} and {@link RaftStorage#put} methods.
+     * Tests the {@link ClusterStateStorage#get} and {@link ClusterStateStorage#put} methods.
      */
     @Test
     void testGetAndPut() {
@@ -87,7 +87,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests that {@link RaftStorage#put} replaces previous values.
+     * Tests that {@link ClusterStateStorage#put} replaces previous values.
      */
     @Test
     void testPutReplace() {
@@ -107,7 +107,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests the {@link RaftStorage#remove} method.
+     * Tests the {@link ClusterStateStorage#remove} method.
      */
     @Test
     void testRemove() {
@@ -127,7 +127,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests that {@link RaftStorage#remove} works correctly if a value is missing.
+     * Tests that {@link ClusterStateStorage#remove} works correctly if a value is missing.
      */
     @Test
     void testRemoveNonExistent() {
@@ -139,7 +139,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests the {@link RaftStorage#getWithPrefix} method.
+     * Tests the {@link ClusterStateStorage#getWithPrefix} method.
      */
     @Test
     void testGetWithPrefix() throws Exception {
@@ -155,7 +155,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests the {@link RaftStorage#getWithPrefix} method (corner case, when keys are close together lexicographically).
+     * Tests the {@link ClusterStateStorage#getWithPrefix} method (corner case, when keys are close together lexicographically).
      */
     @Test
     void testGetWithPrefixBorder() throws Exception {
@@ -175,7 +175,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests that {@link RaftStorage#getWithPrefix} method works correctly over empty ranges.
+     * Tests that {@link ClusterStateStorage#getWithPrefix} method works correctly over empty ranges.
      */
     @Test
     void testGetWithPrefixEmpty() throws Exception {
@@ -190,7 +190,7 @@ public abstract class AbstractRaftStorageTest {
     }
 
     /**
-     * Tests the {@link RaftStorage#destroy()} method.
+     * Tests the {@link ClusterStateStorage#destroy()} method.
      */
     @Test
     void testDestroy() {

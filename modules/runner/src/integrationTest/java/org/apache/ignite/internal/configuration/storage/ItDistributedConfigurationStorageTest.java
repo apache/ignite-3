@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapRaftStorage;
+import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -91,7 +91,7 @@ public class ItDistributedConfigurationStorageTest {
                     clusterService,
                     raftManager,
                     mock(RestComponent.class),
-                    new ConcurrentMapRaftStorage()
+                    new ConcurrentMapClusterStateStorage()
             );
 
             metaStorageManager = new MetaStorageManager(

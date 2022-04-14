@@ -31,7 +31,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A wrapper around a {@link RaftStorage} which provides convenient methods.
+ * A wrapper around a {@link ClusterStateStorage} which provides convenient methods.
  */
 class RaftStorageManager {
     /**
@@ -44,9 +44,9 @@ class RaftStorageManager {
      */
     private static final byte[] LOGICAL_TOPOLOGY_PREFIX = "logical_".getBytes(StandardCharsets.UTF_8);
 
-    private final RaftStorage storage;
+    private final ClusterStateStorage storage;
 
-    RaftStorageManager(RaftStorage storage) {
+    RaftStorageManager(ClusterStateStorage storage) {
         this.storage = storage;
     }
 

@@ -50,7 +50,7 @@ public class CmgMessageGroup {
     public static final short CANCEL_INIT = 5;
 
     /**
-     * Message type for {@link ClusterStateReceivedMessage}.
+     * Message type for {@link SuccessResponseMessage}.
      */
-    public static final short CLUSTER_STATE_RECEIVED = 6;
+    public static final short SUCCESS_RESPONSE = 6;
 }

@@ -39,7 +39,7 @@ import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
-import org.apache.ignite.internal.cluster.management.raft.RocksDbRaftStorage;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -239,7 +239,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 raftMgr,
                 restComponent,
-                new RocksDbRaftStorage(workDir.resolve(CMG_DB_PATH))
+                new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
         );
 
         metaStorageMgr = new MetaStorageManager(
@@ -441,7 +441,7 @@ public class IgniteImpl implements Ignite {
      * After the completion of this method, the node is considered as validated.
      */
     private void waitForJoinPermission() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-15114
+        // TODO: implement, see https://issues.apache.org/jira/browse/IGNITE-16472
     }
 
     /**

@@ -44,7 +44,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final RaftStorageManager storage;
 
-    public CmgRaftGroupListener(RaftStorage storage) {
+    public CmgRaftGroupListener(ClusterStateStorage storage) {
         this.storage = new RaftStorageManager(storage);
     }
 

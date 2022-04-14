@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage for the CMG Raft service.
  */
-public interface RaftStorage extends AutoCloseable {
+public interface ClusterStateStorage extends AutoCloseable {
     /**
      * Starts the storage.
      */

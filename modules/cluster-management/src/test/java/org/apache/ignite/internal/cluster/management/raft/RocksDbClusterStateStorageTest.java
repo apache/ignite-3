@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Test class for {@link RocksDbRaftStorage}.
+ * Test class for {@link RocksDbClusterStateStorage}.
  */
-public class RocksDbRaftStorageTest extends AbstractRaftStorageTest {
+public class RocksDbClusterStateStorageTest extends AbstractClusterStateStorageTest {
     @Override
-    RaftStorage createStorage() {
-        return new RocksDbRaftStorage(workDir);
+    ClusterStateStorage createStorage() {
+        return new RocksDbClusterStateStorage(workDir);
     }
 }

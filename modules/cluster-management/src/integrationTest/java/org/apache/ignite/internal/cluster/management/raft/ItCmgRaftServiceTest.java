@@ -74,7 +74,7 @@ public class ItCmgRaftServiceTest {
         void afterNodeStart() throws Exception {
             assertTrue(waitForCondition(() -> clusterService.topologyService().allMembers().size() == cluster.size(), 1000));
 
-            var raftStorage = new ConcurrentMapRaftStorage();
+            var raftStorage = new ConcurrentMapClusterStateStorage();
 
             raftStorage.start();
 

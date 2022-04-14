@@ -39,7 +39,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapRaftStorage;
+import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -118,7 +118,7 @@ public class ItDistributedConfigurationPropertiesTest {
                     clusterService,
                     raftManager,
                     mock(RestComponent.class),
-                    new ConcurrentMapRaftStorage()
+                    new ConcurrentMapClusterStateStorage()
             );
 
             metaStorageManager = new MetaStorageManager(

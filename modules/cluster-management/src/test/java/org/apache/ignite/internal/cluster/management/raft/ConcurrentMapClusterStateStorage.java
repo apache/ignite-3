@@ -35,9 +35,9 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link RaftStorage} in-memory implementation based on a {@link ConcurrentHashMap}.
+ * {@link ClusterStateStorage} in-memory implementation based on a {@link ConcurrentHashMap}.
  */
-public class ConcurrentMapRaftStorage implements RaftStorage {
+public class ConcurrentMapClusterStateStorage implements ClusterStateStorage {
     private static final String SNAPSHOT_FILE = "snapshot.bin";
 
     private final Map<ByteArray, byte[]> map = new ConcurrentHashMap<>();
