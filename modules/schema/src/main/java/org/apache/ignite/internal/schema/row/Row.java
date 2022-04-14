@@ -74,6 +74,9 @@ public class Row implements BinaryRowEx, SchemaAware {
     /** Cached value slice byte buffer. */
     private final ByteBuffer valueSlice;
 
+    /** Cached colocation hash value. */
+    private int colocationHash;
+
     /**
      * Constructor.
      *
@@ -906,12 +909,18 @@ public class Row implements BinaryRowEx, SchemaAware {
     /** {@inheritDoc} */
     @Override
     public int colocationHash() {
-        HashCalculator hashCalc = new HashCalculator();
+        int h0 = colocationHash;
 
-        for (Column c : schema().colocationColumns()) {
-            ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type().spec());
+        if (h0 == 0) {
+            HashCalculator hashCalc = new HashCalculator();
+
+            for (Column c : schema().colocationColumns()) {
+                ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type().spec());
+            }
+
+            colocationHash = h0 = hashCalc.hash();
         }
 
-        return hashCalc.hash();
+        return h0;
     }
 }
