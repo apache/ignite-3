@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.ServiceLoader;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,12 +57,13 @@ public class IgnitionManager {
      *      {@code workDir} specified by the user.
      *
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      * @throws IgniteException If error occurs while reading node configuration.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static Ignite start(String nodeName, @Nullable String configStr, Path workDir) {
-        loadIgnitionService(Thread.currentThread().getContextClassLoader());
+    public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
+        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         if (configStr == null) {
             return ignition.start(nodeName, workDir);
@@ -81,11 +84,12 @@ public class IgnitionManager {
      * @param workDir  Work directory for the started node. Must not be {@code null}.
      * @param clsLdr   The class loader to be used to load provider-configuration files and provider classes, or {@code null} if the system
      *                 class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
-    public static Ignite start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
-        loadIgnitionService(clsLdr);
+    public static CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
+        Ignition ignition = loadIgnitionService(clsLdr);
 
         return ignition.start(nodeName, cfgPath, workDir, clsLdr);
     }
@@ -98,7 +102,7 @@ public class IgnitionManager {
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
     public static void stop(String name) {
-        loadIgnitionService(Thread.currentThread().getContextClassLoader());
+        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         ignition.stop(name);
     }
@@ -113,15 +117,50 @@ public class IgnitionManager {
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
     public static void stop(String name, @Nullable ClassLoader clsLdr) {
-        loadIgnitionService(clsLdr);
+        Ignition ignition = loadIgnitionService(clsLdr);
 
         ignition.stop(name);
     }
 
-    private static synchronized void loadIgnitionService(@Nullable ClassLoader clsLdr) {
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param name name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see Ignition#init(String, Collection)
+     */
+    public static synchronized void init(String name, Collection<String> metaStorageNodeNames) {
+        if (ignition == null) {
+            throw new IgniteException("Ignition service has not been started");
+        }
+
+        ignition.init(name, metaStorageNodeNames);
+    }
+
+    /**
+     * Initializes the cluster that this node is present in.
+     *
+     * @param name name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames names of nodes that will host the CMG.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see Ignition#init(String, Collection, Collection)
+     */
+    public static synchronized void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
+        if (ignition == null) {
+            throw new IgniteException("Ignition service has not been started");
+        }
+
+        ignition.init(name, metaStorageNodeNames, cmgNodeNames);
+    }
+
+    private static synchronized Ignition loadIgnitionService(@Nullable ClassLoader clsLdr) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
             ignition = ldr.iterator().next();
         }
+
+        return ignition;
     }
 }

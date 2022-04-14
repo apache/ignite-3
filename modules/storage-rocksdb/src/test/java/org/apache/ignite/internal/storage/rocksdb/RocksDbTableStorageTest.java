@@ -31,10 +31,10 @@ import static org.hamcrest.Matchers.empty;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -168,13 +168,9 @@ public class RocksDbTableStorageTest {
     }
 
     private static <T> List<T> toList(Cursor<T> cursor) throws Exception {
-        var list = new ArrayList<T>();
-
         try (cursor) {
-            cursor.forEach(list::add);
+            return cursor.stream().collect(Collectors.toList());
         }
-
-        return list;
     }
 
     /**

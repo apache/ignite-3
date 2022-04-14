@@ -18,7 +18,6 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -39,11 +38,6 @@ public class FakeCursor implements SqlCursor<List<?>> {
     @Override
     public void close() throws Exception {
 
-    }
-
-    @Override
-    public Iterator<List<?>> iterator() {
-        return null;
     }
 
     @Override

@@ -49,7 +49,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.CliService;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -64,7 +63,6 @@ import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -132,8 +130,7 @@ public class ItCliServiceTest {
         ClusterService clientSvc = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 TestUtils.INIT_PORT - 1,
-                new StaticNodeFinder(addressList),
-                new TestScaleCubeClusterServiceFactory()
+                new StaticNodeFinder(addressList)
         );
 
         clientSvc.start();

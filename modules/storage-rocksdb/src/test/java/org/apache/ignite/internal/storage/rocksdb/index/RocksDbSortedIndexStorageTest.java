@@ -267,16 +267,17 @@ public class RocksDbSortedIndexStorageTest {
         IndexRowPrefix first = entries.get(firstIndex).prefix(3);
         IndexRowPrefix last = entries.get(lastIndex).prefix(5);
 
-        List<byte[]> actual = cursorToList(indexStorage.range(first, last))
-                .stream()
-                .map(IndexRow::primaryKey)
-                .map(SearchRow::keyBytes)
-                .collect(toList());
+        try (Cursor<IndexRow> cursor = indexStorage.range(first, last)) {
+            List<byte[]> actual = cursor.stream()
+                    .map(IndexRow::primaryKey)
+                    .map(SearchRow::keyBytes)
+                    .collect(toList());
 
-        assertThat(actual, hasSize(lastIndex - firstIndex + 1));
+            assertThat(actual, hasSize(lastIndex - firstIndex + 1));
 
-        for (int i = firstIndex; i < actual.size(); ++i) {
-            assertThat(actual.get(i), is(equalTo(expected.get(i))));
+            for (int i = firstIndex; i < actual.size(); ++i) {
+                assertThat(actual.get(i), is(equalTo(expected.get(i))));
+            }
         }
     }
 
@@ -301,9 +302,9 @@ public class RocksDbSortedIndexStorageTest {
         indexStorage.put(entry1.row());
         indexStorage.put(entry2.row());
 
-        List<IndexRow> actual = cursorToList(indexStorage.range(entry2::columns, entry1::columns));
-
-        assertThat(actual, is(empty()));
+        try (Cursor<IndexRow> cursor = indexStorage.range(entry2::columns, entry1::columns)) {
+            assertThat(cursor.stream().collect(toList()), is(empty()));
+        }
     }
 
     /**
@@ -378,9 +379,9 @@ public class RocksDbSortedIndexStorageTest {
             entry1 = t;
         }
 
-        List<IndexRow> rows = cursorToList(storage.range(entry1::columns, entry2::columns));
-
-        assertThat(rows, contains(entry1.row(), entry2.row()));
+        try (Cursor<IndexRow> cursor = storage.range(entry1::columns, entry2::columns)) {
+            assertThat(cursor.stream().collect(toList()), contains(entry1.row(), entry2.row()));
+        }
     }
 
     private List<ColumnDefinition> shuffledRandomDefinitions() {
@@ -481,29 +482,18 @@ public class RocksDbSortedIndexStorageTest {
     }
 
     /**
-     * Extracts all data from a given cursor and closes it.
-     */
-    private static <T> List<T> cursorToList(Cursor<T> cursor) throws Exception {
-        try (cursor) {
-            var list = new ArrayList<T>();
-
-            cursor.forEachRemaining(list::add);
-
-            return list;
-        }
-    }
-
-    /**
      * Extracts a single value by a given key or {@code null} if it does not exist.
      */
     @Nullable
     private static IndexRow getSingle(SortedIndexStorage indexStorage, IndexRowWrapper entry) throws Exception {
         IndexRowPrefix fullPrefix = entry::columns;
 
-        List<IndexRow> values = cursorToList(indexStorage.range(fullPrefix, fullPrefix));
+        try (Cursor<IndexRow> cursor = indexStorage.range(fullPrefix, fullPrefix)) {
+            List<IndexRow> values = cursor.stream().collect(toList());
 
-        assertThat(values, anyOf(empty(), hasSize(1)));
+            assertThat(values, anyOf(empty(), hasSize(1)));
 
-        return values.isEmpty() ? null : values.get(0);
+            return values.isEmpty() ? null : values.get(0);
+        }
     }
 }

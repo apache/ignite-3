@@ -21,6 +21,9 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -38,13 +41,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -94,37 +94,43 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     );
 
     /** Cluster nodes. */
-    private List<Ignite> clusterNodes;
+    private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /**
      * Before each.
      */
     @BeforeEach
     void beforeEach(TestInfo testInfo) throws Exception {
-        clusterNodes = IntStream.range(0, nodesBootstrapCfg.size())
-                .mapToObj(value -> {
-                    String nodeName = IgniteTestUtils.testNodeName(testInfo, value);
+        List<CompletableFuture<Ignite>> futures = new ArrayList<>();
 
-                    return IgnitionManager.start(
-                            nodeName,
-                            nodesBootstrapCfg.get(value),
-                            // Avoid a long file path name (260 characters) for windows.
-                            workDir.resolve(Integer.toString(value))
-                    );
-                })
-                .collect(Collectors.toList());
+        for (int i = 0; i < nodesBootstrapCfg.size(); i++) {
+            String nodeName = testNodeName(testInfo, i);
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+            futures.add(IgnitionManager.start(nodeName, nodesBootstrapCfg.get(i), workDir.resolve(nodeName)));
+        }
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        String metaStorageNodeName = testNodeName(testInfo, 0);
+
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
+        }
     }
 
     /**
      * After each.
      */
     @AfterEach
-    void afterEach() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(clusterNodes));
+    void afterEach(TestInfo testInfo) throws Exception {
+        List<AutoCloseable> closeables = IntStream.range(0, nodesBootstrapCfg.size())
+                .mapToObj(i -> testNodeName(testInfo, i))
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(Collectors.toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**

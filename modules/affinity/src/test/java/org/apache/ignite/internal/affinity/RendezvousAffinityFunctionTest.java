@@ -134,13 +134,9 @@ public class RendezvousAffinityFunctionTest {
 
         byte[] assignmentBytes = ByteUtils.toBytes(assignment);
 
-        assertNotNull(assignment);
-
         LOG.info("Assignment is serialized successfully [bytes={}]", assignmentBytes.length);
 
         List<List<ClusterNode>> deserializedAssignment = (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentBytes);
-
-        assertNotNull(deserializedAssignment);
 
         assertEquals(assignment, deserializedAssignment);
     }

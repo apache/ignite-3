@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
@@ -81,13 +81,18 @@ public class ItDistributedConfigurationStorageTest {
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     addr.port(),
-                    new StaticNodeFinder(List.of(addr)),
-                    new TestScaleCubeClusterServiceFactory()
+                    new StaticNodeFinder(List.of(addr))
             );
 
             raftManager = new Loza(clusterService, workDir);
 
-            cmgManager = new ClusterManagementGroupManager(clusterService, raftManager, mock(RestComponent.class));
+            cmgManager = new ClusterManagementGroupManager(
+                    vaultManager,
+                    clusterService,
+                    raftManager,
+                    mock(RestComponent.class),
+                    new ConcurrentMapClusterStateStorage()
+            );
 
             metaStorageManager = new MetaStorageManager(
                     vaultManager,

@@ -145,7 +145,7 @@ public class ScaleCubeClusterServiceFactory {
             @Override
             public void stop() {
                 // local member will be null, if cluster has not been started
-                if (cluster.member() == null) {
+                if (cluster == null || cluster.member() == null) {
                     return;
                 }
 

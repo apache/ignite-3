@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -95,15 +97,24 @@ public class PlatformTestNodeRunner {
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
-        List<Ignite> startedNodes = new ArrayList<>();
+        List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> {
+                    String nodeName = e.getKey();
+                    String config = e.getValue();
 
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
-        );
+                    return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
+                })
+                .collect(toList());
 
-        IgniteImpl metastorageNode = (IgniteImpl) startedNodes.get(0);
+        String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+
+        System.out.println("Initialization complete");
+
+        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+
+        System.out.println("Ignite nodes started");
 
         var keyCol = "key";
         var valCol = "val";
@@ -113,7 +124,7 @@ public class PlatformTestNodeRunner {
                 SchemaBuilders.column(valCol, ColumnType.string()).asNullable(true).build()
         ).withPrimaryKey(keyCol).build();
 
-        metastorageNode.tables().createTable(schTbl.canonicalName(), tblCh ->
+        startedNodes.get(0).tables().createTable(schTbl.canonicalName(), tblCh ->
                 SchemaConfigurationConverter.convert(schTbl, tblCh)
                         .changeReplicas(1)
                         .changePartitions(10)

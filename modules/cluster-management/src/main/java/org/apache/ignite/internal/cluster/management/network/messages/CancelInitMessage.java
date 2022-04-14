@@ -15,14 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Successful response for initializing a Raft group.
+ * Message signaling that the init process has failed and needs to be aborted.
  */
-@Transferable(CmgMessageGroup.INIT_COMPLETE)
-public interface InitCompleteMessage extends NetworkMessage {
+@Transferable(CmgMessageGroup.CANCEL_INIT)
+public interface CancelInitMessage extends NetworkMessage {
+    /**
+     * Textual representation of the cause of init failure.
+     */
+    String reason();
 }

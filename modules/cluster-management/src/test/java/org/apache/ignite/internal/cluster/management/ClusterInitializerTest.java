@@ -34,9 +34,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -146,7 +146,7 @@ public class ClusterInitializerTest {
 
         CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
 
-        InitException e = assertFutureThrows(InitException.class, initFuture);
+        InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
 
         assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
 

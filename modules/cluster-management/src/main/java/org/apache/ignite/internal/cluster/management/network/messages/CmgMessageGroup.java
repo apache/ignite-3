@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management.network.messages;
 
 import org.apache.ignite.network.annotations.MessageGroup;
 
@@ -48,4 +48,9 @@ public class CmgMessageGroup {
      * Message type for {@link CancelInitMessage}.
      */
     public static final short CANCEL_INIT = 5;
+
+    /**
+     * Message type for {@link SuccessResponseMessage}.
+     */
+    public static final short SUCCESS_RESPONSE = 6;
 }

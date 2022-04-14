@@ -17,23 +17,23 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
-import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -63,9 +63,6 @@ abstract class AbstractSchemaChangeTest {
 
     /** Nodes bootstrap configuration. */
     private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
-
-    /** Cluster nodes. */
-    private final List<Ignite> clusterNodes = new ArrayList<>();
 
     /** Work directory. */
     @WorkDirectory
@@ -122,7 +119,11 @@ abstract class AbstractSchemaChangeTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(clusterNodes));
+        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
+                .map(nodeName -> (AutoCloseable) () -> IgnitionManager.stop(nodeName))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -173,15 +174,17 @@ abstract class AbstractSchemaChangeTest {
      * Returns grid nodes.
      */
     protected List<Ignite> startGrid() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
 
-        return clusterNodes;
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -209,7 +212,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Adds column.
      *
-     * @param nodes       Cluster nodes.
+     * @param nodes Cluster nodes.
      * @param columnToAdd Column to add.
      */
     protected static void addColumn(List<Ignite> nodes, ColumnDefinition columnToAdd) {
@@ -221,7 +224,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Drops column.
      *
-     * @param nodes   Cluster nodes.
+     * @param nodes Cluster nodes.
      * @param colName Name of column to drop.
      */
     protected static void dropColumn(List<Ignite> nodes, String colName) {
@@ -232,7 +235,7 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Renames column.
      *
-     * @param nodes   Cluster nodes.
+     * @param nodes Cluster nodes.
      * @param oldName Old column name.
      * @param newName New column name.
      */
@@ -248,9 +251,9 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Changes column default.
      *
-     * @param nodes   Cluster nodes.
+     * @param nodes Cluster nodes.
      * @param colName Column name.
-     * @param defSup  Default value supplier.
+     * @param defSup Default value supplier.
      */
     protected static void changeDefault(List<Ignite> nodes, String colName, Supplier<Object> defSup) {
         nodes.get(0).tables().alterTable(TABLE,
@@ -267,8 +270,8 @@ abstract class AbstractSchemaChangeTest {
     /**
      * Ensure configuration validation failed.
      *
-     * @param grid       Grid.
-     * @param colName    Column to change.
+     * @param grid Grid.
+     * @param colName Column to change.
      * @param colChanger Column configuration changer.
      */
     private static void assertColumnChangeFailed(List<Ignite> grid, String colName, Consumer<ColumnChange> colChanger) {

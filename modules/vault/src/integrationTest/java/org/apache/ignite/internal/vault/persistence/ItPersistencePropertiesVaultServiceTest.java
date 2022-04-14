@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -24,12 +25,10 @@ import static org.hamcrest.Matchers.is;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -77,17 +76,12 @@ class ItPersistencePropertiesVaultServiceTest {
             vaultService.start();
 
             try (var cursor = vaultService.range(new ByteArray("key" + 1), new ByteArray("key" + 4))) {
-
-                var actualData = new ArrayList<VaultEntry>();
-
-                cursor.forEachRemaining(actualData::add);
-
                 List<VaultEntry> expectedData = data.entrySet().stream()
                         .map(e -> new VaultEntry(e.getKey(), e.getValue()))
                         .sorted(Comparator.comparing(VaultEntry::key))
-                        .collect(Collectors.toList());
+                        .collect(toList());
 
-                assertThat(actualData, is(expectedData));
+                assertThat(cursor.stream().collect(toList()), is(expectedData));
             }
         }
     }

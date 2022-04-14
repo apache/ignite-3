@@ -63,7 +63,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -3616,8 +3615,7 @@ public class ItNodeTest {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 peerId.getEndpoint().getPort(),
-                new StaticNodeFinder(addressList),
-                new TestScaleCubeClusterServiceFactory()
+                new StaticNodeFinder(addressList)
         );
 
         ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
@@ -3643,18 +3641,6 @@ public class ItNodeTest {
         services.add(service);
 
         return service;
-    }
-
-    /**
-     * Creates a non-started {@link ClusterService}.
-     */
-    private ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-       return ClusterServiceTestUtils.clusterService(
-                testInfo,
-                endpoint.getPort(),
-                nodeFinder,
-                new TestScaleCubeClusterServiceFactory()
-        );
     }
 
     private void sendTestTaskAndWait(Node node) throws InterruptedException {

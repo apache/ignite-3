@@ -19,6 +19,7 @@ package org.apache.ignite.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
@@ -34,8 +35,11 @@ import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -67,14 +71,22 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
     @BeforeEach
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) {
-        node = (IgniteImpl) IgnitionManager.start(testNodeName(testInfo, 0), null, workDir);
+        String nodeName = testNodeName(testInfo, 0);
+
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
+
+        IgnitionManager.init(nodeName, List.of(nodeName));
+
+        assertThat(future, willCompleteSuccessfully());
+
+        node = (IgniteImpl) future.join();
 
         ctx = ApplicationContext.run(Environment.TEST);
     }
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
-        node.stop();
+        IgnitionManager.stop(testNodeName(testInfo, 0));
 
         ctx.stop();
     }

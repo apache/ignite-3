@@ -17,24 +17,24 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -43,7 +43,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,14 +50,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Test for baseline changes.
  */
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-16471")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItBaselineChangesTest {
+    private static final int NUM_NODES = 3;
+
     /** Start network port for test nodes. */
     private static final int BASE_PORT = 3344;
 
-    /** Nodes bootstrap configuration. */
-    private final Map<String, String> initClusterNodes = new LinkedHashMap<>();
+    private final List<String> clusterNodeNames = new ArrayList<>();
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -70,10 +69,18 @@ public class ItBaselineChangesTest {
      */
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        for (int i = 0; i < 3; ++i) {
-            String nodeName = testNodeName(testInfo, BASE_PORT + i);
+        List<CompletableFuture<Ignite>> futures = IntStream.range(0, NUM_NODES)
+                .mapToObj(i -> startNodeAsync(testInfo, i))
+                .collect(toList());
 
-            initClusterNodes.put(nodeName, buildConfig(i));
+        String metaStorageNode = testNodeName(testInfo, BASE_PORT);
+
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
         }
     }
 
@@ -82,23 +89,19 @@ public class ItBaselineChangesTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(clusterNodes));
+        List<AutoCloseable> closeables = clusterNodeNames.stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
      * Check dynamic table creation.
      */
     @Test
-    void testBaselineExtending(TestInfo testInfo) throws NodeStoppingException {
-        initClusterNodes.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
-
-        assertEquals(3, clusterNodes.size());
-
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
-
-        metastorageNode.init(List.of(metastorageNode.name()));
+    void testBaselineExtending(TestInfo testInfo) {
+        assertEquals(NUM_NODES, clusterNodes.size());
 
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -118,22 +121,15 @@ public class ItBaselineChangesTest {
 
         recView1.insert(null, Tuple.create().set("key", 1L).set("val", 111));
 
-        var metaStoreNode = clusterNodes.get(0);
-
-        var node3Name = testNodeName(testInfo, nodePort(3));
-        var node4Name = testNodeName(testInfo, nodePort(4));
+        Ignite metaStoreNode = clusterNodes.get(0);
 
         // Start 2 new nodes after
-        var node3 = IgnitionManager.start(node3Name, buildConfig(3), workDir.resolve(node3Name));
+        Ignite node3 = startNode(testInfo);
 
-        clusterNodes.add(node3);
-
-        var node4 = IgnitionManager.start(node4Name, buildConfig(4), workDir.resolve(node4Name));
-
-        clusterNodes.add(node4);
+        Ignite node4 = startNode(testInfo);
 
         // Update baseline to nodes 1,4,5
-        metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3Name, node4Name));
+        metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3.name(), node4.name()));
 
         IgnitionManager.stop(clusterNodes.get(1).name());
         IgnitionManager.stop(clusterNodes.get(2).name());
@@ -148,7 +144,7 @@ public class ItBaselineChangesTest {
     private static String buildConfig(int nodeIdx) {
         return "{\n"
                 + "  network: {\n"
-                + "    port: " + nodePort(nodeIdx) + ",\n"
+                + "    port: " + (BASE_PORT + nodeIdx) + ",\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
@@ -156,7 +152,23 @@ public class ItBaselineChangesTest {
                 + "}";
     }
 
-    private static int nodePort(int nodeIdx) {
-        return BASE_PORT + nodeIdx;
+    private Ignite startNode(TestInfo testInfo) {
+        CompletableFuture<Ignite> future = startNodeAsync(testInfo, clusterNodes.size());
+
+        assertThat(future, willCompleteSuccessfully());
+
+        Ignite ignite = future.join();
+
+        clusterNodes.add(ignite);
+
+        return ignite;
+    }
+
+    private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {
+        String nodeName = testNodeName(testInfo, BASE_PORT + index);
+
+        clusterNodeNames.add(nodeName);
+
+        return IgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
     }
 }

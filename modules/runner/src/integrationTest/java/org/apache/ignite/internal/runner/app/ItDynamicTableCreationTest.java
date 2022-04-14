@@ -17,25 +17,26 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.table.ColumnChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
-import org.apache.ignite.internal.ItUtils;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -63,33 +64,38 @@ class ItDynamicTableCreationTest {
     /** Network ports of the test nodes. */
     private static final int[] PORTS = {3344, 3345, 3346};
 
-    /** Nodes bootstrap configuration. */
-    private final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>();
-
     private final List<Ignite> clusterNodes = new ArrayList<>();
-
-    @WorkDirectory
-    private Path workDir;
 
     /**
      * Before each.
      */
     @BeforeEach
-    void setUp(TestInfo testInfo) {
-        for (int i = 0; i < 3; ++i) {
-            String nodeName = testNodeName(testInfo, PORTS[i]);
+    void setUp(TestInfo testInfo, @WorkDirectory Path workDir) {
+        var futures = new ArrayList<CompletableFuture<Ignite>>();
 
-            nodesBootstrapCfg.put(
-                    nodeName,
-                    "{\n"
+        for (int port : PORTS) {
+            String nodeName = testNodeName(testInfo, port);
+
+            String config = "{\n"
                     + "  network: {\n"
-                    + "    port: " + PORTS[i] + ",\n"
+                    + "    port: " + port + ",\n"
                     + "    nodeFinder:{\n"
                     + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                     + "    }\n"
                     + "  }\n"
-                    + "}"
-            );
+                    + "}";
+
+            futures.add(IgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+        }
+
+        String metaStorageNode = testNodeName(testInfo, PORTS[0]);
+
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
         }
     }
 
@@ -97,34 +103,20 @@ class ItDynamicTableCreationTest {
      * After each.
      */
     @AfterEach
-    void tearDown() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(clusterNodes));
-    }
+    void tearDown(TestInfo testInfo) throws Exception {
+        List<AutoCloseable> closeables = Arrays.stream(PORTS)
+                .mapToObj(port -> testNodeName(testInfo, port))
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
 
-    /**
-     * Returns grid nodes.
-     */
-    protected List<Ignite> startGrid() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
-
-        assertEquals(3, clusterNodes.size());
-
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
-
-        metastorageNode.init(List.of(metastorageNode.name()));
-
-        return clusterNodes;
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
      * Check dynamic table creation.
      */
     @Test
-    void testDynamicSimpleTableCreation() throws Exception {
-        startGrid();
-
+    void testDynamicSimpleTableCreation() {
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -171,9 +163,7 @@ class ItDynamicTableCreationTest {
      * Check dynamic table creation.
      */
     @Test
-    void testDynamicTableCreation() throws Exception {
-        startGrid();
-
+    void testDynamicTableCreation() {
         // Create table on node 0.
         TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.UUID).build(),
@@ -248,37 +238,33 @@ class ItDynamicTableCreationTest {
      * Check unsupported column type change.
      */
     @Test
-    public void testChangeColumnType() throws Exception {
-        List<Ignite> grid = startGrid();
+    public void testChangeColumnType() {
+        assertTableCreationFailed(c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
 
-        assertTableCreationFailed(grid, c -> c.changeType(t -> t.changeType("UNKNOWN_TYPE")));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("STRING").changeLength(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
 
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("STRING").changeLength(-1)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("INT32").changePrecision(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("INT32").changeScale(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
 
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("INT32").changePrecision(-1)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("INT32").changeScale(-1)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("NUMBER").changePrecision(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("NUMBER").changeScale(-2)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
 
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("NUMBER").changePrecision(-1)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("NUMBER").changeScale(-2)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
-
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(-1)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(0)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changeScale(-2)));
-        assertTableCreationFailed(grid, colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(-1)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changePrecision(0)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(c -> c.changeType("DECIMAL").changeScale(-2)));
+        assertTableCreationFailed(colChanger -> colChanger.changeType(t -> t.changeType("BYTES").changeLength(-1)));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-15747")
     @Test
-    void testMissedPk() throws Exception {
-        List<Ignite> grid = startGrid();
-
+    void testMissedPk() {
         // Missed PK.
         assertThrows(ConfigurationValidationException.class, () -> {
             try {
-                grid.get(0).tables().createTable(
+                clusterNodes.get(0).tables().createTable(
                         "PUBLIC.tbl1",
                         tblChanger -> tblChanger
                                 .changeColumns(cols -> {
@@ -298,7 +284,7 @@ class ItDynamicTableCreationTest {
         //Missed affinity cols.
         assertThrows(ConfigurationValidationException.class, () -> {
             try {
-                grid.get(0).tables().createTable(
+                clusterNodes.get(0).tables().createTable(
                         "PUBLIC.tbl1",
                         tblChanger -> tblChanger
                                 .changeColumns(cols -> {
@@ -319,7 +305,7 @@ class ItDynamicTableCreationTest {
         //Missed key cols.
         assertThrows(ConfigurationValidationException.class, () -> {
             try {
-                grid.get(0).tables().createTable(
+                clusterNodes.get(0).tables().createTable(
                         "PUBLIC.tbl1",
                         tblChanger -> tblChanger
                                 .changeColumns(cols -> {
@@ -341,13 +327,12 @@ class ItDynamicTableCreationTest {
     /**
      * Ensure configuration validation failed.
      *
-     * @param grid       Grid.
      * @param colChanger Column configuration changer.
      */
-    private void assertTableCreationFailed(List<Ignite> grid, Consumer<ColumnChange> colChanger) {
+    private void assertTableCreationFailed(Consumer<ColumnChange> colChanger) {
         assertThrows(IgniteException.class, () -> {
             try {
-                grid.get(0).tables().createTable(
+                clusterNodes.get(0).tables().createTable(
                         "PUBLIC.tbl1",
                         tblChanger -> tblChanger
                                 .changeColumns(cols -> {

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -32,10 +34,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -62,6 +66,8 @@ class ItIgnitionTest {
 
     /** Collection of started nodes. */
     private final List<Ignite> startedNodes = new ArrayList<>();
+
+    private final List<String> startedNodeNames = new ArrayList<>();
 
     /** Path to the working directory. */
     @WorkDirectory
@@ -118,7 +124,11 @@ class ItIgnitionTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
+        List<AutoCloseable> closeables = startedNodeNames.stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(Collectors.toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -126,9 +136,9 @@ class ItIgnitionTest {
      */
     @Test
     void testNodesStartWithBootstrapConfiguration() {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startNode(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
+        }
 
         Assertions.assertEquals(3, startedNodes.size());
 
@@ -140,7 +150,7 @@ class ItIgnitionTest {
      */
     @Test
     void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
-        startedNodes.add(IgnitionManager.start(testNodeName(testInfo, 47500), null, workDir));
+        startNode(testNodeName(testInfo, 47500), name -> IgnitionManager.start(name, null, workDir.resolve(name)));
 
         Assertions.assertNotNull(startedNodes.get(0));
     }
@@ -151,10 +161,7 @@ class ItIgnitionTest {
     @Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
         try {
-            startedNodes.add(IgnitionManager.start("invalid-config-name",
-                    "{Invalid-Configuration}",
-                    workDir.resolve("invalid-config-name"))
-            );
+            startNode("invalid-config-name", name -> IgnitionManager.start(name, "{Invalid-Configuration}", workDir.resolve(name)));
 
             fail();
         } catch (Throwable t) {
@@ -182,7 +189,21 @@ class ItIgnitionTest {
 
         URL url = buildUrl("testURL.txt", cfg);
 
-        startedNodes.add(ign.start(nodeName, url, workDir.resolve(nodeName)));
+        startNode(nodeName, name -> ign.start(nodeName, url, workDir.resolve(nodeName)));
+    }
+
+    private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
+        startedNodeNames.add(nodeName);
+
+        CompletableFuture<Ignite> future = starter.apply(nodeName);
+
+        if (startedNodes.isEmpty()) {
+            IgnitionManager.init(nodeName, List.of(nodeName));
+        }
+
+        assertThat(future, willCompleteSuccessfully());
+
+        startedNodes.add(future.join());
     }
 
     /**

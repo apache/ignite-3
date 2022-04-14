@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorageListener;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -54,7 +55,6 @@ import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
@@ -108,13 +108,18 @@ public class ItDistributedConfigurationPropertiesTest {
             clusterService = ClusterServiceTestUtils.clusterService(
                     testInfo,
                     addr.port(),
-                    new StaticNodeFinder(memberAddrs),
-                    new TestScaleCubeClusterServiceFactory()
+                    new StaticNodeFinder(memberAddrs)
             );
 
             raftManager = new Loza(clusterService, workDir);
 
-            cmgManager = new ClusterManagementGroupManager(clusterService, raftManager, mock(RestComponent.class));
+            cmgManager = new ClusterManagementGroupManager(
+                    vaultManager,
+                    clusterService,
+                    raftManager,
+                    mock(RestComponent.class),
+                    new ConcurrentMapClusterStateStorage()
+            );
 
             metaStorageManager = new MetaStorageManager(
                     vaultManager,

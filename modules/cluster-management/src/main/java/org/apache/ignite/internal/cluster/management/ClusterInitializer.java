@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.internal.cluster.management.messages.CancelInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgInitMessage;
-import org.apache.ignite.internal.cluster.management.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.cluster.management.messages.InitCompleteMessage;
-import org.apache.ignite.internal.cluster.management.messages.InitErrorMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.network.messages.InitCompleteMessage;
+import org.apache.ignite.internal.cluster.management.network.messages.InitErrorMessage;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
@@ -51,10 +52,10 @@ public class ClusterInitializer {
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage. Cannot be empty.
-     * @param cmgNodeNames names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage. Cannot be empty.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group. Can be empty, in which case {@code
      * metaStorageNodeNames} will be used instead.
-     * @return future that resolves into leader node IDs if completed successfully.
+     * @return Future that represents the state of the operation.
      */
     public CompletableFuture<Void> initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
         try {
@@ -76,10 +77,16 @@ public class ClusterInitializer {
 
             return invokeMessage(cmgNodes, initMessage)
                     .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(e -> cancelInit(cmgNodes, e))
+                    .exceptionally(e -> {
+                        if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                            return failedFuture(e);
+                        } else {
+                            return cancelInit(cmgNodes, e);
+                        }
+                    })
                     .thenCompose(Function.identity());
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return failedFuture(e);
         }
     }
 
@@ -98,7 +105,7 @@ public class ClusterInitializer {
 
                     return null;
                 })
-                .thenCompose(v -> CompletableFuture.failedFuture(e));
+                .thenCompose(v -> failedFuture(e));
     }
 
     /**
@@ -114,15 +121,17 @@ public class ClusterInitializer {
                         .invoke(node, message, 10000)
                         .thenAccept(response -> {
                             if (response instanceof InitErrorMessage) {
-                                throw new InitException(String.format(
-                                        "Got error response from node \"%s\": %s", node.name(), ((InitErrorMessage) response).cause()
-                                ));
-                            }
+                                var errorResponse = (InitErrorMessage) response;
 
-                            if (!(response instanceof InitCompleteMessage)) {
-                                throw new InitException(String.format(
-                                        "Unexpected response from node \"%s\": %s", node.name(), response.getClass()
-                                ));
+                                throw new InternalInitException(
+                                        String.format("Got error response from node \"%s\": %s", node.name(), errorResponse.cause()),
+                                        errorResponse.shouldCancel()
+                                );
+                            } else if (!(response instanceof InitCompleteMessage)) {
+                                throw new InternalInitException(
+                                        String.format("Unexpected response from node \"%s\": %s", node.name(), response.getClass()),
+                                        true
+                                );
                             }
                         })
         );

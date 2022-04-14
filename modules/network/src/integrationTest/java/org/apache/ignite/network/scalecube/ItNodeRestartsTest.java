@@ -40,9 +40,6 @@ class ItNodeRestartsTest {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(ItNodeRestartsTest.class);
 
-    /** Network factory. */
-    private final TestScaleCubeClusterServiceFactory networkFactory = new TestScaleCubeClusterServiceFactory();
-
     /** Created {@link ClusterService}s. Needed for resource management. */
     private List<ClusterService> services;
 
@@ -108,12 +105,7 @@ class ItNodeRestartsTest {
      * @return Created Cluster Service.
      */
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
-        ClusterService clusterService = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                addr.port(),
-                nodeFinder,
-                networkFactory
-        );
+        ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
 
         clusterService.start();
 

@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,28 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Utilities methods for integration tests.
+ * Test class for {@link ConcurrentMapClusterStateStorage}.
  */
-public class ItUtils {
-    private ItUtils() {
-        // No-op;
-    }
-
-    /**
-     * Returns a reversed list of the specified list.
-     */
-    public static <T> List<T> reverse(List<T> lst) {
-        List<T> res = new ArrayList<>(lst);
-
-        Collections.reverse(res);
-
-        return res;
+public class ConcurrentMapClusterStateStorageTest extends AbstractClusterStateStorageTest {
+    @Override
+    ClusterStateStorage createStorage() {
+        return new ConcurrentMapClusterStateStorage();
     }
 }

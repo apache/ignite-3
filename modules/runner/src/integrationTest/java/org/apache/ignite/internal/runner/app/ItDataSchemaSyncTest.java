@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -109,13 +112,19 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @BeforeEach
     void beforeEach() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
+        }
     }
 
     /**
@@ -123,12 +132,16 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
+        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
-     * The test executes various operation over the lagging node.
-     * The operations can be executed only the node overtakes a distributed cluster state.
+     * The test executes various operation over the lagging node. The operations can be executed only the node overtakes a distributed
+     * cluster state.
      */
     @Test
     public void test() throws Exception {
@@ -188,7 +201,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             );
         }
 
-        CompletableFuture insertFut = IgniteTestUtils.runAsync(() ->
+        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() ->
                 table1.recordView().insert(
                         null,
                         Tuple.create()
@@ -198,11 +211,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                                 .set("valStr2", "str2_" + 0)
                 ));
 
-        CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture<?> getFut = IgniteTestUtils.runAsync(() -> {
             table1.recordView().get(null, Tuple.create().set("key", 10L));
         });
 
-        CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture<?> checkDefaultFut = IgniteTestUtils.runAsync(() -> {
             assertEquals("default",
                     table1.recordView().get(null, Tuple.create().set("key", 0L))
                             .value("valStr2"));
@@ -238,8 +251,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Creates a table with the passed name on the specific schema.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void createTable(Ignite node, String schemaName, String shortTableName) {

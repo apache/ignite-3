@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.messages;
+package org.apache.ignite.internal.cluster.management;
 
-import java.util.Collection;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Message for initializing the Cluster Management Group.
+ * Internal exception thrown when cluster initialization fails for some reason.
  */
-@Transferable(CmgMessageGroup.CMG_INIT)
-public interface CmgInitMessage extends NetworkMessage {
-    /**
-     * Consistent IDs of nodes that host the CMG.
-     */
-    Collection<String> cmgNodes();
+class InternalInitException extends IgniteInternalException {
+    private final boolean shouldCancelInit;
 
-    Collection<String> metaStorageNodes();
+    InternalInitException(String message, boolean shouldCancelInit) {
+        super(message);
+
+        this.shouldCancelInit = shouldCancelInit;
+    }
+
+    boolean shouldCancelInit() {
+        return shouldCancelInit;
+    }
 }

@@ -38,7 +38,8 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.cluster.management.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
@@ -109,6 +110,11 @@ public class IgniteImpl implements Ignite {
      * Path to the persistent storage used by the {@link MetaStorageManager} component.
      */
     private static final Path METASTORAGE_DB_PATH = Paths.get("metastorage");
+
+    /**
+     * Path to the persistent storage used by the {@link ClusterManagementGroupManager} component.
+     */
+    private static final Path CMG_DB_PATH = Paths.get("cmg");
 
     /**
      * Path for the partitions persistent storage.
@@ -184,7 +190,7 @@ public class IgniteImpl implements Ignite {
      * @param serviceProviderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
      *      {@code null} if the system class loader (or, failing that the bootstrap class loader) is to be used.
      */
-    IgniteImpl(String name, Path workDir, ClassLoader serviceProviderClassLoader) {
+    IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
         vaultMgr = createVault(workDir);
@@ -228,7 +234,13 @@ public class IgniteImpl implements Ignite {
 
         txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
-        cmgMgr = new ClusterManagementGroupManager(clusterSvc, raftMgr, restComponent);
+        cmgMgr = new ClusterManagementGroupManager(
+                vaultMgr,
+                clusterSvc,
+                raftMgr,
+                restComponent,
+                new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH))
+        );
 
         metaStorageMgr = new MetaStorageManager(
                 vaultMgr,
@@ -340,7 +352,7 @@ public class IgniteImpl implements Ignite {
      *      previously use default values. Please pay attention that previously specified properties are searched in the
      *      {@code workDir} specified by the user.
      */
-    public void start(@Language("HOCON") @Nullable String cfg) {
+    public CompletableFuture<Ignite> start(@Language("HOCON") @Nullable String cfg) {
         List<IgniteComponent> startedComponents = new ArrayList<>();
 
         try {
@@ -408,11 +420,11 @@ public class IgniteImpl implements Ignite {
             // Deploy all registered watches because all components are ready and have registered their listeners.
             metaStorageMgr.deployWatches();
 
-            configurationCatchUpFuture.join();
-
             if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
                 throw new NodeStoppingException();
             }
+
+            return configurationCatchUpFuture.thenApply(v -> this);
         } catch (Exception e) {
             String errMsg = "Unable to start node=[" + name + "].";
 
@@ -429,7 +441,7 @@ public class IgniteImpl implements Ignite {
      * After the completion of this method, the node is considered as validated.
      */
     private void waitForJoinPermission() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-15114
+        // TODO: implement, see https://issues.apache.org/jira/browse/IGNITE-16472
     }
 
     /**
@@ -561,16 +573,6 @@ public class IgniteImpl implements Ignite {
     // TODO: should be encapsulated in local properties, see https://issues.apache.org/jira/browse/IGNITE-15131
     public NetworkAddress clientAddress() {
         return NetworkAddress.from(clientHandlerModule.localAddress());
-    }
-
-    /**
-     * Initializes the cluster that this node is present in.
-     *
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    public void init(Collection<String> metaStorageNodeNames) throws NodeStoppingException {
-        init(metaStorageNodeNames, List.of());
     }
 
     /**

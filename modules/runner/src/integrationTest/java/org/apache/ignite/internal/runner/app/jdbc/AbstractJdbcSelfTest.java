@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.runner.app.jdbc;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
@@ -28,10 +30,9 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -49,6 +50,8 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
+    private static final int TEST_PORT = 47500;
+
     /** URL. */
     protected static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
 
@@ -71,14 +74,16 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      * @param testInfo Test info.
      */
     @BeforeAll
-    public static void beforeAll(TestInfo testInfo) throws Exception {
-        String nodeName = testNodeName(testInfo, 47500);
+    public static void beforeAllBase(TestInfo testInfo) throws Exception {
+        String nodeName = testNodeName(testInfo, TEST_PORT);
 
-        clusterNodes.add(IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName)));
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, WORK_DIR.resolve(nodeName));
 
-        IgniteImpl metastorageNode = (IgniteImpl) clusterNodes.get(0);
+        IgnitionManager.init(nodeName, List.of(nodeName));
 
-        metastorageNode.init(List.of(metastorageNode.name()));
+        assertThat(future, willCompleteSuccessfully());
+
+        clusterNodes.add(future.join());
 
         conn = DriverManager.getConnection(URL);
 
@@ -91,12 +96,10 @@ public class AbstractJdbcSelfTest extends BaseIgniteAbstractTest {
      * @throws Exception if failed.
      */
     @AfterAll
-    public static void afterAll() throws Exception {
+    public static void afterAllBase(TestInfo testInfo) throws Exception {
         IgniteUtils.closeAll(
-                Stream.concat(
-                        Stream.of(conn != null && !conn.isClosed() ? conn : (AutoCloseable) () -> {/* NO-OP */}),
-                        clusterNodes.stream()
-                )
+                conn != null && !conn.isClosed() ? conn : null,
+                () -> IgnitionManager.stop(testNodeName(testInfo, TEST_PORT))
         );
 
         conn = null;

@@ -35,7 +35,7 @@
     <properties>
         <root.directory>${pom.basedir}/..</root.directory>
 
-        <argLine>
+        <common.test.argLine>
             --add-opens java.base/java.lang=ALL-UNNAMED
             --add-opens java.base/java.lang.invoke=ALL-UNNAMED
             --add-opens java.base/java.lang.reflect=ALL-UNNAMED
@@ -45,7 +45,7 @@
             --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
             -Dio.netty.tryReflectionSetAccessible=true
             -Djava.util.logging.config.file=../config/java.util.logging.properties
-        </argLine>
+        </common.test.argLine>
     </properties>
 
     <dependencies>
