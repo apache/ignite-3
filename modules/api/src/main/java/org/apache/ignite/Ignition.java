@@ -124,7 +124,7 @@ public interface Ignition {
      * validating incoming nodes and maintaining the logical topology.
      *
      * @param name name of the node that the initialization request will be sent to.
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage <b>and</b> the CMG.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */

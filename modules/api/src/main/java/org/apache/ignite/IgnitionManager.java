@@ -63,7 +63,7 @@ public class IgnitionManager {
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable String configStr, Path workDir) {
-        loadIgnitionService(Thread.currentThread().getContextClassLoader());
+        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         if (configStr == null) {
             return ignition.start(nodeName, workDir);
@@ -89,7 +89,7 @@ public class IgnitionManager {
      */
     // TODO IGNITE-14580 Add exception handling logic to IgnitionProcessor.
     public static CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir, @Nullable ClassLoader clsLdr) {
-        loadIgnitionService(clsLdr);
+        Ignition ignition = loadIgnitionService(clsLdr);
 
         return ignition.start(nodeName, cfgPath, workDir, clsLdr);
     }
@@ -102,7 +102,7 @@ public class IgnitionManager {
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
     public static void stop(String name) {
-        loadIgnitionService(Thread.currentThread().getContextClassLoader());
+        Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
         ignition.stop(name);
     }
@@ -117,7 +117,7 @@ public class IgnitionManager {
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
     public static void stop(String name, @Nullable ClassLoader clsLdr) {
-        loadIgnitionService(clsLdr);
+        Ignition ignition = loadIgnitionService(clsLdr);
 
         ignition.stop(name);
     }
@@ -155,10 +155,12 @@ public class IgnitionManager {
         ignition.init(name, metaStorageNodeNames, cmgNodeNames);
     }
 
-    private static synchronized void loadIgnitionService(@Nullable ClassLoader clsLdr) {
+    private static synchronized Ignition loadIgnitionService(@Nullable ClassLoader clsLdr) {
         if (ignition == null) {
             ServiceLoader<Ignition> ldr = ServiceLoader.load(Ignition.class, clsLdr);
             ignition = ldr.iterator().next();
         }
+
+        return ignition;
     }
 }

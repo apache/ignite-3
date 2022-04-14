@@ -224,6 +224,7 @@ public class IgnitionImpl implements Ignition {
     }
 
     private static IgniteException handleStartException(String nodeName, Throwable e) {
+        readyForInitNodes.remove(nodeName);
         nodes.remove(nodeName);
 
         if (e instanceof IgniteException) {
