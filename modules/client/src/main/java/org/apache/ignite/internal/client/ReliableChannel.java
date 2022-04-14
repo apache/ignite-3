@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -63,7 +64,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final IgniteClientConfiguration clientCfg;
 
     /** Node channels. */
-    private final Map<UUID, ClientChannelHolder> nodeChannels = new ConcurrentHashMap<>();
+    private final Map<String, ClientChannelHolder> nodeChannels = new ConcurrentHashMap<>();
 
     /** Channels reinit was scheduled. */
     private final AtomicBoolean scheduledChannelsReinit = new AtomicBoolean();
@@ -453,8 +454,7 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Establishing connections to servers. If partition awareness feature is enabled connections are created for every configured server.
-     * Otherwise, only default channel is connected.
+     * Init channel holders, establish connection to default channel.
      */
     CompletableFuture<Void> channelsInitAsync() {
         // Do not establish connections if interrupted.
@@ -462,8 +462,11 @@ public final class ReliableChannel implements AutoCloseable {
             return CompletableFuture.completedFuture(null);
         }
 
-        // Apply no-op function. Establish default channel connection.
+        // Establish default channel connection.
         getDefaultChannel();
+
+        // Establish secondary connections in the background.
+        initAllChannelsAsync();
 
         // TODO: Async startup IGNITE-15357.
         return CompletableFuture.completedFuture(null);
@@ -531,6 +534,29 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
+     * Asynchronously try to establish a connection to all configured servers.
+     */
+    private void initAllChannelsAsync() {
+        ForkJoinPool.commonPool().submit(
+                () -> {
+                    List<ClientChannelHolder> holders = channels;
+
+                    for (ClientChannelHolder hld : holders) {
+                        if (closed)
+                            return; // New reinit task scheduled or channel is closed.
+
+                        try {
+                            hld.getOrCreateChannel(true);
+                        }
+                        catch (Exception ignore) {
+                            // No-op.
+                        }
+                    }
+                }
+        );
+    }
+
+    /**
      * Channels holder.
      */
     @SuppressWarnings("PackageVisibleInnerClass") // Visible for tests.
@@ -542,7 +568,7 @@ public final class ReliableChannel implements AutoCloseable {
         private volatile ClientChannel ch;
 
         /** ID of the last server node that channel is or was connected to. */
-        private volatile UUID serverNodeId;
+        private volatile String serverNodeId;
 
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
@@ -615,6 +641,8 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     ch = chFactory.apply(chCfg, connMgr);
+
+                    nodeChannels.put(ch.protocolContext().clusterNode().name(), this);
                 }
             }
 
