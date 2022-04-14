@@ -20,6 +20,7 @@ package org.apache.ignite.internal.cluster.management.raft;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -39,6 +40,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Slice;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 
 /**
  * {@link ClusterStateStorage} implementation based on RocksDB.
@@ -108,6 +111,22 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     public void remove(byte[] key) {
         try {
             db.delete(key);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException("Unable to remove data from Rocks DB", e);
+        }
+    }
+
+    @Override
+    public void removeAll(Collection<byte[]> keys) {
+        try (
+                var batch = new WriteBatch();
+                var options = new WriteOptions();
+        ) {
+            for (byte[] key : keys) {
+                batch.delete(key);
+            }
+
+            db.write(options, batch);
         } catch (RocksDBException e) {
             throw new IgniteInternalException("Unable to remove data from Rocks DB", e);
         }

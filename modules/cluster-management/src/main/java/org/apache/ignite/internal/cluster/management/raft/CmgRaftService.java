@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodeJoinCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.NodeLeaveCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCommand;
@@ -101,12 +101,12 @@ public class CmgRaftService {
     }
 
     /**
-     * Removes a given node from the local topology. Should be called by the CMG leader.
+     * Removes given nodes from the local topology. Should be called by the CMG leader.
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> removeFromCluster(ClusterNode node) {
-        return raftService.run(new NodeLeaveCommand(node));
+    public CompletableFuture<Void> removeFromCluster(Set<ClusterNode> nodes) {
+        return raftService.run(new NodesLeaveCommand(nodes));
     }
 
     /**

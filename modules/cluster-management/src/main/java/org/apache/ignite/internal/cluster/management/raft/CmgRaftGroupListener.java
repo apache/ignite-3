@@ -22,7 +22,7 @@ import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodeJoinCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.NodeLeaveCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCommand;
@@ -78,8 +78,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 // TODO: node should be added only after receving the NodeJoinFinish command,
                 //  see https://issues.apache.org/jira/browse/IGNITE-16717
                 storage.putLogicalTopologyNode(((NodeJoinCommand) command).node());
-            } else if (command instanceof NodeLeaveCommand) {
-                storage.removeLogicalTopologyNode(((NodeLeaveCommand) command).node());
+            } else if (command instanceof NodesLeaveCommand) {
+                storage.removeLogicalTopologyNodes(((NodesLeaveCommand) command).nodes());
             }
 
             clo.result(null);

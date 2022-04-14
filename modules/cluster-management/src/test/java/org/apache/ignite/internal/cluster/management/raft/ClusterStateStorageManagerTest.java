@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -95,11 +96,17 @@ public class ClusterStateStorageManagerTest {
 
         assertThat(storageManager.getLogicalTopology(), containsInAnyOrder(node1, node2));
 
-        storageManager.removeLogicalTopologyNode(node1);
+        var node3 = new ClusterNode("lol", "boop", new NetworkAddress("localhost", 123));
 
-        assertThat(storageManager.getLogicalTopology(), contains(node2));
+        storageManager.putLogicalTopologyNode(node3);
 
-        storageManager.removeLogicalTopologyNode(node2);
+        assertThat(storageManager.getLogicalTopology(), containsInAnyOrder(node1, node2, node3));
+
+        storageManager.removeLogicalTopologyNodes(Set.of(node1, node2));
+
+        assertThat(storageManager.getLogicalTopology(), contains(node3));
+
+        storageManager.removeLogicalTopologyNodes(Set.of(node3));
 
         assertThat(storageManager.getLogicalTopology(), is(empty()));
     }
@@ -116,8 +123,8 @@ public class ClusterStateStorageManagerTest {
 
         assertThat(storageManager.getLogicalTopology(), contains(node));
 
-        storageManager.removeLogicalTopologyNode(node);
-        storageManager.removeLogicalTopologyNode(node);
+        storageManager.removeLogicalTopologyNodes(Set.of(node));
+        storageManager.removeLogicalTopologyNodes(Set.of(node));
 
         assertThat(storageManager.getLogicalTopology(), is(empty()));
     }

@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -94,12 +95,16 @@ class RaftStorageManager {
     }
 
     /**
-     * Removes a given node from the logical topology.
+     * Removes given nodes from the logical topology.
      *
-     * @param node Node to remove.
+     * @param nodes Nodes to remove.
      */
-    void removeLogicalTopologyNode(ClusterNode node) {
-        storage.remove(logicalTopologyKey(node));
+    void removeLogicalTopologyNodes(Set<ClusterNode> nodes) {
+        Collection<byte[]> keys = nodes.stream()
+                .map(RaftStorageManager::logicalTopologyKey)
+                .collect(toList());
+
+        storage.removeAll(keys);
     }
 
     private static byte[] logicalTopologyKey(ClusterNode node) {

@@ -68,6 +68,11 @@ public class IgnitionImpl implements Ignition {
      */
     private static final Map<String, IgniteImpl> nodes = new ConcurrentHashMap<>();
 
+    /**
+     * Collection of nodes that has been started and are eligible for receiving the init command.
+     */
+    private static final Map<String, IgniteImpl> readyForInitNodes = new ConcurrentHashMap<>();
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir) {
@@ -76,8 +81,12 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir,
-            @Nullable ClassLoader serviceLoaderClassLoader) {
+    public CompletableFuture<Ignite> start(
+            String nodeName,
+            @Nullable Path cfgPath,
+            Path workDir,
+            @Nullable ClassLoader serviceLoaderClassLoader
+    ) {
         try {
             return doStart(
                     nodeName,
@@ -128,6 +137,8 @@ public class IgnitionImpl implements Ignition {
     /** {@inheritDoc} */
     @Override
     public void stop(String name) {
+        readyForInitNodes.remove(name);
+
         nodes.computeIfPresent(name, (nodeName, node) -> {
             node.stop();
 
@@ -142,10 +153,10 @@ public class IgnitionImpl implements Ignition {
 
     @Override
     public void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
-        IgniteImpl node = nodes.get(name);
+        IgniteImpl node = readyForInitNodes.get(name);
 
         if (node == null) {
-            throw new IgniteException("Node \"" + name + "\" does not exist");
+            throw new IgniteException("Node \"" + name + "\" has not been started");
         }
 
         try {
@@ -193,7 +204,7 @@ public class IgnitionImpl implements Ignition {
         ackBanner();
 
         try {
-            return nodeToStart.start(cfgContent)
+            CompletableFuture<Ignite> future = nodeToStart.start(cfgContent)
                     .handle((ignite, e) -> {
                         if (e == null) {
                             ackSuccessStart();
@@ -203,6 +214,10 @@ public class IgnitionImpl implements Ignition {
                             throw handleStartException(nodeName, e);
                         }
                     });
+
+            readyForInitNodes.put(nodeName, nodeToStart);
+
+            return future;
         } catch (Exception e) {
             throw handleStartException(nodeName, e);
         }

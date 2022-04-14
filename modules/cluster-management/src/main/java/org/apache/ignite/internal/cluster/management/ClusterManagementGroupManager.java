@@ -20,10 +20,12 @@ package org.apache.ignite.internal.cluster.management;
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -364,11 +366,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .map(ClusterNode::id)
                             .collect(toSet());
 
-                    for (ClusterNode node : logicalTopology) {
-                        if (!physicalTopologyIds.contains(node.id())) {
-                            service.removeFromCluster(node);
-                        }
-                    }
+                    Set<ClusterNode> nodesToRemove = logicalTopology.stream()
+                            .filter(node -> !physicalTopologyIds.contains(node.id()))
+                            .collect(toUnmodifiableSet());
+
+                    service.removeFromCluster(nodesToRemove);
                 });
     }
 
@@ -486,7 +488,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             ClusterNode physicalTopologyNode = clusterService.topologyService().getByConsistentId(node.name());
 
             if (physicalTopologyNode == null || !physicalTopologyNode.id().equals(node.id())) {
-                raftService.removeFromCluster(node);
+                raftService.removeFromCluster(Set.of(node));
             }
         }, 0, TimeUnit.MILLISECONDS);
     }

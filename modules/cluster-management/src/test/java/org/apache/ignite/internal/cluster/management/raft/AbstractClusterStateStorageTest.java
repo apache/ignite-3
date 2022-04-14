@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -136,6 +138,28 @@ public abstract class AbstractClusterStateStorageTest {
         storage.remove(key);
 
         assertThat(storage.get(key), is(nullValue()));
+    }
+
+    /**
+     * Tests the {@link ClusterStateStorage#removeAll} method.
+     */
+    @Test
+    void testRemoveAll() throws Exception {
+        storage.put("key1".getBytes(UTF_8), "value1".getBytes(UTF_8));
+        storage.put("key2".getBytes(UTF_8), "value2".getBytes(UTF_8));
+        storage.put("key3".getBytes(UTF_8), "value3".getBytes(UTF_8));
+
+        storage.removeAll(List.of(
+                "key1".getBytes(UTF_8),
+                "key2".getBytes(UTF_8),
+                "key4".getBytes(UTF_8) // does not exist in storage
+        ));
+
+        Cursor<String> cursor = storage.getWithPrefix("key".getBytes(UTF_8), (k, v) -> new String(v, UTF_8));
+
+        try (cursor) {
+            assertThat(cursor.stream().collect(toList()), contains("value3"));
+        }
     }
 
     /**

@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,13 @@ public class ConcurrentMapClusterStateStorage implements ClusterStateStorage {
     @Override
     public void remove(byte[] key) {
         map.remove(new ByteArray(key));
+    }
+
+    @Override
+    public void removeAll(Collection<byte[]> keys) {
+        for (byte[] key : keys) {
+            remove(key);
+        }
     }
 
     @Override

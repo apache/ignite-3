@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management.raft;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.util.Cursor;
@@ -61,6 +62,13 @@ public interface ClusterStateStorage extends AutoCloseable {
      * @param key Key which value should be removed.
      */
     void remove(byte[] key);
+
+    /**
+     * Removes all values associated with the given keys. Keys that are not present in the storage are skipped.
+     *
+     * @param keys Keys which values should be removed.
+     */
+    void removeAll(Collection<byte[]> keys);
 
     /**
      * Creates a cursor over a range of keys, starting with the given prefix.

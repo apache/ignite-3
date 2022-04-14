@@ -17,30 +17,31 @@
 
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
+import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
  * Command that gets executed when a node needs to be removed from the logical topology.
  */
-public class NodeLeaveCommand implements WriteCommand {
-    private final ClusterNode node;
+public class NodesLeaveCommand implements WriteCommand {
+    private final Set<ClusterNode> nodes;
 
     /**
      * Creates a new command.
      *
-     * @param node Node that needs to be removed from the logical topology.
+     * @param nodes Nodes that need to be removed from the logical topology.
      */
-    public NodeLeaveCommand(ClusterNode node) {
-        this.node = node;
+    public NodesLeaveCommand(Set<ClusterNode> nodes) {
+        this.nodes = nodes;
     }
 
     /**
-     * Returns the node that needs to be removed from the logical topology.
+     * Returns the nodes that need to be removed from the logical topology.
      *
-     * @return Node that needs to be removed from the logical topology.
+     * @return Nodes that need to be removed from the logical topology.
      */
-    public ClusterNode node() {
-        return node;
+    public Set<ClusterNode> nodes() {
+        return nodes;
     }
 }
