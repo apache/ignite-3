@@ -43,7 +43,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
-import org.mockito.Mockito;
 
 /**
  * Client handler module for tests.
@@ -61,6 +60,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Cluster service. */
     private final ClusterService clusterService;
 
+    /** Compute. */
+    private final IgniteCompute compute;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -74,13 +76,15 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param bootstrapFactory     Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
      * @param clusterService       Cluster service.
+     * @param compute              Compute.
      */
     public TestClientHandlerModule(
             Ignite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
             Function<Integer, Boolean> shouldDropConnection,
-            ClusterService clusterService) {
+            ClusterService clusterService,
+            IgniteCompute compute) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -90,6 +94,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
         this.clusterService = clusterService;
+        this.compute = compute;
     }
 
     /** {@inheritDoc} */
@@ -156,7 +161,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,
-                                        mock(IgniteCompute.class),
+                                        compute,
                                         clusterService));
                     }
                 })
