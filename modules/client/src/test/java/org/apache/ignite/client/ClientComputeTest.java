@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -48,7 +49,7 @@ public class ClientComputeTest {
         initServers(reqId -> false);
 
         try (var client = getClient()) {
-            Thread.sleep(500);
+            IgniteTestUtils.waitForCondition(() -> client.connections().size() == 3, 3000);
 
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
             String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
