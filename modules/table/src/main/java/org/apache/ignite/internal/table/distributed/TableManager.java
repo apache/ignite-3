@@ -59,12 +59,15 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.manager.EventParameters;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
+import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.TableStorage;
@@ -221,6 +224,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override
             public CompletableFuture<?> onDelete(ConfigurationNotificationEvent<TableView> ctx) {
                 return onTableDelete(ctx);
+            }
+        });
+
+        schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
+            /** {@inheritDoc} */
+            @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
+                tablesByIdVv.get(parameters.causalityToken()).thenAccept(tablesById -> {
+                    fireEvent(TableEvent.ALTER, new TableEventParameters(parameters.causalityToken(), tablesById.get(parameters.tableId())), null);
+                });
+
+                return false;
+            }
+
+            /** {@inheritDoc} */
+            @Override public void remove(@NotNull Throwable exception) {
+                // No-op.
             }
         });
     }
