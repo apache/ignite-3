@@ -487,6 +487,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
+        SchemaManager sm = new SchemaManager(revisionUpdater, tblsCfg);
+
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -495,9 +497,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dsm,
-                new SchemaManager(revisionUpdater, tblsCfg)
+                sm
         );
 
+        sm.start();
         tableManager.start();
 
         return tableManager;
