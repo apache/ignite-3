@@ -183,6 +183,12 @@ public class TcpIgniteClient implements IgniteClient {
         return cfg;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<ClusterNode> connections() {
+        return ch.connections();
+    }
+
     /**
      * Sends ClientMessage request to server side asynchronously and returns result future.
      *

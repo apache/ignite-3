@@ -45,6 +45,7 @@ import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Communication channel with failover and partition awareness.
@@ -120,6 +121,25 @@ public final class ReliableChannel implements AutoCloseable {
                 hld.close();
             }
         }
+    }
+
+    /**
+     * Gets active client connections.
+     *
+     * @return List of connected cluster nodes.
+     */
+    public List<ClusterNode> connections() {
+        List<ClusterNode> res = new ArrayList<>(channels.size());
+
+        for (var holder : channels) {
+            var ch = holder.ch;
+
+            if (ch != null) {
+                res.add(ch.protocolContext().clusterNode());
+            }
+        }
+
+        return res;
     }
 
     /**

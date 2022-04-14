@@ -48,6 +48,8 @@ public class ClientComputeTest {
         initServers(reqId -> false);
 
         try (var client = getClient()) {
+            Thread.sleep(500);
+
             String res1 = client.compute().<String>execute(getClusterNodes("s1"), "job").join();
             String res2 = client.compute().<String>execute(getClusterNodes("s2"), "job").join();
             String res3 = client.compute().<String>execute(getClusterNodes("s3"), "job").join();
