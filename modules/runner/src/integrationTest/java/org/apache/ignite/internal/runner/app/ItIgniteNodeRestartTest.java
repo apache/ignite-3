@@ -284,6 +284,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
+                schemaManager,
                 tableManager
         );
 

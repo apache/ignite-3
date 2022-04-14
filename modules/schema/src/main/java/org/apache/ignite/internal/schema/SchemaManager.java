@@ -94,7 +94,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param schemasCtx Schemas configuration context.
      * @return A future.
      */
-    private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+    public CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
         long causalityToken = schemasCtx.storageRevision();
 
         ExtendedTableConfiguration tblCfg = schemasCtx.config(ExtendedTableConfiguration.class);

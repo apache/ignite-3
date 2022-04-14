@@ -53,6 +53,7 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
+import org.apache.ignite.internal.configuration.schema.SchemaView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;

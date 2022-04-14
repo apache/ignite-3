@@ -394,6 +394,7 @@ public class IgniteImpl implements Ignite {
                     clusterCfgMgr,
                     baselineMgr,
                     dataStorageMgr,
+                    schemaManager,
                     distributedTblMgr,
                     qryEngine,
                     restComponent,
