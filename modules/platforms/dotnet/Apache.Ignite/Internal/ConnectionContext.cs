@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite
+// XMLDoc check fails on older SDKs: https://github.com/dotnet/roslyn/issues/44571.
+#pragma warning disable CS1572
+#pragma warning disable CS1573
+namespace Apache.Ignite.Internal
 {
     using System;
-    using System.Collections.Generic;
-    using Network;
+    using Ignite.Network;
 
     /// <summary>
-    /// Ignite client.
-    /// <para />
-    /// Extends <see cref="IIgnite"/> with client-specific functionality.
+    /// Socket connection context.
     /// </summary>
-    public interface IIgniteClient : IIgnite, IDisposable
-    {
-        /// <summary>
-        /// Gets the configuration.
-        /// </summary>
-        IgniteClientConfiguration Configuration { get; }
-
-        /// <summary>
-        /// Gets active connections.
-        /// </summary>
-        /// <returns>A list of connected cluster nodes.</returns>
-        IList<IClusterNode> GetConnections();
-    }
+    /// <param name="Version">Protocol version.</param>
+    /// <param name="IdleTimeout">Server idle timeout.</param>
+    /// <param name="ClusterNode">Cluster node.</param>
+    internal record ConnectionContext(ClientProtocolVersion Version, TimeSpan IdleTimeout, IClusterNode ClusterNode);
 }
