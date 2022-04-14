@@ -43,9 +43,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.apache.ignite.network.NetworkAddress;
-import org.jetbrains.annotations.NotNull;
 import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
 
 /**
  * Test server.

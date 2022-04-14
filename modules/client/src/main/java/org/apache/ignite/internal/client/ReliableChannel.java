@@ -588,13 +588,13 @@ public final class ReliableChannel implements AutoCloseable {
                     List<ClientChannelHolder> holders = channels;
 
                     for (ClientChannelHolder hld : holders) {
-                        if (closed)
+                        if (closed) {
                             return; // New reinit task scheduled or channel is closed.
+                        }
 
                         try {
                             hld.getOrCreateChannel(true);
-                        }
-                        catch (Exception ignore) {
+                        } catch (Exception ignore) {
                             // No-op.
                         }
                     }

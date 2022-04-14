@@ -132,8 +132,7 @@ public class ClientCompute implements IgniteCompute {
         return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE, w -> {
             if (w.clientChannel().protocolContext().clusterNode().name().equals(node.name())) {
                 w.out().packNil();
-            }
-            else {
+            } else {
                 w.out().packString(node.name());
             }
 

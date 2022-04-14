@@ -71,6 +71,7 @@ public class TestClientHandlerModule implements IgniteComponent {
 
     /**
      * Constructor.
+     *
      * @param ignite               Ignite.
      * @param registry             Configuration registry.
      * @param bootstrapFactory     Bootstrap factory.
