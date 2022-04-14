@@ -688,7 +688,16 @@ public final class ReliableChannel implements AutoCloseable {
 
                     ch = chFactory.apply(chCfg, connMgr);
 
-                    nodeChannels.put(ch.protocolContext().clusterNode().name(), this);
+                    String newNodeId = ch.protocolContext().clusterNode().name();
+
+                    nodeChannels.put(newNodeId, this);
+
+                    if (serverNodeId != null && !serverNodeId.equals(newNodeId)) {
+                        // New node on the old address.
+                        nodeChannels.remove(serverNodeId, this);
+                    }
+
+                    serverNodeId = newNodeId;
                 }
             }
 
