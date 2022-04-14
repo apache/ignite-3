@@ -142,7 +142,7 @@ public final class ReliableChannel implements AutoCloseable {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, 0);
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, preferredNodeName, null, 0);
 
         return fut;
     }
@@ -180,26 +180,44 @@ public final class ReliableChannel implements AutoCloseable {
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
+            String preferredNodeName,
             IgniteClientConnectionException failure,
             int attempt) {
-        ClientChannel ch;
-        try {
-            ch = getDefaultChannel();
-        } catch (Throwable ex) {
-            if (failure != null) {
-                failure.addSuppressed(ex);
+        ClientChannel ch = null;
 
-                fut.completeExceptionally(failure);
+        if (preferredNodeName != null) {
+            var holder = nodeChannels.get(preferredNodeName);
+
+            if (holder != null) {
+                try {
+                    ch = holder.getOrCreateChannel();
+                } catch (Throwable ignored) {
+                    // Ignore.
+                }
+            }
+        }
+
+        if (ch == null) {
+            try {
+                ch = getDefaultChannel();
+            } catch (Throwable ex) {
+                if (failure != null) {
+                    failure.addSuppressed(ex);
+
+                    fut.completeExceptionally(failure);
+
+                    return;
+                }
+
+                fut.completeExceptionally(ex);
 
                 return;
             }
-
-            fut.completeExceptionally(ex);
-
-            return;
         }
 
-        ch
+        final ClientChannel ch0 = ch;
+
+        ch0
                 .serviceAsync(opCode, payloadWriter, payloadReader)
                 .handle((res, err) -> {
                     if (err == null) {
@@ -219,7 +237,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                         try {
                             // Will try to reinit channels if topology changed.
-                            onChannelFailure(ch);
+                            onChannelFailure(ch0);
                         } catch (Throwable ex) {
                             fut.completeExceptionally(ex);
 
@@ -233,7 +251,7 @@ public final class ReliableChannel implements AutoCloseable {
                         }
 
                         if (shouldRetry(opCode, attempt, connectionErr)) {
-                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, failure0, attempt + 1);
+                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, failure0, attempt + 1);
 
                             return null;
                         }
