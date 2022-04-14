@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Collections.unmodifiableMap;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
+import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
+
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,7 +57,6 @@ import org.apache.ignite.internal.causality.VersionedValue;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
-import org.apache.ignite.internal.configuration.schema.SchemaView;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -93,10 +96,6 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-
-import static java.util.Collections.unmodifiableMap;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
-import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 
 /**
  * Table manager.
@@ -191,8 +190,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new VersionedValue<>(
             (vv, token) -> {
-                schemaManager.schemaRegistry(token, null).join();
-            },
+                    schemaManager.schemaRegistry(token, null).join();
+                },
             registry,
             VersionedValue.DEFAULT_HISTORY_SIZE,
             HashMap::new

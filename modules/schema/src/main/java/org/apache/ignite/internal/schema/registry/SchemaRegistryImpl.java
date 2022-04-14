@@ -61,9 +61,9 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @param initialSchema      Initial schema.
      */
     public SchemaRegistryImpl(
-        Function<Integer, SchemaDescriptor> history,
-        IntSupplier latestVersionStore,
-        SchemaDescriptor initialSchema
+            Function<Integer, SchemaDescriptor> history,
+            IntSupplier latestVersionStore,
+            SchemaDescriptor initialSchema
     ) {
         this.lastVer = initialSchema.version();
         this.history = history;

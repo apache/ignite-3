@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.mapping.ColumnMapping.createMapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -117,7 +116,7 @@ public class SchemaRegistryImplTest {
         //assertNull(reg.schema());
 
         // Register schema with very first version.
-       // reg.onSchemaRegistered(schemaV1);
+        //reg.onSchemaRegistered(schemaV1);
 
         assertEquals(1, reg.lastSchemaVersion());
         assertSameSchema(schemaV1, reg.schema());

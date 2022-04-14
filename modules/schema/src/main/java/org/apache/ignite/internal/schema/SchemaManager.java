@@ -1,11 +1,12 @@
 /*
- * Copyright 2022 GridGain Systems, Inc. and Contributors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the GridGain Community Edition License (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.gridgain.com/products/software/community-edition/gridgain-community-edition-license
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.schema;
+
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,23 +45,16 @@ import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
-import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
 /**
  * The class services a management of table schemas.
  */
 public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
     public static final int INITIAL_SCHEMA_VERSION = 1;
-
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(SchemaManager.class);
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -242,7 +240,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private int latestSchemaVersion(UUID tblId) {
         try {
             NamedListView<SchemaView> tblSchemas = ((ExtendedTableConfiguration) getByInternalId(directProxy(tablesCfg.tables()), tblId))
-                .schemas().value();
+                    .schemas().value();
 
             int lastVer = INITIAL_SCHEMA_VERSION;
 
