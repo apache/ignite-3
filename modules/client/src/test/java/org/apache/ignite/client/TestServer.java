@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 
 import java.net.InetSocketAddress;
@@ -36,9 +37,13 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.NotNull;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 
 /**
  * Test server.
@@ -101,12 +106,19 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory.start();
 
+        if (nodeName == null) {
+            nodeName = "consistent-id";
+        }
+
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeName == null ? "id" : nodeName + "-id");
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName == null ? "consistent-id" : nodeName);
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn(nodeName + "-id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn(nodeName);
+        Mockito.when(clusterService.topologyService().localMember()).thenReturn(getClusterNode(nodeName));
+        Mockito.when(clusterService.topologyService().getByConsistentId(anyString())).thenAnswer(
+                i -> getClusterNode(i.getArgument(0, String.class)));
 
         module = shouldDropConnection != null
-                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection)
+                ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection, clusterService)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         ignite.tables(),
@@ -139,5 +151,9 @@ public class TestServer implements AutoCloseable {
         module.stop();
         bootstrapFactory.stop();
         cfg.stop();
+    }
+
+    private ClusterNode getClusterNode(String name) {
+        return new ClusterNode(name+ "-id", name, new NetworkAddress("127.0.0.1", 8080));
     }
 }
