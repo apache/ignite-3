@@ -31,11 +31,19 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
  * General interface to describe binary tuples outside of their data layout and column schemas.
  * Accessor methods may or may not throw {@link InvalidTypeException} depending on the implementation.
  */
-public interface InnerTuple {
+public interface AbstractTuple {
     /**
      * Returns a number of values in the tuple.
      */
     int count();
+
+    /**
+     * Checks whether the given column contains a null value.
+     *
+     * @param col Column index.
+     * @return {@code true} if this column contains a null value, {@code false} otherwise.
+     */
+    boolean hasNullValue(int col);
 
     /**
      * Reads value for specified column.
@@ -212,12 +220,4 @@ public interface InnerTuple {
      * @return Column value.
      */
     Instant timestampValue(int col);
-
-    /**
-     * Checks whether the given column contains a null value.
-     *
-     * @param col Column index.
-     * @return {@code true} if this column contains a null value, {@code false} otherwise.
-     */
-    boolean hasNullValue(int col);
 }

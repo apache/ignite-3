@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see TemporalTypesHelper
  */
-public class Row implements BinaryRow, SchemaAware, InnerTuple {
+public class Row implements BinaryRow, SchemaAware, AbstractTuple {
     /**
      * Null map offset.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
