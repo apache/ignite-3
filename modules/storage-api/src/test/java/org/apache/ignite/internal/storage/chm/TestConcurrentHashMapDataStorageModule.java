@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb;
+package org.apache.ignite.internal.storage.chm;
 
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 
 /**
- * Implementation for creating {@link RocksDbStorageEngine}s.
+ * Implementation for creating {@link TestConcurrentHashMapStorageEngine}s.
  */
-public class RocksDbStorageEngineFactory implements StorageEngineFactory {
+public class TestConcurrentHashMapDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override
     public String name() {
@@ -39,10 +38,6 @@ public class RocksDbStorageEngineFactory implements StorageEngineFactory {
     /** {@inheritDoc} */
     @Override
     public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
-        RocksDbStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY);
-
-        assert engineConfig != null;
-
-        return new RocksDbStorageEngine(engineConfig, storagePath);
+        return new TestConcurrentHashMapStorageEngine();
     }
 }

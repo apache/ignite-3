@@ -27,7 +27,7 @@ import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
+import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**
  * Implementing a validator for {@link ExistingDataStorage}.
@@ -38,12 +38,12 @@ public class ExistingDataStorageValidator implements Validator<ExistingDataStora
     /**
      * Constructor.
      *
-     * @param engineFactories Storage engine factories.
+     * @param modules Storage engine factories.
      */
-    public ExistingDataStorageValidator(Iterable<StorageEngineFactory> engineFactories) {
+    public ExistingDataStorageValidator(Iterable<DataStorageModule> modules) {
         dataStorages = Stream.concat(
                 Stream.of(UNKNOWN_DATA_STORAGE),
-                StreamSupport.stream(engineFactories.spliterator(), false).map(StorageEngineFactory::name)
+                StreamSupport.stream(modules.spliterator(), false).map(DataStorageModule::name)
         ).collect(toUnmodifiableSet());
     }
 

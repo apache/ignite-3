@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
+import org.apache.ignite.internal.storage.DataStorageModule;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-storage-api.
@@ -40,6 +40,6 @@ public class StorageEngineDistributedConfigurationModule implements Configuratio
     /** {@inheritDoc} */
     @Override
     public Map<Class<? extends Annotation>, Set<Validator<? extends Annotation, ?>>> validators() {
-        return Map.of(ExistingDataStorage.class, Set.of(new ExistingDataStorageValidator(ServiceLoader.load(StorageEngineFactory.class))));
+        return Map.of(ExistingDataStorage.class, Set.of(new ExistingDataStorageValidator(ServiceLoader.load(DataStorageModule.class))));
     }
 }

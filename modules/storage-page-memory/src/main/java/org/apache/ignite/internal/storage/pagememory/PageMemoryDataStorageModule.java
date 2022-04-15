@@ -22,15 +22,15 @@ import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEng
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 
 /**
  * Implementation for creating {@link PageMemoryStorageEngine}s.
  */
-public class PageMemoryStorageEngineFactory implements StorageEngineFactory {
+public class PageMemoryDataStorageModule implements DataStorageModule {
     /** {@inheritDoc} */
     @Override
     public String name() {

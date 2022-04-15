@@ -50,7 +50,8 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngineFactory;
+import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -197,17 +198,15 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(rocksDbEngineConfig);
 
-        dsm = new DataStorageManager(
-                configRegistry,
-                workDir,
-                List.of(new RocksDbStorageEngineFactory())
-        );
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
+
+        dsm = new DataStorageManager(dataStorageModules.createStorageEngines(configRegistry, workDir));
 
         dsm.start();
 
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(revisionUpdater, cs, tblManager);
+        queryProc = new SqlQueryProcessor(revisionUpdater, cs, tblManager, dsm, tblsCfg);
 
         queryProc.start();
     }
