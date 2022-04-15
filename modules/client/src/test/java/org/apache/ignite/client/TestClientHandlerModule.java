@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -44,7 +43,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
-import org.mockito.Mockito;
 
 /**
  * Client handler module for tests.
@@ -59,6 +57,12 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Connection drop condition. */
     private final Function<Integer, Boolean> shouldDropConnection;
 
+    /** Cluster service. */
+    private final ClusterService clusterService;
+
+    /** Compute. */
+    private final IgniteCompute compute;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -72,12 +76,16 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param registry             Configuration registry.
      * @param bootstrapFactory     Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
+     * @param clusterService       Cluster service.
+     * @param compute              Compute.
      */
     public TestClientHandlerModule(
             Ignite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
-            Function<Integer, Boolean> shouldDropConnection) {
+            Function<Integer, Boolean> shouldDropConnection,
+            ClusterService clusterService,
+            IgniteCompute compute) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -86,6 +94,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
+        this.clusterService = clusterService;
+        this.compute = compute;
     }
 
     /** {@inheritDoc} */
@@ -141,10 +151,6 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
-        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
-
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
@@ -156,7 +162,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,
-                                        mock(IgniteCompute.class),
+                                        compute,
                                         clusterService));
                     }
                 })

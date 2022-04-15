@@ -321,6 +321,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return closed.get();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public ProtocolContext protocolContext() {
+        return protocolCtx;
+    }
+
     private static void validateConfiguration(ClientChannelConfiguration cfg) {
         String error = null;
 
