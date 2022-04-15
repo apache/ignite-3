@@ -231,8 +231,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
                 tablesByIdVv.get(parameters.causalityToken()).thenAccept(tablesById -> {
                     fireEvent(
-                        TableEvent.ALTER,
-                        new TableEventParameters(parameters.causalityToken(), tablesById.get(parameters.tableId())), null
+                            TableEvent.ALTER,
+                            new TableEventParameters(parameters.causalityToken(), tablesById.get(parameters.tableId())), null
                     );
                 });
 
