@@ -92,7 +92,8 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
                 this::marshalUnshared,
                 this::unmarshalShared,
                 this::unmarshalUnshared,
-                structuredObjectMarshaller
+                structuredObjectMarshaller,
+                schemaMismatchHandlers
         );
 
         proxyMarshaller = new ProxyMarshaller(this::marshalShared, this::unmarshalShared);
@@ -326,9 +327,9 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
             UnmarshallingContext context,
             boolean unshared
     ) throws IOException, UnmarshalException {
-        ClassDescriptor descriptor = resolveDescriptor(input, declaredType, context);
+        ClassDescriptor remoteDescriptor = resolveDescriptor(input, declaredType, context);
 
-        if (mayHaveObjectIdentity(descriptor)) {
+        if (mayHaveObjectIdentity(remoteDescriptor)) {
             int objectId = peekObjectId(input, context);
             if (context.isKnownObjectId(objectId)) {
                 // this is a back-reference
@@ -336,9 +337,9 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
             }
         }
 
-        Object readObject = readObject(input, context, descriptor, unshared);
+        Object readObject = readObject(input, context, remoteDescriptor, unshared);
 
-        @SuppressWarnings("unchecked") T resolvedObject = (T) applyReadResolveIfNeeded(readObject, descriptor);
+        @SuppressWarnings("unchecked") T resolvedObject = (T) applyReadResolveIfNeeded(readObject, remoteDescriptor);
         return resolvedObject;
     }
 
@@ -374,14 +375,14 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     }
 
     @Nullable
-    private Object readObject(IgniteDataInput input, UnmarshallingContext context, ClassDescriptor descriptor, boolean unshared)
+    private Object readObject(IgniteDataInput input, UnmarshallingContext context, ClassDescriptor remoteDescriptor, boolean unshared)
             throws IOException, UnmarshalException {
-        if (!mayHaveObjectIdentity(descriptor)) {
-            return readValue(input, descriptor, context);
-        } else if (mustBeReadInOneStage(descriptor)) {
-            return readIdentifiableInOneStage(input, descriptor, context, unshared);
+        if (!mayHaveObjectIdentity(remoteDescriptor)) {
+            return readValue(input, remoteDescriptor, context);
+        } else if (mustBeReadInOneStage(remoteDescriptor)) {
+            return readIdentifiableInOneStage(input, remoteDescriptor, context, unshared);
         } else {
-            return readIdentifiableInTwoStages(input, descriptor, context, unshared);
+            return readIdentifiableInTwoStages(input, remoteDescriptor, context, unshared);
         }
     }
 
@@ -410,55 +411,56 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
 
     private Object readIdentifiableInTwoStages(
             IgniteDataInput input,
-            ClassDescriptor descriptor,
+            ClassDescriptor remoteDescriptor,
             UnmarshallingContext context,
             boolean unshared
     ) throws IOException, UnmarshalException {
         int objectId = readObjectId(input);
 
-        Object preInstantiatedObject = preInstantiate(descriptor, input, context);
+        Object preInstantiatedObject = preInstantiate(remoteDescriptor, input, context);
         context.registerReference(objectId, preInstantiatedObject, unshared);
 
-        fillObjectFrom(input, preInstantiatedObject, descriptor, context);
+        fillObjectFrom(input, preInstantiatedObject, remoteDescriptor, context);
 
         return preInstantiatedObject;
     }
 
-    private Object preInstantiate(ClassDescriptor descriptor, IgniteDataInput input, UnmarshallingContext context)
+    private Object preInstantiate(ClassDescriptor remoteDescriptor, IgniteDataInput input, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        if (isBuiltInNonContainer(descriptor)) {
-            throw new IllegalStateException("Should not be here, descriptor is " + descriptor);
-        } else if (isBuiltInCollection(descriptor)) {
-            return builtInContainerMarshallers.preInstantiateBuiltInMutableCollection(descriptor, input, context);
-        } else if (isBuiltInMap(descriptor)) {
-            return builtInContainerMarshallers.preInstantiateBuiltInMutableMap(descriptor, input, context);
-        } else if (descriptor.isArray()) {
+        if (isBuiltInNonContainer(remoteDescriptor)) {
+            throw new IllegalStateException("Should not be here, descriptor is " + remoteDescriptor);
+        } else if (isBuiltInCollection(remoteDescriptor)) {
+            return builtInContainerMarshallers.preInstantiateBuiltInMutableCollection(remoteDescriptor, input, context);
+        } else if (isBuiltInMap(remoteDescriptor)) {
+            return builtInContainerMarshallers.preInstantiateBuiltInMutableMap(remoteDescriptor, input, context);
+        } else if (remoteDescriptor.isArray()) {
             return builtInContainerMarshallers.preInstantiateGenericRefArray(input, context);
-        } else if (descriptor.isExternalizable()) {
-            return externalizableMarshaller.preInstantiateExternalizable(descriptor);
-        } else if (descriptor.isProxy()) {
+        } else if (remoteDescriptor.isExternalizable()) {
+            return externalizableMarshaller.preInstantiateExternalizable(remoteDescriptor);
+        } else if (remoteDescriptor.isProxy()) {
             return proxyMarshaller.preInstantiateProxy(input, context);
         } else {
-            return structuredObjectMarshaller.preInstantiateStructuredObject(descriptor);
+            return structuredObjectMarshaller.preInstantiateStructuredObject(remoteDescriptor);
         }
     }
 
-    private void fillObjectFrom(IgniteDataInput input, Object objectToFill, ClassDescriptor descriptor, UnmarshallingContext context)
+    private void fillObjectFrom(IgniteDataInput input, Object objectToFill, ClassDescriptor remoteDescriptor, UnmarshallingContext context)
             throws UnmarshalException, IOException {
-        if (isBuiltInNonContainer(descriptor)) {
-            throw new IllegalStateException("Cannot fill " + descriptor.className() + ", this is a programmatic error");
-        } else if (isBuiltInCollection(descriptor)) {
-            fillBuiltInCollectionFrom(input, (Collection<?>) objectToFill, descriptor, context);
-        } else if (isBuiltInMap(descriptor)) {
+        if (isBuiltInNonContainer(remoteDescriptor)) {
+            throw new IllegalStateException("Cannot fill " + remoteDescriptor.className() + ", this is a programmatic error");
+        } else if (isBuiltInCollection(remoteDescriptor)) {
+            fillBuiltInCollectionFrom(input, (Collection<?>) objectToFill, remoteDescriptor, context);
+        } else if (isBuiltInMap(remoteDescriptor)) {
             fillBuiltInMapFrom(input, (Map<?, ?>) objectToFill, context);
-        } else if (descriptor.isArray()) {
-            fillGenericRefArrayFrom(input, (Object[]) objectToFill, descriptor, context);
-        } else if (descriptor.isExternalizable()) {
-            externalizableMarshaller.fillExternalizableFrom(input, (Externalizable) objectToFill, context);
-        } else if (descriptor.isProxy()) {
+        } else if (remoteDescriptor.isArray()) {
+            fillGenericRefArrayFrom(input, (Object[]) objectToFill, remoteDescriptor, context);
+        } else if (remoteDescriptor.isExternalizable()) {
+            externalizableMarshaller.fillFromRemotelyExternalizable(input, objectToFill, context);
+        } else if (remoteDescriptor.isProxy()) {
             proxyMarshaller.fillProxyFrom(input, objectToFill, context);
         } else {
-            structuredObjectMarshaller.fillStructuredObjectFrom(input, objectToFill, descriptor, context);
+            structuredObjectMarshaller.fillStructuredObjectFrom(input, objectToFill, remoteDescriptor, context);
+            fireExternalizableMissedIfExternalizableLocally(objectToFill);
         }
     }
 
@@ -514,6 +516,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     private void throwIfNotDrained(InputStream dis) throws IOException, UnmarshalException {
         if (dis.available() > 0) {
             throw new UnmarshalException("After reading a value, " + dis.available() + " excessive byte(s) still remain");
+        }
+    }
+
+    private void fireExternalizableMissedIfExternalizableLocally(Object objectToFill) throws SchemaMismatchException {
+        if (objectToFill instanceof Externalizable) {
+            schemaMismatchHandlers.onExternalizableMissed(objectToFill);
         }
     }
 

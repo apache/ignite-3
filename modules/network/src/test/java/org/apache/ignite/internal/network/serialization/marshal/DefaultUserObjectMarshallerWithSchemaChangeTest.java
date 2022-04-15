@@ -22,11 +22,20 @@ import static net.bytebuddy.dynamic.loading.ClassLoadingStrategy.Default.CHILD_F
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
@@ -161,12 +170,12 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         verify(schemaMismatchHandler).onFieldTypeChanged(unmarshalled, "value", String.class, "fourty two");
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     void nonPrimitiveFieldTypeChangedToSuperClassIsCompatibleChange() throws Exception {
         Class<?> remoteClass = addFieldTo(Empty.class, "value", String.class);
         Class<?> localClass = addFieldTo(Empty.class, "value", CharSequence.class);
 
+        //noinspection unchecked
         localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
 
         Object remoteInstance = instantiate(remoteClass);
@@ -259,6 +268,97 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         }
     }
 
+    @Test
+    void removalOfExternalizableInterfaceCausesUnfilledDeserializationResult() throws Exception {
+        Object unmarshalled = marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(0));
+    }
+
+    @Test
+    void removalOfExternalizableInterfaceTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class);
+
+        verify(schemaMismatchHandler).onExternalizableIgnored(eq(unmarshalled), any());
+    }
+
+    @Test
+    void onExternalizableIgnoredReceivesStreamWithExactlyExternalizedDataAvailable() throws Exception {
+        doAnswer(invocation -> {
+            InputStream externalDataStream = invocation.getArgument(1);
+            byte[] externalData = externalDataStream.readAllBytes();
+
+            byte[] int42BytesInLittleEndian = {42, 0, 0, 0};
+            assertThat(externalData, is(int42BytesInLittleEndian));
+
+            return null;
+        }).when(schemaMismatchHandler).onExternalizableIgnored(any(), any());
+
+        marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class);
+    }
+
+    @Test
+    void onExternalizableIgnoredSkipsExternalDataEvenIfHandlerDoesNotReadIt() throws Exception {
+        doNothing().when(schemaMismatchHandler).onExternalizableIgnored(any(), any());
+
+        assertDoesNotThrow(() -> marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class));
+    }
+
+    private Object marshalExternalizableUnmarshalNonExternalizableBasedOn(Class<?> baseClass)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        @SuppressWarnings("UnnecessaryLocalVariable")
+        Class<?> localClass = baseClass;
+        Class<?> remoteClass = addExternalizableInterface(baseClass);
+
+        //noinspection unchecked
+        localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
+
+        Object remoteInstance = instantiate(remoteClass);
+        IgniteTestUtils.setFieldValue(remoteInstance, "value", 42);
+
+        return marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+    }
+
+    private Class<?> addExternalizableInterface(Class<?> baseClass) {
+        return new ByteBuddy()
+                .redefine(baseClass)
+                .implement(Externalizable.class)
+                .make()
+                .load(getClass().getClassLoader(), CHILD_FIRST)
+                .getLoaded();
+    }
+
+    @Test
+    void additionOfExternalizableInterfaceCausesStandardDeserialization() throws Exception {
+        Object unmarshalled = marshalNonExternalizableUnmarshalExternalizableBasedOn(ExternalizationReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(42));
+    }
+
+    @Test
+    void additionOfExternalizableInterfaceTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalNonExternalizableUnmarshalExternalizableBasedOn(ExternalizationReady.class);
+
+        verify(schemaMismatchHandler).onExternalizableMissed(eq(unmarshalled));
+    }
+
+    private Object marshalNonExternalizableUnmarshalExternalizableBasedOn(Class<?> baseClass)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        @SuppressWarnings("UnnecessaryLocalVariable")
+        Class<?> remoteClass = baseClass;
+        Class<?> localClass = addExternalizableInterface(baseClass);
+
+        //noinspection unchecked
+        localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
+
+        Object remoteInstance = instantiate(remoteClass);
+        IgniteTestUtils.setFieldValue(remoteInstance, "value", 42);
+
+        return marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+    }
+
     private static class Empty {
     }
 
@@ -278,6 +378,24 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
                     + "type=" + type
                     + ", value=" + value
                     + '}';
+        }
+    }
+
+    private static class ExternalizationReady {
+        private int value;
+
+        public ExternalizationReady() {
+            // no-op
+        }
+
+        @SuppressWarnings("unused")
+        public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeInt(value);
+        }
+
+        @SuppressWarnings("unused")
+        public void readExternal(ObjectInput in) throws IOException {
+            value = in.readInt();
         }
     }
 }

@@ -276,7 +276,7 @@ class UosObjectInputStream extends ObjectInputStream {
 
         /** {@inheritDoc} */
         @Override
-        public boolean defaulted(String name) throws IOException {
+        public boolean defaulted(String name) {
             // TODO: IGNITE-16571 - actually take into account whether it's defaulted or not
             return false;
         }
