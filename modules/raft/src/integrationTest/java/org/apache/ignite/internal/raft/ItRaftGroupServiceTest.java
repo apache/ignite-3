@@ -36,7 +36,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
@@ -62,8 +61,6 @@ public class ItRaftGroupServiceTest {
 
     private static final int NODE_PORT_BASE = 20_000;
 
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
-
     private static final String RAFT_GROUP_NAME = "part1";
 
     private static List<ClusterService> clusterServices = new ArrayList<>();
@@ -80,12 +77,7 @@ public class ItRaftGroupServiceTest {
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
         for (int i = 0; i < NODES_CNT; i++) {
-            ClusterService clusterService = ClusterServiceTestUtils.clusterService(
-                    testInfo,
-                    NODE_PORT_BASE + i,
-                    nodeFinder,
-                    NETWORK_FACTORY
-            );
+            ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, NODE_PORT_BASE + i, nodeFinder);
 
             clusterServices.add(clusterService);
 

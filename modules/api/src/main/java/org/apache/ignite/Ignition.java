@@ -20,81 +20,86 @@ package org.apache.ignite;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
-import org.jetbrains.annotations.NotNull;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry point for handling the grid lifecycle.
  */
-@SuppressWarnings("UnnecessaryInterfaceModifier")
 public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * @param name       Name of the node. Must not be {@code null}.
+     * @param name Name of the node. Must not be {@code null}.
      * @param configPath Path to the node configuration in the HOCON format. Can be {@code null}.
-     * @param workDir    Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
-    public Ignite start(@NotNull String name, @Nullable Path configPath, @NotNull Path workDir);
+    CompletableFuture<Ignite> start(String name, @Nullable Path configPath, Path workDir);
 
     /**
-     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file, with an optional
-     * class loader for further usage by {@link java.util.ServiceLoader}.
+     * Starts an Ignite node with an optional bootstrap configuration from a HOCON file, with an optional class loader for further usage by
+     * {@link java.util.ServiceLoader}.
      *
-     * @param name                     Name of the node. Must not be {@code null}.
-     * @param configPath               Path to the node configuration in the HOCON format. Can be {@code null}.
-     * @param workDir                  Work directory for the started node. Must not be {@code null}.
-     * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider
-     *                                 classes, or {@code null} if the system
-     *                                 class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Started Ignite node.
+     * @param name Name of the node. Must not be {@code null}.
+     * @param configPath Path to the node configuration in the HOCON format. Can be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
+     * null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
-    public Ignite start(@NotNull String name, @Nullable Path configPath, @NotNull Path workDir,
-                        @Nullable ClassLoader serviceLoaderClassLoader);
+    CompletableFuture<Ignite> start(String name, @Nullable Path configPath, Path workDir, @Nullable ClassLoader serviceLoaderClassLoader);
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a URL linking to HOCON configs.
      *
-     * @param name       Name of the node. Must not be {@code null}.
-     * @param cfgUrl     URL linking to the node configuration in the HOCON format. Can be {@code null}.
-     * @param workDir    Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @param name Name of the node. Must not be {@code null}.
+     * @param cfgUrl URL linking to the node configuration in the HOCON format. Can be {@code null}.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
-    public Ignite start(@NotNull String name, @Nullable URL cfgUrl, @NotNull Path workDir);
+    CompletableFuture<Ignite> start(String name, @Nullable URL cfgUrl, Path workDir);
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * @param name    Name of the node. Must not be {@code null}.
-     * @param config  Optional node configuration based on {@link org.apache.ignite.configuration.schemas.runner.NodeConfigurationSchema}
-     *                and {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for
-     *                applying the configuration properties:
-     *                <ol>
-     *                  <li>Specified property overrides existing one or just applies itself if it wasn't
-     *                      previously specified.</li>
-     *                  <li>All non-specified properties either use previous value or use default one from
-     *                      corresponding configuration schema.</li>
-     *                </ol>
-     *                So that, in case of initial node start (first start ever) specified configuration, supplemented
-     *                with defaults, is used. If no configuration was provided defaults are used for all
-     *                configuration properties. In case of node restart, specified properties override existing
-     *                ones, non specified properties that also weren't specified previously use default values.
-     *                Please pay attention that previously specified properties are searched in the
-     *                {@code workDir} specified by the user.
+     * @param name Name of the node. Must not be {@code null}.
+     * @param config Optional node configuration based on
+     *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
+     *      Following rules are used for applying the configuration properties:
+     *      <ol>
+     *        <li>Specified property overrides existing one or just applies itself if it wasn't
+     *            previously specified.</li>
+     *        <li>All non-specified properties either use previous value or use default one from
+     *            corresponding configuration schema.</li>
+     *      </ol>
+     *      So that, in case of initial node start (first start ever) specified configuration, supplemented
+     *      with defaults, is used. If no configuration was provided defaults are used for all
+     *      configuration properties. In case of node restart, specified properties override existing
+     *      ones, non specified properties that also weren't specified previously use default values.
+     *      Please pay attention that previously specified properties are searched in the
+     *      {@code workDir} specified by the user.
+     *
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
-    public Ignite start(@NotNull String name, @Nullable InputStream config, @NotNull Path workDir);
+    CompletableFuture<Ignite> start(String name, @Nullable InputStream config, Path workDir);
 
     /**
      * Starts an Ignite node with the default configuration.
      *
-     * @param name    Name of the node. Must not be {@code null}.
+     * @param name Name of the node. Must not be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
-    public Ignite start(@NotNull String name, @NotNull Path workDir);
+    CompletableFuture<Ignite> start(String name, Path workDir);
 
     /**
      * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
@@ -103,5 +108,46 @@ public interface Ignition {
      * @param name Node name to stop.
      * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public void stop(@NotNull String name);
+    void stop(String name);
+
+    /**
+     * Initializes the cluster that the given node is present in.
+     *
+     * <p>Initializing a cluster implies propagating information about the nodes that will host the Meta Storage and CMG Raft groups
+     * to all nodes in the cluster. After the operation succeeds, nodes will be able to finish the start procedure and begin
+     * accepting incoming requests.
+     *
+     * <p>Meta Storage is responsible for storing cluster-wide meta information needed for internal purposes and proper functioning of the
+     * cluster.
+     *
+     * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
+     * validating incoming nodes and maintaining the logical topology.
+     *
+     * @param name name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage <b>and</b> the CMG.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
+     */
+    void init(String name, Collection<String> metaStorageNodeNames);
+
+    /**
+     * Initializes the cluster that the given node is present in.
+     *
+     * <p>Initializing a cluster implies propagating information about the nodes that will host the Meta Storage and CMG Raft groups
+     * to all nodes in the cluster. After the operation succeeds, nodes will be able to finish the start procedure and begin
+     * accepting incoming requests.
+     *
+     * <p>Meta Storage is responsible for storing cluster-wide meta information needed for internal purposes and proper functioning of the
+     * cluster.
+     *
+     * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
+     * validating incoming nodes and maintaining the logical topology.
+     *
+     * @param name name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames names of nodes that will host the CMG.
+     * @throws IgniteException If the given node has not been started or has been stopped.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
+     */
+    void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames);
 }

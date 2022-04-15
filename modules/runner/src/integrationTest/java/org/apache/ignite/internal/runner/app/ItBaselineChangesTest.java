@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -50,11 +52,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItBaselineChangesTest {
+    private static final int NUM_NODES = 3;
+
     /** Start network port for test nodes. */
     private static final int BASE_PORT = 3344;
 
-    /** Nodes bootstrap configuration. */
-    private final Map<String, String> initClusterNodes = new LinkedHashMap<>();
+    private final List<String> clusterNodeNames = new ArrayList<>();
 
     private final List<Ignite> clusterNodes = new ArrayList<>();
 
@@ -66,24 +69,19 @@ public class ItBaselineChangesTest {
      */
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        String node0Name = testNodeName(testInfo, BASE_PORT);
-        String node1Name = testNodeName(testInfo, BASE_PORT + 1);
-        String node2Name = testNodeName(testInfo, BASE_PORT + 2);
+        List<CompletableFuture<Ignite>> futures = IntStream.range(0, NUM_NODES)
+                .mapToObj(i -> startNodeAsync(testInfo, i))
+                .collect(toList());
 
-        initClusterNodes.put(
-                node0Name,
-                buildConfig(node0Name, 0)
-        );
+        String metaStorageNode = testNodeName(testInfo, BASE_PORT);
 
-        initClusterNodes.put(
-                node1Name,
-                buildConfig(node0Name, 1)
-        );
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
 
-        initClusterNodes.put(
-                node2Name,
-                buildConfig(node0Name, 2)
-        );
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
+        }
     }
 
     /**
@@ -91,7 +89,11 @@ public class ItBaselineChangesTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(clusterNodes));
+        List<AutoCloseable> closeables = clusterNodeNames.stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -99,11 +101,7 @@ public class ItBaselineChangesTest {
      */
     @Test
     void testBaselineExtending(TestInfo testInfo) {
-        initClusterNodes.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
-
-        assertEquals(3, clusterNodes.size());
+        assertEquals(NUM_NODES, clusterNodes.size());
 
         // Create table on node 0.
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
@@ -123,40 +121,30 @@ public class ItBaselineChangesTest {
 
         recView1.insert(null, Tuple.create().set("key", 1L).set("val", 111));
 
-        var metaStoreNode = clusterNodes.get(0);
-
-        var node3Name = testNodeName(testInfo, nodePort(3));
-        var node4Name = testNodeName(testInfo, nodePort(4));
+        Ignite metaStoreNode = clusterNodes.get(0);
 
         // Start 2 new nodes after
-        var node3 = IgnitionManager.start(
-                node3Name, buildConfig(metaStoreNode.name(), 3), workDir.resolve(node3Name));
+        Ignite node3 = startNode(testInfo);
 
-        clusterNodes.add(node3);
-
-        var node4 = IgnitionManager.start(
-                node4Name, buildConfig(metaStoreNode.name(), 4), workDir.resolve(node4Name));
-
-        clusterNodes.add(node4);
+        Ignite node4 = startNode(testInfo);
 
         // Update baseline to nodes 1,4,5
-        metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3Name, node4Name));
+        metaStoreNode.setBaseline(Set.of(metaStoreNode.name(), node3.name(), node4.name()));
 
         IgnitionManager.stop(clusterNodes.get(1).name());
         IgnitionManager.stop(clusterNodes.get(2).name());
 
         Table tbl4 = node4.tables().table(schTbl1.canonicalName());
 
-        final Tuple keyTuple1 = Tuple.create().set("key", 1L);
+        Tuple keyTuple1 = Tuple.create().set("key", 1L);
 
         assertEquals(1, (Long) tbl4.recordView().get(null, keyTuple1).value("key"));
     }
 
-    private String buildConfig(String metastoreNodeName, int nodeIdx) {
+    private static String buildConfig(int nodeIdx) {
         return "{\n"
-                + "  node.metastorageNodes: [ \"" + metastoreNodeName + "\" ],\n"
                 + "  network: {\n"
-                + "    port: " + nodePort(nodeIdx) + ",\n"
+                + "    port: " + (BASE_PORT + nodeIdx) + ",\n"
                 + "    nodeFinder: {\n"
                 + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ] \n"
                 + "    }\n"
@@ -164,7 +152,23 @@ public class ItBaselineChangesTest {
                 + "}";
     }
 
-    private int nodePort(int nodeIdx) {
-        return BASE_PORT + nodeIdx;
+    private Ignite startNode(TestInfo testInfo) {
+        CompletableFuture<Ignite> future = startNodeAsync(testInfo, clusterNodes.size());
+
+        assertThat(future, willCompleteSuccessfully());
+
+        Ignite ignite = future.join();
+
+        clusterNodes.add(ignite);
+
+        return ignite;
+    }
+
+    private CompletableFuture<Ignite> startNodeAsync(TestInfo testInfo, int index) {
+        String nodeName = testNodeName(testInfo, BASE_PORT + index);
+
+        clusterNodeNames.add(nodeName);
+
+        return IgnitionManager.start(nodeName, buildConfig(index), workDir.resolve(nodeName));
     }
 }

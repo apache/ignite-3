@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -43,6 +44,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
 import org.jetbrains.annotations.Nullable;
+import org.mockito.Mockito;
 
 /**
  * Client handler module for tests.
@@ -139,6 +141,10 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
+        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
+        Mockito.when(clusterService.topologyService().localMember().name()).thenReturn("consistent-id");
+
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
@@ -151,7 +157,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         mock(QueryProcessor.class),
                                         configuration,
                                         mock(IgniteCompute.class),
-                                        mock(ClusterService.class)));
+                                        clusterService));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

@@ -23,15 +23,19 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.utils.IgniteProperties;
-import org.jetbrains.annotations.NotNull;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -64,16 +68,25 @@ public class IgnitionImpl implements Ignition {
      */
     private static final Map<String, IgniteImpl> nodes = new ConcurrentHashMap<>();
 
+    /**
+     * Collection of nodes that has been started and are eligible for receiving the init command.
+     */
+    private static final Map<String, IgniteImpl> readyForInitNodes = new ConcurrentHashMap<>();
+
     /** {@inheritDoc} */
     @Override
-    public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir) {
+    public CompletableFuture<Ignite> start(String nodeName, @Nullable Path cfgPath, Path workDir) {
         return start(nodeName, cfgPath, workDir, defaultServiceClassLoader());
     }
 
     /** {@inheritDoc} */
     @Override
-    public Ignite start(@NotNull String nodeName, @Nullable Path cfgPath, @NotNull Path workDir,
-                        @Nullable ClassLoader serviceLoaderClassLoader) {
+    public CompletableFuture<Ignite> start(
+            String nodeName,
+            @Nullable Path cfgPath,
+            Path workDir,
+            @Nullable ClassLoader serviceLoaderClassLoader
+    ) {
         try {
             return doStart(
                     nodeName,
@@ -88,7 +101,7 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public Ignite start(@NotNull String name, @Nullable URL cfgUrl, @NotNull Path workDir) {
+    public CompletableFuture<Ignite> start(String name, @Nullable URL cfgUrl, Path workDir) {
         if (cfgUrl == null) {
             return doStart(name, null, workDir, defaultServiceClassLoader());
         } else {
@@ -102,7 +115,7 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public Ignite start(@NotNull String name, @Nullable InputStream cfg, @NotNull Path workDir) {
+    public CompletableFuture<Ignite> start(String name, @Nullable InputStream cfg, Path workDir) {
         try {
             return doStart(
                     name,
@@ -117,13 +130,15 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public Ignite start(@NotNull String name, @NotNull Path workDir) {
+    public CompletableFuture<Ignite> start(String name, Path workDir) {
         return doStart(name, null, workDir, defaultServiceClassLoader());
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop(@NotNull String name) {
+    public void stop(String name) {
+        readyForInitNodes.remove(name);
+
         nodes.computeIfPresent(name, (nodeName, node) -> {
             node.stop();
 
@@ -131,20 +146,45 @@ public class IgnitionImpl implements Ignition {
         });
     }
 
-    private ClassLoader defaultServiceClassLoader() {
+    @Override
+    public void init(String name, Collection<String> metaStorageNodeNames) {
+        init(name, metaStorageNodeNames, List.of());
+    }
+
+    @Override
+    public void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
+        IgniteImpl node = readyForInitNodes.get(name);
+
+        if (node == null) {
+            throw new IgniteException("Node \"" + name + "\" has not been started");
+        }
+
+        try {
+            node.init(metaStorageNodeNames, cmgNodeNames);
+        } catch (NodeStoppingException e) {
+            throw new IgniteException("Node stop detected during init", e);
+        }
+    }
+
+    private static ClassLoader defaultServiceClassLoader() {
         return Thread.currentThread().getContextClassLoader();
     }
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * @param nodeName   Name of the node. Must not be {@code null}.
+     * @param nodeName Name of the node. Must not be {@code null}.
      * @param cfgContent Node configuration in the HOCON format. Can be {@code null}.
-     * @param workDir    Work directory for the started node. Must not be {@code null}.
-     * @return Started Ignite node.
+     * @param workDir Work directory for the started node. Must not be {@code null}.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
      */
-    private static Ignite doStart(String nodeName, @Nullable String cfgContent, Path workDir,
-                                  @Nullable ClassLoader serviceLoaderClassLoader) {
+    private static CompletableFuture<Ignite> doStart(
+            String nodeName,
+            @Language("HOCON") @Nullable String cfgContent,
+            Path workDir,
+            @Nullable ClassLoader serviceLoaderClassLoader
+    ) {
         if (nodeName.isEmpty()) {
             throw new IllegalArgumentException("Node name must not be null or empty.");
         }
@@ -164,20 +204,34 @@ public class IgnitionImpl implements Ignition {
         ackBanner();
 
         try {
-            nodeToStart.start(cfgContent);
+            CompletableFuture<Ignite> future = nodeToStart.start(cfgContent)
+                    .handle((ignite, e) -> {
+                        if (e == null) {
+                            ackSuccessStart();
+
+                            return ignite;
+                        } else {
+                            throw handleStartException(nodeName, e);
+                        }
+                    });
+
+            readyForInitNodes.put(nodeName, nodeToStart);
+
+            return future;
         } catch (Exception e) {
-            nodes.remove(nodeName);
-
-            if (e instanceof IgniteException) {
-                throw e;
-            } else {
-                throw new IgniteException(e);
-            }
+            throw handleStartException(nodeName, e);
         }
+    }
 
-        ackSuccessStart();
+    private static IgniteException handleStartException(String nodeName, Throwable e) {
+        readyForInitNodes.remove(nodeName);
+        nodes.remove(nodeName);
 
-        return nodeToStart;
+        if (e instanceof IgniteException) {
+            return (IgniteException) e;
+        } else {
+            return new IgniteException(e);
+        }
     }
 
     private static void ackSuccessStart() {

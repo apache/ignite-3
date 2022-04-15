@@ -161,7 +161,7 @@ public class RebalanceExample {
                     "example-node",
                     Files.readString(Path.of("config", "ignite-config.json")),
                     Path.of("work")
-            )) {
+            ).join()) {
                 System.out.println("\nUpdating the baseline and rebalancing the data...");
 
                 server.setBaseline(Set.of(

@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -26,6 +29,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -72,7 +76,6 @@ class ItTableCreationTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -160,7 +163,6 @@ class ItTableCreationTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -173,7 +175,6 @@ class ItTableCreationTest {
         nodesBootstrapCfg.put(
                 node2Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\", \"" + node1Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"
@@ -182,6 +183,20 @@ class ItTableCreationTest {
                         + "  }\n"
                         + "}"
         );
+
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
+
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
+        }
     }
 
     /**
@@ -189,7 +204,11 @@ class ItTableCreationTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
+        List<AutoCloseable> autoCloseables = nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(autoCloseables);
     }
 
     /**
@@ -197,10 +216,6 @@ class ItTableCreationTest {
      */
     @Test
     void testInitialSimpleTableConfiguration() {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
-
         assertEquals(3, clusterNodes.size());
 
         clusterNodes.forEach(Assertions::assertNotNull);

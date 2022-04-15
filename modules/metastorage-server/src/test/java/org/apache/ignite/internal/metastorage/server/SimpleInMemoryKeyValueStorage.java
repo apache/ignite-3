@@ -670,13 +670,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             // No-op.
         }
 
-        /** {@inheritDoc} */
-        @NotNull
-        @Override
-        public Iterator<Entry> iterator() {
-            return it;
-        }
-
         @NotNull
         Iterator<Entry> createIterator() {
             return new Iterator<>() {
@@ -797,13 +790,6 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
         @Override
         public void close() throws Exception {
             // No-op.
-        }
-
-        /** {@inheritDoc} */
-        @NotNull
-        @Override
-        public Iterator<WatchEvent> iterator() {
-            return it;
         }
 
         @NotNull

@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -70,7 +71,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      * Before each.
      */
     @BeforeAll
-    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) {
+    void beforeAll(TestInfo testInfo, @WorkDirectory Path workDir) throws Exception {
         this.workDir = workDir;
 
         String node0Name = testNodeName(testInfo, 3344);
@@ -79,32 +80,32 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + 3344 + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "    }\n"
-                        + "  }\n"
+                        + "  network.port: 3344,\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "}"
         );
 
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
-                        + "  network: {\n"
-                        + "    port: " + 3345 + ",\n"
-                        + "    nodeFinder: {\n"
-                        + "      netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
-                        + "    }\n"
-                        + "  }\n"
+                        + "  network.port: 3345,\n"
+                        + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\", \"localhost:3345\" ]\n"
                         + "}"
         );
 
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
+
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            startedNodes.add(future.join());
+        }
 
         TableDefinition schTbl = SchemaBuilders.tableBuilder(SCHEMA_NAME, TABLE_NAME).columns(
                 SchemaBuilders.column(COLUMN_KEY, ColumnType.INT32).build(),
@@ -125,13 +126,15 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
      */
     @AfterAll
     void afterAll() throws Exception {
-        client.close();
+        var closeables = new ArrayList<AutoCloseable>();
 
-        IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
-    }
+        closeables.add(client);
 
-    protected void stopNode() throws Exception {
-        startedNodes.remove(0).close();
+        nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .forEach(closeables::add);
+
+        IgniteUtils.closeAll(closeables);
     }
 
     protected String getNodeAddress() {
@@ -142,8 +145,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         List<String> res = new ArrayList<>(startedNodes.size());
 
         for (Ignite ignite : startedNodes) {
-            SocketAddress addr = ((IgniteImpl) ignite).clientHandlerModule().localAddress();
-            int port = ((InetSocketAddress) addr).getPort();
+            int port = ((IgniteImpl) ignite).clientAddress().port();
 
             res.add("127.0.0.1:" + port);
         }

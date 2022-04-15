@@ -52,5 +52,8 @@
 
     <!-- UnusedParameters -->
     <Rule Id="CA1801" Action="None" />
+
+    <!-- Validate parameters. -->
+    <Rule Id="CA1062" Action="None" />
   </Rules>
 </RuleSet>
