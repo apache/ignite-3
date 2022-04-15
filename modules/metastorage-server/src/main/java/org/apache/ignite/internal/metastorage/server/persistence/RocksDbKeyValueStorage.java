@@ -47,6 +47,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.DbCounter;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.Entry;
 import org.apache.ignite.internal.metastorage.server.If;
@@ -199,6 +200,7 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
                 .setCreateIfMissing(true);
 
         db = RocksDB.open(options, dbPath.toAbsolutePath().toString(), descriptors, handles);
+        DbCounter.incKv();
 
         data = ColumnFamily.wrap(db, handles.get(0));
 
@@ -225,7 +227,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(db, options);
+        IgniteUtils.closeAll(() -> {
+            DbCounter.decKv();
+            db.closeE();
+        }, options);
     }
 
     /** {@inheritDoc} */

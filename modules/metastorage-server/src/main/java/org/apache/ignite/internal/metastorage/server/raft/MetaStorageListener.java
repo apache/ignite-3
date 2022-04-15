@@ -397,11 +397,11 @@ public class MetaStorageListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onShutdown() {
-        try {
+        /*try {
             storage.close();
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to close storage: " + e.getMessage(), e);
-        }
+        }*/
     }
 
     /** {@inheritDoc} */

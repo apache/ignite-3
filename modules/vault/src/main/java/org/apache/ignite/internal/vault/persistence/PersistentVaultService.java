@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.DbCounter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -97,6 +98,7 @@ public class PersistentVaultService implements VaultService {
 
         try {
             db = RocksDB.open(options, path.toString());
+            DbCounter.incVault();
         } catch (RocksDBException e) {
             throw new IgniteInternalException(e);
         }
@@ -123,6 +125,8 @@ public class PersistentVaultService implements VaultService {
         options.close();
 
         db.close();
+
+        DbCounter.decVault();
     }
 
     /** {@inheritDoc} */

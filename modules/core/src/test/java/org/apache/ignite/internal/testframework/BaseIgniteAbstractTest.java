@@ -23,9 +23,11 @@ import static org.apache.ignite.lang.IgniteSystemProperties.getString;
 
 import java.lang.reflect.Method;
 import java.nio.file.Path;
+import org.apache.ignite.internal.DbCounter;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 import org.apache.ignite.lang.IgniteLogger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -68,10 +70,15 @@ public abstract class BaseIgniteAbstractTest {
      * @param testInfo Test information object.
      */
     protected void tearDownBase(TestInfo testInfo) {
-        log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
+        log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms, dbCntr: {}",
                 testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
-                testInfo.getDisplayName(), monotonicMs() - testStartMs);
+                testInfo.getDisplayName(), monotonicMs() - testStartMs, DbCounter.each());
+    }
+
+    @AfterAll
+    public static void logDbCntr() {
+        log.info(">>> dbCntrAfterAll: " + DbCounter.all());
     }
 
     /**

@@ -36,6 +36,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.DbCounter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -135,6 +136,7 @@ class RocksDbTableStorage implements TableStorage {
 
         try {
             db = RocksDB.open(dbOptions, tablePath.toAbsolutePath().toString(), cfDescriptors, cfHandles);
+            DbCounter.incTable();
 
             // read all existing Column Families from the db and parse them according to type: meta, partition data or index.
             for (ColumnFamilyHandle cfHandle : cfHandles) {
@@ -182,7 +184,10 @@ class RocksDbTableStorage implements TableStorage {
 
         List<AutoCloseable> resources = new ArrayList<>();
 
-        resources.add(db);
+        resources.add(() -> {
+            db.close();
+            DbCounter.decTable();
+        });
 
         resources.addAll(sortedIndices.values());
 

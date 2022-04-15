@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.DbCounter;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
@@ -75,6 +76,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
         try {
             db = RocksDB.open(options, dbPath.toString());
+            DbCounter.incCluster();
 
             ColumnFamily defaultCf = ColumnFamily.wrap(db, db.getDefaultColumnFamily());
 
@@ -195,7 +197,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        IgniteUtils.closeAll(options, db);
+        IgniteUtils.closeAll(options, () -> { db.close(); DbCounter.decCluster(); } );
 
         db = null;
 

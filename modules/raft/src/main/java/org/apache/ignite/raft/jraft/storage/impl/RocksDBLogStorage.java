@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.DbCounter;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -306,6 +307,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
             throw new IllegalStateException("Invalid log path, it's a regular file: " + this.path);
         }
         this.db = RocksDB.open(this.dbOptions, this.path, columnFamilyDescriptors, columnFamilyHandles);
+        DbCounter.incLog();
 
         assert (columnFamilyHandles.size() == 2);
         this.confHandle = columnFamilyHandles.get(0);
@@ -390,6 +392,7 @@ public class RocksDBLogStorage implements LogStorage, Describer {
         this.confHandle.close();
         this.defaultHandle.close();
         this.db.close();
+        DbCounter.decLog();
     }
 
     @Override
