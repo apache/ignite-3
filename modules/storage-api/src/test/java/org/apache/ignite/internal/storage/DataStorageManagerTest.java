@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema.FIRST;
 import static org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDataStorageConfigurationSchema.SECOND;
-import static org.apache.ignite.internal.storage.DataStorageModulesTest.createMockedStorageEngineFactory;
+import static org.apache.ignite.internal.storage.DataStorageModulesTest.createMockedDataStorageModule;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -70,9 +70,7 @@ public class DataStorageManagerTest {
 
     @Test
     void testDefaultDataStorageSingleStorage() {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class)
-        ));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
@@ -86,8 +84,8 @@ public class DataStorageManagerTest {
     @Test
     void testDefaultDataStorageMultipleStorages() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
-                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
@@ -104,8 +102,8 @@ public class DataStorageManagerTest {
     @Test
     void testTableDataStorageConsumerError() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
-                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
@@ -146,8 +144,8 @@ public class DataStorageManagerTest {
     @Test
     void testTableDataStorageConsumerSuccess() throws Exception {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
-                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
@@ -183,9 +181,7 @@ public class DataStorageManagerTest {
 
     @Test
     void testDefaultTableDataStorageConsumerSingleEngine() throws Exception {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class)
-        ));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
@@ -203,8 +199,8 @@ public class DataStorageManagerTest {
     @Test
     void testDefaultTableDataStorageConsumerMultipleEngines() throws Exception {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
-                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(

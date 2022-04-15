@@ -159,7 +159,7 @@ public class DataStorageManager implements IgniteComponent {
         return tableDataStorageChange -> {
             tableDataStorageChange.convert(dataStorage);
 
-            configurationSource.descend(((ConstructableTreeNode) tableDataStorageChange));
+            configurationSource.descend((ConstructableTreeNode) tableDataStorageChange);
         };
     }
 

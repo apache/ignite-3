@@ -34,11 +34,6 @@ public interface DataStorageModule {
     String name();
 
     /**
-     * Returns the data storage configuration schema.
-     */
-    Class<? extends DataStorageConfigurationSchema> schema();
-
-    /**
      * Creates a new storage engine.
      *
      * @param configRegistry Configuration register.

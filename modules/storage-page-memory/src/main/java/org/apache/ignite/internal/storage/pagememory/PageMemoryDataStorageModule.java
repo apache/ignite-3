@@ -20,13 +20,11 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
-import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 
 /**
@@ -37,12 +35,6 @@ public class PageMemoryDataStorageModule implements DataStorageModule {
     @Override
     public String name() {
         return ENGINE_NAME;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Class<? extends DataStorageConfigurationSchema> schema() {
-        return PageMemoryDataStorageConfigurationSchema.class;
     }
 
     /** {@inheritDoc} */

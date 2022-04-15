@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.storage;
 
+import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 
@@ -26,6 +29,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
@@ -71,23 +76,10 @@ public class DataStorageModules {
                 ));
             }
 
-            Class<? extends DataStorageConfigurationSchema> schema = module.schema();
-
-            assert schema != DataStorageConfigurationSchema.class : module;
-
-            String schemaName = schemaName(schema);
-
-            if (!name.equals(schemaName)) {
-                throw new IllegalStateException(String.format(
-                        "Names do not match [name=%s, schemaName=%s, module=%s]",
-                        name,
-                        schemaName,
-                        module
-                ));
-            }
-
             modules.put(name, module);
         }
+
+        assert !modules.isEmpty();
 
         this.modules = modules.values();
     }
@@ -112,12 +104,50 @@ public class DataStorageModules {
     /**
      * Collects {@link DataStorageConfigurationSchema data storage schema} fields (with {@link Value}).
      *
+     * @param polymorphicSchemaExtensions {@link PolymorphicConfigInstance Polymorphic schema extensions} that contain extensions of {@link
+     * DataStorageConfigurationSchema}.
      * @return Mapping: {@link DataStorageModule#name Data storage name} -> filed name -> field type.
+     * @throws IllegalStateException If the {@link DataStorageConfigurationSchema data storage schemas} are not valid.
      */
-    public Map<String, Map<String, Class<?>>> collectSchemasFields() {
+    public Map<String, Map<String, Class<?>>> collectSchemasFields(Collection<Class<?>> polymorphicSchemaExtensions) {
+        Map<String, Class<? extends DataStorageConfigurationSchema>> schemas = polymorphicSchemaExtensions.stream()
+                .filter(DataStorageConfigurationSchema.class::isAssignableFrom)
+                .collect(toUnmodifiableMap(
+                        schemaCls -> schemaName((Class<? extends DataStorageConfigurationSchema>) schemaCls),
+                        schemaCls -> (Class<? extends DataStorageConfigurationSchema>) schemaCls
+                ));
+
+        Set<String> dataStorageNames = modules.stream()
+                .map(DataStorageModule::name)
+                .collect(toSet());
+
+        if (!dataStorageNames.equals(schemas.keySet())) {
+            List<String> dataStorageWithoutSchema = dataStorageNames.stream()
+                    .filter(not(schemas.keySet()::contains))
+                    .collect(toList());
+
+            if (!dataStorageWithoutSchema.isEmpty()) {
+                throw new IllegalStateException(
+                        "Missing configuration schemas (DataStorageConfigurationSchema heir) for data storage engines: "
+                                + dataStorageWithoutSchema
+                );
+            }
+
+            List<Class<? extends DataStorageConfigurationSchema>> schemasWithoutDataStorages = schemas.entrySet().stream()
+                    .filter(e -> !dataStorageNames.contains(e.getKey()))
+                    .map(Entry::getValue)
+                    .collect(toList());
+
+            if (!schemasWithoutDataStorages.isEmpty()) {
+                throw new IllegalStateException(
+                        "Missing data storage engines for schemas: " + schemasWithoutDataStorages
+                );
+            }
+        }
+
         return modules.stream().collect(toUnmodifiableMap(
                 DataStorageModule::name,
-                module -> schemaValueFields(module.schema())
+                module -> schemaValueFields(schemas.get(module.name()))
         ));
     }
 

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDa
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -87,8 +88,8 @@ public class DataStorageModulesTest {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
                 () -> new DataStorageModules(List.of(
-                        createMockedStorageEngineFactory(sameName, FirstDataStorageConfigurationSchema.class),
-                        createMockedStorageEngineFactory(sameName, SecondDataStorageConfigurationSchema.class)
+                        createMockedDataStorageModule(sameName),
+                        createMockedDataStorageModule(sameName)
                 ))
         );
 
@@ -99,31 +100,17 @@ public class DataStorageModulesTest {
     void testInvalidName() {
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> new DataStorageModules(List.of(
-                        createMockedStorageEngineFactory(UNKNOWN_DATA_STORAGE, FirstDataStorageConfigurationSchema.class)
-                ))
+                () -> new DataStorageModules(List.of(createMockedDataStorageModule(UNKNOWN_DATA_STORAGE)))
         );
 
         assertThat(exception.getMessage(), Matchers.startsWith("Invalid name"));
     }
 
     @Test
-    void testNamesDoNotMatch() {
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> new DataStorageModules(List.of(
-                        createMockedStorageEngineFactory(SECOND, FirstDataStorageConfigurationSchema.class)
-                ))
-        );
-
-        assertThat(exception.getMessage(), Matchers.startsWith("Names do not match"));
-    }
-
-    @Test
     void testCreateDataEngines() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
-                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
         ));
 
         Map<String, StorageEngine> engines = dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir);
@@ -137,13 +124,63 @@ public class DataStorageModulesTest {
     }
 
     @Test
-    void testCollectSchemasFields() {
+    void testCollectSchemasFieldsDuplicateKey() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedStorageEngineFactory(FIRST, FirstDataStorageConfigurationSchema.class),
-                createMockedStorageEngineFactory(SECOND, SecondDataStorageConfigurationSchema.class)
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
         ));
 
-        Map<String, Map<String, Class<?>>> fields = dataStorageModules.collectSchemasFields();
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> dataStorageModules.collectSchemasFields(
+                        List.of(FirstDataStorageConfigurationSchema.class, FirstDataStorageConfigurationSchema.class)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Duplicate key"));
+    }
+
+    @Test
+    void testCollectSchemasFieldsMissingConfigurationSchemas() {
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
+        ));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> dataStorageModules.collectSchemasFields(List.of(FirstDataStorageConfigurationSchema.class))
+        );
+
+        assertThat(exception.getMessage(), startsWith("Missing configuration schemas"));
+    }
+
+    @Test
+    void testCollectSchemasFieldsMissingDataStorageEngines() {
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                createMockedDataStorageModule(FIRST)
+        ));
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> dataStorageModules.collectSchemasFields(
+                        List.of(FirstDataStorageConfigurationSchema.class, SecondDataStorageConfigurationSchema.class)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Missing data storage engines"));
+    }
+
+    @Test
+    void testCollectSchemasFields() {
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                createMockedDataStorageModule(FIRST),
+                createMockedDataStorageModule(SECOND)
+        ));
+
+        Map<String, Map<String, Class<?>>> fields = dataStorageModules.collectSchemasFields(
+                List.of(FirstDataStorageConfigurationSchema.class, SecondDataStorageConfigurationSchema.class)
+        );
 
         assertThat(fields, aMapWithSize(2));
 
@@ -152,17 +189,12 @@ public class DataStorageModulesTest {
         assertThat(fields.get(SECOND), equalTo(Map.of("strVal", String.class, "longVal", long.class)));
     }
 
-    static DataStorageModule createMockedStorageEngineFactory(
-            String name,
-            Class<? extends DataStorageConfigurationSchema> dataStorageSchema
-    ) {
+    static DataStorageModule createMockedDataStorageModule(String name) {
         DataStorageModule mock = mock(DataStorageModule.class);
 
         when(mock.name()).thenReturn(name);
 
         when(mock.createEngine(any(), any())).thenReturn(mock(StorageEngine.class));
-
-        when(mock.schema()).then(answer -> dataStorageSchema);
 
         return mock;
     }
