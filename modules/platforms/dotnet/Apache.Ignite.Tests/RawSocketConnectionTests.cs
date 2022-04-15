@@ -83,6 +83,7 @@ namespace Apache.Ignite.Tests
 
             var str = Encoding.UTF8.GetString(msg);
 
+            // TODO: Different size is caused by different node names in response (PlatformTestNodeRunner_2 or PlatformTestNodeRunner)
             Assert.AreEqual(110, msgSize, str);
 
             // Protocol version.
