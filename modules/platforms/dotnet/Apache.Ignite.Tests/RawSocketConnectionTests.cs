@@ -108,7 +108,6 @@ namespace Apache.Ignite.Tests
 
             writer.WriteBinHeader(0); // Features.
             writer.WriteMapHeader(0); // Extensions.
-            writer.Write(0); // Idle timeout.
 
             writer.Flush();
 
