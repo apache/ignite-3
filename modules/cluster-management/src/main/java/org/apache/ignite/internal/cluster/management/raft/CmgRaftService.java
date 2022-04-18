@@ -22,7 +22,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.cluster.management.raft.commands.NodeJoinCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
@@ -85,14 +86,30 @@ public class CmgRaftService {
     }
 
     /**
-     * Sends a {@link NodeJoinCommand} thus adding the current node to the local topology.
+     * Sends a {@link JoinRequestCommand}, starting the validation procedure.
      *
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> joinCluster() {
+    public CompletableFuture<Void> startJoinCluster() {
         ClusterNode localMember = clusterService.topologyService().localMember();
 
-        return raftService.run(new NodeJoinCommand(localMember))
+        return raftService.run(new JoinRequestCommand(localMember))
+                .thenAccept(response -> {
+                    if (response instanceof JoinDeniedResponse) {
+                        throw new IgniteInternalException("Join request denied, reason: " + ((JoinDeniedResponse) response).reason());
+                    }
+                });
+    }
+
+    /**
+     * Sends a {@link JoinReadyCommand} thus adding the current node to the local topology.
+     *
+     * @return Future that represents the state of the operation.
+     */
+    public CompletableFuture<Void> completeJoinCluster() {
+        ClusterNode localMember = clusterService.topologyService().localMember();
+
+        return raftService.run(new JoinReadyCommand(localMember))
                 .thenAccept(response -> {
                     if (response instanceof JoinDeniedResponse) {
                         throw new IgniteInternalException("Join request denied, reason: " + ((JoinDeniedResponse) response).reason());

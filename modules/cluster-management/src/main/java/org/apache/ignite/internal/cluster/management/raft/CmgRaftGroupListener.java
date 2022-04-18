@@ -21,7 +21,8 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.cluster.management.raft.commands.NodeJoinCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
@@ -72,12 +73,10 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             if (command instanceof WriteStateCommand) {
                 storage.putClusterState(((WriteStateCommand) command).clusterState());
-            } else if (command instanceof NodeJoinCommand) {
+            } else if (command instanceof JoinRequestCommand) {
                 // TODO: perform validation https://issues.apache.org/jira/browse/IGNITE-16717
-                //  this method must also remain idempotent, as it might be called multiple times on the same node
-                // TODO: node should be added only after receving the NodeJoinFinish command,
-                //  see https://issues.apache.org/jira/browse/IGNITE-16717
-                storage.putLogicalTopologyNode(((NodeJoinCommand) command).node());
+            } else if (command instanceof JoinReadyCommand) {
+                storage.putLogicalTopologyNode(((JoinReadyCommand) command).node());
             } else if (command instanceof NodesLeaveCommand) {
                 storage.removeLogicalTopologyNodes(((NodesLeaveCommand) command).nodes());
             }
