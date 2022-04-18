@@ -650,7 +650,7 @@ public class IgniteImpl implements Ignite {
 
             try {
                 componentToStop.stop();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 LOG.error("Unable to stop component=[" + componentToStop + "] within node=[" + name + ']', e);
             }
         }

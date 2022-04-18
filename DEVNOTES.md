@@ -157,8 +157,9 @@ Configure Idea code style (for IntelliJ Idea >= 2019):
 If you want to make use of Idea build action and incremental compilation, you have to alter the build process manually
 as Idea Maven integration doesn't support all the Maven plugins out of the box.
  * Open Maven tab
+ * Click on the gear and untick `Show Basic Phases Only`
  * Find `ignite-sql-engine` module
- * Select `Lifecycle` -> `compile`
+ * Select `Lifecycle` -> `process-resources`
  * Open contextual menu and select `Before Build`
 
 ***

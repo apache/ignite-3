@@ -14,20 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ignite.raft.jraft.core;
+
+package org.apache.ignite.raft.jraft.storage.impl;
 
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
-public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
-    public TestJRaftServiceFactory() {
-        super(null);
-    }
+/** Shared log storage test. */
+public class RocksDbSharedLogStorageTest extends BaseLogStorageTest {
+    /** Log storage provider. */
+    private DefaultLogStorageFactory logStorageProvider;
 
+    /** {@inheritDoc} */
+    @BeforeEach
     @Override
-    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
-        return new LocalLogStorage(null, raftOptions);
+    public void setup() throws Exception {
+        logStorageProvider = new DefaultLogStorageFactory(this.path);
+
+        logStorageProvider.start();
+
+        super.setup();
     }
 
+    /** {@inheritDoc} */
+    @AfterEach
+    @Override
+    public void teardown() throws Exception {
+        super.teardown();
+
+        logStorageProvider.close();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected LogStorage newLogStorage() {
+        return logStorageProvider.getLogStorage("test", new RaftOptions());
+    }
 }
