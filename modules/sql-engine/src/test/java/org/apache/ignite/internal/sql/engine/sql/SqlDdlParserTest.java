@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +36,6 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParseException;
@@ -105,34 +105,6 @@ public class SqlDdlParserTest {
         assertThat(createTable.ifNotExists, is(true));
         assertThat(createTable.columnList(), hasItem(columnWithName("ID")));
         assertThat(createTable.columnList(), hasItem(columnWithName("VAL")));
-    }
-
-    @Test
-    public void createTableWithEngine() throws SqlParseException {
-        String query = "create table my_table(id int, val varchar) engine test_engine_name";
-
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName().names, is(List.of("TEST_ENGINE_NAME")));
-    }
-
-    @Test
-    public void createTableWithoutEngine() throws SqlParseException {
-        String query = "create table my_table(id int, val varchar)";
-
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
-        assertThat(createTable.engineName(), nullValue());
     }
 
     /**
@@ -230,29 +202,10 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Parsing of CREATE TABLE with specified table options.
-     */
-    @Test
-    public void createTableWithOptions() throws SqlParseException {
-        String query = "create table my_table(id int) with"
-                + " replicas=2,"
-                + " partitions=3";
-
-        SqlNode node = parse(query);
-
-        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
-
-        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
-
-        assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
-        assertThatIntegerOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
-    }
-
-    /**
      * Parsing of CREATE TABLE with specified colocation columns.
      */
     @Test
-    public void createTableWithColocation() throws SqlParseException {
+    public void createTableWithColocationBy() throws SqlParseException {
         IgniteSqlCreateTable createTable;
 
         createTable = parseCreateTable(
@@ -301,7 +254,53 @@ public class SqlDdlParserTest {
         w = new SqlPrettyWriter();
         createTable.unparse(w, 0, 0);
 
-        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID0\") WITH REPLICAS = 2, PARTITIONS = 3"));
+        assertThat(w.toString(), endsWith("COLOCATE BY (\"ID0\") WITH \"REPLICAS\" = 2, \"PARTITIONS\" = 3"));
+    }
+
+    @Test
+    public void createTableWithEngine() throws SqlParseException {
+        SqlNode node = parse("create table my_table(id int, val varchar) engine test_engine_name");
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.engineName().names, is(List.of("TEST_ENGINE_NAME")));
+    }
+
+    @Test
+    public void createTableWithoutEngine() throws SqlParseException {
+        SqlNode node = parse("create table my_table(id int, val varchar)");
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.engineName(), nullValue());
+    }
+
+    @Test
+    public void createTableWithOptions() throws SqlParseException {
+        String query = "create table my_table(id int) with"
+                + " replicas=2,"
+                + " partitions=3,"
+                + " dataRegion='default',"
+                + " \"pageSize\"=1024,"
+                + " \"persistent\"=true";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThatOptionPresent(createTable.createOptionList().getList(), "REPLICAS", 2);
+        assertThatOptionPresent(createTable.createOptionList().getList(), "PARTITIONS", 3);
+        assertThatOptionPresent(createTable.createOptionList().getList(), "DATAREGION", "default");
+        assertThatOptionPresent(createTable.createOptionList().getList(), "pageSize", 1024);
+        assertThatOptionPresent(createTable.createOptionList().getList(), "persistent", true);
     }
 
     private IgniteSqlCreateTable parseCreateTable(String stmt) throws SqlParseException {
@@ -325,49 +324,6 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Shortcut to verify that there is an option with a particular string value.
-     *
-     * @param optionList Option list from parsed AST.
-     * @param option     An option key of interest.
-     * @param expVal     Expected value.
-     */
-    private static void assertThatStringOptionPresent(List<SqlNode> optionList, String option, String expVal) {
-        assertThat(optionList, hasItem(ofTypeMatching(
-                "option " + option + "=" + expVal, IgniteSqlCreateTableOption.class,
-                opt -> opt.key().name().equals(option) && opt.value() instanceof SqlIdentifier
-                        && Objects.equals(expVal, ((SqlIdentifier) opt.value()).names.get(0)))));
-    }
-
-    /**
-     * Shortcut to verify that there is an option with a particular boolean value.
-     *
-     * @param optionList Option list from parsed AST.
-     * @param option     An option key of interest.
-     * @param expVal     Expected value.
-     */
-    private static void assertThatBooleanOptionPresent(List<SqlNode> optionList, String option, boolean expVal) {
-        assertThat(optionList, hasItem(ofTypeMatching(
-                "option" + option + "=" + expVal, IgniteSqlCreateTableOption.class,
-                opt -> opt.key().name().equals(option) && opt.value() instanceof SqlLiteral
-                        && Objects.equals(expVal, ((SqlLiteral) opt.value()).booleanValue()))));
-    }
-
-    /**
-     * Shortcut to verify that there is an option with a particular integer value.
-     *
-     * @param optionList Option list from parsed AST.
-     * @param option     An option key of interest.
-     * @param expVal     Expected value.
-     */
-    private static void assertThatIntegerOptionPresent(List<SqlNode> optionList, String option, int expVal) {
-        assertThat(optionList, hasItem(ofTypeMatching(
-                "option" + option + "=" + expVal, IgniteSqlCreateTableOption.class,
-                opt -> opt.key().name().equals(option) && opt.value() instanceof SqlNumericLiteral
-                        && ((SqlNumericLiteral) opt.value()).isInteger()
-                        && Objects.equals(expVal, ((SqlLiteral) opt.value()).intValue(true)))));
-    }
-
-    /**
      * Matcher to verify name in the column declaration.
      *
      * @param name Expected name.
@@ -375,6 +331,7 @@ public class SqlDdlParserTest {
      */
     private static <T extends SqlColumnDeclaration> Matcher<T> columnWithName(String name) {
         return new CustomMatcher<T>("column with name=" + name) {
+            /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {
                 return item instanceof SqlColumnDeclaration
@@ -384,7 +341,7 @@ public class SqlDdlParserTest {
     }
 
     /**
-     * Matcher to verify that an object of the expected type and matches the given predicat.
+     * Matcher to verify that an object of the expected type and matches the given predicate.
      *
      * @param desc Description for this matcher.
      * @param cls  Expected class to verify the object is instance of.
@@ -393,10 +350,38 @@ public class SqlDdlParserTest {
      */
     private static <T> Matcher<T> ofTypeMatching(String desc, Class<T> cls, Predicate<T> pred) {
         return new CustomMatcher<T>(desc) {
+            /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {
                 return item != null && cls.isAssignableFrom(item.getClass()) && pred.test((T) item);
             }
         };
+    }
+
+    private static void assertThatOptionPresent(List<SqlNode> optionList, String option, Object expVal) {
+        assertThat(optionList, hasItem(ofTypeMatching(
+                option + "=" + expVal,
+                IgniteSqlCreateTableOption.class,
+                opt -> {
+                    if (opt.key().getSimple().equals(option)) {
+                        if (opt.value() instanceof SqlLiteral) {
+                            SqlLiteral sqlLiteral = (SqlLiteral) opt.value();
+
+                            switch (sqlLiteral.getTypeName()) {
+                                case DECIMAL:
+                                    return Objects.equals(expVal, sqlLiteral.intValue(true));
+                                case CHAR:
+                                    return Objects.equals(expVal, sqlLiteral.toValue());
+                                case BOOLEAN:
+                                    return Objects.equals(expVal, sqlLiteral.booleanValue());
+                                default:
+                                    fail("unsupported");
+                            }
+                        }
+                    }
+
+                    return false;
+                }
+        )));
     }
 }

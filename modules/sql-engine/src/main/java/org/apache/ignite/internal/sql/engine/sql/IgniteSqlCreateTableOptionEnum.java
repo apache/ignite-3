@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 /**
  * Enumerates the Ignite specific options for CREATE TABLE statement.
  */
+// TODO: IGNITE-16766 удалить
 public enum IgniteSqlCreateTableOptionEnum {
     /** A number of partition replicas. */
     REPLICAS,

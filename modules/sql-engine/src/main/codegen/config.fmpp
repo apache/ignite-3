@@ -48,8 +48,6 @@ data: {
       "COLOCATE"
       "SEMI"
       "IF"
-      "REPLICAS"
-      "PARTITIONS"
       "INDEX"
       "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
@@ -59,8 +57,6 @@ data: {
     # items in this list become non-reserved
     nonReservedKeywords: [
       "SEMI"
-      "REPLICAS"
-      "PARTITIONS"
       "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
 

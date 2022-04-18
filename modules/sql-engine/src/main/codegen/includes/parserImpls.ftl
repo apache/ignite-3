@@ -39,29 +39,17 @@ SqlNodeList CreateTableOptionList() :
     }
 }
 
-SqlLiteral CreateTableOptionKey() :
-{
-}
-{
-    <REPLICAS> { return SqlLiteral.createSymbol(IgniteSqlCreateTableOptionEnum.REPLICAS, getPos()); }
-|
-    <PARTITIONS> { return SqlLiteral.createSymbol(IgniteSqlCreateTableOptionEnum.PARTITIONS, getPos()); }
-}
-
 void CreateTableOption(List<SqlNode> list) :
 {
     final Span s;
-    final SqlLiteral key;
+    final SqlIdentifier key;
     final SqlNode val;
 }
 {
-    key = CreateTableOptionKey() { s = span(); }
+    key = SimpleIdentifier() { s = span(); }
     <EQ>
-    (
-        val = Literal()
-    |
-        val = SimpleIdentifier()
-    ) {
+    val = Literal()
+    {
         list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
     }
 }

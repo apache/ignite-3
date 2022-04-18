@@ -474,9 +474,10 @@ public class DdlSqlToCommandConverter {
          * @param ctx Planning context.
          * @param cmd Command instance to set a validation result.
          */
+        // TODO: IGNITE-16766 Испрвить валидаторы
         private void process(IgniteSqlCreateTableOption opt, PlanningContext ctx, CreateTableCommand cmd) {
-            assert key == null || key == opt.key() : "Unexpected create table option [expected=" + key + ", actual="
-                    + opt.key() + "]";
+            //            assert key == null || key == opt.key() : "Unexpected create table option [expected=" + key + ", actual="
+            //                    + opt.key() + "]";
 
             valSetter.accept(cmd, validator.apply(opt, ctx));
         }
