@@ -175,6 +175,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final SqlNodeList columnList;
     SqlNodeList optionList = null;
     SqlNodeList colocationColumns = null;
+    SqlIdentifier engine = null;
 }
 {
     <TABLE>
@@ -186,10 +187,13 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             colocationColumns = ParenthesizedSimpleIdentifierList()
     ]
     [
+            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
+    ]
+    [
         <WITH> { s.add(this); } optionList = CreateTableOptionList()
     ]
     {
-        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, columnList, colocationColumns, optionList);
+        return new IgniteSqlCreateTable(s.end(this), ifNotExists, id, engine, columnList, colocationColumns, optionList);
     }
 }
 

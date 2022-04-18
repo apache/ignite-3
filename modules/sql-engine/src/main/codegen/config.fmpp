@@ -51,6 +51,7 @@ data: {
       "REPLICAS"
       "PARTITIONS"
       "INDEX"
+      "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
     ]
 
@@ -60,6 +61,7 @@ data: {
       "SEMI"
       "REPLICAS"
       "PARTITIONS"
+      "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
 
       # The following keywords are reserved in core Calcite,

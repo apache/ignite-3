@@ -24,6 +24,7 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.List;
@@ -104,6 +105,34 @@ public class SqlDdlParserTest {
         assertThat(createTable.ifNotExists, is(true));
         assertThat(createTable.columnList(), hasItem(columnWithName("ID")));
         assertThat(createTable.columnList(), hasItem(columnWithName("VAL")));
+    }
+
+    @Test
+    public void createTableWithEngine() throws SqlParseException {
+        String query = "create table my_table(id int, val varchar) engine test_engine_name";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.engineName().names, is(List.of("TEST_ENGINE_NAME")));
+    }
+
+    @Test
+    public void createTableWithoutEngine() throws SqlParseException {
+        String query = "create table my_table(id int, val varchar)";
+
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.engineName(), nullValue());
     }
 
     /**
