@@ -58,7 +58,7 @@ public class UuidIgniteRowId implements IgniteRowId {
 
     /** {@inheritDoc} */
     @Override
-    public int compare(ByteBuffer buf, boolean signedBytesCompare) {
+    public int compareTo(ByteBuffer buf, boolean signedBytesCompare) {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 
         long mask = longBytesSignsMask(signedBytesCompare);
@@ -76,7 +76,10 @@ public class UuidIgniteRowId implements IgniteRowId {
     @Override
     public int compareTo(@NotNull IgniteRowId o) {
         if (!(o instanceof UuidIgniteRowId)) {
-            throw new IllegalArgumentException(o.getClass().getName());
+            throw new IllegalArgumentException(
+                    "Compare can only be performed with instances of " + getClass().getName()
+                            + ", but a parameter with the following class has been passed: " + o.getClass().getName()
+            );
         }
 
         UuidIgniteRowId that = (UuidIgniteRowId) o;

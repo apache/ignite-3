@@ -75,7 +75,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Threadlocal direct buffer instance to read keys from RocksDB. */
     private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(BIG_ENDIAN));
 
-    /** Threadlocal ob-heap byte buffer instance to use for key manipulations. */
+    /** Threadlocal on-heap byte buffer instance to use for key manipulations. */
     private final ThreadLocal<ByteBuffer> heapKeyBuffer;
 
     /** Size of the {@link IgniteRowId} identifiers for this particular partition storage. */
@@ -226,7 +226,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             directBuffer.position(ROW_ID_OFFSET);
 
             // Return null if seek found a wrong key.
-            if (rowId.compare(directBuffer, false) != 0) {
+            if (rowId.compareTo(directBuffer, false) != 0) {
                 return null;
             }
 
