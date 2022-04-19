@@ -67,12 +67,12 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
-import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.rest.RestComponent;
-import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
