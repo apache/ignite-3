@@ -388,13 +388,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         if (value.length != 0) {
                             ByteBufferRow binaryRow = new ByteBufferRow(value);
 
-                            if (!keyFilter.test(binaryRow)) {
-                                continue;
+                            if (keyFilter.test(binaryRow)) {
+                                this.next = binaryRow;
+
+                                return true;
                             }
-
-                            this.next = binaryRow;
-
-                            return true;
                         }
                     }
                 }
