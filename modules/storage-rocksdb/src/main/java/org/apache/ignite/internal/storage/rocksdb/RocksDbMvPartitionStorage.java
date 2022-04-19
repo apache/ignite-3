@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.IgniteRowId;
@@ -246,7 +247,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     //TODO Play with prefix settings and benchmark results.
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(@Nullable Timestamp timestamp) throws StorageException {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException {
         // Set next partition as an upper bound.
         var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
@@ -385,7 +386,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         byte[] value = it.value();
 
                         if (value.length != 0) {
-                            next = new ByteBufferRow(value);
+                            ByteBufferRow binaryRow = new ByteBufferRow(value);
+
+                            if (!keyFilter.test(binaryRow)) {
+                                continue;
+                            }
+
+                            this.next = binaryRow;
 
                             return true;
                         }

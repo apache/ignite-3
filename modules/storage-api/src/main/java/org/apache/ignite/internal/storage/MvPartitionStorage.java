@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -70,8 +71,9 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
+     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp.
      * @return Cursor.
      */
-    Cursor<BinaryRow> scan(@Nullable Timestamp timestamp) throws StorageException;
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException;
 }

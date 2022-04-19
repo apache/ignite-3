@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.IgniteRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -161,10 +162,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(@Nullable Timestamp timestamp) {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
         Iterator<BinaryRow> iterator = map.values().stream()
                 .map(versionChain -> read(versionChain, timestamp))
                 .filter(Objects::nonNull)
+                .filter(keyFilter)
                 .iterator();
 
         return Cursor.fromIterator(iterator);

@@ -54,8 +54,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         assertNull(pk.read(rowId, Timestamp.nextVersion()));
 
         // Scan.
-        assertEquals(List.of(), convert(pk.scan(null)));
-        assertEquals(List.of(), convert(pk.scan(Timestamp.nextVersion())));
+        assertEquals(List.of(), convert(pk.scan(row -> true, null)));
+        assertEquals(List.of(), convert(pk.scan(row -> true, Timestamp.nextVersion())));
     }
 
     /**
@@ -199,8 +199,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         pk.addWrite(rowId1, binaryRow(key1, value1), UUID.randomUUID());
         pk.addWrite(rowId2, binaryRow(key2, value2), UUID.randomUUID());
 
-        // Scan.
-        assertEquals(List.of(value1, value2), convert(pk.scan(null)));
+        // Scan with and without filters.
+        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, null)));
+        assertEquals(List.of(value1), convert(pk.scan(row -> key(row).intKey == 1, null)));
+        assertEquals(List.of(value2), convert(pk.scan(row -> key(row).intKey == 2, null)));
 
         Timestamp ts1 = Timestamp.nextVersion();
 
@@ -215,13 +217,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         Timestamp ts5 = Timestamp.nextVersion();
 
         // Full scan with various timestamp values.
-        assertEquals(List.of(), convert(pk.scan(ts1)));
+        assertEquals(List.of(), convert(pk.scan(row -> true, ts1)));
 
-        assertEquals(List.of(value1), convert(pk.scan(ts2)));
-        assertEquals(List.of(value1), convert(pk.scan(ts3)));
+        assertEquals(List.of(value1), convert(pk.scan(row -> true, ts2)));
+        assertEquals(List.of(value1), convert(pk.scan(row -> true, ts3)));
 
-        assertEquals(List.of(value1, value2), convert(pk.scan(ts4)));
-        assertEquals(List.of(value1, value2), convert(pk.scan(ts5)));
+        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts4)));
+        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts5)));
     }
 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {
