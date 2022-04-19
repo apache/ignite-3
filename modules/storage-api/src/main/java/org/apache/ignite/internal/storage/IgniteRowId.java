@@ -41,7 +41,7 @@ public interface IgniteRowId extends Comparable<IgniteRowId> {
     void writeTo(ByteBuffer buf, boolean signedBytesCompare);
 
     /**
-     * Compares row id with a byte buffer, previously ritten by a {@link #writeTo(ByteBuffer, boolean)} method.
+     * Compares row id with a byte buffer, previously written by a {@link #writeTo(ByteBuffer, boolean)} method.
      *
      * @param buf Input byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
      * @param signedBytesCompare Defines properties of a binary comparator. {@code true} if bytes are compared as signed values,

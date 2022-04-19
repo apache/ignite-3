@@ -42,6 +42,7 @@ public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Creates an uncommitted version, assigned to the given transaction id.
      *
+     * @param rowId Row id.
      * @param row Binary row to update. Key only row means value removal.
      * @param txId Transaction id.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
