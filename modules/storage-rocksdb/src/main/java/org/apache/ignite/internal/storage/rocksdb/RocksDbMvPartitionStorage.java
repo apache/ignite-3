@@ -418,7 +418,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        writeOpts.close();
+        IgniteUtils.closeAll(writeOpts, upperBound);
     }
 
     /**
