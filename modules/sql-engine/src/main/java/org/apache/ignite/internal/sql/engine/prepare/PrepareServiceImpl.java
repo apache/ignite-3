@@ -34,11 +34,13 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -47,18 +49,34 @@ import org.jetbrains.annotations.Nullable;
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
 public class PrepareServiceImpl implements PrepareService {
-    private final DdlSqlToCommandConverter ddlConverter = new DdlSqlToCommandConverter();
+    private final DdlSqlToCommandConverter ddlConverter;
+
+    /**
+     * Constructor.
+     *
+     * @param dataStorageManager Data storage manager.
+     * @param tablesConfig Tables configuration.
+     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
+     */
+    public PrepareServiceImpl(
+            DataStorageManager dataStorageManager,
+            TablesConfiguration tablesConfig,
+            Map<String, Map<String, Class<?>>> dataStorageFields
+    ) {
+        ddlConverter = new DdlSqlToCommandConverter(
+                dataStorageFields,
+                () -> dataStorageManager.defaultDataStorage(tablesConfig.defaultDataStorage().value())
+        );
+    }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
-
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-
     }
 
     /** {@inheritDoc} */

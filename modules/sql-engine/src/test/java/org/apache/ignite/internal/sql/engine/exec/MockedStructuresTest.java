@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -153,7 +156,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
-    DataStorageManager dsm;
+    DataStorageManager dataStorageManager;
 
     /** Returns current method name. */
     private static String getCurrentMethodName() {
@@ -173,7 +176,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         }
 
         try {
-            Objects.requireNonNull(dsm).stop();
+            Objects.requireNonNull(dataStorageManager).stop();
         } catch (Exception e) {
             fail(e);
         }
@@ -200,13 +203,20 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
 
-        dsm = new DataStorageManager(dataStorageModules.createStorageEngines(configRegistry, workDir));
+        dataStorageManager = new DataStorageManager(dataStorageModules.createStorageEngines(configRegistry, workDir));
 
-        dsm.start();
+        dataStorageManager.start();
 
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(revisionUpdater, cs, tblManager, dsm, tblsCfg);
+        queryProc = new SqlQueryProcessor(
+                revisionUpdater,
+                cs,
+                tblManager,
+                dataStorageManager,
+                tblsCfg,
+                () -> dataStorageModules.collectSchemasFields(List.of(RocksDbDataStorageConfigurationSchema.class))
+        );
 
         queryProc.start();
     }
@@ -431,6 +441,108 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         queryProc.query("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName));
     }
 
+    @Test
+    void createTableWithEngine() {
+        String method = getCurrentMethodName();
+
+        // Without engine.
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", method + 0)
+        ));
+
+        // With existing engine.
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 1, ENGINE_NAME)
+        ));
+
+        IgniteException exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 2, method)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Unexpected data storage engine"));
+    }
+
+    @Test
+    void createTableWithTableOptions() {
+        String method = getCurrentMethodName();
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1", method + 0)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with REPLICAS=1", method + 1)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replicas\"=1", method + 2)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 3)
+        ));
+
+        IgniteException exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas='%s'", method + 4, method)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Unsuspected table option type"));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 5, method, method)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Unexpected table option"));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=-1", method + 6)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Table option validation failed"));
+    }
+
+    @Test
+    void createTableWithDataStorageOptions() {
+        String method = getCurrentMethodName();
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with dataRegion='default'", method + 0)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with DATAREGION='default'", method + 1)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"dataRegion\"='default'", method + 2)
+        ));
+    }
+
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
     /**
      * Instantiates a table and prepares Table manager.
@@ -492,7 +604,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm
+                dataStorageManager
         );
 
         tableManager.start();

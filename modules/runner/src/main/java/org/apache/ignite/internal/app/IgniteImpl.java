@@ -303,7 +303,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 distributedTblMgr,
                 dataStorageMgr,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
+                () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
 
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);

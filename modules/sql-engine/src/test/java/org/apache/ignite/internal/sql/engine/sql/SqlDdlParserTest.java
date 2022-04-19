@@ -26,7 +26,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Objects;
@@ -365,18 +364,7 @@ public class SqlDdlParserTest {
                 opt -> {
                     if (opt.key().getSimple().equals(option)) {
                         if (opt.value() instanceof SqlLiteral) {
-                            SqlLiteral sqlLiteral = (SqlLiteral) opt.value();
-
-                            switch (sqlLiteral.getTypeName()) {
-                                case DECIMAL:
-                                    return Objects.equals(expVal, sqlLiteral.intValue(true));
-                                case CHAR:
-                                    return Objects.equals(expVal, sqlLiteral.toValue());
-                                case BOOLEAN:
-                                    return Objects.equals(expVal, sqlLiteral.booleanValue());
-                                default:
-                                    fail("unsupported");
-                            }
+                            return Objects.equals(expVal, ((SqlLiteral) opt.value()).getValueAs(expVal.getClass()));
                         }
                     }
 
