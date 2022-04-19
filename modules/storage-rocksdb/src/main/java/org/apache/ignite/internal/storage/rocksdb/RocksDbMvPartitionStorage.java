@@ -96,6 +96,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Write options. */
     private final WriteOptions writeOpts = new WriteOptions().setDisableWAL(true);
 
+    /** Upper bound for scans and reads. */
+    private final Slice upperBound;
+
     /**
      * Constructor.
      *
@@ -115,6 +118,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         .order(LITTLE_ENDIAN)
                         .putShort(Short.reverseBytes((short) partId))
         );
+
+        upperBound = new Slice(partitionEndPrefix());
     }
 
     /** {@inheritDoc} */
@@ -187,8 +192,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         try (
                 // Set next partition as an upper bound.
-                //TODO Cache these values, they're all the same for the entire engine.
-                var upperBound = new Slice(partitionEndPrefix());
                 var readOpts = new ReadOptions().setIterateUpperBound(upperBound);
                 RocksIterator it = db.newIterator(cf, readOpts)
         ) {
@@ -245,8 +248,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public Cursor<BinaryRow> scan(@Nullable Timestamp timestamp) throws StorageException {
         // Set next partition as an upper bound.
-        var upperBound = new Slice(partitionEndPrefix());
-
         var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
         RocksIterator it = db.newIterator(cf, options);
@@ -409,7 +410,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             /** {@inheritDoc} */
             @Override
             public void close() throws Exception {
-                IgniteUtils.closeAll(options, upperBound, it);
+                IgniteUtils.closeAll(options, it);
             }
         };
     }
