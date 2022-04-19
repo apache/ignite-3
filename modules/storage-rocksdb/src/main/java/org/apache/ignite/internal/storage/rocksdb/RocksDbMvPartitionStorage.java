@@ -370,7 +370,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     //    65500, I think.
                     //  - "seekKeyBuf" buffer value will not be used after that, so it's ok if we corrupt its data (in every other instance,
                     //    buffer starts with a valid partition id, which is set during buffer's initialization).
-                    for (int i = igniteRowIdSize + 1;; i--) {
+                    for (int i = ROW_ID_OFFSET + igniteRowIdSize - 1;; i--) {
                         byte b = (byte) (seekKeyBuf.get(i) + 1);
 
                         seekKeyBuf.put(i, b);

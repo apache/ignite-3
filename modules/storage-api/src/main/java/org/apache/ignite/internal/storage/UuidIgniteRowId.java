@@ -50,7 +50,7 @@ public class UuidIgniteRowId implements IgniteRowId {
     public void writeTo(ByteBuffer buf, boolean signedBytesCompare) {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 
-        long mask = signedBytesCompare ? 0x0080808080808080L : 0x8000000000000000L;
+        long mask = longBytesSignsMask(signedBytesCompare);
 
         buf.putLong(mask ^ uuid.getMostSignificantBits());
         buf.putLong(mask ^ uuid.getLeastSignificantBits());
@@ -61,7 +61,7 @@ public class UuidIgniteRowId implements IgniteRowId {
     public int compare(ByteBuffer buf, boolean signedBytesCompare) {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 
-        long mask = signedBytesCompare ? 0x0080808080808080L : 0x8000000000000000L;
+        long mask = longBytesSignsMask(signedBytesCompare);
 
         int cmp = Long.compare(uuid.getMostSignificantBits(), mask ^ buf.getLong());
 
@@ -88,6 +88,20 @@ public class UuidIgniteRowId implements IgniteRowId {
         }
 
         return Long.compare(uuid.getLeastSignificantBits(), that.uuid.getLeastSignificantBits());
+    }
+
+    /**
+     * Returns a mask to be xored with long value to make its bytes comparable in lexicographical order when written in Big Endian format.
+     * {@code signedBytesCompare == false} means that all bytes should be compared as unsigned values. This holds true for 7 out of 8 long
+     * bytes. Most significant byte has a sign bit. This bit needs to be flipped to convert a signed byte range of {@code [-128:127]} into
+     * an unsigned range of {@code [0:255]}.
+     * <p/>
+     * {@code signedBytesCompare == true} means that we have to flip the most significant bit of other 7 bytes.
+     */
+    private long longBytesSignsMask(boolean signedBytesCompare) {
+        return signedBytesCompare
+                ? 0x0080808080808080L
+                : 0x8000000000000000L;
     }
 
     /** {@inheritDoc} */
