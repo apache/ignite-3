@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -29,16 +28,16 @@ import org.jetbrains.annotations.Nullable;
  * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Their API are very similar,
  * although there are very important differences that will be addressed in the future.
  */
-public interface MvPartitionStorage {
+public interface MvPartitionStorage extends AutoCloseable {
     /**
      * Reads the value from the storage as it was at the given timestamp. {@code null} timestamp means reading the latest value.
      *
-     * @param key Key.
+     * @param rowId Row id.
      * @param timestamp Timestamp.
      * @return Binary row that corresponds to the key or {@code null} if value is not found.
      */
     @Nullable
-    BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp);
+    BinaryRow read(IgniteRowId rowId, @Nullable Timestamp timestamp);
 
     /**
      * Creates an uncommitted version, assigned to the given transaction id.
@@ -48,31 +47,30 @@ public interface MvPartitionStorage {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
+    void addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * @param key Key.
+     * @param rowId Row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    void abortWrite(BinaryRow key) throws StorageException;
+    void abortWrite(IgniteRowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * @param key Key.
+     * @param rowId Row id.
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(BinaryRow key, Timestamp timestamp) throws StorageException;
+    void commitWrite(IgniteRowId rowId, Timestamp timestamp) throws StorageException;
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
-     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
      * @param timestamp Timestamp.
      * @return Cursor.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException;
+    Cursor<BinaryRow> scan(@Nullable Timestamp timestamp) throws StorageException;
 }

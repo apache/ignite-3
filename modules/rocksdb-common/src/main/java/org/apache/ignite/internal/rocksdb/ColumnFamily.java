@@ -41,7 +41,8 @@ public class ColumnFamily {
     private final String cfName;
 
     /** Column family handle. */
-    private final ColumnFamilyHandle cfHandle;
+    // Temporarily made public until the integration with MV-store is completed.
+    public final ColumnFamilyHandle cfHandle;
 
     /**
      * Constructor.

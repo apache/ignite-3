@@ -37,18 +37,20 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.IgniteRowId;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.PrefixComparator;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
-    private final NavigableSet<BinaryRow> index;
+    private final NavigableSet<Pair<BinaryRow, IgniteRowId>> index;
 
     private final SchemaDescriptor descriptor;
 
@@ -77,7 +79,9 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
 
         partitions = tableCfg.partitions();
 
-        index = new ConcurrentSkipListSet<>(((Comparator<BinaryRow>) this::compareColumns).thenComparing(BinaryRow::keySlice));
+        index = new ConcurrentSkipListSet<>(((Comparator<Pair<BinaryRow, IgniteRowId>>) (p1, p2) -> {
+            return compareColumns(p1.getFirst(), p2.getFirst());
+        }).thenComparing(Pair::getSecond));
 
         // Init columns.
         NamedListView<? extends ColumnView> tblColumns = tableCfg.columns();
@@ -138,12 +142,12 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         return 0;
     }
 
-    public void append(BinaryRow row) {
-        index.add(row);
+    public void append(BinaryRow row, IgniteRowId rowId) {
+        index.add(new Pair<>(row, rowId));
     }
 
-    public void remove(BinaryRow row) {
-        index.remove(row);
+    public void remove(BinaryRow row, IgniteRowId rowId) {
+        index.remove(new Pair<>(row, rowId));
     }
 
     public boolean matches(BinaryRow aborted, BinaryRow existing) {
@@ -162,7 +166,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        NavigableSet<BinaryRow> index = this.index;
+        NavigableSet<Pair<BinaryRow, IgniteRowId>> index = this.index;
         int direction = 1;
 
         // Swap bounds and flip index for backwards scan.
@@ -183,9 +187,11 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         ToIntFunction<BinaryRow> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
 
         Iterator<IndexRowEx> iterator = index.stream()
-                .dropWhile(binaryRow -> lowerCmp.applyAsInt(binaryRow) < 0)
-                .takeWhile(binaryRow -> upperCmp.applyAsInt(binaryRow) <= 0)
-                .map(binaryRow -> {
+                .dropWhile(p -> lowerCmp.applyAsInt(p.getFirst()) < 0)
+                .takeWhile(p -> upperCmp.applyAsInt(p.getFirst()) <= 0)
+                .map(p -> {
+                    BinaryRow binaryRow = p.getFirst();
+
                     int partition = binaryRow.hash() % partitions;
 
                     if (partition < 0) {
@@ -202,7 +208,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
                         return null;
                     }
 
-                    BinaryRow pk = partitionStorage.read(binaryRow, timestamp);
+                    BinaryRow pk = partitionStorage.read(p.getSecond(), timestamp);
 
                     return matches(binaryRow, pk) ? pk : null;
                 })

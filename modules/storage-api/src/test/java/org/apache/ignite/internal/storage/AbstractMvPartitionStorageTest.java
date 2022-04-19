@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -48,15 +47,15 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     public void testEmpty() throws Exception {
         MvPartitionStorage pk = partitionStorage();
 
-        BinaryRow binaryKey = binaryKey(new TestKey(10, "foo"));
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
         // Read.
-        assertNull(pk.read(binaryKey, null));
-        assertNull(pk.read(binaryKey, Timestamp.nextVersion()));
+        assertNull(pk.read(rowId, null));
+        assertNull(pk.read(rowId, Timestamp.nextVersion()));
 
         // Scan.
-        assertEquals(List.of(), convert(pk.scan(row -> true, null)));
-        assertEquals(List.of(), convert(pk.scan(row -> true, Timestamp.nextVersion())));
+        assertEquals(List.of(), convert(pk.scan(null)));
+        assertEquals(List.of(), convert(pk.scan(Timestamp.nextVersion())));
     }
 
     /**
@@ -68,19 +67,20 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        pk.addWrite(binaryRow, UUID.randomUUID());
+        pk.addWrite(rowId, binaryRow, UUID.randomUUID());
 
         // Attempt to write from another transaction.
-        assertThrows(TxIdMismatchException.class, () -> pk.addWrite(binaryRow, UUID.randomUUID()));
+        assertThrows(TxIdMismatchException.class, () -> pk.addWrite(rowId, binaryRow, UUID.randomUUID()));
 
         // Read without timestamp returns uncommited row.
-        assertEquals(value, value(pk.read(binaryKey(key), null)));
+        assertEquals(value, value(pk.read(rowId, null)));
 
         // Read with timestamp returns null.
-        assertNull(pk.read(binaryKey(key), Timestamp.nextVersion()));
+        assertNull(pk.read(rowId, Timestamp.nextVersion()));
     }
 
     /**
@@ -92,13 +92,14 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
-        pk.addWrite(binaryRow(key, value), UUID.randomUUID());
+        pk.addWrite(rowId, binaryRow(key, value), UUID.randomUUID());
 
-        pk.abortWrite(binaryKey(key));
+        pk.abortWrite(rowId);
 
         // Aborted row can't be read.
-        assertNull(pk.read(binaryKey(key), null));
+        assertNull(pk.read(rowId, null));
     }
 
     /**
@@ -110,77 +111,78 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        pk.addWrite(binaryRow, UUID.randomUUID());
+        pk.addWrite(rowId, binaryRow, UUID.randomUUID());
 
         Timestamp tsBefore = Timestamp.nextVersion();
 
         Timestamp tsExact = Timestamp.nextVersion();
-        pk.commitWrite(binaryRow, tsExact);
+        pk.commitWrite(rowId, tsExact);
 
         Timestamp tsAfter = Timestamp.nextVersion();
 
         // Row is invisible at the time before writing.
-        assertNull(pk.read(binaryRow, tsBefore));
+        assertNull(pk.read(rowId, tsBefore));
 
         // Row is valid at the time during and after writing.
-        assertEquals(value, value(pk.read(binaryRow, null)));
-        assertEquals(value, value(pk.read(binaryRow, tsExact)));
-        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+        assertEquals(value, value(pk.read(rowId, null)));
+        assertEquals(value, value(pk.read(rowId, tsExact)));
+        assertEquals(value, value(pk.read(rowId, tsAfter)));
 
         TestValue newValue = new TestValue(30, "duh");
 
-        pk.addWrite(binaryRow(key, newValue), UUID.randomUUID());
+        pk.addWrite(rowId, binaryRow(key, newValue), UUID.randomUUID());
 
         // Same checks, but now there are two different versions.
-        assertNull(pk.read(binaryRow, tsBefore));
+        assertNull(pk.read(rowId, tsBefore));
 
-        assertEquals(newValue, value(pk.read(binaryRow, null)));
+        assertEquals(newValue, value(pk.read(rowId, null)));
 
-        assertEquals(value, value(pk.read(binaryRow, tsExact)));
-        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
-        assertEquals(value, value(pk.read(binaryRow, Timestamp.nextVersion())));
+        assertEquals(value, value(pk.read(rowId, tsExact)));
+        assertEquals(value, value(pk.read(rowId, tsAfter)));
+        assertEquals(value, value(pk.read(rowId, Timestamp.nextVersion())));
 
         // Only latest time behavior changes after commit.
-        pk.commitWrite(binaryKey(key), Timestamp.nextVersion());
+        pk.commitWrite(rowId, Timestamp.nextVersion());
 
-        assertEquals(newValue, value(pk.read(binaryRow, null)));
+        assertEquals(newValue, value(pk.read(rowId, null)));
 
-        assertEquals(value, value(pk.read(binaryRow, tsExact)));
-        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+        assertEquals(value, value(pk.read(rowId, tsExact)));
+        assertEquals(value, value(pk.read(rowId, tsAfter)));
 
-        assertEquals(newValue, value(pk.read(binaryRow, Timestamp.nextVersion())));
+        assertEquals(newValue, value(pk.read(rowId, Timestamp.nextVersion())));
 
         // Remove.
-        pk.addWrite(binaryKey(key), UUID.randomUUID());
+        pk.addWrite(rowId, null, UUID.randomUUID());
 
-        assertNull(pk.read(binaryRow, tsBefore));
+        assertNull(pk.read(rowId, tsBefore));
 
-        assertNull(pk.read(binaryRow, null));
+        assertNull(pk.read(rowId, null));
 
-        assertEquals(value, value(pk.read(binaryRow, tsExact)));
-        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+        assertEquals(value, value(pk.read(rowId, tsExact)));
+        assertEquals(value, value(pk.read(rowId, tsAfter)));
 
-        assertEquals(newValue, value(pk.read(binaryRow, Timestamp.nextVersion())));
+        assertEquals(newValue, value(pk.read(rowId, Timestamp.nextVersion())));
 
         // Commit remove.
         Timestamp removeTs = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key), removeTs);
+        pk.commitWrite(rowId, removeTs);
 
-        assertNull(pk.read(binaryRow, tsBefore));
+        assertNull(pk.read(rowId, tsBefore));
 
-        assertNull(pk.read(binaryRow, null));
-        assertNull(pk.read(binaryRow, removeTs));
-        assertNull(pk.read(binaryRow, Timestamp.nextVersion()));
+        assertNull(pk.read(rowId, null));
+        assertNull(pk.read(rowId, removeTs));
+        assertNull(pk.read(rowId, Timestamp.nextVersion()));
 
-        assertEquals(value, value(pk.read(binaryRow, tsExact)));
-        assertEquals(value, value(pk.read(binaryRow, tsAfter)));
+        assertEquals(value, value(pk.read(rowId, tsExact)));
+        assertEquals(value, value(pk.read(rowId, tsAfter)));
     }
 
     /**
-     * Tests basic invariants of {@link MvPartitionStorage#scan(Predicate, Timestamp)}.
+     * Tests basic invariants of {@link MvPartitionStorage#scan(Timestamp)}.
      */
     @Test
     public void testScan() throws Exception {
@@ -188,38 +190,38 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key1 = new TestKey(1, "1");
         TestValue value1 = new TestValue(10, "xxx");
+        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId();
 
         TestKey key2 = new TestKey(2, "2");
         TestValue value2 = new TestValue(20, "yyy");
+        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId();
 
-        pk.addWrite(binaryRow(key1, value1), UUID.randomUUID());
-        pk.addWrite(binaryRow(key2, value2), UUID.randomUUID());
+        pk.addWrite(rowId1, binaryRow(key1, value1), UUID.randomUUID());
+        pk.addWrite(rowId2, binaryRow(key2, value2), UUID.randomUUID());
 
-        // Scan with and without filters.
-        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, null)));
-        assertEquals(List.of(value1), convert(pk.scan(row -> key(row).intKey == 1, null)));
-        assertEquals(List.of(value2), convert(pk.scan(row -> key(row).intKey == 2, null)));
+        // Scan.
+        assertEquals(List.of(value1, value2), convert(pk.scan(null)));
 
         Timestamp ts1 = Timestamp.nextVersion();
 
         Timestamp ts2 = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key1), ts2);
+        pk.commitWrite(rowId1, ts2);
 
         Timestamp ts3 = Timestamp.nextVersion();
 
         Timestamp ts4 = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key2), ts4);
+        pk.commitWrite(rowId2, ts4);
 
         Timestamp ts5 = Timestamp.nextVersion();
 
         // Full scan with various timestamp values.
-        assertEquals(List.of(), convert(pk.scan(row -> true, ts1)));
+        assertEquals(List.of(), convert(pk.scan(ts1)));
 
-        assertEquals(List.of(value1), convert(pk.scan(row -> true, ts2)));
-        assertEquals(List.of(value1), convert(pk.scan(row -> true, ts3)));
+        assertEquals(List.of(value1), convert(pk.scan(ts2)));
+        assertEquals(List.of(value1), convert(pk.scan(ts3)));
 
-        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts4)));
-        assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts5)));
+        assertEquals(List.of(value1, value2), convert(pk.scan(ts4)));
+        assertEquals(List.of(value1, value2), convert(pk.scan(ts5)));
     }
 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {

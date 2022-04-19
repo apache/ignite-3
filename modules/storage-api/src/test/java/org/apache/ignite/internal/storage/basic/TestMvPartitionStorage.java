@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.storage.basic;
 
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.IgniteRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -36,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
+    private final ConcurrentMap<IgniteRowId, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestSortedIndexMvStorage> indexes;
 
@@ -68,8 +67,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException {
-        map.compute(row.keySlice(), (keyBuf, versionChain) -> {
+    public void addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
+        map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.begin == null && !txId.equals(versionChain.txId)) {
                 throw new TxIdMismatchException();
             }
@@ -77,25 +76,25 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return VersionChain.createUncommitted(row, txId, versionChain);
         });
 
-        if (row.hasValue()) {
+        if (row != null) {
             for (TestSortedIndexMvStorage index : indexes) {
-                index.append(row);
+                index.append(row, rowId);
             }
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void abortWrite(BinaryRow key) {
-        map.computeIfPresent(key.keySlice(), (ignored, versionChain) -> {
+    public void abortWrite(IgniteRowId rowId) {
+        map.computeIfPresent(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
             BinaryRow aborted = versionChain.row;
 
-            if (aborted.hasValue()) {
+            if (aborted != null) {
                 for (TestSortedIndexMvStorage index : indexes) {
-                    abortWrite(versionChain.next, aborted, index);
+                    abortWrite(rowId, versionChain.next, aborted, index);
                 }
             }
 
@@ -103,20 +102,20 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    private void abortWrite(VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
+    private void abortWrite(IgniteRowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
         for (VersionChain cur = head; cur != null; cur = cur.next) {
             if (index.matches(aborted, cur.row)) {
                 return;
             }
         }
 
-        index.remove(aborted);
+        index.remove(aborted, rowId);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void commitWrite(BinaryRow key, Timestamp timestamp) {
-        map.compute(key.keySlice(), (keyBuf, versionChain) -> {
+    public void commitWrite(IgniteRowId rowId, Timestamp timestamp) {
+        map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
@@ -127,8 +126,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     @Nullable
-    public BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp) {
-        VersionChain versionChain = map.get(key.keySlice());
+    public BinaryRow read(IgniteRowId rowId, @Nullable Timestamp timestamp) {
+        VersionChain versionChain = map.get(rowId);
 
         return read(versionChain, timestamp);
     }
@@ -140,7 +139,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         if (timestamp == null) {
-            return versionChain.row.hasValue() ? versionChain.row : null;
+            return versionChain.row;
         }
 
         VersionChain cur = versionChain;
@@ -151,9 +150,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         while (cur != null) {
             if (timestamp.compareTo(cur.begin) >= 0) {
-                BinaryRow row = cur.row;
-
-                return row.hasValue() ? row : null;
+                return cur.row;
             }
 
             cur = cur.next;
@@ -164,13 +161,18 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
+    public Cursor<BinaryRow> scan(@Nullable Timestamp timestamp) {
         Iterator<BinaryRow> iterator = map.values().stream()
                 .map(versionChain -> read(versionChain, timestamp))
                 .filter(Objects::nonNull)
-                .filter(keyFilter)
                 .iterator();
 
         return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() throws Exception {
+        // No-op.
     }
 }

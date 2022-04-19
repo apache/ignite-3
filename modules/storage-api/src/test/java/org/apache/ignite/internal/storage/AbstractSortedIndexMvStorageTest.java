@@ -224,8 +224,9 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
-        pk.addWrite(binaryRow(key, val), UUID.randomUUID());
+        pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
 
         // Timestamp is null.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
@@ -234,7 +235,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Abort write.
-        pk.abortWrite(binaryKey(key));
+        pk.abortWrite(rowId);
 
         // Timestamp is null.
         assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
@@ -251,12 +252,16 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
         Timestamp insertTs = Timestamp.nextVersion();
-        insert(key, val, insertTs);
+
+        pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
+
+        pk.commitWrite(rowId, insertTs);
 
         // Remove.
-        pk.addWrite(binaryKey(key), UUID.randomUUID());
+        pk.addWrite(rowId, null, UUID.randomUUID());
 
         // Timestamp is null.
         assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
@@ -266,7 +271,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Abort remove.
-        pk.abortWrite(binaryKey(key));
+        pk.abortWrite(rowId);
 
         // Timestamp is null.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
@@ -284,8 +289,9 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
-        pk.addWrite(binaryRow(key, val), UUID.randomUUID());
+        pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
 
         // Timestamp is null.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
@@ -295,7 +301,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Commit write.
         Timestamp commitTs = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key), commitTs);
+        pk.commitWrite(rowId, commitTs);
 
         // Timestamp is null.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
@@ -313,12 +319,16 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
         Timestamp insertTs = Timestamp.nextVersion();
-        insert(key, val, insertTs);
+
+        pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
+
+        pk.commitWrite(rowId, insertTs);
 
         // Remove.
-        pk.addWrite(binaryKey(key), UUID.randomUUID());
+        pk.addWrite(rowId, null, UUID.randomUUID());
 
         // Timestamp is null.
         assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
@@ -329,7 +339,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         // Commit remove.
         Timestamp removeTs = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key), removeTs);
+        pk.commitWrite(rowId, removeTs);
 
         // Timestamp is null.
         assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
@@ -346,9 +356,11 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        pk.addWrite(binaryRow, UUID.randomUUID());
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
 
-        pk.commitWrite(binaryRow, ts == null ? Timestamp.nextVersion() : ts);
+        pk.addWrite(rowId, binaryRow, UUID.randomUUID());
+
+        pk.commitWrite(rowId, ts == null ? Timestamp.nextVersion() : ts);
     }
 
     protected IndexRowPrefix prefix(String val) {
