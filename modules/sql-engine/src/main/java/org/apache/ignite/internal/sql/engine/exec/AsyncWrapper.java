@@ -24,6 +24,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 
@@ -75,7 +76,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNext(int rows) {
+    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<T>> next = new CompletableFuture<>();
         CompletableFuture<BatchedResult<T>> prev;
 
@@ -108,7 +109,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
             }
 
             next.complete(new BatchedResult<>(batch, cursor.hasNext()));
-        }).exceptionally(t -> {
+        }, exec).exceptionally(t -> {
             next.completeExceptionally(t);
 
             return null;
@@ -119,7 +120,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> close() {
+    public CompletableFuture<Void> closeAsync() {
         if (!cancelled) {
             synchronized (lock) {
                 if (!cancelled) {
@@ -144,6 +145,6 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
             }
         }
 
-        return cancelFut.thenRun(() -> {});
+        return cancelFut.thenApply(Function.identity());
     }
 }

@@ -45,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlanCacheImpl;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -108,7 +107,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public synchronized void start() {
-        var planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
         var taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
@@ -117,7 +115,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .<String, SqlNodeList>build()
                 .asMap();
 
-        prepareSvc = registerService(new PrepareServiceImpl());
+        var prepareSvc = registerService(new PrepareServiceImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
 
         var msgSrvc = registerService(new MessageServiceImpl(
                 clusterSrvc.topologyService(),
@@ -132,7 +130,11 @@ public class SqlQueryProcessor implements QueryProcessor {
                 msgSrvc
         ));
 
-        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, registry, planCache::clear);
+        SqlSchemaManagerImpl schemaManager = new SqlSchemaManagerImpl(tableManager, registry);
+
+        schemaManager.registerListener(prepareSvc);
+
+        this.prepareSvc = prepareSvc;
 
         var executionSrvc = registerService(ExecutionServiceImpl.create(
                 clusterSrvc.topologyService(),
@@ -241,7 +243,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     .parameters(params)
                     .build();
 
-            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(voidArg -> prepareSvc.prepare(sqlNode, ctx))
+            CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
                     .thenApply(plan -> {
                         context.maybeUnwrap(QueryValidator.class)
                                 .ifPresent(queryValidator -> queryValidator.validatePlan(plan));

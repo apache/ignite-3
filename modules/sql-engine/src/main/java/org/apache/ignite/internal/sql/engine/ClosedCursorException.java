@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * The exception is used to complete result stage of {@link AsyncCursor#requestNext(int)} invocation when invoked on a closed cursor.
+ * The exception is used to complete result stage of {@link AsyncCursor#requestNextAsync(int)} invocation when invoked on a closed cursor.
  */
 public class ClosedCursorException extends IgniteInternalCheckedException {
 }

@@ -84,7 +84,7 @@ public class MessageServiceImpl implements MessageService {
                     .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
 
             try {
-                messagingSrvc.send(node, msg).get();
+                messagingSrvc.send(node, msg).join();
             } catch (Exception ex) {
                 if (ex instanceof IgniteInternalCheckedException) {
                     throw (IgniteInternalCheckedException) ex;

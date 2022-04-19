@@ -169,7 +169,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
         }
 
-        return cur.requestNext(req.pageSize()).handle((batch, t) -> {
+        return cur.requestNextAsync(req.pageSize()).handle((batch, t) -> {
             if (t != null) {
                 StringWriter sw = getWriterWithStackTrace(t);
 
@@ -242,7 +242,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return CompletableFuture.failedFuture(new IgniteInternalException(""));
         }
 
-        return cursors.get(0).thenCompose(cursor -> cursor.requestNext(1).thenApply(batch -> (Long) batch.items().get(0).get(0)));
+        return cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1).thenApply(batch -> (Long) batch.items().get(0).get(0)));
     }
 
     private BatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
@@ -269,7 +269,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Failed to find query cursor with ID: " + req.cursorId()));
         }
 
-        return cur.close().handle((none, t) -> {
+        return cur.closeAsync().handle((none, t) -> {
             if (t != null) {
                 StringWriter sw = getWriterWithStackTrace(t);
 
@@ -380,7 +380,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         openCursors.put(cursorId, cur);
 
-        return cur.requestNext(req.pageSize()).thenApply(batch -> {
+        return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
             boolean hasNext = batch.hasMore();
 
             switch (cur.queryType()) {

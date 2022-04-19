@@ -63,8 +63,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNext(int rows) {
-        return dataCursor.requestNext(rows).handle((batch, t) -> {
+    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
+        return dataCursor.requestNextAsync(rows).handle((batch, t) -> {
             if (t != null && !(t instanceof IgniteException)) {
                 if (t instanceof CompletionException) {
                     t = t.getCause();
@@ -79,7 +79,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> close() {
-        return dataCursor.close();
+    public CompletableFuture<Void> closeAsync() {
+        return dataCursor.closeAsync();
     }
 }

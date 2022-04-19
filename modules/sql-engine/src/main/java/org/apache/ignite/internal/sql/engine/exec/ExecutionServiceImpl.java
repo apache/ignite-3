@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.sql.engine.externalize.RelJsonReader.fromJson;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -479,10 +480,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private CompletableFuture<Iterator<List<Object>>> execute(MultiStepPlan plan) {
-            return CompletableFuture.runAsync(() -> {
+            taskExecutor.execute(() -> {
                 plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
 
                 List<Fragment> fragments = plan.fragments();
+
+                // we rely on the fact that the very first fragment is a root. Otherwise we need to handle
+                // the case when a non-root fragment will fail before the root is processed.
+                assert !nullOrEmpty(fragments) && fragments.get(0).rootFragment() : fragments;
 
                 // start remote execution
                 try {
@@ -507,19 +512,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 } catch (Throwable e) {
                     root.thenAccept(root -> root.onError(e));
                 }
-            }, taskExecutor)
-                    .thenCompose(tmp -> root)
-                    .thenApply(root -> new TransformingIterator<>(iteratorsHolder.iterator(root), row -> {
-                        int rowSize = root.context().rowHandler().columnCount(row);
+            });
 
-                        List<Object> res = new ArrayList<>(rowSize);
+            return root.thenApply(root -> new TransformingIterator<>(iteratorsHolder.iterator(root), row -> {
+                int rowSize = root.context().rowHandler().columnCount(row);
 
-                        for (int i = 0; i < rowSize; i++) {
-                            res.add(root.context().rowHandler().get(i, row));
-                        }
+                List<Object> res = new ArrayList<>(rowSize);
 
-                        return res;
-                    }));
+                for (int i = 0; i < rowSize; i++) {
+                    res.add(root.context().rowHandler().get(i, row));
+                }
+
+                return res;
+            }));
         }
 
         private CompletableFuture<Void> close(boolean cancel) {
@@ -530,7 +535,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             CompletableFuture<Void> start = new CompletableFuture<>();
 
             CompletableFuture<Void> end = start
-                    .thenCompose(tmp -> {
+                    .thenCompose(none -> {
                         if (!root.completeExceptionally(new ExecutionCancelledException())) {
                             return root.thenAccept(RootNode::close);
                         }
@@ -553,13 +558,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                             cancelFuts.add(
                                     CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
-                                            .thenRun(() -> {
+                                            .handle((none, t) -> {
                                                 try {
                                                     exchangeSrvc.closeQuery(nodeId, ctx.queryId());
                                                 } catch (IgniteInternalCheckedException e) {
                                                     throw new IgniteInternalException(
                                                             "Failed to send cancel message. [nodeId=" + nodeId + ']', e);
                                                 }
+
+                                                return null;
                                             })
                             );
                         }
@@ -577,8 +584,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             }
                         }
 
-                        return CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]))
-                                .thenRun(() -> queryManagerMap.remove(ctx.queryId()));
+                        var compoundCancelFut = CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
+                        var finalStepFut = compoundCancelFut.thenRun(() -> queryManagerMap.remove(ctx.queryId()));
+
+                        return compoundCancelFut.thenCombine(finalStepFut, (none1, none2) -> null);
                     });
 
             start.completeAsync(() -> null, taskExecutor);

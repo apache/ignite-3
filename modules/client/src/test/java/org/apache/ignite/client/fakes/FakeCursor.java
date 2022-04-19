@@ -39,12 +39,12 @@ public class FakeCursor implements AsyncSqlCursor<List<Object>> {
     }
 
     @Override
-    public CompletableFuture<Void> close() {
+    public CompletableFuture<Void> closeAsync() {
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletionStage<BatchedResult<List<Object>>> requestNext(int rows) {
+    public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
         var batch = new ArrayList<List<Object>>();
 
         for (int i = 0; i < rows; i++) {

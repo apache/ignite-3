@@ -58,13 +58,13 @@ public class CursorUtils {
                 res.addAll(br.items());
 
                 if (br.hasMore()) {
-                    cur.requestNext(batchSize).thenAccept(this);
+                    cur.requestNextAsync(batchSize).thenAccept(this);
                 }
             }
         };
 
-        await(cur.requestNext(batchSize).thenAccept(consumer));
-        await(cur.close());
+        await(cur.requestNextAsync(batchSize).thenAccept(consumer));
+        await(cur.closeAsync());
 
         return res;
     }

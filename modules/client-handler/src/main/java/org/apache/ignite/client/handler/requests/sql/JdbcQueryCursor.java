@@ -54,9 +54,9 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletionStage<BatchedResult<T>> requestNext(int rows) {
+    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
         long fetched0 = fetched.addAndGet(rows);
-        return cur.requestNext(rows).thenApply(batch -> {
+        return cur.requestNextAsync(rows).thenApply(batch -> {
             if (maxRows == 0 || fetched0 < maxRows) {
                 return batch;
             }
@@ -72,8 +72,8 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override 
-    public CompletableFuture<Void> close() {
-        return cur.close();
+    public CompletableFuture<Void> closeAsync() {
+        return cur.closeAsync();
     }
 
     /** {@inheritDoc} */

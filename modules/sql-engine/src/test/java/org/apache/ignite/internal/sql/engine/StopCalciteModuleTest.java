@@ -188,14 +188,14 @@ public class StopCalciteModuleTest {
                 "SELECT * FROM TEST"
         );
 
-        await(cursors.get(0).thenCompose(cursor -> cursor.requestNext(1)));
+        await(cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1)));
 
         assertTrue(isThereNodeThreads(NODE_NAME));
 
         qryProc.stop();
 
         var request = cursors.get(0)
-                .thenCompose(cursor -> cursor.requestNext(1));
+                .thenCompose(cursor -> cursor.requestNextAsync(1));
 
         // Check cursor closed.
         await(request.exceptionally(t -> {

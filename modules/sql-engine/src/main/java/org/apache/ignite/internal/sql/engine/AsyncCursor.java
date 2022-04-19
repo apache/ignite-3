@@ -31,21 +31,21 @@ public interface AsyncCursor<T> {
      * Request next batch of rows.
      *
      * <p>Several calls to this method should be chained and resulting stages should be completed in the order of invocation. Any call
-     * to this method after call to {@link #close()} should be completed immediately with
-     * {@link org.apache.ignite.internal.sql.engine.ClosedCursorException} even if the future returned by {@link #close()}
+     * to this method after call to {@link #closeAsync()} should be completed immediately with
+     * {@link org.apache.ignite.internal.sql.engine.ClosedCursorException} even if the future returned by {@link #closeAsync()}
      * is not completed yet.
      *
      * @param rows Desired amount of rows.
      * @return A completion stage that will be completed with batch of size {@code rows} or less if there is no more data.
      */
-    CompletionStage<BatchedResult<T>> requestNext(int rows);
+    CompletionStage<BatchedResult<T>> requestNextAsync(int rows);
 
     /**
      * Releases resources acquired by the cursor.
      *
      * @return A future which will be completed when the resources will be actually released.
      */
-    CompletableFuture<Void> close();
+    CompletableFuture<Void> closeAsync();
 
     /**
      * Batch of the items.

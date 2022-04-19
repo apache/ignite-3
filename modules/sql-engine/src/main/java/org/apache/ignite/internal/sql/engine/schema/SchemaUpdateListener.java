@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+package org.apache.ignite.internal.sql.engine.schema;
 
 /**
- * Preparation service that accepts an AST of the query and returns a prepared query plan.
+ * A schema change listener.
  */
-public interface PrepareService extends LifecycleAware {
+@FunctionalInterface
+public interface SchemaUpdateListener {
     /**
-     * Prepare query plan.
+     * A callback that will be fired when the SQL schema changes.
      */
-    CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx);
+    void onSchemaUpdated();
 }

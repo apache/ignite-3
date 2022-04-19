@@ -49,12 +49,15 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
+import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
+import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTable;
@@ -70,9 +73,11 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -121,9 +126,9 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
-        CompletionStage<?> batchFut = cursor.requestNext(1);
+        CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
-        await(cursor.close());
+        await(cursor.closeAsync());
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -151,7 +156,52 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
-        CompletionStage<?> batchFut = cursor.requestNext(1);
+        CompletionStage<?> batchFut = cursor.requestNextAsync(1);
+
+        await(executionServices.get(0).cancel(ctx.queryId()));
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+
+        await(batchFut.exceptionally(ex -> {
+            assertInstanceOf(CompletionException.class, ex);
+            assertInstanceOf(IgniteInternalException.class, ex.getCause());
+            assertInstanceOf(ExecutionCancelledException.class, ex.getCause().getCause());
+
+            return null;
+        }));
+        assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    @Test
+    public void testCloseOnInitiator3() throws InterruptedException {
+        var execService = executionServices.get(0);
+        var ctx = createContext();
+        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+
+        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        testCluster.node(nodeIds.get(2)).interceptor((nodeId, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                try {
+                    testCluster.node(nodeIds.get(2)).messageService().send(nodeId, new SqlQueryMessagesFactory().errorMessage()
+                            .queryId(((QueryStartRequest) msg).queryId()).error(new RuntimeException("Test error")).build());
+                } catch (IgniteInternalCheckedException e) {
+                    sneakyThrow(e);
+                }
+            } else {
+                original.onMessage(nodeId, msg);
+            }
+        });
+
+        var cursor = execService.executePlan(plan, ctx);
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 3, 2 * TIMEOUT_IN_MS));
+
+        CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
         await(executionServices.get(0).cancel(ctx.queryId()));
 
@@ -183,7 +233,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
-        var batchFut = cursor.requestNext(10);
+        var batchFut = cursor.requestNextAsync(10);
 
         await(executionServices.get(1).cancel(ctx.queryId()));
 
@@ -272,7 +322,7 @@ public class ExecutionServiceImplTest {
 
         assertThat(nodes, hasSize(1));
 
-        return new PrepareServiceImpl().prepare(nodes.get(0), ctx).join();
+        return new PrepareServiceImpl("test", 0).prepareAsync(nodes.get(0), ctx).join();
     }
 
     static class TestCluster {
@@ -291,6 +341,7 @@ public class ExecutionServiceImplTest {
             private final Queue<RunnableX> pending = new LinkedBlockingQueue<>();
             private volatile boolean dead = false;
             private volatile List<Object[]> dataset = List.of();
+            private volatile MessageInterceptor interceptor = null;
 
             private final QueryTaskExecutor taskExecutor;
             private final String nodeId;
@@ -312,6 +363,10 @@ public class ExecutionServiceImplTest {
 
             public void dataset(List<Object[]> dataset) {
                 this.dataset = dataset;
+            }
+
+            public void interceptor(@Nullable MessageInterceptor interceptor) {
+                this.interceptor = interceptor;
             }
 
             public void pauseScan() {
@@ -412,20 +467,34 @@ public class ExecutionServiceImplTest {
             }
 
             private void onReceive(String senderNodeId, NetworkMessage message) {
-                MessageListener listener = msgListeners.get(message.messageType());
+                MessageListener original = (nodeId, msg) -> {
+                    MessageListener listener = msgListeners.get(msg.messageType());
 
-                if (listener == null) {
-                    throw new IllegalStateException(
-                            format("Listener not found [senderNodeId={}, msgId={}]", senderNodeId, message.messageType()));
-                }
+                    if (listener == null) {
+                        throw new IllegalStateException(
+                                format("Listener not found [senderNodeId={}, msgId={}]", nodeId, msg.messageType()));
+                    }
 
-                if (message instanceof ExecutionContextAwareMessage) {
-                    ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) message;
-                    taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> listener.onMessage(senderNodeId, message));
+                    if (msg instanceof ExecutionContextAwareMessage) {
+                        ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
+                        taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> listener.onMessage(nodeId, msg));
+                    } else {
+                        taskExecutor.execute(() -> listener.onMessage(nodeId, msg));
+                    }
+                };
+
+                MessageInterceptor interceptor = this.interceptor;
+
+                if (interceptor != null) {
+                    interceptor.intercept(senderNodeId, message, original);
                 } else {
-                    taskExecutor.execute(() -> listener.onMessage(senderNodeId, message));
+                    original.onMessage(senderNodeId, message);
                 }
             }
+        }
+
+        interface MessageInterceptor {
+            void intercept(String senderNodeId, NetworkMessage msg, MessageListener original);
         }
     }
 
