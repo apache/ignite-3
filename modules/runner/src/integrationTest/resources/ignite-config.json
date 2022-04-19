@@ -1,9 +1,4 @@
 {
-    "node": {
-        "metastorageNodes": [
-            "node1"
-        ]
-    },
     "network": {
         "port": 3344,
         "portRange": 10,

@@ -41,7 +41,6 @@ import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
@@ -54,9 +53,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItLozaTest {
-    /** Network factory. */
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
-
     /** Server port offset. */
     private static final int PORT = 20010;
 
@@ -83,12 +79,7 @@ public class ItLozaTest {
      * @return The client cluster view.
      */
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
-        var network = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                port,
-                new StaticNodeFinder(srvs),
-                NETWORK_FACTORY
-        );
+        var network = ClusterServiceTestUtils.clusterService(testInfo, port, new StaticNodeFinder(srvs));
 
         network.start();
 

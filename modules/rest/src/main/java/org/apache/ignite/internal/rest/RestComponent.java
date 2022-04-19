@@ -23,6 +23,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import java.net.BindException;
+import java.net.InetSocketAddress;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.rest.RestConfiguration;
 import org.apache.ignite.configuration.schemas.rest.RestView;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.rest.netty.RestApiInitializer;
 import org.apache.ignite.internal.rest.routes.Router;
 import org.apache.ignite.internal.rest.routes.SimpleRouter;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NettyBootstrapFactory;
 
@@ -145,5 +147,21 @@ public class RestComponent implements RestHandlersRegister, IgniteComponent {
 
             channel = null;
         }
+    }
+
+    /**
+     * Returns the local address that the REST endpoint is bound to.
+     *
+     * @return local REST address.
+     * @throws IgniteInternalException if the component has not been started yet.
+     */
+    public InetSocketAddress localAddress() {
+        Channel channel = this.channel;
+
+        if (channel == null) {
+            throw new IgniteInternalException("RestComponent has not been started");
+        }
+
+        return (InetSocketAddress) channel.localAddress();
     }
 }

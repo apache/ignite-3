@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.configuration.schemas.store.ExistingDataStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
+import org.apache.ignite.internal.storage.DataStorageModule;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -67,8 +67,8 @@ public class ExistingDataStorageValidatorTest {
         validate(validator, annotation, mockValidationContext(dataStorage2, dataStorage2), null);
     }
 
-    private StorageEngineFactory createMockedStorageEngineFactory(String name) {
-        StorageEngineFactory mock = mock(StorageEngineFactory.class);
+    private DataStorageModule createMockedStorageEngineFactory(String name) {
+        DataStorageModule mock = mock(DataStorageModule.class);
 
         when(mock.name()).thenReturn(name);
 

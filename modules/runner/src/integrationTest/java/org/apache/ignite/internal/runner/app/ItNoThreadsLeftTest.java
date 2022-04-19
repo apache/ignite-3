@@ -20,11 +20,14 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -33,7 +36,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Table;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
@@ -42,25 +44,25 @@ import org.junit.jupiter.api.TestInfo;
  */
 public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     /** Schema name. */
-    public static final String SCHEMA = "PUBLIC";
+    private static final String SCHEMA = "PUBLIC";
 
     /** Short table name. */
-    public static final String SHORT_TABLE_NAME = "tbl1";
+    private static final String SHORT_TABLE_NAME = "tbl1";
 
-    /** Table name. */
-    public static final String TABLE_NAME = SCHEMA + "." + SHORT_TABLE_NAME;
+    private static final List<String> THREAD_NAMES_BLACKLIST = List.of(
+            "nioEventLoopGroup",
+            "globalEventExecutor",
+            "ForkJoinPool",
+            "process reaper",
+            "CompletableFutureDelayScheduler",
+            "parallel"
+    );
 
     /** One node cluster configuration. */
-    private static Function<String, String> NODE_CONFIGURATION = metastorageNodeName -> "{\n"
-            + "  \"node\": {\n"
-            + "    \"metastorageNodes\":[ " + metastorageNodeName + " ]\n"
-            + "  },\n"
-            + "  \"network\": {\n"
-            + "    \"port\":3344,\n"
-            + "    \"nodeFinder\": {\n"
-            + "      \"netClusterNodes\":[ \"localhost:3344\" ]\n"
-            + "    }\n"
-            + "  }\n"
+    private static final String NODE_CONFIGURATION =
+            "{\n"
+            + "  network.port: 3344,\n"
+            + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
             + "}";
 
     /**
@@ -73,31 +75,54 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
     public void test(TestInfo testInfo) throws Exception {
         Set<Thread> threadsBefore = getCurrentThreads();
 
+        try {
+            Ignite ignite = startNode(testInfo);
+
+            Table tbl = createTable(ignite, SCHEMA, SHORT_TABLE_NAME);
+
+            assertNotNull(tbl);
+        } finally {
+            stopNode(testInfo);
+        }
+
+        boolean threadsKilled = waitForCondition(() -> threadsBefore.size() == getCurrentThreads().size(), 3_000);
+
+        if (!threadsKilled) {
+            String leakedThreadNames = getCurrentThreads().stream()
+                    .filter(thread -> !threadsBefore.contains(thread))
+                    .map(Thread::getName)
+                    .collect(joining(", "));
+
+            fail(leakedThreadNames);
+        }
+    }
+
+    private Ignite startNode(TestInfo testInfo) {
         String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
 
-        Ignite ignite = IgnitionManager.start(
-                nodeName,
-                NODE_CONFIGURATION.apply(nodeName),
-                workDir.resolve(nodeName));
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
-        Table tbl = createTable(ignite, SCHEMA, SHORT_TABLE_NAME);
+        IgnitionManager.init(nodeName, List.of(nodeName));
 
-        assertNotNull(tbl);
+        assertThat(future, willCompleteSuccessfully());
 
-        ignite.close();
+        return future.join();
+    }
 
-        assertTrue(waitForCondition(() -> threadsBefore.size() == getCurrentThreads().size(), 3_000),
-                getCurrentThreads().stream().filter(thread -> !threadsBefore.contains(thread)).map(Thread::getName).collect(joining(", ")));
+    private static void stopNode(TestInfo testInfo) {
+        String nodeName = IgniteTestUtils.testNodeName(testInfo, 0);
+
+        IgnitionManager.stop(nodeName);
     }
 
     /**
      * Creates a table.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
-    protected Table createTable(Ignite node, String schemaName, String shortTableName) {
+    private static Table createTable(Ignite node, String schemaName, String shortTableName) {
         return node.tables().createTable(
                 schemaName + "." + shortTableName, tblCh -> convert(SchemaBuilders.tableBuilder(schemaName, shortTableName).columns(
                                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -114,16 +139,9 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
      *
      * @return Set of threads.
      */
-    @NotNull
-    private Set<Thread> getCurrentThreads() {
+    private static Set<Thread> getCurrentThreads() {
         return Thread.getAllStackTraces().keySet().stream()
-                .filter(thread ->
-                        !thread.getName().startsWith("nioEventLoopGroup")
-                                && !thread.getName().startsWith("globalEventExecutor")
-                                && !thread.getName().startsWith("ForkJoinPool")
-                                && !thread.getName().startsWith("process reaper")
-                                && !thread.getName().startsWith("CompletableFutureDelayScheduler")
-                                && !thread.getName().startsWith("parallel"))
+                .filter(thread -> THREAD_NAMES_BLACKLIST.stream().noneMatch(thread.getName()::startsWith))
                 .collect(Collectors.toSet());
     }
 }

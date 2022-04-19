@@ -31,7 +31,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Meta storage service side implementation of cursor.
@@ -63,13 +62,6 @@ public class CursorImpl<T> implements Cursor<T> {
         this.initOp = initOp;
         this.it = new InnerIterator();
         this.fn = fn;
-    }
-
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<T> iterator() {
-        return it;
     }
 
     /** {@inheritDoc} */

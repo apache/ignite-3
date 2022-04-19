@@ -38,12 +38,6 @@ public class NodeLeaveHandler implements TopologyEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public void onAppeared(ClusterNode member) {
-        // NO-OP
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void onDisappeared(ClusterNode member) {
         onDisappeared.accept(member);
     }

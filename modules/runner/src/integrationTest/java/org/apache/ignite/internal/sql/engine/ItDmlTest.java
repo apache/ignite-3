@@ -31,6 +31,7 @@ import org.junit.jupiter.api.TestInfo;
 /** Different DML tests. */
 public class ItDmlTest extends AbstractBasicIntegrationTest {
 
+    @Override
     protected int nodes() {
         return 3;
     }

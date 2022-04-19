@@ -53,6 +53,8 @@ import org.junit.jupiter.api.TestInfo;
  * Test utils that provide sort of cluster service mock that manages required node configuration internally.
  */
 public class ClusterServiceTestUtils {
+    private static final TestScaleCubeClusterServiceFactory SERVICE_FACTORY = new TestScaleCubeClusterServiceFactory();
+
     /** Registry initializers collected via reflection. */
     private static final List<Method> REGISTRY_INITIALIZERS = new ArrayList<>();
 
@@ -87,14 +89,8 @@ public class ClusterServiceTestUtils {
      * @param testInfo                 Test info.
      * @param port                     Local port.
      * @param nodeFinder               Node finder.
-     * @param clusterSvcFactory        Cluster service factory.
      */
-    public static ClusterService clusterService(
-            TestInfo testInfo,
-            int port,
-            NodeFinder nodeFinder,
-            TestScaleCubeClusterServiceFactory clusterSvcFactory
-    ) {
+    public static ClusterService clusterService(TestInfo testInfo, int port, NodeFinder nodeFinder) {
         var registry = new MessageSerializationRegistryImpl();
 
         REGISTRY_INITIALIZERS.forEach(c -> {
@@ -119,10 +115,7 @@ public class ClusterServiceTestUtils {
 
         var bootstrapFactory = new NettyBootstrapFactory(configuration, ctx.getName());
 
-        var clusterSvc = clusterSvcFactory.createClusterService(
-                ctx,
-                configuration,
-                bootstrapFactory);
+        ClusterService clusterSvc = SERVICE_FACTORY.createClusterService(ctx, configuration, bootstrapFactory);
 
         assert nodeFinder instanceof StaticNodeFinder : "Only StaticNodeFinder is supported at the moment";
 

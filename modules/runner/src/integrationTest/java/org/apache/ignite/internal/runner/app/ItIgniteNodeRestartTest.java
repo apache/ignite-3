@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,17 +38,22 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.baseline.BaselineManager;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.ConfigurationModule;
 import org.apache.ignite.internal.configuration.ConfigurationModules;
@@ -59,14 +68,18 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.storage.DataStorageModule;
+import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.message.TxMessagesSerializationRegistryInitializer;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.lang.IgniteException;
@@ -85,7 +98,7 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
+import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -115,19 +128,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
-            + "  \"node\": {\n"
-            + "    \"metastorageNodes\":[ {} ]\n"
-            + "  },\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
-            + "    }\n"
-            + "  }\n"
+            + "  network.port: {},\n"
+            + "  network.nodeFinder.netClusterNodes: {}\n"
             + "}";
 
     /** Cluster nodes. */
     private static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
+
+    private static final List<String> CLUSTER_NODES_NAMES = new ArrayList<>();
 
     /** Cluster nodes. */
     private List<IgniteComponent> partialNode = null;
@@ -136,18 +144,23 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Stops all started nodes.
      */
     @AfterEach
-    public void afterEach() {
-        for (int i = 0; i < CLUSTER_NODES.size(); i++) {
-            stopNode(i);
+    public void afterEach() throws Exception {
+        var closeables = new ArrayList<AutoCloseable>();
+
+        for (String name : CLUSTER_NODES_NAMES) {
+            if (name != null) {
+                closeables.add(() -> IgnitionManager.stop(name));
+            }
         }
 
         CLUSTER_NODES.clear();
+        CLUSTER_NODES_NAMES.clear();
 
         if (partialNode != null) {
-            stopPartialNode(partialNode);
-
-            partialNode = null;
+            closeables.add(() -> stopPartialNode(partialNode));
         }
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -157,7 +170,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param cfgString Configuration string.
      * @return List of started components.
      */
-    private List<IgniteComponent> startPartialNode(String name, String cfgString) {
+    private List<IgniteComponent> startPartialNode(String name, @Language("HOCON") String cfgString) throws NodeStoppingException {
         return startPartialNode(name, cfgString, null);
     }
 
@@ -169,7 +182,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param revisionCallback Callback on storage revision update.
      * @return List of started components.
      */
-    private List<IgniteComponent> startPartialNode(String name, String cfgString, Consumer<Long> revisionCallback) {
+    private List<IgniteComponent> startPartialNode(
+            String name,
+            @Language("HOCON") String cfgString,
+            @Nullable Consumer<Long> revisionCallback
+    ) throws NodeStoppingException {
         Path dir = workDir.resolve(name);
 
         List<IgniteComponent> res = new ArrayList<>();
@@ -189,6 +206,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(NetworkConfiguration.KEY);
 
         MessageSerializationRegistryImpl serializationRegistry = new MessageSerializationRegistryImpl();
+        CmgMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         RaftMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
         TxMessagesSerializationRegistryInitializer.registerFactories(serializationRegistry);
 
@@ -206,12 +224,20 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         var txManager = new TableTxManagerImpl(clusterSvc, new HeapLockManager());
 
-        var metaStorageMgr = new MetaStorageManager(
+        var cmgManager = new ClusterManagementGroupManager(
                 vault,
-                nodeCfgMgr,
                 clusterSvc,
                 raftMgr,
-                new RocksDbKeyValueStorage(dir.resolve(Paths.get("metastorage")))
+                mock(RestComponent.class),
+                new RocksDbClusterStateStorage(dir.resolve("cmg"))
+        );
+
+        var metaStorageMgr = new MetaStorageManager(
+                vault,
+                clusterSvc,
+                cmgManager,
+                raftMgr,
+                new RocksDbKeyValueStorage(dir.resolve("metastorage"))
         );
 
         var cfgStorage = new DistributedConfigurationStorage(metaStorageMgr, vault);
@@ -232,9 +258,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             });
         };
 
+        DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
+
         DataStorageManager dataStorageManager = new DataStorageManager(
-                clusterCfgMgr.configurationRegistry(),
-                getPartitionsStorePath(dir)
+                dataStorageModules.createStorageEngines(
+                        clusterCfgMgr.configurationRegistry(),
+                        getPartitionsStorePath(dir)
+                )
         );
 
         TablesConfiguration tblCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
@@ -280,6 +310,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 nettyBootstrapFactory,
                 clusterSvc,
                 raftMgr,
+                cmgManager,
                 txManager,
                 metaStorageMgr,
                 clusterCfgMgr,
@@ -314,11 +345,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners();
 
         // Deploy all registered watches because all components are ready and have registered their listeners.
-        try {
-            metaStorageMgr.deployWatches();
-        } catch (NodeStoppingException e) {
-            e.printStackTrace();
-        }
+        metaStorageMgr.deployWatches();
 
         configurationCatchUpFuture.join();
 
@@ -336,7 +363,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param componentsList A list of components.
      */
-    private void stopPartialNode(List<IgniteComponent> componentsList) {
+    private static void stopPartialNode(List<IgniteComponent> componentsList) {
         ListIterator<IgniteComponent> iter = componentsList.listIterator(componentsList.size());
 
         while (iter.hasPrevious()) {
@@ -361,7 +388,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Starts the Vault component.
      */
-    public static VaultManager createVault(Path workDir) {
+    private static VaultManager createVault(Path workDir) {
         Path vaultPath = workDir.resolve(Paths.get("vault"));
 
         try {
@@ -379,8 +406,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param workDir Ignite work directory.
      * @return Partitions store path.
      */
-    @NotNull
-    public static Path getPartitionsStorePath(Path workDir) {
+    private static Path getPartitionsStorePath(Path workDir) {
         Path partitionsStore = workDir.resolve(Paths.get("db"));
 
         try {
@@ -399,7 +425,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param classLoader Class loader.
      * @return Configuration modules.
      */
-    public static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
+    private static ConfigurationModules loadConfigurationModules(IgniteLogger log, ClassLoader classLoader) {
         var modulesProvider = new ServiceLoaderModulesProvider();
         List<ConfigurationModule> modules = modulesProvider.modules(classLoader);
 
@@ -409,7 +435,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         if (modules.isEmpty()) {
             throw new IllegalStateException("No configuration modules were loaded, this means Ignite cannot start. "
-                + "Please make sure that the classloader for loading services is correct.");
+                    + "Please make sure that the classloader for loading services is correct.");
         }
 
         var configModules = new ConfigurationModules(modules);
@@ -431,14 +457,24 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param workDir Working directory.
      * @return Created node instance.
      */
-    private IgniteImpl startNode(int idx, String nodeName, String cfgString, Path workDir) {
-        IgniteImpl ignite = (IgniteImpl) IgnitionManager.start(nodeName, cfgString, workDir);
-
+    private static IgniteImpl startNode(int idx, String nodeName, @Nullable String cfgString, Path workDir) {
         assertTrue(CLUSTER_NODES.size() == idx || CLUSTER_NODES.get(idx) == null);
+
+        CLUSTER_NODES_NAMES.add(idx, nodeName);
+
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
+
+        if (CLUSTER_NODES.isEmpty()) {
+            IgnitionManager.init(nodeName, List.of(nodeName));
+        }
+
+        assertThat(future, willCompleteSuccessfully());
+
+        Ignite ignite = future.join();
 
         CLUSTER_NODES.add(idx, ignite);
 
-        return ignite;
+        return (IgniteImpl) ignite;
     }
 
     /**
@@ -460,7 +496,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     ) {
         int port = predefinedPort == null ? DEFAULT_NODE_PORT + idx : predefinedPort;
         String nodeName = predefinedNodeName == null ? testNodeName(testInfo, port) : predefinedNodeName;
-        String cfgString = configurationString(testInfo, idx, cfg, predefinedPort);
+        String cfgString = configurationString(idx, cfg, predefinedPort);
 
         return startNode(idx, nodeName, cfgString, workDir.resolve(nodeName));
     }
@@ -479,21 +515,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     /**
      * Build a configuration string.
      *
-     * @param testInfo Test info.
      * @param idx Node index.
      * @param cfg Optional configuration string.
-     * @param predefinedPort  Predefined port.
+     * @param predefinedPort Predefined port.
      * @return Configuration string.
      */
-    private String configurationString(TestInfo testInfo, int idx, @Nullable String cfg, @Nullable Integer predefinedPort) {
+    private static String configurationString(int idx, @Nullable String cfg, @Nullable Integer predefinedPort) {
         int port = predefinedPort == null ? DEFAULT_NODE_PORT + idx : predefinedPort;
         int connectPort = predefinedPort == null ? DEFAULT_NODE_PORT : predefinedPort;
-        String connectAddr = "\"localhost:" + connectPort + '\"';
-        String metastorageNodeName = testNodeName(testInfo, connectPort);
+        String connectAddr = "[\"localhost:" + connectPort + "\"]";
 
-        return cfg == null
-            ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, metastorageNodeName, port, connectAddr)
-            : cfg;
+        return cfg == null ? IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, port, connectAddr) : cfg;
     }
 
     /**
@@ -501,13 +533,14 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      *
      * @param idx Node index.
      */
-    private void stopNode(int idx) {
+    private static void stopNode(int idx) {
         Ignite node = CLUSTER_NODES.get(idx);
 
         if (node != null) {
             IgnitionManager.stop(node.name());
 
             CLUSTER_NODES.set(idx, null);
+            CLUSTER_NODES_NAMES.set(idx, null);
         }
     }
 
@@ -539,6 +572,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * Restarts a node with changing configuration.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16865")
     public void changeConfigurationOnStartTest(TestInfo testInfo) {
         IgniteImpl ignite = startNode(testInfo, 0);
 
@@ -552,7 +586,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         String updateCfg = "network.port=" + newPort;
 
-        ignite = startNode(testInfo, 0, null, newPort, updateCfg);
+        ignite = startNode(testInfo, 0, ignite.name(), newPort, updateCfg);
 
         nodePort = ignite.nodeConfiguration().getConfiguration(NetworkConfiguration.KEY).port().value();
 
@@ -615,8 +649,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Starts two nodes and checks that the data are storing through restarts.
-     * Nodes restart in the same order when they started at first.
+     * Starts two nodes and checks that the data are storing through restarts. Nodes restart in the same order when they started at first.
      *
      * @param testInfo Test information object.
      */
@@ -626,13 +659,12 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Starts two nodes and checks that the data are storing through restarts.
-     * Nodes restart in reverse order when they started at first.
+     * Starts two nodes and checks that the data are storing through restarts. Nodes restart in reverse order when they started at first.
      *
      * @param testInfo Test information object.
      */
     @Test
-    @Disabled("IGNITE-16034 Unblock a node start that happenes before Metastorage is ready")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16811")
     public void testTwoNodesRestartReverse(TestInfo testInfo) {
         twoNodesRestart(testInfo, false);
     }
@@ -674,10 +706,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param <T> Type parameter.
      * @return Ignite component.
      */
-    private <T extends IgniteComponent> T findComponent(List<IgniteComponent> components, Class<T> cls) {
+    private static <T extends IgniteComponent> T findComponent(List<IgniteComponent> components, Class<T> cls) {
         for (IgniteComponent component : components) {
             if (cls.isAssignableFrom(component.getClass())) {
-                return (T) component;
+                return cls.cast(component);
             }
         }
 
@@ -707,16 +739,16 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent.
-     * Also checks that the table created before node stop, is not available when majority if lost.
+     * Checks that one node in a cluster of 2 nodes is able to restart and recover a table that was created when this node was absent. Also
+     * checks that the table created before node stop, is not available when majority if lost.
      *
      * @param testInfo Test info.
      */
     @Test
-    public void testOneNodeRestartWithGap(TestInfo testInfo) {
+    public void testOneNodeRestartWithGap(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
-        String cfgString = configurationString(testInfo, 1, null, null);
+        String cfgString = configurationString(1, null, null);
 
         List<IgniteComponent> components = startPartialNode(testNodeName(testInfo, DEFAULT_NODE_PORT + 1), cfgString);
 
@@ -748,10 +780,10 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
-    public void testRecoveryOnOneNode(TestInfo testInfo) {
+    public void testRecoveryOnOneNode(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite = startNode(testInfo, 0);
 
-        String cfgString = configurationString(testInfo, 1, null, null);
+        @Language("HOCON") String cfgString = configurationString(1, null, null);
 
         List<IgniteComponent> components = startPartialNode(testNodeName(testInfo, DEFAULT_NODE_PORT + 1), cfgString);
 
@@ -774,7 +806,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
-    public void testRestartDiffConfig(TestInfo testInfo) {
+    public void testRestartDiffConfig(TestInfo testInfo) throws NodeStoppingException {
         Ignite ignite0 = startNode(testInfo, 0);
         Ignite ignite1 = startNode(testInfo, 1);
 
@@ -788,12 +820,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         ignite0 = startNode(testInfo, 0);
 
-        String metastorageName = ignite0.name();
-
-        String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
-                metastorageName,
+        @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
-                "\"localhost:" + (DEFAULT_NODE_PORT) + '\"'
+                "[\"localhost:" + DEFAULT_NODE_PORT + "\"]"
         );
 
         List<IgniteComponent> components = startPartialNode(igniteName, cfgString);
@@ -810,11 +839,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-    public void testCfgGapWithoutData(TestInfo testInfo) {
-        final int nodes = 3;
+    public void testCfgGapWithoutData(TestInfo testInfo) throws NodeStoppingException {
+        int nodes = 3;
+
+        String nodeFinderConfig = IntStream.range(0, nodes)
+                .mapToObj(i -> "\"localhost:" + (DEFAULT_NODE_PORT + i) + "\"")
+                .collect(joining(",", "[", "]"));
 
         for (int i = 0; i < nodes; i++) {
-            startNode(testInfo, i);
+            String cfg = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + i, nodeFinderConfig);
+
+            startNode(testInfo, i, null, null, cfg);
         }
 
         createTableWithData(CLUSTER_NODES.get(0), TABLE_NAME, nodes);
@@ -829,7 +864,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         log.info("Starting the node.");
 
-        List<IgniteComponent> components = startPartialNode(igniteName, configurationString(testInfo, nodes - 1, null, null));
+        String partialNodeCfg = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + nodes - 1, nodeFinderConfig);
+
+        List<IgniteComponent> components = startPartialNode(igniteName, configurationString(nodes - 1, partialNodeCfg, null));
 
         TableManager tableManager = findComponent(components, TableManager.class);
 
@@ -838,15 +875,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
     }
 
     /**
-     * The test for node restart when there is a gap between the node local configuration and distributed configuration,
-     * and metastorage group stops for some time while restarting node is being recovered. The recovery process should
-     * continue and eventually succeed after metastorage group starts again.
+     * The test for node restart when there is a gap between the node local configuration and distributed configuration, and metastorage
+     * group stops for some time while restarting node is being recovered. The recovery process should continue and eventually succeed after
+     * metastorage group starts again.
      *
      * @param testInfo Test info.
      */
     @Test
     @WithSystemProperty(key = CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, value = "0")
-    public void testMetastorageStop(TestInfo testInfo) {
+    public void testMetastorageStop(TestInfo testInfo) throws NodeStoppingException {
         final int nodes = 3;
         final int cfgGap = 4;
 
@@ -868,7 +905,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         List<IgniteComponent> components = startPartialNode(
                 igniteName,
-                configurationString(testInfo, nodes - 1, null, null),
+                configurationString(nodes - 1, null, null),
                 rev -> {
                     log.info("Partially started node: applying revision: " + rev);
 
@@ -919,9 +956,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         log.info("Starting the node.");
 
-        Ignite newNode = IgnitionManager.start(igniteName, null, workDir.resolve(igniteName));
-
-        CLUSTER_NODES.set(nodes - 1, newNode);
+        Ignite newNode = startNode(nodes - 1, igniteName, null, workDir);
 
         checkTableWithData(CLUSTER_NODES.get(0), "t1");
         checkTableWithData(CLUSTER_NODES.get(0), "t2");
@@ -936,7 +971,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param ignite Ignite.
      * @param name Table name.
      */
-    private void checkTableWithData(Ignite ignite, String name) {
+    private static void checkTableWithData(Ignite ignite, String name) {
         Table table = ignite.tables().table("PUBLIC." + name);
 
         assertNotNull(table);
@@ -955,7 +990,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param name Table name.
      * @param replicas Replica factor.
      */
-    private void createTableWithData(Ignite ignite, String name, int replicas) {
+    private static void createTableWithData(Ignite ignite, String name, int replicas) {
         createTableWithData(ignite, name, replicas, 10);
     }
 
@@ -967,7 +1002,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param replicas Replica factor.
      * @param partitions Partitions count.
      */
-    private void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
+    private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) {
         TableDefinition scmTbl1 = SchemaBuilders.tableBuilder("PUBLIC", name).columns(
                 SchemaBuilders.column("id", ColumnType.INT32).build(),
                 SchemaBuilders.column("name", ColumnType.string()).asNullable(true).build()
@@ -1003,7 +1038,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
          * @param cfgStorage Configuration storage.
          * @param catchUpFuture Catch-up future.
          */
-        public TestConfigurationCatchUpListener(
+        TestConfigurationCatchUpListener(
                 ConfigurationStorage cfgStorage,
                 CompletableFuture<Void> catchUpFuture,
                 Consumer<Long> revisionCallback
@@ -1014,7 +1049,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         }
 
         /** {@inheritDoc} */
-        @Override public CompletableFuture<?> onUpdate(long appliedRevision) {
+        @Override
+        public CompletableFuture<?> onUpdate(long appliedRevision) {
             if (revisionCallback != null) {
                 revisionCallback.accept(appliedRevision);
             }

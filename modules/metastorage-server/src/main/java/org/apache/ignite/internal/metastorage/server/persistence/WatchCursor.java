@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.metastorage.server.persistence.RocksSto
 import static org.apache.ignite.internal.rocksdb.RocksUtils.checkIterator;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Predicate;
@@ -182,11 +181,5 @@ class WatchCursor implements Cursor<WatchEvent> {
     @Override
     public void close() throws Exception {
         IgniteUtils.closeAll(options, nativeIterator);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Iterator<WatchEvent> iterator() {
-        return this;
     }
 }

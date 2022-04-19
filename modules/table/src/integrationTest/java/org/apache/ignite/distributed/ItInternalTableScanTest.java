@@ -73,7 +73,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -94,8 +93,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableScanTest {
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
-
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     private static final String TEST_TABLE_NAME = "testTbl";
@@ -142,8 +139,7 @@ public class ItInternalTableScanTest {
         network = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 20_000,
-                new StaticNodeFinder(List.of(nodeNetworkAddress)),
-                NETWORK_FACTORY
+                new StaticNodeFinder(List.of(nodeNetworkAddress))
         );
 
         network.start();

@@ -22,6 +22,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.AttributeKey;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import org.apache.ignite.internal.client.io.ClientConnection;
 import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
@@ -69,6 +70,12 @@ public class NettyClientConnection implements ClientConnection {
     @Override
     public ByteBuf getBuffer() {
         return channel.alloc().buffer();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public InetSocketAddress remoteAddress() {
+        return (InetSocketAddress) channel.remoteAddress();
     }
 
     /** {@inheritDoc} */

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -151,9 +152,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(LocalDateTime.now());
         testEchoArg(Instant.now());
         testEchoArg(true);
-
-        // TODO IGNITE-16772
-        // testEchoArg(BigInteger.TEN);
+        testEchoArg(BigInteger.TEN);
     }
 
     private void testEchoArg(Object arg) {

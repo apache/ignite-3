@@ -38,7 +38,12 @@ import java.util.UUID;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -47,6 +52,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -71,6 +77,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Stop Calcite module test.
  */
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
 public class StopCalciteModuleTest {
     /** The logger. */
@@ -87,6 +94,9 @@ public class StopCalciteModuleTest {
     TableManager tableManager;
 
     @Mock
+    DataStorageManager dataStorageManager;
+
+    @Mock
     MessagingService msgSrvc;
 
     @Mock
@@ -101,6 +111,9 @@ public class StopCalciteModuleTest {
     SchemaRegistry schemaReg;
 
     TestRevisionRegister testRevisionRegister = new TestRevisionRegister();
+
+    @InjectConfiguration(polymorphicExtensions = {HashIndexConfigurationSchema.class, UnknownDataStorageConfigurationSchema.class})
+    TablesConfiguration tablesConfig;
 
     /**
      * Before.
@@ -175,7 +188,13 @@ public class StopCalciteModuleTest {
 
     @Test
     public void testStopQueryOnNodeStop() throws Exception {
-        SqlQueryProcessor qryProc = new SqlQueryProcessor(testRevisionRegister, clusterSrvc, tableManager);
+        SqlQueryProcessor qryProc = new SqlQueryProcessor(
+                testRevisionRegister,
+                clusterSrvc,
+                tableManager,
+                dataStorageManager,
+                tablesConfig
+        );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());
 

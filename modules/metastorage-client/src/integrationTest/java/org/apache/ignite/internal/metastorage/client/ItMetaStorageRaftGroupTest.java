@@ -51,7 +51,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -90,9 +89,6 @@ public class ItMetaStorageRaftGroupTest {
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
-    /** Network factory. */
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** Expected server result entry. */
     private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY1 =
@@ -171,14 +167,7 @@ public class ItMetaStorageRaftGroupTest {
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
         localAddresses.stream()
-                .map(
-                        addr -> ClusterServiceTestUtils.clusterService(
-                                testInfo,
-                                addr.port(),
-                                nodeFinder,
-                                NETWORK_FACTORY
-                        )
-                )
+                .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> {
                     clusterService.start();
                     cluster.add(clusterService);
@@ -323,11 +312,11 @@ public class ItMetaStorageRaftGroupTest {
         opt3.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
 
-        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), dataPath, opt1);
+        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), dataPath.resolve("node1"), opt1);
 
-        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), dataPath, opt2);
+        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), dataPath.resolve("node2"), opt2);
 
-        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), dataPath, opt3);
+        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), dataPath.resolve("node3"), opt3);
 
         metaStorageRaftSrv1.start();
 

@@ -48,6 +48,7 @@
         <module>modules/client</module>
         <module>modules/client-common</module>
         <module>modules/client-handler</module>
+        <module>modules/cluster-management</module>
         <module>modules/compute</module>
         <module>modules/configuration</module>
         <module>modules/configuration-annotation-processor</module>

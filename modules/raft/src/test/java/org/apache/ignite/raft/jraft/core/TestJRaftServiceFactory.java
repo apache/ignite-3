@@ -21,8 +21,12 @@ import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalLogStorage;
 
 public class TestJRaftServiceFactory extends DefaultJRaftServiceFactory {
+    public TestJRaftServiceFactory() {
+        super(null);
+    }
+
     @Override
-    public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
+    public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
         return new LocalLogStorage(null, raftOptions);
     }
 

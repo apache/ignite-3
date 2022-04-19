@@ -8,7 +8,7 @@ To add a new data storage you need:
 
 * Add a new module;
 * Implement interfaces:
-    * `org.apache.ignite.internal.storage.engine.StorageEngineFactory`;
+    * `org.apache.ignite.internal.storage.DataStorageModule`;
     * `org.apache.ignite.internal.storage.engine.StorageEngine`;
     * `org.apache.ignite.internal.storage.engine.TableStorage`;
     * `org.apache.ignite.internal.storage.PartitionStorage`;
@@ -19,7 +19,7 @@ To add a new data storage you need:
     * If necessary, add a specific configuration of the data storage engine;
     * Implement `org.apache.ignite.internal.configuration.ConfigurationModule`;
 * Add services (which are loaded via `java.util.ServiceLoader.load(java.lang.Class<S>)`):
-    * Implementation of `org.apache.ignite.internal.storage.engine.StorageEngineFactory`;
+    * Implementation of `org.apache.ignite.internal.storage.DataStorageModule`;
     * Implementation of `org.apache.ignite.internal.configuration.ConfigurationModule`.
 
 Take `org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine` as an example.

@@ -19,6 +19,7 @@ package org.apache.ignite.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsString;
@@ -32,74 +33,61 @@ import com.jayway.jsonpath.JsonPath;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtendWith;
 import picocli.CommandLine;
 
 /**
  * Integration test for {@code ignite config} commands.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class ItConfigCommandTest extends AbstractCliTest {
     /** DI context. */
     private ApplicationContext ctx;
 
     /** stderr. */
-    private ByteArrayOutputStream err;
+    private final ByteArrayOutputStream err = new ByteArrayOutputStream();
 
     /** stdout. */
-    private ByteArrayOutputStream out;
-
-    /** Port for REST communication. */
-    private int restPort;
-
-    /** Port for thin client communication. */
-    private int clientPort;
-
-    /** Network port. */
-    private int networkPort;
+    private final ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     /** Node. */
-    private Ignite node;
+    private IgniteImpl node;
 
     @BeforeEach
-    void setup(@TempDir Path workDir, TestInfo testInfo) throws IOException {
-        // TODO: IGNITE-15131 Must be replaced by receiving the actual port configs from the started node.
-        // This approach still can produce the port, which will be unavailable at the moment of node start.
-        restPort = getAvailablePort();
-        clientPort = getAvailablePort();
-        networkPort = getAvailablePort();
+    void setup(@WorkDirectory Path workDir, TestInfo testInfo) {
+        String nodeName = testNodeName(testInfo, 0);
 
-        String configStr = String.join("\n",
-                "network.port=" + networkPort,
-                "rest.port=" + restPort,
-                "rest.portRange=0",
-                "clientConnector.port=" + clientPort,
-                "clientConnector.portRange=0"
-        );
+        CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
 
-        this.node = IgnitionManager.start(testNodeName(testInfo, networkPort), configStr, workDir);
+        IgnitionManager.init(nodeName, List.of(nodeName));
+
+        assertThat(future, willCompleteSuccessfully());
+
+        node = (IgniteImpl) future.join();
 
         ctx = ApplicationContext.run(Environment.TEST);
-
-        err = new ByteArrayOutputStream();
-        out = new ByteArrayOutputStream();
     }
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
-        IgnitionManager.stop(testNodeName(testInfo, networkPort));
+        IgnitionManager.stop(testNodeName(testInfo, 0));
+
         ctx.stop();
     }
 
@@ -109,9 +97,9 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "set",
                 "--node-endpoint",
-                "localhost:" + restPort,
+                "localhost:" + node.restAddress().port(),
                 "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-                "node.metastorageNodes=[\"localhost1\"]"
+                "network.shutdownQuietPeriod=1"
         );
 
         String nl = System.lineSeparator();
@@ -129,7 +117,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "get",
                 "--node-endpoint",
-                "localhost:" + restPort,
+                "localhost:" + node.restAddress().port(),
                 "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
         );
 
@@ -137,7 +125,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
 
         DocumentContext document = JsonPath.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
 
-        assertEquals("localhost1", document.read("$.node.metastorageNodes[0]"));
+        assertEquals(1, document.read("$.network.shutdownQuietPeriod", Integer.class));
     }
 
     @Test
@@ -146,16 +134,16 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "set",
                 "--node-endpoint",
-                "localhost:" + restPort,
+                "localhost:" + node.restAddress().port(),
                 "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-                "node.metastorgeNodes=[\"localhost1\"]"
+                "network.foo=\"bar\""
         );
 
         assertEquals(1, exitCode);
         assertThat(
                 err.toString(UTF_8),
                 both(startsWith("org.apache.ignite.cli.IgniteCliException: Failed to set configuration"))
-                        .and(containsString("'node' configuration doesn't have the 'metastorgeNodes' sub-configuration"))
+                        .and(containsString("'network' configuration doesn't have the 'foo' sub-configuration"))
         );
 
         resetStreams();
@@ -164,16 +152,16 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "set",
                 "--node-endpoint",
-                "localhost:" + restPort,
+                "localhost:" + node.restAddress().port(),
                 "--type", "node", //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-                "node.metastorageNodes=abc"
+                "network.shutdownQuietPeriod=abc"
         );
 
         assertEquals(1, exitCode);
         assertThat(
                 err.toString(UTF_8),
                 both(startsWith("org.apache.ignite.cli.IgniteCliException: Failed to set configuration"))
-                        .and(containsString("'String[]' is expected as a type for the 'node.metastorageNodes' configuration value"))
+                        .and(containsString("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"))
         );
     }
 
@@ -183,7 +171,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
                 "config",
                 "get",
                 "--node-endpoint",
-                "localhost:" + restPort,
+                "localhost:" + node.restAddress().port(),
                 "--selector",
                 "network",
                 "--type", "node" //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
@@ -196,19 +184,6 @@ public class ItConfigCommandTest extends AbstractCliTest {
         assertTrue(outResult.containsKey("inbound"));
 
         assertFalse(outResult.containsKey("node"));
-    }
-
-    /**
-     * Returns any available prt.
-     *
-     * @return Any available port.
-     * @throws IOException if can't allocate port to open socket.
-     */
-    // TODO: Must be removed after IGNITE-15131.
-    private static int getAvailablePort() throws IOException {
-        ServerSocket s = new ServerSocket(0);
-        s.close();
-        return s.getLocalPort();
     }
 
     /**

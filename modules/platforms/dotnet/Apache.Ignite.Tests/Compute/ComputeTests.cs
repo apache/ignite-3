@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Net;
     using System.Threading.Tasks;
     using Ignite.Compute;
+    using Internal.Network;
     using Network;
     using NUnit.Framework;
 
@@ -128,6 +129,17 @@ namespace Apache.Ignite.Tests.Compute
                 await Client.Compute.ExecuteAsync<string>(await Client.GetClusterNodesAsync(), ErrorJob, "unused"));
 
             Assert.AreEqual("class org.apache.ignite.tx.TransactionException: Custom job error", ex!.Message);
+        }
+
+        [Test]
+        public void TestUnknownNodeThrows()
+        {
+            var unknownNode = new ClusterNode("x", "y", new IPEndPoint(IPAddress.Loopback, 0));
+
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+                await Client.Compute.ExecuteAsync<string>(new[] { unknownNode }, EchoJob, "unused"));
+
+            Assert.AreEqual("Specified node is not present in the cluster: y", ex!.Message);
         }
 
         // TODO: Support all types (IGNITE-15431).
