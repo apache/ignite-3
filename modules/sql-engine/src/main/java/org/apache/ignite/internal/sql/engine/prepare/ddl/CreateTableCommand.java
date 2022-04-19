@@ -147,8 +147,8 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     /**
      * Returns data storage options.
      */
-    public @Nullable Map<String, Object> dataStorageOptions() {
-        return dataStorageOptions;
+    public Map<String, Object> dataStorageOptions() {
+        return dataStorageOptions == null ? Map.of() : dataStorageOptions;
     }
 
     /**

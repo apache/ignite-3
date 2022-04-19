@@ -170,9 +170,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 queryRegistry,
-                dataStorageManager,
-                // TODO: IGNITE-16766 исправить
-                tablesConfig.defaultDataStorage()::value
+                dataStorageManager
         ));
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));
