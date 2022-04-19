@@ -171,6 +171,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 exchangeService,
                 queryRegistry,
                 dataStorageManager,
+                // TODO: IGNITE-16766 исправить
                 tablesConfig.defaultDataStorage()::value
         ));
 

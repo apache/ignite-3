@@ -36,7 +36,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
