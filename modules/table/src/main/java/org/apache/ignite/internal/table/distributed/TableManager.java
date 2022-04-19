@@ -190,14 +190,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
         clusterNodeResolver = topologyService::getByAddress;
 
-        tablesByIdVv = new VersionedValue<>(
-                (vv, token) -> {
-                    schemaManager.schemaRegistry(token, null).join();
-                },
-                registry,
-                VersionedValue.DEFAULT_HISTORY_SIZE,
-                HashMap::new
-        );
+        tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
     }
 
     /** {@inheritDoc} */
@@ -266,7 +259,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            createTableLocally(
+            return createTableLocally(
                     ctx.storageRevision(),
                     ctx.newValue().name(),
                     ((ExtendedTableView) ctx.newValue()).id(),
@@ -275,8 +268,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         } finally {
             busyLock.leaveBusy();
         }
-
-        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -439,8 +430,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param name  Table name.
      * @param tblId Table id.
      * @param partitions Count of partitions.
+     * @return Future that will be completed when local changes related to the table creation are applied.
      */
-    private void createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
+    private CompletableFuture<?> createTableLocally(long causalityToken, String name, UUID tblId, int partitions) {
         TableConfiguration tableCfg = tablesCfg.tables().get(name);
 
         TableStorage tableStorage = dataStorageMgr.engine(tableCfg.dataStorage()).createTable(tableCfg);
@@ -452,7 +444,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable, null);
 
-        schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
+        CompletableFuture<Void> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
 
         tablesByIdVv.update(causalityToken, previous -> {
             var val = new HashMap<>(previous);
@@ -464,11 +456,14 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId), th);
         });
 
-        tablesByIdVv.get(causalityToken).thenRun(() -> {
+        // TODO should be reworked in IGNITE-16763
+        schemaFut.thenCompose(v -> tablesByIdVv.get(causalityToken)).thenRun(() -> {
             fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
 
             completeApiCreateFuture(table);
         });
+
+        return schemaFut;
     }
 
     /**
