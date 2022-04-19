@@ -19,7 +19,7 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.lang.ThreadLocal.withInitial;
 import static java.nio.ByteBuffer.allocateDirect;
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static org.apache.ignite.internal.storage.IgniteRowId.MAX_ROW_ID_SIZE;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
@@ -72,7 +72,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private static final int MAX_KEY_SIZE = /* partId */ ROW_ID_OFFSET + /* rowId */ MAX_ROW_ID_SIZE + /* timestamp */ TIMESTAMP_SIZE;
 
     /** Threadlocal direct buffer instance to read keys from RocksDB. */
-    private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(LITTLE_ENDIAN));
+    private static final ThreadLocal<ByteBuffer> MV_KEY_BUFFER = withInitial(() -> allocateDirect(MAX_KEY_SIZE).order(BIG_ENDIAN));
 
     /** Threadlocal ob-heap byte buffer instance to use for key manipulations. */
     private final ThreadLocal<ByteBuffer> heapKeyBuffer;
@@ -115,8 +115,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         heapKeyBuffer = withInitial(() ->
                 ByteBuffer.allocate(Short.BYTES + igniteRowIdSize + ROW_ID_OFFSET * Long.BYTES)
-                        .order(LITTLE_ENDIAN)
-                        .putShort(Short.reverseBytes((short) partId))
+                        .order(BIG_ENDIAN)
+                        .putShort((short) partId)
         );
 
         upperBound = new Slice(partitionEndPrefix());
@@ -265,7 +265,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         //  - no one guarantees that there will only be a single cursor;
         //  - no one guarantees that returned cursor will not be used other threads.
         // The thing is, we need this buffer to preserve its content between invocactions of "hasNext" method.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(LITTLE_ENDIAN).putShort(Short.reverseBytes((short) partId));
+        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN).putShort((short) partId);
 
         if (timestamp != null) {
             putTimestamp(seekKeyBuf.position(ROW_ID_OFFSET + igniteRowIdSize), timestamp);
@@ -274,7 +274,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         // Version without timestamp to compare row ids.
         ByteBuffer seekKeyBufSliceWithoutTimestamp = timestamp == null
                 ? seekKeyBuf
-                : seekKeyBuf.position(0).limit(ROW_ID_OFFSET + igniteRowIdSize).slice().order(LITTLE_ENDIAN);
+                : seekKeyBuf.position(0).limit(ROW_ID_OFFSET + igniteRowIdSize).slice().order(BIG_ENDIAN);
 
         return new Cursor<BinaryRow>() {
             /** Cached value for {@link #next()} method. Also optimizes the code of {@link #hasNext()}. */
@@ -291,7 +291,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // Prepare direct buffer slice to read keys from the iterator. It's goind to be used to read row ids without timestamps.
                 // To enforce this, we limit it to a proper capacity.
                 ByteBuffer directBuffer = MV_KEY_BUFFER.get()
-                        .position(0).limit(ROW_ID_OFFSET + igniteRowIdSize).slice().order(LITTLE_ENDIAN);
+                        .position(0).limit(ROW_ID_OFFSET + igniteRowIdSize).slice().order(BIG_ENDIAN);
 
                 while (true) {
                     // This flag is used to skip row ids that were created after required timestamp.
@@ -441,8 +441,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         // Two things to note here:
         //  - "xor" with a single sign bit makes long values comparable according to RocksDB convention, where bytes are unsigned.
         //  - "bitwise negation" turns ascending order into a descending one.
-        keyBuf.putLong(Long.reverseBytes(~ts.getTimestamp() ^ (1L << 63)));
-        keyBuf.putLong(Long.reverseBytes(~ts.getNodeId() ^ (1L << 63)));
+        keyBuf.putLong(~ts.getTimestamp() ^ (1L << 63));
+        keyBuf.putLong(~ts.getNodeId() ^ (1L << 63));
     }
 
     /**

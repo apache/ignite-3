@@ -34,7 +34,7 @@ public interface IgniteRowId extends Comparable<IgniteRowId> {
      * Writes row id into a byte buffer. Binary row representation should match natural order defined by {@link #compareTo(Object)} when
      * comparing lexicographically.
      *
-     * @param buf Output byte buffer with {@link java.nio.ByteOrder#LITTLE_ENDIAN} byte order.
+     * @param buf Output byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
      * @param signedBytesCompare Defines properties of a target binary comparator. {@code true} if bytes are compared as signed values,
      *      {@code false} if unsigned.
      */
@@ -43,7 +43,7 @@ public interface IgniteRowId extends Comparable<IgniteRowId> {
     /**
      * Compares row id with a byte buffer, previously ritten by a {@link #writeTo(ByteBuffer, boolean)} method.
      *
-     * @param buf Input byte buffer with {@link java.nio.ByteOrder#LITTLE_ENDIAN} byte order.
+     * @param buf Input byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
      * @param signedBytesCompare Defines properties of a binary comparator. {@code true} if bytes are compared as signed values,
      *      {@code false} if unsigned.
      */

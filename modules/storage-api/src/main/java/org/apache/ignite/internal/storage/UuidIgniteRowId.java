@@ -48,28 +48,28 @@ public class UuidIgniteRowId implements IgniteRowId {
     /** {@inheritDoc} */
     @Override
     public void writeTo(ByteBuffer buf, boolean signedBytesCompare) {
-        assert buf.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buf.order() == ByteOrder.BIG_ENDIAN;
 
         long mask = signedBytesCompare ? 0x0080808080808080L : 0x8000000000000000L;
 
-        buf.putLong(Long.reverseBytes(mask ^ uuid.getMostSignificantBits()));
-        buf.putLong(Long.reverseBytes(mask ^ uuid.getLeastSignificantBits()));
+        buf.putLong(mask ^ uuid.getMostSignificantBits());
+        buf.putLong(mask ^ uuid.getLeastSignificantBits());
     }
 
     /** {@inheritDoc} */
     @Override
     public int compare(ByteBuffer buf, boolean signedBytesCompare) {
-        assert buf.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buf.order() == ByteOrder.BIG_ENDIAN;
 
         long mask = signedBytesCompare ? 0x0080808080808080L : 0x8000000000000000L;
 
-        int cmp = Long.compare(uuid.getMostSignificantBits(), mask ^ Long.reverseBytes(buf.getLong()));
+        int cmp = Long.compare(uuid.getMostSignificantBits(), mask ^ buf.getLong());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        return Long.compare(uuid.getLeastSignificantBits(), mask ^ Long.reverseBytes(buf.getLong()));
+        return Long.compare(uuid.getLeastSignificantBits(), mask ^ buf.getLong());
     }
 
     /** {@inheritDoc} */
