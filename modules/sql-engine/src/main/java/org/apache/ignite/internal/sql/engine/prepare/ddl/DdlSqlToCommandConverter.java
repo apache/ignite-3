@@ -545,7 +545,7 @@ public class DdlSqlToCommandConverter {
             ));
         }
 
-        return dataStorage;
+        return dataStorageNames.get(dataStorage);
     }
 
     private void processTableOption(
