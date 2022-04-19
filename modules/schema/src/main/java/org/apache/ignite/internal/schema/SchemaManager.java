@@ -54,6 +54,7 @@ import org.jetbrains.annotations.Nullable;
  * The class services a management of table schemas.
  */
 public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> implements IgniteComponent {
+    /** Initial version for schemas. */
     public static final int INITIAL_SCHEMA_VERSION = 1;
 
     /** Busy lock to stop synchronously. */
@@ -92,7 +93,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param schemasCtx Schemas configuration context.
      * @return A future.
      */
-    public CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
+    private CompletableFuture<?> onSchemaCreate(ConfigurationNotificationEvent<SchemaView> schemasCtx) {
         long causalityToken = schemasCtx.storageRevision();
 
         ExtendedTableConfiguration tblCfg = schemasCtx.config(ExtendedTableConfiguration.class);

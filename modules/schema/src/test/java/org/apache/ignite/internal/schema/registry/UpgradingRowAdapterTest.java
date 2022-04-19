@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.schema.NativeTypes.STRING;
 import static org.apache.ignite.internal.schema.NativeTypes.datetime;
 import static org.apache.ignite.internal.schema.NativeTypes.time;
 import static org.apache.ignite.internal.schema.NativeTypes.timestamp;
+import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -61,8 +62,6 @@ import org.junit.jupiter.api.Test;
  * Tests row assembling and reading.
  */
 public class UpgradingRowAdapterTest {
-    public static final int INITIAL_SCHEMA_VERSION = 1;
-
     /** Random. */
     private Random rnd;
 

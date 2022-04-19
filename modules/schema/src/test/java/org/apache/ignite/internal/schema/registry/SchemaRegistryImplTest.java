@@ -20,6 +20,7 @@ package org.apache.ignite.internal.schema.registry;
 import static org.apache.ignite.internal.schema.NativeTypes.BYTES;
 import static org.apache.ignite.internal.schema.NativeTypes.INT64;
 import static org.apache.ignite.internal.schema.NativeTypes.STRING;
+import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.schema.mapping.ColumnMapping.createMapper;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -39,8 +40,6 @@ import org.junit.jupiter.api.Test;
  * Schema manager test.
  */
 public class SchemaRegistryImplTest {
-    private static final int INITIAL_SCHEMA_VERSION = 1;
-
     /**
      * Check registration of schema with wrong versions.
      */
@@ -61,30 +60,28 @@ public class SchemaRegistryImplTest {
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV0);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
-        //assertNull(reg.schema());
+        assertNotNull(reg.schema());
 
         // Try to register schema with initial version.
-        //assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV0));
+        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV0));
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
-        //assertNull(reg.schema());
-        //assertThrows(SchemaRegistryException.class, () -> reg.schema(INITIAL_SCHEMA_VERSION));
+        assertNotNull(reg.schema(INITIAL_SCHEMA_VERSION));
 
         // Try to register schema with version of 0-zero.
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV1));
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(INITIAL_SCHEMA_VERSION));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(0));
+        assertNotNull(reg.schema(0));
 
         // Try to register schema with version of 2.
-        assertThrows(SchemaRegistryException.class, () -> reg.onSchemaRegistered(schemaV2));
-        assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
+        reg.onSchemaRegistered(schemaV2);
+        assertEquals(schemaV2.version(), reg.lastSchemaVersion());
 
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(INITIAL_SCHEMA_VERSION));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(0));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(1));
-        assertThrows(SchemaRegistryException.class, () -> reg.schema(2));
+        assertNotNull(reg.schema(INITIAL_SCHEMA_VERSION));
+        assertNotNull(reg.schema(0));
+        assertNotNull(reg.schema(1));
+        assertNotNull(reg.schema(2));
     }
 
     /**
@@ -113,10 +110,10 @@ public class SchemaRegistryImplTest {
         final SchemaRegistryImpl reg = new SchemaRegistryImpl(v -> null, () -> INITIAL_SCHEMA_VERSION, schemaV1);
 
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
-        //assertNull(reg.schema());
+        assertNotNull(reg.schema());
 
-        // Register schema with very first version.
-        //reg.onSchemaRegistered(schemaV1);
+        // Register schema with first version again.
+        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastSchemaVersion());
         assertSameSchema(schemaV1, reg.schema());
@@ -169,7 +166,7 @@ public class SchemaRegistryImplTest {
         assertEquals(INITIAL_SCHEMA_VERSION, reg.lastSchemaVersion());
 
         // Register schema with very first version.
-        //reg.onSchemaRegistered(schemaV1);
+        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastSchemaVersion());
         assertSameSchema(schemaV1, reg.schema());
@@ -241,7 +238,7 @@ public class SchemaRegistryImplTest {
         assertThrows(SchemaRegistryException.class, () -> reg.onSchemaDropped(0));
 
         // Register schema with very first version.
-        //reg.onSchemaRegistered(schemaV1);
+        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
 
         assertEquals(1, reg.lastSchemaVersion());
         assertNotNull(reg.schema());
@@ -550,7 +547,7 @@ public class SchemaRegistryImplTest {
 
         final Map<Long, ColumnMapper> cache = reg.mappingCache();
 
-        //reg.onSchemaRegistered(schemaV1);
+        assertThrows(SchemaRegistrationConflictException.class, () -> reg.onSchemaRegistered(schemaV1));
         reg.onSchemaRegistered(schemaV2);
         reg.onSchemaRegistered(schemaV3);
         reg.onSchemaRegistered(schemaV4);
