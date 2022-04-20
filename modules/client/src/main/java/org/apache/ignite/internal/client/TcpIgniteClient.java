@@ -37,6 +37,7 @@ import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -72,7 +73,7 @@ public class TcpIgniteClient implements IgniteClient {
      * Constructor with custom channel factory.
      *
      * @param chFactory Channel factory.
-     * @param cfg       Config.
+     * @param cfg Config.
      */
     private TcpIgniteClient(
             BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory,
@@ -122,10 +123,15 @@ public class TcpIgniteClient implements IgniteClient {
         return transactions;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override public void setBaseline(Set<String> baselineNodes) {
+    /** {@inheritDoc} */
+    @Override
+    public IgniteSql sql() {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setBaseline(Set<String> baselineNodes) {
         throw new UnsupportedOperationException();
     }
 
@@ -177,12 +183,18 @@ public class TcpIgniteClient implements IgniteClient {
         return cfg;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<ClusterNode> connections() {
+        return ch.connections();
+    }
+
     /**
      * Sends ClientMessage request to server side asynchronously and returns result future.
      *
      * @param opCode Operation code.
-     * @param req    ClientMessage request.
-     * @param res    ClientMessage result.
+     * @param req ClientMessage request.
+     * @param res ClientMessage result.
      * @return Response future.
      */
     public <T extends ClientMessage> CompletableFuture<T> sendRequestAsync(int opCode, ClientMessage req, T res) {

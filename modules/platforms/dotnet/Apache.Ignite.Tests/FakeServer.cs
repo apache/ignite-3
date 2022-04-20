@@ -19,12 +19,17 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Buffers;
+    using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Threading;
     using System.Threading.Tasks;
+    using Internal.Network;
     using Internal.Proto;
     using MessagePack;
+    using Network;
 
     /// <summary>
     /// Fake Ignite server for test purposes.
@@ -41,7 +46,9 @@ namespace Apache.Ignite.Tests
 
         private readonly Func<int, bool> _shouldDropConnection;
 
-        public FakeServer(Func<int, bool>? shouldDropConnection = null)
+        private readonly ConcurrentQueue<ClientOp> _ops = new();
+
+        public FakeServer(Func<int, bool>? shouldDropConnection = null, string nodeName = "fake-server")
         {
             _shouldDropConnection = shouldDropConnection ?? (_ => false);
             _listener = new Socket(IPAddress.Loopback.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
@@ -49,8 +56,14 @@ namespace Apache.Ignite.Tests
             _listener.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             _listener.Listen(backlog: 1);
 
+            Node = new ClusterNode("id-" + nodeName, nodeName, (IPEndPoint)_listener.LocalEndPoint);
+
             Task.Run(ListenLoop);
         }
+
+        public IClusterNode Node { get; }
+
+        internal IList<ClientOp> ClientOps => _ops.ToList();
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
         {
@@ -110,8 +123,20 @@ namespace Apache.Ignite.Tests
 
                 // Write handshake response.
                 handler.Send(ProtoCommon.MagicBytes);
-                handler.Send(new byte[] { 0, 0, 0, 8 }); // Size.
-                handler.Send(new byte[] { 3, 0, 0, 0, 196, 0, 128, 0 });
+
+                var handshakeBufferWriter = new ArrayBufferWriter<byte>();
+                var handshakeWriter = new MessagePackWriter(handshakeBufferWriter);
+                handshakeWriter.Write(0); // Idle timeout.
+                handshakeWriter.Write(Node.Id); // Node id.
+                handshakeWriter.Write(Node.Name); // Node name (consistent id).
+                handshakeWriter.WriteBinHeader(0); // Features.
+                handshakeWriter.WriteMapHeader(0); // Extensions.
+                handshakeWriter.Flush();
+
+                handler.Send(new byte[] { 0, 0, 0, (byte)(4 + handshakeBufferWriter.WrittenCount) }); // Size.
+                handler.Send(new byte[] { 3, 0, 0, 0 }); // Version and success flag.
+
+                handler.Send(handshakeBufferWriter.WrittenSpan);
 
                 while (!_cts.IsCancellationRequested)
                 {
@@ -126,6 +151,8 @@ namespace Apache.Ignite.Tests
                     // Assume fixint8.
                     var opCode = (ClientOp)msg[0];
                     var requestId = msg[1];
+
+                    _ops.Enqueue(opCode);
 
                     if (opCode == ClientOp.TablesGet)
                     {
@@ -185,6 +212,20 @@ namespace Apache.Ignite.Tests
                     {
                         handler.Send(new byte[] { 0, 0, 0, 4 }); // Size.
                         handler.Send(new byte[] { 0, requestId, 0, 0 }); // Tx id.
+
+                        continue;
+                    }
+
+                    if (opCode == ClientOp.ComputeExecute)
+                    {
+                        var arrayBufferWriter = new ArrayBufferWriter<byte>();
+                        var writer = new MessagePackWriter(arrayBufferWriter);
+                        writer.Write(Node.Name);
+                        writer.Flush();
+
+                        handler.Send(new byte[] { 0, 0, 0, (byte)(4 + arrayBufferWriter.WrittenCount) }); // Size.
+                        handler.Send(new byte[] { 0, requestId, 0, (byte)ClientDataType.String });
+                        handler.Send(arrayBufferWriter.WrittenSpan);
 
                         continue;
                     }

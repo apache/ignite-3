@@ -49,6 +49,8 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -319,6 +321,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return closed.get();
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public ProtocolContext protocolContext() {
+        return protocolCtx;
+    }
+
     private static void validateConfiguration(ClientChannelConfiguration cfg) {
         String error = null;
 
@@ -368,17 +376,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         write(req).syncUninterruptibly();
     }
 
-    /**
-     * Returns protocol context for a version.
-     *
-     * @param ver Protocol version.
-     * @param serverIdleTimeout Server idle timeout.
-     * @return Protocol context for a version.
-     */
-    private ProtocolContext protocolContextFromVersion(ProtocolVersion ver, long serverIdleTimeout) {
-        return new ProtocolContext(ver, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout);
-    }
-
     /** Receive and handle handshake response. */
     private void handshakeRes(ClientMessageUnpacker unpacker, ProtocolVersion proposedVer)
             throws IgniteClientConnectionException, IgniteClientAuthenticationException {
@@ -394,7 +391,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 if (errCode == ClientErrorCode.AUTH_FAILED) {
                     throw new IgniteClientAuthenticationException(msg);
                 } else if (proposedVer.equals(srvVer)) {
-                    throw new IgniteClientException("Client protocol error: unexpected server response.");
+                    throw new IgniteClientException("Client protocol error: unexpected server response '" + msg + "'.");
                 } else if (!supportedVers.contains(srvVer)) {
                     throw new IgniteClientException(String.format(
                             "Protocol version mismatch: client %s / server %s. Server details: %s",
@@ -409,15 +406,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 throw new IgniteClientConnectionException(msg);
             }
 
+            var serverIdleTimeout = unpacker.unpackLong();
+            var clusterNodeId = unpacker.unpackString();
+            var clusterNodeName = unpacker.unpackString();
+            var addr = sock.remoteAddress();
+            var clusterNode = new ClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
+
             var featuresLen = unpacker.unpackBinaryHeader();
             unpacker.skipValues(featuresLen);
 
             var extensionsLen = unpacker.unpackMapHeader();
             unpacker.skipValues(extensionsLen);
 
-            var serverIdleTimeout = unpacker.unpackLong();
-
-            protocolCtx = protocolContextFromVersion(srvVer, serverIdleTimeout);
+            protocolCtx = new ProtocolContext(srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode);
         }
     }
 
@@ -453,7 +454,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * @return Resolved interval.
      */
     private long getHeartbeatInterval(long configuredInterval) {
-        long serverIdleTimeoutMs = protocolCtx.getServerIdleTimeout();
+        long serverIdleTimeoutMs = protocolCtx.serverIdleTimeout();
 
         if (serverIdleTimeoutMs <= 0) {
             return configuredInterval;

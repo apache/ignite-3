@@ -24,9 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -47,9 +46,15 @@ public class ClientComputeExecuteRequest {
             ClientMessagePacker out,
             IgniteCompute compute,
             ClusterService cluster) {
-        var node = in.tryUnpackNil()
+        var nodeName = in.tryUnpackNil() ? null : in.unpackString();
+
+        var node = nodeName == null
                 ? cluster.topologyService().localMember()
-                : new ClusterNode(in.unpackString(), in.unpackString(), new NetworkAddress(in.unpackString(), in.unpackInt()));
+                : cluster.topologyService().getByConsistentId(nodeName);
+
+        if (node == null) {
+            throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
+        }
 
         String jobClassName = in.unpackString();
 

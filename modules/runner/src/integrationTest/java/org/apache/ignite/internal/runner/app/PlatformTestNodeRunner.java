@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import java.net.InetSocketAddress;
+import static java.util.stream.Collectors.toList;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
@@ -52,12 +52,8 @@ public class PlatformTestNodeRunner {
     private static final int RUN_TIME_MINUTES = 30;
 
     /** Nodes bootstrap configuration. */
-    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
-        {
-            put(NODE_NAME, "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
-                    + "  },\n"
+    private static final Map<String, String> nodesBootstrapCfg = Map.of(
+            NODE_NAME, "{\n"
                     + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -65,12 +61,9 @@ public class PlatformTestNodeRunner {
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
+                    + "}",
 
-            put(NODE_NAME2, "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"" + NODE_NAME + "\" ]\n"
-                    + "  },\n"
+            NODE_NAME2, "{\n"
                     + "  \"clientConnector\":{\"port\": 10942,\"portRange\":10,\"idleTimeout\":1000},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
@@ -78,9 +71,8 @@ public class PlatformTestNodeRunner {
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
-        }
-    };
+                    + "}"
+    );
 
     /** Base path for all temporary folders. */
     private static final Path BASE_PATH = Path.of("target", "work", "PlatformTestNodeRunner");
@@ -105,11 +97,24 @@ public class PlatformTestNodeRunner {
         IgniteUtils.deleteIfExists(BASE_PATH);
         Files.createDirectories(BASE_PATH);
 
-        List<Ignite> startedNodes = new ArrayList<>();
+        List<CompletableFuture<Ignite>> igniteFutures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> {
+                    String nodeName = e.getKey();
+                    String config = e.getValue();
 
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, BASE_PATH.resolve(nodeName)))
-        );
+                    return IgnitionManager.start(nodeName, config, BASE_PATH.resolve(nodeName));
+                })
+                .collect(toList());
+
+        String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
+
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+
+        System.out.println("Initialization complete");
+
+        List<Ignite> startedNodes = igniteFutures.stream().map(CompletableFuture::join).collect(toList());
+
+        System.out.println("Ignite nodes started");
 
         var keyCol = "key";
         var valCol = "val";
@@ -143,6 +148,6 @@ public class PlatformTestNodeRunner {
      * @return Port number.
      */
     private static int getPort(IgniteImpl node) {
-        return ((InetSocketAddress) node.clientHandlerModule().localAddress()).getPort();
+        return node.clientAddress().port();
     }
 }

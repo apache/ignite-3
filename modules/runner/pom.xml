@@ -41,7 +41,6 @@
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-rest</artifactId>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -144,6 +143,13 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-cluster-management</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 

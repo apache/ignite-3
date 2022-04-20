@@ -24,6 +24,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -52,6 +53,13 @@ public interface Ignite extends AutoCloseable {
      * @return Ignite transactions.
      */
     IgniteTransactions transactions();
+
+    /**
+     * Returns a facade for SQL query engine.
+     *
+     * @return Ignite SQL facade.
+     */
+    IgniteSql sql();
 
     /**
      * Set new baseline nodes for table assignments.

@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
@@ -563,12 +562,6 @@ public class VersionedRowStore {
             @Override
             public void close() throws Exception {
                 delegate.close();
-            }
-
-            @NotNull
-            @Override
-            public Iterator<BinaryRow> iterator() {
-                return this;
             }
 
             @Override

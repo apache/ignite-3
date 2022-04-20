@@ -21,10 +21,10 @@ import org.apache.ignite.raft.jraft.entity.codec.LogEntryCodecFactory;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
+import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.RaftMetaStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LocalRaftMetaStorage;
-import org.apache.ignite.raft.jraft.storage.impl.RocksDBLogStorage;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
@@ -35,9 +35,17 @@ import org.apache.ignite.raft.jraft.util.timer.RaftTimerFactory;
  * The default factory for JRaft services.
  */
 public class DefaultJRaftServiceFactory implements JRaftServiceFactory {
-    @Override public LogStorage createLogStorage(final String uri, final RaftOptions raftOptions) {
-        Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
-        return new RocksDBLogStorage(uri, raftOptions);
+
+    private final LogStorageFactory logStorageFactory;
+
+    public DefaultJRaftServiceFactory(LogStorageFactory factory) {
+        logStorageFactory = factory;
+    }
+
+    @Override public LogStorage createLogStorage(final String groupId, final RaftOptions raftOptions) {
+        Requires.requireTrue(StringUtils.isNotBlank(groupId), "Blank group id.");
+
+        return logStorageFactory.getLogStorage(groupId, raftOptions);
     }
 
     @Override public SnapshotStorage createSnapshotStorage(final String uri, final RaftOptions raftOptions) {

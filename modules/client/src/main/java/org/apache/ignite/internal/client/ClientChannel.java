@@ -50,4 +50,11 @@ public interface ClientChannel extends AutoCloseable {
      * @return {@code True} channel is closed.
      */
     public boolean closed();
+
+    /**
+     * Returns protocol context.
+     *
+     * @return Protocol context.
+     */
+    public ProtocolContext protocolContext();
 }

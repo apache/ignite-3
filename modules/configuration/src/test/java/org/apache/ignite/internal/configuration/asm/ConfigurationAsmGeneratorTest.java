@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.DynamicConfiguration;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -304,13 +306,25 @@ public class ConfigurationAsmGeneratorTest {
 
         rootConfig.polymorphicSubCfg()
                 .change(c -> {
-                    assertThat(c.convert(FirstPolymorphicInstanceTestChange.class), instanceOf(FirstPolymorphicInstanceTestChange.class));
+                    assertThat(
+                            c.convert(FirstPolymorphicInstanceTestChange.class),
+                            allOf(instanceOf(FirstPolymorphicInstanceTestChange.class), instanceOf(ConstructableTreeNode.class))
+                    );
 
-                    assertThat(c.convert(SecondPolymorphicInstanceTestChange.class), instanceOf(SecondPolymorphicInstanceTestChange.class));
+                    assertThat(
+                            c.convert(SecondPolymorphicInstanceTestChange.class),
+                            allOf(instanceOf(SecondPolymorphicInstanceTestChange.class), instanceOf(ConstructableTreeNode.class))
+                    );
 
-                    assertThat(c.convert(PolymorphicTestConfigurationSchema.FIRST), instanceOf(FirstPolymorphicInstanceTestChange.class));
+                    assertThat(
+                            c.convert(PolymorphicTestConfigurationSchema.FIRST),
+                            allOf(instanceOf(FirstPolymorphicInstanceTestChange.class), instanceOf(ConstructableTreeNode.class))
+                    );
 
-                    assertThat(c.convert(PolymorphicTestConfigurationSchema.SECOND), instanceOf(SecondPolymorphicInstanceTestChange.class));
+                    assertThat(
+                            c.convert(PolymorphicTestConfigurationSchema.SECOND),
+                            allOf(instanceOf(SecondPolymorphicInstanceTestChange.class), instanceOf(ConstructableTreeNode.class))
+                    );
 
                     assertThrows(ConfigurationWrongPolymorphicTypeIdException.class, () -> c.convert(UUID.randomUUID().toString()));
                 })

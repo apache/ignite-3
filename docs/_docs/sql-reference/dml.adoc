@@ -32,6 +32,12 @@ FROM tableExpression
 [ HAVING booleanExpression ]
 ----
 
+=== JOINs
+
+Ignite supports colocated and non-colocated distributed SQL joins. Furthermore, if the data resides in different tables (caches), Ignite allows for cross-table joins as well.
+Joins between partitioned and replicated data sets always work without any limitations.
+However, if you join partitioned data sets, then you have to make sure that the keys you are joining on are either colocated or make sure you switched on the non-colocated joins parameter for a query.
+
 == INSERT
 
 Inserts data into a table.

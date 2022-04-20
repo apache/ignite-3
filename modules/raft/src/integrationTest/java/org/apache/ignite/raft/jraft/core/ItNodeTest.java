@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,7 +64,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -95,7 +95,9 @@ import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
+import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.test.TestUtils;
@@ -220,10 +222,9 @@ public class ItNodeTest {
     @Test
     public void testInitShutdown() {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        NodeOptions nodeOptions = createNodeOptions();
+        NodeOptions nodeOptions = createNodeOptions(0);
 
         nodeOptions.setFsm(new MockStateMachine(addr));
-        nodeOptions.setLogUri(dataPath + File.separator + "log");
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
 
@@ -237,13 +238,12 @@ public class ItNodeTest {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
 
-        NodeOptions nodeOptions = createNodeOptions();
+        NodeOptions nodeOptions = createNodeOptions(0);
         RaftOptions raftOptions = new RaftOptions();
         raftOptions.setDisruptorBufferSize(2);
         nodeOptions.setRaftOptions(raftOptions);
         MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
-        nodeOptions.setLogUri(dataPath + File.separator + "log");
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer)));
@@ -287,7 +287,7 @@ public class ItNodeTest {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
 
-        NodeOptions nodeOptions = createNodeOptions();
+        NodeOptions nodeOptions = createNodeOptions(0);
         CountDownLatch applyCompleteLatch = new CountDownLatch(1);
         CountDownLatch applyLatch = new CountDownLatch(1);
         CountDownLatch readIndexLatch = new CountDownLatch(1);
@@ -322,7 +322,6 @@ public class ItNodeTest {
             }
         };
         nodeOptions.setFsm(fsm);
-        nodeOptions.setLogUri(dataPath + File.separator + "log");
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer)));
@@ -391,10 +390,9 @@ public class ItNodeTest {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         PeerId peer = new PeerId(addr, 0);
 
-        NodeOptions nodeOptions = createNodeOptions();
+        NodeOptions nodeOptions = createNodeOptions(0);
         MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
-        nodeOptions.setLogUri(dataPath + File.separator + "log");
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer)));
@@ -653,10 +651,9 @@ public class ItNodeTest {
         RaftGroupService learnerServer;
         {
             // Start learner
-            NodeOptions nodeOptions = createNodeOptions();
+            NodeOptions nodeOptions = createNodeOptions(0);
             learnerFsm = new MockStateMachine(learnerAddr);
             nodeOptions.setFsm(learnerFsm);
-            nodeOptions.setLogUri(dataPath + File.separator + "log1");
             nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta1");
             nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot1");
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
@@ -668,10 +665,9 @@ public class ItNodeTest {
 
         {
             // Start leader
-            NodeOptions nodeOptions = createNodeOptions();
+            NodeOptions nodeOptions = createNodeOptions(1);
             MockStateMachine fsm = new MockStateMachine(addr);
             nodeOptions.setFsm(fsm);
-            nodeOptions.setLogUri(dataPath + File.separator + "log");
             nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
             nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
             nodeOptions.setInitialConf(new Configuration(Collections.singletonList(peer), Collections
@@ -2207,10 +2203,9 @@ public class ItNodeTest {
     @Test
     public void testNoSnapshot() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        NodeOptions nodeOptions = createNodeOptions();
+        NodeOptions nodeOptions = createNodeOptions(0);
         MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
-        nodeOptions.setLogUri(dataPath + File.separator + "log");
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOptions.setInitialConf(new Configuration(Collections.singletonList(new PeerId(addr, 0))));
 
@@ -2233,10 +2228,9 @@ public class ItNodeTest {
     @Test
     public void testAutoSnapshot() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        NodeOptions nodeOptions = createNodeOptions();
+        NodeOptions nodeOptions = createNodeOptions(0);
         MockStateMachine fsm = new MockStateMachine(addr);
         nodeOptions.setFsm(fsm);
-        nodeOptions.setLogUri(dataPath + File.separator + "log");
         nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
         nodeOptions.setSnapshotIntervalSecs(10);
@@ -2458,10 +2452,9 @@ public class ItNodeTest {
     public void testShutdownAndJoinWorkAfterInitFails() throws Exception {
         Endpoint addr = new Endpoint(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         {
-            NodeOptions nodeOptions = createNodeOptions();
+            NodeOptions nodeOptions = createNodeOptions(0);
             MockStateMachine fsm = new MockStateMachine(addr);
             nodeOptions.setFsm(fsm);
-            nodeOptions.setLogUri(dataPath + File.separator + "log");
             nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
             nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
             nodeOptions.setSnapshotIntervalSecs(10);
@@ -2480,10 +2473,9 @@ public class ItNodeTest {
             service.shutdown();
         }
         {
-            NodeOptions nodeOptions = createNodeOptions();
+            NodeOptions nodeOptions = createNodeOptions(1);
             MockStateMachine fsm = new MockFSM1(addr);
             nodeOptions.setFsm(fsm);
-            nodeOptions.setLogUri(dataPath + File.separator + "log");
             nodeOptions.setSnapshotUri(dataPath + File.separator + "snapshot");
             nodeOptions.setRaftMetaUri(dataPath + File.separator + "meta");
             nodeOptions.setSnapshotIntervalSecs(10);
@@ -2909,26 +2901,41 @@ public class ItNodeTest {
         Endpoint addr = new Endpoint("127.0.0.1", 5006);
         MockStateMachine fsm = new MockStateMachine(addr);
 
+        Path path = Path.of(dataPath, "node0", "log");
+        Files.createDirectories(path);
+
         for (char ch = 'a'; ch <= 'z'; ch++)
             fsm.getLogs().add(ByteBuffer.wrap(new byte[] {(byte) ch}));
 
         BootstrapOptions opts = new BootstrapOptions();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory());
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path) {
+            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
+                return super.getLogStorage("test", raftOptions);
+            }
+        };
+        logStorageProvider.start();
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(fsm.getLogs().size());
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
-        opts.setLogUri(dataPath + File.separator + "log");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
 
-        NodeOptions nodeOpts = createNodeOptions();
+        NodeOptions nodeOpts = new NodeOptions();
         opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
+        logStorageProvider.close();
 
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
-        nodeOpts.setLogUri(dataPath + File.separator + "log");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path) {
+            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
+                return super.getLogStorage("test", raftOptions);
+            }
+        };
+        log2.start();
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
@@ -2951,23 +2958,38 @@ public class ItNodeTest {
         Endpoint addr = new Endpoint("127.0.0.1", 5006);
         MockStateMachine fsm = new MockStateMachine(addr);
 
+        Path path = Path.of(dataPath, "node0", "log");
+        Files.createDirectories(path);
+
         BootstrapOptions opts = new BootstrapOptions();
-        opts.setServiceFactory(new DefaultJRaftServiceFactory());
+        DefaultLogStorageFactory logStorageProvider = new DefaultLogStorageFactory(path) {
+            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
+                return super.getLogStorage("test", raftOptions);
+            }
+        };
+        logStorageProvider.start();
+        opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageProvider));
         opts.setLastLogIndex(0);
         opts.setRaftMetaUri(dataPath + File.separator + "meta");
-        opts.setLogUri(dataPath + File.separator + "log");
         opts.setSnapshotUri(dataPath + File.separator + "snapshot");
         opts.setGroupConf(JRaftUtils.getConfiguration("127.0.0.1:5006"));
         opts.setFsm(fsm);
-        NodeOptions nodeOpts = createNodeOptions();
+        NodeOptions nodeOpts = new NodeOptions();
         opts.setNodeOptions(nodeOpts);
 
         assertTrue(JRaftUtils.bootstrap(opts));
+        logStorageProvider.close();
 
         nodeOpts.setRaftMetaUri(dataPath + File.separator + "meta");
-        nodeOpts.setLogUri(dataPath + File.separator + "log");
         nodeOpts.setSnapshotUri(dataPath + File.separator + "snapshot");
         nodeOpts.setFsm(fsm);
+        DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path) {
+            @Override public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
+                return super.getLogStorage("test", raftOptions);
+            }
+        };
+        log2.start();
+        nodeOpts.setServiceFactory(new DefaultJRaftServiceFactory(log2));
 
         RaftGroupService service = createService("test", new PeerId(addr, 0), nodeOpts);
 
@@ -3523,8 +3545,15 @@ public class ItNodeTest {
         assertTrue(res.get().isOk());
     }
 
-    private NodeOptions createNodeOptions() {
-        return new NodeOptions();
+    private NodeOptions createNodeOptions(int nodeIdx) {
+        NodeOptions options = new NodeOptions();
+
+        DefaultLogStorageFactory log = new DefaultLogStorageFactory(Path.of(dataPath, "node" + nodeIdx, "log"));
+        log.start();
+
+        options.setServiceFactory(new DefaultJRaftServiceFactory(log));
+
+        return options;
     }
 
     /**
@@ -3616,8 +3645,7 @@ public class ItNodeTest {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 peerId.getEndpoint().getPort(),
-                new StaticNodeFinder(addressList),
-                new TestScaleCubeClusterServiceFactory()
+                new StaticNodeFinder(addressList)
         );
 
         ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
@@ -3643,18 +3671,6 @@ public class ItNodeTest {
         services.add(service);
 
         return service;
-    }
-
-    /**
-     * Creates a non-started {@link ClusterService}.
-     */
-    private ClusterService createClusterService(Endpoint endpoint, NodeFinder nodeFinder) {
-       return ClusterServiceTestUtils.clusterService(
-                testInfo,
-                endpoint.getPort(),
-                nodeFinder,
-                new TestScaleCubeClusterServiceFactory()
-        );
     }
 
     private void sendTestTaskAndWait(Node node) throws InterruptedException {

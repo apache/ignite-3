@@ -57,7 +57,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -76,8 +75,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     public static final int NODE_PORT_BASE = 20_000;
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     private ClusterService client;
 
@@ -178,7 +175,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         for (int i = 0; i < nodes; i++) {
-            var raftSrv = new Loza(cluster.get(i), workDir);
+            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
 
             raftSrv.start();
 
@@ -380,12 +377,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     protected static ClusterService startNode(TestInfo testInfo, String name, int port,
             NodeFinder nodeFinder) {
-        var network = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                port,
-                nodeFinder,
-                NETWORK_FACTORY
-        );
+        var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
         network.start();
 

@@ -83,7 +83,7 @@ namespace Apache.Ignite.Tests
 
             var str = Encoding.UTF8.GetString(msg);
 
-            Assert.AreEqual(10, msgSize, str);
+            StringAssert.Contains("PlatformTestNodeRunner", str);
 
             // Protocol version.
             Assert.AreEqual(3, msg[0]);
@@ -108,7 +108,6 @@ namespace Apache.Ignite.Tests
 
             writer.WriteBinHeader(0); // Features.
             writer.WriteMapHeader(0); // Extensions.
-            writer.Write(0); // Idle timeout.
 
             writer.Flush();
 

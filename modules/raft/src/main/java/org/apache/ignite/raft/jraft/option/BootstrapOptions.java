@@ -37,9 +37,6 @@ public class BootstrapOptions {
     // Default: NULL
     private StateMachine fsm;
 
-    // Describe a specific LogStorage in format ${type}://${parameters}
-    private String logUri;
-
     // Describe a specific RaftMetaStorage in format ${type}://${parameters}
     private String raftMetaUri;
 
@@ -97,14 +94,6 @@ public class BootstrapOptions {
 
     public void setFsm(StateMachine fsm) {
         this.fsm = fsm;
-    }
-
-    public String getLogUri() {
-        return this.logUri;
-    }
-
-    public void setLogUri(String logUri) {
-        this.logUri = logUri;
     }
 
     public String getRaftMetaUri() {
