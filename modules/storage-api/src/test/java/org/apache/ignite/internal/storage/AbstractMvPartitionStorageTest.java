@@ -18,12 +18,18 @@
 package org.apache.ignite.internal.storage;
 
 import static java.util.stream.Collectors.toList;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -224,6 +230,44 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts4)));
         assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, ts5)));
+    }
+
+    @Test
+    public void testScanCursorInvariants() {
+        MvPartitionStorage pk = partitionStorage();
+
+        TestValue value1 = new TestValue(10, "xxx");
+        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId();
+
+        TestValue value2 = new TestValue(20, "yyy");
+        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId();
+
+        pk.addWrite(rowId1, binaryRow(new TestKey(1, "1"), value1), UUID.randomUUID());
+        pk.commitWrite(rowId1, Timestamp.nextVersion());
+
+        pk.addWrite(rowId2, binaryRow(new TestKey(2, "2"), value2), UUID.randomUUID());
+        pk.commitWrite(rowId2, Timestamp.nextVersion());
+
+        Cursor<BinaryRow> cursor = pk.scan(row -> true, null);
+
+        assertTrue(cursor.hasNext());
+        assertTrue(cursor.hasNext());
+
+        List<TestValue> res = new ArrayList<>();
+
+        res.add(value(cursor.next()));
+
+        assertTrue(cursor.hasNext());
+        assertTrue(cursor.hasNext());
+
+        res.add(value(cursor.next()));
+
+        assertFalse(cursor.hasNext());
+        assertFalse(cursor.hasNext());
+
+        assertThrows(NoSuchElementException.class, () -> cursor.next());
+
+        assertThat(res, hasItems(value1, value2));
     }
 
     private List<TestValue> convert(Cursor<BinaryRow> cursor) throws Exception {

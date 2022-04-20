@@ -49,7 +49,7 @@ import org.rocksdb.Slice;
 import org.rocksdb.WriteOptions;
 
 /**
- * Mult-versioned partition storage implementation based on RocksDB. Stored data has the following format:
+ * Multi-versioned partition storage implementation based on RocksDB. Stored data has the following format:
  * <pre><code>
  * | partId (2 bytes, BE) | rowId ({@link #igniteRowIdSize} bytes) |</code></pre>
  * or
@@ -483,12 +483,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static byte[] unsignedShortAsBytes(int value) {
-        byte[] result = new byte[Short.BYTES];
-
-        result[0] = (byte) (value >>> 8);
-        result[1] = (byte) value;
-
-        return result;
+        return new byte[] {(byte) (value >>> 8), (byte) value};
     }
 
     /**
