@@ -70,10 +70,10 @@ class RocksDbPartitionStorage implements PartitionStorage {
     private final int partId;
 
     /** RocksDb instance. */
-    final RocksDB db;
+    private final RocksDB db;
 
     /** Data column family. */
-    final ColumnFamily data;
+    private final ColumnFamily data;
 
     /** Snapshot manager. */
     private final RocksSnapshotManager snapshotManager;

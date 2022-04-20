@@ -80,9 +80,7 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
 
         table.start();
 
-        var part = (RocksDbPartitionStorage) table.getOrCreatePartition(0);
-
-        storage = new RocksDbMvPartitionStorage(16, 0, part.db, part.data.cfHandle);
+        storage = table.createMvPartitionStorage(0);
     }
 
     @AfterEach
