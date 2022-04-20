@@ -86,7 +86,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      *
      * <p/>Partition IDs are always stored in the big endian order, since they need to be compared lexicographically.
      */
-    private final int partId;
+    private final int partitionId;
 
     /** RocksDb instance. */
     private final RocksDB db;
@@ -95,7 +95,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     private final ColumnFamilyHandle cf;
 
     /** Write options. */
-    private final WriteOptions writeOpts = new WriteOptions().setDisableWAL(true);
+    private final WriteOptions writeOpts = new WriteOptions();
 
     /** Upper bound for scans and reads. */
     private final Slice upperBound;
@@ -104,20 +104,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Constructor.
      *
      * @param igniteRowIdSize Size of row id.
-     * @param partId Partition id.
+     * @param partitionId Partition id.
      * @param db RocksDB instance.
      * @param cf Column family handle to store partition data.
      */
-    public RocksDbMvPartitionStorage(int igniteRowIdSize, int partId, RocksDB db, ColumnFamilyHandle cf) {
+    public RocksDbMvPartitionStorage(int igniteRowIdSize, int partitionId, RocksDB db, ColumnFamilyHandle cf) {
         this.igniteRowIdSize = igniteRowIdSize;
-        this.partId = partId;
+        this.partitionId = partitionId;
         this.db = db;
         this.cf = cf;
 
         heapKeyBuffer = withInitial(() ->
                 ByteBuffer.allocate(Short.BYTES + igniteRowIdSize + ROW_ID_OFFSET * Long.BYTES)
                         .order(BIG_ENDIAN)
-                        .putShort((short) partId)
+                        .putShort((short) partitionId)
         );
 
         upperBound = new Slice(partitionEndPrefix());
@@ -126,7 +126,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException {
-        // Prepare a buffer with partition id and row id.
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
@@ -152,7 +151,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void abortWrite(IgniteRowId rowId) throws StorageException {
-        // Prepare a buffer with partition id and row id.
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
@@ -166,7 +164,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void commitWrite(IgniteRowId rowId, Timestamp timestamp) throws StorageException {
-        // Prepare a buffer with partition id and row id.
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
@@ -176,7 +173,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // Delete pending write.
             db.delete(cf, writeOpts, keyBuf.array(), 0, keyBuf.position());
 
-            // Add timestamp to the key put the value back into the storage.
+            // Add timestamp to the key, and put the value back into the storage.
             putTimestamp(keyBuf, timestamp);
 
             db.put(cf, writeOpts, keyBuf.array(), 0, keyBuf.position(), valueBytes, 0, valueBytes.length);
@@ -188,7 +185,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow read(IgniteRowId rowId, @Nullable Timestamp timestamp) {
-        // Prepare a buffer with partition id and row id.
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try (
@@ -235,8 +231,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             assert valueBytes != null;
 
-            // Empty array means a tombstone.
-            if (valueBytes.length == 0) {
+            if (isTombstone(valueBytes)) {
                 return null;
             }
 
@@ -264,9 +259,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         // partition.
         // Byte buffer from a thread-local field can't be used here, because of two reasons:
         //  - no one guarantees that there will only be a single cursor;
-        //  - no one guarantees that returned cursor will not be used other threads.
+        //  - no one guarantees that returned cursor will not be used by other threads.
         // The thing is, we need this buffer to preserve its content between invocactions of "hasNext" method.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN).putShort((short) partId);
+        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN).putShort((short) partitionId);
 
         if (timestamp != null) {
             putTimestamp(seekKeyBuf.position(ROW_ID_OFFSET + igniteRowIdSize), timestamp);
@@ -298,7 +293,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     // This flag is used to skip row ids that were created after required timestamp.
                     boolean found = true;
 
-                    // We should do it all the time. Here in particular it means one of two things:
+                    // We should do after each seek. Here in particular it means one of two things:
                     //  - partition is empty;
                     //  - iterator exhausted all the data in partition.
                     if (invalid(it)) {
@@ -307,7 +302,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     // At this point, seekKeyBuf should contain row id that's above the one we already scanned, but not greater than any
                     // other row id in partition. When we start, row id is filled with zeroes. Value during the iteration is described later
-                    // in this code. Now let's descrie what we'll find, assuming that iterator found something:
+                    // in this code. Now let's describe what we'll find, assuming that iterator found something:
                     //  - if timestamp is null:
                     //      - this seek will find the newest version of the next row in iterator. Exactly what we need.
                     //  - if timestamp is not null:
@@ -349,7 +344,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                             }
 
                             // Or iterator may still be valid even if there's no version for required timestamp. In this case row id
-                            // itself will be different and must check it.
+                            // itself will be different and we must check it.
                             it.key(directBuffer);
 
                             if (!directBuffer.equals(seekKeyBufSliceWithoutTimestamp)) {
@@ -371,21 +366,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     //    65500, I think.
                     //  - "seekKeyBuf" buffer value will not be used after that, so it's ok if we corrupt its data (in every other instance,
                     //    buffer starts with a valid partition id, which is set during buffer's initialization).
-                    for (int i = ROW_ID_OFFSET + igniteRowIdSize - 1;; i--) {
-                        byte b = (byte) (seekKeyBuf.get(i) + 1);
-
-                        seekKeyBuf.put(i, b);
-
-                        if (b != 0) {
-                            break;
-                        }
-                    }
+                    incrementRowId(seekKeyBuf);
 
                     // Cache row and return "true" if it's found and not a tombstone.
                     if (found) {
                         byte[] value = it.value();
 
-                        if (value.length != 0) {
+                        if (!isTombstone(value)) {
                             ByteBufferRow binaryRow = new ByteBufferRow(value);
 
                             if (keyFilter.test(binaryRow)) {
@@ -416,6 +403,18 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             @Override
             public void close() throws Exception {
                 IgniteUtils.closeAll(options, it);
+            }
+
+            private void incrementRowId(ByteBuffer buf) {
+                for (int i = ROW_ID_OFFSET + igniteRowIdSize - 1;; i--) {
+                    byte b = (byte) (buf.get(i) + 1);
+
+                    buf.put(i, b);
+
+                    if (b != 0) {
+                        break;
+                    }
+                }
             }
         };
     }
@@ -473,14 +472,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Creates a prefix of all keys in the given partition.
      */
     private byte[] partitionStartPrefix() {
-        return unsignedShortAsBytes(partId);
+        return unsignedShortAsBytes(partitionId);
     }
 
     /**
      * Creates a prefix of all keys in the next partition, used as an exclusive bound.
      */
     private byte[] partitionEndPrefix() {
-        return unsignedShortAsBytes(partId + 1);
+        return unsignedShortAsBytes(partitionId + 1);
     }
 
     private static byte[] unsignedShortAsBytes(int value) {
@@ -490,5 +489,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         result[1] = (byte) value;
 
         return result;
+    }
+
+    /**
+     * Returns {@code true} if value payload represents a tombstone.
+     */
+    private boolean isTombstone(byte[] valueBytes) {
+        return valueBytes.length == 0;
     }
 }
