@@ -165,7 +165,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    protected void onErrorInternal(Throwable e) {
+    public void onError(Throwable e) {
         if (!ex.compareAndSet(null, e)) {
             ex.get().addSuppressed(e);
         }

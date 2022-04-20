@@ -62,6 +62,7 @@ import org.apache.ignite.internal.sql.engine.metadata.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.metadata.RemoteException;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest.TestTable;
 import org.apache.ignite.internal.sql.engine.prepare.MappingQueryContext;
+import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -78,6 +79,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -88,7 +90,7 @@ public class ExecutionServiceImplTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
 
     /** Timeout in ms for async operations. */
-    private static final long TIMEOUT_IN_MS = 2_000;
+    private static final long TIMEOUT_IN_MS = 2_000_000;
 
     private final List<String> nodeIds = List.of("node_1", "node_2", "node_3");
 
@@ -105,11 +107,20 @@ public class ExecutionServiceImplTest {
 
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
+    private PrepareService prepareService;
 
     @BeforeEach
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeIds.stream().map(this::create).collect(Collectors.toList());
+        prepareService = new PrepareServiceImpl("test", 0);
+
+        prepareService.start();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        prepareService.stop();
     }
 
     @Test
@@ -322,7 +333,7 @@ public class ExecutionServiceImplTest {
 
         assertThat(nodes, hasSize(1));
 
-        return new PrepareServiceImpl("test", 0).prepareAsync(nodes.get(0), ctx).join();
+        return prepareService.prepareAsync(nodes.get(0), ctx).join();
     }
 
     static class TestCluster {

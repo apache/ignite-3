@@ -35,10 +35,12 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
+import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.RootNode;
 import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
@@ -63,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -171,7 +174,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void start() {
-        iteratorsHolder.start();
+//        iteratorsHolder.start();
 
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
@@ -189,7 +192,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert old == null;
 
-        return new AsyncWrapper<>(queryManager.execute(plan), taskExecutor);
+        return queryManager.execute(plan);
     }
 
     private BaseQueryContext createQueryContext(UUID queryId, @Nullable String schema, Object[] params) {
@@ -345,7 +348,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new ConcurrentHashMap<>();
 
-        private final CompletableFuture<RootNode<RowT>> root = new CompletableFuture<>();
+        private final CompletableFuture<AsyncRootNode<RowT, List<Object>>> root = new CompletableFuture<>();
 
         private final Queue<AbstractNode<RowT>> localFragments = new LinkedBlockingQueue<>();
 
@@ -416,8 +419,22 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             localFragments.add(node);
 
             if (!(node instanceof Outbox)) {
-                RootNode<RowT> rootNode = new RootNode<>(ectx, plan.root().getRowType(), () -> this.close(false));
-                rootNode.register(node);
+                Function<RowT, RowT> internalTypeConverter = TypeUtils.resultTypeConverter(ectx, plan.root().getRowType());
+
+                AsyncRootNode<RowT, List<Object>> rootNode = new AsyncRootNode<>(node, inRow -> {
+                    inRow = internalTypeConverter.apply(inRow);
+
+                    int rowSize = ectx.rowHandler().columnCount(inRow);
+
+                    List<Object> res = new ArrayList<>(rowSize);
+
+                    for (int i = 0; i < rowSize; i++) {
+                        res.add(ectx.rowHandler().get(i, inRow));
+                    }
+
+                    return res;
+                }, () -> this.close(false));
+                node.onRegister(rootNode);
 
                 root.complete(rootNode);
             }
@@ -479,7 +496,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }
         }
 
-        private CompletableFuture<Iterator<List<Object>>> execute(MultiStepPlan plan) {
+        private AsyncCursor<List<Object>> execute(MultiStepPlan plan) {
             taskExecutor.execute(() -> {
                 plan.init(mappingSrvc, new MappingQueryContext(locNodeId));
 
@@ -514,17 +531,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
             });
 
-            return root.thenApply(root -> new TransformingIterator<>(iteratorsHolder.iterator(root), row -> {
-                int rowSize = root.context().rowHandler().columnCount(row);
-
-                List<Object> res = new ArrayList<>(rowSize);
-
-                for (int i = 0; i < rowSize; i++) {
-                    res.add(root.context().rowHandler().get(i, row));
+            return new AsyncCursor<>() {
+                @Override
+                public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
+                    return root.thenCompose(cur -> cur.requestNextAsync(rows));
                 }
 
-                return res;
-            }));
+                @Override
+                public CompletableFuture<Void> closeAsync() {
+                    return root.thenCompose(AsyncRootNode::closeAsync);
+                }
+            };
         }
 
         private CompletableFuture<Void> close(boolean cancel) {
@@ -537,7 +554,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             CompletableFuture<Void> end = start
                     .thenCompose(none -> {
                         if (!root.completeExceptionally(new ExecutionCancelledException())) {
-                            return root.thenAccept(RootNode::close);
+                            return root.thenAccept(AsyncRootNode::closeAsync);
                         }
 
                         return CompletableFuture.completedFuture(null);

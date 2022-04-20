@@ -48,7 +48,7 @@ import org.junit.jupiter.api.TestInfo;
  * Utility class for tests.
  */
 public final class IgniteTestUtils {
-    private static final int TIMEOUT_SEC = 5;
+    private static final int TIMEOUT_SEC = 5000;
 
     /**
      * Set object field value via reflection.
