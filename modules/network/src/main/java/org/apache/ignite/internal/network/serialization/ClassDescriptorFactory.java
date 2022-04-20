@@ -32,7 +32,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -137,7 +136,7 @@ public class ClassDescriptorFactory {
                 descriptorId,
                 superClassDescriptor(clazz),
                 componentTypeDescriptor(clazz),
-                Collections.emptyList(),
+                fields(clazz),
                 new Serialization(
                         SerializationType.EXTERNALIZABLE,
                         NO_WRITE_OBJECT,
