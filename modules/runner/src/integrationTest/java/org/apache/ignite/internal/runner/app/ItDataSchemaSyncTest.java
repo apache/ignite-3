@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -71,45 +73,34 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Nodes bootstrap configuration.
      */
-    private static final Map<String, String> nodesBootstrapCfg = new LinkedHashMap<>() {
-        {
-            put("node0", "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                    + "  },\n"
+    private static final Map<String, String> nodesBootstrapCfg = Map.of(
+            "node0", "{\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
+                    + "}",
 
-            put("node1", "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                    + "  },\n"
+            "node1", "{\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
+                    + "}",
 
-            put("node2", "{\n"
-                    + "  \"node\": {\n"
-                    + "    \"metastorageNodes\":[ \"node0\" ]\n"
-                    + "  },\n"
+            "node2", "{\n"
                     + "  \"network\": {\n"
                     + "    \"port\":3346,\n"
                     + "    \"nodeFinder\": {\n"
                     + "      \"netClusterNodes\":[ \"localhost:3344\", \"localhost:3345\", \"localhost:3346\" ]\n"
                     + "    }\n"
                     + "  }\n"
-                    + "}");
-        }
-    };
+                    + "}"
+    );
 
     /**
      * Cluster nodes.
@@ -121,9 +112,19 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @BeforeEach
     void beforeEach() throws Exception {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                clusterNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        List<CompletableFuture<Ignite>> futures = nodesBootstrapCfg.entrySet().stream()
+                .map(e -> IgnitionManager.start(e.getKey(), e.getValue(), workDir.resolve(e.getKey())))
+                .collect(toList());
+
+        String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
+
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+
+        for (CompletableFuture<Ignite> future : futures) {
+            assertThat(future, willCompleteSuccessfully());
+
+            clusterNodes.add(future.join());
+        }
     }
 
     /**
@@ -131,17 +132,21 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      */
     @AfterEach
     void afterEach() throws Exception {
-        IgniteUtils.closeAll(clusterNodes);
+        List<AutoCloseable> closeables = nodesBootstrapCfg.keySet().stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
-     * The test executes various operation over the lagging node.
-     * The operations can be executed only the node overtakes a distributed cluster state.
+     * The test executes various operation over the lagging node. The operations can be executed only the node overtakes a distributed
+     * cluster state.
      */
     @Test
     public void test() throws Exception {
         Ignite ignite0 = clusterNodes.get(0);
-        final IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
+        IgniteImpl ignite1 = (IgniteImpl) clusterNodes.get(1);
 
         createTable(ignite0, SCHEMA, SHORT_TABLE_NAME);
 
@@ -196,7 +201,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
             );
         }
 
-        final CompletableFuture insertFut = IgniteTestUtils.runAsync(() ->
+        CompletableFuture<?> insertFut = IgniteTestUtils.runAsync(() ->
                 table1.recordView().insert(
                         null,
                         Tuple.create()
@@ -206,11 +211,11 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                                 .set("valStr2", "str2_" + 0)
                 ));
 
-        final CompletableFuture getFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture<?> getFut = IgniteTestUtils.runAsync(() -> {
             table1.recordView().get(null, Tuple.create().set("key", 10L));
         });
 
-        final CompletableFuture checkDefaultFut = IgniteTestUtils.runAsync(() -> {
+        CompletableFuture<?> checkDefaultFut = IgniteTestUtils.runAsync(() -> {
             assertEquals("default",
                     table1.recordView().get(null, Tuple.create().set("key", 0L))
                             .value("valStr2"));
@@ -246,8 +251,8 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     /**
      * Creates a table with the passed name on the specific schema.
      *
-     * @param node           Cluster node.
-     * @param schemaName     Schema name.
+     * @param node Cluster node.
+     * @param schemaName Schema name.
      * @param shortTableName Table name.
      */
     protected void createTable(Ignite node, String schemaName, String shortTableName) {

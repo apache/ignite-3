@@ -57,7 +57,7 @@ public class ClusterNode implements Serializable {
     }
 
     /**
-     * Returns the unique name of this node in a cluster. Doesn't change between restarts.
+     * Returns the unique name (consistent id) of this node in a cluster. Doesn't change between restarts.
      *
      * @return Unique name of the member in a cluster.
      */

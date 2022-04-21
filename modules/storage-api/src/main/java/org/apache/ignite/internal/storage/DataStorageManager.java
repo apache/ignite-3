@@ -17,24 +17,23 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
-import java.nio.file.Path;
 import java.util.Map;
-import java.util.ServiceLoader;
+import java.util.Map.Entry;
 import java.util.function.Consumer;
-import java.util.stream.StreamSupport;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
+import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
-import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
+import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.StorageEngineFactory;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -43,38 +42,16 @@ import org.jetbrains.annotations.Nullable;
  * Data storage manager.
  */
 public class DataStorageManager implements IgniteComponent {
-    /** Mapping: {@link StorageEngineFactory#name} -> {@link StorageEngine}. */
+    /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
     /**
      * Constructor.
      *
-     * @param clusterConfigRegistry Register of the (distributed) cluster configuration.
-     * @param storagePath Storage path.
-     * @param engineFactories Storage engine factories.
-     * @throws IllegalStateException If there are duplicates of the data storage engine.
+     * @param engines Storage engines unique by {@link DataStorageModule#name name}.
      */
-    public DataStorageManager(
-            ConfigurationRegistry clusterConfigRegistry,
-            Path storagePath,
-            Iterable<StorageEngineFactory> engineFactories
-    ) {
-        engines = StreamSupport.stream(engineFactories.spliterator(), false)
-                .collect(toUnmodifiableMap(
-                        StorageEngineFactory::name,
-                        engineFactory -> engineFactory.createEngine(clusterConfigRegistry, storagePath)
-                ));
-    }
-
-    /**
-     * Constructor, overloads {@link DataStorageManager#DataStorageManager(ConfigurationRegistry, Path, Iterable)} with loading factories
-     * through a {@link ServiceLoader}.
-     */
-    public DataStorageManager(
-            ConfigurationRegistry clusterConfigRegistry,
-            Path storagePath
-    ) {
-        this(clusterConfigRegistry, storagePath, ServiceLoader.load(StorageEngineFactory.class));
+    public DataStorageManager(Map<String, StorageEngine> engines) {
+        this.engines = engines;
     }
 
     /** {@inheritDoc} */
@@ -103,9 +80,10 @@ public class DataStorageManager implements IgniteComponent {
      * StorageEngine engine}.
      *
      * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
-     *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default,
-     *      otherwise there will be no default.
+     *      UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default, otherwise
+     *      there will be no default.
      */
+    // TODO: IGNITE-16835 Remove it.
     public Consumer<DataStorageChange> defaultTableDataStorageConsumer(String defaultDataStorageView) {
         return tableDataStorageChange -> {
             if (!defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE)) {
@@ -115,6 +93,73 @@ public class DataStorageManager implements IgniteComponent {
             } else if (engines.size() == 1) {
                 tableDataStorageChange.convert(first(engines.keySet()));
             }
+        };
+    }
+
+    /**
+     * Returns the default data storage.
+     *
+     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
+     * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default.
+     */
+    public String defaultDataStorage(String defaultDataStorageView) {
+        return !defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE) || engines.size() > 1
+                ? defaultDataStorageView : first(engines.keySet());
+    }
+
+    /**
+     * Creates a consumer that will change the {@link DataStorageConfigurationSchema data storage} for the {@link
+     * TableConfigurationSchema#dataStorage}.
+     *
+     * @param dataStorage Data storage, {@link UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} is invalid.
+     * @param values {@link Value Values} for the data storage. Mapping: field name -> field value.
+     */
+    public Consumer<DataStorageChange> tableDataStorageConsumer(String dataStorage, Map<String, Object> values) {
+        assert !dataStorage.equals(UNKNOWN_DATA_STORAGE);
+
+        ConfigurationSource configurationSource = new ConfigurationSource() {
+            /** {@inheritDoc} */
+            @Override
+            public String polymorphicTypeId(String fieldName) {
+                throw new UnsupportedOperationException("polymorphicTypeId");
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public void descend(ConstructableTreeNode node) {
+                for (Entry<String, Object> e : values.entrySet()) {
+                    assert e.getKey() != null;
+                    assert e.getValue() != null : e.getKey();
+
+                    ConfigurationSource leafSource = new ConfigurationSource() {
+                        /** {@inheritDoc} */
+                        @Override
+                        public <T> T unwrap(Class<T> clazz) {
+                            return clazz.cast(e.getValue());
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public void descend(ConstructableTreeNode node) {
+                            throw new UnsupportedOperationException("descend");
+                        }
+
+                        /** {@inheritDoc} */
+                        @Override
+                        public String polymorphicTypeId(String fieldName) {
+                            throw new UnsupportedOperationException("polymorphicTypeId");
+                        }
+                    };
+
+                    node.construct(e.getKey(), leafSource, true);
+                }
+            }
+        };
+
+        return tableDataStorageChange -> {
+            tableDataStorageChange.convert(dataStorage);
+
+            configurationSource.descend((ConstructableTreeNode) tableDataStorageChange);
         };
     }
 

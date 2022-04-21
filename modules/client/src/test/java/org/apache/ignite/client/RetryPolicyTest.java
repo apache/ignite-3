@@ -227,10 +227,10 @@ public class RetryPolicyTest {
                 .build();
     }
 
-    private void initServer(Function<Integer, Boolean> integerBooleanFunction) {
+    private void initServer(Function<Integer, Boolean> shouldDropConnection) {
         FakeIgnite ign = new FakeIgnite();
         ign.tables().createTable("t", c -> {});
 
-        server = new TestServer(10900, 10, 0, ign, integerBooleanFunction);
+        server = new TestServer(10900, 10, 0, ign, shouldDropConnection, null);
     }
 }

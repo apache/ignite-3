@@ -17,15 +17,18 @@
 
 package org.apache.ignite.internal.runner.app;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.app.IgniteCliRunner;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -34,30 +37,44 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class IgniteCliRunnerTest {
+    private static final String NODE_NAME = "node";
+
+    @WorkDirectory
+    private Path workDir;
+
     /** TODO: Replace this test by full integration test on the cli side IGNITE-15097. */
     @Test
-    public void runnerArgsSmokeTest(@WorkDirectory Path workDir) throws Exception {
+    public void smokeTestArgs() throws Exception {
         Path configPath = Path.of(IgniteCliRunnerTest.class.getResource("/ignite-config.json").toURI());
 
-        Ignite ign1 = IgniteCliRunner.start(
+        CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 new String[]{
                         "--config", configPath.toAbsolutePath().toString(),
-                        "--work-dir", workDir.resolve("node1").toAbsolutePath().toString(),
-                        "node1"
+                        "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
+                        NODE_NAME
                 }
         );
 
-        assertNotNull(ign1);
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME));
 
-        Ignite ign2 = IgniteCliRunner.start(
+        assertThat(ign, willBe(notNullValue(Ignite.class)));
+
+        ign.join().close();
+    }
+
+    @Test
+    public void smokeTestArgsNullConfig() throws Exception {
+        CompletableFuture<Ignite> ign = IgniteCliRunner.start(
                 new String[]{
-                        "--work-dir", workDir.resolve("node2").toAbsolutePath().toString(),
-                        "node2"
+                        "--work-dir", workDir.resolve("node").toAbsolutePath().toString(),
+                        NODE_NAME
                 }
         );
 
-        assertNotNull(ign2);
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME));
 
-        IgniteUtils.closeAll(List.of(ign1, ign2));
+        assertThat(ign, willBe(notNullValue(Ignite.class)));
+
+        ign.join().close();
     }
 }

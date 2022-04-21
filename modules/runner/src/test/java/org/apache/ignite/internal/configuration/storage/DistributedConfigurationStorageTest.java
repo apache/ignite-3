@@ -24,7 +24,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -184,13 +183,6 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
         @Override
         public void close() throws Exception {
             internalCursor.close();
-        }
-
-        /** {@inheritDoc} */
-        @NotNull
-        @Override
-        public Iterator<Entry> iterator() {
-            return this;
         }
 
         /** {@inheritDoc} */

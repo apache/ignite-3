@@ -50,6 +50,7 @@ import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.core.DefaultJRaftServiceFactory;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.ReadOnlyServiceImpl;
@@ -60,6 +61,8 @@ import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
+import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
+import org.apache.ignite.raft.jraft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -77,6 +80,9 @@ public class JraftServerImpl implements RaftServer {
 
     /** Data path. */
     private final Path dataPath;
+
+    /** Log storage provider. */
+    private final LogStorageFactory logStorageFactory;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -114,12 +120,14 @@ public class JraftServerImpl implements RaftServer {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
+        this.logStorageFactory = new DefaultLogStorageFactory(dataPath.resolve("log"));
         this.opts = opts;
 
         // Auto-adjust options.
         this.opts.setRpcConnectTimeoutMs(this.opts.getElectionTimeoutMs() / 3);
         this.opts.setRpcDefaultTimeout(this.opts.getElectionTimeoutMs() / 2);
         this.opts.setSharedPools(true);
+        this.opts.setServiceFactory(new DefaultJRaftServiceFactory(logStorageFactory));
 
         if (opts.getServerName() == null) {
             this.opts.setServerName(service.localConfiguration().getName());
@@ -217,12 +225,14 @@ public class JraftServerImpl implements RaftServer {
                     opts.getStripes()));
         }
 
+        logStorageFactory.start();
+
         rpcServer.init(null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
+    public void stop() throws Exception {
         assert groups.isEmpty() : IgniteStringFormatter.format("Raft groups are still running {}", groups.keySet());
 
         rpcServer.shutdown();
@@ -276,6 +286,8 @@ public class JraftServerImpl implements RaftServer {
         }
 
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
+
+        logStorageFactory.close();
     }
 
     /** {@inheritDoc} */
@@ -316,7 +328,6 @@ public class JraftServerImpl implements RaftServer {
             throw new IgniteInternalException(e);
         }
 
-        nodeOptions.setLogUri(serverDataPath.resolve("logs").toString());
         nodeOptions.setRaftMetaUri(serverDataPath.resolve("meta").toString());
         nodeOptions.setSnapshotUri(serverDataPath.resolve("snapshot").toString());
 

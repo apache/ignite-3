@@ -38,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -232,7 +233,8 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
     }
 
     private List<String> allNodeNames() {
-        return clusterNodes.stream()
+        return IntStream.range(0, nodes())
+                .mapToObj(this::node)
                 .map(Ignite::name)
                 .collect(toList());
     }

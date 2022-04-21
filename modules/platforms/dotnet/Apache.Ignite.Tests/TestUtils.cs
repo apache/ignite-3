@@ -18,9 +18,12 @@
 namespace Apache.Ignite.Tests
 {
     using System;
+    using System.Diagnostics;
     using System.IO;
     using System.Reflection;
     using System.Runtime.InteropServices;
+    using System.Threading;
+    using NUnit.Framework;
 
     public static class TestUtils
     {
@@ -29,6 +32,28 @@ namespace Apache.Ignite.Tests
         public static readonly string RepoRootDir = Path.Combine(GetSolutionDir(), "..", "..", "..");
 
         public static bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+        public static void WaitForCondition(Func<bool> condition, int timeoutMs = 1000)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            var sw = Stopwatch.StartNew();
+
+            while (sw.ElapsedMilliseconds < timeoutMs)
+            {
+                if (condition())
+                {
+                    return;
+                }
+
+                Thread.Sleep(50);
+            }
+
+            Assert.Fail("Condition not reached after " + sw.Elapsed);
+        }
 
         private static string GetSolutionDir()
         {

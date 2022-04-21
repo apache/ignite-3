@@ -89,7 +89,6 @@ import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -127,9 +126,6 @@ public class ItMetaStorageServiceTest {
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
-    /** Network factory. */
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /** Expected server result entry. */
     private static final org.apache.ignite.internal.metastorage.server.Entry EXPECTED_SRV_RESULT_ENTRY =
@@ -228,14 +224,7 @@ public class ItMetaStorageServiceTest {
         var nodeFinder = new StaticNodeFinder(localAddresses);
 
         localAddresses.stream()
-                .map(
-                        addr -> ClusterServiceTestUtils.clusterService(
-                                testInfo,
-                                addr.port(),
-                                nodeFinder,
-                                NETWORK_FACTORY
-                        )
-                )
+                .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> {
                     clusterService.start();
                     cluster.add(clusterService);

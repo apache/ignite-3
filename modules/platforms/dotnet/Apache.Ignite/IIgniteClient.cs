@@ -18,6 +18,8 @@
 namespace Apache.Ignite
 {
     using System;
+    using System.Collections.Generic;
+    using Network;
 
     /// <summary>
     /// Ignite client.
@@ -30,5 +32,11 @@ namespace Apache.Ignite
         /// Gets the configuration.
         /// </summary>
         IgniteClientConfiguration Configuration { get; }
+
+        /// <summary>
+        /// Gets active connections.
+        /// </summary>
+        /// <returns>A list of connected cluster nodes.</returns>
+        IList<IClusterNode> GetConnections();
     }
 }

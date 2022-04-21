@@ -23,6 +23,7 @@ import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -31,6 +32,7 @@ import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Ignite client entry point.
@@ -42,6 +44,13 @@ public interface IgniteClient extends Ignite {
      * @return Configuration.
      */
     IgniteClientConfiguration configuration();
+
+    /**
+     * Gets active client connections.
+     *
+     * @return List of connected cluster nodes.
+     */
+    List<ClusterNode> connections();
 
     /**
      * Gets a new client builder.

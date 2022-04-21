@@ -57,6 +57,12 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Connection drop condition. */
     private final Function<Integer, Boolean> shouldDropConnection;
 
+    /** Cluster service. */
+    private final ClusterService clusterService;
+
+    /** Compute. */
+    private final IgniteCompute compute;
+
     /** Netty channel. */
     private volatile Channel channel;
 
@@ -70,12 +76,16 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param registry             Configuration registry.
      * @param bootstrapFactory     Bootstrap factory.
      * @param shouldDropConnection Connection drop condition.
+     * @param clusterService       Cluster service.
+     * @param compute              Compute.
      */
     public TestClientHandlerModule(
             Ignite ignite,
             ConfigurationRegistry registry,
             NettyBootstrapFactory bootstrapFactory,
-            Function<Integer, Boolean> shouldDropConnection) {
+            Function<Integer, Boolean> shouldDropConnection,
+            ClusterService clusterService,
+            IgniteCompute compute) {
         assert ignite != null;
         assert registry != null;
         assert bootstrapFactory != null;
@@ -84,6 +94,8 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
         this.shouldDropConnection = shouldDropConnection;
+        this.clusterService = clusterService;
+        this.compute = compute;
     }
 
     /** {@inheritDoc} */
@@ -150,8 +162,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ignite.transactions(),
                                         mock(QueryProcessor.class),
                                         configuration,
-                                        mock(IgniteCompute.class),
-                                        mock(ClusterService.class)));
+                                        compute,
+                                        clusterService));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

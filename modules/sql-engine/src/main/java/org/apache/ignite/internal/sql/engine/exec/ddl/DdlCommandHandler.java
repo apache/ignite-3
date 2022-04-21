@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -66,8 +68,21 @@ import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.
 public class DdlCommandHandler {
     private final TableManager tableManager;
 
-    public DdlCommandHandler(TableManager tblManager) {
-        tableManager = tblManager;
+    private final DataStorageManager dataStorageManager;
+
+    private final Supplier<String> defaultDataStorageViewSupplier;
+
+    /**
+     * Constructor.
+     */
+    public DdlCommandHandler(
+            TableManager tableManager,
+            DataStorageManager dataStorageManager,
+            Supplier<String> defaultDataStorageViewSupplier
+    ) {
+        this.tableManager = tableManager;
+        this.dataStorageManager = dataStorageManager;
+        this.defaultDataStorageViewSupplier = defaultDataStorageViewSupplier;
     }
 
     /** Handles ddl commands. */
@@ -126,13 +141,17 @@ public class DdlCommandHandler {
             colsInner.add(col0.build());
         }
 
-        Consumer<TableChange> tblChanger = tblCh -> {
+        Consumer<TableChange> tblChanger = tableChange -> {
             TableChange conv = convert(SchemaBuilders.tableBuilder(
                             IgniteObjectName.quote(cmd.schemaName()),
                             IgniteObjectName.quote(cmd.tableName())
                     )
                     .columns(colsInner)
-                    .withPrimaryKey(pkeyDef.build()).build(), tblCh);
+                    .withPrimaryKey(pkeyDef.build()).build(), tableChange);
+
+            String dataStorage = dataStorageManager.defaultDataStorage(defaultDataStorageViewSupplier.get());
+
+            tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(dataStorage, Map.of()));
 
             if (cmd.partitions() != null) {
                 conv.changePartitions(cmd.partitions());

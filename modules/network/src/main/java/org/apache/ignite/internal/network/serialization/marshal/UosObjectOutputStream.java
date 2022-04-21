@@ -237,11 +237,28 @@ class UosObjectOutputStream extends ObjectOutputStream {
         currentPut = newPut;
     }
 
+    int memoryBufferOffset() {
+        return output.offset();
+    }
+
+    void writeIntAtOffset(int offset, int value) throws IOException {
+        int oldOffset = output.offset();
+
+        try {
+            output.offset(offset);
+            output.writeInt(value);
+        } finally {
+            output.offset(oldOffset);
+        }
+    }
+
     class UosPutField extends PutField {
         private final ClassDescriptor descriptor;
 
         private final byte[] primitiveFieldsData;
         private final Object[] objectFieldVals;
+
+        private final NullsBitsetWriter nullsBitsetWriter = new PutFieldNullsBitsetWriter(this);
 
         private UosPutField(ClassDescriptor currentObjectDescriptor) {
             this.descriptor = currentObjectDescriptor;
@@ -319,7 +336,7 @@ class UosObjectOutputStream extends ObjectOutputStream {
                 throw new IllegalArgumentException("This is not my output: " + out);
             }
 
-            @Nullable BitSet nullsBitSet = defaultFieldsReaderWriter.writeNullsBitSet(
+            @Nullable BitSet nullsBitSet = nullsBitsetWriter.writeNullsBitSet(
                     context.objectCurrentlyWrittenWithWriteObject(),
                     descriptor,
                     output
@@ -359,6 +376,24 @@ class UosObjectOutputStream extends ObjectOutputStream {
             }
 
             return objectFieldIndex + 1;
+        }
+
+        private Object objectFieldValue(String fieldName) {
+            return objectFieldVals[objectFieldIndex(fieldName)];
+        }
+    }
+
+    private static class PutFieldNullsBitsetWriter extends NullsBitsetWriter {
+        private final UosPutField putField;
+
+        private PutFieldNullsBitsetWriter(UosPutField putField) {
+            this.putField = putField;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        Object getFieldValue(Object target, FieldDescriptor fieldDescriptor) {
+            return putField.objectFieldValue(fieldDescriptor.name());
         }
     }
 }

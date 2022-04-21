@@ -141,7 +141,6 @@ public class HashCalculator {
      */
     public void appendDouble(double v) {
         appendLong(Double.doubleToRawLongBits(v));
-
     }
 
     /**

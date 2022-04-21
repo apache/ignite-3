@@ -91,13 +91,6 @@ class RangeCursor implements Cursor<Entry> {
         // No-op.
     }
 
-    /** {@inheritDoc} */
-    @NotNull
-    @Override
-    public Iterator<Entry> iterator() {
-        return it;
-    }
-
     /**
      * Creates an iterator for this cursor.
      *

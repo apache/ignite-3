@@ -40,7 +40,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
@@ -75,9 +74,6 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
     /** Factory. */
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
-    /** Network factory. */
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     @WorkDirectory
     private Path workDir;
@@ -348,8 +344,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
         var network = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 port,
-                new StaticNodeFinder(List.of(otherPeer)),
-                NETWORK_FACTORY
+                new StaticNodeFinder(List.of(otherPeer))
         );
 
         network.start();
@@ -375,7 +370,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         JraftServerImpl server = new JraftServerImpl(service, jraft) {
             @Override
-            public void stop() {
+            public void stop() throws Exception {
                 super.stop();
 
                 service.stop();
