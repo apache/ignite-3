@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.Contexts;
 import org.apache.calcite.rel.type.RelDataType;
@@ -132,8 +131,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
             MailboxRegistry mailboxRegistry,
             ExchangeService exchangeSrvc,
             QueryRegistry queryRegistry,
-            DataStorageManager dataStorageManager,
-            Supplier<String> defaultDataStorageViewSupplier
+            DataStorageManager dataStorageManager
     ) {
         this.topSrvc = topSrvc;
         this.handler = handler;
@@ -144,7 +142,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService<RowT> {
         this.exchangeSrvc = exchangeSrvc;
         this.queryRegistry = queryRegistry;
 
-        ddlCmdHnd = new DdlCommandHandler(tblManager, dataStorageManager, defaultDataStorageViewSupplier);
+        ddlCmdHnd = new DdlCommandHandler(tblManager, dataStorageManager);
 
         locNodeId = topSrvc.localMember().id();
         qryPlanCache = planCache;

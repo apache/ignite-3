@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum.PARTITIONS;
-import static org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum.REPLICAS;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
@@ -40,7 +39,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDropTable;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
@@ -51,40 +49,70 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * DdlSqlToCommandConverter. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * DdlSqlToCommandConverter.
  */
+// TODO: IGNITE-15859 Add documentation
 public class DdlSqlToCommandConverter {
-    /** Processor that unconditionally throws an AssertionException. */
-    private static final TableOptionProcessor<Void> UNSUPPORTED_OPTION_PROCESSOR = new TableOptionProcessor<>(
-            null,
-            (opt, ctx) -> {
-                throw new AssertionError("Unsupported option " + opt.key());
-            },
-            null);
+    private final Supplier<String> defaultDataStorageSupplier;
 
-    /** Checks positive num param. */
-    private BiFunction<IgniteSqlCreateTableOption, PlanningContext, Integer> positiveNumValidator = (opt, ctx) -> {
-        if (!(opt.value() instanceof SqlNumericLiteral)
-                || !((SqlNumericLiteral) opt.value()).isInteger()
-                || ((SqlLiteral) opt.value()).intValue(true) < 0
-        ) {
-            throwOptionParsingException(opt, "a non-negative integer", ctx.query());
-        }
+    /**
+     * Mapping: Data storage ID -> data storage name.
+     *
+     * <p>Example for "rocksdb": {@code Map.of("ROCKSDB", "rocksdb")}.
+     */
+    private final Map<String, String> dataStorageNames;
 
-        return ((SqlLiteral) opt.value()).intValue(true);
-    };
+    /**
+     * Mapping: Table option ID -> table option info.
+     *
+     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
+     */
+    private final Map<String, TableOptionInfo<?>> tableOptionInfos;
 
-    /** Map of the supported table option processors. */
-    private final Map<IgniteSqlCreateTableOptionEnum, TableOptionProcessor<?>> tblOptionProcessors = Stream.of(
-            new TableOptionProcessor<>(REPLICAS, positiveNumValidator, CreateTableCommand::replicas),
-            new TableOptionProcessor<>(PARTITIONS, positiveNumValidator, CreateTableCommand::partitions)
-    ).collect(Collectors.toMap(TableOptionProcessor::key, Function.identity()));
+    /**
+     * Like {@link #tableOptionInfos}, but for each data storage name.
+     */
+    private final Map<String, Map<String, TableOptionInfo<?>>> dataStorageOptionInfos;
+
+    /**
+     * Constructor.
+     *
+     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
+     * @param defaultDataStorageSupplier Default data storage supplier.
+     */
+    public DdlSqlToCommandConverter(
+            Map<String, Map<String, Class<?>>> dataStorageFields,
+            Supplier<String> defaultDataStorageSupplier
+    ) {
+        this.defaultDataStorageSupplier = defaultDataStorageSupplier;
+
+        this.dataStorageNames = collectDataStorageNames(dataStorageFields.keySet());
+
+        this.tableOptionInfos = collectTableOptionInfos(
+                new TableOptionInfo<>("replicas", Integer.class, this::checkPositiveNumber, CreateTableCommand::replicas),
+                new TableOptionInfo<>("partitions", Integer.class, this::checkPositiveNumber, CreateTableCommand::partitions)
+        );
+
+        this.dataStorageOptionInfos = dataStorageFields.entrySet()
+                .stream()
+                .collect(toUnmodifiableMap(
+                        Entry::getKey,
+                        e0 -> collectTableOptionInfos(
+                                e0.getValue().entrySet().stream()
+                                        .map(this::dataStorageFieldOptionInfo)
+                                        .toArray(TableOptionInfo[]::new)
+                        )
+                ));
+
+        dataStorageOptionInfos.forEach((k, v) -> checkDuplicates(v, tableOptionInfos));
+    }
 
     /**
      * Converts a given ddl AST to a ddl command.
@@ -134,12 +162,23 @@ public class DdlSqlToCommandConverter {
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifTableExists(createTblNode.ifNotExists());
+        createTblCmd.dataStorage(deriveDataStorage(createTblNode.engineName(), ctx));
 
         if (createTblNode.createOptionList() != null) {
-            for (SqlNode optNode : createTblNode.createOptionList().getList()) {
-                IgniteSqlCreateTableOption opt = (IgniteSqlCreateTableOption) optNode;
+            for (SqlNode optionNode : createTblNode.createOptionList().getList()) {
+                IgniteSqlCreateTableOption option = (IgniteSqlCreateTableOption) optionNode;
 
-                tblOptionProcessors.getOrDefault(opt.key(), UNSUPPORTED_OPTION_PROCESSOR).process(opt, ctx, createTblCmd);
+                assert option.key().isSimple() : option.key();
+
+                String optionKey = option.key().getSimple().toUpperCase();
+
+                if (tableOptionInfos.containsKey(optionKey)) {
+                    processTableOption(tableOptionInfos.get(optionKey), option, ctx, createTblCmd);
+                } else if (dataStorageOptionInfos.get(createTblCmd.dataStorage()).containsKey(optionKey)) {
+                    processTableOption(dataStorageOptionInfos.get(createTblCmd.dataStorage()).get(optionKey), option, ctx, createTblCmd);
+                } else {
+                    throw new IgniteException(String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
+                }
             }
         }
 
@@ -388,104 +427,116 @@ public class DdlSqlToCommandConverter {
     }
 
     /**
-     * Short cut for validating that option value is a simple identifier.
+     * Collects a mapping of the ID of the data storage to a name.
      *
-     * @param opt An option to validate.
-     * @param ctx Planning context.
+     * <p>Example: {@code collectDataStorageNames(Set.of("rocksdb"))} -> {@code Map.of("ROCKSDB", "rocksdb")}.
+     *
+     * @param dataStorages Names of the data storages.
+     * @throws IllegalStateException If there is a duplicate ID.
      */
-    private String paramIsSqlIdentifierValidator(IgniteSqlCreateTableOption opt, PlanningContext ctx) {
-        if (!(opt.value() instanceof SqlIdentifier) || !((SqlIdentifier) opt.value()).isSimple()) {
-            throwOptionParsingException(opt, "a simple identifier", ctx.query());
-        }
-
-        return ((SqlIdentifier) opt.value()).getSimple();
+    static Map<String, String> collectDataStorageNames(Set<String> dataStorages) {
+        return dataStorages.stream().collect(toUnmodifiableMap(String::toUpperCase, identity()));
     }
 
     /**
-     * Creates a validator for an option which value should be value of given enumeration.
+     * Collects a mapping of the ID of the table option to a table option info.
      *
-     * @param clz Enumeration class to create validator for.
+     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
+     *
+     * @param tableOptionInfos Table option information's.
+     * @throws IllegalStateException If there is a duplicate ID.
      */
-    private static <T extends Enum<T>> BiFunction<IgniteSqlCreateTableOption, PlanningContext, T> validatorForEnumValue(
-            Class<T> clz
+    static Map<String, TableOptionInfo<?>> collectTableOptionInfos(TableOptionInfo<?>... tableOptionInfos) {
+        return ArrayUtils.nullOrEmpty(tableOptionInfos) ? Map.of() : Stream.of(tableOptionInfos).collect(toUnmodifiableMap(
+                tableOptionInfo -> tableOptionInfo.name.toUpperCase(),
+                identity()
+        ));
+    }
+
+    /**
+     * Checks that there are no ID duplicates.
+     *
+     * @param tableOptionInfos0 Table options information.
+     * @param tableOptionInfos1 Table options information.
+     * @throws IllegalStateException If there is a duplicate ID.
+     */
+    static void checkDuplicates(Map<String, TableOptionInfo<?>> tableOptionInfos0, Map<String, TableOptionInfo<?>> tableOptionInfos1) {
+        for (String id : tableOptionInfos1.keySet()) {
+            if (tableOptionInfos0.containsKey(id)) {
+                throw new IllegalStateException("Duplicate id:" + id);
+            }
+        }
+    }
+
+    private String deriveDataStorage(@Nullable SqlIdentifier engineName, PlanningContext ctx) {
+        if (engineName == null) {
+            String defaultDataStorage = defaultDataStorageSupplier.get();
+
+            if (defaultDataStorage.equals(UNKNOWN_DATA_STORAGE)) {
+                throw new IgniteException("Default data storage is not defined, query:" + ctx.query());
+            }
+
+            return defaultDataStorage;
+        }
+
+        assert engineName.isSimple() : engineName;
+
+        String dataStorage = engineName.getSimple().toUpperCase();
+
+        if (!dataStorageNames.containsKey(dataStorage)) {
+            throw new IgniteException(String.format(
+                    "Unexpected data storage engine [engine=%s, expected=%s, query=%s]",
+                    dataStorage, dataStorageNames, ctx.query()
+            ));
+        }
+
+        return dataStorageNames.get(dataStorage);
+    }
+
+    private void processTableOption(
+            TableOptionInfo tableOptionInfo,
+            IgniteSqlCreateTableOption option,
+            PlanningContext context,
+            CreateTableCommand createTableCommand
     ) {
-        return (opt, ctx) -> {
-            T val = null;
+        assert option.value() instanceof SqlLiteral : option.value();
 
-            if (opt.value() instanceof SqlIdentifier) {
-                val = Arrays.stream(clz.getEnumConstants())
-                        .filter(m -> m.name().equalsIgnoreCase(opt.value().toString()))
-                        .findFirst()
-                        .orElse(null);
+        Object optionValue;
+
+        try {
+            optionValue = ((SqlLiteral) option.value()).getValueAs(tableOptionInfo.type);
+        } catch (AssertionError | ClassCastException e) {
+            throw new IgniteException(String.format(
+                    "Unsuspected table option type [option=%s, expectedType=%s, query=%s]",
+                    option.key().getSimple(),
+                    tableOptionInfo.type.getSimpleName(),
+                    context.query()
+            ));
+        }
+
+        if (tableOptionInfo.validator != null) {
+            try {
+                tableOptionInfo.validator.accept(optionValue);
+            } catch (Throwable e) {
+                throw new IgniteException(String.format(
+                        "Table option validation failed [option=%s, err=%s, query=%s]",
+                        option.key().getSimple(),
+                        e.getMessage(),
+                        context.query()
+                ), e);
             }
+        }
 
-            if (val == null) {
-                throwOptionParsingException(opt, "values are "
-                        + Arrays.toString(clz.getEnumConstants()), ctx.query());
-            }
-
-            return val;
-        };
+        tableOptionInfo.setter.accept(createTableCommand, optionValue);
     }
 
-    /**
-     * Throws exception with message relates to validation of create table option.
-     *
-     * @param opt An option which validation was failed.
-     * @param exp A string representing expected values.
-     * @param qry A query the validation was failed for.
-     */
-    private static void throwOptionParsingException(IgniteSqlCreateTableOption opt, String exp, String qry) {
-        throw new IgniteException("Unexpected value for param " + opt.key() + " ["
-                + "expected " + exp + ", but was " + opt.value() + "; "
-                + "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
+    private void checkPositiveNumber(int num) {
+        if (num < 0) {
+            throw new IgniteException("Must be positive:" + num);
+        }
     }
 
-    private static class TableOptionProcessor<T> {
-        private final IgniteSqlCreateTableOptionEnum key;
-
-        private final BiFunction<IgniteSqlCreateTableOption, PlanningContext, T> validator;
-
-        private final BiConsumer<CreateTableCommand, T> valSetter;
-
-        /**
-         * Constructor.
-         *
-         * @param key       Option key this processor is supopsed to handle.
-         * @param validator Validator that derives a value from a {@link SqlNode}, validates it and then returns if validation passed,
-         *                  throws an exeption otherwise.
-         * @param valSetter Setter sets the value recived from the validator to the given {@link CreateTableCommand}.
-         */
-        private TableOptionProcessor(
-                IgniteSqlCreateTableOptionEnum key,
-                BiFunction<IgniteSqlCreateTableOption, PlanningContext, T> validator,
-                BiConsumer<CreateTableCommand, T> valSetter
-        ) {
-            this.key = key;
-            this.validator = validator;
-            this.valSetter = valSetter;
-        }
-
-        /**
-         * Processes the given option, validates it's value and then sets the appropriate field in a given command, throws an exception if
-         * the validation failed.
-         *
-         * @param opt Option to validate.
-         * @param ctx Planning context.
-         * @param cmd Command instance to set a validation result.
-         */
-        private void process(IgniteSqlCreateTableOption opt, PlanningContext ctx, CreateTableCommand cmd) {
-            assert key == null || key == opt.key() : "Unexpected create table option [expected=" + key + ", actual="
-                    + opt.key() + "]";
-
-            valSetter.accept(cmd, validator.apply(opt, ctx));
-        }
-
-        /**
-         * Get key this processor is supposed to handle.
-         */
-        private IgniteSqlCreateTableOptionEnum key() {
-            return key;
-        }
+    private TableOptionInfo<?> dataStorageFieldOptionInfo(Entry<String, Class<?>> e) {
+        return new TableOptionInfo<>(e.getKey(), e.getValue(), null, (cmd, o) -> cmd.addDataStorageOption(e.getKey(), o));
     }
 }

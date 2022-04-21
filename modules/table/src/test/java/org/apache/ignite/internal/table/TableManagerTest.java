@@ -618,7 +618,10 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
 
-        DataStorageManager manager = new DataStorageManager(dataStorageModules.createStorageEngines(mockedRegistry, storagePath));
+        DataStorageManager manager = new DataStorageManager(
+                tblsCfg,
+                dataStorageModules.createStorageEngines(mockedRegistry, storagePath)
+        );
 
         manager.start();
 

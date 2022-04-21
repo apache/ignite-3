@@ -23,12 +23,14 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
+import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageChange;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfiguration;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.configuration.schemas.table.TablesConfigurationSchema;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -42,16 +44,26 @@ import org.jetbrains.annotations.Nullable;
  * Data storage manager.
  */
 public class DataStorageManager implements IgniteComponent {
+    private final ConfigurationValue<String> defaultDataStorageConfig;
+
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
     /**
      * Constructor.
      *
+     * @param tablesConfig Tables configuration.
      * @param engines Storage engines unique by {@link DataStorageModule#name name}.
      */
-    public DataStorageManager(Map<String, StorageEngine> engines) {
+    public DataStorageManager(
+            TablesConfiguration tablesConfig,
+            Map<String, StorageEngine> engines
+    ) {
+        assert !engines.isEmpty();
+
         this.engines = engines;
+
+        defaultDataStorageConfig = tablesConfig.defaultDataStorage();
     }
 
     /** {@inheritDoc} */
@@ -99,12 +111,13 @@ public class DataStorageManager implements IgniteComponent {
     /**
      * Returns the default data storage.
      *
-     * @param defaultDataStorageView View of {@link TablesConfigurationSchema#defaultDataStorage}. For the case {@link
+     * <p>{@link TablesConfigurationSchema#defaultDataStorage} is used. For the case {@link
      * UnknownDataStorageConfigurationSchema#UNKNOWN_DATA_STORAGE} and there is only one engine, then it will be the default.
      */
-    public String defaultDataStorage(String defaultDataStorageView) {
-        return !defaultDataStorageView.equals(UNKNOWN_DATA_STORAGE) || engines.size() > 1
-                ? defaultDataStorageView : first(engines.keySet());
+    public String defaultDataStorage() {
+        String defaultDataStorage = defaultDataStorageConfig.value();
+
+        return !defaultDataStorage.equals(UNKNOWN_DATA_STORAGE) || engines.size() > 1 ? defaultDataStorage : first(engines.keySet());
     }
 
     /**
