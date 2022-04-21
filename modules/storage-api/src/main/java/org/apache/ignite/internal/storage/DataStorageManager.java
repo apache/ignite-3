@@ -59,6 +59,8 @@ public class DataStorageManager implements IgniteComponent {
             TablesConfiguration tablesConfig,
             Map<String, StorageEngine> engines
     ) {
+        assert !engines.isEmpty();
+
         this.engines = engines;
 
         defaultDataStorageConfig = tablesConfig.defaultDataStorage();
