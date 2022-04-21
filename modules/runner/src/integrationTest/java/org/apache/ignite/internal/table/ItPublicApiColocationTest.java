@@ -40,8 +40,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
-import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.table.TableRow;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -59,7 +57,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for the data colocation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItColocationTest extends AbstractBasicIntegrationTest {
+public class ItPublicApiColocationTest extends AbstractBasicIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;
 

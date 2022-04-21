@@ -33,14 +33,15 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.command.InsertCommand;
 import org.apache.ignite.internal.table.distributed.command.MultiKeyCommand;
@@ -83,12 +85,12 @@ import org.mockito.Mockito;
 /**
  * Tests for data colocation.
  */
-public class ColocationTest {
+public class ItColocationTest {
     /** Partitions count. */
-    private static final int PARTS = 1028;
+    private static final int PARTS = 32;
 
     /** Keys count to check. */
-    private static final int KEYS = 128;
+    private static final int KEYS = 100;
 
     /** Dummy internal table for tests. */
     private static final InternalTable INT_TABLE;
@@ -103,19 +105,6 @@ public class ColocationTest {
     private TableImpl tbl;
 
     private TupleMarshallerImpl marshaller;
-
-    /**
-     * Excluded native types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
-     */
-    private static final Set<NativeTypeSpec> EXCLUDED_TYPES = Stream.of(
-                    NativeTypeSpec.UUID,
-                    NativeTypeSpec.BITMASK,
-                    NativeTypeSpec.DECIMAL,
-                    NativeTypeSpec.NUMBER,
-                    NativeTypeSpec.TIMESTAMP,
-                    NativeTypeSpec.BYTES)
-            .collect(Collectors.toSet());
 
     static {
         ClusterService clusterService = Mockito.mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -196,9 +185,9 @@ public class ColocationTest {
             case STRING:
                 return NativeTypes.STRING;
             case BYTES:
-                return NativeTypes.STRING;
+                return NativeTypes.BYTES;
             case BITMASK:
-                return NativeTypes.bitmaskOf(64);
+                return NativeTypes.bitmaskOf(16);
             case NUMBER:
                 return NativeTypes.numberOf(10);
             case DATE:
@@ -237,7 +226,7 @@ public class ColocationTest {
             case BYTES:
                 return new byte[]{(byte) i, (byte) (i + 1), (byte) (i + 2)};
             case BITMASK:
-                return new byte[]{(byte) i};
+                return BitSet.valueOf(new byte[]{(byte) i, (byte) (i + 1)});
             case NUMBER:
                 return BigInteger.valueOf(i);
             case DATE:
@@ -250,7 +239,9 @@ public class ColocationTest {
                         (LocalTime) generateValueByType(i, NativeTypeSpec.TIME)
                 );
             case TIMESTAMP:
-                return Instant.from((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME));
+                return ((LocalDateTime) generateValueByType(i, NativeTypeSpec.DATETIME))
+                        .atZone(TimeZone.getDefault().toZoneId())
+                        .toInstant();
             default:
                 throw new IllegalStateException("Unexpected type: " + type);
         }
@@ -261,9 +252,7 @@ public class ColocationTest {
 
         for (NativeTypeSpec t0 : NativeTypeSpec.values()) {
             for (NativeTypeSpec t1 : NativeTypeSpec.values()) {
-                if (!EXCLUDED_TYPES.contains(t0) && !EXCLUDED_TYPES.contains(t1)) {
-                    args.add(Arguments.of(t0, t1));
-                }
+                args.add(Arguments.of(t0, t1));
             }
         }
 
@@ -272,7 +261,6 @@ public class ColocationTest {
 
     /**
      * Check colocation by two columns for all types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
@@ -297,7 +285,6 @@ public class ColocationTest {
 
     /**
      * Check colocation by two columns for all types.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16711 - supports DECIMAL
      */
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
@@ -316,10 +303,21 @@ public class ColocationTest {
 
             int part = INT_TABLE.partition(r);
 
-            partsMap.merge(part, 1, (ignore, cnt) -> ++cnt);
+            partsMap.merge(part, 1, (cnt, ignore) -> ++cnt);
         }
 
         assertEquals(partsMap.size(), CMDS_MAP.size());
+
+        CMDS_MAP.forEach((p, set) -> {
+            MultiKeyCommand cmd = (MultiKeyCommand) CollectionUtils.first(set);
+            assertEquals(partsMap.get(p), cmd.getRows().size(), () -> "part=" + p + ", set=" + set);
+
+            cmd.getRows().forEach(binRow -> {
+                Row r = new Row(schema, binRow);
+
+                assertEquals(INT_TABLE.partition(r), p);
+            });
+        });
     }
 
     private void init(NativeTypeSpec t0, NativeTypeSpec t1) {
