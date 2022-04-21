@@ -237,6 +237,21 @@ class UosObjectOutputStream extends ObjectOutputStream {
         currentPut = newPut;
     }
 
+    int memoryBufferOffset() {
+        return output.offset();
+    }
+
+    void writeIntAtOffset(int offset, int value) throws IOException {
+        int oldOffset = output.offset();
+
+        try {
+            output.offset(offset);
+            output.writeInt(value);
+        } finally {
+            output.offset(oldOffset);
+        }
+    }
+
     class UosPutField extends PutField {
         private final ClassDescriptor descriptor;
 
