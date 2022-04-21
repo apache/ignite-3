@@ -53,7 +53,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     public void testEmpty() throws Exception {
         MvPartitionStorage pk = partitionStorage();
 
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+        assertEquals(0, rowId.partitionId());
 
         // Read.
         assertNull(pk.read(rowId, null));
@@ -73,7 +74,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
 
         BinaryRow binaryRow = binaryRow(key, value);
 
@@ -98,7 +99,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
 
         pk.addWrite(rowId, binaryRow(key, value), UUID.randomUUID());
 
@@ -117,7 +118,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
 
         BinaryRow binaryRow = binaryRow(key, value);
 
@@ -196,11 +197,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key1 = new TestKey(1, "1");
         TestValue value1 = new TestValue(10, "xxx");
-        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId(0);
 
         TestKey key2 = new TestKey(2, "2");
         TestValue value2 = new TestValue(20, "yyy");
-        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId(0);
 
         pk.addWrite(rowId1, binaryRow(key1, value1), UUID.randomUUID());
         pk.addWrite(rowId2, binaryRow(key2, value2), UUID.randomUUID());
@@ -237,10 +238,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         MvPartitionStorage pk = partitionStorage();
 
         TestValue value1 = new TestValue(10, "xxx");
-        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId(0);
 
         TestValue value2 = new TestValue(20, "yyy");
-        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId();
+        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId(0);
 
         pk.addWrite(rowId1, binaryRow(new TestKey(1, "1"), value1), UUID.randomUUID());
         pk.commitWrite(rowId1, Timestamp.nextVersion());

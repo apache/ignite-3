@@ -39,10 +39,25 @@ public class UuidIgniteRowId implements IgniteRowId {
     }
 
     /**
-     * Returns {@link UuidIgniteRowId} instance based on {@link UUID#randomUUID()}.
+     * Returns {@link UuidIgniteRowId} instance based on {@link UUID#randomUUID()}. Highest two bytes of the most significant bits part will
+     * encode partition id.
+     *
+     * @param partitionId Partition id.
      */
-    public static IgniteRowId randomRowId() {
-        return new UuidIgniteRowId(UUID.randomUUID());
+    public static IgniteRowId randomRowId(int partitionId) {
+        UUID randomUuid = UUID.randomUUID();
+
+        long msb = randomUuid.getMostSignificantBits();
+
+        msb = (msb & (-1L >>> 16)) | ((long) partitionId << 48);
+
+        return new UuidIgniteRowId(new UUID(msb, randomUuid.getLeastSignificantBits()));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partitionId() {
+        return (int) (uuid.getMostSignificantBits() >>> 48);
     }
 
     /** {@inheritDoc} */

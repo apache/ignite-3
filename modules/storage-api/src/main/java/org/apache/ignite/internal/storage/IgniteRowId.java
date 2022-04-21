@@ -31,6 +31,11 @@ public interface IgniteRowId extends Comparable<IgniteRowId> {
     final int MAX_ROW_ID_SIZE = 16;
 
     /**
+     * Returns a partition id for current row id.
+     */
+    int partitionId();
+
+    /**
      * Writes row id into a byte buffer. Binary row representation should match natural order defined by {@link #compareTo(Object)} when
      * comparing lexicographically.
      *
