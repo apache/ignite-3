@@ -47,7 +47,7 @@ public class UuidIgniteRowId implements IgniteRowId {
     public static IgniteRowId randomRowId(int partitionId) {
         UUID randomUuid = UUID.randomUUID();
 
-        long lsb = randomUuid.getMostSignificantBits();
+        long lsb = randomUuid.getLeastSignificantBits();
 
         lsb = (lsb & ~0xFFFFL) | partitionId;
 
