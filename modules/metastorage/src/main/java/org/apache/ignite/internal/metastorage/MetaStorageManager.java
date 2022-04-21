@@ -693,12 +693,12 @@ public class MetaStorageManager implements IgniteComponent {
         }
 
         try {
-            CompletableFuture<Cursor<Entry>> cursor = metaStorageSvcFut.thenCombine(
+            CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
                     appliedRevision(),
                     (svc, appliedRevision) -> svc.range(keyFrom, keyTo, appliedRevision)
             );
 
-            return new CursorWrapper<>(cursor);
+            return new CursorWrapper<>(cursorFuture);
         } finally {
             busyLock.leaveBusy();
         }
@@ -723,14 +723,14 @@ public class MetaStorageManager implements IgniteComponent {
         }
 
         try {
-            var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
+            KeyCriterion.RangeCriterion rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
 
-            CompletableFuture<Cursor<Entry>> cursor = metaStorageSvcFut.thenCombine(
+            CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
                     appliedRevision(),
                     (svc, appliedRevision) -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision)
             );
 
-            return new CursorWrapper<>(cursor);
+            return new CursorWrapper<>(cursorFuture);
         } finally {
             busyLock.leaveBusy();
         }

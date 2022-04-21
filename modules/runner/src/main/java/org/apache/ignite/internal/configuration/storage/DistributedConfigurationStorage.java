@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.client.Conditions;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -106,7 +107,9 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
      */
     private final AtomicLong changeId = new AtomicLong(0L);
 
-    private final ExecutorService threadPool = Executors.newCachedThreadPool(new NamedThreadFactory("dst-cfg"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("dst-cfg"));
+
+    private final InFlightFutures futureTracker = new InFlightFutures();
 
     /**
      * Constructor.
@@ -123,12 +126,14 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
+
+        futureTracker.cancelInFlightFutures();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
-        return supplyAsync(() -> {
+        return registerFuture(supplyAsync(() -> {
             var data = new HashMap<String, Serializable>();
 
             var rangeStart = new ByteArray(DISTRIBUTED_PREFIX + prefix);
@@ -160,7 +165,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
             }
 
             return data;
-        }, threadPool);
+        }, threadPool));
     }
 
     /** {@inheritDoc} */
@@ -171,13 +176,16 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     byte[] value = entry.value();
 
                     return value == null ? null : ConfigurationSerializationUtil.fromBytes(value);
+                })
+                .exceptionally(e -> {
+                    throw new StorageException("Exception while reading data from Meta Storage", e);
                 });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Data> readAll() throws StorageException {
-        return vaultMgr.get(MetaStorageManager.APPLIED_REV)
+        return registerFuture(vaultMgr.get(MetaStorageManager.APPLIED_REV)
                 .thenApplyAsync(appliedRevEntry -> {
                     long appliedRevision = appliedRevEntry == null ? 0L : ByteUtils.bytesToLong(appliedRevEntry.value());
 
@@ -208,7 +216,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     changeId.set(data.isEmpty() ? 0 : appliedRevision);
 
                     return new Data(data, appliedRevision);
-                }, threadPool);
+                }, threadPool));
     }
 
     /** {@inheritDoc} */
@@ -351,5 +359,11 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
         char lastChar = str.charAt(str.length() - 1);
 
         return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
+    }
+
+    private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {
+        futureTracker.registerFuture(future);
+
+        return future;
     }
 }

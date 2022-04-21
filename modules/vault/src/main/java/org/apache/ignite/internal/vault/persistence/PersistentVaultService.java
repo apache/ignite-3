@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.vault.persistence;
 
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
-
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
@@ -56,7 +55,9 @@ public class PersistentVaultService implements VaultService {
         RocksDB.loadLibrary();
     }
 
-    private final ExecutorService threadPool = Executors.newCachedThreadPool(new NamedThreadFactory("vault"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault"));
+
+    private final InFlightFutures futureTracker = new InFlightFutures();
 
     private final Options options = options();
 
@@ -108,6 +109,8 @@ public class PersistentVaultService implements VaultService {
     public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
+        futureTracker.cancelInFlightFutures();
+
         IgniteUtils.closeAll(options, db);
     }
 
@@ -122,7 +125,7 @@ public class PersistentVaultService implements VaultService {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException("Unable to read data from RocksDB", e);
             }
-        }, threadPool);
+        });
     }
 
     /** {@inheritDoc} */
@@ -138,7 +141,7 @@ public class PersistentVaultService implements VaultService {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException("Unable to write data to RocksDB", e);
             }
-        }, threadPool);
+        });
     }
 
     /** {@inheritDoc} */
@@ -150,7 +153,7 @@ public class PersistentVaultService implements VaultService {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException("Unable to remove data to RocksDB", e);
             }
-        }, threadPool);
+        });
     }
 
     /** {@inheritDoc} */
@@ -201,6 +204,22 @@ public class PersistentVaultService implements VaultService {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException("Unable to write data to RocksDB", e);
             }
-        }, threadPool);
+        });
+    }
+
+    private <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
+        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, threadPool);
+
+        futureTracker.registerFuture(future);
+
+        return future;
+    }
+
+    private CompletableFuture<Void> runAsync(Runnable runnable) {
+        CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, threadPool);
+
+        futureTracker.registerFuture(future);
+
+        return future;
     }
 }

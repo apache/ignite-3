@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -63,7 +64,9 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** End key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_END_RANGE = ByteArray.fromString(incrementLastChar(LOC_PREFIX));
 
-    private final ExecutorService threadPool = Executors.newCachedThreadPool(new NamedThreadFactory("loc-cfg"));
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg"));
+
+    private final InFlightFutures futureTracker = new InFlightFutures();
 
     /**
      * Constructor.
@@ -77,6 +80,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     @Override
     public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
+
+        futureTracker.cancelInFlightFutures();
     }
 
     /** {@inheritDoc} */
@@ -93,7 +98,10 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Serializable> readLatest(String key) {
         return vaultMgr.get(new ByteArray(LOC_PREFIX + key))
-                .thenApply(entry -> entry == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value()));
+                .thenApply(entry -> entry == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value()))
+                .exceptionally(e -> {
+                    throw new StorageException("Exception while reading vault entry", e);
+                });
     }
 
     /** {@inheritDoc} */
@@ -106,7 +114,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
      * Retrieves all data, which keys lie in between {@code [rangeStart, rangeEnd)}.
      */
     private CompletableFuture<Data> readAll(ByteArray rangeStart, ByteArray rangeEnd) {
-        return supplyAsync(() -> {
+        return registerFuture(supplyAsync(() -> {
             var data = new HashMap<String, Serializable>();
 
             try (Cursor<VaultEntry> cursor = vaultMgr.range(rangeStart, rangeEnd)) {
@@ -127,7 +135,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
             // TODO: Need to restore version from pds when restart will be developed
             // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
             return new Data(data, ver.get());
-        }, threadPool);
+        }, threadPool));
     }
 
     /** {@inheritDoc} */
@@ -189,5 +197,11 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         char lastChar = str.charAt(str.length() - 1);
 
         return str.substring(0, str.length() - 1) + (char) (lastChar + 1);
+    }
+
+    private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {
+        futureTracker.registerFuture(future);
+
+        return future;
     }
 }
