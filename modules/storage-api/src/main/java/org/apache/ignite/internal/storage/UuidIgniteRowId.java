@@ -26,8 +26,15 @@ import org.jetbrains.annotations.NotNull;
  * UUID-based ignite row id implementation.
  */
 public class UuidIgniteRowId implements IgniteRowId {
-    /** Backing uuid value. */
-    private final UUID uuid;
+    /*
+     * The most significant 64 bits.
+     */
+    private final long mostSigBits;
+
+    /*
+     * The least significant 64 bits.
+     */
+    private final long leastSigBits;
 
     /**
      * Constructor.
@@ -35,7 +42,13 @@ public class UuidIgniteRowId implements IgniteRowId {
      * @param uuid UUID.
      */
     public UuidIgniteRowId(UUID uuid) {
-        this.uuid = uuid;
+        this(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+    }
+
+    /** Private constructor. */
+    private UuidIgniteRowId(long mostSigBits, long leastSigBits) {
+        this.mostSigBits = mostSigBits;
+        this.leastSigBits = leastSigBits;
     }
 
     /**
@@ -51,13 +64,13 @@ public class UuidIgniteRowId implements IgniteRowId {
 
         lsb = (lsb & ~0xFFFFL) | partitionId;
 
-        return new UuidIgniteRowId(new UUID(randomUuid.getMostSignificantBits(), lsb));
+        return new UuidIgniteRowId(randomUuid.getMostSignificantBits(), lsb);
     }
 
     /** {@inheritDoc} */
     @Override
     public int partitionId() {
-        return (int) (uuid.getLeastSignificantBits() & 0xFFFFL);
+        return (int) (leastSigBits & 0xFFFFL);
     }
 
     /** {@inheritDoc} */
@@ -67,8 +80,8 @@ public class UuidIgniteRowId implements IgniteRowId {
 
         long mask = longBytesSignsMask(signedBytesCompare);
 
-        buf.putLong(mask ^ uuid.getMostSignificantBits());
-        buf.putLong(mask ^ uuid.getLeastSignificantBits());
+        buf.putLong(mask ^ mostSigBits);
+        buf.putLong(mask ^ leastSigBits);
     }
 
     /** {@inheritDoc} */
@@ -78,13 +91,13 @@ public class UuidIgniteRowId implements IgniteRowId {
 
         long mask = longBytesSignsMask(signedBytesCompare);
 
-        int cmp = Long.compare(uuid.getMostSignificantBits(), mask ^ buf.getLong());
+        int cmp = Long.compare(mostSigBits, mask ^ buf.getLong());
 
         if (cmp != 0) {
             return cmp;
         }
 
-        return Long.compare(uuid.getLeastSignificantBits(), mask ^ buf.getLong());
+        return Long.compare(leastSigBits, mask ^ buf.getLong());
     }
 
     /** {@inheritDoc} */
@@ -99,13 +112,13 @@ public class UuidIgniteRowId implements IgniteRowId {
 
         UuidIgniteRowId that = (UuidIgniteRowId) o;
 
-        int cmp = Long.compare(uuid.getMostSignificantBits(), that.uuid.getMostSignificantBits());
+        int cmp = Long.compare(mostSigBits, that.mostSigBits);
 
         if (cmp != 0) {
             return cmp;
         }
 
-        return Long.compare(uuid.getLeastSignificantBits(), that.uuid.getLeastSignificantBits());
+        return Long.compare(leastSigBits, that.leastSigBits);
     }
 
     /**
@@ -125,6 +138,6 @@ public class UuidIgniteRowId implements IgniteRowId {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return uuid.toString();
+        return new UUID(mostSigBits, leastSigBits).toString();
     }
 }
