@@ -34,7 +34,6 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.tools.ValidationException;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -55,17 +54,15 @@ public class PrepareServiceImpl implements PrepareService {
      * Constructor.
      *
      * @param dataStorageManager Data storage manager.
-     * @param tablesConfig Tables configuration.
      * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
      */
     public PrepareServiceImpl(
             DataStorageManager dataStorageManager,
-            TablesConfiguration tablesConfig,
             Map<String, Map<String, Class<?>>> dataStorageFields
     ) {
         ddlConverter = new DdlSqlToCommandConverter(
                 dataStorageFields,
-                () -> dataStorageManager.defaultDataStorage(tablesConfig.defaultDataStorage().value())
+                dataStorageManager::defaultDataStorage
         );
     }
 

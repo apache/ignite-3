@@ -31,7 +31,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -86,8 +85,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final TablesConfiguration tablesConfig;
-
     private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
     /** Busy lock for stop synchronisation. */
@@ -123,14 +120,12 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             TableManager tableManager,
             DataStorageManager dataStorageManager,
-            TablesConfiguration tablesConfig,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.dataStorageManager = dataStorageManager;
-        this.tablesConfig = tablesConfig;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
 
@@ -139,7 +134,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized void start() {
         planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
         taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
-        prepareSvc = registerService(new PrepareServiceImpl(dataStorageManager, tablesConfig, dataStorageFieldsSupplier.get()));
+        prepareSvc = registerService(new PrepareServiceImpl(dataStorageManager, dataStorageFieldsSupplier.get()));
         queryRegistry = registerService(new QueryRegistryImpl());
         mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
 

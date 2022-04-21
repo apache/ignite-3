@@ -282,6 +282,7 @@ public class IgniteImpl implements Ignite {
         );
 
         dataStorageMgr = new DataStorageManager(
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         clusterCfgMgr.configurationRegistry(),
                         getPartitionsStorePath(workDir)
@@ -303,7 +304,6 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 distributedTblMgr,
                 dataStorageMgr,
-                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
 

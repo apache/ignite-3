@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -221,7 +222,10 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         rocksDbEngineConfig.regions().change(c -> c.create("test_region", rocksDbDataRegionChange -> {
         })).get(1, TimeUnit.SECONDS);
 
-        dataStorageManager = new DataStorageManager(dataStorageModules.createStorageEngines(configRegistry, workDir));
+        dataStorageManager = new DataStorageManager(
+                tblsCfg,
+                dataStorageModules.createStorageEngines(configRegistry, workDir)
+        );
 
         dataStorageManager.start();
 
@@ -232,7 +236,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 cs,
                 tblManager,
                 dataStorageManager,
-                tblsCfg,
                 () -> dataStorageModules.collectSchemasFields(List.of(
                         RocksDbDataStorageConfigurationSchema.class,
                         TestConcurrentHashMapDataStorageConfigurationSchema.class
@@ -465,7 +468,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     @Test
-    void createTableWithEngine() {
+    void createTableWithEngine() throws Exception {
         String method = getCurrentMethodName();
 
         // Without engine.
@@ -488,25 +491,35 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertThat(tableView(method + 1).dataStorage(), instanceOf(TestConcurrentHashMapDataStorageView.class));
 
+        // With existing engine in mixed case
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 2, "\"RocksDb\"")
+        ));
+
+        assertThat(tableView(method + 2).dataStorage(), instanceOf(RocksDbDataStorageView.class));
+
         IgniteException exception = assertThrows(
                 IgniteException.class,
                 () -> queryProc.query(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 2, method)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 3, method)
                 )
         );
 
         assertThat(exception.getMessage(), startsWith("Unexpected data storage engine"));
+
+        tblsCfg.defaultDataStorage().update(UNKNOWN_DATA_STORAGE).get(1, TimeUnit.SECONDS);
 
         exception = assertThrows(
                 IgniteException.class,
                 () -> queryProc.query(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine \"RocksDb\"", method + 3)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", method + 4)
                 )
         );
 
-        assertThat(exception.getMessage(), startsWith("Unexpected data storage engine"));
+        assertThat(exception.getMessage(), startsWith("Default data storage is not defined"));
     }
 
     @Test
@@ -530,14 +543,19 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         assertDoesNotThrow(() -> queryProc.query(
                 "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 3)
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replICAS\"=1", method + 3)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 4)
         ));
 
         IgniteException exception = assertThrows(
                 IgniteException.class,
                 () -> queryProc.query(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas='%s'", method + 4, method)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas='%s'", method + 5, method)
                 )
         );
 
@@ -547,7 +565,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 IgniteException.class,
                 () -> queryProc.query(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 5, method, method)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 6, method, method)
                 )
         );
 
@@ -557,17 +575,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 IgniteException.class,
                 () -> queryProc.query(
                         "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replicCAS\"='%s'", method + 5, method)
-                )
-        );
-
-        assertThat(exception.getMessage(), startsWith("Unexpected table option"));
-
-        exception = assertThrows(
-                IgniteException.class,
-                () -> queryProc.query(
-                        "PUBLIC",
-                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=-1", method + 6)
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=-1", method + 7)
                 )
         );
 
@@ -596,16 +604,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         assertThat(
                 ((RocksDbDataStorageView) tableView(method + 1).dataStorage()).dataRegion(),
                 equalTo("test_region")
-        );
-
-        assertDoesNotThrow(() -> queryProc.query(
-                "PUBLIC",
-                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"dataRegion\"='default'", method + 2)
-        ));
-
-        assertThat(
-                ((RocksDbDataStorageView) tableView(method + 2).dataStorage()).dataRegion(),
-                equalTo(DEFAULT_DATA_REGION_NAME)
         );
     }
 

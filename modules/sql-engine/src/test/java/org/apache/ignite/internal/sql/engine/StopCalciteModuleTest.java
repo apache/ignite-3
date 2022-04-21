@@ -194,7 +194,6 @@ public class StopCalciteModuleTest {
                 clusterSrvc,
                 tableManager,
                 dataStorageManager,
-                tablesConfig,
                 Map::of
         );
 

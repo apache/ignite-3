@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
-import static java.util.Collections.addAll;
-import static java.util.Collections.unmodifiableMap;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +30,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDdl;
@@ -64,16 +63,16 @@ public class DdlSqlToCommandConverter {
     private final Supplier<String> defaultDataStorageSupplier;
 
     /**
-     * Mapping: Data storage ID (and ID in quotes) -> data storage name.
+     * Mapping: Data storage ID -> data storage name.
      *
-     * <p>Example for "rocksdb": {@code Map.of("rocksdb", "rocksdb", "ROCKSDB", "rocksdb")}.
+     * <p>Example for "rocksdb": {@code Map.of("ROCKSDB", "rocksdb")}.
      */
     private final Map<String, String> dataStorageNames;
 
     /**
-     * Mapping: Table option ID (and ID in quotes) -> table option info.
+     * Mapping: Table option ID -> table option info.
      *
-     * <p>Example for "replicas": {@code Map.of("replicas", TableOptionInfo@123, "REPLICAS", TableOptionInfo@123)}.
+     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
      */
     private final Map<String, TableOptionInfo<?>> tableOptionInfos;
 
@@ -163,7 +162,7 @@ public class DdlSqlToCommandConverter {
         createTblCmd.schemaName(deriveSchemaName(createTblNode.name(), ctx));
         createTblCmd.tableName(deriveObjectName(createTblNode.name(), ctx, "tableName"));
         createTblCmd.ifTableExists(createTblNode.ifNotExists());
-        createTblCmd.dataStorage(driveDataStorage(createTblNode.engineName(), ctx));
+        createTblCmd.dataStorage(deriveDataStorage(createTblNode.engineName(), ctx));
 
         if (createTblNode.createOptionList() != null) {
             for (SqlNode optionNode : createTblNode.createOptionList().getList()) {
@@ -171,7 +170,7 @@ public class DdlSqlToCommandConverter {
 
                 assert option.key().isSimple() : option.key();
 
-                String optionKey = option.key().getSimple();
+                String optionKey = option.key().getSimple().toUpperCase();
 
                 if (tableOptionInfos.containsKey(optionKey)) {
                     processTableOption(tableOptionInfos.get(optionKey), option, ctx, createTblCmd);
@@ -428,84 +427,30 @@ public class DdlSqlToCommandConverter {
     }
 
     /**
-     * Throws exception with message relates to validation of create table option.
+     * Collects a mapping of the ID of the data storage to a name.
      *
-     * @param opt An option which validation was failed.
-     * @param exp A string representing expected values.
-     * @param qry A query the validation was failed for.
-     */
-    private static void throwOptionParsingException(IgniteSqlCreateTableOption opt, String exp, String qry) {
-        throw new IgniteException("Unexpected value for param " + opt.key() + " ["
-                + "expected " + exp + ", but was " + opt.value() + "; "
-                + "querySql=\"" + qry + "\"]"/*, IgniteQueryErrorCode.PARSING*/);
-    }
-
-    /**
-     * Collects a mapping of the ID (and ID in quotes) of the data storage to a name.
-     *
-     * <p>Example: {@code collectDataStorageNames(Set.of("rocksdb"))} -> {@code Map.of("rocksdb", "rocksdb", "ROCKSDB", "rocksdb")}.
+     * <p>Example: {@code collectDataStorageNames(Set.of("rocksdb"))} -> {@code Map.of("ROCKSDB", "rocksdb")}.
      *
      * @param dataStorages Names of the data storages.
      * @throws IllegalStateException If there is a duplicate ID.
      */
     static Map<String, String> collectDataStorageNames(Set<String> dataStorages) {
-        if (dataStorages.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<String, String> res = new HashMap<>();
-
-        Set<String> ids = new HashSet<>();
-
-        for (String dataStorageName : dataStorages) {
-            addAll(ids, dataStorageName, dataStorageName.toUpperCase());
-
-            for (String id : ids) {
-                if (res.containsKey(id)) {
-                    throw new IllegalStateException("Duplicate id:" + id);
-                }
-
-                res.put(id, dataStorageName);
-            }
-
-            ids.clear();
-        }
-
-        return unmodifiableMap(res);
+        return dataStorages.stream().collect(toUnmodifiableMap(String::toUpperCase, identity()));
     }
 
     /**
-     * Collects a mapping of the ID (and ID in quotes) of the table option to a table option info.
+     * Collects a mapping of the ID of the table option to a table option info.
      *
-     * <p>Example for "replicas": {@code Map.of("replicas", TableOptionInfo@123, "REPLICAS", TableOptionInfo@123)}.
+     * <p>Example for "replicas": {@code Map.of("REPLICAS", TableOptionInfo@123)}.
      *
      * @param tableOptionInfos Table option information's.
      * @throws IllegalStateException If there is a duplicate ID.
      */
     static Map<String, TableOptionInfo<?>> collectTableOptionInfos(TableOptionInfo<?>... tableOptionInfos) {
-        if (ArrayUtils.nullOrEmpty(tableOptionInfos)) {
-            return Map.of();
-        }
-
-        Map<String, TableOptionInfo<?>> res = new HashMap<>();
-
-        Set<String> ids = new HashSet<>();
-
-        for (TableOptionInfo<?> tableOptionInfo : tableOptionInfos) {
-            addAll(ids, tableOptionInfo.name, tableOptionInfo.name.toUpperCase());
-
-            for (String id : ids) {
-                if (res.containsKey(id)) {
-                    throw new IllegalStateException("Duplicate id:" + id);
-                }
-
-                res.put(id, tableOptionInfo);
-            }
-
-            ids.clear();
-        }
-
-        return unmodifiableMap(res);
+        return ArrayUtils.nullOrEmpty(tableOptionInfos) ? Map.of() : Stream.of(tableOptionInfos).collect(toUnmodifiableMap(
+                tableOptionInfo -> tableOptionInfo.name.toUpperCase(),
+                identity()
+        ));
     }
 
     /**
@@ -523,7 +468,7 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private String driveDataStorage(@Nullable SqlIdentifier engineName, PlanningContext ctx) {
+    private String deriveDataStorage(@Nullable SqlIdentifier engineName, PlanningContext ctx) {
         if (engineName == null) {
             String defaultDataStorage = defaultDataStorageSupplier.get();
 
@@ -536,7 +481,7 @@ public class DdlSqlToCommandConverter {
 
         assert engineName.isSimple() : engineName;
 
-        String dataStorage = engineName.getSimple();
+        String dataStorage = engineName.getSimple().toUpperCase();
 
         if (!dataStorageNames.containsKey(dataStorage)) {
             throw new IgniteException(String.format(

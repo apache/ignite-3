@@ -40,7 +40,7 @@ public class DdlSqlToCommandConverterTest {
 
         assertThat(
                 collectDataStorageNames(Set.of("rocksdb")),
-                equalTo(Map.of("rocksdb", "rocksdb", "ROCKSDB", "rocksdb"))
+                equalTo(Map.of("ROCKSDB", "rocksdb"))
         );
 
         assertThat(
@@ -50,18 +50,15 @@ public class DdlSqlToCommandConverterTest {
 
         assertThat(
                 collectDataStorageNames(Set.of("rocksDb", "pageMemory")),
-                equalTo(Map.of(
-                        "rocksDb", "rocksDb", "ROCKSDB", "rocksDb",
-                        "pageMemory", "pageMemory", "PAGEMEMORY", "pageMemory"
-                ))
+                equalTo(Map.of("ROCKSDB", "rocksDb", "PAGEMEMORY", "pageMemory"))
         );
 
         IllegalStateException exception = assertThrows(
                 IllegalStateException.class,
-                () -> collectDataStorageNames(Set.of("rocksdb", "ROCKSDB"))
+                () -> collectDataStorageNames(Set.of("rocksdb", "rocksDb"))
         );
 
-        assertThat(exception.getMessage(), startsWith("Duplicate id"));
+        assertThat(exception.getMessage(), startsWith("Duplicate key"));
     }
 
     @Test
@@ -72,7 +69,7 @@ public class DdlSqlToCommandConverterTest {
 
         assertThat(
                 collectTableOptionInfos(replicas),
-                equalTo(Map.of("replicas", replicas, "REPLICAS", replicas))
+                equalTo(Map.of("REPLICAS", replicas))
         );
 
         replicas = tableOptionInfo("REPLICAS");
@@ -87,10 +84,7 @@ public class DdlSqlToCommandConverterTest {
 
         assertThat(
                 collectTableOptionInfos(replicas, partitions),
-                equalTo(Map.of(
-                        "replicas", replicas, "REPLICAS", replicas,
-                        "partitions", partitions, "PARTITIONS", partitions
-                ))
+                equalTo(Map.of("REPLICAS", replicas, "PARTITIONS", partitions))
         );
 
         TableOptionInfo<?> replicas0 = tableOptionInfo("replicas");
@@ -101,7 +95,7 @@ public class DdlSqlToCommandConverterTest {
                 () -> collectTableOptionInfos(replicas0, replicas1)
         );
 
-        assertThat(exception.getMessage(), startsWith("Duplicate id"));
+        assertThat(exception.getMessage(), startsWith("Duplicate key"));
     }
 
     @Test
