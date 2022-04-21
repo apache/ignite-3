@@ -85,7 +85,7 @@ class LifecycleManager {
     }
 
     /**
-     * Callback that should be called after all components, that comprise an Ignite node, has been started. After this method completes,
+     * Callback that should be called after all components, that comprise an Ignite node, have been started. After this method completes,
      * the node will be transferred to the {@link Status#STARTED} state.
      *
      * @throws NodeStoppingException If node stopping intention was detected.
