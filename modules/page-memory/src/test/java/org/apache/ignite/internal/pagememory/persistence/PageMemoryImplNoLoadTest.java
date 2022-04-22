@@ -18,9 +18,17 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Set;
 import java.util.stream.LongStream;
+import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -33,11 +41,11 @@ import org.junit.jupiter.api.Test;
 public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     /** {@inheritDoc} */
     @Override
-    protected PageMemory memory() throws Exception {
-        dataRegionCfg
-                .change(cfg -> cfg.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
-                .get(1, SECONDS);
+    protected PageMemory memory() {
+        return memory(LongStream.range(0, 10).map(i -> 5 * MiB).toArray());
+    }
 
+    protected PageMemoryImpl memory(long[] sizes) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -46,7 +54,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 new UnsafeMemoryProvider(null),
                 dataRegionCfg,
                 ioRegistry,
-                LongStream.range(0, 10).map(i -> 5 * MiB).toArray(),
+                sizes,
                 new TestPageReadWriteManager(),
                 (page, fullPageId, pageMemoryEx) -> {
                 },
@@ -60,5 +68,59 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     @Override
     public void testPageHandleDeallocation() {
         // No-op.
+    }
+
+    @Test
+    void testDirtyPages() throws Exception {
+        PageMemoryImpl memory = (PageMemoryImpl) memory();
+
+        memory.start();
+
+        try {
+            Set<FullPageId> dirtyPages = Set.of(allocatePage(memory), allocatePage(memory));
+
+            assertThat(memory.dirtyPages(), equalTo(dirtyPages));
+
+            // TODO: IGNITE-16887 Можно попробовать вызывать checkpoint и проверить что больше нет грязных страниц
+        } finally {
+            memory.stop(true);
+        }
+    }
+
+    @Test
+    void testSafeToUpdate() throws Exception {
+        long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
+
+        dataRegionCfg
+                .change(c -> c.changeInitSize(128 * systemPageSize).changeMaxSize(128 * systemPageSize))
+                .get(1, SECONDS);
+
+        PageMemoryImpl memory = memory(new long[]{100 * systemPageSize, 28 * systemPageSize});
+
+        memory.start();
+
+        try {
+            long maxPages = memory.totalPages();
+
+            long maxDirtyPages = (maxPages * 3 / 4) - 1;
+
+            assertThat(maxDirtyPages, greaterThanOrEqualTo(50L));
+
+            for (int i = 0; i < maxDirtyPages; i++) {
+                allocatePage(memory);
+
+                assertTrue(memory.safeToUpdate(), "i=" + i);
+            }
+
+            for (int i = (int) maxDirtyPages; i < maxPages; i++) {
+                allocatePage(memory);
+
+                assertFalse(memory.safeToUpdate(), "i=" + i);
+            }
+
+            // TODO: IGNITE-16887 Можно попробовать вызывать checkpoint и проверить что после этого assertTrue(memory.safeToUpdate())
+        } finally {
+            memory.stop(true);
+        }
     }
 }

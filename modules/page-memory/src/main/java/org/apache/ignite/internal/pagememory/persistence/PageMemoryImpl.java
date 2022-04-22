@@ -66,6 +66,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -1232,12 +1233,12 @@ public class PageMemoryImpl implements PageMemoryEx {
      * Returns a collection of all pages currently marked as dirty. Will create a collection copy.
      */
     @TestOnly
-    public Collection<FullPageId> dirtyPages() {
+    public Set<FullPageId> dirtyPages() {
         if (segments == null) {
             return Collections.emptySet();
         }
 
-        Collection<FullPageId> res = new HashSet<>((int) loadedPages());
+        Set<FullPageId> res = new HashSet<>((int) loadedPages());
 
         for (Segment seg : segments) {
             res.addAll(seg.dirtyPages);
