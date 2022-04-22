@@ -102,17 +102,17 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         try {
             long maxPages = memory.totalPages();
 
-            long maxDirtyPages = (maxPages * 3 / 4) - 1;
+            long maxDirtyPages = (maxPages * 3 / 4);
 
             assertThat(maxDirtyPages, greaterThanOrEqualTo(50L));
 
-            for (int i = 0; i < maxDirtyPages; i++) {
+            for (int i = 0; i < maxDirtyPages - 1; i++) {
                 allocatePage(memory);
 
                 assertTrue(memory.safeToUpdate(), "i=" + i);
             }
 
-            for (int i = (int) maxDirtyPages; i < maxPages; i++) {
+            for (int i = (int) maxDirtyPages - 1; i < maxPages; i++) {
                 allocatePage(memory);
 
                 assertFalse(memory.safeToUpdate(), "i=" + i);
