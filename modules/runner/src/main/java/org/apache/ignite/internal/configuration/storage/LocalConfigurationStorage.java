@@ -43,7 +43,7 @@ import org.apache.ignite.lang.IgniteLogger;
  * Local configuration storage.
  */
 public class LocalConfigurationStorage implements ConfigurationStorage {
-    /** Prefix that we add to configuration keys to distinguish them in metastorage. */
+    /** Prefix that we add to configuration keys to distinguish them in the Vault. */
     private static final String LOC_PREFIX = "loc-cfg.";
 
     /** Key for the storage revision version. */
@@ -140,7 +140,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
                     if (key.equals(VERSION_KEY)) {
                         version = (Long) value;
                     } else {
-                        data.put(key.toString().substring(LOC_PREFIX.length()), value);
+                        data.put(removePrefix(key), value);
                     }
                 }
             } catch (Exception e) {
@@ -168,12 +168,19 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
                         Map<ByteArray, byte[]> data = IgniteUtils.newHashMap(newValues.size() + 1);
 
-                        data.put(VERSION_KEY, toBytes(version + 1));
-
                         for (Map.Entry<String, ? extends Serializable> e : newValues.entrySet()) {
                             ByteArray key = ByteArray.fromString(LOC_PREFIX + e.getKey());
 
                             data.put(key, e.getValue() == null ? null : toBytes(e.getValue()));
+                        }
+
+                        byte[] previousVersion = data.put(VERSION_KEY, toBytes(version + 1));
+
+                        if (previousVersion != null) {
+                            throw new IllegalStateException(String.format(
+                                    "\"%s\" is a reserved key and must not be changed externally",
+                                    removePrefix(VERSION_KEY)
+                            ));
                         }
 
                         Data entries = new Data(newValues, version + 1);
@@ -188,6 +195,10 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
 
             return writeFuture;
         }
+    }
+
+    private static String removePrefix(ByteArray key) {
+        return key.toString().substring(LOC_PREFIX.length());
     }
 
     /** {@inheritDoc} */
