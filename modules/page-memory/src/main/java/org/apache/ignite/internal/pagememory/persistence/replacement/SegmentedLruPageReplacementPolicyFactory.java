@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
+
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
 
 /**
  * {@link SegmentedLruPageReplacementPolicy} factory.
@@ -29,7 +31,7 @@ public class SegmentedLruPageReplacementPolicyFactory implements PageReplacement
 
     /** {@inheritDoc} */
     @Override
-    public PageReplacementPolicy create(PageMemoryImpl.Segment seg, long ptr, int pagesCnt) {
+    public PageReplacementPolicy create(Segment seg, long ptr, int pagesCnt) {
         return new SegmentedLruPageReplacementPolicy(seg, ptr, pagesCnt);
     }
 }

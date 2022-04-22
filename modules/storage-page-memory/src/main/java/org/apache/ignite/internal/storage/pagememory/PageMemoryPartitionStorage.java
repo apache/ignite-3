@@ -409,6 +409,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public long rowsCount() {
         try {

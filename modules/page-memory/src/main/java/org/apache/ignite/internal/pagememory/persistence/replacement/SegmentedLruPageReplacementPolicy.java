@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.INVALID_REL_PTR;
@@ -23,15 +23,16 @@ import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.O
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * CLOCK page replacement policy implementation.
+ * Segmented-LRU page replacement policy implementation.
  */
-public class ClockPageReplacementPolicy extends PageReplacementPolicy {
-    /** Pages hit-flags store. */
-    private final ClockPageReplacementFlags flags;
+public class SegmentedLruPageReplacementPolicy extends PageReplacementPolicy {
+    /** LRU list. */
+    private final SegmentedLruPageList lruList;
 
     /**
      * Constructor.
@@ -40,10 +41,10 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
      * @param ptr Pointer to memory region.
      * @param pagesCnt Pages count.
      */
-    protected ClockPageReplacementPolicy(Segment seg, long ptr, int pagesCnt) {
+    protected SegmentedLruPageReplacementPolicy(Segment seg, long ptr, int pagesCnt) {
         super(seg);
 
-        flags = new ClockPageReplacementFlags(pagesCnt, ptr);
+        lruList = new SegmentedLruPageList(pagesCnt, ptr);
     }
 
     /** {@inheritDoc} */
@@ -51,7 +52,15 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
     public void onHit(long relPtr) {
         int pageIdx = (int) seg.pageIndex(relPtr);
 
-        flags.setFlag(pageIdx);
+        lruList.moveToTail(pageIdx);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onMiss(long relPtr) {
+        int pageIdx = (int) seg.pageIndex(relPtr);
+
+        lruList.addToTail(pageIdx, false);
     }
 
     /** {@inheritDoc} */
@@ -59,7 +68,7 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
     public void onRemove(long relPtr) {
         int pageIdx = (int) seg.pageIndex(relPtr);
 
-        flags.clearFlag(pageIdx);
+        lruList.remove(pageIdx);
     }
 
     /** {@inheritDoc} */
@@ -68,7 +77,7 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
         LoadedPagesMap loadedPages = seg.loadedPages();
 
         for (int i = 0; i < loadedPages.size(); i++) {
-            int pageIdx = flags.poll();
+            int pageIdx = lruList.poll();
 
             long relPtr = seg.relative(pageIdx);
             long absPtr = seg.absolute(relPtr);
@@ -94,7 +103,8 @@ public class ClockPageReplacementPolicy extends PageReplacementPolicy {
                 return relPtr;
             }
 
-            flags.setFlag(pageIdx);
+            // Return page to the LRU list.
+            lruList.addToTail(pageIdx, true);
         }
 
         throw seg.oomException("no pages to replace");

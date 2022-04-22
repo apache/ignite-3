@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;

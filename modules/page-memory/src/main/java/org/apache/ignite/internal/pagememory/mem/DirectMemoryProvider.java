@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.mem;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Direct memory provider interface. Not thread-safe.
  */
@@ -26,19 +28,20 @@ public interface DirectMemoryProvider {
      *
      * @param chunkSizes Chunk sizes.
      */
-    public void initialize(long[] chunkSizes);
+    void initialize(long[] chunkSizes);
 
     /**
      * Shuts down the provider.
      *
      * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse.
      */
-    public void shutdown(boolean deallocate);
+    void shutdown(boolean deallocate);
 
     /**
      * Attempts to allocate next memory region. Will return {@code null} if no more regions are available.
      *
      * @return Next memory region.
      */
-    public DirectMemoryRegion nextRegion();
+    @Nullable
+    DirectMemoryRegion nextRegion();
 }

@@ -49,6 +49,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 LongStream.range(0, 10).map(i -> 5 * MiB).toArray(),
                 new TestPageReadWriteManager(),
                 (page, fullPageId, pageMemoryEx) -> {
+                },
+                (fullPageId, buf, tag) -> {
                 }
         );
     }

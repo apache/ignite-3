@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.META_PAGE_ID;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.INVALID_REL_PTR;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
@@ -28,7 +29,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.freelist.io.PagesListMetaIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.persistence.LoadedPagesMap;
+import org.apache.ignite.internal.pagememory.persistence.PageHeader;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
+import org.apache.ignite.internal.pagememory.persistence.PagePool;
+import org.apache.ignite.internal.pagememory.persistence.ReplaceCandidate;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -95,7 +100,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
                 final long absPageAddr = seg.absolute(rndAddr);
 
-                FullPageId fullId = PageHeader.fullPageId(absPageAddr);
+                FullPageId fullId = fullPageId(absPageAddr);
 
                 // Check page mapping consistency.
                 assert fullId.equals(nearest.fullId()) : "Invalid page mapping [tableId=" + nearest.fullId()
@@ -152,7 +157,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             final long absRmvAddr = seg.absolute(relRmvAddr);
 
-            final FullPageId fullPageId = PageHeader.fullPageId(absRmvAddr);
+            final FullPageId fullPageId = fullPageId(absRmvAddr);
 
             if (!seg.tryToRemovePage(fullPageId, absRmvAddr)) {
                 if (iterations > 10) {
@@ -214,7 +219,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             final long absPageAddr = seg.absolute(addr);
 
-            FullPageId fullId = PageHeader.fullPageId(absPageAddr);
+            FullPageId fullId = fullPageId(absPageAddr);
 
             if (partGen < seg.partGeneration(fullId.groupId(), partitionId(fullId.pageId()))) {
                 return seg.refreshOutdatedPage(fullId.groupId(), fullId.pageId(), true);
@@ -228,7 +233,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
 
             final long absEvictAddr = seg.absolute(addr);
 
-            final FullPageId fullPageId = PageHeader.fullPageId(absEvictAddr);
+            final FullPageId fullPageId = fullPageId(absEvictAddr);
 
             if (seg.tryToRemovePage(fullPageId, absEvictAddr)) {
                 return addr;
