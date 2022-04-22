@@ -25,10 +25,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -46,6 +50,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Database path. */
     private final Path path;
 
+    private final ExecutorService[] executorServices;
+
+    private final AtomicInteger executorIdx = new AtomicInteger();
+
     /** Database instance shared across log storages. */
     private RocksDB db;
 
@@ -58,8 +66,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Data column family handle. */
     private ColumnFamilyHandle dataHandle;
 
+    /**
+     * Constructor.
+     *
+     * @param path Path to the storage.
+     */
     public DefaultLogStorageFactory(Path path) {
         this.path = path;
+
+        executorServices = new ExecutorService[Runtime.getRuntime().availableProcessors() * 2];
+        for (int i = 0; i < executorServices.length; i++) {
+            executorServices[i] = Executors.newSingleThreadExecutor();
+        }
     }
 
     /** {@inheritDoc} */
@@ -107,13 +125,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
+        for (ExecutorService executorService : executorServices) {
+            ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
+        }
+
         IgniteUtils.closeAll(confHandle, dataHandle, db, dbOptions);
     }
 
     /** {@inheritDoc} */
     @Override
     public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions);
+        int execIdx = executorIdx.getAndUpdate(val -> (val + 1) % executorServices.length);
+        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorServices[execIdx]);
     }
 
     /**

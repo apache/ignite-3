@@ -26,8 +26,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -45,7 +44,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Describer;
-import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.rocksdb.ColumnFamilyHandle;
@@ -123,8 +121,11 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** Write lock. */
     private final Lock writeLock = this.readWriteLock.writeLock();
 
+    /** Flag indicating whether storage is stopped. Guarded by readWriteLock. */
+    private boolean stopped = false;
+
     /** Executor that handles prefix truncation. */
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Executor executor;
 
     /** Log entry encoder. */
     private LogEntryEncoder logEntryEncoder;
@@ -144,8 +145,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             ColumnFamilyHandle confHandle,
             ColumnFamilyHandle dataHandle,
             String groupId,
-            RaftOptions raftOptions
+            RaftOptions raftOptions,
+            Executor executor
     ) {
+        Requires.requireNonNull(db);
+        Requires.requireNonNull(confHandle);
+        Requires.requireNonNull(dataHandle);
+        Requires.requireNonNull(executor);
+
         Requires.requireTrue(
                 groupId.indexOf(0) == -1,
                 "Raft group id " + groupId + " must not contain char(0)"
@@ -158,6 +165,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.db = db;
         this.confHandle = confHandle;
         this.dataHandle = dataHandle;
+        this.executor = executor;
         this.groupStartPrefix = (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
         this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
         this.groupStartBound = new Slice(groupStartPrefix);
@@ -271,6 +279,12 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     public void shutdown() {
         this.writeLock.lock();
 
+        if (stopped) {
+            return;
+        }
+
+        stopped = true;
+
         try {
             onShutdown();
         } finally {
@@ -383,10 +397,12 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } else {
             this.readLock.lock();
             try {
-                if (this.db == null) {
-                    LOG.warn("DB not initialized or destroyed.");
+
+                if (stopped) {
+                    LOG.warn("Storage stopped.");
                     return false;
                 }
+
                 WriteContext writeCtx = newWriteContext();
                 long logIndex = entry.getId().getIndex();
                 byte[] valueBytes = this.logEntryEncoder.encode(entry);
@@ -532,11 +548,13 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      */
     private boolean executeBatch(WriteBatchTemplate template) {
         this.readLock.lock();
-        if (this.db == null) {
+
+        if (stopped) {
             LOG.warn("DB not initialized or destroyed.");
             this.readLock.unlock();
             return false;
         }
+
         try (WriteBatch batch = new WriteBatch()) {
             template.execute(batch);
             this.db.write(this.writeOptions, batch);
@@ -568,12 +586,16 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         Utils.runInThread(executor, () -> {
             this.readLock.lock();
             try {
-                if (this.db == null) {
+
+                if (stopped) {
                     return;
                 }
+
                 onTruncatePrefix(startIndex, firstIndexKept);
-                this.db.deleteRange(this.dataHandle, createKey(startIndex), createKey(firstIndexKept));
-                this.db.deleteRange(this.confHandle, createKey(startIndex), createKey(firstIndexKept));
+                byte[] startKey = createKey(startIndex);
+                byte[] endKey = createKey(firstIndexKept);
+                this.db.deleteRange(this.dataHandle, startKey, endKey);
+                this.db.deleteRange(this.confHandle, startKey, endKey);
             } catch (RocksDBException | IOException e) {
                 LOG.error("Fail to truncatePrefix {}.", e, firstIndexKept);
             } finally {
@@ -586,8 +608,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Called upon closing the storage.
      */
     protected void onShutdown() {
-        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
-
         writeOptions.close();
         groupEndBound.close();
         groupStartBound.close();
