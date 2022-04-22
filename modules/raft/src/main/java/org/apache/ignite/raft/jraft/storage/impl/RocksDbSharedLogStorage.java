@@ -586,7 +586,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         Utils.runInThread(executor, () -> {
             this.readLock.lock();
             try {
-
                 if (stopped) {
                     return;
                 }

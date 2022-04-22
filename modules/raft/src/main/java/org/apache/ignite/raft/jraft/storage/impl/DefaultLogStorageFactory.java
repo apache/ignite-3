@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
@@ -50,9 +50,8 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Database path. */
     private final Path path;
 
-    private final ExecutorService[] executorServices;
-
-    private final AtomicInteger executorIdx = new AtomicInteger();
+    /** Executor for shared storages. */
+    private final ExecutorService executorService;
 
     /** Database instance shared across log storages. */
     private RocksDB db;
@@ -74,10 +73,10 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     public DefaultLogStorageFactory(Path path) {
         this.path = path;
 
-        executorServices = new ExecutorService[Runtime.getRuntime().availableProcessors() * 2];
-        for (int i = 0; i < executorServices.length; i++) {
-            executorServices[i] = Executors.newSingleThreadExecutor();
-        }
+        executorService = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors() * 2,
+                new NamedThreadFactory("raft-shared-log-storage-pool")
+        );
     }
 
     /** {@inheritDoc} */
@@ -125,9 +124,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        for (ExecutorService executorService : executorServices) {
-            ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
-        }
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
         IgniteUtils.closeAll(confHandle, dataHandle, db, dbOptions);
     }
@@ -135,8 +132,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-        int execIdx = executorIdx.getAndUpdate(val -> (val + 1) % executorServices.length);
-        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorServices[execIdx]);
+        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
     }
 
     /**
