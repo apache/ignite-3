@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Common interface for configuration storage.
@@ -65,7 +64,7 @@ public interface ConfigurationStorage extends AutoCloseable {
      *
      * @param lsnr Listener. Cannot be null.
      */
-    void registerConfigurationListener(@NotNull ConfigurationStorageListener lsnr);
+    void registerConfigurationListener(ConfigurationStorageListener lsnr);
 
     /**
      * Returns type of this configuration storage.

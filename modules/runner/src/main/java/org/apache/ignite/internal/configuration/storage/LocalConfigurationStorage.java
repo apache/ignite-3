@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.fromBytes;
+import static org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil.toBytes;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -26,9 +28,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.internal.configuration.util.ConfigurationSerializationUtil;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteLogger;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Local configuration storage.
@@ -46,17 +46,17 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** Prefix that we add to configuration keys to distinguish them in metastorage. */
     private static final String LOC_PREFIX = "loc-cfg.";
 
+    /** Key for the storage revision version. */
+    private static final ByteArray VERSION_KEY = new ByteArray(LOC_PREFIX + "$version");
+
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(LocalConfigurationStorage.class);
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
 
-    /** Configuration changes listener. */
-    private ConfigurationStorageListener lsnr;
-
-    /** Storage version. */
-    private final AtomicLong ver = new AtomicLong(0L);
+    /** Configuration changes listener.*/
+    private final AtomicReference<ConfigurationStorageListener> lsnrRef = new AtomicReference<>();
 
     /** Start key in range for searching local configuration keys. */
     private static final ByteArray LOC_KEYS_START_RANGE = ByteArray.fromString(LOC_PREFIX);
@@ -67,6 +67,18 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("loc-cfg"));
 
     private final InFlightFutures futureTracker = new InFlightFutures();
+
+    /**
+     * Future used to serialize writes to the storage.
+     *
+     * <p>Every write must wait before the previous write operation, bound to this future, completes.
+     *
+     * <p>Multi-threaded access is guarded by {@code writeSerializationLock}.
+     */
+    private CompletableFuture<Void> writeSerializationFuture = CompletableFuture.completedFuture(null);
+
+    /** Lock for updating the reference to the {@code writeSerializationFuture}. */
+    private final Object writeSerializationLock = new Object();
 
     /**
      * Constructor.
@@ -98,7 +110,7 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Serializable> readLatest(String key) {
         return vaultMgr.get(new ByteArray(LOC_PREFIX + key))
-                .thenApply(entry -> entry == null ? null : ConfigurationSerializationUtil.fromBytes(entry.value()))
+                .thenApply(entry -> entry == null ? null : fromBytes(entry.value()))
                 .exceptionally(e -> {
                     throw new StorageException("Exception while reading vault entry", e);
                 });
@@ -117,63 +129,71 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
         return registerFuture(supplyAsync(() -> {
             var data = new HashMap<String, Serializable>();
 
+            long version = 0;
+
             try (Cursor<VaultEntry> cursor = vaultMgr.range(rangeStart, rangeEnd)) {
                 for (VaultEntry entry : cursor) {
-                    String key = entry.key().toString().substring(LOC_PREFIX.length());
+                    ByteArray key = entry.key();
 
-                    byte[] value = entry.value();
+                    Serializable value = fromBytes(entry.value());
 
-                    // vault iterator should not return nulls as values
-                    assert value != null;
-
-                    data.put(key, ConfigurationSerializationUtil.fromBytes(value));
+                    if (key.equals(VERSION_KEY)) {
+                        version = (Long) value;
+                    } else {
+                        data.put(key.toString().substring(LOC_PREFIX.length()), value);
+                    }
                 }
             } catch (Exception e) {
                 throw new StorageException("Exception when closing a Vault cursor", e);
             }
 
-            // TODO: Need to restore version from pds when restart will be developed
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-14697
-            return new Data(data, ver.get());
+            return new Data(data, version);
         }, threadPool));
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Boolean> write(
-            Map<String, ? extends Serializable> newValues, long sentVersion
-    ) {
-        assert lsnr != null : "Configuration listener must be initialized before write.";
+    public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long sentVersion) {
+        synchronized (writeSerializationLock) {
+            CompletableFuture<Boolean> writeFuture = registerFuture(writeSerializationFuture
+                    .thenCompose(v -> lastRevision())
+                    .thenComposeAsync(version -> {
+                        if (version != sentVersion) {
+                            return CompletableFuture.completedFuture(false);
+                        }
 
-        if (sentVersion != ver.get()) {
-            return CompletableFuture.completedFuture(false);
+                        ConfigurationStorageListener lsnr = lsnrRef.get();
+
+                        assert lsnr != null : "Configuration listener must be initialized before write.";
+
+                        Map<ByteArray, byte[]> data = IgniteUtils.newHashMap(newValues.size() + 1);
+
+                        data.put(VERSION_KEY, toBytes(version + 1));
+
+                        for (Map.Entry<String, ? extends Serializable> e : newValues.entrySet()) {
+                            ByteArray key = ByteArray.fromString(LOC_PREFIX + e.getKey());
+
+                            data.put(key, e.getValue() == null ? null : toBytes(e.getValue()));
+                        }
+
+                        Data entries = new Data(newValues, version + 1);
+
+                        return vaultMgr.putAll(data)
+                                .thenCompose(v -> lsnr.onEntriesChanged(entries))
+                                .thenApply(v -> true);
+                    }, threadPool));
+
+            // ignore any errors on the write future, because we are only interested in its completion
+            writeSerializationFuture = writeFuture.handle((v, e) -> null);
+
+            return writeFuture;
         }
-
-        Map<ByteArray, byte[]> data = new HashMap<>();
-
-        for (Map.Entry<String, ? extends Serializable> e : newValues.entrySet()) {
-            ByteArray key = ByteArray.fromString(LOC_PREFIX + e.getKey());
-
-            data.put(key, e.getValue() == null ? null : ConfigurationSerializationUtil.toBytes(e.getValue()));
-        }
-
-        Data entries = new Data(newValues, ver.incrementAndGet());
-
-        // read the 'lsnr' field into a local variable, just in case, to avoid possible race condition on reading
-        // it in a lambda below.
-        ConfigurationStorageListener localLsnr = lsnr;
-
-        return vaultMgr.putAll(data)
-                .thenCompose(v -> localLsnr.onEntriesChanged(entries))
-                .thenApply(v -> true);
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void registerConfigurationListener(@NotNull ConfigurationStorageListener lsnr) {
-        if (this.lsnr == null) {
-            this.lsnr = lsnr;
-        } else {
+    public void registerConfigurationListener(ConfigurationStorageListener lsnr) {
+        if (!lsnrRef.compareAndSet(null, lsnr)) {
             LOG.warn("Configuration listener has already been set.");
         }
     }
@@ -187,7 +207,8 @@ public class LocalConfigurationStorage implements ConfigurationStorage {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Long> lastRevision() {
-        return CompletableFuture.completedFuture(ver.get());
+        return vaultMgr.get(VERSION_KEY)
+                .thenApply(entry -> entry == null ? 0 : (Long) fromBytes(entry.value()));
     }
 
     /**
