@@ -279,13 +279,13 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     public void shutdown() {
         this.writeLock.lock();
 
-        if (stopped) {
-            return;
-        }
-
-        stopped = true;
-
         try {
+            if (stopped) {
+                return;
+            }
+
+            stopped = true;
+
             onShutdown();
         } finally {
             this.writeLock.unlock();
@@ -397,7 +397,6 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } else {
             this.readLock.lock();
             try {
-
                 if (stopped) {
                     LOG.warn("Storage stopped.");
                     return false;
@@ -549,13 +548,12 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     private boolean executeBatch(WriteBatchTemplate template) {
         this.readLock.lock();
 
-        if (stopped) {
-            LOG.warn("DB not initialized or destroyed.");
-            this.readLock.unlock();
-            return false;
-        }
-
         try (WriteBatch batch = new WriteBatch()) {
+            if (stopped) {
+                LOG.warn("Storage stopped.");
+                return false;
+            }
+
             template.execute(batch);
             this.db.write(this.writeOptions, batch);
         } catch (RocksDBException e) {
