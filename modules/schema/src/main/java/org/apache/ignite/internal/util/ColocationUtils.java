@@ -25,9 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypeSpec;
-import org.apache.ignite.internal.schema.row.Row;
 
 /**
  * Colocation hash utilities.
@@ -39,23 +37,6 @@ public class ColocationUtils {
     private ColocationUtils() {
         // No-op.
     }
-
-    /**
-     * Calculate colocation hash of the specified row.
-     *
-     * @param r Row to calculate row's colocation hash.
-     * @return Row's colocation hash.
-     */
-    public static int colocationHash(Row r) {
-        HashCalculator hashCalc = new HashCalculator();
-
-        for (Column c : r.schema().colocationColumns()) {
-            append(hashCalc, r.value(c.schemaIndex()), c.type().spec());
-        }
-
-        return hashCalc.hash();
-    }
-
 
     /**
      * Append value to the hash calculation.

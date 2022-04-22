@@ -30,6 +30,7 @@ import java.util.concurrent.Flow;
 import java.util.function.BiFunction;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.command.GetAllCommand;
 import org.apache.ignite.internal.table.distributed.command.GetCommand;
@@ -154,7 +155,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
+    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         return super.get(keyRow, tx);
     }
 
@@ -172,7 +173,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public int partition(BinaryRow keyRow) {
+    public int partition(BinaryRowEx keyRow) {
         return 0;
     }
 }
