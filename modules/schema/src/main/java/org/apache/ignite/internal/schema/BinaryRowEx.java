@@ -15,31 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.schema;
+package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.internal.schema.BinaryRowEx;
-
-/** POJO to store row and modify operation. */
-public class ModifyRow {
-    /** Operation state representation. */
-    public enum Operation {
-        INSERT_ROW, UPDATE_ROW, DELETE_ROW
-    }
-
-    private final BinaryRowEx row;
-
-    private final Operation op;
-
-    public ModifyRow(BinaryRowEx row, Operation op) {
-        this.row = row;
-        this.op = op;
-    }
-
-    public BinaryRowEx getRow() {
-        return row;
-    }
-
-    public Operation getOp() {
-        return op;
-    }
+/**
+ * Extended binary row interface.
+ */
+public interface BinaryRowEx extends BinaryRow {
+    /**
+     * Return hash of the colocation columns' values. Used to calculate destination partition.
+     */
+    int colocationHash();
 }

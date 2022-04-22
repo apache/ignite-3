@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
@@ -137,7 +137,7 @@ public class TableImpl implements Table {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
 
-        BinaryRow keyRow;
+        BinaryRowEx keyRow;
         var marshaller = new KvMarshallerImpl<>(schemaReg.schema(), keyMapper, keyMapper);
         try {
             keyRow = marshaller.marshal(key);
