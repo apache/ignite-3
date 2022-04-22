@@ -83,8 +83,6 @@ public class CheckpointPages {
      * Returns size of all pages in current checkpoint.
      */
     public int size() {
-        Collection<FullPageId> checkpointPages = segCheckpointPages;
-
-        return checkpointPages == null ? 0 : checkpointPages.size();
+        return segCheckpointPages.size();
     }
 }
