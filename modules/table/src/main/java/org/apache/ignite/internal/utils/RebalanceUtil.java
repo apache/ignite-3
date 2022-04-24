@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -141,5 +142,25 @@ public class RebalanceUtil {
      */
     public static ByteArray partAssignmentsStableKey(String partId) {
         return new ByteArray("assignments.stable." + partId);
+    }
+
+    /**
+     * Extract table id from pending key of partition.
+     *
+     * @param key Key.
+     * @return Table id.
+     */
+    public static UUID extractTableId(ByteArray key) {
+        return UUID.fromString(key.toString().substring(PENDING_ASSIGNMENTS_PREFIX.length(), PENDING_ASSIGNMENTS_PREFIX.length() + 36));
+    }
+
+    /**
+     * Extract partition number from the pending key of partition.
+     *
+     * @param key Key.
+     * @return Partition number.
+     */
+    public static int extractPartitionNumber(ByteArray key) {
+        return Integer.parseInt(key.toString().substring(PENDING_ASSIGNMENTS_PREFIX.length() + 36 + "_part_".length()));
     }
 }

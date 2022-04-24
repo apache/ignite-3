@@ -19,15 +19,9 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
-import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
-import static org.apache.ignite.internal.metastorage.client.Conditions.revision;
-import static org.apache.ignite.internal.metastorage.client.Operations.ops;
-import static org.apache.ignite.internal.metastorage.client.Operations.put;
-import static org.apache.ignite.internal.metastorage.client.Operations.remove;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPendingKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPlannedKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsStableKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
+import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -38,7 +32,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -72,8 +65,6 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.client.Entry;
-import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
@@ -88,6 +79,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.table.distributed.raft.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
@@ -111,8 +103,6 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.apache.ignite.raft.jraft.Status;
-import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -470,32 +460,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         for (int i = 0; i < partitions; i++) {
             int partId = i;
 
-            List<ClusterNode> oldPartitionAssignment = oldAssignments == null ? Collections.emptyList() :
+            List<ClusterNode> oldPartAssignment = oldAssignments == null ? Collections.emptyList() :
                     oldAssignments.get(partId);
 
-            List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
+            List<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
-            var toAdd = new HashSet<>(newPartitionAssignment);
+            var toAdd = new HashSet<>(newPartAssignment);
 
-            toAdd.removeAll(oldPartitionAssignment);
+            toAdd.removeAll(oldPartAssignment);
 
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, tablesById -> {
-                InternalTable internalTable = tablesById.get(tblId).internalTable();
+                InternalTable internalTbl = tablesById.get(tblId).internalTable();
 
                 try {
                     futures[partId] = raftMgr.updateRaftGroup(
                             partitionRaftGroupName(tblId, partId),
-                            newPartitionAssignment,
+                            newPartAssignment,
                             toAdd,
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId), txManager)),
-                            () -> raftGroupEventsListener(
-                                    tablesById.get(tblId).name(),
-                                    partId,
-                                    partitionRaftGroupName(tblId, partId))
+                                    new VersionedRowStore(internalTbl.storage().getOrCreatePartition(partId), txManager)),
+                            () -> new RebalanceRaftGroupEventsListener(
+                                    metaStorageMgr,
+                                    tablesCfg.tables().get(tablesById.get(tblId).name()),
+                                    partitionRaftGroupName(tblId, partId),
+                                    partId)
                     ).thenAccept(
-                            updatedRaftGroupService -> ((InternalTableImpl) internalTable)
+                            updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                     ).exceptionally(th -> {
                         LOG.error("Failed to update raft groups one the node", th);
@@ -1379,65 +1370,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Prepare the listener for handling configuration changes in raft group.
-     *
-     * @param tblName Name of the table.
-     * @param partNum Number of partition.
-     * @param partId Partition unique id.
-     * @return prepare listener.
-     *
-     * @see RaftGroupEventsListener
-     */
-    private RaftGroupEventsListener raftGroupEventsListener(String tblName, int partNum,
-            String partId) {
-        return new RaftGroupEventsListener() {
-            @Override
-            public void onLeaderElected() {
-            }
-
-            @Override
-            public void onNewPeersConfigurationApplied(List<PeerId> peers) {
-                Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
-                        Set.of(partAssignmentsPlannedKey(partId), partAssignmentsPendingKey(partId))).join();
-
-                Entry plannedEntry = keys.get(partAssignmentsPlannedKey(partId));
-                Entry pendingEntry = keys.get(partAssignmentsPendingKey(partId));
-
-                tablesCfg.tables().get(tblName).change(ch -> {
-                    List<List<ClusterNode>> assignments =
-                            (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-                    assignments.set(partNum, ((List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value())));
-                    ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-                });
-
-                if (plannedEntry.value() != null) {
-                    if (!metaStorageMgr.invoke(If.iif(
-                            revision(partAssignmentsPlannedKey(partId)).eq(plannedEntry.revision()),
-                            ops(
-                                    put(partAssignmentsStableKey(partId), pendingEntry.value()),
-                                    put(partAssignmentsPendingKey(partId), plannedEntry.value()),
-                                    remove(partAssignmentsPlannedKey(partId)))
-                                    .yield(true),
-                            ops().yield(false))).join().getAsBoolean()) {
-                        onNewPeersConfigurationApplied(peers);
-                    }
-                } else {
-                    if (!metaStorageMgr.invoke(If.iif(
-                            notExists(partAssignmentsPlannedKey(partId)),
-                            ops(put(partAssignmentsStableKey(partId), pendingEntry.value()),
-                                remove(partAssignmentsPendingKey(partId))).yield(true),
-                            ops().yield(false))).join().getAsBoolean()) {
-                        onNewPeersConfigurationApplied(peers);
-                    }
-                }
-            }
-
-            @Override
-            public void onReconfigurationError(Status status) {}
-        };
-    }
-
-    /**
      * Register the new meta storage listener for changes in pending partitions.
      */
     private void registerRebalanceListeners() {
@@ -1455,20 +1387,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 TableImpl tbl = tablesByIdVv.latest().get(tblId);
 
+                ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
+
                 String grpId = partitionRaftGroupName(tblId, part);
 
                 Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
                         new VersionedRowStore(
-                                tablesByIdVv.latest().get(tblId).internalTable().storage().getOrCreatePartition(part), txManager));
+                                tbl.internalTable().storage().getOrCreatePartition(part), txManager));
 
-                Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> raftGroupEventsListener(
-                        tablesByIdVv.latest().get(tblId).name(),
-                        part,
-                        grpId);
+                Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
+                        metaStorageMgr,
+                        tblCfg,
+                        grpId,
+                        part);
 
 
                 List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
-                        ByteUtils.fromBytes(((ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name())).assignments().value());
+                        ByteUtils.fromBytes(tblCfg.assignments().value());
 
                 List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
 
@@ -1506,26 +1441,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.error("Error while processing pending assignments event", e);
             }
         });
-    }
-
-    /**
-     * Extract table id from pending key of partition.
-     *
-     * @param key Key.
-     * @return Table id.
-     */
-    private UUID extractTableId(ByteArray key) {
-        return UUID.fromString(key.toString().substring(PENDING_ASSIGNMENTS_PREFIX.length(), PENDING_ASSIGNMENTS_PREFIX.length() + 36));
-    }
-
-    /**
-     * Extract partition number from the pending key of partition.
-     *
-     * @param key Key.
-     * @return Partition number.
-     */
-    private int extractPartitionNumber(ByteArray key) {
-        return Integer.parseInt(key.toString().substring(PENDING_ASSIGNMENTS_PREFIX.length() + 36 + "_part_".length()));
     }
 
     /**
