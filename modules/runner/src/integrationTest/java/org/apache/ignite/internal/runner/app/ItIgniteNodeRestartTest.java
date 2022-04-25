@@ -257,6 +257,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         clusterCfgMgr.configurationRegistry(),
                         getPartitionsStorePath(dir)

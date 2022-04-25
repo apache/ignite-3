@@ -2,11 +2,11 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.schema;
 
 /**
- * Enumerates the Ignite specific options for CREATE TABLE statement.
+ * Extended binary row interface.
  */
-public enum IgniteSqlCreateTableOptionEnum {
-    /** A number of partition replicas. */
-    REPLICAS,
-
-    /** A number of partitions. */
-    PARTITIONS,
+public interface BinaryRowEx extends BinaryRow {
+    /**
+     * Return hash of the colocation columns' values. Used to calculate destination partition.
+     */
+    int colocationHash();
 }

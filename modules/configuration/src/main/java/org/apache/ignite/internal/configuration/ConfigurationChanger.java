@@ -61,7 +61,6 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.direct.KeyPathNode;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
-import org.apache.ignite.internal.configuration.storage.StorageException;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -70,6 +69,7 @@ import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.MemberKey;
 import org.apache.ignite.internal.configuration.validation.ValidationUtil;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
 
@@ -197,8 +197,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         Data data;
 
         try {
-            data = storage.readAll();
-        } catch (StorageException e) {
+            data = storage.readAll().get();
+        } catch (ExecutionException e) {
+            throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getCause().getMessage(), e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
             throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
         }
 
@@ -320,7 +324,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     + escape(keyPathNode.key);
 
             // Data from the storage.
-            Serializable resolvedName = storage.readLatest(unresolvedNameKey);
+            Serializable resolvedName = get(storage.readLatest(unresolvedNameKey));
 
             if (resolvedName == null) {
                 throw new NoSuchElementException(prefixJoiner + KEY_SEPARATOR + escape(keyPathNode.key));
@@ -361,7 +365,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             String nameStorageKey = prefixJoiner.toString().replaceAll(quote(INTERNAL_ID) + "$", NamedListNode.NAME);
 
             // Data from the storage.
-            Serializable name = storage.readLatest(nameStorageKey);
+            Serializable name = get(storage.readLatest(nameStorageKey));
 
             if (name != null) {
                 // Id is already known.
@@ -381,7 +385,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
 
         // Data from the storage.
-        Map<String, ? extends Serializable> storageData = storage.readAllLatest(prefix);
+        Map<String, ? extends Serializable> storageData = get(storage.readAllLatest(prefix));
 
         // Data to be converted into the tree.
         Map<String, Serializable> mergedData = new HashMap<>();
@@ -426,7 +430,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     /** Stop component. */
-    public void stop() {
+    public void stop() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(pool, 10, TimeUnit.SECONDS);
 
         StorageRoots roots = storageRoots;
@@ -434,6 +438,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         if (roots != null) {
             roots.changeFuture.completeExceptionally(new NodeStoppingException());
         }
+
+        storage.close();
     }
 
     /** {@inheritDoc} */
@@ -586,5 +592,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     @Override
     public long notificationCount() {
         return notificationListenerCnt.get();
+    }
+
+    private static <T> T get(CompletableFuture<T> future) {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw new IgniteInternalException("Failed to read storage data", e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new IgniteInternalException("Failed to read storage data", e);
+        }
     }
 }

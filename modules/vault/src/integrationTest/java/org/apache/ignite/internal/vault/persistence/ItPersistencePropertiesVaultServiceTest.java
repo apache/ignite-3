@@ -22,13 +22,13 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultEntry;
@@ -41,8 +41,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 class ItPersistencePropertiesVaultServiceTest {
-    private static final int TIMEOUT_SECONDS = 1;
-
     @WorkDirectory
     private Path vaultDir;
 
@@ -60,7 +58,7 @@ class ItPersistencePropertiesVaultServiceTest {
         try (var vaultService = new PersistentVaultService(vaultDir)) {
             vaultService.start();
 
-            vaultService.putAll(data).get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            assertThat(vaultService.putAll(data), willBe(nullValue(Void.class)));
         }
 
         try (var vaultService = new PersistentVaultService(vaultDir)) {

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.tree;
 
 import static java.lang.String.format;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.anEmptyMap;
@@ -30,12 +31,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
+import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -116,7 +119,7 @@ public class NamedListNodeTest {
      * After each.
      */
     @AfterEach
-    public void after() {
+    public void after() throws Exception {
         changer.stop();
     }
 
@@ -137,11 +140,11 @@ public class NamedListNodeTest {
         String x0Id = ((NamedListNode<?>) a.second().value()).internalId("X").toString();
         String z0Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z0").toString();
 
-        Map<String, ? extends Serializable> storageValues = storage.readAll().values();
+        CompletableFuture<Map<String, ? extends Serializable>> storageValues = storage.readAll().thenApply(Data::values);
 
         assertThat(
                 storageValues,
-                is(Matchers.<Map<String, ? extends Serializable>>allOf(
+                willBe(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(8),
                         hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
@@ -162,11 +165,11 @@ public class NamedListNodeTest {
 
         String z5Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z5").toString();
 
-        storageValues = storage.readAll().values();
+        storageValues = storage.readAll().thenApply(Data::values);
 
         assertThat(
                 storageValues,
-                is(Matchers.<Map<String, ? extends Serializable>>allOf(
+                willBe(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(12),
                         hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
@@ -189,11 +192,11 @@ public class NamedListNodeTest {
 
         String z2Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z2").toString();
 
-        storageValues = storage.readAll().values();
+        storageValues = storage.readAll().thenApply(Data::values);
 
         assertThat(
                 storageValues,
-                is(Matchers.<Map<String, ? extends Serializable>>allOf(
+                willBe(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(16),
                         hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
@@ -220,11 +223,11 @@ public class NamedListNodeTest {
 
         String z3Id = ((NamedListNode<?>) a.second().get("X").third().value()).internalId("Z3").toString();
 
-        storageValues = storage.readAll().values();
+        storageValues = storage.readAll().thenApply(Data::values);
 
         assertThat(
                 storageValues,
-                is(Matchers.<Map<String, ? extends Serializable>>allOf(
+                willBe(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(20),
                         hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
@@ -252,11 +255,11 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.delete("Z2").delete("Z5")).get();
 
-        storageValues = storage.readAll().values();
+        storageValues = storage.readAll().thenApply(Data::values);
 
         assertThat(
                 storageValues,
-                is(Matchers.<Map<String, ? extends Serializable>>allOf(
+                willBe(Matchers.<Map<String, ? extends Serializable>>allOf(
                     aMapWithSize(12),
                         hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
@@ -276,11 +279,11 @@ public class NamedListNodeTest {
         // Delete keys from the middle. Indexes of Z3 should be updated to 1.
         x.third().change(xb -> xb.rename("Z0", "Z1")).get();
 
-        storageValues = storage.readAll().values();
+        storageValues = storage.readAll().thenApply(Data::values);
 
         assertThat(
                 storageValues,
-                is(Matchers.<Map<String, ? extends Serializable>>allOf(
+                willBe(Matchers.<Map<String, ? extends Serializable>>allOf(
                         aMapWithSize(12),
                         hasEntry(format("a.second.<ids>.X"), x0Id),
                         hasEntry(format("a.second.%s.str", x0Id), "foo"),
@@ -300,7 +303,7 @@ public class NamedListNodeTest {
         // Delete values on several layers simultaneously. Storage must be empty after that.
         a.second().change(b -> b.delete("X")).get();
 
-        assertThat(storage.readAll().values(), is(anEmptyMap()));
+        assertThat(storage.readAll().thenApply(Data::values), willBe(anEmptyMap()));
     }
 
     /** Tests exceptions described in methods signatures. */

@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.vault;
 
-import java.nio.charset.StandardCharsets;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,43 +61,42 @@ public class VaultManager implements IgniteComponent {
     /**
      * See {@link VaultService#get}.
      *
-     * @param key Key. Couldn't be {@code null}.
-     * @return An entry for the given key. Couldn't be {@code null}. If there is no mapping for the provided {@code key}, then {@code Entry}
-     *      with value that equals to {@code null} will be returned.
+     * @param key Key. Cannot be {@code null}.
+     * @return Future that resolves into an entry for the given key, or {@code null} if no such mapping exists.
      */
-    public CompletableFuture<VaultEntry> get(@NotNull ByteArray key) {
+    public CompletableFuture<VaultEntry> get(ByteArray key) {
         return vaultSvc.get(key);
     }
 
     /**
      * See {@link VaultService#put}.
      *
-     * @param key Vault key. Couldn't be {@code null}.
+     * @param key Vault key. Cannot be {@code null}.
      * @param val Value. If value is equal to {@code null}, then previous value with key will be deleted if there was any mapping.
-     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    public CompletableFuture<Void> put(@NotNull ByteArray key, byte @Nullable [] val) {
+    public CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val) {
         return vaultSvc.put(key, val);
     }
 
     /**
      * See {@link VaultService#remove}.
      *
-     * @param key Vault key. Couldn't be {@code null}.
-     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     * @param key Vault key. Cannot be {@code null}.
+     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    public CompletableFuture<Void> remove(@NotNull ByteArray key) {
+    public CompletableFuture<Void> remove(ByteArray key) {
         return vaultSvc.remove(key);
     }
 
     /**
      * See {@link VaultService#range}.
      *
-     * @param fromKey Start key of range (inclusive). Couldn't be {@code null}.
-     * @param toKey   End key of range (exclusive). Could be {@code null}.
+     * @param fromKey Start key of range (inclusive). Cannot be {@code null}.
+     * @param toKey   End key of range (exclusive). Cannot be {@code null}.
      * @return Iterator built upon entries corresponding to the given range.
      */
-    public Cursor<VaultEntry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
+    public Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
         return vaultSvc.range(fromKey, toKey);
     }
 
@@ -105,10 +104,10 @@ public class VaultManager implements IgniteComponent {
      * Inserts or updates entries with given keys and given values. If the given value in {@code vals} is {@code null}, then corresponding
      * value with key will be deleted if there was any mapping.
      *
-     * @param vals The map of keys and corresponding values. Couldn't be {@code null} or empty.
-     * @return Future representing pending completion of the operation. Couldn't be {@code null}.
+     * @param vals The map of keys and corresponding values. Cannot be {@code null} or empty.
+     * @return Future representing pending completion of the operation. Cannot be {@code null}.
      */
-    public CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
+    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         return vaultSvc.putAll(vals);
     }
 
@@ -116,22 +115,20 @@ public class VaultManager implements IgniteComponent {
      * Persist node name to the vault.
      *
      * @param name node name to persist. Cannot be null.
-     * @return future representing pending completion of the operation.
+     * @return Future representing pending completion of the operation.
      */
     public CompletableFuture<Void> putName(String name) {
         if (name.isBlank()) {
             throw new IllegalArgumentException("Name must not be empty");
         }
 
-        return put(NODE_NAME, name.getBytes(StandardCharsets.UTF_8));
+        return put(NODE_NAME, name.getBytes(UTF_8));
     }
 
     /**
      * Returns {@code CompletableFuture} which, when complete, returns the node name, if was stored earlier, or {@code null} otherwise.
      */
     public CompletableFuture<String> name() {
-        return vaultSvc.get(NODE_NAME)
-                .thenApply(VaultEntry::value)
-                .thenApply(name -> name == null ? null : new String(name, StandardCharsets.UTF_8));
+        return vaultSvc.get(NODE_NAME).thenApply(name -> name == null ? null : new String(name.value(), UTF_8));
     }
 }

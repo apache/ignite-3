@@ -26,14 +26,14 @@ import java.util.List;
 public class InitClusterRequest {
     @SuppressWarnings("unused")
     @JsonProperty
-    private final List<String> metastorageNodes;
+    private final List<String> metaStorageNodes;
 
     @SuppressWarnings("unused")
     @JsonProperty
     private final List<String> cmgNodes;
 
-    public InitClusterRequest(List<String> metastorageNodes, List<String> cmgNodes) {
-        this.metastorageNodes = List.copyOf(metastorageNodes);
+    public InitClusterRequest(List<String> metaStorageNodes, List<String> cmgNodes) {
+        this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = List.copyOf(cmgNodes);
     }
 }

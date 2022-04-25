@@ -36,7 +36,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOptionEnum",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
@@ -48,9 +47,8 @@ data: {
       "COLOCATE"
       "SEMI"
       "IF"
-      "REPLICAS"
-      "PARTITIONS"
       "INDEX"
+      "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
     ]
 
@@ -58,8 +56,7 @@ data: {
     # items in this list become non-reserved
     nonReservedKeywords: [
       "SEMI"
-      "REPLICAS"
-      "PARTITIONS"
+      "ENGINE"
 #     "KEY_TYPE" // already presented in Calcite
 
       # The following keywords are reserved in core Calcite,

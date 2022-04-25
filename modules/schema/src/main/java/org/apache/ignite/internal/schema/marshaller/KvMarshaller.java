@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +41,7 @@ public interface KvMarshaller<K, V> {
      * @return Table row with columns from given key-value pair.
      * @throws MarshallerException If failed to marshal key and/or value.
      */
-    BinaryRow marshal(@NotNull K key) throws MarshallerException;
+    Row marshal(@NotNull K key) throws MarshallerException;
 
     /**
      * Marshal given key and value objects to a table row.
@@ -52,7 +51,7 @@ public interface KvMarshaller<K, V> {
      * @return Table row with columns from given key-value pair.
      * @throws MarshallerException If failed to marshal key and/or value.
      */
-    BinaryRow marshal(@NotNull K key, V val) throws MarshallerException;
+    Row marshal(@NotNull K key, V val) throws MarshallerException;
 
     /**
      * Unmarshal given row to a key object.
