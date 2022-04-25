@@ -402,36 +402,38 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     directBuffer.limit(ROW_PREFIX_SIZE);
 
+                    boolean wrongRowIdWasFound = !directBuffer.equals(seekKeyBufSliceWithoutTimestamp);
+
                     // To understand this condition please read that huge comment above.
-                    if (timestamp == null || !directBuffer.equals(seekKeyBufSliceWithoutTimestamp)) {
+                    if (timestamp == null || wrongRowIdWasFound) {
                         // Copy actual row id into a "seekKeyBuf" buffer.
                         GridUnsafe.copyMemory(
                                 null, GridUnsafe.bufferAddress(directBuffer) + ROW_ID_OFFSET,
                                 seekKeyBuf.array(), GridUnsafe.BYTE_ARR_OFF + ROW_ID_OFFSET,
                                 ROW_ID_SIZE
                         );
+                    }
 
-                        // Perform additional "seek" if timestamp is not null. Motivation for it is described in comments above.
-                        if (timestamp != null) {
-                            // At this point, "seekKeyBuf" has row id that exists in partition.
-                            it.seek(seekKeyBuf.array());
+                    // Perform additional "seek" if timestamp is not null. Motivation for it is described in comments above.
+                    if (timestamp != null && wrongRowIdWasFound) {
+                        // At this point, "seekKeyBuf" has row id that exists in partition.
+                        it.seek(seekKeyBuf.array());
 
-                            // Iterator may not be valid if that row was created after required timestamp.
-                            if (invalid(it)) {
-                                return false;
-                            }
+                        // Iterator may not be valid if that row was created after required timestamp.
+                        if (invalid(it)) {
+                            return false;
+                        }
 
-                            // Or iterator may still be valid even if there's no version for required timestamp. In this case row id
-                            // itself will be different and we must check it.
-                            keyLength = it.key(directBuffer.limit(MAX_KEY_SIZE));
+                        // Or iterator may still be valid even if there's no version for required timestamp. In this case row id
+                        // itself will be different and we must check it.
+                        keyLength = it.key(directBuffer.limit(MAX_KEY_SIZE));
 
-                            valueHasTxId = keyLength == ROW_PREFIX_SIZE;
+                        valueHasTxId = keyLength == ROW_PREFIX_SIZE;
 
-                            directBuffer.limit(ROW_PREFIX_SIZE);
+                        directBuffer.limit(ROW_PREFIX_SIZE);
 
-                            if (!directBuffer.equals(seekKeyBufSliceWithoutTimestamp)) {
-                                found = false;
-                            }
+                        if (!directBuffer.equals(seekKeyBufSliceWithoutTimestamp)) {
+                            found = false;
                         }
                     }
 
