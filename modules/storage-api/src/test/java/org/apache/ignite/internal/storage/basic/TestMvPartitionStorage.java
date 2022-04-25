@@ -127,14 +127,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return res[0];
     }
 
-    private void cleanupIndexesForAbortedRow(VersionChain versionChain, IgniteRowId rowId) {
-        if (versionChain.row != null) {
-            for (TestSortedIndexMvStorage index : indexes) {
-                abortWrite(rowId, versionChain.next, versionChain.row, index);
-            }
-        }
-    }
-
     private void abortWrite(IgniteRowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
         for (VersionChain cur = head; cur != null; cur = cur.next) {
             if (index.matches(aborted, cur.row)) {
@@ -143,6 +135,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         }
 
         index.remove(aborted, rowId);
+    }
+
+    private void cleanupIndexesForAbortedRow(VersionChain versionChain, IgniteRowId rowId) {
+        if (versionChain.row != null) {
+            for (TestSortedIndexMvStorage index : indexes) {
+                abortWrite(rowId, versionChain.next, versionChain.row, index);
+            }
+        }
     }
 
     /** {@inheritDoc} */

@@ -56,9 +56,9 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @param rowId Row id.
      * @param row Binary row to update. Key only row means value removal.
      * @param txId Transaction id.
+     * @return Previour row associated with the row id.
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
-     * @return Previour row associated with the row id.
      */
     @Nullable BinaryRow addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
 
@@ -66,8 +66,8 @@ public interface MvPartitionStorage extends AutoCloseable {
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
      * @param rowId Row id.
-     * @throws StorageException If failed to write data to the storage.
      * @return Previour row associated with the row id.
+     * @throws StorageException If failed to write data to the storage.
      */
     @Nullable BinaryRow abortWrite(IgniteRowId rowId) throws StorageException;
 
