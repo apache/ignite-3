@@ -235,7 +235,7 @@ class RocksDbTableStorage implements TableStorage {
     // This API is not yet ready. But we need to test mv storages anyways.
     @TestOnly
     public RocksDbMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new RocksDbMvPartitionStorage(16, partitionId, db, partitionCf.handle());
+        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle());
     }
 
     /** {@inheritDoc} */

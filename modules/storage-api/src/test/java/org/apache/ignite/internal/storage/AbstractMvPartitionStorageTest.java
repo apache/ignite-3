@@ -74,14 +74,18 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        pk.addWrite(rowId, binaryRow, UUID.randomUUID());
+        UUID txId = UUID.randomUUID();
+
+        IgniteRowId rowId = pk.insert(binaryRow, txId);
 
         // Attempt to write from another transaction.
         assertThrows(TxIdMismatchException.class, () -> pk.addWrite(rowId, binaryRow, UUID.randomUUID()));
+
+        // Write from the same transaction.
+        pk.addWrite(rowId, binaryRow, txId);
 
         // Read without timestamp returns uncommited row.
         assertEquals(value, value(pk.read(rowId, null)));
@@ -99,9 +103,8 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
 
-        pk.addWrite(rowId, binaryRow(key, value), UUID.randomUUID());
+        IgniteRowId rowId = pk.insert(binaryRow(key, value), UUID.randomUUID());
 
         pk.abortWrite(rowId);
 
@@ -118,11 +121,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        pk.addWrite(rowId, binaryRow, UUID.randomUUID());
+        IgniteRowId rowId = pk.insert(binaryRow, UUID.randomUUID());
 
         Timestamp tsBefore = Timestamp.nextVersion();
 
@@ -197,14 +199,12 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         TestKey key1 = new TestKey(1, "1");
         TestValue value1 = new TestValue(10, "xxx");
-        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId(0);
 
         TestKey key2 = new TestKey(2, "2");
         TestValue value2 = new TestValue(20, "yyy");
-        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId(0);
 
-        pk.addWrite(rowId1, binaryRow(key1, value1), UUID.randomUUID());
-        pk.addWrite(rowId2, binaryRow(key2, value2), UUID.randomUUID());
+        IgniteRowId rowId1 = pk.insert(binaryRow(key1, value1), UUID.randomUUID());
+        IgniteRowId rowId2 = pk.insert(binaryRow(key2, value2), UUID.randomUUID());
 
         // Scan with and without filters.
         assertEquals(List.of(value1, value2), convert(pk.scan(row -> true, null)));
@@ -238,15 +238,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
         MvPartitionStorage pk = partitionStorage();
 
         TestValue value1 = new TestValue(10, "xxx");
-        IgniteRowId rowId1 = UuidIgniteRowId.randomRowId(0);
 
         TestValue value2 = new TestValue(20, "yyy");
-        IgniteRowId rowId2 = UuidIgniteRowId.randomRowId(0);
 
-        pk.addWrite(rowId1, binaryRow(new TestKey(1, "1"), value1), UUID.randomUUID());
+        IgniteRowId rowId1 = pk.insert(binaryRow(new TestKey(1, "1"), value1), UUID.randomUUID());
         pk.commitWrite(rowId1, Timestamp.nextVersion());
 
-        pk.addWrite(rowId2, binaryRow(new TestKey(2, "2"), value2), UUID.randomUUID());
+        IgniteRowId rowId2 = pk.insert(binaryRow(new TestKey(2, "2"), value2), UUID.randomUUID());
         pk.commitWrite(rowId2, Timestamp.nextVersion());
 
         Cursor<BinaryRow> cursor = pk.scan(row -> true, null);

@@ -25,7 +25,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * UUID-based ignite row id implementation.
  */
-public class UuidIgniteRowId implements IgniteRowId {
+public final class UuidIgniteRowId implements IgniteRowId {
     /*
      * The most significant 64 bits.
      */
@@ -73,8 +73,14 @@ public class UuidIgniteRowId implements IgniteRowId {
         return (int) (leastSigBits & 0xFFFFL);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Writes row id into a byte buffer. Binary row representation should match natural order defined by {@link #compareTo(Object)} when
+     * comparing lexicographically.
+     *
+     * @param buf Output byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
+     * @param signedBytesCompare Defines properties of a target binary comparator. {@code true} if bytes are compared as signed values,
+     *      {@code false} if unsigned.
+     */
     public void writeTo(ByteBuffer buf, boolean signedBytesCompare) {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 
@@ -84,8 +90,14 @@ public class UuidIgniteRowId implements IgniteRowId {
         buf.putLong(mask ^ leastSigBits);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Compares row id with a byte buffer, previously written by a {@link #writeTo(ByteBuffer, boolean)} method.
+     *
+     * @param buf Input byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
+     * @param signedBytesCompare Defines properties of a binary comparator. {@code true} if bytes are compared as signed values,
+     *      {@code false} if unsigned.
+     * @return A negative integer, zero, or a positive integer as this row id is less than, equal to, or greater than the specified row id.
+     */
     public int compareTo(ByteBuffer buf, boolean signedBytesCompare) {
         assert buf.order() == ByteOrder.BIG_ENDIAN;
 

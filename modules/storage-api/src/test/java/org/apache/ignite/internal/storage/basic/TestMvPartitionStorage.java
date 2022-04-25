@@ -27,7 +27,9 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.IgniteRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.UuidIgniteRowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -68,10 +70,30 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
+    public IgniteRowId insert(BinaryRow row, UUID txId) throws StorageException {
+        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+
+        addWrite(rowId, row, txId);
+
+        return rowId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
+        BinaryRow[] res = {null};
+
         map.compute(rowId, (ignored, versionChain) -> {
-            if (versionChain != null && versionChain.begin == null && !txId.equals(versionChain.txId)) {
-                throw new TxIdMismatchException();
+            if (versionChain != null && versionChain.begin == null) {
+                if (!txId.equals(versionChain.txId)) {
+                    throw new TxIdMismatchException();
+                }
+
+                cleanupIndexesForAbortedRow(versionChain, rowId);
+
+                res[0] = versionChain.row;
+
+                return VersionChain.createUncommitted(row, txId, versionChain.next);
             }
 
             return VersionChain.createUncommitted(row, txId, versionChain);
@@ -82,25 +104,35 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                 index.append(row, rowId);
             }
         }
+
+        return res[0];
     }
 
     /** {@inheritDoc} */
     @Override
-    public void abortWrite(IgniteRowId rowId) {
+    public @Nullable BinaryRow abortWrite(IgniteRowId rowId) {
+        BinaryRow[] res = {null};
+
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
-            BinaryRow aborted = versionChain.row;
+            cleanupIndexesForAbortedRow(versionChain, rowId);
 
-            if (aborted != null) {
-                for (TestSortedIndexMvStorage index : indexes) {
-                    abortWrite(rowId, versionChain.next, aborted, index);
-                }
-            }
+            res[0] = versionChain.row;
 
             return versionChain.next;
         });
+
+        return res[0];
+    }
+
+    private void cleanupIndexesForAbortedRow(VersionChain versionChain, IgniteRowId rowId) {
+        if (versionChain.row != null) {
+            for (TestSortedIndexMvStorage index : indexes) {
+                abortWrite(rowId, versionChain.next, versionChain.row, index);
+            }
+        }
     }
 
     private void abortWrite(IgniteRowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {

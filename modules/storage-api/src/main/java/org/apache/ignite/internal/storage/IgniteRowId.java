@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import java.nio.ByteBuffer;
-
 /**
  * Interface that represents row id in primary index of the table.
  *
@@ -26,32 +24,7 @@ import java.nio.ByteBuffer;
  */
 public interface IgniteRowId extends Comparable<IgniteRowId> {
     /**
-     * Maximum possible row id size in bytes. If PK columns exceed this size, then UUID-based row id should be used.
-     */
-    final int MAX_ROW_ID_SIZE = 16;
-
-    /**
      * Returns a partition id for current row id.
      */
     int partitionId();
-
-    /**
-     * Writes row id into a byte buffer. Binary row representation should match natural order defined by {@link #compareTo(Object)} when
-     * comparing lexicographically.
-     *
-     * @param buf Output byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
-     * @param signedBytesCompare Defines properties of a target binary comparator. {@code true} if bytes are compared as signed values,
-     *      {@code false} if unsigned.
-     */
-    void writeTo(ByteBuffer buf, boolean signedBytesCompare);
-
-    /**
-     * Compares row id with a byte buffer, previously written by a {@link #writeTo(ByteBuffer, boolean)} method.
-     *
-     * @param buf Input byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
-     * @param signedBytesCompare Defines properties of a binary comparator. {@code true} if bytes are compared as signed values,
-     *      {@code false} if unsigned.
-     * @return A negative integer, zero, or a positive integer as this row id is less than, equal to, or greater than the specified row id.
-     */
-    int compareTo(ByteBuffer buf, boolean signedBytesCompare);
 }
