@@ -24,14 +24,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
@@ -54,9 +55,11 @@ public class PersistentVaultService implements VaultService {
         RocksDB.loadLibrary();
     }
 
-    private final ExecutorService threadPool = Executors.newFixedThreadPool(2);
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(4, new NamedThreadFactory("vault"));
 
-    private final Options options = new Options();
+    private final InFlightFutures futureTracker = new InFlightFutures();
+
+    private final Options options = options();
 
     private volatile RocksDB db;
 
@@ -72,13 +75,9 @@ public class PersistentVaultService implements VaultService {
         this.path = path;
     }
 
-    /**
-     * Creates and starts the RocksDB instance using the recommended options on the given {@code path}.
-     */
-    @Override
-    public void start() {
+    private static Options options() {
         // using the recommended options from https://github.com/facebook/rocksdb/wiki/Setup-Options-and-Basic-Tuning
-        options
+        return new Options()
                 .setCreateIfMissing(true)
                 .setCompressionType(CompressionType.LZ4_COMPRESSION)
                 .setBottommostCompressionType(CompressionType.ZSTD_COMPRESSION)
@@ -94,7 +93,10 @@ public class PersistentVaultService implements VaultService {
                                 .setFilterPolicy(new BloomFilter(10, false))
                                 .setOptimizeFiltersForMemory(true)
                 );
+    }
 
+    @Override
+    public void start() {
         try {
             db = RocksDB.open(options, path.toString());
         } catch (RocksDBException e) {
@@ -104,49 +106,59 @@ public class PersistentVaultService implements VaultService {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
-        // TODO: IGNITE-15161 Implement component's stop.
-        try {
-            close();
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(e);
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void close() throws RocksDBException {
-        db.syncWal();
-
+    public void close() throws Exception {
         IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
 
-        options.close();
+        futureTracker.cancelInFlightFutures();
 
-        db.close();
+        IgniteUtils.closeAll(options, db);
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<VaultEntry> get(@NotNull ByteArray key) {
-        return supplyAsync(() -> db.get(key.bytes()))
-                .thenApply(v -> new VaultEntry(key, v));
+    public CompletableFuture<VaultEntry> get(ByteArray key) {
+        return supplyAsync(() -> {
+            try {
+                byte[] value = db.get(key.bytes());
+
+                return value == null ? null : new VaultEntry(key, value);
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException("Unable to read data from RocksDB", e);
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> put(@NotNull ByteArray key, byte @Nullable [] val) {
-        return val == null ? remove(key) : runAsync(() -> db.put(key.bytes(), val));
+    public CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val) {
+        return runAsync(() -> {
+            try {
+                if (val == null) {
+                    db.delete(key.bytes());
+                } else {
+                    db.put(key.bytes(), val);
+                }
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException("Unable to write data to RocksDB", e);
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> remove(@NotNull ByteArray key) {
-        return runAsync(() -> db.delete(key.bytes()));
+    public CompletableFuture<Void> remove(ByteArray key) {
+        return runAsync(() -> {
+            try {
+                db.delete(key.bytes());
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException("Unable to remove data to RocksDB", e);
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull Cursor<VaultEntry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
+    public Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
         var readOpts = new ReadOptions();
 
         var upperBound = new Slice(toKey.bytes());
@@ -174,7 +186,7 @@ public class PersistentVaultService implements VaultService {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
+    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         return runAsync(() -> {
             try (
                     var writeBatch = new WriteBatch();
@@ -189,49 +201,25 @@ public class PersistentVaultService implements VaultService {
                 }
 
                 db.write(writeOpts, writeBatch);
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException("Unable to write data to RocksDB", e);
             }
         });
     }
 
-    /**
-     * Same as a {@link Supplier} but throws the {@link RocksDBException}.
-     */
-    @FunctionalInterface
-    private static interface RocksSupplier<T> {
-        T supply() throws RocksDBException;
+    private <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
+        CompletableFuture<T> future = CompletableFuture.supplyAsync(supplier, threadPool);
+
+        futureTracker.registerFuture(future);
+
+        return future;
     }
 
-    /**
-     * Executes the given {@code supplier} on the internal thread pool.
-     */
-    private <T> CompletableFuture<T> supplyAsync(RocksSupplier<T> supplier) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return supplier.supply();
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException(e);
-            }
-        }, threadPool);
-    }
+    private CompletableFuture<Void> runAsync(Runnable runnable) {
+        CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, threadPool);
 
-    /**
-     * Same as a {@link Runnable} but throws the {@link RocksDBException}.
-     */
-    @FunctionalInterface
-    private static interface RocksRunnable {
-        void run() throws RocksDBException;
-    }
+        futureTracker.registerFuture(future);
 
-    /**
-     * Executes the given {@code runnable} on the internal thread pool.
-     */
-    private CompletableFuture<Void> runAsync(RocksRunnable runnable) {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                runnable.run();
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException(e);
-            }
-        }, threadPool);
+        return future;
     }
 }

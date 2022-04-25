@@ -25,10 +25,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.LogStorageFactory;
+import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -46,6 +50,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Database path. */
     private final Path path;
 
+    /** Executor for shared storages. */
+    private final ExecutorService executorService;
+
     /** Database instance shared across log storages. */
     private RocksDB db;
 
@@ -58,8 +65,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** Data column family handle. */
     private ColumnFamilyHandle dataHandle;
 
+    /**
+     * Constructor.
+     *
+     * @param path Path to the storage.
+     */
     public DefaultLogStorageFactory(Path path) {
         this.path = path;
+
+        executorService = Executors.newFixedThreadPool(
+                Runtime.getRuntime().availableProcessors() * 2,
+                new NamedThreadFactory("raft-shared-log-storage-pool")
+        );
     }
 
     /** {@inheritDoc} */
@@ -107,13 +124,15 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
+        ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
+
         IgniteUtils.closeAll(confHandle, dataHandle, db, dbOptions);
     }
 
     /** {@inheritDoc} */
     @Override
     public LogStorage getLogStorage(String groupId, RaftOptions raftOptions) {
-        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions);
+        return new RocksDbSharedLogStorage(db, confHandle, dataHandle, groupId, raftOptions, executorService);
     }
 
     /**

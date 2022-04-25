@@ -26,8 +26,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -45,7 +44,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.BytesUtil;
 import org.apache.ignite.raft.jraft.util.Describer;
-import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.rocksdb.ColumnFamilyHandle;
@@ -117,14 +115,17 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** RW lock. */
     private final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
-    /** Read lock. */
-    private final Lock readLock = this.readWriteLock.readLock();
+    /** Storage use lock. Non-exclusive. */
+    private final Lock useLock = this.readWriteLock.readLock();
 
-    /** Write lock. */
-    private final Lock writeLock = this.readWriteLock.writeLock();
+    /** Storage manage lock. Exclusive. */
+    private final Lock manageLock = this.readWriteLock.writeLock();
+
+    /** Flag indicating whether storage is stopped. Guarded by readWriteLock. */
+    private boolean stopped = false;
 
     /** Executor that handles prefix truncation. */
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Executor executor;
 
     /** Log entry encoder. */
     private LogEntryEncoder logEntryEncoder;
@@ -144,8 +145,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             ColumnFamilyHandle confHandle,
             ColumnFamilyHandle dataHandle,
             String groupId,
-            RaftOptions raftOptions
+            RaftOptions raftOptions,
+            Executor executor
     ) {
+        Requires.requireNonNull(db);
+        Requires.requireNonNull(confHandle);
+        Requires.requireNonNull(dataHandle);
+        Requires.requireNonNull(executor);
+
         Requires.requireTrue(
                 groupId.indexOf(0) == -1,
                 "Raft group id " + groupId + " must not contain char(0)"
@@ -158,6 +165,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         this.db = db;
         this.confHandle = confHandle;
         this.dataHandle = dataHandle;
+        this.executor = executor;
         this.groupStartPrefix = (groupId + (char) 0).getBytes(StandardCharsets.UTF_8);
         this.groupEndPrefix = (groupId + (char) 1).getBytes(StandardCharsets.UTF_8);
         this.groupStartBound = new Slice(groupStartPrefix);
@@ -172,7 +180,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     public boolean init(LogStorageOptions opts) {
         Requires.requireNonNull(opts.getConfigurationManager(), "Null conf manager");
         Requires.requireNonNull(opts.getLogEntryCodecFactory(), "Null log entry codec factory");
-        this.writeLock.lock();
+        this.manageLock.lock();
         try {
             this.logEntryDecoder = opts.getLogEntryCodecFactory().decoder();
             this.logEntryEncoder = opts.getLogEntryCodecFactory().encoder();
@@ -181,7 +189,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
             return initAndLoad(opts.getConfigurationManager());
         } finally {
-            this.writeLock.unlock();
+            this.manageLock.unlock();
         }
     }
 
@@ -252,7 +260,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Save the first log index into conf column family.
      */
     private boolean saveFirstLogIndex(long firstLogIndex) {
-        this.readLock.lock();
+        this.useLock.lock();
         try {
             byte[] vs = new byte[8];
             LONG_ARRAY_HANDLE.set(vs, 0, firstLogIndex);
@@ -262,26 +270,32 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             LOG.error("Fail to save first log index {}.", e, firstLogIndex);
             return false;
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void shutdown() {
-        this.writeLock.lock();
+        this.manageLock.lock();
 
         try {
+            if (stopped) {
+                return;
+            }
+
+            stopped = true;
+
             onShutdown();
         } finally {
-            this.writeLock.unlock();
+            this.manageLock.unlock();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public long getFirstLogIndex() {
-        this.readLock.lock();
+        this.useLock.lock();
 
         try {
             if (this.hasLoadFirstLogIndex) {
@@ -305,14 +319,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 return 1L;
             }
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public long getLastLogIndex() {
-        this.readLock.lock();
+        this.useLock.lock();
 
         try (
                 var readOptions = new ReadOptions().setIterateLowerBound(groupStartBound);
@@ -327,14 +341,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
             return 0L;
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public LogEntry getEntry(long index) {
-        this.readLock.lock();
+        this.useLock.lock();
         try {
             if (this.hasLoadFirstLogIndex && index < this.firstLogIndex) {
                 return null;
@@ -356,7 +370,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } catch (RocksDBException e) {
             LOG.error("Fail to get log entry at index {}.", e, index);
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
         return null;
     }
@@ -381,12 +395,13 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         if (entry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
             return executeBatch(batch -> addConfBatch(entry, batch));
         } else {
-            this.readLock.lock();
+            this.useLock.lock();
             try {
-                if (this.db == null) {
-                    LOG.warn("DB not initialized or destroyed.");
+                if (stopped) {
+                    LOG.warn("Storage stopped.");
                     return false;
                 }
+
                 WriteContext writeCtx = newWriteContext();
                 long logIndex = entry.getId().getIndex();
                 byte[] valueBytes = this.logEntryEncoder.encode(entry);
@@ -405,7 +420,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
                 Thread.currentThread().interrupt();
                 return false;
             } finally {
-                this.readLock.unlock();
+                this.useLock.unlock();
             }
         }
     }
@@ -445,7 +460,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** {@inheritDoc} */
     @Override
     public boolean truncateSuffix(long lastIndexKept) {
-        this.readLock.lock();
+        this.useLock.lock();
         try {
             try {
                 onTruncateSuffix(lastIndexKept);
@@ -459,7 +474,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } catch (RocksDBException | IOException e) {
             LOG.error("Fail to truncateSuffix {}.", e, lastIndexKept);
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
         return false;
     }
@@ -470,7 +485,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         if (nextLogIndex <= 0) {
             throw new IllegalArgumentException("Invalid next log index.");
         }
-        this.writeLock.lock();
+        this.manageLock.lock();
 
         LogEntry entry = getEntry(nextLogIndex);
         try {
@@ -494,14 +509,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             LOG.error("Fail to reset next log index.", e);
             return false;
         } finally {
-            this.writeLock.unlock();
+            this.manageLock.unlock();
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean truncatePrefix(long firstIndexKept) {
-        this.readLock.lock();
+        this.useLock.lock();
         try {
             long startIndex = getFirstLogIndex();
             boolean ret = saveFirstLogIndex(firstIndexKept);
@@ -514,7 +529,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
 
             return ret;
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
     }
 
@@ -531,13 +546,14 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * @param template write batch template
      */
     private boolean executeBatch(WriteBatchTemplate template) {
-        this.readLock.lock();
-        if (this.db == null) {
-            LOG.warn("DB not initialized or destroyed.");
-            this.readLock.unlock();
-            return false;
-        }
+        this.useLock.lock();
+
         try (WriteBatch batch = new WriteBatch()) {
+            if (stopped) {
+                LOG.warn("Storage stopped.");
+                return false;
+            }
+
             template.execute(batch);
             this.db.write(this.writeOptions, batch);
         } catch (RocksDBException e) {
@@ -551,7 +567,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
             Thread.currentThread().interrupt();
             return false;
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
         return true;
     }
@@ -566,18 +582,21 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     private void truncatePrefixInBackground(long startIndex, long firstIndexKept) {
         // delete logs in background.
         Utils.runInThread(executor, () -> {
-            this.readLock.lock();
+            this.useLock.lock();
             try {
-                if (this.db == null) {
+                if (stopped) {
                     return;
                 }
+
                 onTruncatePrefix(startIndex, firstIndexKept);
-                this.db.deleteRange(this.dataHandle, createKey(startIndex), createKey(firstIndexKept));
-                this.db.deleteRange(this.confHandle, createKey(startIndex), createKey(firstIndexKept));
+                byte[] startKey = createKey(startIndex);
+                byte[] endKey = createKey(firstIndexKept);
+                this.db.deleteRange(this.dataHandle, startKey, endKey);
+                this.db.deleteRange(this.confHandle, startKey, endKey);
             } catch (RocksDBException | IOException e) {
                 LOG.error("Fail to truncatePrefix {}.", e, firstIndexKept);
             } finally {
-                this.readLock.unlock();
+                this.useLock.unlock();
             }
         });
     }
@@ -586,13 +605,12 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * Called upon closing the storage.
      */
     protected void onShutdown() {
-        ExecutorServiceHelper.shutdownAndAwaitTermination(executor);
-
         writeOptions.close();
         groupEndBound.close();
         groupStartBound.close();
     }
 
+    @SuppressWarnings("SameParameterValue")
     private byte[] createKey(byte[] key) {
         var buffer = new byte[groupStartPrefix.length + key.length];
 
@@ -624,6 +642,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * @param value the data value in log entry.
      * @return the new value
      */
+    @SuppressWarnings("unused")
     protected byte[] onDataAppend(long logIndex, byte[] value, WriteContext ctx) throws IOException, InterruptedException {
         ctx.finishJob();
         return value;
@@ -632,6 +651,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /**
      * Called when sync data into file system.
      */
+    @SuppressWarnings("RedundantThrows")
     protected void onSync() throws IOException, InterruptedException {
     }
 
@@ -647,6 +667,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      *
      * @param nextLogIndex next log index
      */
+    @SuppressWarnings("unused")
     protected void onReset(long nextLogIndex) {
     }
 
@@ -656,6 +677,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      * @param startIndex the start index
      * @param firstIndexKept the first index to kept
      */
+    @SuppressWarnings("unused")
     protected void onTruncatePrefix(long startIndex, long firstIndexKept) throws RocksDBException,
             IOException {
     }
@@ -665,6 +687,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
      *
      * @param lastIndexKept the last index to kept
      */
+    @SuppressWarnings("unused")
     protected void onTruncateSuffix(long lastIndexKept) throws RocksDBException, IOException {
     }
 
@@ -695,7 +718,8 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         /**
          * Adds a callback that will be invoked after all sub jobs finish.
          */
-        default void addFinishHook(Runnable r) {
+        @SuppressWarnings("unused")
+        default void addFinishHook(@SuppressWarnings("unused") Runnable r) {
 
         }
 
@@ -704,7 +728,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
          *
          * @param e exception
          */
-        default void setError(Exception e) {
+        default void setError(@SuppressWarnings("unused") Exception e) {
         }
 
         /**
@@ -717,7 +741,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
     /** {@inheritDoc} */
     @Override
     public void describe(final Printer out) {
-        this.readLock.lock();
+        this.useLock.lock();
         try {
             if (this.db != null) {
                 out.println(this.db.getProperty("rocksdb.stats"));
@@ -725,7 +749,7 @@ public class RocksDbSharedLogStorage implements LogStorage, Describer {
         } catch (final RocksDBException e) {
             out.println(e);
         } finally {
-            this.readLock.unlock();
+            this.useLock.unlock();
         }
     }
 }
