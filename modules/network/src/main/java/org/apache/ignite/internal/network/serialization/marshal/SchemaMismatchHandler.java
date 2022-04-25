@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+
 /**
  * Handles situations when the schema that was used to serialize an object (remote schema) is different from the
  * schema used to deserialize the object (local schema).
@@ -65,6 +68,31 @@ public interface SchemaMismatchHandler<T> {
      * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
      */
     default void onFieldTypeChanged(T instance, String fieldName, Class<?> remoteType, Object fieldValue) throws SchemaMismatchException {
-        throw new SchemaMismatchException(fieldName + " type changed, serialized as " + remoteType.getName() + ", value " + fieldValue);
+        throw new SchemaMismatchException(fieldName + " type changed, serialized as " + remoteType.getName() + ", value " + fieldValue
+                + " of type " + fieldName.getClass().getName());
+    }
+
+    /**
+     * Called when a remote class implements {@link java.io.Externalizable}, but local class does not.
+     *
+     * @param instance      the object that was constructed, but not yet filled
+     * @param externalData  externalized data that represents the object (it was written
+     *                      using {@link java.io.Externalizable#writeExternal(ObjectOutput)}
+     * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
+     */
+    default void onExternalizableIgnored(T instance, ObjectInput externalData) throws SchemaMismatchException {
+        throw new SchemaMismatchException("Class " + instance.getClass().getName()
+                + " was serialized as an Externalizable remotely, but locally it is not an Externalizable");
+    }
+
+    /**
+     * Called when a remote class does not implement {@link java.io.Externalizable}, but local class does. The method is called after
+     * all read fields are assigned to the instance.
+     *
+     * @param instance the instance that has already been filled
+     * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
+     */
+    default void onExternalizableMissed(T instance) throws SchemaMismatchException {
+        // no-op
     }
 }

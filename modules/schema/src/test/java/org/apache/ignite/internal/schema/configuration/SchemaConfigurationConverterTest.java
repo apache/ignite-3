@@ -110,7 +110,7 @@ public class SchemaConfigurationConverterTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         confRegistry.stop();
     }
 

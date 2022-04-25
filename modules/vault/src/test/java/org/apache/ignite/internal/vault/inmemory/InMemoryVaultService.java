@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.vault.inmemory;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultService;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,17 +42,9 @@ public class InMemoryVaultService implements VaultService {
     /** Mutex. */
     private final Object mux = new Object();
 
-    /** {@inheritDoc} */
     @Override
     public void start() {
         // No-op.
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void stop() {
-        // TODO: IGNITE-15161 Implement component's stop.
-        close();
     }
 
     /** {@inheritDoc} */
@@ -62,39 +55,39 @@ public class InMemoryVaultService implements VaultService {
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
-    public CompletableFuture<VaultEntry> get(@NotNull ByteArray key) {
-        synchronized (mux) {
-            return CompletableFuture.completedFuture(new VaultEntry(key, storage.get(key)));
-        }
+    public CompletableFuture<VaultEntry> get(ByteArray key) {
+        return supplyAsync(() -> {
+            synchronized (mux) {
+                byte[] value = storage.get(key);
+
+                return value == null ? null : new VaultEntry(key, storage.get(key));
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
-    public CompletableFuture<Void> put(@NotNull ByteArray key, byte @Nullable [] val) {
-        synchronized (mux) {
-            storage.put(key, val);
-
-            return CompletableFuture.completedFuture(null);
-        }
+    public CompletableFuture<Void> put(ByteArray key, byte @Nullable [] val) {
+        return runAsync(() -> {
+            synchronized (mux) {
+                storage.put(key, val);
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
-    public CompletableFuture<Void> remove(@NotNull ByteArray key) {
-        synchronized (mux) {
-            storage.remove(key);
-
-            return CompletableFuture.completedFuture(null);
-        }
+    public CompletableFuture<Void> remove(ByteArray key) {
+        return runAsync(() -> {
+            synchronized (mux) {
+                storage.remove(key);
+            }
+        });
     }
 
     /** {@inheritDoc} */
     @Override
-    @NotNull
-    public Cursor<VaultEntry> range(@NotNull ByteArray fromKey, @NotNull ByteArray toKey) {
+    public Cursor<VaultEntry> range(ByteArray fromKey, ByteArray toKey) {
         Iterator<VaultEntry> it;
 
         if (fromKey.compareTo(toKey) >= 0) {
@@ -103,7 +96,6 @@ public class InMemoryVaultService implements VaultService {
             synchronized (mux) {
                 it = storage.subMap(fromKey, toKey).entrySet().stream()
                         .map(e -> new VaultEntry(new ByteArray(e.getKey()), e.getValue()))
-                        .collect(Collectors.toList())
                         .iterator();
             }
         }
@@ -113,17 +105,17 @@ public class InMemoryVaultService implements VaultService {
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAll(@NotNull Map<ByteArray, byte[]> vals) {
-        synchronized (mux) {
-            for (var entry : vals.entrySet()) {
-                if (entry.getValue() == null) {
-                    storage.remove(entry.getKey());
-                } else {
-                    storage.put(entry.getKey(), entry.getValue());
+    public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
+        return runAsync(() -> {
+            synchronized (mux) {
+                for (var entry : vals.entrySet()) {
+                    if (entry.getValue() == null) {
+                        storage.remove(entry.getKey());
+                    } else {
+                        storage.put(entry.getKey(), entry.getValue());
+                    }
                 }
             }
-
-            return CompletableFuture.completedFuture(null);
-        }
+        });
     }
 }

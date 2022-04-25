@@ -19,7 +19,6 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.NativeType;
@@ -79,26 +78,26 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
     /** {@inheritDoc} */
     @Override
-    public BinaryRow marshal(@NotNull K key) throws MarshallerException {
+    public Row marshal(@NotNull K key) throws MarshallerException {
         assert keyClass.isInstance(key);
 
         final RowAssembler asm = createAssembler(key, null);
 
         keyMarsh.writeObject(key, asm);
 
-        return new ByteBufferRow(asm.toBytes());
+        return new Row(schema, new ByteBufferRow(asm.toBytes()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public BinaryRow marshal(@NotNull K key, V val) throws MarshallerException {
+    public Row marshal(@NotNull K key, V val) throws MarshallerException {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
         final RowAssembler asm = createAssembler(key, val);
         keyMarsh.writeObject(key, asm);
         valMarsh.writeObject(val, asm);
-        return new ByteBufferRow(asm.toBytes());
+        return new Row(schema, new ByteBufferRow(asm.toBytes()));
     }
 
     /** {@inheritDoc} */

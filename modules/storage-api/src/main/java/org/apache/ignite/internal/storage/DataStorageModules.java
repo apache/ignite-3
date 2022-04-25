@@ -111,6 +111,7 @@ public class DataStorageModules {
     public Map<String, Map<String, Class<?>>> collectSchemasFields(Collection<Class<?>> polymorphicSchemaExtensions) {
         Map<String, Class<? extends DataStorageConfigurationSchema>> schemas = polymorphicSchemaExtensions.stream()
                 .filter(DataStorageConfigurationSchema.class::isAssignableFrom)
+                .filter(not(UnknownDataStorageConfigurationSchema.class::isAssignableFrom))
                 .collect(toUnmodifiableMap(
                         schemaCls -> schemaName((Class<? extends DataStorageConfigurationSchema>) schemaCls),
                         schemaCls -> (Class<? extends DataStorageConfigurationSchema>) schemaCls

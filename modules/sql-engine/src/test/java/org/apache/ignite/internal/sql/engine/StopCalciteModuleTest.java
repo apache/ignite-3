@@ -34,6 +34,7 @@ import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
@@ -193,7 +194,7 @@ public class StopCalciteModuleTest {
                 clusterSrvc,
                 tableManager,
                 dataStorageManager,
-                tablesConfig
+                Map::of
         );
 
         when(tbl.tableId()).thenReturn(UUID.randomUUID());

@@ -38,7 +38,7 @@ public class UsageTest {
     private ConfigurationRegistry registry;
 
     @AfterEach
-    public void after() {
+    public void after() throws Exception {
         registry.stop();
     }
 

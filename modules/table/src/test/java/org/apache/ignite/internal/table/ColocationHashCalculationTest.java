@@ -36,7 +36,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.table.Tuple;
@@ -103,7 +102,7 @@ public class ColocationHashCalculationTest {
                 new Column[]{new Column("val", INT32, true).copy(keyCols.length)});
 
         Row r = generateRandomRow(rnd, schema);
-        assertEquals(colocationHash(r), ColocationUtils.colocationHash(r));
+        assertEquals(colocationHash(r), r.colocationHash());
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(new DummySchemaManagerImpl(schema));
         for (int i = 0; i < 10; ++i) {
@@ -114,7 +113,7 @@ public class ColocationHashCalculationTest {
 
             r = new Row(schema, new ByteBufferRow(marshaller.marshal(t).bytes()));
 
-            assertEquals(colocationHash(r), ColocationUtils.colocationHash(r));
+            assertEquals(colocationHash(r), r.colocationHash());
         }
     }
 

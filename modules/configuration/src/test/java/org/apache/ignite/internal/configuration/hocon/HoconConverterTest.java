@@ -221,7 +221,7 @@ public class HoconConverterTest {
      * After all.
      */
     @AfterAll
-    public static void after() {
+    public static void after() throws Exception {
         registry.stop();
 
         registry = null;

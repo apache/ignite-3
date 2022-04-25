@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.InternalIgniteTable;
@@ -191,8 +192,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     }
 
     /** Returns mapping of modifications per modification action. */
-    private Map<ModifyRow.Operation, Collection<BinaryRow>> getOperationsPerAction(List<ModifyRow> rows) {
-        Map<ModifyRow.Operation, Collection<BinaryRow>> store = new EnumMap<>(ModifyRow.Operation.class);
+    private Map<ModifyRow.Operation, Collection<BinaryRowEx>> getOperationsPerAction(List<ModifyRow> rows) {
+        Map<ModifyRow.Operation, Collection<BinaryRowEx>> store = new EnumMap<>(ModifyRow.Operation.class);
 
         for (ModifyRow tuple : rows) {
             store.computeIfAbsent(tuple.getOp(), k -> new ArrayList<>()).add(tuple.getRow());
@@ -209,10 +210,10 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         List<ModifyRow> rows = this.rows;
         this.rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
-        Map<ModifyRow.Operation, Collection<BinaryRow>> operations = getOperationsPerAction(rows);
+        Map<ModifyRow.Operation, Collection<BinaryRowEx>> operations = getOperationsPerAction(rows);
 
         // TODO: IGNITE-15087 Implement support for transactional SQL
-        for (Map.Entry<ModifyRow.Operation, Collection<BinaryRow>> op : operations.entrySet()) {
+        for (Map.Entry<ModifyRow.Operation, Collection<BinaryRowEx>> op : operations.entrySet()) {
             switch (op.getKey()) {
                 case INSERT_ROW:
                     Collection<BinaryRow> conflictKeys = tableView.insertAll(op.getValue(), null).join();
