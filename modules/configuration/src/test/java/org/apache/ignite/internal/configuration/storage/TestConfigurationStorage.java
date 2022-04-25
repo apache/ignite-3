@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration.storage;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.io.Serializable;
@@ -56,6 +57,11 @@ public class TestConfigurationStorage implements ConfigurationStorage {
         configurationType = type;
     }
 
+    @Override
+    public void close() throws Exception {
+        // No-op.
+    }
+
     /**
      * Set fail flag.
      *
@@ -67,64 +73,78 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized Map<String, Serializable> readAllLatest(String prefix) throws StorageException {
-        if (fail) {
-            throw new StorageException("Failed to read data");
-        }
+    public CompletableFuture<Map<String, ? extends Serializable>> readAllLatest(String prefix) {
+        return supplyAsync(() -> {
+            synchronized (this) {
+                if (fail) {
+                    throw new StorageException("Failed to read data");
+                }
 
-        return map.entrySet().stream()
-                .filter(e -> e.getKey().startsWith(prefix))
-                .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public synchronized Serializable readLatest(String key) throws StorageException {
-        if (fail) {
-            throw new StorageException("Failed to read data");
-        }
-
-        return map.get(key);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public synchronized Data readAll() throws StorageException {
-        if (fail) {
-            throw new StorageException("Failed to read data");
-        }
-
-        return new Data(new HashMap<>(map), version);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public synchronized CompletableFuture<Boolean> write(
-            Map<String, ? extends Serializable> newValues, long sentVersion
-    ) {
-        if (fail) {
-            return CompletableFuture.failedFuture(new StorageException("Failed to write data"));
-        }
-
-        if (sentVersion != version) {
-            return CompletableFuture.completedFuture(false);
-        }
-
-        for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
-            if (entry.getValue() != null) {
-                map.put(entry.getKey(), entry.getValue());
-            } else {
-                map.remove(entry.getKey());
+                return map.entrySet().stream()
+                        .filter(e -> e.getKey().startsWith(prefix))
+                        .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
             }
-        }
+        });
+    }
 
-        version++;
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Serializable> readLatest(String key) throws StorageException {
+        return supplyAsync(() -> {
+            synchronized (this) {
+                if (fail) {
+                    throw new StorageException("Failed to read data");
+                }
 
-        var data = new Data(newValues, version);
+                return map.get(key);
+            }
+        });
+    }
 
-        listeners.forEach(listener -> listener.onEntriesChanged(data).join());
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Data> readAll() {
+        return supplyAsync(() -> {
+            synchronized (this) {
+                if (fail) {
+                    throw new StorageException("Failed to read data");
+                }
 
-        return CompletableFuture.completedFuture(true);
+                return new Data(new HashMap<>(map), version);
+            }
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> write(Map<String, ? extends Serializable> newValues, long sentVersion) {
+        return supplyAsync(() -> {
+            synchronized (this) {
+                if (fail) {
+                    throw new StorageException("Failed to write data");
+                }
+
+                if (sentVersion != version) {
+                    return false;
+                }
+
+                for (Map.Entry<String, ? extends Serializable> entry : newValues.entrySet()) {
+                    if (entry.getValue() != null) {
+                        map.put(entry.getKey(), entry.getValue());
+                    } else {
+                        map.remove(entry.getKey());
+                    }
+                }
+
+                version++;
+
+                var data = new Data(newValues, version);
+
+                listeners.forEach(listener -> listener.onEntriesChanged(data).join());
+
+                return true;
+            }
+        });
     }
 
     /** {@inheritDoc} */

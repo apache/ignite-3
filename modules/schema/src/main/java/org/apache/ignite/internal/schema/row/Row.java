@@ -30,6 +30,7 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.DecimalNativeType;
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.util.ColocationUtils;
+import org.apache.ignite.internal.util.HashCalculator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -53,7 +56,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see TemporalTypesHelper
  */
-public class Row implements BinaryRow, SchemaAware, AbstractTuple {
+public class Row implements BinaryRowEx, SchemaAware, AbstractTuple {
     /**
      * Null map offset.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -71,6 +74,9 @@ public class Row implements BinaryRow, SchemaAware, AbstractTuple {
 
     /** Cached value slice byte buffer. */
     private final ByteBuffer valueSlice;
+
+    /** Cached colocation hash value. */
+    private int colocationHash;
 
     /**
      * Constructor.
@@ -720,7 +726,7 @@ public class Row implements BinaryRow, SchemaAware, AbstractTuple {
     }
 
     /**
-     * Utility method to extract the column offset from the {@link #findColumn(int, NativeTypeSpec)} result. The offset is calculated from
+     * Utility method to extract the column offset from the {@link #findColumn} result. The offset is calculated from
      * the beginning of the row.
      *
      * @param offLen {@code findColumn} invocation result.
@@ -731,7 +737,7 @@ public class Row implements BinaryRow, SchemaAware, AbstractTuple {
     }
 
     /**
-     * Utility method to extract the column length from the {@link #findColumn(int, NativeTypeSpec)} result for varlen columns.
+     * Utility method to extract the column length from the {@link #findColumn} result for varlen columns.
      *
      * @param offLen {@code findColumn} invocation result.
      * @return Length of the column or {@code 0} if the column is fixed-length.
@@ -797,8 +803,27 @@ public class Row implements BinaryRow, SchemaAware, AbstractTuple {
         }
     }
 
+    /** {@inheritDoc} */
     @Override
     public byte[] bytes() {
         return row.bytes();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int colocationHash() {
+        int h0 = colocationHash;
+
+        if (h0 == 0) {
+            HashCalculator hashCalc = new HashCalculator();
+
+            for (Column c : schema().colocationColumns()) {
+                ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type().spec());
+            }
+
+            colocationHash = h0 = hashCalc.hash();
+        }
+
+        return h0;
     }
 }

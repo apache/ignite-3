@@ -22,14 +22,15 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -84,7 +85,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final TablesConfiguration tablesConfig;
+    private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -119,13 +120,13 @@ public class SqlQueryProcessor implements QueryProcessor {
             ClusterService clusterSrvc,
             TableManager tableManager,
             DataStorageManager dataStorageManager,
-            TablesConfiguration tablesConfig
+            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
         this.dataStorageManager = dataStorageManager;
-        this.tablesConfig = tablesConfig;
+        this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
 
     /** {@inheritDoc} */
@@ -133,7 +134,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized void start() {
         planCache = registerService(new QueryPlanCacheImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
         taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
-        prepareSvc = registerService(new PrepareServiceImpl());
+        prepareSvc = registerService(new PrepareServiceImpl(dataStorageManager, dataStorageFieldsSupplier.get()));
         queryRegistry = registerService(new QueryRegistryImpl());
         mailboxRegistry = registerService(new MailboxRegistryImpl(clusterSrvc.topologyService()));
 
@@ -164,8 +165,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mailboxRegistry,
                 exchangeService,
                 queryRegistry,
-                dataStorageManager,
-                tablesConfig.defaultDataStorage()::value
+                dataStorageManager
         ));
 
         registerTableListener(TableEvent.CREATE, new TableCreatedListener(schemaManager));

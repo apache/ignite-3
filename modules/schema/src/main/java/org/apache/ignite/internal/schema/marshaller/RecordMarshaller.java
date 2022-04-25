@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.schema.marshaller;
 
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.row.Row;
 import org.jetbrains.annotations.NotNull;
 
@@ -39,7 +38,7 @@ public interface RecordMarshaller<R> {
      * @return Table row with columns set from given object.
      * @throws MarshallerException If failed to marshal record.
      */
-    BinaryRow marshal(@NotNull R rec) throws MarshallerException;
+    Row marshal(@NotNull R rec) throws MarshallerException;
 
     /**
      * Marshals key part of given record to a row.
@@ -48,7 +47,7 @@ public interface RecordMarshaller<R> {
      * @return Table row with key columns set from given object.
      * @throws MarshallerException If failed to marshal record.
      */
-    BinaryRow marshalKey(@NotNull R keyRec) throws MarshallerException;
+    Row marshalKey(@NotNull R keyRec) throws MarshallerException;
 
     /**
      * Unmarshal given row to a record object.

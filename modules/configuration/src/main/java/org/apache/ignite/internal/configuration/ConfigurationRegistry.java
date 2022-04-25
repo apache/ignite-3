@@ -201,7 +201,7 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
 
     /** {@inheritDoc} */
     @Override
-    public void stop() {
+    public void stop() throws Exception {
         changer.stop();
 
         storageRevisionListeners.clear();

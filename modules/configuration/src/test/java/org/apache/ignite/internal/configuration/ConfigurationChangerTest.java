@@ -22,7 +22,9 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
 import static org.apache.ignite.internal.configuration.FirstConfiguration.KEY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -249,10 +251,9 @@ public class ConfigurationChangerTest {
 
         storage.fail(false);
 
-        Data dataFromStorage = storage.readAll();
-        Map<String, ? extends Serializable> dataMap = dataFromStorage.values();
+        CompletableFuture<Map<String, ? extends Serializable>> dataFuture = storage.readAll().thenApply(Data::values);
 
-        assertEquals(0, dataMap.size());
+        assertThat(dataFuture, willBe(anEmptyMap()));
 
         FirstView newRoot = (FirstView) changer.getRootNode(KEY);
         assertNotNull(newRoot.child());

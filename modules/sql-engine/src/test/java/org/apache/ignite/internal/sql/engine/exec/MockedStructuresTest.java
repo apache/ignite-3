@@ -18,6 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema.UNKNOWN_DATA_STORAGE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,11 +39,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.PartialIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.SortedIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.baseline.BaselineManager;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -51,8 +60,13 @@ import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapDataStorageModule;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine;
+import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.chm.schema.TestConcurrentHashMapDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -73,6 +87,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -131,7 +146,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                     SortedIndexConfigurationSchema.class,
                     PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    RocksDbDataStorageConfigurationSchema.class
+                    RocksDbDataStorageConfigurationSchema.class,
+                    TestConcurrentHashMapDataStorageConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
@@ -153,7 +169,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     @Mock
     private ConfigurationRegistry configRegistry;
 
-    DataStorageManager dsm;
+    DataStorageManager dataStorageManager;
 
     /** Returns current method name. */
     private static String getCurrentMethodName() {
@@ -173,7 +189,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         }
 
         try {
-            Objects.requireNonNull(dsm).stop();
+            Objects.requireNonNull(dataStorageManager).stop();
         } catch (Exception e) {
             fail(e);
         }
@@ -183,7 +199,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
     /** Inner initialisation. */
     @BeforeEach
-    void before() throws NodeStoppingException {
+    void before() throws Exception {
         revisionUpdater = (Consumer<Long> consumer) -> {
             consumer.accept(0L);
 
@@ -198,17 +214,37 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         when(configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(rocksDbEngineConfig);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                new RocksDbDataStorageModule(),
+                new TestConcurrentHashMapDataStorageModule()
+        ));
 
-        dsm = new DataStorageManager(dataStorageModules.createStorageEngines(configRegistry, workDir));
+        rocksDbEngineConfig.regions().change(c -> c.create("test_region", rocksDbDataRegionChange -> {
+        })).get(1, TimeUnit.SECONDS);
 
-        dsm.start();
+        dataStorageManager = new DataStorageManager(
+                tblsCfg,
+                dataStorageModules.createStorageEngines(configRegistry, workDir)
+        );
+
+        dataStorageManager.start();
 
         tblManager = mockManagers();
 
-        queryProc = new SqlQueryProcessor(revisionUpdater, cs, tblManager, dsm, tblsCfg);
+        queryProc = new SqlQueryProcessor(
+                revisionUpdater,
+                cs,
+                tblManager,
+                dataStorageManager,
+                () -> dataStorageModules.collectSchemasFields(List.of(
+                        RocksDbDataStorageConfigurationSchema.class,
+                        TestConcurrentHashMapDataStorageConfigurationSchema.class
+                ))
+        );
 
         queryProc.start();
+
+        tblsCfg.defaultDataStorage().update(ENGINE_NAME).get(1, TimeUnit.SECONDS);
     }
 
     /**
@@ -431,6 +467,146 @@ public class MockedStructuresTest extends IgniteAbstractTest {
         queryProc.query("PUBLIC", String.format("DROP INDEX IF EXISTS index4 ON %s", curMethodName));
     }
 
+    @Test
+    void createTableWithEngine() throws Exception {
+        String method = getCurrentMethodName();
+
+        // Without engine.
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", method + 0)
+        ));
+
+        assertThat(tableView(method + 0).dataStorage(), instanceOf(RocksDbDataStorageView.class));
+
+        // With existing engine.
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format(
+                        "CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s",
+                        method + 1,
+                        TestConcurrentHashMapStorageEngine.ENGINE_NAME
+                )
+        ));
+
+        assertThat(tableView(method + 1).dataStorage(), instanceOf(TestConcurrentHashMapDataStorageView.class));
+
+        // With existing engine in mixed case
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 2, "\"RocksDb\"")
+        ));
+
+        assertThat(tableView(method + 2).dataStorage(), instanceOf(RocksDbDataStorageView.class));
+
+        IgniteException exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) engine %s", method + 3, method)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Unexpected data storage engine"));
+
+        tblsCfg.defaultDataStorage().update(UNKNOWN_DATA_STORAGE).get(1, TimeUnit.SECONDS);
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255))", method + 4)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Default data storage is not defined"));
+    }
+
+    @Test
+    void createTableWithTableOptions() {
+        String method = getCurrentMethodName();
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1", method + 0)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with REPLICAS=1", method + 1)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replicas\"=1", method + 2)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with \"replICAS\"=1", method + 3)
+        ));
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=1, partitions=1", method + 4)
+        ));
+
+        IgniteException exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas='%s'", method + 5, method)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Unsuspected table option type"));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with %s='%s'", method + 6, method, method)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Unexpected table option"));
+
+        exception = assertThrows(
+                IgniteException.class,
+                () -> queryProc.query(
+                        "PUBLIC",
+                        String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with replicas=-1", method + 7)
+                )
+        );
+
+        assertThat(exception.getMessage(), startsWith("Table option validation failed"));
+    }
+
+    @Test
+    void createTableWithDataStorageOptions() {
+        String method = getCurrentMethodName();
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with dataRegion='default'", method + 0)
+        ));
+
+        assertThat(
+                ((RocksDbDataStorageView) tableView(method + 0).dataStorage()).dataRegion(),
+                equalTo(DEFAULT_DATA_REGION_NAME)
+        );
+
+        assertDoesNotThrow(() -> queryProc.query(
+                "PUBLIC",
+                String.format("CREATE TABLE %s (c1 int PRIMARY KEY, c2 varbinary(255)) with DATAREGION='test_region'", method + 1)
+        ));
+
+        assertThat(
+                ((RocksDbDataStorageView) tableView(method + 1).dataStorage()).dataRegion(),
+                equalTo("test_region")
+        );
+    }
+
     // todo copy-paste from TableManagerTest will be removed after https://issues.apache.org/jira/browse/IGNITE-16050
     /**
      * Instantiates a table and prepares Table manager.
@@ -492,11 +668,15 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm
+                dataStorageManager
         );
 
         tableManager.start();
 
         return tableManager;
+    }
+
+    private @Nullable TableView tableView(String tableName) {
+        return tblsCfg.tables().value().get("PUBLIC." + tableName.toUpperCase());
     }
 }

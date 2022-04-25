@@ -38,6 +38,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
@@ -179,7 +180,7 @@ public class InternalTableImpl implements InternalTable {
      * @return The future.
      */
     private <R, T> CompletableFuture<T> enlistInTx(
-            Collection<BinaryRow> keyRows,
+            Collection<BinaryRowEx> keyRows,
             InternalTransaction tx,
             BiFunction<Collection<BinaryRow>, InternalTransaction, Command> op,
             Function<CompletableFuture<R>[], CompletableFuture<T>> reducer
@@ -217,7 +218,7 @@ public class InternalTableImpl implements InternalTable {
      * @return The future.
      */
     private <R, T> CompletableFuture<T> enlistInTx(
-            BinaryRow row,
+            BinaryRowEx row,
             InternalTransaction tx,
             Function<InternalTransaction, Command> op,
             Function<R, T> trans
@@ -263,92 +264,92 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> get(BinaryRow keyRow, InternalTransaction tx) {
+    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         return enlistInTx(keyRow, tx, tx0 -> new GetCommand(keyRow, tx0.timestamp()), SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows, InternalTransaction tx) {
+    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
         return enlistInTx(keyRows, tx, (rows0, tx0) -> new GetAllCommand(rows0, tx0.timestamp()), this::collectMultiRowsResponses);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsert(BinaryRow row, InternalTransaction tx) {
+    public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(row, tx, tx0 -> new UpsertCommand(row, tx0.timestamp()), ignored -> null);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(rows, tx, (rows0, tx0) -> new UpsertAllCommand(rows0, tx0.timestamp()), CompletableFuture::allOf);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row, InternalTransaction tx) {
+    public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(row, tx, tx0 -> new GetAndUpsertCommand(row, tx0.timestamp()), SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> insert(BinaryRow row, InternalTransaction tx) {
+    public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(row, tx, tx0 -> new InsertCommand(row, tx0.timestamp()), r -> (Boolean) r);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, InternalTransaction tx) {
+    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(rows, tx, (rows0, tx0) -> new InsertAllCommand(rows0, tx0.timestamp()), this::collectMultiRowsResponses);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replace(BinaryRow row, InternalTransaction tx) {
+    public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(row, tx, tx0 -> new ReplaceIfExistCommand(row, tx0.timestamp()), r -> (Boolean) r);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, InternalTransaction tx) {
+    public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, InternalTransaction tx) {
         return enlistInTx(oldRow, tx, tx0 -> new ReplaceCommand(oldRow, newRow, tx0.timestamp()), r -> (Boolean) r);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row, InternalTransaction tx) {
+    public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(row, tx, tx0 -> new GetAndReplaceCommand(row, tx0.timestamp()), SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> delete(BinaryRow keyRow, InternalTransaction tx) {
+    public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
         return enlistInTx(keyRow, tx, tx0 -> new DeleteCommand(keyRow, tx0.timestamp()), r -> (Boolean) r);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, InternalTransaction tx) {
+    public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
         return enlistInTx(oldRow, tx, tx0 -> new DeleteExactCommand(oldRow, tx0.timestamp()), r -> (Boolean) r);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row, InternalTransaction tx) {
+    public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
         return enlistInTx(row, tx, tx0 -> new GetAndDeleteCommand(row, tx0.timestamp()), SingleRowResponse::getValue);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, InternalTransaction tx) {
+    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
         return enlistInTx(rows, tx, (rows0, tx0) -> new DeleteAllCommand(rows0, tx0.timestamp()), this::collectMultiRowsResponses);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<BinaryRow>> deleteAllExact(
-            Collection<BinaryRow> rows,
+            Collection<BinaryRowEx> rows,
             InternalTransaction tx
     ) {
         return enlistInTx(rows, tx, (rows0, tx0) -> new DeleteExactAllCommand(rows0, tx0.timestamp()), this::collectMultiRowsResponses);
@@ -377,10 +378,10 @@ public class InternalTableImpl implements InternalTable {
      * @param rows Rows.
      * @return Partition -%gt; rows mapping.
      */
-    private Int2ObjectOpenHashMap<List<BinaryRow>> mapRowsToPartitions(Collection<BinaryRow> rows) {
+    private Int2ObjectOpenHashMap<List<BinaryRow>> mapRowsToPartitions(Collection<BinaryRowEx> rows) {
         Int2ObjectOpenHashMap<List<BinaryRow>> keyRowsByPartition = new Int2ObjectOpenHashMap<>();
 
-        for (BinaryRow keyRow : rows) {
+        for (BinaryRowEx keyRow : rows) {
             keyRowsByPartition.computeIfAbsent(partId(keyRow), k -> new ArrayList<>()).add(keyRow);
         }
 
@@ -428,7 +429,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @TestOnly
     @Override
-    public int partition(BinaryRow keyRow) {
+    public int partition(BinaryRowEx keyRow) {
         return partId(keyRow);
     }
 
@@ -438,8 +439,8 @@ public class InternalTableImpl implements InternalTable {
      * @param row Key row.
      * @return partition id.
      */
-    private int partId(BinaryRow row) {
-        int partId = row.hash() % partitions;
+    private int partId(BinaryRowEx row) {
+        int partId = row.colocationHash() % partitions;
 
         return (partId < 0) ? -partId : partId;
     }
