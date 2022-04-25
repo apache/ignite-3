@@ -37,7 +37,7 @@ public class CheckpointPages {
     /**
      * Constructor.
      *
-     * @param pages Pages which would be stored to disk in current checkpoint.
+     * @param pages Pages which would be stored to disk in current checkpoint, does not copy the collection.
      * @param replaceFuture The sign which allows replacing pages from a checkpoint by page replacer.
      */
     public CheckpointPages(Collection<FullPageId> pages, CompletableFuture<?> replaceFuture) {
@@ -49,12 +49,15 @@ public class CheckpointPages {
      * Returns {@code true} If fullPageId is allowable to store to disk.
      *
      * @param fullPageId Page id for checking.
+     * @throws IgniteInternalCheckedException If the waiting sign which allows replacing pages from a checkpoint by page replacer fails.
      */
     public boolean allowToSave(FullPageId fullPageId) throws IgniteInternalCheckedException {
         try {
             // Uninterruptibly is important because otherwise in case of interrupt of client thread node would be stopped.
             getUninterruptibly(allowToReplace);
-        } catch (ExecutionException | CancellationException e) {
+        } catch (ExecutionException e) {
+            throw new IgniteInternalCheckedException(e.getCause());
+        } catch (CancellationException e) {
             throw new IgniteInternalCheckedException(e);
         }
 
