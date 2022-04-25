@@ -112,7 +112,7 @@ public class CmgRaftService {
         return raftService.run(new JoinReadyCommand(localMember))
                 .thenAccept(response -> {
                     if (response instanceof JoinDeniedResponse) {
-                        throw new IgniteInternalException("Join request denied, reason: " + ((JoinDeniedResponse) response).reason());
+                        throw new IgniteInternalException("JoinReady request denied, reason: " + ((JoinDeniedResponse) response).reason());
                     }
                 });
     }

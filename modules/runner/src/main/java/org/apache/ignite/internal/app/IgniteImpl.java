@@ -385,7 +385,7 @@ public class IgniteImpl implements Ignite {
                 try {
                     nodeCfgMgr.bootstrap(cfg);
                 } catch (Exception e) {
-                    throw new IgniteException("Unable to parse user-specific configuration.", e);
+                    throw new IgniteException("Unable to parse user-specific configuration", e);
                 }
             } else {
                 nodeCfgMgr.configurationRegistry().initializeDefaults();
@@ -401,7 +401,8 @@ public class IgniteImpl implements Ignite {
             );
 
             return cmgMgr.joinFuture()
-                    .thenAccept(v -> {
+                    // using the default executor to avoid blocking the CMG Manager threads
+                    .thenAcceptAsync(v -> {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
@@ -448,7 +449,7 @@ public class IgniteImpl implements Ignite {
 
                         return this;
                     });
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw handleStartException(e);
         }
     }
@@ -458,7 +459,7 @@ public class IgniteImpl implements Ignite {
 
         LOG.error(errMsg, e);
 
-        lifecycleManager.stopAllComponents();
+        lifecycleManager.stopNode();
 
         return new IgniteException(errMsg, e);
     }
@@ -587,7 +588,6 @@ public class IgniteImpl implements Ignite {
 
     /**
      * Notify all listeners of current configurations.
-     *
      */
     private CompletableFuture<Void> notifyConfigurationListeners() {
         return CompletableFuture.allOf(

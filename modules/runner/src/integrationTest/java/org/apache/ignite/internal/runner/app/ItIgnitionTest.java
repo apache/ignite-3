@@ -167,7 +167,7 @@ class ItIgnitionTest {
         } catch (Throwable t) {
             assertTrue(IgniteTestUtils.hasCause(t,
                     IgniteException.class,
-                    "Unable to parse user-specific configuration."
+                    "Unable to parse user-specific configuration"
             ));
         }
     }

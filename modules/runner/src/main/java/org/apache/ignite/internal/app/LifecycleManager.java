@@ -62,14 +62,16 @@ class LifecycleManager {
      * @param component Ignite component to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    synchronized void startComponent(IgniteComponent component) throws NodeStoppingException {
+    void startComponent(IgniteComponent component) throws NodeStoppingException {
         if (status.get() == Status.STOPPING) {
-            throw new NodeStoppingException("Node=[" + nodeName + "] was stopped.");
+            throw new NodeStoppingException("Node=[" + nodeName + "] was stopped");
         }
 
-        startedComponents.add(component);
+        synchronized (this) {
+            startedComponents.add(component);
 
-        component.start();
+            component.start();
+        }
     }
 
     /**
@@ -78,28 +80,43 @@ class LifecycleManager {
      * @param components Ignite components to start.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    synchronized void startComponents(IgniteComponent... components) throws NodeStoppingException {
+    void startComponents(IgniteComponent... components) throws NodeStoppingException {
         for (IgniteComponent component : components) {
             startComponent(component);
         }
     }
 
     /**
-     * Callback that should be called after all components, that comprise an Ignite node, have been started. After this method completes,
+     * Callback that should be called after the node has joined a cluster. After this method completes,
      * the node will be transferred to the {@link Status#STARTED} state.
      *
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     void onStartComplete() throws NodeStoppingException {
-        if (!status.compareAndSet(Status.STARTING, Status.STARTED)) {
+        Status currentStatus = status.compareAndExchange(Status.STARTING, Status.STARTED);
+
+        if (currentStatus == Status.STOPPING) {
             throw new NodeStoppingException();
+        } else if (currentStatus != Status.STARTING) {
+            throw new IllegalStateException("Unexpected node status: " + currentStatus);
+        }
+    }
+
+    /**
+     * Stops all started components and transfers the node into the {@link Status#STOPPING} state.
+     */
+    void stopNode() {
+        Status currentStatus = status.getAndSet(Status.STOPPING);
+
+        if (currentStatus != Status.STOPPING) {
+            stopAllComponents();
         }
     }
 
     /**
      * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components in start-reverse-order.
      */
-    synchronized void stopAllComponents() {
+    private synchronized void stopAllComponents() {
         new ReverseIterator<>(startedComponents).forEachRemaining(component -> {
             try {
                 component.beforeNodeStop();
@@ -115,14 +132,5 @@ class LifecycleManager {
                 LOG.error("Unable to stop component=[{}] within node=[{}]", e, component, nodeName);
             }
         });
-    }
-
-    /**
-     * Stops all started components and transfers the node into the {@link Status#STOPPING} state.
-     */
-    void stopNode() {
-        status.set(Status.STOPPING);
-
-        stopAllComponents();
     }
 }
