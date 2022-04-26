@@ -171,7 +171,7 @@ public enum BuiltInType {
             componentTypeDescriptor = componentType.asClassDescriptor();
         }
 
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 null,

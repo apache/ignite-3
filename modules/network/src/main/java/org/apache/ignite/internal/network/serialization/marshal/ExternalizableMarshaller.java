@@ -122,7 +122,7 @@ class ExternalizableMarshaller {
         context.endReadingWithReadObject();
 
         try {
-            readFramed(object, ois);
+            readWithLength(object, ois);
         } catch (ClassNotFoundException e) {
             throw new UnmarshalException("Cannot unmarshal due to a missing class", e);
         } finally {
@@ -130,7 +130,7 @@ class ExternalizableMarshaller {
         }
     }
 
-    private <T extends Externalizable> void readFramed(T object, UosObjectInputStream ois) throws IOException, ClassNotFoundException {
+    private <T extends Externalizable> void readWithLength(T object, UosObjectInputStream ois) throws IOException, ClassNotFoundException {
         skipExternalDataLength(ois);
 
         object.readExternal(ois);

@@ -300,7 +300,7 @@ public class PerSessionSerializationService {
                 bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_RESOLVE_MASK)
         );
 
-        return ClassDescriptor.remote(
+        return ClassDescriptor.forRemote(
                 localClass,
                 classMessage.descriptorId(),
                 remoteSuperClassDescriptor(classMessage),
