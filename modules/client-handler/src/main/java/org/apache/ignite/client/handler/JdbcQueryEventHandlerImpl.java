@@ -126,6 +126,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
             return new QueryExecuteResult(actualResults);
         }).exceptionally(t -> {
+            results.stream()
+                    .filter(fut -> !fut.isCompletedExceptionally())
+                    .map(CompletableFuture::join)
+                    .map(res -> openCursors.get(res.cursorId()))
+                    .forEach(AsyncSqlCursor::closeAsync);
+
             StringWriter sw = getWriterWithStackTrace(t);
 
             return new QueryExecuteResult(Response.STATUS_FAILED,

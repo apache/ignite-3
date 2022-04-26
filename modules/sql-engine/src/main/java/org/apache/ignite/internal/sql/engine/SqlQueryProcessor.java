@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -85,6 +86,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final List<LifecycleAware> services = new ArrayList<>();
 
+    private volatile QueryTaskExecutor taskExecutor;
+
     private volatile ExecutionService executionSrvc;
 
     private volatile PrepareService prepareSvc;
@@ -107,7 +110,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public synchronized void start() {
-        var taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         parserCache = Caffeine.newBuilder()
@@ -258,8 +261,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             res.add(stage);
         }
 
-        // TODO: pass to a particular executor
-        start.completeAsync(() -> null);
+        start.completeAsync(() -> null, taskExecutor);
 
         return res;
     }

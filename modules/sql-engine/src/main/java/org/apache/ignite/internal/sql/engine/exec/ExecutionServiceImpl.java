@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.apache.ignite.internal.sql.engine.exec.rel.RootNode;
 import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
@@ -64,10 +62,8 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -95,8 +91,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private final MappingService mappingSrvc;
 
     private final ExchangeService exchangeSrvc;
-
-    private final ClosableIteratorsHolder iteratorsHolder;
 
     private final RowHandler<RowT> handler;
 
@@ -139,7 +133,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 taskExecutor,
                 handler,
                 exchangeSrvc,
-                new ClosableIteratorsHolder(topSrvc.localMember().name(), LOG),
                 ctx -> new LogicalRelImplementor<>(ctx, cacheId -> Objects::hashCode, mailboxRegistry, exchangeSrvc)
         );
     }
@@ -156,7 +149,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             QueryTaskExecutor taskExecutor,
             RowHandler<RowT> handler,
             ExchangeService exchangeSrvc,
-            ClosableIteratorsHolder iteratorsHolder,
             ImplementorFactory<RowT> implementorFactory
     ) {
         this.locNodeId = localNodeId;
@@ -166,7 +158,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.sqlSchemaManager = sqlSchemaManager;
         this.taskExecutor = taskExecutor;
         this.exchangeSrvc = exchangeSrvc;
-        this.iteratorsHolder = iteratorsHolder;
         this.ddlCmdHnd = ddlCmdHnd;
         this.implementorFactory = implementorFactory;
     }
@@ -174,8 +165,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void start() {
-//        iteratorsHolder.start();
-
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartRequest) m), SqlQueryMessageGroup.QUERY_START_REQUEST);
         msgSrvc.register((n, m) -> onMessage(n, (QueryStartResponse) m), SqlQueryMessageGroup.QUERY_START_RESPONSE);
         msgSrvc.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
@@ -310,7 +299,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
-        IgniteUtils.closeAll(iteratorsHolder::stop);
     }
 
     /** {@inheritDoc} */
@@ -348,14 +336,24 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new ConcurrentHashMap<>();
 
-        private final CompletableFuture<AsyncRootNode<RowT, List<Object>>> root = new CompletableFuture<>();
-
         private final Queue<AbstractNode<RowT>> localFragments = new LinkedBlockingQueue<>();
+
+        private final CompletableFuture<AsyncRootNode<RowT, List<Object>>> root;
 
         private volatile Long rootFragmentId = null;
 
         private DistributedQueryManager(BaseQueryContext ctx) {
             this.ctx = ctx;
+
+            var root = new CompletableFuture<AsyncRootNode<RowT, List<Object>>>();
+
+            root.exceptionally(t -> {
+                DistributedQueryManager.this.close(true);
+
+                return null;
+            });
+
+            this.root = root;
         }
 
         private List<AbstractNode<?>> localFragments() {
@@ -395,7 +393,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 if (rootFragmentId0 != null && fragmentId == rootFragmentId0) {
                     root.completeExceptionally(ex);
                 } else {
-                    root.thenAccept(root -> root.onError(ex));
+                    root.thenAccept(root -> {
+                        root.onError(ex);
+
+                        close(true);
+                    });
                 }
             }
 
@@ -403,7 +405,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         private void onError(RemoteException ex) {
-            root.thenAccept(root -> root.onError(ex));
+            root.thenAccept(root -> {
+                root.onError(ex);
+
+                close(true);
+            });
         }
 
         private void onNodeLeft(String nodeId) {
@@ -433,7 +439,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     }
 
                     return res;
-                }, () -> this.close(false));
+                });
                 node.onRegister(rootNode);
 
                 root.complete(rootNode);
@@ -534,27 +540,41 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             return new AsyncCursor<>() {
                 @Override
                 public CompletionStage<BatchedResult<List<Object>>> requestNextAsync(int rows) {
-                    return root.thenCompose(cur -> cur.requestNextAsync(rows));
+                    return root.thenCompose(cur -> {
+                        var fut = cur.requestNextAsync(rows);
+
+                        fut.thenAccept(batch -> {
+                            if (!batch.hasMore()) {
+                                DistributedQueryManager.this.close(false);
+                            }
+                        });
+
+                        return fut;
+                    });
                 }
 
                 @Override
                 public CompletableFuture<Void> closeAsync() {
-                    return root.thenCompose(AsyncRootNode::closeAsync);
+                    return root.thenCompose(none -> DistributedQueryManager.this.close(false));
                 }
             };
         }
 
         private CompletableFuture<Void> close(boolean cancel) {
             if (!cancelled.compareAndSet(false, true)) {
-                return cancelFut;
+                return cancelFut.thenApply(Function.identity());
             }
 
             CompletableFuture<Void> start = new CompletableFuture<>();
 
-            CompletableFuture<Void> end = start
+            start
                     .thenCompose(none -> {
                         if (!root.completeExceptionally(new ExecutionCancelledException())) {
-                            return root.thenAccept(AsyncRootNode::closeAsync);
+                            if (cancel) {
+                                return root.thenAccept(root -> root.onError(new ExecutionCancelledException()));
+                            }
+
+                            return root.thenCompose(AsyncRootNode::closeAsync);
                         }
 
                         return CompletableFuture.completedFuture(null);
@@ -575,7 +595,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                             cancelFuts.add(
                                     CompletableFuture.allOf(entry.getValue().toArray(new CompletableFuture[0]))
-                                            .handle((none, t) -> {
+                                            .handle((none2, t) -> {
                                                 try {
                                                     exchangeSrvc.closeQuery(nodeId, ctx.queryId());
                                                 } catch (IgniteInternalCheckedException e) {
@@ -589,27 +609,26 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         }
 
                         if (cancel) {
+                            ExecutionCancelledException ex = new ExecutionCancelledException();
+
                             for (AbstractNode<?> node : localFragments) {
-                                node.context().execute(() -> node.onError(new ExecutionCancelledException()), node::onError);
-                            }
-                        } else {
-                            for (AbstractNode<?> node : localFragments) {
-                                node.context().execute(() -> {
-                                    node.close();
-                                    node.context().cancel();
-                                }, node::onError);
+                                node.context().execute(() -> node.onError(ex), node::onError);
                             }
                         }
 
                         var compoundCancelFut = CompletableFuture.allOf(cancelFuts.toArray(new CompletableFuture[0]));
-                        var finalStepFut = compoundCancelFut.thenRun(() -> queryManagerMap.remove(ctx.queryId()));
+                        var finalStepFut = compoundCancelFut.thenRun(() -> {
+                            queryManagerMap.remove(ctx.queryId());
+
+                            cancelFut.complete(null);
+                        });
 
                         return compoundCancelFut.thenCombine(finalStepFut, (none1, none2) -> null);
                     });
 
             start.completeAsync(() -> null, taskExecutor);
 
-            return end;
+            return cancelFut.thenApply(Function.identity());
         }
     }
 

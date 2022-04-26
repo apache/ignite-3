@@ -25,7 +25,10 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -47,7 +50,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
-import org.apache.ignite.internal.sql.engine.ClosedCursorException;
+import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
@@ -75,7 +78,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
@@ -90,7 +92,7 @@ public class ExecutionServiceImplTest {
     private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionServiceImpl.class);
 
     /** Timeout in ms for async operations. */
-    private static final long TIMEOUT_IN_MS = 2_000_000;
+    private static final long TIMEOUT_IN_MS = 2_000;
 
     private final List<String> nodeIds = List.of("node_1", "node_2", "node_3");
 
@@ -100,10 +102,10 @@ public class ExecutionServiceImplTest {
             nodeIds.get(2), List.of(new Object[]{2, 2}, new Object[]{5, 5}, new Object[]{8, 8})
     );
 
-    private final TestTable onlyTable = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
+    private final TestTable table = createTable("TEST_TBL", 1_000_000, IgniteDistributions.random(),
             "ID", Integer.class, "VAL", Integer.class);
 
-    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(onlyTable.name(), onlyTable));
+    private final IgniteSchema schema = new IgniteSchema("PUBLIC", Map.of(table.name(), table));
 
     private TestCluster testCluster;
     private List<ExecutionServiceImpl<?>> executionServices;
@@ -123,13 +125,16 @@ public class ExecutionServiceImplTest {
         prepareService.stop();
     }
 
+    /**
+     * The very simple case where a cursor is closed in the middle of a normal execution.
+     */
     @Test
-    public void testCloseOnInitiator() throws InterruptedException {
+    public void testCloseByCursor() throws Exception {
         var execService = executionServices.get(0);
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        testCluster.node(nodeIds.get(2)).pauseScan();
+        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var cursor = execService.executePlan(plan, ctx);
 
@@ -146,20 +151,24 @@ public class ExecutionServiceImplTest {
                         .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
 
         await(batchFut.exceptionally(ex -> {
-            assertInstanceOf(ClosedCursorException.class, ex);
+            assertInstanceOf(CompletionException.class, ex);
+            assertInstanceOf(ExecutionCancelledException.class, ex.getCause());
 
             return null;
         }));
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+    /**
+     * The very simple case where a query is cancelled in the middle of a normal execution.
+     */
     @Test
-    public void testCloseOnInitiator2() throws InterruptedException {
+    public void testCancelOnInitiator() throws InterruptedException {
         var execService = executionServices.get(0);
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        testCluster.node(nodeIds.get(2)).pauseScan();
+        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var cursor = execService.executePlan(plan, ctx);
 
@@ -177,27 +186,35 @@ public class ExecutionServiceImplTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(IgniteInternalException.class, ex.getCause());
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause().getCause());
+            assertInstanceOf(ExecutionCancelledException.class, ex.getCause());
 
             return null;
         }));
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+    /**
+     * A query initialization is failed on one of the remotes. Need to verify that rest of the query is closed properly.
+     */
     @Test
-    public void testCloseOnInitiator3() throws InterruptedException {
+    public void testInitializationFailedOnRemoteNode() throws InterruptedException {
         var execService = executionServices.get(0);
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
         nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
+        var expectedEx = new RuntimeException("Test error");
+
         testCluster.node(nodeIds.get(2)).interceptor((nodeId, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
                 try {
-                    testCluster.node(nodeIds.get(2)).messageService().send(nodeId, new SqlQueryMessagesFactory().errorMessage()
-                            .queryId(((QueryStartRequest) msg).queryId()).error(new RuntimeException("Test error")).build());
+                    testCluster.node(nodeIds.get(2)).messageService().send(nodeId, new SqlQueryMessagesFactory().queryStartResponse()
+                            .queryId(((QueryStartRequest) msg).queryId())
+                            .fragmentId(((QueryStartRequest) msg).fragmentId())
+                            .error(expectedEx)
+                            .build()
+                    );
                 } catch (IgniteInternalCheckedException e) {
                     sneakyThrow(e);
                 }
@@ -208,13 +225,9 @@ public class ExecutionServiceImplTest {
 
         var cursor = execService.executePlan(plan, ctx);
 
-        assertTrue(waitForCondition(
-                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
-                        .mapToInt(i -> i).sum() == 3, 2 * TIMEOUT_IN_MS));
-
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
-        await(executionServices.get(0).cancel(ctx.queryId()));
+        assertTrue(waitForCondition(() -> batchFut.toCompletableFuture().isDone(), TIMEOUT_IN_MS));
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -222,21 +235,23 @@ public class ExecutionServiceImplTest {
 
         await(batchFut.exceptionally(ex -> {
             assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(IgniteInternalException.class, ex.getCause());
-            assertInstanceOf(ExecutionCancelledException.class, ex.getCause().getCause());
+            assertEquals(expectedEx, ex.getCause());
 
             return null;
         }));
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+    /**
+     * The very simple case where a query is cancelled in the middle of a normal execution on non-initiator node.
+     */
     @Test
-    public void testCloseOnRemote() throws InterruptedException {
+    public void testCancelOnRemote() throws InterruptedException {
         var execService = executionServices.get(0);
         var ctx = createContext();
         var plan = prepare("SELECT *  FROM test_tbl", ctx);
 
-        testCluster.node(nodeIds.get(2)).pauseScan();
+        nodeIds.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
         var cursor = execService.executePlan(plan, ctx);
 
@@ -244,7 +259,7 @@ public class ExecutionServiceImplTest {
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
                         .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
 
-        var batchFut = cursor.requestNextAsync(10);
+        var batchFut = cursor.requestNextAsync(1);
 
         await(executionServices.get(1).cancel(ctx.queryId()));
 
@@ -260,6 +275,53 @@ public class ExecutionServiceImplTest {
             return null;
         }));
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+    }
+
+    /**
+     * Read all data from the cursor. Requested amount is less than size of the result set.
+     */
+    @Test
+    public void testCursorIsClosedAfterAllDataRead() throws InterruptedException {
+        var execService = executionServices.get(0);
+        var ctx = createContext();
+        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+
+        var cursor = execService.executePlan(plan, ctx);
+
+        BatchedResult<?> res = await(cursor.requestNextAsync(8));
+        assertNotNull(res);
+        assertTrue(res.hasMore());
+        assertEquals(8, res.items().size());
+
+        res = await(cursor.requestNextAsync(1));
+        assertNotNull(res);
+        assertFalse(res.hasMore());
+        assertEquals(1, res.items().size());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+    }
+
+    /**
+     * Read all data from the cursor. Requested amount is exactly the same as the size of the result set.
+     */
+    @Test
+    public void testCursorIsClosedAfterAllDataRead2() throws InterruptedException {
+        var execService = executionServices.get(0);
+        var ctx = createContext();
+        var plan = prepare("SELECT *  FROM test_tbl", ctx);
+
+        var cursor = execService.executePlan(plan, ctx);
+
+        BatchedResult<?> res = await(cursor.requestNextAsync(9));
+        assertNotNull(res);
+        assertFalse(res.hasMore());
+        assertEquals(9, res.items().size());
+
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
     }
 
     /** Creates an execution service instance for the node with given id. */
@@ -286,7 +348,7 @@ public class ExecutionServiceImplTest {
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
-        when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(onlyTable);
+        when(schemaManagerMock.tableById(any(), anyInt())).thenReturn(table);
 
         var executionService = new ExecutionServiceImpl<>(
                 nodeId,
@@ -297,7 +359,6 @@ public class ExecutionServiceImplTest {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 exchangeService,
-                new ClosableIteratorsHolder("node_" + nodeId, LOG),
                 ctx -> node.implementor(ctx, mailboxRegistry, exchangeService)
         );
 
