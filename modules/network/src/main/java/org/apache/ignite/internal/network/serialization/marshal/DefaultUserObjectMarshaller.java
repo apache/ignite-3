@@ -31,7 +31,6 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.DeclaredType;
 import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
@@ -49,6 +48,9 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     private final SchemaMismatchHandlers schemaMismatchHandlers = new SchemaMismatchHandlers();
 
     private final LocalDescriptors localDescriptors;
+
+    private final WriteReplacer writeReplacer;
+    private final ReadResolver readResolver;
 
     private final BuiltInNonContainerMarshallers builtInNonContainerMarshallers = new BuiltInNonContainerMarshallers();
     private final BuiltInContainerMarshallers builtInContainerMarshallers = new BuiltInContainerMarshallers(
@@ -77,6 +79,9 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
      */
     public DefaultUserObjectMarshaller(ClassDescriptorRegistry localRegistry, ClassDescriptorFactory descriptorFactory) {
         localDescriptors = new LocalDescriptors(localRegistry, descriptorFactory);
+
+        writeReplacer = new WriteReplacer(localDescriptors);
+        readResolver = new ReadResolver(schemaMismatchHandlers);
 
         structuredObjectMarshaller = new StructuredObjectMarshaller(
                 localRegistry,
@@ -161,7 +166,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
 
         ClassDescriptor originalDescriptor = localDescriptors.getOrCreateDescriptor(object);
 
-        DescribedObject afterReplacement = applyWriteReplaceIfNeeded(object, originalDescriptor);
+        DescribedObject afterReplacement = writeReplacer.applyWriteReplaceIfNeeded(object, originalDescriptor);
 
         if (hasObjectIdentity(afterReplacement.object, afterReplacement.descriptor)) {
             long flaggedObjectId = context.memorizeObject(afterReplacement.object, unshared);
@@ -174,32 +179,6 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
             }
         } else {
             marshalValue(afterReplacement.object, afterReplacement.descriptor, declaredType, output, context);
-        }
-    }
-
-    private DescribedObject applyWriteReplaceIfNeeded(@Nullable Object objectBefore, ClassDescriptor descriptorBefore)
-            throws MarshalException {
-        if (!descriptorBefore.supportsWriteReplace()) {
-            return new DescribedObject(objectBefore, descriptorBefore);
-        }
-
-        Object replacedObject = applyWriteReplace(objectBefore, descriptorBefore);
-        ClassDescriptor replacementDescriptor = localDescriptors.getOrCreateDescriptor(replacedObject);
-
-        if (descriptorBefore.describesSameClass(replacementDescriptor)) {
-            return new DescribedObject(replacedObject, replacementDescriptor);
-        } else {
-            // Let's do it again!
-            return applyWriteReplaceIfNeeded(replacedObject, replacementDescriptor);
-        }
-    }
-
-    @Nullable
-    private Object applyWriteReplace(Object originalObject, ClassDescriptor originalDescriptor) throws MarshalException {
-        try {
-            return originalDescriptor.serializationMethods().writeReplace(originalObject);
-        } catch (SpecialMethodInvocationException e) {
-            throw new MarshalException("Cannot apply writeReplace()", e);
         }
     }
 
@@ -339,7 +318,7 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
 
         Object readObject = readObject(input, context, remoteDescriptor, unshared);
 
-        @SuppressWarnings("unchecked") T resolvedObject = (T) applyReadResolveIfNeeded(readObject, remoteDescriptor);
+        @SuppressWarnings("unchecked") T resolvedObject = (T) readResolver.applyReadResolveIfNeeded(readObject, remoteDescriptor);
         return resolvedObject;
     }
 
@@ -494,22 +473,6 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
             return builtInNonContainerMarshallers.readBuiltIn(descriptor, input, context);
         } else {
             throw new IllegalStateException("Cannot read an instance of " + descriptor.className() + ", this is a programmatic error");
-        }
-    }
-
-    private Object applyReadResolveIfNeeded(Object object, ClassDescriptor descriptor) throws UnmarshalException {
-        if (descriptor.hasReadResolve()) {
-            return applyReadResolve(object, descriptor);
-        } else {
-            return object;
-        }
-    }
-
-    private Object applyReadResolve(Object objectToResolve, ClassDescriptor descriptor) throws UnmarshalException {
-        try {
-            return descriptor.serializationMethods().readResolve(objectToResolve);
-        } catch (SpecialMethodInvocationException e) {
-            throw new UnmarshalException("Cannot apply readResolve()", e);
         }
     }
 

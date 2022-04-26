@@ -131,7 +131,7 @@ public class ClassDescriptorFactory {
     private ClassDescriptor externalizable(int descriptorId, Class<? extends Externalizable> clazz) {
         checkHasPublicNoArgConstructor(clazz);
 
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
@@ -222,7 +222,7 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor serializable(int descriptorId, Class<? extends Serializable> clazz) {
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
@@ -267,7 +267,7 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor arbitrary(int descriptorId, Class<?> clazz) {
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
