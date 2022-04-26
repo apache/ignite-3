@@ -284,11 +284,16 @@ class DefaultUserObjectMarshallerConcreteTypesKnownUpfrontOptimizationTest {
 
         IgniteDataInput dis = openDataStreamAndSkipRootObjectHeader(marshalled);
 
+        skipWriteObjectDataLength(dis);
         skipOneByteEmptyNullBitMask(dis);
         assertThat(ProtocolMarshalling.readObjectId(dis), is(SECOND_USER_OBJECT_ID));
 
         byte[] remainingBytes = dis.readAllBytes();
         assertThat(remainingBytes, is(new byte[]{42}));
+    }
+
+    private void skipWriteObjectDataLength(IgniteDataInput dis) throws IOException {
+        dis.readInt();
     }
 
     @Test
