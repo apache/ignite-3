@@ -44,6 +44,8 @@ import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.ApiStatus.Experimental;
@@ -189,8 +191,25 @@ public class Loza implements IgniteComponent {
             throw new NodeStoppingException();
         }
 
+        RaftGroupEventsListener noopLsnr = new RaftGroupEventsListener() {
+            @Override
+            public void onLeaderElected() {
+               //no-op
+            }
+
+            @Override
+            public void onNewPeersConfigurationApplied(List<PeerId> peers) {
+                //no-op
+            }
+
+            @Override
+            public void onReconfigurationError(Status status) {
+                //no-op
+            }
+        };
+
         try {
-            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, () -> null);
+            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, () -> noopLsnr);
         } finally {
             busyLock.leaveBusy();
         }
@@ -246,7 +265,6 @@ public class Loza implements IgniteComponent {
      * @param deltaNodes              New raft group nodes.
      * @param lsnrSupplier            Raft group listener supplier.
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
-     * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     public void startRaftGroupNode(String grpId, Collection<ClusterNode> nodes,

@@ -1419,7 +1419,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tbl.internalTable().partitionRaftGroupService(part).changePeersAsync(newNodes).join();
                     }
                 } catch (NodeStoppingException e) {
-                    // noop
+                    // no-op
                 }
 
                 return true;
