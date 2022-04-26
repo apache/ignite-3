@@ -31,7 +31,7 @@ import org.apache.ignite.internal.schema.InvalidTypeException;
  * General interface to describe binary tuples outside of their data layout and column schemas.
  * Accessor methods may or may not throw {@link InvalidTypeException} depending on the implementation.
  */
-public interface AbstractTuple {
+public interface BinaryTuple {
     /**
      * Returns a number of values in the tuple.
      */
