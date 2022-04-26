@@ -224,7 +224,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+        RowId rowId = UuidRowId.randomRowId(0);
 
         pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
 
@@ -252,7 +252,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+        RowId rowId = UuidRowId.randomRowId(0);
 
         Timestamp insertTs = Timestamp.nextVersion();
 
@@ -289,7 +289,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+        RowId rowId = UuidRowId.randomRowId(0);
 
         pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
 
@@ -319,7 +319,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+        RowId rowId = UuidRowId.randomRowId(0);
 
         Timestamp insertTs = Timestamp.nextVersion();
 
@@ -356,7 +356,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+        RowId rowId = UuidRowId.randomRowId(0);
 
         pk.addWrite(rowId, binaryRow, UUID.randomUUID());
 

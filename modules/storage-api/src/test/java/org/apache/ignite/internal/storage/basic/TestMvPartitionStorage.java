@@ -25,11 +25,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.IgniteRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.UuidIgniteRowId;
+import org.apache.ignite.internal.storage.UuidRowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -38,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentMap<IgniteRowId, VersionChain> map = new ConcurrentHashMap<>();
+    private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestSortedIndexMvStorage> indexes;
 
@@ -70,8 +70,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteRowId insert(BinaryRow row, UUID txId) throws StorageException {
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(0);
+    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
+        RowId rowId = UuidRowId.randomRowId(0);
 
         addWrite(rowId, row, txId);
 
@@ -80,7 +80,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
         BinaryRow[] res = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -110,7 +110,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow abortWrite(IgniteRowId rowId) {
+    public @Nullable BinaryRow abortWrite(RowId rowId) {
         BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
@@ -127,7 +127,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return res[0];
     }
 
-    private void abortWrite(IgniteRowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
+    private void abortWrite(RowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
         for (VersionChain cur = head; cur != null; cur = cur.next) {
             if (index.matches(aborted, cur.row)) {
                 return;
@@ -137,7 +137,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         index.remove(aborted, rowId);
     }
 
-    private void cleanupIndexesForAbortedRow(VersionChain versionChain, IgniteRowId rowId) {
+    private void cleanupIndexesForAbortedRow(VersionChain versionChain, RowId rowId) {
         if (versionChain.row != null) {
             for (TestSortedIndexMvStorage index : indexes) {
                 abortWrite(rowId, versionChain.next, versionChain.row, index);
@@ -147,7 +147,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void commitWrite(IgniteRowId rowId, Timestamp timestamp) {
+    public void commitWrite(RowId rowId, Timestamp timestamp) {
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
@@ -159,7 +159,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     @Nullable
-    public BinaryRow read(IgniteRowId rowId, @Nullable Timestamp timestamp) {
+    public BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) {
         VersionChain versionChain = map.get(rowId);
 
         return read(versionChain, timestamp);

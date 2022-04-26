@@ -22,7 +22,7 @@ package org.apache.ignite.internal.storage;
  *
  * @see MvPartitionStorage
  */
-public interface IgniteRowId extends Comparable<IgniteRowId> {
+public interface RowId {
     /**
      * Returns a partition id for current row id.
      */

@@ -29,11 +29,11 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.storage.IgniteRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.UuidIgniteRowId;
+import org.apache.ignite.internal.storage.UuidRowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.GridUnsafe;
@@ -128,8 +128,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public IgniteRowId insert(BinaryRow row, UUID txId) throws StorageException {
-        IgniteRowId rowId = UuidIgniteRowId.randomRowId(partitionId);
+    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
+        RowId rowId = UuidRowId.randomRowId(partitionId);
 
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
@@ -144,7 +144,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId)
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId)
             throws TxIdMismatchException, StorageException {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
@@ -222,7 +222,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow abortWrite(IgniteRowId rowId) throws StorageException {
+    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
@@ -239,7 +239,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void commitWrite(IgniteRowId rowId, Timestamp timestamp) throws StorageException {
+    public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try {
@@ -262,7 +262,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(IgniteRowId rowId, @Nullable Timestamp timestamp) throws StorageException {
+    public @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) throws StorageException {
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try (
@@ -302,7 +302,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             directBuffer.position(ROW_ID_OFFSET);
 
             // Return null if seek found a wrong key.
-            if (((UuidIgniteRowId) rowId).compareTo(directBuffer, false) != 0) {
+            if (!((UuidRowId) rowId).matches(directBuffer)) {
                 return null;
             }
 
@@ -510,12 +510,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /**
      * Prepares thread-local on-heap byte buffer. Writes row id in it. Partition id is already there. Timestamp is not cleared.
      */
-    private ByteBuffer prepareHeapKeyBuf(IgniteRowId rowId) {
-        assert rowId instanceof UuidIgniteRowId : rowId;
+    private ByteBuffer prepareHeapKeyBuf(RowId rowId) {
+        assert rowId instanceof UuidRowId : rowId;
 
         ByteBuffer keyBuf = heapKeyBuffer.get().position(ROW_ID_OFFSET);
 
-        ((UuidIgniteRowId) rowId).writeTo(keyBuf, false);
+        ((UuidRowId) rowId).writeTo(keyBuf);
 
         return keyBuf;
     }

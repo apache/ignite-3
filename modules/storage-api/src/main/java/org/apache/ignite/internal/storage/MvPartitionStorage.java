@@ -34,11 +34,11 @@ public interface MvPartitionStorage extends AutoCloseable {
      * Reads the value from the storage as it was at the given timestamp. {@code null} timestamp means reading the latest value.
      *
      * @param rowId Row id.
-     * @param timestamp Timestamp.
+     * @param timestamp Timestamp. {@code null} means reading the latest available value, including uncommitted ones.
      * @return Binary row that corresponds to the key or {@code null} if value is not found.
      */
     @Nullable
-    BinaryRow read(IgniteRowId rowId, @Nullable Timestamp timestamp);
+    BinaryRow read(RowId rowId, @Nullable Timestamp timestamp);
 
     /**
      * Creates an uncommitted version, assigning a new row id to it.
@@ -48,7 +48,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Row id.
      * @throws StorageException If failed to write data into the storage.
      */
-    IgniteRowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
+    RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
 
     /**
      * Creates an uncommitted version, assigned to the given transaction id.
@@ -60,7 +60,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(IgniteRowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
@@ -69,7 +69,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @return Previour row associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow abortWrite(IgniteRowId rowId) throws StorageException;
+    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
@@ -78,13 +78,13 @@ public interface MvPartitionStorage extends AutoCloseable {
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(IgniteRowId rowId, Timestamp timestamp) throws StorageException;
+    void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException;
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
-     * @param timestamp Timestamp.
+     * @param timestamp Timestamp. {@code null} means reading the latest available values, including uncommitted ones.
      * @return Cursor.
      */
     Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException;
