@@ -15,23 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+package org.apache.ignite.internal.pagememory;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
- * Indicates checkpoint read lock acquisition failure which did not lead to node invalidation.
+ * Data region based on {@link PageMemory}.
  */
-// TODO: IGNITE-16887 упомянуть что будет checked при failure
-public class CheckpointReadLockTimeoutException extends IgniteInternalException {
-    private static final long serialVersionUID = 0L;
+public interface PageMemoryDataRegion extends IgniteComponent {
+    /**
+     * Returns {@link true} if the date region is persistent.
+     */
+    boolean persistent();
 
     /**
-     * Constructor.
-     *
-     * @param msg Error message.
+     * Returns page memory, {@code null} if not {@link #start started}.
      */
-    CheckpointReadLockTimeoutException(String msg) {
-        super(msg);
-    }
+    PageMemory pageMemory();
 }

@@ -17,21 +17,16 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import org.apache.ignite.lang.IgniteInternalException;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Indicates checkpoint read lock acquisition failure which did not lead to node invalidation.
+ * Represents information of progress of a current checkpoint and allows obtaining future to wait for a particular checkpoint state.
  */
-// TODO: IGNITE-16887 упомянуть что будет checked при failure
-public class CheckpointReadLockTimeoutException extends IgniteInternalException {
-    private static final long serialVersionUID = 0L;
-
+// TODO: IGNITE-16887 добавлять методы по мере надобности
+public interface CheckpointProgress {
     /**
-     * Constructor.
-     *
-     * @param msg Error message.
+     * Returns future which can be used for detection when current checkpoint reaches the specific state.
      */
-    CheckpointReadLockTimeoutException(String msg) {
-        super(msg);
-    }
+    CompletableFuture<?> futureFor(CheckpointState state);
 }

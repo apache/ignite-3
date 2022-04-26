@@ -33,9 +33,9 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Implementation of {@link PageMemoryDataRegion} for in-memory case.
+ * Implementation of {@link AbstractPageMemoryDataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion extends PageMemoryDataRegion {
+class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     private TableFreeList freeList;
 
     /**

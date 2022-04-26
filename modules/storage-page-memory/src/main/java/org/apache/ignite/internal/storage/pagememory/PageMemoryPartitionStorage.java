@@ -72,7 +72,7 @@ class PageMemoryPartitionStorage implements PartitionStorage {
     public PageMemoryPartitionStorage(
             int partId,
             TableConfiguration tableCfg,
-            PageMemoryDataRegion dataRegion,
+            AbstractPageMemoryDataRegion dataRegion,
             TableFreeList freeList
     ) throws StorageException {
         assert partId >= 0 && partId < MAX_PARTITION_ID : partId;

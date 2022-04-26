@@ -17,9 +17,21 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
+import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
+
+import java.util.Collection;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.NodeStoppingException;
 
 /**
  * Checkpoint lock for outer usage which should be used to protect data during writing to memory. It contains complex logic for the correct
@@ -30,14 +42,14 @@ public class CheckpointTimeoutLock implements IgniteComponent {
     /** Ignite logger. */
     protected final IgniteLogger log;
 
-    ///** Data regions which should be covered by this lock. */
-    //private final Supplier<Collection<DataRegion>> dataRegions;
+    /** Data regions which should be covered by this lock. */
+    private final Supplier<Collection<PageMemoryDataRegion>> dataRegionsSupplier;
 
     /** Internal checkpoint lock. */
     private final CheckpointReadWriteLock checkpointReadWriteLock;
 
-    ///** Service for triggering the checkpoint. */
-    //private final Checkpointer checkpointer;
+    /** Service for triggering the checkpoint. */
+    private final Checkpointer checkpointer;
 
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     private volatile long checkpointReadLockTimeout;
@@ -51,22 +63,20 @@ public class CheckpointTimeoutLock implements IgniteComponent {
      * @param log Logger.
      * @param checkpointReadWriteLock Checkpoint read-write lock.
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
-     //* @param regions Data regions.
-     //* @param checkpointer Checkpointer.
+     * @param dataRegionsSupplier Data regions which should be covered by this lock.
      */
     public CheckpointTimeoutLock(
             IgniteLogger log,
             CheckpointReadWriteLock checkpointReadWriteLock,
-            long checkpointReadLockTimeout
-    //Supplier<Collection<DataRegion>> regions,
-    //Checkpointer checkpointer
+            long checkpointReadLockTimeout,
+            Supplier<Collection<PageMemoryDataRegion>> dataRegionsSupplier,
+            Checkpointer checkpointer
     ) {
         this.log = log;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
-
-        //dataRegions = regions;
-        //this.checkpointer = checkpointer;
+        this.dataRegionsSupplier = dataRegionsSupplier;
+        this.checkpointer = checkpointer;
     }
 
     /** {@inheritDoc} */
@@ -88,12 +98,12 @@ public class CheckpointTimeoutLock implements IgniteComponent {
     }
 
     /**
-     * Gets the checkpoint read lock. While this lock is held, checkpoint thread will not acquireSnapshotWorker memory state.
+     * Gets the checkpoint read lock.
      *
      * @throws IgniteInternalException If failed.
+     * @throws CheckpointReadLockTimeoutException If failed to get checkpoint read lock by timeout.
      */
     public void checkpointReadLock() {
-        /*
         if (checkpointReadWriteLock.isWriteLockHeldByCurrentThread()) {
             return;
         }
@@ -113,8 +123,9 @@ public class CheckpointTimeoutLock implements IgniteComponent {
 
                     try {
                         if (timeout > 0) {
-                            if (!checkpointReadWriteLock.tryReadLock(timeout - (coarseCurrentTimeMillis() - start),
-                                    TimeUnit.MILLISECONDS)) {
+                            long timeout1 = timeout - (coarseCurrentTimeMillis() - start);
+
+                            if (!checkpointReadWriteLock.tryReadLock(timeout1, MILLISECONDS)) {
                                 failCheckpointReadLock();
                             }
                         } else {
@@ -129,15 +140,15 @@ public class CheckpointTimeoutLock implements IgniteComponent {
                     if (stop) {
                         checkpointReadWriteLock.readUnlock();
 
-                        throw new IgniteException(new NodeStoppingException("Failed to perform cache update: node is stopping."));/
+                        throw new IgniteInternalException(new NodeStoppingException("Failed to get checkpoint read lock"));
                     }
 
                     if (checkpointReadWriteLock.getReadHoldCount() > 1 || safeToUpdateAllPageMemories() || checkpointer.runner() == null) {
                         break;
                     } else {
-                        //If the checkpoint is triggered outside of the lock,
+                        // If the checkpoint is triggered outside the lock,
                         // it could cause the checkpoint to fire again for the same reason
-                        // (due to a data race between collecting dirty pages and triggering the checkpoint)
+                        // (due to a data race between collecting dirty pages and triggering the checkpoint).
                         CheckpointProgress checkpoint = checkpointer.scheduleCheckpoint(0, "too many dirty pages");
 
                         checkpointReadWriteLock.readUnlock();
@@ -147,19 +158,20 @@ public class CheckpointTimeoutLock implements IgniteComponent {
                         }
 
                         try {
-                            checkpoint
-                                    .futureFor(LOCK_RELEASED)
-                                    .getUninterruptibly();
-                        } catch (IgniteFutureTimeoutCheckedException e) {
-                            failCheckpointReadLock();
-                        } catch (IgniteCheckedException e) {
-                            throw new IgniteException("Failed to wait for checkpoint begin.", e);
+                            getUninterruptibly(checkpoint.futureFor(LOCK_RELEASED));
+                        } catch (ExecutionException e) {
+                            throw new IgniteInternalException("Failed to wait for checkpoint begin", e.getCause());
+                        } catch (CancellationException e) {
+                            throw new IgniteInternalException("Failed to wait for checkpoint begin", e);
                         }
                     }
                 } catch (CheckpointReadLockTimeoutException e) {
                     log.error(e.getMessage(), e);
 
-                    timeout = 0;
+                    throw e;
+
+                    // TODO: IGNITE-16887 не забудь про упоминине FailureProcessor
+                    //timeout = 0;
                 }
             }
         } finally {
@@ -167,7 +179,6 @@ public class CheckpointTimeoutLock implements IgniteComponent {
                 Thread.currentThread().interrupt();
             }
         }
-         */
     }
 
     /**
@@ -210,19 +221,12 @@ public class CheckpointTimeoutLock implements IgniteComponent {
     }
 
     private boolean safeToUpdateAllPageMemories() {
-        /*
-        Collection<DataRegion> memPlcs = dataRegions.get();
-
-        if (memPlcs == null) {
-            return true;
-        }
-
-        for (DataRegion memPlc : memPlcs) {
-            if (!memPlc.config().isPersistenceEnabled()) {
+        for (PageMemoryDataRegion memPlc : dataRegionsSupplier.get()) {
+            if (!memPlc.persistent()) {
                 continue;
             }
 
-            PageMemoryEx pageMemEx = (PageMemoryEx) memPlc.pageMemory();
+            PageMemoryImpl pageMemEx = (PageMemoryImpl) memPlc.pageMemory();
 
             if (!pageMemEx.safeToUpdate()) {
                 return false;
@@ -230,12 +234,11 @@ public class CheckpointTimeoutLock implements IgniteComponent {
         }
 
         return true;
-         */
-
-        return true;
     }
 
     private void failCheckpointReadLock() throws CheckpointReadLockTimeoutException {
-        throw new CheckpointReadLockTimeoutException("Checkpoint read lock acquisition has been timed out.");
+        // TODO: IGNITE-16887 не забудь про упоминине FailureProcessor, мол в этом случае будет чутка по другому
+
+        throw new CheckpointReadLockTimeoutException("Checkpoint read lock acquisition has been timed out");
     }
 }

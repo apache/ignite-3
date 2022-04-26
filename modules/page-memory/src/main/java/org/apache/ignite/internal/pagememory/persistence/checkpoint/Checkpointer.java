@@ -17,21 +17,24 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Indicates checkpoint read lock acquisition failure which did not lead to node invalidation.
+ * Empty.
  */
-// TODO: IGNITE-16887 упомянуть что будет checked при failure
-public class CheckpointReadLockTimeoutException extends IgniteInternalException {
-    private static final long serialVersionUID = 0L;
+// TODO: IGNITE-16887 перенести методы по необходимости, отрефачить, написать тесты
+public abstract class Checkpointer {
+    /**
+     * Changes the information for a scheduled checkpoint if it was scheduled further than {@code delayFromNow}, or do nothing otherwise.
+     *
+     * @param delayFromNow Delay from now in milliseconds.
+     * @param reason Wakeup reason.
+     * @return Nearest scheduled checkpoint which is not started yet (dirty pages weren't collected yet).
+     */
+    public abstract CheckpointProgress scheduleCheckpoint(long delayFromNow, String reason);
 
     /**
-     * Constructor.
-     *
-     * @param msg Error message.
+     * Returns runner thread, {@code null} if the worker has not yet started executing.
      */
-    CheckpointReadLockTimeoutException(String msg) {
-        super(msg);
-    }
+    public abstract @Nullable Thread runner();
 }

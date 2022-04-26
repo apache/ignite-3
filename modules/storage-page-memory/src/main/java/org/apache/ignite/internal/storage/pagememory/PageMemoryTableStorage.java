@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
 abstract class PageMemoryTableStorage implements TableStorage {
-    protected final PageMemoryDataRegion dataRegion;
+    protected final AbstractPageMemoryDataRegion dataRegion;
 
     protected final TableConfiguration tableCfg;
 
@@ -56,7 +56,7 @@ abstract class PageMemoryTableStorage implements TableStorage {
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public PageMemoryTableStorage(TableConfiguration tableCfg, PageMemoryDataRegion dataRegion) {
+    public PageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
         this.dataRegion = dataRegion;
         this.tableCfg = tableCfg;
     }
