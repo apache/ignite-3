@@ -37,7 +37,6 @@ import org.apache.ignite.lang.NodeStoppingException;
  * Checkpoint lock for outer usage which should be used to protect data during writing to memory. It contains complex logic for the correct
  * taking of inside checkpoint lock(timeout, force checkpoint, etc.).
  */
-// TODO: IGNITE-16887 написать тесты и отрефачить
 public class CheckpointTimeoutLock implements IgniteComponent {
     /** Ignite logger. */
     protected final IgniteLogger log;
@@ -170,7 +169,7 @@ public class CheckpointTimeoutLock implements IgniteComponent {
 
                     throw e;
 
-                    // TODO: IGNITE-16887 не забудь про упоминине FailureProcessor
+                    // TODO: IGNITE-16899 Should reset the timeout and try again
                     //timeout = 0;
                 }
             }
@@ -237,7 +236,7 @@ public class CheckpointTimeoutLock implements IgniteComponent {
     }
 
     private void failCheckpointReadLock() throws CheckpointReadLockTimeoutException {
-        // TODO: IGNITE-16887 не забудь про упоминине FailureProcessor, мол в этом случае будет чутка по другому
+        // TODO: IGNITE-16899 I think they should fail the node or something like in 2.0
 
         throw new CheckpointReadLockTimeoutException("Checkpoint read lock acquisition has been timed out");
     }

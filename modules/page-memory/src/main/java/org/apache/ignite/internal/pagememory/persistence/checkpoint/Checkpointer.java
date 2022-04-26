@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Empty.
  */
-// TODO: IGNITE-16887 перенести методы по необходимости, отрефачить, написать тесты
+// TODO: IGNITE-16898 Continue porting the code
 public abstract class Checkpointer {
     /**
      * Changes the information for a scheduled checkpoint if it was scheduled further than {@code delayFromNow}, or do nothing otherwise.

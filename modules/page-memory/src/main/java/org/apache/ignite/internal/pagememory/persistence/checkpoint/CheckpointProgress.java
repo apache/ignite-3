@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Represents information of progress of a current checkpoint and allows obtaining future to wait for a particular checkpoint state.
  */
-// TODO: IGNITE-16887 добавлять методы по мере надобности
+// TODO: IGNITE-16898 Continue porting the code
 public interface CheckpointProgress {
     /**
      * Returns future which can be used for detection when current checkpoint reaches the specific state.

@@ -81,7 +81,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
             assertThat(memory.dirtyPages(), equalTo(dirtyPages));
 
-            // TODO: IGNITE-16887 Можно попробовать вызывать checkpoint и проверить что больше нет грязных страниц
+            // TODO: IGNITE-16898 After the checkpoint check that there are no dirty pages
         } finally {
             memory.stop(true);
         }
@@ -118,7 +118,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 assertFalse(memory.safeToUpdate(), "i=" + i);
             }
 
-            // TODO: IGNITE-16887 Можно попробовать вызывать checkpoint и проверить что после этого assertTrue(memory.safeToUpdate())
+            // TODO: IGNITE-16898 After the checkpoint check assertTrue(memory.safeToUpdate())
         } finally {
             memory.stop(true);
         }

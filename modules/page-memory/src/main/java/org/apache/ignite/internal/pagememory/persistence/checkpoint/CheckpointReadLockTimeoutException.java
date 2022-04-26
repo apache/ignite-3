@@ -22,7 +22,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Indicates checkpoint read lock acquisition failure which did not lead to node invalidation.
  */
-// TODO: IGNITE-16887 упомянуть что будет checked при failure
+// TODO: IGNITE-16899 Change to inherit from IgniteInternalCheckedException
 public class CheckpointReadLockTimeoutException extends IgniteInternalException {
     private static final long serialVersionUID = 0L;
 
