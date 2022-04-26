@@ -102,7 +102,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -1401,36 +1400,26 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         grpId,
                         part);
 
-
                 List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
                         ByteUtils.fromBytes(tblCfg.assignments().value());
 
                 List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
 
-                RaftGroupService raftGrpSvc = null;
+                var deltaPeers = newPeers.stream()
+                        .filter(p -> !assignments.get(part).contains(p))
+                        .collect(Collectors.toList());
 
                 try {
-                    var deltaPeers = newPeers.stream()
-                            .filter(p -> !assignments.get(part).contains(p))
-                            .collect(Collectors.toList());
+                    raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier, raftGrpEvtsLsnrSupplier);
 
-                    raftGrpSvc = raftMgr.updateRaftGroup(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier,
-                            raftGrpEvtsLsnrSupplier).join();
-
-                    raftGrpSvc.refreshLeader().join();
-
-                    if (new Peer(raftGrpSvc.clusterService().topologyService().localMember().address()).equals(raftGrpSvc.leader())) {
-
+                    // run update of raft configuration if this node is a leader
+                    if ((raftMgr.server().clusterService().topologyService().localMember()).equals(tbl.leaderAssignment(part))) {
                         var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
-                        raftGrpSvc.changePeersAsync(newNodes).join();
+                        tbl.internalTable().partitionRaftGroupService(part).changePeersAsync(newNodes).join();
                     }
                 } catch (NodeStoppingException e) {
                     // noop
-                } finally {
-                    if (raftGrpSvc != null) {
-                        raftGrpSvc.shutdown();
-                    }
                 }
 
                 return true;

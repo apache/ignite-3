@@ -239,6 +239,46 @@ public class Loza implements IgniteComponent {
     }
 
     /**
+     * If {@code deltaNodes} contains the current node, then raft group starts on the current node.
+     *
+     * @param grpId                   Raft group id.
+     * @param nodes                   Full set of raft group nodes.
+     * @param deltaNodes              New raft group nodes.
+     * @param lsnrSupplier            Raft group listener supplier.
+     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
+     * @return Future representing pending completion of the operation.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public void startRaftGroupNode(String grpId, Collection<ClusterNode> nodes,
+            Collection<ClusterNode> deltaNodes,
+            Supplier<RaftGroupListener> lsnrSupplier,
+            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier) throws NodeStoppingException {
+        assert !nodes.isEmpty();
+
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+            String locNodeName = clusterNetSvc.topologyService().localMember().name();
+
+            if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
+                if (!raftServer.startRaftGroup(grpId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
+                    throw new IgniteInternalException(IgniteStringFormatter.format(
+                            "Raft group on the node is already started [node={}, raftGrp={}]",
+                            locNodeName,
+                            grpId
+                    ));
+                }
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Creates a raft group service providing operations on a raft group. If {@code deltaNodes} contains the current node, then raft group
      * starts on the current node.
      *
