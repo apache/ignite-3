@@ -54,6 +54,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -63,6 +64,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Class to test the {@link AbstractFreeList}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@Disabled
 public class AbstractFreeListTest extends BaseIgniteAbstractTest {
     private static final long MAX_SIZE = 1024 * MiB;
 
