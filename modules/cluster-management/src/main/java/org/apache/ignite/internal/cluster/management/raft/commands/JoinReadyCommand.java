@@ -21,9 +21,9 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Command sent by a node that wants to enter the logical topology.
+ * Command sent by a node when it's ready to join the cluster and enter the logical topology.
  */
-public class NodeJoinCommand implements WriteCommand {
+public class JoinReadyCommand implements WriteCommand {
     private final ClusterNode node;
 
     /**
@@ -31,7 +31,7 @@ public class NodeJoinCommand implements WriteCommand {
      *
      * @param node Node that wants to enter the logical topology.
      */
-    public NodeJoinCommand(ClusterNode node) {
+    public JoinReadyCommand(ClusterNode node) {
         this.node = node;
     }
 

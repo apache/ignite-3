@@ -15,32 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.responses;
+package org.apache.ignite.internal.util;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
 
 /**
- * Response returned for a {@link JoinRequestCommand}, indicating that a join request has been rejected.
+ * An read-only {@link Iterator} that traverses a given list in reverse order.
+ *
+ * @param <T> The type of elements returned by this iterator.
  */
-public class JoinDeniedResponse implements Serializable {
-    private final String reason;
+public class ReverseIterator<T> implements Iterator<T> {
+    private final ListIterator<T> it;
 
-    /**
-     * Creates a new response.
-     *
-     * @param reason Textual representation of the reason of join rejection.
-     */
-    public JoinDeniedResponse(String reason) {
-        this.reason = reason;
+    public ReverseIterator(List<T> list) {
+        this.it = list.listIterator(list.size());
     }
 
-    /**
-     * Returns the textual representation of the reason of join rejection.
-     *
-     * @return Textual representation of the reason of join rejection.
-     */
-    public String reason() {
-        return reason;
+    @Override
+    public boolean hasNext() {
+        return it.hasPrevious();
+    }
+
+    @Override
+    public T next() {
+        return it.previous();
     }
 }

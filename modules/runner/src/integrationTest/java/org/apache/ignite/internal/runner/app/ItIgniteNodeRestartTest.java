@@ -101,7 +101,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.mockito.Mockito;
 
 /**
  * These tests check node restart scenarios.
@@ -269,7 +268,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 raftMgr,
-                Mockito.mock(BaselineManager.class),
+                mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager
@@ -328,7 +327,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         };
 
         CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
-                metaStorageMgr,
                 clusterCfgMgr,
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
@@ -788,7 +786,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         stopNode(0);
         stopNode(1);
 
-        ignite0 = startNode(testInfo, 0);
+        startNode(testInfo, 0);
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,
