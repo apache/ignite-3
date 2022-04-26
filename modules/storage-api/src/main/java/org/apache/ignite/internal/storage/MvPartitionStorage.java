@@ -31,14 +31,26 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface MvPartitionStorage extends AutoCloseable {
     /**
-     * Reads the value from the storage as it was at the given timestamp. {@code null} timestamp means reading the latest value.
+     * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
      *
      * @param rowId Row id.
-     * @param timestamp Timestamp. {@code null} means reading the latest available value, including uncommitted ones.
+     * @param txId Transaction id.
+     * @return Binary row that corresponds to the key or {@code null} if value is not found.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable
+    BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException;
+
+    /**
+     * Reads the value from the storage as it was at the given timestamp.
+     *
+     * @param rowId Row id.
+     * @param timestamp Timestamp.
      * @return Binary row that corresponds to the key or {@code null} if value is not found.
      */
     @Nullable
-    BinaryRow read(RowId rowId, @Nullable Timestamp timestamp);
+    BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException;
 
     /**
      * Creates an uncommitted version, assigning a new row id to it.
@@ -81,11 +93,24 @@ public interface MvPartitionStorage extends AutoCloseable {
     void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException;
 
     /**
+     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in current transaction
+     * or already committed in different transaction.
+     *
+     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
+     * @param txId Transaction id.
+     * @return Cursor.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException;
+
+    /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
-     * @param timestamp Timestamp. {@code null} means reading the latest available values, including uncommitted ones.
+     * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to read data from the storage.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException;
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException;
 }

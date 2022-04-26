@@ -158,19 +158,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             // Previous value must belong to the same transaction.
             if (previousValue != null) {
-                ByteBuffer previousValueBuf = ByteBuffer.wrap(previousValue).order(LITTLE_ENDIAN);
+                validateTxId(previousValue, txId);
 
-                if (!txIdMatches(txId, previousValueBuf)) {
-                    throw new TxIdMismatchException();
-                }
-
-                // "txIdMatches" should have read two long values.
-                assert previousValueBuf.position() == TX_ID_SIZE;
-
-                // More bytes in the buffer means that there's a value in it.
-                if (previousValueBuf.hasRemaining()) {
-                    res = new ByteBufferRow(previousValueBuf.slice().order(LITTLE_ENDIAN));
-                }
+                res = wrapValueIntoBinaryRow(previousValue, true);
             }
 
             if (row == null) {
@@ -180,10 +170,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     db.put(cf, writeOpts, keyBufArray, 0, ROW_PREFIX_SIZE, previousValue, 0, TX_ID_SIZE);
                 } else {
                     // Use tail of the key buffer to save on array allocations.
-                    keyBuf.order(LITTLE_ENDIAN).position(ROW_PREFIX_SIZE)
-                            .putLong(txId.getLeastSignificantBits())
-                            .putLong(txId.getMostSignificantBits())
-                            .order(BIG_ENDIAN);
+                    putTransactionId(keyBufArray, ROW_PREFIX_SIZE, txId);
 
                     db.put(cf, writeOpts, keyBufArray, 0, ROW_PREFIX_SIZE, keyBufArray, ROW_PREFIX_SIZE, TX_ID_SIZE);
                 }
@@ -211,10 +198,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         ByteBuffer value = ByteBuffer.allocate(rowBytes.length + TX_ID_SIZE).order(LITTLE_ENDIAN);
 
-        value.putLong(txId.getLeastSignificantBits());
-        value.putLong(txId.getMostSignificantBits());
+        putTransactionId(value.array(), 0, txId);
 
-        value.put(rowBytes);
+        value.position(TX_ID_SIZE).put(rowBytes);
 
         // Write binary row data as a value.
         db.put(cf, writeOpts, keyArray, 0, ROW_PREFIX_SIZE, value.array(), 0, value.capacity());
@@ -262,7 +248,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) throws StorageException {
+    public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
+        return read(rowId, null, txId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException {
+        return read(rowId, timestamp, null);
+    }
+
+    private @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp, @Nullable UUID txId)
+            throws TxIdMismatchException, StorageException {
+        assert timestamp == null ^ txId == null;
+
         ByteBuffer keyBuf = prepareHeapKeyBuf(rowId);
 
         try (
@@ -311,6 +310,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
             assert valueBytes != null;
 
+            if (txId != null && valueHasTxId) {
+                validateTxId(valueBytes, txId);
+            }
+
             return wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
         }
     }
@@ -318,7 +321,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     //TODO Play with prefix settings and benchmark results.
     /** {@inheritDoc} */
     @Override
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException {
+        return scan(keyFilter, null, txId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException {
+        return scan(keyFilter, timestamp, null);
+    }
+
+    private Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp, @Nullable UUID txId)
+            throws TxIdMismatchException, StorageException {
+        assert timestamp == null ^ txId == null;
+
         // Set next partition as an upper bound.
         var options = new ReadOptions().setIterateUpperBound(upperBound).setTotalOrderSeek(true);
 
@@ -459,6 +475,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         BinaryRow binaryRow = wrapValueIntoBinaryRow(valueBytes, valueHasTxId);
 
                         if (binaryRow != null && keyFilter.test(binaryRow)) {
+                            if (txId != null && valueHasTxId) {
+                                validateTxId(valueBytes, txId);
+                            }
+
                             this.next = binaryRow;
 
                             return true;
@@ -533,18 +553,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         buf.putLong(~ts.getNodeId() ^ (1L << 63));
     }
 
-    /**
-     * Reads a transaction id value from the buffer and compares it with passed UUID object.
-     *
-     * @param txId Transaction id.
-     * @param buf Buffer with Little Endian bytes order.
-     * @return {@code true} if buffer has matching transaction id in it, {@code false} otherwise.
-     */
-    private boolean txIdMatches(UUID txId, ByteBuffer buf) {
-        assert buf.order() == LITTLE_ENDIAN;
+    private void putTransactionId(byte[] array, int off, UUID txId) {
+        GridUnsafe.putLong(array, GridUnsafe.BYTE_ARR_OFF + off, txId.getMostSignificantBits());
+        GridUnsafe.putLong(array, GridUnsafe.BYTE_ARR_OFF + off + Long.BYTES, txId.getLeastSignificantBits());
+    }
 
-        return buf.getLong() == txId.getLeastSignificantBits()
-                && buf.getLong() == txId.getMostSignificantBits();
+    private void validateTxId(byte[] valueBytes, UUID txId) {
+        if (txId.getMostSignificantBits() != GridUnsafe.getLong(valueBytes, GridUnsafe.BYTE_ARR_OFF)
+                || txId.getLeastSignificantBits() != GridUnsafe.getLong(valueBytes, GridUnsafe.BYTE_ARR_OFF + Long.BYTES)) {
+            throw new TxIdMismatchException();
+        }
     }
 
     /**

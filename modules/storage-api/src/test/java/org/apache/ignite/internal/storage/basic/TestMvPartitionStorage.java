@@ -158,21 +158,38 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
-    public BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) {
+    public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
         VersionChain versionChain = map.get(rowId);
 
-        return read(versionChain, timestamp);
+        return read(versionChain, null, txId, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) {
+        VersionChain versionChain = map.get(rowId);
+
+        return read(versionChain, timestamp, null, null);
     }
 
     @Nullable
-    private BinaryRow read(VersionChain versionChain, @Nullable Timestamp timestamp) {
+    private BinaryRow read(VersionChain versionChain, @Nullable Timestamp timestamp, @Nullable UUID txId, Predicate<BinaryRow> filter) {
         if (versionChain == null) {
             return null;
         }
 
         if (timestamp == null) {
-            return versionChain.row;
+            BinaryRow binaryRow = versionChain.row;
+
+            if (filter != null && !filter.test(binaryRow)) {
+                return null;
+            }
+
+            if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
+                throw new TxIdMismatchException();
+            }
+
+            return binaryRow;
         }
 
         VersionChain cur = versionChain;
@@ -183,7 +200,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         while (cur != null) {
             if (timestamp.compareTo(cur.begin) >= 0) {
-                return cur.row;
+                BinaryRow binaryRow = cur.row;
+
+                if (filter != null && !filter.test(binaryRow)) {
+                    return null;
+                }
+
+                return binaryRow;
             }
 
             cur = cur.next;
@@ -194,11 +217,21 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, UUID txId) {
         Iterator<BinaryRow> iterator = map.values().stream()
-                .map(versionChain -> read(versionChain, timestamp))
+                .map(versionChain -> read(versionChain, null, txId, filter))
                 .filter(Objects::nonNull)
-                .filter(keyFilter)
+                .iterator();
+
+        return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, Timestamp timestamp) {
+        Iterator<BinaryRow> iterator = map.values().stream()
+                .map(versionChain -> read(versionChain, timestamp, null, filter))
+                .filter(Objects::nonNull)
                 .iterator();
 
         return Cursor.fromIterator(iterator);
