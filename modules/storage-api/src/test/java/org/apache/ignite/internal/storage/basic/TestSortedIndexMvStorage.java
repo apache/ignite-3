@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.IntPredicate;
 import java.util.function.ToIntFunction;
@@ -165,9 +166,34 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
             @Nullable IndexRowPrefix lowerBound,
             @Nullable IndexRowPrefix upperBound,
             int flags,
+            UUID txId,
+            @Nullable IntPredicate partitionFilter
+    ) {
+        return scan(lowerBound, upperBound, flags, null, txId, partitionFilter);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<IndexRowEx> scan(
+            @Nullable IndexRowPrefix lowerBound,
+            @Nullable IndexRowPrefix upperBound,
+            int flags,
             Timestamp timestamp,
             @Nullable IntPredicate partitionFilter
     ) {
+        return scan(lowerBound, upperBound, flags, timestamp, null, partitionFilter);
+    }
+
+    private Cursor<IndexRowEx> scan(
+            @Nullable IndexRowPrefix lowerBound,
+            @Nullable IndexRowPrefix upperBound,
+            int flags,
+            Timestamp timestamp,
+            UUID txId,
+            @Nullable IntPredicate partitionFilter
+    ) {
+        assert timestamp != null ^ txId != null;
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
@@ -195,13 +221,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
                 .dropWhile(p -> lowerCmp.applyAsInt(p.getFirst()) < 0)
                 .takeWhile(p -> upperCmp.applyAsInt(p.getFirst()) <= 0)
                 .map(p -> {
-                    BinaryRow binaryRow = p.getFirst();
-
-                    int partition = binaryRow.hash() % partitions;
-
-                    if (partition < 0) {
-                        partition = -partition;
-                    }
+                    int partition = p.getSecond().partitionId();
 
                     if (partitionFilter != null && !partitionFilter.test(partition)) {
                         return null;
@@ -213,9 +233,11 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
                         return null;
                     }
 
-                    BinaryRow pk = partitionStorage.read(p.getSecond(), timestamp);
+                    BinaryRow pk = timestamp != null
+                            ? partitionStorage.read(p.getSecond(), timestamp)
+                            : partitionStorage.read(p.getSecond(), txId);
 
-                    return matches(binaryRow, pk) ? pk : null;
+                    return matches(p.getFirst(), pk) ? pk : null;
                 })
                 .filter(Objects::nonNull)
                 .map(binaryRow -> {

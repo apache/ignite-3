@@ -174,6 +174,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     @Nullable
     private BinaryRow read(VersionChain versionChain, @Nullable Timestamp timestamp, @Nullable UUID txId, Predicate<BinaryRow> filter) {
+        assert timestamp == null ^ txId == null;
+
         if (versionChain == null) {
             return null;
         }
