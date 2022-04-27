@@ -28,7 +28,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -474,7 +473,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             newPartAssignment,
                             // start new nodes, only if it is table creation
                             // other cases will be covered by rebalance logic
-                            (oldPartAssignment.isEmpty())? newPartAssignment : Collections.emptyList(),
+                            (oldPartAssignment.isEmpty()) ? newPartAssignment : Collections.emptyList(),
                             () -> new PartitionListener(tblId,
                                     new VersionedRowStore(internalTbl.storage().getOrCreatePartition(partId), txManager)),
                             () -> new RebalanceRaftGroupEventsListener(
