@@ -28,19 +28,37 @@ public interface RaftGroupEventsListener {
     /**
      * Invoked, when new leader is elected (if it is the first leader of group ever - will be invoked too).
      */
-    public void onLeaderElected();
+    void onLeaderElected();
 
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.
      *
      * @param peers list of peers, which was applied by raft group membership configuration.
      */
-    public void onNewPeersConfigurationApplied(List<PeerId> peers);
+    void onNewPeersConfigurationApplied(List<PeerId> peers);
 
     /**
      * Invoked on the leader, when membership reconfiguration was failed, because of {@link Status}.
      *
      * @param status with description of failure.
      */
-    public void onReconfigurationError(Status status);
+    void onReconfigurationError(Status status);
+
+    /**
+     * No-op raft group events listener.
+     */
+    RaftGroupEventsListener noopLsnr = new RaftGroupEventsListener() {
+        /** {@inheritDoc} */
+        @Override
+        public void onLeaderElected() { }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onNewPeersConfigurationApplied(List<PeerId> peers) { }
+
+        /** {@inheritDoc} */
+        @Override
+        public void onReconfigurationError(Status status) { }
+    };
+
 }
