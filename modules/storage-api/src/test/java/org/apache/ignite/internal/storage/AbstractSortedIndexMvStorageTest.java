@@ -378,6 +378,12 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         pk.addWrite(rowId, binaryRow(key, new TestValue(20, "20")), UUID.randomUUID());
         pk.commitWrite(rowId, Timestamp.nextVersion());
 
+        // In this scenario, scan over the range of ["10", "11") should return empty cursor.
+        assertEquals(
+                List.of(),
+                convert(index.scan(prefix("10"), prefix("11"), GREATER_OR_EQUAL | LESS, UUID.randomUUID(), null))
+        );
+
         // Change indexed columns once again, but don't commit.
         // This way there are 3 versoins for the row:
         // - (30, "30"), uncommitted with random tx id
@@ -385,7 +391,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         // - (10, "10") is the oldest value and there's a ("10", 10, rowId) record in the index.
         pk.addWrite(rowId, binaryRow(key, new TestValue(30, "30")), UUID.randomUUID());
 
-        // In this scenario, scan over the range of ["10", "11") should return empty cursor.
+        // Still ampty result.
         assertEquals(
                 List.of(),
                 convert(index.scan(prefix("10"), prefix("11"), GREATER_OR_EQUAL | LESS, UUID.randomUUID(), null))
