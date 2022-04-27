@@ -115,7 +115,7 @@ public class ExecutionServiceImplTest {
     public void init() {
         testCluster = new TestCluster();
         executionServices = nodeIds.stream().map(this::create).collect(Collectors.toList());
-        prepareService = new PrepareServiceImpl("test", 0);
+        prepareService = new PrepareServiceImpl("test", 0, null);
 
         prepareService.start();
     }

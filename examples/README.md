@@ -19,4 +19,8 @@ To run any other example, do the following:
    ```
    ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node
    ```
-3. Run the preferred example in the IDE.
+3. Initialize the node using the following command:
+   ```
+   ignite cluster init --node-endpoint 'localhost:10300' --meta-storage-node 'my-first-node'
+   ```
+4. Run the preferred example in the IDE.

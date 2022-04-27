@@ -18,7 +18,8 @@
 package org.apache.ignite.internal.runner.app;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -33,10 +34,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.internal.ItUtils;
 import org.apache.ignite.internal.app.IgnitionImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -64,6 +67,8 @@ class ItIgnitionTest {
     /** Collection of started nodes. */
     private final List<Ignite> startedNodes = new ArrayList<>();
 
+    private final List<String> startedNodeNames = new ArrayList<>();
+
     /** Path to the working directory. */
     @WorkDirectory
     private Path workDir;
@@ -80,7 +85,6 @@ class ItIgnitionTest {
         nodesBootstrapCfg.put(
                 node0Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[0] + ",\n"
                         + "    nodeFinder: {\n"
@@ -93,7 +97,6 @@ class ItIgnitionTest {
         nodesBootstrapCfg.put(
                 node1Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[1] + ",\n"
                         + "    nodeFinder: {\n"
@@ -106,7 +109,6 @@ class ItIgnitionTest {
         nodesBootstrapCfg.put(
                 node2Name,
                 "{\n"
-                        + "  node.metastorageNodes: [ \"" + node0Name + "\" ],\n"
                         + "  network: {\n"
                         + "    port: " + PORTS[2] + ",\n"
                         + "    nodeFinder: {\n"
@@ -122,7 +124,11 @@ class ItIgnitionTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.closeAll(ItUtils.reverse(startedNodes));
+        List<AutoCloseable> closeables = startedNodeNames.stream()
+                .map(name -> (AutoCloseable) () -> IgnitionManager.stop(name))
+                .collect(Collectors.toList());
+
+        IgniteUtils.closeAll(closeables);
     }
 
     /**
@@ -130,9 +136,9 @@ class ItIgnitionTest {
      */
     @Test
     void testNodesStartWithBootstrapConfiguration() {
-        nodesBootstrapCfg.forEach((nodeName, configStr) ->
-                startedNodes.add(IgnitionManager.start(nodeName, configStr, workDir.resolve(nodeName)))
-        );
+        for (Map.Entry<String, String> e : nodesBootstrapCfg.entrySet()) {
+            startNode(e.getKey(), name -> IgnitionManager.start(name, e.getValue(), workDir.resolve(name)));
+        }
 
         Assertions.assertEquals(3, startedNodes.size());
 
@@ -144,102 +150,9 @@ class ItIgnitionTest {
      */
     @Test
     void testNodeStartWithoutBootstrapConfiguration(TestInfo testInfo) {
-        startedNodes.add(IgnitionManager.start(testNodeName(testInfo, 47500), null, workDir));
+        startNode(testNodeName(testInfo, 47500), name -> IgnitionManager.start(name, null, workDir.resolve(name)));
 
         Assertions.assertNotNull(startedNodes.get(0));
-    }
-
-    /**
-     * Tests scenario when we try to start cluster with single node, but without any node, that hosts metastorage.
-     */
-    @Test
-    void testErrorWhenStartSingleNodeClusterWithoutMetastorage() {
-        try {
-            startedNodes.add(IgnitionManager.start("other-name", "{\n"
-                    + "    \"node\": {\n"
-                    + "        \"metastorageNodes\": [\n"
-                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                    + "        ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "        \"port\": 3344,\n"
-                    + "        \"nodeFinder\": {\n"
-                    + "          \"netClusterNodes\": [ \"localhost:3344\"] \n"
-                    + "        }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("other-name")));
-        } catch (Throwable th) {
-            assertTrue(IgniteTestUtils.hasCause(th,
-                    IgniteException.class,
-                    "Cannot start meta storage manager because there is no node in the cluster that hosts meta storage."
-            ));
-        }
-    }
-
-    /**
-     * Tests scenario when we try to start node that doesn't host metastorage in cluster with node, that hosts metastorage.
-     */
-    @Test
-    void testStartNodeClusterWithoutMetastorage() throws Exception {
-        Ignite ig1 = null;
-
-        Ignite ig2 = null;
-
-        try {
-            ig1 = IgnitionManager.start("node-0", "{\n"
-                    + "    \"node\": {\n"
-                    + "       \"metastorageNodes\":[ \"node-0\" ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "      \"port\": 3344,\n"
-                    + "      \"nodeFinder\": {\n"
-                    + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("node-0"));
-
-            ig2 = IgnitionManager.start("other-name", "{\n"
-                    + "    \"node\": {\n"
-                    + "        \"metastorageNodes\":[ \"node-0\" ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "      \"port\": 3345,\n"
-                    + "      \"nodeFinder\": {\n"
-                    + "        \"netClusterNodes\": [ \"localhost:3344\"]\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("other-name"));
-
-            assertEquals(ig2.name(), "other-name");
-        } finally {
-            IgniteUtils.closeAll(ig2, ig1);
-        }
-    }
-
-    /**
-     * Tests scenario when we try to start single-node cluster with several metastorage nodes in config.
-     * TODO: test should be rewritten after init phase will be developed https://issues.apache.org/jira/browse/IGNITE-15114
-     */
-    @Test
-    void testStartNodeClusterWithTwoMetastorageInConfig() throws Exception {
-        try {
-            IgnitionManager.start("node-0", "{\n"
-                    + "    \"node\": {\n"
-                    + "        \"metastorageNodes\": [\n"
-                    + "            \"node-0\", \"node-1\", \"node-2\"\n"
-                    + "        ]\n"
-                    + "    },\n"
-                    + "    \"network\": {\n"
-                    + "      \"port\": 3344,\n"
-                    + "      \"nodeFinder\": {\n"
-                    + "        \"netClusterNodes\": [ \"localhost:3345\"]\n"
-                    + "      }\n"
-                    + "    }\n"
-                    + "}", workDir.resolve("node-0"));
-        } catch (IgniteException e) {
-            assertEquals(e.getCause().getMessage(), "Cannot start meta storage manager "
-                    + "because it is not allowed to start several metastorage nodes.");
-        }
     }
 
     /**
@@ -248,16 +161,13 @@ class ItIgnitionTest {
     @Test
     void testErrorWhenStartNodeWithInvalidConfiguration() {
         try {
-            startedNodes.add(IgnitionManager.start("invalid-config-name",
-                    "{Invalid-Configuration}",
-                    workDir.resolve("invalid-config-name"))
-            );
+            startNode("invalid-config-name", name -> IgnitionManager.start(name, "{Invalid-Configuration}", workDir.resolve(name)));
 
             fail();
         } catch (Throwable t) {
             assertTrue(IgniteTestUtils.hasCause(t,
                     IgniteException.class,
-                    "Unable to parse user-specific configuration."
+                    "Unable to parse user-specific configuration"
             ));
         }
     }
@@ -272,7 +182,6 @@ class ItIgnitionTest {
         String nodeName = "node-url-config";
 
         String cfg = "{\n"
-                + "  node.metastorageNodes: [ \"" + nodeName + "\" ],\n"
                 + "  network: {\n"
                 + "    port: " + PORTS[0] + "\n"
                 + "  }\n"
@@ -280,7 +189,21 @@ class ItIgnitionTest {
 
         URL url = buildUrl("testURL.txt", cfg);
 
-        startedNodes.add(ign.start(nodeName, url, workDir.resolve(nodeName)));
+        startNode(nodeName, name -> ign.start(nodeName, url, workDir.resolve(nodeName)));
+    }
+
+    private void startNode(String nodeName, Function<String, CompletableFuture<Ignite>> starter) {
+        startedNodeNames.add(nodeName);
+
+        CompletableFuture<Ignite> future = starter.apply(nodeName);
+
+        if (startedNodes.isEmpty()) {
+            IgnitionManager.init(nodeName, List.of(nodeName));
+        }
+
+        assertThat(future, willCompleteSuccessfully());
+
+        startedNodes.add(future.join());
     }
 
     /**
@@ -293,7 +216,7 @@ class ItIgnitionTest {
      */
     private URL buildUrl(String path, String data) throws Exception {
         URLStreamHandler handler = new URLStreamHandler() {
-            private byte[] content = data.getBytes(StandardCharsets.UTF_8);
+            private final byte[] content = data.getBytes(StandardCharsets.UTF_8);
 
             @Override
             protected URLConnection openConnection(URL url) {

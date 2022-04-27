@@ -18,28 +18,35 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.AbstractClusterIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -205,6 +212,76 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
             assertThat(ex.getMessage(), is("Oops"));
             assertThat(ex.getCause(), is(notNullValue()));
         }
+    }
+
+    @Test
+    void executesColocatedWithTupleKey() throws Exception {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class)
+                .get(1, TimeUnit.SECONDS);
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    private void createTestTableWithOneRow() {
+        executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
+        executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
+    }
+
+    private List<String> allNodeNames() {
+        return IntStream.range(0, nodes())
+                .mapToObj(this::node)
+                .map(Ignite::name)
+                .collect(toList());
+    }
+
+    @Test
+    void executesColocatedByClassNameWithTupleKey() throws Exception {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .<String>executeColocated("PUBLIC.test", Tuple.create(Map.of("k", 1)), GetNodeNameJob.class.getName())
+                .get(1, TimeUnit.SECONDS);
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
+    void executesColocatedWithMappedKey() throws Exception {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), GetNodeNameJob.class)
+                .get(1, TimeUnit.SECONDS);
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
+    void executesColocatedByClassNameWithMappedKey() throws Exception {
+        createTestTableWithOneRow();
+
+        IgniteImpl entryNode = node(0);
+
+        String actualNodeName = entryNode.compute()
+                .<Integer, String>executeColocated("PUBLIC.test", 1, Mapper.of(Integer.class), GetNodeNameJob.class.getName())
+                .get(1, TimeUnit.SECONDS);
+
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    private List<List<Object>> executeSql(String sql, Object... args) {
+        return getAllFromCursor(
+                node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
+        );
     }
 
     private static class ConcatJob implements ComputeJob<String> {

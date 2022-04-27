@@ -217,12 +217,6 @@ public final class Commons {
                 return iter.next();
             }
 
-            @NotNull
-            @Override
-            public Iterator<T> iterator() {
-                return iter;
-            }
-
             @Override
             public void close() throws Exception {
                 if (iter instanceof AutoCloseable) {

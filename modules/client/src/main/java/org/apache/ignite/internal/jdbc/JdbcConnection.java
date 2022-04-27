@@ -145,7 +145,6 @@ public class JdbcConnection implements Connection {
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
 
-        int retryLimit = connProps.getRetryLimit();
         long reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
         int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
 
@@ -154,7 +153,6 @@ public class JdbcConnection implements Connection {
                     .builder()
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
-                    .retryLimit(retryLimit)
                     .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
                     .reconnectThrottlingRetries(reconnectThrottlingRetries)
                     .build());

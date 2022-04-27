@@ -22,6 +22,7 @@ import java.io.IOException;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 
 /**
  * (Um)marshalling specific to EXTERNALIZABLE serialization type.
@@ -33,6 +34,8 @@ class ExternalizableMarshaller {
     private final TypedValueWriter unsharedWriter;
     private final DefaultFieldsReaderWriter defaultFieldsReaderWriter;
 
+    private final SchemaMismatchHandlers schemaMismatchHandlers;
+
     private final NoArgConstructorInstantiation instantiation = new NoArgConstructorInstantiation();
 
     ExternalizableMarshaller(
@@ -40,13 +43,15 @@ class ExternalizableMarshaller {
             TypedValueWriter unsharedWriter,
             TypedValueReader valueReader,
             TypedValueReader unsharedReader,
-            DefaultFieldsReaderWriter defaultFieldsReaderWriter
+            DefaultFieldsReaderWriter defaultFieldsReaderWriter,
+            SchemaMismatchHandlers schemaMismatchHandlers
     ) {
         this.valueWriter = typedValueWriter;
         this.unsharedWriter = unsharedWriter;
         this.valueReader = valueReader;
         this.unsharedReader = unsharedReader;
         this.defaultFieldsReaderWriter = defaultFieldsReaderWriter;
+        this.schemaMismatchHandlers = schemaMismatchHandlers;
     }
 
     void writeExternalizable(Externalizable externalizable, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
@@ -65,23 +70,50 @@ class ExternalizableMarshaller {
         context.endWritingWithWriteObject();
 
         try {
-            externalizable.writeExternal(oos);
-            oos.flush();
+            writeWithLength(externalizable, oos);
         } finally {
             oos.restoreCurrentPutFieldTo(oldPut);
         }
     }
 
-    @SuppressWarnings("unchecked")
-    <T extends Externalizable> T preInstantiateExternalizable(ClassDescriptor descriptor) throws UnmarshalException {
+    private void writeWithLength(Externalizable externalizable, UosObjectOutputStream oos) throws IOException {
+        // NB: this only works with purely in-memory IgniteDataInput implementations!
+
+        int offsetBefore = oos.memoryBufferOffset();
+
+        writeLengthPlaceholder(oos);
+
+        externalizable.writeExternal(oos);
+        oos.flush();
+
+        int externalDataLength = oos.memoryBufferOffset() - offsetBefore - Integer.BYTES;
+
+        oos.writeIntAtOffset(offsetBefore, externalDataLength);
+    }
+
+    private void writeLengthPlaceholder(UosObjectOutputStream oos) throws IOException {
+        oos.writeInt(0);
+    }
+
+    Object preInstantiateExternalizable(ClassDescriptor descriptor) throws UnmarshalException {
         try {
-            return (T) instantiation.newInstance(descriptor.localClass());
+            return instantiation.newInstance(descriptor.localClass());
         } catch (InstantiationException e) {
             throw new UnmarshalException("Cannot instantiate " + descriptor.className(), e);
         }
     }
 
-    <T extends Externalizable> void fillExternalizableFrom(IgniteDataInput input, T object, UnmarshallingContext context)
+    void fillFromRemotelyExternalizable(IgniteDataInput input, Object object, UnmarshallingContext context)
+            throws UnmarshalException, IOException {
+        if (object instanceof Externalizable) {
+            fillExternalizableFrom(input, (Externalizable) object, context);
+        } else {
+            // it was serialized as an Externalizable, but locally it is not Externalizable; delegate to handler
+            fireExternalizableIgnored(object, input, context);
+        }
+    }
+
+    private <T extends Externalizable> void fillExternalizableFrom(IgniteDataInput input, T object, UnmarshallingContext context)
             throws IOException, UnmarshalException {
         // Do not close the stream yet!
         UosObjectInputStream ois = context.objectInputStream(input, valueReader, unsharedReader, defaultFieldsReaderWriter);
@@ -90,11 +122,35 @@ class ExternalizableMarshaller {
         context.endReadingWithReadObject();
 
         try {
-            object.readExternal(ois);
+            readWithLength(object, ois);
         } catch (ClassNotFoundException e) {
             throw new UnmarshalException("Cannot unmarshal due to a missing class", e);
         } finally {
             ois.restoreCurrentGetFieldTo(oldGet);
+        }
+    }
+
+    private <T extends Externalizable> void readWithLength(T object, UosObjectInputStream ois) throws IOException, ClassNotFoundException {
+        skipExternalDataLength(ois);
+
+        object.readExternal(ois);
+    }
+
+    private void skipExternalDataLength(UosObjectInputStream ois) throws IOException {
+        ois.readInt();
+    }
+
+    private void fireExternalizableIgnored(Object object, IgniteDataInput input, UnmarshallingContext context)
+            throws SchemaMismatchException, IOException {
+        // We have additional allocations and copying here. It simplifies the code a lot, and it seems that we should
+        // not optimize for this rare corner case.
+
+        int externalDataLength = input.readInt();
+        byte[] externalDataBytes = input.readByteArray(externalDataLength);
+        IgniteDataInput externalDataInput = new IgniteUnsafeDataInput(externalDataBytes);
+
+        try (var oos = new UosObjectInputStream(externalDataInput, valueReader, unsharedReader, defaultFieldsReaderWriter, context)) {
+            schemaMismatchHandlers.onExternalizableIgnored(object, oos);
         }
     }
 }

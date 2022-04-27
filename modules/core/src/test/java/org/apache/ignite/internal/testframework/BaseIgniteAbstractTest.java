@@ -37,7 +37,7 @@ public abstract class BaseIgniteAbstractTest {
     /** Logger. */
     protected static IgniteLogger log;
 
-    /** Tets start milliseconds. */
+    /** Test start time in milliseconds. */
     private long testStartMs;
 
     /* Init test env. */
@@ -49,14 +49,13 @@ public abstract class BaseIgniteAbstractTest {
     /**
      * Should be invoked before a test will start.
      *
-     * @param testInfo Test information oject.
+     * @param testInfo Test information object.
      * @param workDir  Work directory.
-     * @throws Exception If failed.
      */
-    protected void setupBase(TestInfo testInfo, Path workDir) throws Exception {
+    protected void setupBase(TestInfo testInfo, Path workDir) {
         log.info(">>> Starting test: {}#{}, displayName: {}, workDir: {}",
-                testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
-                testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
+                testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
+                testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
                 testInfo.getDisplayName(),
                 workDir.toAbsolutePath());
 
@@ -67,12 +66,11 @@ public abstract class BaseIgniteAbstractTest {
      * Should be invoked after the test has finished.
      *
      * @param testInfo Test information object.
-     * @throws Exception If failed.
      */
     protected void tearDownBase(TestInfo testInfo) {
         log.info(">>> Stopping test: {}#{}, displayName: {}, cost: {}ms.",
-                testInfo.getTestClass().map(Class::getSimpleName).orElseGet(() -> "<null>"),
-                testInfo.getTestMethod().map(Method::getName).orElseGet(() -> "<null>"),
+                testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
+                testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
                 testInfo.getDisplayName(), monotonicMs() - testStartMs);
     }
 

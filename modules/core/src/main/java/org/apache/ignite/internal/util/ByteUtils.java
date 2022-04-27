@@ -19,18 +19,15 @@ package org.apache.ignite.internal.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Utility class provides various method for manipulating with bytes.
  */
 public class ByteUtils {
-    /** The logger. */
-    private static final IgniteLogger LOG = IgniteLogger.forClass(ByteUtils.class);
-
     /**
      * Constructs {@code long} from byte array.
      *
@@ -109,21 +106,17 @@ public class ByteUtils {
      * @return Byte array.
      */
     public static byte[] toBytes(Object obj) {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            try (ObjectOutputStream out = new ObjectOutputStream(bos)) {
+        try (
+                var bos = new ByteArrayOutputStream();
+                var out = new ObjectOutputStream(bos)
+        ) {
+            out.writeObject(obj);
 
-                out.writeObject(obj);
+            out.flush();
 
-                out.flush();
-
-                return bos.toByteArray();
-            }
-        } catch (Exception e) {
-            LOG.warn(() ->
-                            IgniteStringFormatter.format("Could not serialize a class [cls={}]", obj.getClass().getName()),
-                    e);
-
-            return null;
+            return bos.toByteArray();
+        } catch (IOException e) {
+            throw new IgniteInternalException(String.format("Could not serialize a class [cls=%s]", obj.getClass()), e);
         }
     }
 
@@ -134,14 +127,13 @@ public class ByteUtils {
      * @return Object.
      */
     public static Object fromBytes(byte[] bytes) {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(bytes)) {
-            try (ObjectInputStream in = new ObjectInputStream(bis)) {
-                return in.readObject();
-            }
-        } catch (Exception e) {
-            LOG.warn("Could not deserialize an object", e);
-
-            return null;
+        try (
+                var bis = new ByteArrayInputStream(bytes);
+                var in = new ObjectInputStream(bis)
+        ) {
+            return in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new IgniteInternalException("Could not deserialize an object", e);
         }
     }
 }

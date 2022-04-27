@@ -17,8 +17,16 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Net;
+    using System.Threading.Tasks;
+    using Ignite.Compute;
+    using Ignite.Network;
     using Ignite.Table;
     using Ignite.Transactions;
+    using Network;
+    using Proto;
     using Table;
 
     /// <summary>
@@ -38,6 +46,7 @@ namespace Apache.Ignite.Internal
             _socket = socket;
             Tables = new Tables(socket);
             Transactions = new Transactions.Transactions(socket);
+            Compute = new Compute.Compute(socket);
         }
 
         /// <inheritdoc/>
@@ -49,6 +58,38 @@ namespace Apache.Ignite.Internal
 
         /// <inheritdoc/>
         public ITransactions Transactions { get; }
+
+        /// <inheritdoc/>
+        public ICompute Compute { get; }
+
+        /// <inheritdoc/>
+        public async Task<IList<IClusterNode>> GetClusterNodesAsync()
+        {
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.ClusterGetNodes).ConfigureAwait(false);
+
+            return Read();
+
+            IList<IClusterNode> Read()
+            {
+                var r = resBuf.GetReader();
+                var count = r.ReadArrayHeader();
+                var res = new List<IClusterNode>(count);
+
+                for (var i = 0; i < count; i++)
+                {
+                    res.Add(new ClusterNode(
+                        Id: r.ReadString(),
+                        Name: r.ReadString(),
+                        Address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                }
+
+                return res;
+            }
+        }
+
+        /// <inheritdoc/>
+        public IList<IClusterNode> GetConnections() =>
+            _socket.GetConnections().Select(ctx => ctx.ClusterNode).ToList();
 
         /// <inheritdoc/>
         public void Dispose()

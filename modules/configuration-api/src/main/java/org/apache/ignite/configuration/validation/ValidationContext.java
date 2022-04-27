@@ -19,7 +19,6 @@ package org.apache.ignite.configuration.validation;
 
 import java.lang.annotation.Annotation;
 import org.apache.ignite.configuration.RootKey;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,23 +38,22 @@ public interface ValidationContext<VIEWT> {
     /**
      * Returns previous value of the configuration.
      *
-     * @return Previous value of the configuration. Might be null for leaves only.
+     * @return Previous value of the configuration. Might be {@code null} for leaves only.
      */
     @Nullable VIEWT getOldValue();
 
     /**
      * Returns updated value of the configuration.
      *
-     * @return Updated value of the configuration. Cannot be null.
+     * @return Updated value of the configuration. Cannot be {@code null}.
      */
-    @NotNull VIEWT getNewValue();
+    VIEWT getNewValue();
 
     /**
      * Returns previous value of the configuration root.
      *
      * @param rootKey Root key.
      * @param <ROOT>  Root view type derived from the root key.
-     * @return Configuration root view before updates.
      */
     @Nullable <ROOT> ROOT getOldRoot(RootKey<?, ROOT> rootKey);
 
@@ -64,7 +62,6 @@ public interface ValidationContext<VIEWT> {
      *
      * @param rootKey Root key.
      * @param <ROOT>  Root view type derived from the root key.
-     * @return Configuration root view after updates.
      */
     @Nullable <ROOT> ROOT getNewRoot(RootKey<?, ROOT> rootKey);
 

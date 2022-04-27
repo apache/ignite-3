@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
 /**
  * Creates a future that completes when local recovery is finished.
@@ -30,21 +29,14 @@ public class RecoveryCompletionFutureFactory extends CompletableFuture<Void> {
     /**
      * Create recovery completion future.
      *
-     * @param metaStorageMgr Metastorage manager.
      * @param clusterCfgMgr Cluster configuration manager.
      * @param listenerProvider Provider of configuration listener.
      * @return Recovery completion future.
      */
     public static CompletableFuture<Void> create(
-            MetaStorageManager metaStorageMgr,
             ConfigurationManager clusterCfgMgr,
             Function<CompletableFuture<Void>, ConfigurationStorageRevisionListener> listenerProvider
     ) {
-        //TODO: IGNITE-15114 This is a temporary solution until full process of the node join is implemented.
-        if (!metaStorageMgr.isMetaStorageInitializedOnStart()) {
-            return CompletableFuture.completedFuture(null);
-        }
-
         CompletableFuture<Void> configCatchUpFuture = new CompletableFuture<>();
 
         ConfigurationStorageRevisionListener listener = listenerProvider.apply(configCatchUpFuture);

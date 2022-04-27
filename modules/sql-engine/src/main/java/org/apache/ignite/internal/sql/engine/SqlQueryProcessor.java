@@ -24,9 +24,11 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.schema.SchemaPlus;
@@ -50,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
@@ -78,6 +81,10 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final Consumer<Consumer<Long>> registry;
 
+    private final DataStorageManager dataStorageManager;
+
+    private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
+
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -100,11 +107,15 @@ public class SqlQueryProcessor implements QueryProcessor {
     public SqlQueryProcessor(
             Consumer<Consumer<Long>> registry,
             ClusterService clusterSrvc,
-            TableManager tableManager
+            TableManager tableManager,
+            DataStorageManager dataStorageManager,
+            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier
     ) {
         this.registry = registry;
         this.clusterSrvc = clusterSrvc;
         this.tableManager = tableManager;
+        this.dataStorageManager = dataStorageManager;
+        this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
     }
 
     /** {@inheritDoc} */
@@ -118,7 +129,12 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .<String, SqlNodeList>build()
                 .asMap();
 
-        var prepareSvc = registerService(new PrepareServiceImpl(clusterSrvc.localConfiguration().getName(), PLAN_CACHE_SIZE));
+        var prepareSvc = registerService(PrepareServiceImpl.create(
+                clusterSrvc.localConfiguration().getName(),
+                PLAN_CACHE_SIZE,
+                dataStorageManager,
+                dataStorageFieldsSupplier.get()
+        ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
                 clusterSrvc.topologyService(),
@@ -147,7 +163,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 taskExecutor,
                 ArrayRowHandler.INSTANCE,
                 mailboxRegistry,
-                exchangeService
+                exchangeService,
+                dataStorageManager
         ));
 
         clusterSrvc.topologyService().addEventHandler(executionSrvc);

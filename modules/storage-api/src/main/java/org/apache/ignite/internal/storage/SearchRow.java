@@ -25,16 +25,12 @@ import java.nio.ByteBuffer;
 public interface SearchRow {
     /**
      * Returns key bytes.
-     *
-     * @return Key bytes.
      */
     byte[] keyBytes();
 
     /**
      * Returns key object as a byte buffer. Allows more effective memory management in certain cases. Position of the resulting buffer
      * must be {@code 0}.
-     *
-     * @return Key object as a byte buffer. Allows more effective memory management in certain cases.
      */
     ByteBuffer key();
 }

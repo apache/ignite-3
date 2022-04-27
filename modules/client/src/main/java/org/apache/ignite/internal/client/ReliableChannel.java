@@ -26,32 +26,31 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.ignite.client.ClientOperationType;
 import org.apache.ignite.client.IgniteClientAuthenticationException;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.IgniteClientException;
+import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Communication channel with failover and partition awareness.
  */
 public final class ReliableChannel implements AutoCloseable {
-    /** Do nothing helper function. */
-    private static final Consumer<Integer> DO_NOTHING = (v) -> {
-    };
-
     /** Channel factory. */
     private final BiFunction<ClientChannelConfiguration, ClientConnectionMultiplexer, ClientChannel> chFactory;
 
@@ -65,7 +64,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final IgniteClientConfiguration clientCfg;
 
     /** Node channels. */
-    private final Map<UUID, ClientChannelHolder> nodeChannels = new ConcurrentHashMap<>();
+    private final Map<String, ClientChannelHolder> nodeChannels = new ConcurrentHashMap<>();
 
     /** Channels reinit was scheduled. */
     private final AtomicBoolean scheduledChannelsReinit = new AtomicBoolean();
@@ -125,6 +124,50 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
+     * Gets active client connections.
+     *
+     * @return List of connected cluster nodes.
+     */
+    public List<ClusterNode> connections() {
+        List<ClusterNode> res = new ArrayList<>(channels.size());
+
+        for (var holder : channels) {
+            var ch = holder.ch;
+
+            if (ch != null) {
+                res.add(ch.protocolContext().clusterNode());
+            }
+        }
+
+        return res;
+    }
+
+    /**
+     * Sends request and handles response asynchronously.
+     *
+     * @param opCode        Operation code.
+     * @param payloadWriter Payload writer.
+     * @param payloadReader Payload reader.
+     * @param <T>           response type.
+     * @param preferredNodeName Unique name (consistent id) of the preferred target node. When a connection to the specified node exists,
+     *                          it will be used to handle the request; otherwise, default connection will be used.
+     * @return Future for the operation.
+     */
+    public <T> CompletableFuture<T> serviceAsync(
+            int opCode,
+            PayloadWriter payloadWriter,
+            PayloadReader<T> payloadReader,
+            String preferredNodeName
+    ) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+
+        // Use the only one attempt to avoid blocking async method.
+        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, preferredNodeName, null, 0);
+
+        return fut;
+    }
+
+    /**
      * Sends request and handles response asynchronously.
      *
      * @param opCode        Operation code.
@@ -138,12 +181,7 @@ public final class ReliableChannel implements AutoCloseable {
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader
     ) {
-        CompletableFuture<T> fut = new CompletableFuture<>();
-
-        // Use the only one attempt to avoid blocking async method.
-        handleServiceAsync(fut, opCode, payloadWriter, payloadReader, 1, null);
-
-        return fut;
+        return serviceAsync(opCode, payloadWriter, payloadReader, null);
     }
 
     /**
@@ -155,36 +193,51 @@ public final class ReliableChannel implements AutoCloseable {
      * @return Future for the operation.
      */
     public <T> CompletableFuture<T> serviceAsync(int opCode, PayloadReader<T> payloadReader) {
-        return serviceAsync(opCode, null, payloadReader);
+        return serviceAsync(opCode, null, payloadReader, null);
     }
 
     private <T> void handleServiceAsync(final CompletableFuture<T> fut,
             int opCode,
             PayloadWriter payloadWriter,
             PayloadReader<T> payloadReader,
-            int attemptsLimit,
-            IgniteClientConnectionException failure) {
-        ClientChannel ch;
-        // Workaround to store used attempts value within lambda body.
-        var attemptsCnt = new int[1];
+            String preferredNodeName,
+            IgniteClientConnectionException failure,
+            int attempt) {
+        ClientChannel ch = null;
 
-        try {
-            ch = applyOnDefaultChannel(channel -> channel, attemptsLimit, v -> attemptsCnt[0] = v);
-        } catch (Throwable ex) {
-            if (failure != null) {
-                failure.addSuppressed(ex);
+        if (preferredNodeName != null) {
+            var holder = nodeChannels.get(preferredNodeName);
 
-                fut.completeExceptionally(failure);
+            if (holder != null) {
+                try {
+                    ch = holder.getOrCreateChannel();
+                } catch (Throwable ignored) {
+                    // Ignore.
+                }
+            }
+        }
+
+        if (ch == null) {
+            try {
+                ch = getDefaultChannel();
+            } catch (Throwable ex) {
+                if (failure != null) {
+                    failure.addSuppressed(ex);
+
+                    fut.completeExceptionally(failure);
+
+                    return;
+                }
+
+                fut.completeExceptionally(ex);
 
                 return;
             }
-
-            fut.completeExceptionally(ex);
-
-            return;
         }
 
-        ch
+        final ClientChannel ch0 = ch;
+
+        ch0
                 .serviceAsync(opCode, payloadWriter, payloadReader)
                 .handle((res, err) -> {
                     if (err == null) {
@@ -193,12 +246,18 @@ public final class ReliableChannel implements AutoCloseable {
                         return null;
                     }
 
+                    while (err instanceof CompletionException && err.getCause() != null) {
+                        err = err.getCause();
+                    }
+
                     IgniteClientConnectionException failure0 = failure;
 
                     if (err instanceof IgniteClientConnectionException) {
+                        var connectionErr = (IgniteClientConnectionException) err;
+
                         try {
                             // Will try to reinit channels if topology changed.
-                            onChannelFailure(ch);
+                            onChannelFailure(ch0);
                         } catch (Throwable ex) {
                             fut.completeExceptionally(ex);
 
@@ -206,20 +265,13 @@ public final class ReliableChannel implements AutoCloseable {
                         }
 
                         if (failure0 == null) {
-                            failure0 = (IgniteClientConnectionException) err;
+                            failure0 = connectionErr;
                         } else {
                             failure0.addSuppressed(err);
                         }
 
-                        int leftAttempts = attemptsLimit - attemptsCnt[0];
-
-                        // If it is a first retry then reset attempts (as for initialization we use only 1 attempt).
-                        if (failure == null) {
-                            leftAttempts = getRetryLimit() - 1;
-                        }
-
-                        if (leftAttempts > 0) {
-                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, leftAttempts, failure0);
+                        if (shouldRetry(opCode, attempt, connectionErr)) {
+                            handleServiceAsync(fut, opCode, payloadWriter, payloadReader, null, failure0, attempt + 1);
 
                             return null;
                         }
@@ -235,17 +287,6 @@ public final class ReliableChannel implements AutoCloseable {
 
                     return null;
                 });
-    }
-
-    /**
-     * Sends request with payload and handles response asynchronously.
-     *
-     * @param opCode        Operation code.
-     * @param payloadWriter Payload writer.
-     * @return Future for the operation.
-     */
-    public CompletableFuture<Void> requestAsync(int opCode, PayloadWriter payloadWriter) {
-        return serviceAsync(opCode, payloadWriter, null);
     }
 
     /**
@@ -459,8 +500,7 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     /**
-     * Establishing connections to servers. If partition awareness feature is enabled connections are created for every configured server.
-     * Otherwise, only default channel is connected.
+     * Init channel holders, establish connection to default channel.
      */
     CompletableFuture<Void> channelsInitAsync() {
         // Do not establish connections if interrupted.
@@ -468,26 +508,23 @@ public final class ReliableChannel implements AutoCloseable {
             return CompletableFuture.completedFuture(null);
         }
 
-        // Apply no-op function. Establish default channel connection.
-        applyOnDefaultChannel(channel -> null);
+        // Establish default channel connection.
+        getDefaultChannel();
+
+        // Establish secondary connections in the background.
+        initAllChannelsAsync();
 
         // TODO: Async startup IGNITE-15357.
         return CompletableFuture.completedFuture(null);
     }
 
-    private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function) {
-        return applyOnDefaultChannel(function, getRetryLimit(), DO_NOTHING);
-    }
-
     /**
-     * Apply specified {@code function} on any of available channel.
+     * Gets the default channel, reconnecting if necessary.
      */
-    private <T> T applyOnDefaultChannel(Function<ClientChannel, T> function,
-            int attemptsLimit,
-            Consumer<Integer> attemptsCallback) {
-        Throwable failure = null;
+    private ClientChannel getDefaultChannel() {
+        IgniteClientConnectionException failure = null;
 
-        for (int attempt = 0; attempt < attemptsLimit; attempt++) {
+        for (int attempt = 0; attempt < channels.size(); attempt++) {
             ClientChannelHolder hld = null;
             ClientChannel c = null;
 
@@ -507,11 +544,9 @@ public final class ReliableChannel implements AutoCloseable {
                 c = hld.getOrCreateChannel();
 
                 if (c != null) {
-                    attemptsCallback.accept(attempt + 1);
-
-                    return function.apply(c);
+                    return c;
                 }
-            } catch (Throwable e) {
+            } catch (IgniteClientConnectionException e) {
                 if (failure == null) {
                     failure = e;
                 } else {
@@ -525,17 +560,46 @@ public final class ReliableChannel implements AutoCloseable {
         throw new IgniteClientConnectionException("Failed to connect", failure);
     }
 
-    /** Get retry limit. */
-    private int getRetryLimit() {
-        List<ClientChannelHolder> holders = channels;
+    /** Determines whether specified operation should be retried. */
+    private boolean shouldRetry(int opCode, int iteration, IgniteClientConnectionException exception) {
+        ClientOperationType opType = ClientUtils.opCodeToClientOperationType(opCode);
 
-        if (holders == null) {
-            throw new IgniteClientException("Connections to nodes aren't initialized.");
+        if (opType == null) {
+            return true; // System operation.
         }
 
-        int size = holders.size();
+        RetryPolicy plc = clientCfg.retryPolicy();
 
-        return clientCfg.retryLimit() > 0 ? Math.min(clientCfg.retryLimit(), size) : size;
+        if (plc == null) {
+            return false;
+        }
+
+        RetryPolicyContext ctx = new RetryPolicyContextImpl(clientCfg, opType, iteration, exception);
+
+        return plc.shouldRetry(ctx);
+    }
+
+    /**
+     * Asynchronously try to establish a connection to all configured servers.
+     */
+    private void initAllChannelsAsync() {
+        ForkJoinPool.commonPool().submit(
+                () -> {
+                    List<ClientChannelHolder> holders = channels;
+
+                    for (ClientChannelHolder hld : holders) {
+                        if (closed) {
+                            return; // New reinit task scheduled or channel is closed.
+                        }
+
+                        try {
+                            hld.getOrCreateChannel(true);
+                        } catch (Exception ignore) {
+                            // No-op.
+                        }
+                    }
+                }
+        );
     }
 
     /**
@@ -550,7 +614,7 @@ public final class ReliableChannel implements AutoCloseable {
         private volatile ClientChannel ch;
 
         /** ID of the last server node that channel is or was connected to. */
-        private volatile UUID serverNodeId;
+        private volatile String serverNodeId;
 
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
@@ -623,6 +687,19 @@ public final class ReliableChannel implements AutoCloseable {
                     }
 
                     ch = chFactory.apply(chCfg, connMgr);
+
+                    String newNodeId = ch.protocolContext().clusterNode().name();
+
+                    // There could be multiple holders map to the same serverNodeId if user provide the same
+                    // address multiple times in configuration.
+                    nodeChannels.put(newNodeId, this);
+
+                    if (serverNodeId != null && !serverNodeId.equals(newNodeId)) {
+                        // New node on the old address.
+                        nodeChannels.remove(serverNodeId, this);
+                    }
+
+                    serverNodeId = newNodeId;
                 }
             }
 

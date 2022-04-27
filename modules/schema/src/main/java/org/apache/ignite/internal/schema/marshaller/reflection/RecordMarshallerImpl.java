@@ -20,7 +20,6 @@ package org.apache.ignite.internal.schema.marshaller.reflection;
 import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getValueSize;
 
 import java.util.Objects;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.Columns;
@@ -81,26 +80,26 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
-    public BinaryRow marshal(@NotNull R rec) throws MarshallerException {
+    public Row marshal(@NotNull R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(rec), rec);
 
         recMarsh.writeObject(rec, asm);
 
-        return new ByteBufferRow(asm.toBytes());
+        return new Row(schema, new ByteBufferRow(asm.toBytes()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public BinaryRow marshalKey(@NotNull R rec) throws MarshallerException {
+    public Row marshalKey(@NotNull R rec) throws MarshallerException {
         assert recClass.isInstance(rec);
 
         final RowAssembler asm = createAssembler(Objects.requireNonNull(rec), null);
 
         keyMarsh.writeObject(rec, asm);
 
-        return new ByteBufferRow(asm.toBytes());
+        return new Row(schema, new ByteBufferRow(asm.toBytes()));
     }
 
     /** {@inheritDoc} */

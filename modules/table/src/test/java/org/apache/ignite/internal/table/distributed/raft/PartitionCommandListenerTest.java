@@ -40,7 +40,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -97,8 +97,13 @@ public class PartitionCommandListenerTest {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
-        commandListener = new PartitionListener(UUID.randomUUID(),
-                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), new TxManagerImpl(clusterService, new HeapLockManager())));
+        commandListener = new PartitionListener(
+                UUID.randomUUID(),
+                new VersionedRowStore(
+                        new TestConcurrentHashMapPartitionStorage(0),
+                        new TxManagerImpl(clusterService, new HeapLockManager())
+                )
+        );
     }
 
     /**

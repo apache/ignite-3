@@ -98,9 +98,12 @@ class ObjectMarshallerCodeGenerator implements MarshallerCodeGenerator {
         for (int i = 0; i < columns.length(); i++) {
             final ColumnAccessCodeGenerator columnAccessor = columnAccessors[i];
 
-            final BytecodeExpression fld = BytecodeExpressions.getStatic(marshallerClass, "FIELD_HANDLER_" + columnAccessor.columnIdx(),
-                    ParameterizedType.type(VarHandle.class))
-                                                   .invoke("get", columnAccessor.mappedType(), obj);
+            final BytecodeExpression fld = BytecodeExpressions.getStatic(
+                            marshallerClass,
+                            "FIELD_HANDLER_" + columnAccessor.columnIdx(),
+                            ParameterizedType.type(VarHandle.class)
+                    )
+                    .invoke("get", columnAccessor.mappedType(), obj);
 
             final BytecodeExpression marshallNonNulExpr = asm.invoke(
                     columnAccessor.writeMethodName(),

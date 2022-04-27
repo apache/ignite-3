@@ -23,7 +23,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -37,9 +36,6 @@ abstract class RaftServerAbstractTest {
     protected static final IgniteLogger LOG = IgniteLogger.forClass(RaftServerAbstractTest.class);
 
     protected static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
-
-    /** Network factory. */
-    protected static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
 
     /**
      * Server port offset.
@@ -72,8 +68,7 @@ abstract class RaftServerAbstractTest {
         var network = ClusterServiceTestUtils.clusterService(
                 testInfo,
                 port,
-                new StaticNodeFinder(servers),
-                NETWORK_FACTORY
+                new StaticNodeFinder(servers)
         );
 
         if (start) {

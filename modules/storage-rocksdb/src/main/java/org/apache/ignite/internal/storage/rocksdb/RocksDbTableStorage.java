@@ -39,7 +39,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.engine.DataRegion;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -93,8 +92,8 @@ class RocksDbTableStorage implements TableStorage {
     /**
      * Constructor.
      *
-     * @param tablePath  Path for the directory that stores table data.
-     * @param tableCfg   Table configuration.
+     * @param tablePath Path for the directory that stores table data.
+     * @param tableCfg Table configuration.
      * @param threadPool Thread pool for async operations.
      * @param dataRegion Data region for the table.
      */
@@ -114,12 +113,6 @@ class RocksDbTableStorage implements TableStorage {
     @Override
     public TableConfiguration configuration() {
         return tableCfg;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public DataRegion dataRegion() {
-        return dataRegion;
     }
 
     /** {@inheritDoc} */

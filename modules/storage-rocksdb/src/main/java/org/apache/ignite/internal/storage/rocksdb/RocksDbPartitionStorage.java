@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageUtils;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.util.Cursor;
@@ -349,6 +350,33 @@ class RocksDbPartitionStorage implements PartitionStorage {
         };
     }
 
+    // TODO IGNITE-16769 Implement correct PartitionStorage rows count calculation.
+    @Override
+    public long rowsCount() {
+        var upperBound = new Slice(partitionEndPrefix());
+
+        var options = new ReadOptions().setIterateUpperBound(upperBound);
+
+        RocksIterator it = data.newIterator(options);
+
+        it.seek(partitionStartPrefix());
+
+        long size = 0;
+
+        while (it.isValid()) {
+            ++size;
+            it.next();
+        }
+
+        try {
+            IgniteUtils.closeAll(options, upperBound);
+        } catch (Exception e) {
+            throw new StorageException("Error occurred while fetching the size.", e);
+        }
+
+        return size;
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
@@ -449,20 +477,9 @@ class RocksDbPartitionStorage implements PartitionStorage {
                 .order(ByteOrder.BIG_ENDIAN)
                 .putShort((short) partId)
                 // TODO: use precomputed hash, see https://issues.apache.org/jira/browse/IGNITE-16370
-                .putInt(hashCode(keyBuffer))
+                .putInt(StorageUtils.hashCode(keyBuffer))
                 .put(keyBuffer)
                 .array();
-    }
-
-    /**
-     * Returns byte buffer hash that matches corresponding array hash.
-     */
-    private static int hashCode(ByteBuffer buf) {
-        int result = 1;
-        for (int i = buf.position(); i < buf.limit(); i++) {
-            result = 31 * result + buf.get(i);
-        }
-        return result;
     }
 
     /**

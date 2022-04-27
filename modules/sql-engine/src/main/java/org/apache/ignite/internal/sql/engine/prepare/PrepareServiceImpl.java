@@ -49,6 +49,7 @@ import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -62,7 +63,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
     private static final int THREAD_COUNT = 4;
 
-    private final DdlSqlToCommandConverter ddlConverter = new DdlSqlToCommandConverter();
+    private final DdlSqlToCommandConverter ddlConverter;
 
     private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
 
@@ -71,13 +72,40 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
     private volatile ThreadPoolExecutor planningPool;
 
     /**
+     * Factory method.
+     *
+     * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
+     * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param dataStorageManager Data storage manager.
+     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
+     */
+    public static PrepareServiceImpl create(
+            String nodeName,
+            int cacheSize,
+            DataStorageManager dataStorageManager,
+            Map<String, Map<String, Class<?>>> dataStorageFields
+    ) {
+        return new PrepareServiceImpl(
+                nodeName,
+                cacheSize,
+                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage)
+        );
+    }
+
+    /**
      * Constructor.
      *
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param ddlConverter A converter of the DDL-related AST to the actual command.
      */
-    public PrepareServiceImpl(String nodeName, int cacheSize) {
+    public PrepareServiceImpl(
+            String nodeName,
+            int cacheSize,
+            DdlSqlToCommandConverter ddlConverter
+    ) {
         this.nodeName = nodeName;
+        this.ddlConverter = ddlConverter;
 
         cache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)

@@ -19,8 +19,8 @@ package org.apache.ignite.internal.sql.engine.sql;
 
 import java.util.List;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
@@ -30,7 +30,6 @@ import org.apache.calcite.sql.util.SqlVisitor;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.Litmus;
-import org.jetbrains.annotations.NotNull;
 
 /** An AST node representing option to create table with. */
 public class IgniteSqlCreateTableOption extends SqlCall {
@@ -38,13 +37,13 @@ public class IgniteSqlCreateTableOption extends SqlCall {
             new SqlSpecialOperator("TableOption", SqlKind.OTHER);
 
     /** Option key. */
-    private final SqlLiteral key;
+    private final SqlIdentifier key;
 
     /** Option value. */
     private final SqlNode value;
 
     /** Creates IgniteSqlCreateTableOption. */
-    public IgniteSqlCreateTableOption(SqlLiteral key, SqlNode value, SqlParserPos pos) {
+    public IgniteSqlCreateTableOption(SqlIdentifier key, SqlNode value, SqlParserPos pos) {
         super(pos);
 
         this.key = key;
@@ -52,14 +51,12 @@ public class IgniteSqlCreateTableOption extends SqlCall {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public SqlOperator getOperator() {
         return OPERATOR;
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
     public List<SqlNode> getOperandList() {
         return List.of(key, value);
@@ -109,12 +106,12 @@ public class IgniteSqlCreateTableOption extends SqlCall {
     /**
      * Get option's key.
      */
-    public IgniteSqlCreateTableOptionEnum key() {
-        return key.getValueAs(IgniteSqlCreateTableOptionEnum.class);
+    public SqlIdentifier key() {
+        return key;
     }
 
     /**
-     * GEt option's value.
+     * Get option's value.
      */
     public SqlNode value() {
         return value;

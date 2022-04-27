@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -37,7 +38,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
@@ -78,6 +80,10 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
     private final List<TxManager> managers = new ArrayList<>();
 
+    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+        throw new UnsupportedOperationException();
+    };
+
     @AfterEach
     @Override
     public void afterTest() throws Exception {
@@ -103,6 +109,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txManager,
                 mock(TableStorage.class)
         );
@@ -125,6 +132,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txManager,
                 mock(TableStorage.class)
         );
@@ -153,6 +161,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
                 Int2ObjectMaps.singleton(0, service),
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txManager,
                 mock(TableStorage.class)
         );
@@ -203,7 +212,7 @@ public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<Parti
 
                     PartitionListener listener = new PartitionListener(
                             UUID.randomUUID(),
-                            new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManager));
+                            new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager));
 
                     paths.put(listener, workDir);
 

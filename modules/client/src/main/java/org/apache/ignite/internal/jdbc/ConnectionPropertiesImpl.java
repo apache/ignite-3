@@ -68,13 +68,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
 
-    /** JDBC retry limit. */
-    private final IntegerProperty retryLimit = new IntegerProperty("retryLimit",
-            "Sets the retry limit. When a request fails due to a connection error, and multiple server connections "
-                    + "are available, Ignite will retry the request on every connection. When this property is greater than "
-                    + "zero, Ignite will limit the number of retries.",
-            IgniteClientConfiguration.DFLT_RETRY_LIMIT, false, 0, Integer.MAX_VALUE);
-
     /** JDBC reconnect throttling period. */
     private final LongProperty reconnectThrottlingPeriod = new LongProperty("reconnectThrottlingPeriod",
             "Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.",
@@ -160,18 +153,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setQueryTimeout(@Nullable Integer timeout) throws SQLException {
         qryTimeout.setValue(timeout);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Integer getRetryLimit() {
-        return retryLimit.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setRetryLimit(Integer limit) throws SQLException {
-        retryLimit.setValue(limit);
     }
 
     /** {@inheritDoc} */

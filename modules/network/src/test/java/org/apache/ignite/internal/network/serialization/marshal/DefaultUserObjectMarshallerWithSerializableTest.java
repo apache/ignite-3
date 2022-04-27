@@ -241,20 +241,6 @@ class DefaultUserObjectMarshallerWithSerializableTest {
     }
 
     @Test
-    void invokesWriteObjectEvenWhenThereIsNoReadObject() throws Exception {
-        marshalAndUnmarshalNonNull(new WithWriteObjectButNoReadObject());
-
-        assertTrue(writeObjectCalled);
-    }
-
-    @Test
-    void invokesReadObjectEvenWhenThereIsNoWriteObject() throws Exception {
-        marshalAndUnmarshalNonNull(new WithReadObjectButNoWriteObject());
-
-        assertTrue(readObjectCalled);
-    }
-
-    @Test
     void explicitSerialPersistentFieldsChangesSerializableFieldsList() throws Exception {
         SerializableWithExplicitSerialPersistentFields unmarshalled = marshalAndUnmarshalNonNull(
                 new SerializableWithExplicitSerialPersistentFields()
@@ -272,6 +258,15 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
         assertThat(unmarshalled.listed, is(43));
         assertThat(unmarshalled.notListed, is(42));
+    }
+
+    @Test
+    void supportsSerialPersistedFieldsNamesDifferentFromRealFieldNamesWithPutFields() throws Exception {
+        var oririnalObject = new SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields(42);
+
+        SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields result = marshalAndUnmarshalNonNull(oririnalObject);
+
+        assertThat(result.value, is(42));
     }
 
     /**
@@ -551,5 +546,32 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         private static final ObjectStreamField[] serialPersistentFields = {
                 new ObjectStreamField("listed", int.class)
         };
+    }
+
+    private static class SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields implements Serializable {
+        private static final ObjectStreamField[] serialPersistentFields = {
+                new ObjectStreamField("val", Integer.class)
+        };
+
+        /**
+         * The type of value must be non-primitive and known-upfront for this test, hence String is not a good choice
+         * (as internally we have 2 String 'types': Latin1 and all just String), but Integer is ok.
+         */
+        private Integer value;
+
+        public SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields(Integer value) {
+            this.value = value;
+        }
+
+        private void writeObject(ObjectOutputStream stream) throws IOException {
+            ObjectOutputStream.PutField putFields = stream.putFields();
+            putFields.put("val", value);
+            putFields.write(stream);
+        }
+
+        private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+            ObjectInputStream.GetField getFields = stream.readFields();
+            value = (Integer) getFields.get("val", null);
+        }
     }
 }

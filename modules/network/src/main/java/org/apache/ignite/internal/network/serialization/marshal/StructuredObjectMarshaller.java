@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.util.BitSet;
 import java.util.List;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputSt
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +54,8 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             new UnsafeInstantiation()
     );
 
+    private final NullsBitsetWriter nullsBitsetWriter = new DefaultNullsBitsetWriter();
+
     StructuredObjectMarshaller(
             DescriptorRegistry localDescriptors,
             TypedValueWriter valueWriter,
@@ -74,7 +76,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             throws MarshalException, IOException {
         List<ClassDescriptor> lineage = descriptor.lineage();
 
-        // using a for loop to avoid allocation of an iterator
         for (ClassDescriptor layer : lineage) {
             writeStructuredObjectLayer(object, layer, output, context);
         }
@@ -100,7 +101,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.startWritingWithWriteObject(object, descriptor);
 
         try {
-            descriptor.serializationMethods().writeObject(object, oos);
+            writeObjectWithLength(object, descriptor, oos);
             oos.flush();
         } catch (SpecialMethodInvocationException e) {
             throw new MarshalException("Cannot invoke writeObject()", e);
@@ -110,11 +111,31 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
+    private void writeObjectWithLength(Object object, ClassDescriptor descriptor, UosObjectOutputStream oos)
+            throws IOException, SpecialMethodInvocationException {
+        // NB: this only works with purely in-memory IgniteDataInput implementations!
+
+        int offsetBefore = oos.memoryBufferOffset();
+
+        writeLengthPlaceholder(oos);
+
+        descriptor.serializationMethods().writeObject(object, oos);
+        oos.flush();
+
+        int externalDataLength = oos.memoryBufferOffset() - offsetBefore - Integer.BYTES;
+
+        oos.writeIntAtOffset(offsetBefore, externalDataLength);
+    }
+
+    private void writeLengthPlaceholder(UosObjectOutputStream oos) throws IOException {
+        oos.writeInt(0);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void defaultWriteFields(Object object, ClassDescriptor descriptor, IgniteDataOutput output, MarshallingContext context)
             throws MarshalException, IOException {
-        @Nullable BitSet nullsBitSet = writeNullsBitSet(object, descriptor, output);
+        @Nullable BitSet nullsBitSet = nullsBitsetWriter.writeNullsBitSet(object, descriptor, output);
 
         for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
             if (cannotAvoidWritingNull(fieldDescriptor, descriptor, nullsBitSet)) {
@@ -129,30 +150,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         assert maybeIndexInBitmap < 0 || nullsBitSet != null : "Index is " + maybeIndexInBitmap;
 
         return maybeIndexInBitmap < 0 || !nullsBitSet.get(maybeIndexInBitmap);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public BitSet writeNullsBitSet(Object object, ClassDescriptor descriptor, DataOutput output) throws IOException {
-        BitSet nullsBitSet = descriptor.fieldIndexInNullsBitmapSize() == 0 ? null : new BitSet(descriptor.fieldIndexInNullsBitmapSize());
-
-        for (FieldDescriptor fieldDescriptor : descriptor.fields()) {
-            int indexInBitmap = descriptor.fieldIndexInNullsBitmap(fieldDescriptor.name());
-            if (indexInBitmap >= 0) {
-                Object fieldValue = getFieldValue(object, fieldDescriptor);
-                if (fieldValue == null) {
-                    assert nullsBitSet != null;
-                    nullsBitSet.set(indexInBitmap);
-                }
-            }
-        }
-
-        if (nullsBitSet != null) {
-            ProtocolMarshalling.writeFixedLengthBitSet(nullsBitSet, descriptor.fieldIndexInNullsBitmapSize(), output);
-        }
-
-        return nullsBitSet;
     }
 
     private void writeField(Object object, FieldDescriptor fieldDescriptor, IgniteDataOutput output, MarshallingContext context)
@@ -212,22 +209,33 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
-    void fillStructuredObjectFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    void fillStructuredObjectFrom(IgniteDataInput input, Object object, ClassDescriptor remoteDescriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        List<ClassDescriptor> lineage = descriptor.lineage();
+        List<ClassDescriptor> remoteLineage = remoteDescriptor.lineage();
 
-        // using a for loop to avoid allocation of an iterator
-        for (ClassDescriptor layer : lineage) {
-            fillStructuredObjectLayerFrom(input, layer, object, context);
+        for (ClassDescriptor remoteLayer : remoteLineage) {
+            fillStructuredObjectLayerFrom(input, remoteLayer, object, context);
         }
     }
 
-    private void fillStructuredObjectLayerFrom(IgniteDataInput input, ClassDescriptor layer, Object object, UnmarshallingContext context)
-            throws IOException, UnmarshalException {
-        if (layer.hasReadObject()) {
-            fillObjectWithReadObjectFrom(input, object, layer, context);
+    private void fillStructuredObjectLayerFrom(
+            IgniteDataInput input,
+            ClassDescriptor remoteLayer,
+            Object object,
+            UnmarshallingContext context
+    ) throws IOException, UnmarshalException {
+        ClassDescriptor localLayer = remoteLayer.local();
+
+        if (remoteLayer.hasWriteObject() && localLayer.hasReadObject()) {
+            fillObjectWithReadObjectFrom(input, object, remoteLayer, context);
+        } else if (remoteLayer.hasWriteObject() && !localLayer.hasReadObject()) {
+            fireReadObjectIgnored(remoteLayer, object, input, context);
         } else {
-            defaultFillFieldsFrom(input, object, layer, context);
+            defaultFillFieldsFrom(input, object, remoteLayer, context);
+
+            if (localLayer.hasReadObject()) {
+                schemaMismatchHandlers.onReadObjectMissed(remoteLayer.localClass(), object);
+            }
         }
     }
 
@@ -244,7 +252,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.startReadingWithReadObject(object, descriptor);
 
         try {
-            descriptor.serializationMethods().readObject(object, ois);
+            readObjectWithLength(object, descriptor, ois);
         } catch (SpecialMethodInvocationException e) {
             throw new UnmarshalException("Cannot invoke readObject()", e);
         } finally {
@@ -253,11 +261,41 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
+    private void readObjectWithLength(Object object, ClassDescriptor descriptor, UosObjectInputStream ois)
+            throws IOException, SpecialMethodInvocationException {
+        skipWriteObjectDataLength(ois);
+
+        descriptor.serializationMethods().readObject(object, ois);
+    }
+
+    private void skipWriteObjectDataLength(UosObjectInputStream ois) throws IOException {
+        ois.readInt();
+    }
+
+    private void fireReadObjectIgnored(ClassDescriptor remoteLayer, Object object, IgniteDataInput input, UnmarshallingContext context)
+            throws SchemaMismatchException, IOException {
+        // We have additional allocations and copying here. It simplifies the code a lot, and it seems that we should
+        // not optimize for this rare corner case.
+
+        int writeObjectDataLength = input.readInt();
+        byte[] writeObjectDataBytes = new byte[writeObjectDataLength];
+        int actuallyRead = input.readFewBytes(writeObjectDataBytes, 0, writeObjectDataLength);
+        if (actuallyRead != writeObjectDataLength) {
+            throw new IOException("Premature end of the input stream: expected to read " + writeObjectDataLength
+                    + ", but only got " + actuallyRead);
+        }
+        IgniteDataInput externalDataInput = new IgniteUnsafeDataInput(writeObjectDataBytes);
+
+        try (var oos = new UosObjectInputStream(externalDataInput, valueReader, unsharedReader, this, context)) {
+            schemaMismatchHandlers.onReadObjectIgnored(remoteLayer.localClass(), object, oos);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        @Nullable BitSet nullsBitSet = readNullsBitSet(input, descriptor);
+        @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
 
         for (MergedField mergedField : descriptor.mergedFields()) {
             if (mergedField.hasRemote()) {
@@ -289,17 +327,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         assert maybeIndexInBitmap < 0 || nullsBitSet != null : "Index is " + maybeIndexInBitmap;
 
         return maybeIndexInBitmap >= 0 && nullsBitSet.get(maybeIndexInBitmap);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    @Nullable
-    public BitSet readNullsBitSet(DataInput input, ClassDescriptor descriptor) throws IOException {
-        if (descriptor.fieldIndexInNullsBitmapSize() == 0) {
-            return null;
-        }
-
-        return ProtocolMarshalling.readFixedLengthBitSet(descriptor.fieldIndexInNullsBitmapSize(), input);
     }
 
     private void fillFieldFrom(

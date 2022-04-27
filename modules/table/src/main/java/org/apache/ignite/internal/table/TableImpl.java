@@ -19,18 +19,21 @@ package org.apache.ignite.internal.table;
 
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
+import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table view implementation for binary objects.
@@ -106,21 +109,53 @@ public class TableImpl implements Table {
     }
 
     /**
-     * Returns a partition for a tuple.
+     * Returns a partition for a key tuple.
      *
-     * @param t The tuple.
+     * @param key The tuple.
      * @return The partition.
      */
-    @TestOnly
-    public int partition(Tuple t) {
-        Objects.requireNonNull(t);
+    public int partition(Tuple key) {
+        Objects.requireNonNull(key);
 
         try {
-            final Row keyRow = new TupleMarshallerImpl(schemaReg).marshalKey(t);
+            final Row keyRow = new TupleMarshallerImpl(schemaReg).marshalKey(key);
 
             return tbl.partition(keyRow);
         } catch (TupleMarshallerException e) {
             throw new IgniteInternalException(e);
         }
+    }
+
+    /**
+     * Returns a partition for a key.
+     *
+     * @param key The key.
+     * @param keyMapper Key mapper
+     * @return The partition.
+     */
+    public <K> int partition(K key, Mapper<K> keyMapper) {
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(keyMapper);
+
+        BinaryRowEx keyRow;
+        var marshaller = new KvMarshallerImpl<>(schemaReg.schema(), keyMapper, keyMapper);
+        try {
+            keyRow = marshaller.marshal(key);
+        } catch (MarshallerException e) {
+            throw new IgniteInternalException("Cannot marshal key", e);
+        }
+
+        return tbl.partition(keyRow);
+    }
+
+    /**
+     * Returns cluster node that is the leader of the corresponding partition group or throws an exception if
+     * it cannot be found.
+     *
+     * @param partition partition number
+     * @return leader node of the partition group corresponding to the partition
+     */
+    public ClusterNode leaderAssignment(int partition) {
+        return tbl.leaderAssignment(partition);
     }
 }

@@ -43,6 +43,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.AbstractClusterService;
 import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterService;
@@ -56,6 +57,9 @@ import org.apache.ignite.network.NodeFinderFactory;
  * Cluster service factory that uses ScaleCube for messaging and topology services.
  */
 public class ScaleCubeClusterServiceFactory {
+    /** Logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ScaleCubeClusterServiceFactory.class);
+
     /**
      * Creates a new {@link ClusterService} using the provided context. The created network will not be in the "started" state.
      *
@@ -78,6 +82,7 @@ public class ScaleCubeClusterServiceFactory {
         var messagingService = new DefaultMessagingService(messageFactory, topologyService, userObjectSerialization);
 
         return new AbstractClusterService(context, topologyService, messagingService) {
+
             private volatile ClusterImpl cluster;
 
             private volatile ConnectionManager connectionMgr;
@@ -145,7 +150,7 @@ public class ScaleCubeClusterServiceFactory {
             @Override
             public void stop() {
                 // local member will be null, if cluster has not been started
-                if (cluster.member() == null) {
+                if (cluster == null || cluster.member() == null) {
                     return;
                 }
 
@@ -157,10 +162,11 @@ public class ScaleCubeClusterServiceFactory {
                     Thread.currentThread().interrupt();
 
                     throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
-                } catch (TimeoutException e) {
-                    throw new IgniteInternalException("Timeout while waiting for the ClusterService to stop", e);
                 } catch (ExecutionException e) {
                     throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
+                } catch (TimeoutException e) {
+                    // Failed to leave gracefully
+                    LOG.warn("Failed to wait for ScaleCube cluster shutdown: " + e.getMessage(), e);
                 }
 
                 connectionMgr.stop();

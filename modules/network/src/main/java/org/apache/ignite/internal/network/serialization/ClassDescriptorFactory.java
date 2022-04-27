@@ -32,7 +32,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
@@ -132,12 +131,12 @@ public class ClassDescriptorFactory {
     private ClassDescriptor externalizable(int descriptorId, Class<? extends Externalizable> clazz) {
         checkHasPublicNoArgConstructor(clazz);
 
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
                 componentTypeDescriptor(clazz),
-                Collections.emptyList(),
+                fields(clazz),
                 new Serialization(
                         SerializationType.EXTERNALIZABLE,
                         NO_WRITE_OBJECT,
@@ -223,7 +222,7 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor serializable(int descriptorId, Class<? extends Serializable> clazz) {
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),
@@ -268,7 +267,7 @@ public class ClassDescriptorFactory {
      * @return Class descriptor.
      */
     private ClassDescriptor arbitrary(int descriptorId, Class<?> clazz) {
-        return ClassDescriptor.local(
+        return ClassDescriptor.forLocal(
                 clazz,
                 descriptorId,
                 superClassDescriptor(clazz),

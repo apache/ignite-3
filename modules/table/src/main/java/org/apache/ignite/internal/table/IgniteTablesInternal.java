@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.NodeStoppingException;
 
 /**
@@ -42,4 +43,34 @@ public interface IgniteTablesInternal {
      * @throws NodeStoppingException If an implementation stopped before the method was invoked.
      */
     CompletableFuture<TableImpl> tableAsync(UUID id) throws NodeStoppingException;
+
+    // TODO: IGNITE-16750 - the following two methods look a bit ugly, separation of public/internal Table aspects should help
+
+    /**
+     * Gets a table by name, if it was created before.
+     *
+     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
+     *             "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
+     *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
+     * @return Tables with corresponding name or {@code null} if table isn't created.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     */
+    TableImpl tableImpl(String name);
+
+    /**
+     * Gets a table by name, if it was created before.
+     *
+     * @param name Canonical name of the table ([schemaName].[tableName]) with SQL-parser style quotation, e.g.
+     *             "public.tbl0" - the table "PUBLIC.TBL0" will be looked up,
+     *             "PUBLIC.\"Tbl0\"" - "PUBLIC.Tbl0", "\"MySchema\".\"Tbl0\"" - "MySchema.Tbl0", etc.
+     * @return Future representing pending completion of the operation.
+     * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
+     *                         <ul>
+     *                             <li>the node is stopping.</li>
+     *                         </ul>
+     */
+    CompletableFuture<TableImpl> tableImplAsync(String name);
 }

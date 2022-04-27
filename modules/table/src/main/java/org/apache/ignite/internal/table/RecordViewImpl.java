@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.MarshallerException;
@@ -74,7 +75,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAsync(@Nullable Transaction tx, @NotNull R keyRec) {
-        BinaryRow keyRow = marshalKey(Objects.requireNonNull(keyRec));
+        BinaryRowEx keyRow = marshalKey(Objects.requireNonNull(keyRec));
 
         return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -102,7 +103,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, @NotNull R rec) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
+        BinaryRowEx keyRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.upsert(keyRow, (InternalTransaction) tx);
     }
@@ -130,7 +131,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, @NotNull R rec) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
+        BinaryRowEx keyRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -144,7 +145,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, @NotNull R rec) {
-        BinaryRow keyRow = marshal(Objects.requireNonNull(rec));
+        BinaryRowEx keyRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.insert(keyRow, (InternalTransaction) tx);
     }
@@ -158,7 +159,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> insertAllAsync(@Nullable Transaction tx, @NotNull Collection<R> recs) {
-        Collection<BinaryRow> rows = marshal(Objects.requireNonNull(recs));
+        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(recs));
 
         return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -178,7 +179,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R rec) {
-        BinaryRow newRow = marshal(Objects.requireNonNull(rec));
+        BinaryRowEx newRow = marshal(Objects.requireNonNull(rec));
 
         return tbl.replace(newRow, (InternalTransaction) tx);
     }
@@ -186,8 +187,8 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, @NotNull R oldRec, @NotNull R newRec) {
-        BinaryRow oldRow = marshal(Objects.requireNonNull(oldRec));
-        BinaryRow newRow = marshal(Objects.requireNonNull(newRec));
+        BinaryRowEx oldRow = marshal(Objects.requireNonNull(oldRec));
+        BinaryRowEx newRow = marshal(Objects.requireNonNull(newRec));
 
         return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
     }
@@ -201,7 +202,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, @NotNull R rec) {
-        BinaryRow row = marshal(Objects.requireNonNull(rec));
+        BinaryRowEx row = marshal(Objects.requireNonNull(rec));
 
         return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -215,7 +216,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
-        BinaryRow row = marshalKey(Objects.requireNonNull(keyRec));
+        BinaryRowEx row = marshalKey(Objects.requireNonNull(keyRec));
 
         return tbl.delete(row, (InternalTransaction) tx);
     }
@@ -229,7 +230,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, @NotNull R keyRec) {
-        BinaryRow row = marshal(Objects.requireNonNull(keyRec));
+        BinaryRowEx row = marshal(Objects.requireNonNull(keyRec));
 
         return tbl.deleteExact(row, (InternalTransaction) tx);
     }
@@ -243,7 +244,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, @NotNull R keyRec) {
-        BinaryRow row = marshalKey(keyRec);
+        BinaryRowEx row = marshalKey(keyRec);
 
         return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -257,7 +258,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
-        Collection<BinaryRow> rows = marshal(Objects.requireNonNull(keyRecs));
+        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
         return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -271,7 +272,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<R>> deleteAllExactAsync(@Nullable Transaction tx, @NotNull Collection<R> keyRecs) {
-        Collection<BinaryRow> rows = marshal(Objects.requireNonNull(keyRecs));
+        Collection<BinaryRowEx> rows = marshal(Objects.requireNonNull(keyRecs));
 
         return tbl.deleteAllExact(rows, (InternalTransaction) tx).thenApply(this::unmarshal);
     }
@@ -336,7 +337,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param rec Record object.
      * @return Binary row.
      */
-    private BinaryRow marshal(@NotNull R rec) {
+    private BinaryRowEx marshal(@NotNull R rec) {
         final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         try {
@@ -352,14 +353,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param recs Records collection.
      * @return Binary rows collection.
      */
-    private Collection<BinaryRow> marshal(@NotNull Collection<R> recs) {
+    private Collection<BinaryRowEx> marshal(@NotNull Collection<R> recs) {
         final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
-        List<BinaryRow> rows = new ArrayList<>(recs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
         try {
             for (R rec : recs) {
-                final BinaryRow row = marsh.marshal(Objects.requireNonNull(rec));
+                final Row row = marsh.marshal(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -376,7 +377,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param rec Record key object.
      * @return Binary row.
      */
-    private BinaryRow marshalKey(@NotNull R rec) {
+    private BinaryRowEx marshalKey(@NotNull R rec) {
         final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
         try {
@@ -392,14 +393,14 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
      * @param recs Records collection.
      * @return Binary rows collection.
      */
-    private Collection<BinaryRow> marshalKeys(@NotNull Collection<R> recs) {
+    private Collection<BinaryRowEx> marshalKeys(@NotNull Collection<R> recs) {
         final RecordMarshaller<R> marsh = marshaller(schemaReg.lastSchemaVersion());
 
-        List<BinaryRow> rows = new ArrayList<>(recs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(recs.size());
 
         try {
             for (R rec : recs) {
-                final BinaryRow row = marsh.marshalKey(Objects.requireNonNull(rec));
+                final Row row = marsh.marshalKey(Objects.requireNonNull(rec));
 
                 rows.add(row);
             }
@@ -450,9 +451,7 @@ public class RecordViewImpl<R> extends AbstractTableView implements RecordView<R
 
         try {
             for (Row row : schemaReg.resolve(rows)) {
-                if (row != null) {
-                    recs.add(marsh.unmarshal(row));
-                }
+                recs.add(marsh.unmarshal(row));
             }
 
             return recs;

@@ -95,7 +95,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         server = new JraftServerImpl(service, dataPath) {
             @Override
-            public synchronized void stop() {
+            public synchronized void stop() throws Exception {
                 super.stop();
 
                 service.stop();

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -56,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
 
@@ -310,7 +312,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return new ModifyRow(rowAssembler.build(), Operation.INSERT_ROW);
+        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.INSERT_ROW);
     }
 
     private <RowT> ModifyRow mergeTuple(RowT row, List<String> updateColList, ExecutionContext<RowT> ectx) {
@@ -373,7 +375,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
-        return new ModifyRow(rowAssembler.build(), Operation.UPDATE_ROW);
+        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.UPDATE_ROW);
     }
 
     private <RowT> int countNotNullColumns(int start, int end, Object2IntMap<String> columnToIndex, int offset,
@@ -426,7 +428,7 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
             RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
         }
 
-        return new ModifyRow(rowAssembler.build(), Operation.DELETE_ROW);
+        return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.DELETE_ROW);
     }
 
     private ColocationGroup partitionedGroup() {
@@ -438,10 +440,32 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
     }
 
     private class StatisticsImpl implements Statistic {
+        private static final int STATS_CLI_UPDATE_THRESHOLD = 200;
+
+        AtomicInteger statReqCnt = new AtomicInteger();
+
+        private volatile long localRowCnt;
+
         /** {@inheritDoc} */
         @Override
         public Double getRowCount() {
-            return 10_000d;
+            if (statReqCnt.getAndIncrement() % STATS_CLI_UPDATE_THRESHOLD == 0) {
+                int parts = table.storage().configuration().partitions().value();
+
+                long size = 0L;
+
+                for (int p = 0; p < parts; ++p) {
+                    @Nullable PartitionStorage part = table.storage().getPartition(p);
+
+                    if (part != null) {
+                        size += part.rowsCount();
+                    }
+                }
+
+                localRowCnt = size;
+            }
+
+            return (double) localRowCnt;
         }
 
         /** {@inheritDoc} */

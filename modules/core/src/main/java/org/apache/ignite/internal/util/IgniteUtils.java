@@ -671,6 +671,18 @@ public class IgniteUtils {
     }
 
     /**
+     * Return {@code obj} if not null, otherwise {@code defaultObj}.
+     *
+     * @param obj Object.
+     * @param defaultObj Default object.
+     * @param <O> Object type.
+     * @return Object or default object.
+     */
+    public static <O> O nonNullOrElse(O obj, O defaultObj) {
+        return (obj != null) ? obj : defaultObj;
+    }
+
+    /**
      * Returns {@code true} If the given value is power of 2 (0 is not power of 2).
      *
      * @param i Value.

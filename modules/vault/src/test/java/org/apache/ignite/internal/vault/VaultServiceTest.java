@@ -21,19 +21,17 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.ByteArray;
@@ -45,8 +43,6 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link VaultService} implementations.
  */
 public abstract class VaultServiceTest {
-    private static final int TIMEOUT_SECONDS = 1;
-
     /** Vault. */
     private VaultService vaultService;
 
@@ -65,7 +61,7 @@ public abstract class VaultServiceTest {
      */
     @AfterEach
     void tearDown() throws Exception {
-        vaultService.stop();
+        vaultService.close();
     }
 
     /**
@@ -77,19 +73,19 @@ public abstract class VaultServiceTest {
      * Tests regular behaviour of the {@link VaultService#put} method.
      */
     @Test
-    public void testPut() throws Exception {
+    public void testPut() {
         ByteArray key = getKey(1);
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
 
         byte[] val = getValue(1);
 
-        doAwait(() -> vaultService.put(key, val));
+        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
 
         assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
 
         // test idempotency
-        doAwait(() -> vaultService.put(key, val));
+        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
 
         assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
     }
@@ -98,58 +94,58 @@ public abstract class VaultServiceTest {
      * Tests that the {@link VaultService#put} method removes the given {@code key} if {@code value} equalTo {@code null}.
      */
     @Test
-    public void testPutWithNull() throws Exception {
+    public void testPutWithNull() {
         ByteArray key = getKey(1);
 
         byte[] val = getValue(1);
 
-        doAwait(() -> vaultService.put(key, val));
+        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
 
         assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
 
-        doAwait(() -> vaultService.put(key, null));
+        assertThat(vaultService.put(key, null), willBe(nullValue(Void.class)));
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
     }
 
     /**
      * Tests regular behaviour of the {@link VaultService#remove} method.
      */
     @Test
-    public void testRemove() throws Exception {
+    public void testRemove() {
         ByteArray key = getKey(1);
 
         // Remove non-existent value.
-        doAwait(() -> vaultService.remove(key));
+        assertThat(vaultService.remove(key), willBe(nullValue(Void.class)));
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
 
         byte[] val = getValue(1);
 
-        doAwait(() -> vaultService.put(key, val));
+        assertThat(vaultService.put(key, val), willBe(nullValue(Void.class)));
 
         assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, val))));
 
         // Remove existing value.
-        doAwait(() -> vaultService.remove(key));
+        assertThat(vaultService.remove(key), willBe(nullValue(Void.class)));
 
-        assertThat(vaultService.get(key), willBe(equalTo(new VaultEntry(key, null))));
+        assertThat(vaultService.get(key), willBe(nullValue(VaultEntry.class)));
     }
 
     /**
      * Tests regular behaviour of the {@link VaultService#putAll} method.
      */
     @Test
-    public void testPutAll() throws Exception {
+    public void testPutAll() {
         Map<ByteArray, byte[]> batch = IntStream.range(0, 10)
                 .boxed()
                 .collect(toMap(VaultServiceTest::getKey, VaultServiceTest::getValue));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
     }
@@ -158,12 +154,12 @@ public abstract class VaultServiceTest {
      * Tests that the {@link VaultService#putAll} method will remove keys, which values are {@code null}.
      */
     @Test
-    public void testPutAllWithNull() throws Exception {
+    public void testPutAllWithNull() {
         Map<ByteArray, byte[]> batch = IntStream.range(0, 10)
                 .boxed()
                 .collect(toMap(VaultServiceTest::getKey, VaultServiceTest::getValue));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         batch.forEach((k, v) -> assertThat(vaultService.get(k), willBe(equalTo(new VaultEntry(k, v)))));
 
@@ -174,12 +170,12 @@ public abstract class VaultServiceTest {
         secondBatch.put(getKey(1), null);
         secondBatch.put(getKey(3), null);
 
-        doAwait(() -> vaultService.putAll(secondBatch));
+        assertThat(vaultService.putAll(secondBatch), willBe(nullValue(Void.class)));
 
         assertThat(vaultService.get(getKey(4)), willBe(equalTo(new VaultEntry(getKey(4), getValue(3)))));
         assertThat(vaultService.get(getKey(8)), willBe(equalTo(new VaultEntry(getKey(8), getValue(3)))));
-        assertThat(vaultService.get(getKey(1)), willBe(equalTo(new VaultEntry(getKey(1), null))));
-        assertThat(vaultService.get(getKey(3)), willBe(equalTo(new VaultEntry(getKey(3), null))));
+        assertThat(vaultService.get(getKey(1)), willBe(nullValue(VaultEntry.class)));
+        assertThat(vaultService.get(getKey(3)), willBe(nullValue(VaultEntry.class)));
     }
 
     /**
@@ -191,7 +187,7 @@ public abstract class VaultServiceTest {
 
         Map<ByteArray, byte[]> batch = entries.stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         List<VaultEntry> range = range(getKey(3), getKey(7));
 
@@ -207,7 +203,7 @@ public abstract class VaultServiceTest {
 
         Map<ByteArray, byte[]> batch = entries.stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         List<VaultEntry> range = range(getKey(0), getKey(9));
 
@@ -223,11 +219,11 @@ public abstract class VaultServiceTest {
 
         Map<ByteArray, byte[]> batch = entries.stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         List<VaultEntry> range = range(getKey(3), getKey(4));
 
-        assertThat(range, equalTo(List.of(new VaultEntry(getKey(3), getValue(3)))));
+        assertThat(range, contains(new VaultEntry(getKey(3), getValue(3))));
     }
 
     /**
@@ -237,7 +233,7 @@ public abstract class VaultServiceTest {
     public void testRangeInvalidBoundaries() throws Exception {
         Map<ByteArray, byte[]> batch = getRange(3, 5).stream().collect(toMap(VaultEntry::key, VaultEntry::value));
 
-        doAwait(() -> vaultService.putAll(batch));
+        assertThat(vaultService.putAll(batch), willBe(nullValue(Void.class)));
 
         List<VaultEntry> range = range(getKey(4), getKey(1));
 
@@ -265,29 +261,18 @@ public abstract class VaultServiceTest {
     /**
      * Creates a range of test Vault entries.
      */
-    private List<VaultEntry> getRange(int from, int to) {
+    private static List<VaultEntry> getRange(int from, int to) {
         return IntStream.range(from, to)
                 .mapToObj(i -> new VaultEntry(getKey(i), getValue(i)))
                 .collect(toList());
     }
 
     /**
-     * Performs the given action and waits for the returned future to complete.
-     */
-    private static void doAwait(Supplier<CompletableFuture<?>> supplier) throws Exception {
-        supplier.get().get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-    }
-
-    /**
-     * Exctracts the given range of values from the Vault.
+     * Extracts the given range of values from the Vault.
      */
     private List<VaultEntry> range(ByteArray from, ByteArray to) throws Exception {
-        var result = new ArrayList<VaultEntry>();
-
         try (Cursor<VaultEntry> cursor = vaultService.range(from, to)) {
-            cursor.forEach(result::add);
+            return cursor.stream().collect(toList());
         }
-
-        return result;
     }
 }

@@ -54,7 +54,7 @@ public interface PartitionStorage extends AutoCloseable {
      * @return Data rows.
      * @throws StorageException If failed to read the data or the storage is already stopped.
      */
-    Collection<DataRow> readAll(List<? extends SearchRow> keys);
+    Collection<DataRow> readAll(List<? extends SearchRow> keys) throws StorageException;
 
     /**
      * Writes a DataRow into the storage.
@@ -97,7 +97,7 @@ public interface PartitionStorage extends AutoCloseable {
      * @return List of skipped data rows.
      * @throws StorageException If failed to remove the data or the storage is already stopped.
      */
-    Collection<SearchRow> removeAll(List<? extends SearchRow> keys);
+    Collection<SearchRow> removeAll(List<? extends SearchRow> keys) throws StorageException;
 
     /**
      * Removes {@link DataRow}s mapped by given keys and containing given values.
@@ -106,7 +106,7 @@ public interface PartitionStorage extends AutoCloseable {
      * @return List of skipped data rows.
      * @throws StorageException If failed to remove the data or the storage is already stopped.
      */
-    Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues);
+    Collection<DataRow> removeAllExact(List<? extends DataRow> keyValues) throws StorageException;
 
     /**
      * Executes an update with custom logic implemented by storage.UpdateClosure interface.
@@ -116,8 +116,7 @@ public interface PartitionStorage extends AutoCloseable {
      * @param <T> Closure invocation's result type.
      * @throws StorageException If failed to read data or storage is already stopped.
      */
-    @Nullable
-    <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException;
+    @Nullable <T> T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException;
 
     /**
      * Creates cursor over the storage data.
@@ -145,6 +144,16 @@ public interface PartitionStorage extends AutoCloseable {
 
     /**
      * Removes all data from this storage and frees all associated resources.
+     *
+     * @throws StorageException If failed to destroy the data or storage is already stopped.
      */
-    void destroy();
+    void destroy() throws StorageException;
+
+    /**
+     * Returns rows count belongs to current storage.
+     *
+     * @return Rows count.
+     * @throws StorageException If failed to obtain size.
+     */
+    long rowsCount();
 }

@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -62,6 +65,10 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 assertEquals("Hello", pojoView.get(null, new TestPojo(1)).val);
 
                 assertTrue(recView.delete(null, keyTuple));
+
+                List<ClusterNode> nodes = client.connections();
+                assertEquals(1, nodes.size());
+                assertThat(nodes.get(0).name(), startsWith("ItThinClientConnectionTest_null_"));
             }
         }
     }

@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,7 +45,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -221,7 +221,6 @@ public class TestCluster {
             }
             String serverDataPath = this.dataPath + File.separator + listenAddr.toString().replace(':', '_');
             new File(serverDataPath).mkdirs();
-            nodeOptions.setLogUri(serverDataPath + File.separator + "logs");
             nodeOptions.setRaftMetaUri(serverDataPath + File.separator + "meta");
             nodeOptions.setSnapshotUri(serverDataPath + File.separator + "snapshot");
             nodeOptions.setElectionPriority(priority);
@@ -250,12 +249,7 @@ public class TestCluster {
 
             NodeManager nodeManager = new NodeManager();
 
-            ClusterService clusterService = ClusterServiceTestUtils.clusterService(
-                    testInfo,
-                    listenAddr.getPort(),
-                    new StaticNodeFinder(addressList),
-                    new TestScaleCubeClusterServiceFactory()
-            );
+            ClusterService clusterService = clusterService(testInfo, listenAddr.getPort(), new StaticNodeFinder(addressList));
 
             var rpcClient = new IgniteRpcClient(clusterService);
 

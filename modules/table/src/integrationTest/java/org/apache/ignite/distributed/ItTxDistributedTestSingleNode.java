@@ -32,11 +32,12 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.storage.basic.ConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TxAbstractTest;
@@ -56,7 +57,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -76,8 +76,6 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
 
     private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
-    private static final TestScaleCubeClusterServiceFactory NETWORK_FACTORY = new TestScaleCubeClusterServiceFactory();
-
     private ClusterService client;
 
     protected Map<ClusterNode, Loza> raftServers;
@@ -91,6 +89,10 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
     protected List<ClusterService> cluster = new CopyOnWriteArrayList<>();
 
     private ScheduledThreadPoolExecutor executor;
+
+    private final Function<NetworkAddress, ClusterNode> addressToNode = addr -> {
+        throw new UnsupportedOperationException();
+    };
 
     /**
      * Returns a count of nodes.
@@ -173,7 +175,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         for (int i = 0; i < nodes; i++) {
-            var raftSrv = new Loza(cluster.get(i), workDir);
+            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
 
             raftSrv.start();
 
@@ -220,6 +222,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 accRaftClients,
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txMgr,
                 Mockito.mock(TableStorage.class)
         ), new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
@@ -230,6 +233,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 custRaftClients,
                 1,
                 NetworkAddress::toString,
+                addressToNode,
                 txMgr,
                 Mockito.mock(TableStorage.class)
         ), new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
@@ -271,7 +275,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                         grpId,
                         partNodes,
                         () -> new PartitionListener(tblId,
-                                new VersionedRowStore(new ConcurrentHashMapPartitionStorage(), txManagers.get(node)))
+                                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManagers.get(node)))
                 );
             }
 
@@ -373,12 +377,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
      */
     protected static ClusterService startNode(TestInfo testInfo, String name, int port,
             NodeFinder nodeFinder) {
-        var network = ClusterServiceTestUtils.clusterService(
-                testInfo,
-                port,
-                nodeFinder,
-                NETWORK_FACTORY
-        );
+        var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
         network.start();
 

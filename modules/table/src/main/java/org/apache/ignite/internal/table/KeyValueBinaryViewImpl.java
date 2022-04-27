@@ -20,19 +20,21 @@ package org.apache.ignite.internal.table;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.InvokeProcessor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -42,6 +44,9 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Key-value view implementation for binary user-object representation.
+ *
+ * <p>NB: Binary view doesn't allow null tuples. Methods return either a tuple that represents the value, or {@code null} if no value
+ * exists for the given key.
  */
 public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValueView<Tuple, Tuple> {
     /** The marshaller. */
@@ -50,7 +55,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /**
      * The constructor.
      *
-     * @param tbl       Table storage.
+     * @param tbl Table storage.
      * @param schemaReg Schema registry.
      */
     public KeyValueBinaryViewImpl(InternalTable tbl, SchemaRegistry schemaReg) {
@@ -70,11 +75,43 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Tuple> getAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        Row keyRow = marshal(key, null); // Convert to portable format to pass TX/storage layer.
+        Row keyRow = marshal(key, null);
 
-        return tbl.get(keyRow, (InternalTransaction) tx)  // Load async.
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(TableRow::valueTuple); // Narrow to value.
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(this::unmarshalValue);
+    }
+
+    /**
+     * This method is not supported, {@link #get(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullable(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAsync(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Tuple getOrDefault(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
+        return sync(getOrDefaultAsync(tx, key, defaultValue));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @NotNull CompletableFuture<Tuple> getOrDefaultAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple defaultValue) {
+        BinaryRowEx keyRow = marshal(Objects.requireNonNull(key), null);
+
+        return tbl.get(keyRow, (InternalTransaction) tx).thenApply(r -> IgniteUtils.nonNullOrElse(unmarshalValue(r), defaultValue));
     }
 
     /** {@inheritDoc} */
@@ -86,19 +123,9 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Map<Tuple, Tuple>> getAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
+        List<BinaryRowEx> keyRows = marshalKeys(Objects.requireNonNull(keys));
 
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
-
-        for (Tuple keyRec : keys) {
-            final Row keyRow = marshal(keyRec, null);
-
-            keyRows.add(keyRow);
-        }
-
-        return tbl.getAll(keyRows, (InternalTransaction) tx)
-                .thenApply(ts -> ts.stream().filter(Objects::nonNull).filter(BinaryRow::hasValue).map(this::wrap)
-                        .collect(Collectors.toMap(TableRow::keyTuple, TableRow::valueTuple)));
+        return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(this::unmarshalValue);
     }
 
     /** {@inheritDoc} */
@@ -121,10 +148,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Void> putAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
-        Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
+        Row row = marshal(key, val);
 
         return tbl.upsert(row, (InternalTransaction) tx);
     }
@@ -137,13 +165,13 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<Tuple, Tuple> pairs) {
+    public @NotNull CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, @NotNull Map<@NotNull Tuple, @NotNull Tuple> pairs) {
         Objects.requireNonNull(pairs);
 
-        List<BinaryRow> rows = new ArrayList<>(pairs.size());
+        List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         for (Map.Entry<Tuple, Tuple> pair : pairs.entrySet()) {
-            final Row row = marshal(pair.getKey(), pair.getValue());
+            final Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()));
 
             rows.add(row);
         }
@@ -153,20 +181,40 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public Tuple getAndPut(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Tuple> getAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
-        Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
+        Row row = marshal(key, val);
 
-        return tbl.getAndUpsert(row, (InternalTransaction) tx)
-                .thenApply(this::wrap) // Binary -> schema-aware row
-                .thenApply(TableRow::valueTuple); // Narrow to value.
+        return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(this::unmarshalValue);
+    }
+
+    /**
+     * This method is not supported, {@link #getAndPut(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndPut(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndPutAsync(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndPutAsync(@Nullable Transaction tx, @NotNull Tuple key,
+            Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
@@ -177,10 +225,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
 
     /** {@inheritDoc} */
     @Override
-    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+    public @NotNull CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, @NotNull Tuple key, @NotNull Tuple val) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(val);
 
-        Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
+        Row row = marshal(key, val);
 
         return tbl.insert(row, (InternalTransaction) tx);
     }
@@ -202,7 +251,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        Row row = marshal(key, null); // Convert to portable format to pass TX/storage layer.
+        Row row = marshal(key, null);
 
         return tbl.delete(row, (InternalTransaction) tx);
     }
@@ -213,7 +262,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
+        Row row = marshal(key, val);
 
         return tbl.deleteExact(row, (InternalTransaction) tx);
     }
@@ -221,26 +270,16 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     /** {@inheritDoc} */
     @Override
     public Collection<Tuple> removeAll(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
-
         return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
     @Override
     public @NotNull CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, @NotNull Collection<Tuple> keys) {
-        Objects.requireNonNull(keys);
-
-        List<BinaryRow> keyRows = new ArrayList<>(keys.size());
-
-        for (Tuple keyRec : keys) {
-            final Row keyRow = marshal(keyRec, null);
-
-            keyRows.add(keyRow);
-        }
+        List<BinaryRowEx> keyRows = marshalKeys(Objects.requireNonNull(keys));
 
         return tbl.deleteAll(keyRows, (InternalTransaction) tx)
-                .thenApply(t -> t.stream().filter(Objects::nonNull).map(this::wrap).map(TableRow::valueTuple).collect(Collectors.toList()));
+                       .thenApply(this::unmarshalKeys);
     }
 
     /** {@inheritDoc} */
@@ -256,9 +295,27 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     public @NotNull CompletableFuture<Tuple> getAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
         Objects.requireNonNull(key);
 
-        return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx)
-                .thenApply(this::wrap)
-                .thenApply(TableRow::valueTuple);
+        return tbl.getAndDelete(marshal(key, null), (InternalTransaction) tx).thenApply(this::unmarshalValue);
+    }
+
+    /**
+     * This method is not supported, {@link #getAndRemove(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndRemove(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndRemoveAsync(Transaction, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndRemoveAsync(@Nullable Transaction tx, @NotNull Tuple key) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
@@ -279,7 +336,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        Row row = marshal(key, val); // Convert to portable format to pass TX/storage layer.
+        Row row = marshal(key, val);
 
         return tbl.replace(row, (InternalTransaction) tx);
     }
@@ -296,8 +353,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(oldVal);
         Objects.requireNonNull(newVal);
 
-        Row oldRow = marshal(key, oldVal); // Convert to portable format to pass TX/storage layer.
-        Row newRow = marshal(key, newVal); // Convert to portable format to pass TX/storage layer.
+        Row oldRow = marshal(key, oldVal);
+        Row newRow = marshal(key, newVal);
 
         return tbl.replace(oldRow, newRow, (InternalTransaction) tx);
     }
@@ -314,9 +371,28 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx)
-                .thenApply(this::wrap)
-                .thenApply(TableRow::valueTuple);
+        return tbl.getAndReplace(marshal(key, val), (InternalTransaction) tx).thenApply(this::unmarshalValue);
+    }
+
+    /**
+     * This method is not supported, {@link #getAndReplace(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public NullableValue<Tuple> getNullableAndReplace(@Nullable Transaction tx, @NotNull Tuple key, Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
+    }
+
+    /**
+     * This method is not supported, {@link #getAndReplaceAsync(Transaction, Tuple, Tuple)} must be used instead.
+     *
+     * @throws UnsupportedOperationException unconditionally.
+     */
+    @Override
+    public @NotNull CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, @NotNull Tuple key,
+            Tuple val) {
+        throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
     /** {@inheritDoc} */
@@ -364,15 +440,6 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /**
-     * Returns a tuple marshaller.
-     *
-     * @return Marshaller.
-     */
-    private TupleMarshaller marshaller() {
-        return marsh;
-    }
-
-    /**
      * Marshal key-value pair to a row.
      *
      * @param key Key.
@@ -389,15 +456,69 @@ public class KeyValueBinaryViewImpl extends AbstractTableView implements KeyValu
     }
 
     /**
-     * Returns row.
+     * Returns value tuple of given row.
      *
      * @param row Binary row.
+     * @return Value tuple.
      */
-    protected Row wrap(BinaryRow row) {
+    private Tuple unmarshalValue(BinaryRow row) {
         if (row == null) {
             return null;
         }
 
-        return schemaReg.resolve(row);
+        return TableRow.valueTuple(schemaReg.resolve(row));
+    }
+
+    /**
+     * Returns key-value pairs of tuples for given rows.
+     *
+     * @param rows Binary rows.
+     * @return Key-value pairs of tuples.
+     */
+    public Map<Tuple, Tuple> unmarshalValue(Collection<BinaryRow> rows) {
+        Map<Tuple, Tuple> pairs = new HashMap<>();
+
+        for (Row row : schemaReg.resolve(rows)) {
+            if (row.hasValue()) {
+                pairs.put(TableRow.keyTuple(row), TableRow.valueTuple(row));
+            }
+        }
+
+        return pairs;
+    }
+
+    /**
+     * Marshal key tuples to rows.
+     *
+     * @param keys Key tuples.
+     * @return Rows.
+     */
+    public List<BinaryRowEx> marshalKeys(@NotNull Collection<Tuple> keys) {
+        List<BinaryRowEx> keyRows = new ArrayList<>(keys.size());
+
+        for (Tuple keyRec : keys) {
+            final Row keyRow = marshal(Objects.requireNonNull(keyRec), null);
+
+            keyRows.add(keyRow);
+        }
+        return keyRows;
+    }
+
+    /**
+     * Returns key tuples of given row.
+     *
+     * @param rows Binary rows.
+     * @return Value tuple.
+     */
+    private Collection<Tuple> unmarshalKeys(Collection<BinaryRow> rows) {
+        List<Tuple> tuples = new ArrayList<>(rows.size());
+
+        for (Row row : schemaReg.resolve(rows)) {
+            assert !row.hasValue();
+
+            tuples.add(TableRow.keyTuple(row));
+        }
+
+        return tuples;
     }
 }

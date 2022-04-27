@@ -43,7 +43,7 @@ public class ReconnectTest {
     @Test
     public void clientReconnectsToAnotherAddressOnNodeFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> c.changeName("t"));
+        ignite1.tables().createTable("t", c -> {});
 
         server = AbstractClientTest.startServer(
                 10900,
@@ -53,7 +53,7 @@ public class ReconnectTest {
 
         var client = IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryLimit(100)
+                .retryPolicy(new RetryLimitPolicy().retryLimit(1))
                 .build();
 
         assertEquals("t", client.tables().tables().get(0).name());
@@ -61,7 +61,7 @@ public class ReconnectTest {
         server.close();
 
         FakeIgnite ignite2 = new FakeIgnite();
-        ignite2.tables().createTable("t2", c -> c.changeName("t2"));
+        ignite2.tables().createTable("t2", c -> {});
 
         server2 = AbstractClientTest.startServer(
                 10950,
@@ -76,7 +76,7 @@ public class ReconnectTest {
     @SuppressWarnings("ThrowableNotThrown")
     public void testOperationFailsWhenAllServersFail() throws Exception {
         FakeIgnite ignite1 = new FakeIgnite();
-        ignite1.tables().createTable("t", c -> c.changeName("t"));
+        ignite1.tables().createTable("t", c -> {});
 
         server = AbstractClientTest.startServer(
                 10900,
@@ -86,7 +86,6 @@ public class ReconnectTest {
 
         var client = IgniteClient.builder()
                 .addresses("127.0.0.1:10900..10910", "127.0.0.1:10950..10960")
-                .retryLimit(100)
                 .build();
 
         assertEquals("t", client.tables().tables().get(0).name());

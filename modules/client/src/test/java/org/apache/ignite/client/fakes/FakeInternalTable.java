@@ -27,10 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -84,13 +86,13 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> get(BinaryRow keyRow, @Nullable InternalTransaction tx) {
+    public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         return CompletableFuture.completedFuture(data.get(keyRow.keySlice()));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRow> keyRows,
+    public CompletableFuture<Collection<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx) {
         var res = new ArrayList<BinaryRow>();
 
@@ -107,7 +109,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsert(BinaryRow row, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Void> upsert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         data.put(row.keySlice(), row);
 
         return CompletableFuture.completedFuture(null);
@@ -115,7 +117,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> upsertAll(Collection<BinaryRow> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         for (var row : rows) {
             upsert(row, tx);
         }
@@ -125,7 +127,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndUpsert(BinaryRow row,
+    public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
         var res = get(row, tx);
 
@@ -136,7 +138,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> insert(BinaryRow row, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Boolean> insert(BinaryRowEx row, @Nullable InternalTransaction tx) {
         var old = get(row, tx).getNow(null);
 
         if (old == null) {
@@ -150,7 +152,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRow> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Collection<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -164,7 +166,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replace(BinaryRow row, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Boolean> replace(BinaryRowEx row, @Nullable InternalTransaction tx) {
         var old = get(row, tx).getNow(null);
 
         if (old == null) {
@@ -176,7 +178,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> replace(BinaryRow oldRow, BinaryRow newRow, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Boolean> replace(BinaryRowEx oldRow, BinaryRowEx newRow, @Nullable InternalTransaction tx) {
         var old = get(oldRow, tx).getNow(null);
 
         if (old == null || !old.valueSlice().equals(oldRow.valueSlice())) {
@@ -188,7 +190,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndReplace(BinaryRow row,
+    public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
         var old = get(row, tx);
 
@@ -197,7 +199,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> delete(BinaryRow keyRow, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         var old = get(keyRow, tx).getNow(null);
 
         if (old != null) {
@@ -209,7 +211,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Boolean> deleteExact(BinaryRow oldRow, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, @Nullable InternalTransaction tx) {
         var old = get(oldRow, tx).getNow(null);
 
         if (old != null && old.valueSlice().equals(oldRow.valueSlice())) {
@@ -222,7 +224,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<BinaryRow> getAndDelete(BinaryRow row,
+    public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row,
             @Nullable InternalTransaction tx) {
         var old = get(row, tx).getNow(null);
 
@@ -235,7 +237,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRow> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Collection<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -249,7 +251,7 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRow> rows, @Nullable InternalTransaction tx) {
+    public CompletableFuture<Collection<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx) {
         var skipped = new ArrayList<BinaryRow>();
 
         for (var row : rows) {
@@ -275,7 +277,13 @@ public class FakeInternalTable implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public int partition(BinaryRow keyRow) {
+    public ClusterNode leaderAssignment(int partition) {
+        throw new IgniteInternalException(new OperationNotSupportedException());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int partition(BinaryRowEx keyRow) {
         return 0;
     }
 

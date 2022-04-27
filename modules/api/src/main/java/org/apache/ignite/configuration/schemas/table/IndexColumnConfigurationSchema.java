@@ -18,8 +18,8 @@
 package org.apache.ignite.configuration.schemas.table;
 
 import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 
 /**
  * Configuration for single column in index.
@@ -27,8 +27,7 @@ import org.apache.ignite.configuration.validation.Immutable;
 @Config
 public class IndexColumnConfigurationSchema {
     /** Column name. */
-    @Value
-    @Immutable
+    @InjectedName
     public String name;
 
     /** Ascending flag. */

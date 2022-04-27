@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropTableCommand;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -66,8 +67,17 @@ import org.apache.ignite.schema.definition.builder.SortedIndexDefinitionBuilder.
 public class DdlCommandHandler {
     private final TableManager tableManager;
 
-    public DdlCommandHandler(TableManager tblManager) {
-        tableManager = tblManager;
+    private final DataStorageManager dataStorageManager;
+
+    /**
+     * Constructor.
+     */
+    public DdlCommandHandler(
+            TableManager tableManager,
+            DataStorageManager dataStorageManager
+    ) {
+        this.tableManager = tableManager;
+        this.dataStorageManager = dataStorageManager;
     }
 
     /** Handles ddl commands. */
@@ -126,13 +136,15 @@ public class DdlCommandHandler {
             colsInner.add(col0.build());
         }
 
-        Consumer<TableChange> tblChanger = tblCh -> {
+        Consumer<TableChange> tblChanger = tableChange -> {
             TableChange conv = convert(SchemaBuilders.tableBuilder(
                             IgniteObjectName.quote(cmd.schemaName()),
                             IgniteObjectName.quote(cmd.tableName())
                     )
                     .columns(colsInner)
-                    .withPrimaryKey(pkeyDef.build()).build(), tblCh);
+                    .withPrimaryKey(pkeyDef.build()).build(), tableChange);
+
+            tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
             if (cmd.partitions() != null) {
                 conv.changePartitions(cmd.partitions());

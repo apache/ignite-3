@@ -36,8 +36,6 @@ import java.lang.annotation.Target;
 public @interface PolymorphicConfigInstance {
     /**
      * Unique identifier for an extension within a single {@link PolymorphicConfig polymorphic configuration}.
-     *
-     * @return Unique identifier for the extension of the polymorphic configuration instance.
      */
     String value();
 }

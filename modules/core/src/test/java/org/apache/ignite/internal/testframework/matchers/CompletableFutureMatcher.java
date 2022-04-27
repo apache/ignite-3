@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.testframework.matchers;
 
+import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.equalTo;
 
 import java.util.concurrent.CompletableFuture;
@@ -30,9 +31,9 @@ import org.hamcrest.TypeSafeMatcher;
 /**
  * {@link Matcher} that awaits for the given future to complete and then forwards the result to the nested {@code matcher}.
  */
-public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFuture<T>> {
+public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFuture<? extends T>> {
     /** Timeout in seconds. */
-    private static final int TIMEOUT_SECONDS = 1;
+    private static final int TIMEOUT_SECONDS = 30;
 
     /** Matcher to forward the result of the completable future. */
     private final Matcher<T> matcher;
@@ -48,7 +49,7 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
 
     /** {@inheritDoc} */
     @Override
-    protected boolean matchesSafely(CompletableFuture<T> item) {
+    protected boolean matchesSafely(CompletableFuture<? extends T> item) {
         try {
             return matcher.matches(item.get(TIMEOUT_SECONDS, TimeUnit.SECONDS));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -64,10 +65,26 @@ public class CompletableFutureMatcher<T> extends TypeSafeMatcher<CompletableFutu
 
     /** {@inheritDoc} */
     @Override
-    protected void describeMismatchSafely(CompletableFuture<T> item, Description mismatchDescription) {
+    protected void describeMismatchSafely(CompletableFuture<? extends T> item, Description mismatchDescription) {
         Object valueDescription = item.isDone() ? item.join() : item;
 
         mismatchDescription.appendText("was ").appendValue(valueDescription);
+    }
+
+    /**
+     * Creates a matcher that matches a future that completes successfully with any result.
+     *
+     * @return matcher.
+     */
+    public static CompletableFutureMatcher<Object> willCompleteSuccessfully() {
+        return willBe(anything());
+    }
+
+    /**
+     * A shorter version of {@link #willBe} to be used with some matchers for aesthetical reasons.
+     */
+    public static <T> CompletableFutureMatcher<T> will(Matcher<T> matcher) {
+        return willBe(matcher);
     }
 
     /**

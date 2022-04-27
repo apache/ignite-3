@@ -276,7 +276,7 @@ class UosObjectInputStream extends ObjectInputStream {
 
         /** {@inheritDoc} */
         @Override
-        public boolean defaulted(String name) throws IOException {
+        public boolean defaulted(String name) {
             // TODO: IGNITE-16571 - actually take into account whether it's defaulted or not
             return false;
         }
@@ -342,7 +342,7 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private void readFields() throws IOException {
-            @Nullable BitSet nullsBitSet = defaultFieldsReaderWriter.readNullsBitSet(input, descriptor);
+            @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
 
             int objectFieldIndex = 0;
             for (FieldDescriptor fieldDesc : descriptor.fields()) {
