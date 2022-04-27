@@ -78,6 +78,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** {@inheritDoc} */
     @Override
     public void onLeaderElected() {
+        // TODO: IGNITE-16800 implement this method
     }
 
     /** {@inheritDoc} */
@@ -120,5 +121,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onReconfigurationError(Status status) {}
+    public void onReconfigurationError(Status status) {
+        // TODO: IGNITE-14873 implement this method
+    }
 }

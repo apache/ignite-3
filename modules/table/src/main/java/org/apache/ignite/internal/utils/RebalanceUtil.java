@@ -19,7 +19,6 @@ package org.apache.ignite.internal.utils;
 
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.and;
 import static org.apache.ignite.internal.metastorage.client.CompoundCondition.or;
-import static org.apache.ignite.internal.metastorage.client.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.client.Conditions.value;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
