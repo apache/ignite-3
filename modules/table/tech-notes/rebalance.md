@@ -32,7 +32,7 @@ Also, we will need the utility key:
 
 ## Operations, which can trigger rebalance
 Three types of events can trigger the rebalance:
-- API call of any special method like `org.apache.ignite.Ignite.setBaseline`, which will change baseline value in metastore (1 for all tables for now, but maybe it should be separate per table in future)
+- Change of baseline metastore key (1 for all tables for now, but maybe it should be separate per table in future)
 - Configuration change through `org.apache.ignite.configuration.schemas.table.TableChange.changeReplicas` produce metastore update event
 - Configuration change through `org.apache.ignite.configuration.schemas.table.TableChange.changePartitions` produce metastore update event (IMPORTANT: this type of trigger has additional difficulties because of cross raft group data migration and it is out of scope of this document)
 
