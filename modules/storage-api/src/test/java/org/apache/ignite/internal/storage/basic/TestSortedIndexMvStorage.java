@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.UuidRowId;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.PrefixComparator;
@@ -233,11 +234,17 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
                         return null;
                     }
 
-                    BinaryRow pk = timestamp != null
-                            ? partitionStorage.read(p.getSecond(), timestamp)
-                            : partitionStorage.read(p.getSecond(), txId);
+                    try {
+                        BinaryRow pk = timestamp != null
+                                ? partitionStorage.read(p.getSecond(), timestamp)
+                                : partitionStorage.read(p.getSecond(), txId);
 
-                    return matches(p.getFirst(), pk) ? pk : null;
+                        return matches(p.getFirst(), pk) ? pk : null;
+                    } catch (TxIdMismatchException e) {
+                        // False-positive, old comitted value found that's already been updated in another transaction.
+                        // See "org.apache.ignite.internal.storage.AbstractSortedIndexMvStorageTest.textScanFiltersMismatchedRows"
+                        return null;
+                    }
                 })
                 .filter(Objects::nonNull)
                 .map(binaryRow -> {

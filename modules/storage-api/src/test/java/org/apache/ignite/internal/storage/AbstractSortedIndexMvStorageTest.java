@@ -362,16 +362,46 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
-    protected void insert(TestKey key, TestValue value, Timestamp ts) {
+    @Test
+    public void textScanFiltersMismatchedRows() throws Exception {
+        MvPartitionStorage pk = partitionStorage();
+
+        SortedIndexMvStorage index = createIndexStorage(INDEX1, tableCfg.value());
+
+        // Do everything with a single key with multiple versions.
+        TestKey key = new TestKey(1, "1");
+
+        // Insert a row that goes into ["10", "11") interval in index. Scan over it will be used in the final assertion.
+        RowId rowId = insert(key, new TestValue(10, "10"), Timestamp.nextVersion());
+
+        // Change indexed columns to move row outside of the interval. Commit.
+        pk.addWrite(rowId, binaryRow(key, new TestValue(20, "20")), UUID.randomUUID());
+        pk.commitWrite(rowId, Timestamp.nextVersion());
+
+        // Change indexed columns once again, but don't commit.
+        // This way there are 3 versoins for the row:
+        // - (30, "30"), uncommitted with random tx id
+        // - (20, "20") is the latest committed value, outside of the locking range.
+        // - (10, "10") is the oldest value and there's a ("10", 10, rowId) record in the index.
+        pk.addWrite(rowId, binaryRow(key, new TestValue(30, "30")), UUID.randomUUID());
+
+        // In this scenario, scan over the range of ["10", "11") should return empty cursor.
+        assertEquals(
+                List.of(),
+                convert(index.scan(prefix("10"), prefix("11"), GREATER_OR_EQUAL | LESS, UUID.randomUUID(), null))
+        );
+    }
+
+    protected RowId insert(TestKey key, TestValue value, Timestamp ts) {
         MvPartitionStorage pk = partitionStorage();
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        RowId rowId = UuidRowId.randomRowId(0);
-
-        pk.addWrite(rowId, binaryRow, UUID.randomUUID());
+        RowId rowId = pk.insert(binaryRow, UUID.randomUUID());
 
         pk.commitWrite(rowId, ts == null ? Timestamp.nextVersion() : ts);
+
+        return rowId;
     }
 
     protected IndexRowPrefix prefix(String val) {
