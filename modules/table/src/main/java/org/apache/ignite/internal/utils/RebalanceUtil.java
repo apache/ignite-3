@@ -80,7 +80,7 @@ public class RebalanceUtil {
         //                remove(partition.assignments.planned)
         //    else:
         //        skip
-        var iif = If.iif(or(exists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
+        var iif = If.iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(ByteUtils.longToBytes(revision))),
                 If.iif(and(notExists(partAssignmentsPendingKey), value(partAssignmentsStableKey).ne(partAssignmentsBytes)),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
@@ -151,7 +151,9 @@ public class RebalanceUtil {
      * @return Table id.
      */
     public static UUID extractTableId(ByteArray key) {
-        return UUID.fromString(key.toString().substring(PENDING_ASSIGNMENTS_PREFIX.length(), PENDING_ASSIGNMENTS_PREFIX.length() + 36));
+        var strKey = key.toString();
+
+        return UUID.fromString(strKey.substring(PENDING_ASSIGNMENTS_PREFIX.length(), strKey.indexOf("_part_")));
     }
 
     /**
@@ -161,6 +163,8 @@ public class RebalanceUtil {
      * @return Partition number.
      */
     public static int extractPartitionNumber(ByteArray key) {
-        return Integer.parseInt(key.toString().substring(PENDING_ASSIGNMENTS_PREFIX.length() + 36 + "_part_".length()));
+        var strKey = key.toString();
+
+        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
     }
 }
