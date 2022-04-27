@@ -845,7 +845,7 @@ public class MetaStorageManager implements IgniteComponent {
     private void storeEntries(Collection<IgniteBiTuple<ByteArray, byte[]>> entries, long revision) {
         appliedRevision()
                 .thenCompose(appliedRevision -> {
-                    if (revision < appliedRevision) {
+                    if (revision <= appliedRevision) {
                         throw new IgniteInternalException(String.format(
                                 "Current revision (%d) must be greater than the revision in the Vault (%d)",
                                 revision, appliedRevision
@@ -858,12 +858,7 @@ public class MetaStorageManager implements IgniteComponent {
 
                     entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-                    // skip already processed revision
-                    if (revision != appliedRevision) {
-                        return vaultMgr.putAll(batch);
-                    } else {
-                        return CompletableFuture.completedFuture(null);
-                    }
+                    return vaultMgr.putAll(batch);
                 })
                 .join();
     }
