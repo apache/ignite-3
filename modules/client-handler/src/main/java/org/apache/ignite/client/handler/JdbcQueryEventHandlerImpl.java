@@ -245,7 +245,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         var cursors = processor.queryAsync(context, schema, sql, arg);
 
         if (cursors.size() != 1) {
-            return CompletableFuture.failedFuture(new IgniteInternalException(""));
+            return CompletableFuture.failedFuture(new IgniteInternalException("Multi statement queries are not supported in batching"));
         }
 
         return cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1).thenApply(batch -> (Long) batch.items().get(0).get(0)));
