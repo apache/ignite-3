@@ -121,7 +121,9 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** {@inheritDoc} */
     @Override
     public synchronized void start() {
-        taskExecutor = registerService(new QueryTaskExecutorImpl(clusterSrvc.localConfiguration().getName()));
+        var nodeName = clusterSrvc.topologyService().localMember().name();
+
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         parserCache = Caffeine.newBuilder()
@@ -130,7 +132,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .asMap();
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
-                clusterSrvc.localConfiguration().getName(),
+                nodeName,
                 PLAN_CACHE_SIZE,
                 dataStorageManager,
                 dataStorageFieldsSupplier.get()
@@ -143,7 +145,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
-                clusterSrvc.topologyService().localMember().id(),
+                nodeName,
                 taskExecutor,
                 mailboxRegistry,
                 msgSrvc

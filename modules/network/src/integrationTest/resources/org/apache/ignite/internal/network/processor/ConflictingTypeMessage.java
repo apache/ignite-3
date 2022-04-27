@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.processor;
 
+import java.util.Collection;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 

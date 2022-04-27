@@ -301,6 +301,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        queryManagerMap.values().stream().filter(mgr -> mgr.rootFragmentId != null).forEach(mgr -> mgr.close(true));
     }
 
     /** {@inheritDoc} */

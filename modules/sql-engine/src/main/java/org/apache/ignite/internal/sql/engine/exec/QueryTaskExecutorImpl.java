@@ -52,7 +52,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 4,
-                NamedThreadFactory.threadPrefix(nodeName, "sqlExec"),
+                NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool"),
                 null,
                 false,
                 0

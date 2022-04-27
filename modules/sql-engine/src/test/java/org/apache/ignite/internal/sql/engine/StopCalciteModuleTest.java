@@ -67,7 +67,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -108,9 +107,6 @@ public class StopCalciteModuleTest {
     TopologyService topologySrvc;
 
     @Mock
-    ClusterLocalConfiguration localCfg;
-
-    @Mock
     InternalTable tbl;
 
     SchemaRegistry schemaReg;
@@ -128,7 +124,6 @@ public class StopCalciteModuleTest {
     public void before(TestInfo testInfo) {
         when(clusterSrvc.messagingService()).thenReturn(msgSrvc);
         when(clusterSrvc.topologyService()).thenReturn(topologySrvc);
-        when(clusterSrvc.localConfiguration()).thenReturn(localCfg);
 
         ClusterNode node = new ClusterNode("mock-node-id", NODE_NAME, null);
         when(topologySrvc.localMember()).thenReturn(node);
@@ -230,8 +225,7 @@ public class StopCalciteModuleTest {
         await(request.exceptionally(t -> {
             assertInstanceOf(CompletionException.class, t);
             assertInstanceOf(IgniteException.class, t.getCause());
-            assertInstanceOf(IgniteInternalException.class, t.getCause().getCause());
-            assertInstanceOf(ExecutionCancelledException.class, t.getCause().getCause().getCause());
+            assertInstanceOf(ExecutionCancelledException.class, t.getCause().getCause());
 
             return null;
         }));
