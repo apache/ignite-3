@@ -94,7 +94,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
             assignments.set(partNum, ((List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value())));
             ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-        });
+        }).join();
 
         if (plannedEntry.value() != null) {
             if (!metaStorageMgr.invoke(If.iif(

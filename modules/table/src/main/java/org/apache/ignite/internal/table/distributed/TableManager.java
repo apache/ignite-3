@@ -464,10 +464,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             List<ClusterNode> newPartAssignment = newAssignments.get(partId);
 
-            var toAdd = new HashSet<>(newPartAssignment);
-
-            toAdd.removeAll(oldPartAssignment);
-
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, tablesById -> {
                 InternalTable internalTbl = tablesById.get(tblId).internalTable();
@@ -476,7 +472,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     futures[partId] = raftMgr.updateRaftGroup(
                             partitionRaftGroupName(tblId, partId),
                             newPartAssignment,
-                            toAdd,
+                            // start new nodes, only if it is table creation
+                            // other cases will be covered by rebalance logic
+                            (oldPartAssignment.isEmpty())? newPartAssignment : Collections.emptyList(),
                             () -> new PartitionListener(tblId,
                                     new VersionedRowStore(internalTbl.storage().getOrCreatePartition(partId), txManager)),
                             () -> new RebalanceRaftGroupEventsListener(
