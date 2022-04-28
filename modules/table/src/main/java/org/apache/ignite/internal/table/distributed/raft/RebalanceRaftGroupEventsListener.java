@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsStab
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -41,6 +43,7 @@ import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
@@ -65,6 +68,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Busy lock of parent component for synchronous stop. */
     private IgniteSpinBusyLock busyLock;
 
+    /** Resolver that resolves a network address to cluster node. */
+    private final Function<NetworkAddress, ClusterNode> clusterNodeRslvr;
+
     /**
      * Constructs new listener.
      *
@@ -78,12 +84,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TableConfiguration tblConfiguration,
             String partId,
             int partNum,
-            IgniteSpinBusyLock busyLock) {
+            IgniteSpinBusyLock busyLock,
+            Function<NetworkAddress, ClusterNode> clusterNodeRslvr) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
         this.busyLock = busyLock;
+        this.clusterNodeRslvr = clusterNodeRslvr;
     }
 
     /** {@inheritDoc} */
@@ -122,12 +130,17 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 Set.of(partAssignmentsPlannedKey(partId), partAssignmentsPendingKey(partId))).join();
 
         Entry plannedEntry = keys.get(partAssignmentsPlannedKey(partId));
-        Entry pendingEntry = keys.get(partAssignmentsPendingKey(partId));
+
+        List<ClusterNode> appliedPeers = peers
+                .stream()
+                .map(p -> clusterNodeRslvr.apply(
+                        NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort())))
+                .collect(Collectors.toList());
 
         tblConfiguration.change(ch -> {
             List<List<ClusterNode>> assignments =
                     (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-            assignments.set(partNum, ((List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value())));
+            assignments.set(partNum, appliedPeers);
             ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
         }).join();
 
@@ -135,7 +148,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             if (!metaStorageMgr.invoke(If.iif(
                     revision(partAssignmentsPlannedKey(partId)).eq(plannedEntry.revision()),
                     ops(
-                            put(partAssignmentsStableKey(partId), pendingEntry.value()),
+                            put(partAssignmentsStableKey(partId), ByteUtils.toBytes(appliedPeers)),
                             put(partAssignmentsPendingKey(partId), plannedEntry.value()),
                             remove(partAssignmentsPlannedKey(partId)))
                             .yield(true),
@@ -145,7 +158,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         } else {
             if (!metaStorageMgr.invoke(If.iif(
                     notExists(partAssignmentsPlannedKey(partId)),
-                    ops(put(partAssignmentsStableKey(partId), pendingEntry.value()),
+                    ops(put(partAssignmentsStableKey(partId), ByteUtils.toBytes(appliedPeers)),
                             remove(partAssignmentsPendingKey(partId))).yield(true),
                     ops().yield(false))).join().getAsBoolean()) {
                 doOnNewPeersConfigurationApplied(peers);

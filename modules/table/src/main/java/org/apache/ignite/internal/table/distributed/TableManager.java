@@ -495,7 +495,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
                                     partitionRaftGroupName(tblId, partId),
                                     partId,
-                                    busyLock)
+                                    busyLock,
+                                    clusterNodeResolver)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
@@ -1422,7 +1423,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             tblCfg,
                             grpId,
                             part,
-                            busyLock);
+                            busyLock,
+                            clusterNodeResolver);
 
                     List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
                             ByteUtils.fromBytes(tblCfg.assignments().value());
