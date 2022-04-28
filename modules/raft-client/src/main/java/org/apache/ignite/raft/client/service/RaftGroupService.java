@@ -20,6 +20,7 @@ package org.apache.ignite.raft.client.service;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.Peer;
@@ -92,6 +93,15 @@ public interface RaftGroupService {
     CompletableFuture<Void> refreshLeader();
 
     /**
+     * Refreshes a replication group leader and returns (leader, term) tuple.
+     *
+     * <p>This operation is executed on a group leader.
+     *
+     * @return A future, with (leader, term) tuple.
+     */
+    CompletableFuture<IgniteBiTuple<Peer, Long>> refreshAndGetLeaderWithTerm();
+
+    /**
      * Refreshes replication group members.
      *
      * <p>After the future completion methods like {@link #peers()} and {@link #learners()} can be used to retrieve current members of a
@@ -152,9 +162,11 @@ public interface RaftGroupService {
      * <p>This operation is executed on a group leader.
      *
      * @param peers Peers.
+     * @param term Current known leader term.
+     *             If real raft group term will be different - changePeers will be skipped.
      * @return A future.
      */
-    CompletableFuture<Void> changePeersAsync(List<Peer> peers);
+    CompletableFuture<Void> changePeersAsync(List<Peer> peers, long term);
 
     /**
      * Adds learners (non-voting members).

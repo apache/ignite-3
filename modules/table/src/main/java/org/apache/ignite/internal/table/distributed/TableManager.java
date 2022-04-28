@@ -22,10 +22,12 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ge
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
+import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPendingKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -88,6 +90,7 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -101,6 +104,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -1383,7 +1387,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
-                if (!busyLock.enterBusy()){
+                if (!busyLock.enterBusy()) {
                     throw new IgniteInternalException(new NodeStoppingException());
                 }
 
@@ -1396,6 +1400,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
                     UUID tblId = extractTableId(evt.entryEvent().newEntry().key());
+
+                    var pendingAssignments = metaStorageMgr.get(partAssignmentsPendingKey(partitionRaftGroupName(tblId, part))).join();
+
+                    if (!Arrays.equals(pendingAssignments.value(), evt.entryEvent().newEntry().value())) {
+                        return true;
+                    }
 
                     TableImpl tbl = tablesByIdVv.latest().get(tblId);
 
@@ -1426,11 +1436,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     try {
                         raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier, raftGrpEvtsLsnrSupplier);
 
-                        // run update of raft configuration if this node is a leader
-                        if ((raftMgr.server().clusterService().topologyService().localMember()).equals(tbl.leaderAssignment(part))) {
-                            var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+                        var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
 
-                            tbl.internalTable().partitionRaftGroupService(part).changePeersAsync(newNodes).join();
+                        RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
+
+                        IgniteBiTuple<Peer, Long> leaderWithTerm =
+                                partGrpSvc.refreshAndGetLeaderWithTerm().join();
+
+                        ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+
+                        // run update of raft configuration if this node is a leader
+                        if (localMember.address().equals(leaderWithTerm.get1().address())) {
+                            partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
                         }
                     } catch (NodeStoppingException e) {
                         // no-op

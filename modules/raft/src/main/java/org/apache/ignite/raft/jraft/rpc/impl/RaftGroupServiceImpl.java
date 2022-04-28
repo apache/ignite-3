@@ -51,6 +51,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
@@ -91,9 +92,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     /** */
     private volatile Peer leader;
-
-    /** Current term. */
-    private volatile long term;
 
     /** */
     private volatile List<Peer> peers;
@@ -249,9 +247,25 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         return fut.thenApply(resp -> {
             leader = parsePeer(resp.leaderId());
-            term = resp.currentTerm();
 
             return null;
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override public CompletableFuture<IgniteBiTuple<Peer, Long>> refreshAndGetLeaderWithTerm() {
+        GetLeaderRequest req = factory.getLeaderRequest().groupId(groupId).build();
+
+        CompletableFuture<GetLeaderResponse> fut = new CompletableFuture<>();
+
+        sendWithRetry(randomNode(), req, currentTimeMillis() + timeout, fut);
+
+        return fut.thenApply(resp -> {
+            Peer respLeader = parsePeer(resp.leaderId());
+
+            leader = respLeader;
+
+            return new IgniteBiTuple<>(respLeader, resp.currentTerm());
         });
     }
 
@@ -341,11 +355,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     /** {@inheritDoc} */
-    @Override public CompletableFuture<Void> changePeersAsync(List<Peer> peers) {
+    @Override public CompletableFuture<Void> changePeersAsync(List<Peer> peers, long term) {
         Peer leader = this.leader;
 
         if (leader == null)
-            return refreshLeader().thenCompose(res -> changePeersAsync(peers));
+            return refreshLeader().thenCompose(res -> changePeersAsync(peers, term));
 
         List<String> peersToChange = peers.stream().map(p -> PeerId.fromPeer(p).toString())
                 .collect(Collectors.toList());
