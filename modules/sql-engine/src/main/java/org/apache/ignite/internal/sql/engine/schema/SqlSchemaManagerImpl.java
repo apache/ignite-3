@@ -22,7 +22,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -57,7 +59,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public SqlSchemaManagerImpl(
             TableManager tableManager,
-            Consumer<Consumer<Long>> registry,
+            Consumer<Function<Long, CompletableFuture<?>>> registry,
             Runnable onSchemaUpdatedCallback
     ) {
         this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;

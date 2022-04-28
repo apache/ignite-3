@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.causality;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;
 
@@ -51,6 +53,8 @@ public class VersionedValueTest {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(
                 (integerVersionedValue, token) -> {
                     integerVersionedValue.set(token, TEST_VALUE);
+
+                    return completedFuture(null);
                 },
                 REGISTER,
                 2,
@@ -61,7 +65,7 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         assertTrue(fut.isDone());
 
@@ -104,13 +108,13 @@ public class VersionedValueTest {
 
         longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.apply(1L).join();
 
         assertTrue(fut.isDone());
 
@@ -131,8 +135,8 @@ public class VersionedValueTest {
 
         longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(0L);
-        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision.apply(1L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
@@ -152,12 +156,12 @@ public class VersionedValueTest {
 
         longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         longVersionedValue.set(1, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(1L);
-        REGISTER.moveRevision.accept(2L);
+        REGISTER.moveRevision.apply(1L).join();
+        REGISTER.moveRevision.apply(2L).join();
 
         assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(0));
     }
@@ -167,19 +171,18 @@ public class VersionedValueTest {
      */
     @Test
     public void testAutocompleteFuture() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
-        }, REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> completedFuture(null), REGISTER);
 
         longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.accept(1L);
-        REGISTER.moveRevision.accept(2L);
+        REGISTER.moveRevision.apply(1L).join();
+        REGISTER.moveRevision.apply(2L).join();
 
         assertTrue(fut.isDone());
         assertTrue(longVersionedValue.get(2).isDone());
@@ -192,12 +195,11 @@ public class VersionedValueTest {
      */
     @Test
     public void testUpdate() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
-        }, REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> completedFuture(null), REGISTER);
 
         longVersionedValue.set(0, TEST_VALUE);
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
@@ -211,7 +213,7 @@ public class VersionedValueTest {
             assertFalse(fut.isDone());
         }
 
-        REGISTER.moveRevision.accept(1L);
+        REGISTER.moveRevision.apply(1L).join();
 
         assertTrue(fut.isDone());
 
@@ -225,8 +227,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testUpdatePredefined() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> {
-        }, REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> completedFuture(null), REGISTER);
 
         CompletableFuture<Integer> fut = longVersionedValue.get(0);
 
@@ -240,7 +241,7 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         assertTrue(fut.isDone());
 
@@ -316,7 +317,7 @@ public class VersionedValueTest {
 
         vv.update(0, a -> a == null ? null : a + 1, e -> null);
 
-        REGISTER.moveRevision.accept(0L);
+        REGISTER.moveRevision.apply(0L).join();
 
         assertTrue(f.isDone());
 
@@ -326,15 +327,14 @@ public class VersionedValueTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
-
+    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
         /** Revision consumer. */
-        Consumer<Long> moveRevision;
+        Function<Long, CompletableFuture<?>> moveRevision;
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Consumer<Long> consumer) {
-            moveRevision = consumer;
+        public void accept(Function<Long, CompletableFuture<?>> function) {
+            moveRevision = function;
         }
     }
 }

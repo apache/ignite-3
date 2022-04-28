@@ -163,7 +163,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param dataStorageMgr Data storage manager.
      */
     public TableManager(
-            Consumer<Consumer<Long>> registry,
+            Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             Loza raftMgr,
             BaselineManager baselineMgr,

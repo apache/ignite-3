@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -246,9 +247,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        Consumer<Consumer<Long>> registry = (c) -> {
+        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> {
             clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                c.accept(newStorageRevision);
+                c.apply(newStorageRevision).join();
 
                 return CompletableFuture.completedFuture(null);
             });

@@ -28,6 +28,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.client.handler.ClientHandlerModule;
@@ -271,13 +272,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc
         );
 
-        Consumer<Consumer<Long>> registry = (c) -> {
-            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                c.accept(newStorageRevision);
-
-                return CompletableFuture.completedFuture(null);
-            });
-        };
+        Consumer<Function<Long, CompletableFuture<?>>> registry =
+            c -> clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)

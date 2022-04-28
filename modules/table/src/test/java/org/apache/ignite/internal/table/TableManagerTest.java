@@ -45,6 +45,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Phaser;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -156,7 +157,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private ConfigurationStorageRevisionListenerHolder fieldRevisionListenerHolder;
 
     /** Revision updater. */
-    private Consumer<Consumer<Long>> revisionUpdater;
+    private Consumer<Function<Long, CompletableFuture<?>>> revisionUpdater;
 
     /** Tables configuration. */
     @InjectConfiguration(
@@ -192,15 +193,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Before all test scenarios. */
     @BeforeEach
     void before() {
-        revisionUpdater = (Consumer<Long> consumer) -> {
-            consumer.accept(0L);
+        revisionUpdater = (Function<Long, CompletableFuture<?>> function) -> {
+            function.apply(0L).join();
 
             fieldRevisionListenerHolder.listenUpdateStorageRevision(newStorageRevision -> {
                 log.info("Notify about revision: {}", newStorageRevision);
 
-                consumer.accept(newStorageRevision);
-
-                return CompletableFuture.completedFuture(null);
+                return function.apply(newStorageRevision);
             });
         };
 

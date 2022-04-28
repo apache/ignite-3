@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -36,8 +37,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -206,7 +209,7 @@ public class StopCalciteModuleTest {
 
         qryProc.start();
 
-        testRevisionRegister.moveRevision.accept(0L);
+        testRevisionRegister.moveRevision.apply(0L).join();
 
         List<SqlCursor<List<?>>> cursors = qryProc.query(
                 "PUBLIC",
@@ -252,18 +255,22 @@ public class StopCalciteModuleTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
-
+    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
         /** Revision consumer. */
-        Consumer<Long> moveRevision;
+        Function<Long, CompletableFuture<?>> moveRevision;
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Consumer<Long> consumer) {
+        public void accept(Function<Long, CompletableFuture<?>> function) {
             if (moveRevision == null) {
-                moveRevision = consumer;
+                moveRevision = function;
             } else {
-                moveRevision = moveRevision.andThen(consumer);
+                Function<Long, CompletableFuture<?>> old = moveRevision;
+
+                moveRevision = rev -> allOf(
+                    old.apply(rev),
+                    function.apply(rev)
+                );
             }
         }
     }

@@ -26,11 +26,14 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.jetbrains.annotations.Nullable;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Parametrized type to store several versions of the value.
@@ -52,7 +55,7 @@ public class VersionedValue<T> {
     private final int historySize;
 
     /** Closure applied on storage revision update. */
-    private final BiConsumer<VersionedValue<T>, Long> storageRevisionUpdateCallback;
+    private final BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback;
 
     /** Versioned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
@@ -96,8 +99,8 @@ public class VersionedValue<T> {
      *                                      evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
-            @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdateCallback,
-            Consumer<Consumer<Long>> observableRevisionUpdater,
+            @Nullable BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback,
+            Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
             int historySize,
             Supplier<T> defaultVal
     ) {
@@ -123,14 +126,14 @@ public class VersionedValue<T> {
      *                                  evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
-            Consumer<Consumer<Long>> observableRevisionUpdater,
+            Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
             Supplier<T> defaultVal
     ) {
         this(null, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, defaultVal);
     }
 
     /**
-     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
+     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiFunction, Consumer, int, Supplier)}.
      *
      * @param storageRevisionUpdateCallback Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
@@ -141,14 +144,14 @@ public class VersionedValue<T> {
      *                                      {@link #set(long, T)} and {@link #update(long, Function, Function)} operations.
      */
     public VersionedValue(
-            @Nullable BiConsumer<VersionedValue<T>, Long> storageRevisionUpdateCallback,
-            Consumer<Consumer<Long>> observableRevisionUpdater
+            @Nullable BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback,
+            Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater
     ) {
         this(storageRevisionUpdateCallback, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, null);
     }
 
     /**
-     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiConsumer, Consumer, int, Supplier)}.
+     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiFunction, Consumer, int, Supplier)}.
      *
      * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
@@ -156,7 +159,7 @@ public class VersionedValue<T> {
      *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                  concurrently with {@link #set(long, T)} operations.
      */
-    public VersionedValue(Consumer<Consumer<Long>> observableRevisionUpdater) {
+    public VersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
         this(null, observableRevisionUpdater);
     }
 
@@ -382,7 +385,7 @@ public class VersionedValue<T> {
      * @param value          Value to set.
      */
     private void setValueInternal(long causalityToken, T value) {
-        CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.completedFuture(value));
+        CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
 
         if (res == null || res.isCompletedExceptionally()) {
             return;
@@ -422,7 +425,7 @@ public class VersionedValue<T> {
      *
      * @param causalityToken Causality token.
      */
-    private void onStorageRevisionUpdate(long causalityToken) {
+    private CompletableFuture<?> onStorageRevisionUpdate(long causalityToken) {
         long actualToken0 = actualToken;
 
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
@@ -438,22 +441,30 @@ public class VersionedValue<T> {
             isUpdating = false;
         }
 
-        if (storageRevisionUpdateCallback != null) {
-            storageRevisionUpdateCallback.accept(this, causalityToken);
-        }
+        Runnable afterCallback = () -> {
+            completeRelatedFuture(causalityToken);
 
-        completeRelatedFuture(causalityToken);
+            if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
+                trimToSize(causalityToken);
+            }
 
-        if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
-            trimToSize(causalityToken);
-        }
+            Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
 
-        Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
-
-        assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
+            assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
                 "Future for the token is not completed [token={}]", causalityToken);
 
-        actualToken = causalityToken;
+            actualToken = causalityToken;
+        };
+
+        if (storageRevisionUpdateCallback != null) {
+            return storageRevisionUpdateCallback.apply(this, causalityToken).
+                thenRun(() -> afterCallback.run());
+        }
+        else {
+            afterCallback.run();
+
+            return completedFuture(null);
+        }
     }
 
     /**
@@ -470,7 +481,7 @@ public class VersionedValue<T> {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
             CompletableFuture<T> previousFuture =
-                    entryBefore == null ? CompletableFuture.completedFuture(getDefault()) : entryBefore.getValue();
+                    entryBefore == null ? completedFuture(getDefault()) : entryBefore.getValue();
 
             assert previousFuture.isDone() : IgniteStringFormatter.format("No future for token [token={}]", causalityToken);
 
