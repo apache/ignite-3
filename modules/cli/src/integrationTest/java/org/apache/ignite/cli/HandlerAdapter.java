@@ -17,17 +17,20 @@
 
 package org.apache.ignite.cli;
 
-import org.junit.jupiter.api.BeforeAll;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 /**
- * Base class for any CLI tests.
+ * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
  */
-public abstract class AbstractCliTest {
-    /**
-     * Sets up a dumb terminal before tests.
-     */
-    @BeforeAll
-    private static void beforeAll() {
-        System.setProperty("org.jline.terminal.dumb", "true");
+public abstract class HandlerAdapter extends Handler {
+    @Override
+    public void flush() {
+        // no-op
+    }
+
+    @Override
+    public void close() throws SecurityException {
+        // no-op
     }
 }
