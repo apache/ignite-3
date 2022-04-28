@@ -490,7 +490,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     metaStorageMgr,
                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
                                     partitionRaftGroupName(tblId, partId),
-                                    partId)
+                                    partId,
+                                    busyLock)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
@@ -1382,54 +1383,63 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
             @Override
             public boolean onUpdate(@NotNull WatchEvent evt) {
-                assert evt.single();
-
-                if (evt.entryEvent().newEntry().value() == null) {
-                    return true;
+                if (!busyLock.enterBusy()){
+                    throw new IgniteInternalException(new NodeStoppingException());
                 }
-
-                int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
-                UUID tblId = extractTableId(evt.entryEvent().newEntry().key());
-
-                TableImpl tbl = tablesByIdVv.latest().get(tblId);
-
-                ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
-
-                String grpId = partitionRaftGroupName(tblId, part);
-
-                Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
-                        new VersionedRowStore(
-                                tbl.internalTable().storage().getOrCreatePartition(part), txManager));
-
-                Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
-                        metaStorageMgr,
-                        tblCfg,
-                        grpId,
-                        part);
-
-                List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
-                        ByteUtils.fromBytes(tblCfg.assignments().value());
-
-                List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
-
-                var deltaPeers = newPeers.stream()
-                        .filter(p -> !assignments.get(part).contains(p))
-                        .collect(Collectors.toList());
 
                 try {
-                    raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier, raftGrpEvtsLsnrSupplier);
+                    assert evt.single();
 
-                    // run update of raft configuration if this node is a leader
-                    if ((raftMgr.server().clusterService().topologyService().localMember()).equals(tbl.leaderAssignment(part))) {
-                        var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
-                        tbl.internalTable().partitionRaftGroupService(part).changePeersAsync(newNodes).join();
+                    if (evt.entryEvent().newEntry().value() == null) {
+                        return true;
                     }
-                } catch (NodeStoppingException e) {
-                    // no-op
-                }
 
-                return true;
+                    int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
+                    UUID tblId = extractTableId(evt.entryEvent().newEntry().key());
+
+                    TableImpl tbl = tablesByIdVv.latest().get(tblId);
+
+                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
+
+                    String grpId = partitionRaftGroupName(tblId, part);
+
+                    Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
+                            new VersionedRowStore(
+                                    tbl.internalTable().storage().getOrCreatePartition(part), txManager));
+
+                    Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
+                            metaStorageMgr,
+                            tblCfg,
+                            grpId,
+                            part,
+                            busyLock);
+
+                    List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
+                            ByteUtils.fromBytes(tblCfg.assignments().value());
+
+                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+
+                    var deltaPeers = newPeers.stream()
+                            .filter(p -> !assignments.get(part).contains(p))
+                            .collect(Collectors.toList());
+
+                    try {
+                        raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier, raftGrpEvtsLsnrSupplier);
+
+                        // run update of raft configuration if this node is a leader
+                        if ((raftMgr.server().clusterService().topologyService().localMember()).equals(tbl.leaderAssignment(part))) {
+                            var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+                            tbl.internalTable().partitionRaftGroupService(part).changePeersAsync(newNodes).join();
+                        }
+                    } catch (NodeStoppingException e) {
+                        // no-op
+                    }
+
+                    return true;
+                } finally {
+                    busyLock.leaveBusy();
+                }
             }
 
             @Override

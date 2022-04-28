@@ -36,7 +36,10 @@ import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.If;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
+import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -59,6 +62,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Partition number. */
     private final int partNum;
 
+    /** Busy lock of parent component for synchronous stop. */
+    private IgniteSpinBusyLock busyLock;
+
     /**
      * Constructs new listener.
      *
@@ -67,12 +73,17 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param partId Partition id.
      * @param partNum Partition number.
      */
-    public RebalanceRaftGroupEventsListener(MetaStorageManager metaStorageMgr, TableConfiguration tblConfiguration, String partId,
-            int partNum) {
+    public RebalanceRaftGroupEventsListener(
+            MetaStorageManager metaStorageMgr,
+            TableConfiguration tblConfiguration,
+            String partId,
+            int partNum,
+            IgniteSpinBusyLock busyLock) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
+        this.busyLock = busyLock;
     }
 
     /** {@inheritDoc} */
@@ -84,6 +95,29 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** {@inheritDoc} */
     @Override
     public void onNewPeersConfigurationApplied(List<PeerId> peers) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(new NodeStoppingException());
+        }
+
+        try {
+            doOnNewPeersConfigurationApplied(peers);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onReconfigurationError(Status status) {
+        // TODO: IGNITE-14873 implement this method
+    }
+
+    /**
+     * Implementation of {@link RebalanceRaftGroupEventsListener#onNewPeersConfigurationApplied(List)}
+     *
+     * @param peers Peers
+     */
+    private void doOnNewPeersConfigurationApplied(List<PeerId> peers) {
         Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
                 Set.of(partAssignmentsPlannedKey(partId), partAssignmentsPendingKey(partId))).join();
 
@@ -106,7 +140,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                             remove(partAssignmentsPlannedKey(partId)))
                             .yield(true),
                     ops().yield(false))).join().getAsBoolean()) {
-                onNewPeersConfigurationApplied(peers);
+                doOnNewPeersConfigurationApplied(peers);
             }
         } else {
             if (!metaStorageMgr.invoke(If.iif(
@@ -114,14 +148,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     ops(put(partAssignmentsStableKey(partId), pendingEntry.value()),
                             remove(partAssignmentsPendingKey(partId))).yield(true),
                     ops().yield(false))).join().getAsBoolean()) {
-                onNewPeersConfigurationApplied(peers);
+                doOnNewPeersConfigurationApplied(peers);
             }
         }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void onReconfigurationError(Status status) {
-        // TODO: IGNITE-14873 implement this method
     }
 }
