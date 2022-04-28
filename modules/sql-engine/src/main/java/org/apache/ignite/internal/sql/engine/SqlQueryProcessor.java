@@ -20,13 +20,11 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -101,8 +99,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private volatile SqlSchemaManager schemaManager;
 
-    private volatile ConcurrentMap<String, SqlNodeList> parserCache;
-
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<Consumer<Long>> registry,
@@ -125,11 +121,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
-
-        parserCache = Caffeine.newBuilder()
-                .maximumSize(PLAN_CACHE_SIZE)
-                .<String, SqlNodeList>build()
-                .asMap();
 
         var prepareSvc = registerService(PrepareServiceImpl.create(
                 nodeName,
@@ -247,7 +238,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             throw new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName));
         }
 
-        SqlNodeList nodes = parserCache.computeIfAbsent(sql, key -> Commons.parse(key, FRAMEWORK_CONFIG.getParserConfig()));
+        SqlNodeList nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
 
         var res = new ArrayList<CompletableFuture<AsyncSqlCursor<List<Object>>>>(nodes.size());
 
