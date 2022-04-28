@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.responses;
+package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Response returned for a {@link JoinRequestCommand}, indicating that a join request has been rejected.
+ * Command sent by a node that intends to join a cluster. This command will trigger node validation.
  */
-public class JoinDeniedResponse implements Serializable {
-    private final String reason;
+public class JoinRequestCommand implements WriteCommand {
+    private final ClusterNode node;
 
     /**
-     * Creates a new response.
+     * Creates a new command.
      *
-     * @param reason Textual representation of the reason of join rejection.
+     * @param node Node that wants to enter the logical topology.
      */
-    public JoinDeniedResponse(String reason) {
-        this.reason = reason;
+    public JoinRequestCommand(ClusterNode node) {
+        this.node = node;
     }
 
     /**
-     * Returns the textual representation of the reason of join rejection.
+     * Returns the node that wants to join a cluster.
      *
-     * @return Textual representation of the reason of join rejection.
+     * @return Node that wants to join a cluster.
      */
-    public String reason() {
-        return reason;
+    public ClusterNode node() {
+        return node;
     }
 }

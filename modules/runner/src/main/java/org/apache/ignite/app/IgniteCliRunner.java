@@ -63,7 +63,7 @@ public class IgniteCliRunner {
      * @param args CLI args to start a new node.
      * @return New Ignite node.
      */
-    public static CompletableFuture<Ignite> start(String[] args) {
+    public static CompletableFuture<Ignite> start(String... args) {
         CommandSpec spec = CommandSpec.create();
 
         spec.addOption(
