@@ -209,36 +209,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** {@inheritDoc} */
     @Override
     public void start() {
-        tablesCfg.tables().any().replicas().listen(replicasCtx -> {
-            if (!busyLock.enterBusy()) {
-                return CompletableFuture.completedFuture(new NodeStoppingException());
-            }
-            try {
-                if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
-                    TableConfiguration tableCfg = replicasCtx.config(TableConfiguration.class);
-                    int partCount = tableCfg.partitions().value();
-
-                    int newReplicas = replicasCtx.newValue();
-
-                    CompletableFuture<?>[] futures = new CompletableFuture<?>[partCount];
-
-                    for (int i = 0; i < partCount; i++) {
-                        String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tableCfg).id().value(), i);
-
-                        futures[i] = updatePendingAssignmentsKeys(
-                                partId, baselineMgr.nodes(),
-                                partCount, newReplicas,
-                                replicasCtx.storageRevision(), metaStorageMgr, i);
-                    }
-
-                    return CompletableFuture.allOf(futures);
-                } else {
-                    return CompletableFuture.completedFuture(null);
-                }
-            } finally {
-                busyLock.leaveBusy();
-            }
-        });
+        tablesCfg.tables().any().replicas().listen(this::onUpdateReplicas);
 
         registerRebalanceListeners();
 
@@ -336,6 +307,45 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Listener of replicas configuration changes.
+     *
+     * @param replicasCtx Replicas configuration event context.
+     * @return A future, which will be completed, when event processed by listener.
+     */
+    private CompletableFuture<?> onUpdateReplicas(ConfigurationNotificationEvent<Integer> replicasCtx) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.completedFuture(new NodeStoppingException());
+        }
+
+        try {
+            if (replicasCtx.oldValue() != null && replicasCtx.oldValue() > 0) {
+                TableConfiguration tblCfg = replicasCtx.config(TableConfiguration.class);
+
+                int partCnt = tblCfg.partitions().value();
+
+                int newReplicas = replicasCtx.newValue();
+
+                CompletableFuture<?>[] futures = new CompletableFuture<?>[partCnt];
+
+                for (int i = 0; i < partCnt; i++) {
+                    String partId = partitionRaftGroupName(((ExtendedTableConfiguration) tblCfg).id().value(), i);
+
+                    futures[i] = updatePendingAssignmentsKeys(
+                            partId, baselineMgr.nodes(),
+                            partCnt, newReplicas,
+                            replicasCtx.storageRevision(), metaStorageMgr, i);
+                }
+
+                return CompletableFuture.allOf(futures);
+            } else {
+                return CompletableFuture.completedFuture(null);
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
