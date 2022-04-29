@@ -193,7 +193,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * @throws RocksDBException If write failed.
      */
     private void writeUnversioned(byte[] keyArray, BinaryRow row, UUID txId) throws RocksDBException {
-        //TODO Add proper way to write row bytes into array without allocations.
+        //TODO IGNITE-16913 Add proper way to write row bytes into array without allocations.
         byte[] rowBytes = row.bytes();
 
         ByteBuffer value = ByteBuffer.allocate(rowBytes.length + TX_ID_SIZE).order(LITTLE_ENDIAN);
@@ -318,7 +318,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    //TODO Play with prefix settings and benchmark results.
+    //TODO IGNITE-16914 Play with prefix settings and benchmark results.
     /** {@inheritDoc} */
     @Override
     public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException {

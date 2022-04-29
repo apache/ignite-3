@@ -47,8 +47,7 @@ public final class UuidRowId implements RowId {
      *
      * @param partitionId Partition id.
      */
-    //TODO Add the ability to use non-random UUIDs from newer specifications, like UUIDv8, for example.
-    //https://datatracker.ietf.org/doc/draft-peabody-dispatch-new-uuid-format/ can be used as a reference or inspiration.
+    //TODO IGNITE-16912 Add the ability to use non-random UUIDs from newer specifications, like UUIDv8, for example.
     public static RowId randomRowId(int partitionId) {
         UUID randomUuid = UUID.randomUUID();
 
@@ -93,7 +92,7 @@ public final class UuidRowId implements RowId {
     }
 
     /**
-     * Compares row id with a byte buffer, previously written by a {@link #writeTo(ByteBuffer, boolean)} method.
+     * Compares row id with a byte buffer, previously written by a {@link #writeTo(ByteBuffer)} method.
      *
      * @param buf Input byte buffer with {@link java.nio.ByteOrder#BIG_ENDIAN} byte order.
      * @return {@code true} if buffer contains same value.
