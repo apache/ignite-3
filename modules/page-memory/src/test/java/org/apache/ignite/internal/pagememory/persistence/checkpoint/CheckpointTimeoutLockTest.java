@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -72,7 +71,7 @@ public class CheckpointTimeoutLockTest {
 
     @Test
     void testCheckpointReadLockTimeout() {
-        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), Long.MAX_VALUE, List::of, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), Long.MAX_VALUE, () -> true, mock(Checkpointer.class));
 
         timeoutLock.start();
 
@@ -85,8 +84,8 @@ public class CheckpointTimeoutLockTest {
 
     @Test
     void testCheckpointReadLock() throws Exception {
-        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, List::of, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, newReadWriteLock(), 1, List::of, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> true, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, newReadWriteLock(), 1, () -> true, mock(Checkpointer.class));
 
         try {
             timeoutLock0.start();
@@ -111,7 +110,7 @@ public class CheckpointTimeoutLockTest {
     void testCheckpointReadLockWithWriteLockHeldByCurrentThread() {
         CheckpointReadWriteLock readWriteLock = newReadWriteLock();
 
-        timeoutLock = new CheckpointTimeoutLock(log, readWriteLock, 1, List::of, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(log, readWriteLock, 1, () -> true, mock(Checkpointer.class));
 
         timeoutLock.start();
 
@@ -130,7 +129,7 @@ public class CheckpointTimeoutLockTest {
 
     @Test
     void testCheckpointReadLockFailOnNodeStop() {
-        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), Long.MAX_VALUE, List::of, mock(Checkpointer.class));
+        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), Long.MAX_VALUE, () -> true, mock(Checkpointer.class));
 
         timeoutLock.stop();
 
@@ -144,8 +143,8 @@ public class CheckpointTimeoutLockTest {
         CheckpointReadWriteLock readWriteLock0 = newReadWriteLock();
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
-        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, readWriteLock0, 0, List::of, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, readWriteLock1, 1, List::of, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, readWriteLock0, 0, () -> true, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, readWriteLock1, 1, () -> true, mock(Checkpointer.class));
 
         ExecutorService executor = newFixedThreadPool(2);
 
@@ -184,8 +183,8 @@ public class CheckpointTimeoutLockTest {
         CheckpointReadWriteLock readWriteLock0 = newReadWriteLock();
         CheckpointReadWriteLock readWriteLock1 = newReadWriteLock();
 
-        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, readWriteLock0, 0, List::of, mock(Checkpointer.class));
-        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, readWriteLock1, 1, List::of, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, readWriteLock0, 0, () -> true, mock(Checkpointer.class));
+        CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, readWriteLock1, 1, () -> true, mock(Checkpointer.class));
 
         ExecutorService executor = newFixedThreadPool(2);
 
@@ -258,9 +257,7 @@ public class CheckpointTimeoutLockTest {
 
         AtomicBoolean safeToUpdate = new AtomicBoolean();
 
-        PageMemoryDataRegion dataRegion = newPageMemoryDataRegion(true, safeToUpdate);
-
-        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> List.of(dataRegion), checkpointer);
+        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, safeToUpdate::get, checkpointer);
 
         timeoutLock.start();
 
@@ -281,9 +278,7 @@ public class CheckpointTimeoutLockTest {
     void testFailureLockReleasedFuture() {
         Checkpointer checkpointer = newCheckpointer(currentThread(), failedFuture(new Exception("test")));
 
-        PageMemoryDataRegion dataRegion = newPageMemoryDataRegion(true, new AtomicBoolean());
-
-        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> List.of(dataRegion), checkpointer);
+        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> false, checkpointer);
 
         timeoutLock.start();
 
@@ -303,7 +298,7 @@ public class CheckpointTimeoutLockTest {
 
         PageMemoryDataRegion dataRegion = newPageMemoryDataRegion(true, new AtomicBoolean());
 
-        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> List.of(dataRegion), checkpointer);
+        timeoutLock = new CheckpointTimeoutLock(log, newReadWriteLock(), 0, () -> false, checkpointer);
 
         timeoutLock.start();
 

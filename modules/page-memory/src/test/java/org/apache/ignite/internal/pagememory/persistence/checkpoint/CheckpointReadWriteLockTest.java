@@ -184,6 +184,18 @@ public class CheckpointReadWriteLockTest {
             assertFalse(lock2.checkpointLockIsHeldByThread());
         }).get(1, TimeUnit.SECONDS);
 
+        runAsync(() -> {
+            assertFalse(lock0.tryReadLock());
+
+            try {
+                assertFalse(lock0.tryReadLock(1, TimeUnit.MILLISECONDS));
+            } catch (InterruptedException e) {
+                fail(e);
+            }
+
+            assertFalse(lock0.checkpointLockIsHeldByThread());
+        }).get(1, TimeUnit.SECONDS);
+
         lock0.writeUnlock();
         lock1.readUnlock();
 

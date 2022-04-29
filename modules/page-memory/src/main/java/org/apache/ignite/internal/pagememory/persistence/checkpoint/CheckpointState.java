@@ -34,7 +34,6 @@ public enum CheckpointState {
     /** Checkpoint counted the pages and write lock was released. **/
     LOCK_RELEASED,
 
-    // TODO: IGNITE-16898 It will most likely need to be removed
     /** Checkpoint marker was stored to disk. **/
     MARKER_STORED_TO_DISK,
 

@@ -17,19 +17,20 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import org.apache.ignite.internal.manager.IgniteComponent;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data region based on {@link PageMemory}.
  */
-public interface PageMemoryDataRegion extends IgniteComponent {
+public interface PageMemoryDataRegion {
     /**
      * Returns {@link true} if the date region is persistent.
      */
     boolean persistent();
 
     /**
-     * Returns page memory, {@code null} if not {@link #start started}.
+     * Returns page memory, {@code null} if not started.
      */
+    @Nullable
     PageMemory pageMemory();
 }

@@ -22,12 +22,10 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
-import java.util.Collection;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -41,8 +39,11 @@ public class CheckpointTimeoutLock implements IgniteComponent {
     /** Ignite logger. */
     protected final IgniteLogger log;
 
-    /** Data regions which should be covered by this lock. */
-    private final Supplier<Collection<PageMemoryDataRegion>> dataRegionsSupplier;
+    /**
+     * {@link PageMemoryImpl#safeToUpdate() Safe update check} for all page memories, should return {@code false} if there are many dirty
+     * pages and a checkpoint is needed.
+     */
+    private final BooleanSupplier safeToUpdateAllPageMemories;
 
     /** Internal checkpoint lock. */
     private final CheckpointReadWriteLock checkpointReadWriteLock;
@@ -62,19 +63,21 @@ public class CheckpointTimeoutLock implements IgniteComponent {
      * @param log Logger.
      * @param checkpointReadWriteLock Checkpoint read-write lock.
      * @param checkpointReadLockTimeout Timeout for checkpoint read lock acquisition in milliseconds.
-     * @param dataRegionsSupplier Data regions which should be covered by this lock.
+     * @param safeToUpdateAllPageMemories {@link PageMemoryImpl#safeToUpdate() Safe update check} for all page memories, should return
+     *      {@code false} if there are many dirty pages and a checkpoint is needed.
+     * @param checkpointer Service for triggering the checkpoint.
      */
     public CheckpointTimeoutLock(
             IgniteLogger log,
             CheckpointReadWriteLock checkpointReadWriteLock,
             long checkpointReadLockTimeout,
-            Supplier<Collection<PageMemoryDataRegion>> dataRegionsSupplier,
+            BooleanSupplier safeToUpdateAllPageMemories,
             Checkpointer checkpointer
     ) {
         this.log = log;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointReadLockTimeout = checkpointReadLockTimeout;
-        this.dataRegionsSupplier = dataRegionsSupplier;
+        this.safeToUpdateAllPageMemories = safeToUpdateAllPageMemories;
         this.checkpointer = checkpointer;
     }
 
@@ -122,9 +125,7 @@ public class CheckpointTimeoutLock implements IgniteComponent {
 
                     try {
                         if (timeout > 0) {
-                            long timeout1 = timeout - (coarseCurrentTimeMillis() - start);
-
-                            if (!checkpointReadWriteLock.tryReadLock(timeout1, MILLISECONDS)) {
+                            if (!checkpointReadWriteLock.tryReadLock(timeout - (coarseCurrentTimeMillis() - start), MILLISECONDS)) {
                                 failCheckpointReadLock();
                             }
                         } else {
@@ -142,7 +143,10 @@ public class CheckpointTimeoutLock implements IgniteComponent {
                         throw new IgniteInternalException(new NodeStoppingException("Failed to get checkpoint read lock"));
                     }
 
-                    if (checkpointReadWriteLock.getReadHoldCount() > 1 || safeToUpdateAllPageMemories() || checkpointer.runner() == null) {
+                    if (checkpointReadWriteLock.getReadHoldCount() > 1
+                            || safeToUpdateAllPageMemories.getAsBoolean()
+                            || checkpointer.runner() == null
+                    ) {
                         break;
                     } else {
                         // If the checkpoint is triggered outside the lock,
@@ -169,7 +173,8 @@ public class CheckpointTimeoutLock implements IgniteComponent {
 
                     throw e;
 
-                    // TODO: IGNITE-16899 Should reset the timeout and try again
+                    // TODO: IGNITE-16899 After the implementation of FailureProcessor,
+                    // by analogy with 2.0, we need to reset the timeout and try again
                     //timeout = 0;
                 }
             }
@@ -219,24 +224,9 @@ public class CheckpointTimeoutLock implements IgniteComponent {
         return checkpointReadWriteLock.checkpointLockIsHeldByThread();
     }
 
-    private boolean safeToUpdateAllPageMemories() {
-        for (PageMemoryDataRegion memPlc : dataRegionsSupplier.get()) {
-            if (!memPlc.persistent()) {
-                continue;
-            }
-
-            PageMemoryImpl pageMemEx = (PageMemoryImpl) memPlc.pageMemory();
-
-            if (!pageMemEx.safeToUpdate()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     private void failCheckpointReadLock() throws CheckpointReadLockTimeoutException {
-        // TODO: IGNITE-16899 I think they should fail the node or something like in 2.0
+        // TODO: IGNITE-16899 After the implementation of FailureProcessor, by analogy with 2.0,
+        // either fail the node or try acquire read lock again by throwing an CheckpointReadLockTimeoutException
 
         throw new CheckpointReadLockTimeoutException("Checkpoint read lock acquisition has been timed out");
     }

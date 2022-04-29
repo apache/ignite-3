@@ -50,6 +50,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.setMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
+import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
@@ -170,7 +171,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Direct memory allocator. */
     private final DirectMemoryProvider directMemoryProvider;
 
-    /** Segments array. */
+    /** Segments array, {@code null} if not {@link #start() started}. */
     @Nullable
     private volatile Segment[] segments;
 
@@ -200,7 +201,8 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** See {@link #safeToUpdate()}. */
     private final AtomicBoolean safeToUpdate = new AtomicBoolean(true);
 
-    /** Checkpoint page pool. */
+    /** Checkpoint page pool, {@code null} if not {@link #start() started}. */
+    @Nullable
     private volatile PagePool checkpointPool;
 
     /**
@@ -589,8 +591,6 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** {@inheritDoc} */
     @Override
     public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        assert started;
-
         return acquirePage(grpId, pageId, statHolder, false);
     }
 
@@ -1492,7 +1492,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             long tmpBufPtr = tempBufferPointer(absPtr);
 
             if (tmpBufPtr != INVALID_REL_PTR) {
-                setMemory(checkpointPool.absolute(tmpBufPtr) + PAGE_OVERHEAD, pageSize(), (byte) 0);
+                zeroMemory(checkpointPool.absolute(tmpBufPtr) + PAGE_OVERHEAD, pageSize());
 
                 tempBufferPointer(absPtr, INVALID_REL_PTR);
 
@@ -1792,11 +1792,21 @@ public class PageMemoryImpl implements PageMemoryEx {
         return pages0.markAsSaved(fullPageId);
     }
 
+    /**
+     * Makes a full copy of the dirty page for checkpointing, then marks the page as not dirty.
+     *
+     * @param absPtr Absolute page pointer.
+     * @param fullId Full page id.
+     * @param buf Buffer for copy page content for future write via {@link PageStoreWriter}.
+     * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be copied) in case
+     *      checkpoint temporary buffer is used.
+     * @param pageStoreWriter Checkpoint page writer.
+     */
     private void copyPageForCheckpoint(
             long absPtr,
             FullPageId fullId,
             ByteBuffer buf,
-            Integer tag,
+            int tag,
             boolean pageSingleAcquire,
             PageStoreWriter pageStoreWriter
     ) throws IgniteInternalCheckedException {
@@ -1847,7 +1857,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 fullPageId(tmpAbsPtr, NULL_PAGE);
 
-                setMemory(tmpAbsPtr + PAGE_OVERHEAD, pageSize(), (byte) 0);
+                zeroMemory(tmpAbsPtr + PAGE_OVERHEAD, pageSize());
 
                 releaseCheckpointBufferPage(tmpRelPtr);
 

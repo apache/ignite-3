@@ -74,7 +74,9 @@ public class CheckpointReadWriteLock {
 
         boolean res = checkpointLock.readLock().tryLock(timeout, unit);
 
-        checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
+        if (res) {
+            checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
+        }
 
         return res;
     }
@@ -91,7 +93,9 @@ public class CheckpointReadWriteLock {
 
         boolean res = checkpointLock.readLock().tryLock();
 
-        checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
+        if (res) {
+            checkpointReadLockHoldCount.set(checkpointReadLockHoldCount.get() + 1);
+        }
 
         return res;
     }
