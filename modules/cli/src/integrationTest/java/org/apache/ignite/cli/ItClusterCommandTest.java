@@ -31,7 +31,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -156,7 +155,7 @@ class ItClusterCommandTest extends AbstractCliTest {
     }
 
     private boolean isHttpServedAt(String hostPort) {
-        HttpRequest request = HttpRequest.newBuilder(uriFor(hostPort))
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + hostPort + "/"))
                 .GET()
                 .build();
 
@@ -169,14 +168,6 @@ class ItClusterCommandTest extends AbstractCliTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
-        }
-    }
-
-    private URI uriFor(String hostPort) {
-        try {
-            return new URI("http://" + hostPort + "/");
-        } catch (URISyntaxException e) {
-            throw new RuntimeException("Cannot parse URI", e);
         }
     }
 
