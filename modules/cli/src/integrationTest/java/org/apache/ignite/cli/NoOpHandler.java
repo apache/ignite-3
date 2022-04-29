@@ -23,7 +23,7 @@ import java.util.logging.LogRecord;
 /**
  * Adapter for {@link Handler} with empty implementations of all methods but {@link Handler#publish(LogRecord)}.
  */
-public abstract class HandlerAdapter extends Handler {
+public abstract class NoOpHandler extends Handler {
     @Override
     public void flush() {
         // no-op
