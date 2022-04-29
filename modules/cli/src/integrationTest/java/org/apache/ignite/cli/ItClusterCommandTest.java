@@ -29,9 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -41,7 +39,6 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -49,13 +46,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import picocli.CommandLine;
 
 /**
  * Integration test for {@code ignite cluster} commands.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-class ItClusterCommandTest extends AbstractCliTest {
+class ItClusterCommandTest extends AbstractCliIntegrationTest {
     private static final Node FIRST_NODE = new Node(0, 10100, 10300);
     private static final Node SECOND_NODE = new Node(1, 11100, 11300);
     private static final Node THIRD_NODE = new Node(2, 12100, 12300);
@@ -69,12 +65,6 @@ class ItClusterCommandTest extends AbstractCliTest {
 
     /** DI context. */
     private ApplicationContext ctx;
-
-    /** stderr. */
-    private final ByteArrayOutputStream err = new ByteArrayOutputStream();
-
-    /** stdout. */
-    private final ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     @BeforeEach
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
@@ -182,20 +172,6 @@ class ItClusterCommandTest extends AbstractCliTest {
         assertThat(out.toString(UTF_8), is("Cluster was initialized successfully." + NL));
 
         // TODO: when IGNITE-16526 is implemented, also check that the logical topology contains all 4 nodes
-    }
-
-    /**
-     * Creates a new command line interpreter.
-     *
-     * @param applicationCtx DI context.
-     * @return New command line instance.
-     */
-    private CommandLine cmd(ApplicationContext applicationCtx) {
-        CommandLine.IFactory factory = new CommandFactory(applicationCtx);
-
-        return new CommandLine(IgniteCliSpec.class, factory)
-                .setErr(new PrintWriter(err, true))
-                .setOut(new PrintWriter(out, true));
     }
 
     private static class Node {
