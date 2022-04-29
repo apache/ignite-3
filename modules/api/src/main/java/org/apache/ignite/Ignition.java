@@ -32,7 +32,7 @@ public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param name Name of the node. Must not be {@code null}.
@@ -47,7 +47,7 @@ public interface Ignition {
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file, with an optional class loader for further usage by
      * {@link java.util.ServiceLoader}.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param name Name of the node. Must not be {@code null}.
@@ -63,7 +63,7 @@ public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a URL linking to HOCON configs.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param name Name of the node. Must not be {@code null}.
@@ -77,7 +77,7 @@ public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param name Name of the node. Must not be {@code null}.
@@ -106,7 +106,7 @@ public interface Ignition {
     /**
      * Starts an Ignite node with the default configuration.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param name Name of the node. Must not be {@code null}.

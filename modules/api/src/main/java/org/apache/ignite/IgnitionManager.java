@@ -39,7 +39,7 @@ public class IgnitionManager {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
@@ -82,7 +82,7 @@ public class IgnitionManager {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * <p>When this method returns, the node is partly started and ready to accept init command (that is, its
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
