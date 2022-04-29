@@ -173,7 +173,7 @@ class ItClusterCommandTest extends AbstractCliTest {
 
     @AfterEach
     void tearDown(TestInfo testInfo) {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < NODES.size(); i++) {
             IgnitionManager.stop(testNodeName(testInfo, i));
         }
 
