@@ -27,7 +27,7 @@ public abstract class AbstractCliTest {
      * Sets up a dumb terminal before tests.
      */
     @BeforeAll
-    private static void beforeAll() {
+    static void beforeAll() {
         System.setProperty("org.jline.terminal.dumb", "true");
     }
 }
