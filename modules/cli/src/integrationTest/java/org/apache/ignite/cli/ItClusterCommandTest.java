@@ -32,10 +32,6 @@ import io.micronaut.context.env.Environment;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -46,7 +42,6 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.cli.spec.IgniteCliSpec;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -128,16 +123,13 @@ class ItClusterCommandTest extends AbstractCliTest {
      * @param node      node
      * @param workDir   working directory
      * @param testInfo  test info
-     * @throws InterruptedException if we get interrupted
      */
-    private void startNodeWithoutInit(Node node, Path workDir, TestInfo testInfo) throws InterruptedException, IOException {
+    private void startNodeWithoutInit(Node node, Path workDir, TestInfo testInfo) throws IOException {
         String nodeName = testNodeName(testInfo, node.nodeIndex);
 
         String config = configJsonFor(node);
 
         IgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
-
-        assertTrue(IgniteTestUtils.waitForCondition(() -> isHttpServedAt(node.restHostPort()), 10_000));
     }
 
     private String configJsonFor(Node node) throws IOException {
@@ -154,23 +146,6 @@ class ItClusterCommandTest extends AbstractCliTest {
                 .map(Node::networkHostPort)
                 .map(s -> "\"" + s + "\"")
                 .collect(joining(", ", "[", "]"));
-    }
-
-    private boolean isHttpServedAt(String hostPort) {
-        HttpRequest request = HttpRequest.newBuilder(URI.create("http://" + hostPort + "/"))
-                .GET()
-                .build();
-
-        try {
-            HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
-
-            return true;
-        } catch (IOException e) {
-            return false;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        }
     }
 
     @AfterEach
