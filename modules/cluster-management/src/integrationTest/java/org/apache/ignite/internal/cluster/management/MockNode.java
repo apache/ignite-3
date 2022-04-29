@@ -24,13 +24,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.rest.RestComponent;
+import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
@@ -88,6 +87,8 @@ class MockNode {
 
     void start() {
         components.forEach(IgniteComponent::start);
+
+        clusterManager.onJoinReady();
     }
 
     void beforeNodeStop() {
@@ -127,23 +128,5 @@ class MockNode {
 
     ClusterManagementGroupManager clusterManager() {
         return clusterManager;
-    }
-
-    private static class ReverseIterator<T> implements Iterator<T> {
-        private final ListIterator<T> it;
-
-        ReverseIterator(List<T> list) {
-            this.it = list.listIterator(list.size());
-        }
-
-        @Override
-        public boolean hasNext() {
-            return it.hasPrevious();
-        }
-
-        @Override
-        public T next() {
-            return it.previous();
-        }
     }
 }

@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.io.ObjectInput;
@@ -58,5 +59,15 @@ class DefaultSchemaMismatchHandlerTest {
     @Test
     void doesNothingOnExternalizableMissed() {
         assertDoesNotThrow(() -> handler.onExternalizableMissed(new Object()));
+    }
+
+    @Test
+    void doesNothingOnReadResolveDisappeared() {
+        assertDoesNotThrow(() -> handler.onReadResolveDisappeared(new Object()));
+    }
+
+    @Test
+    void returnsTrueOnReadResolveAppeared() throws Exception {
+        assertTrue(handler.onReadResolveAppeared(new Object()));
     }
 }
