@@ -171,7 +171,7 @@ public class CheckpointReadWriteLockTest {
         assertTrue(lock0.checkpointLockIsHeldByThread());
         assertTrue(lock1.checkpointLockIsHeldByThread());
 
-        runAsync(() -> assertTrue(lock2.checkpointLockIsHeldByThread())).get(1, TimeUnit.SECONDS);
+        runAsync(() -> assertTrue(lock2.checkpointLockIsHeldByThread()), "checkpoint-runner").get(1, TimeUnit.SECONDS);
 
         runAsync(() -> {
             assertFalse(lock0.checkpointLockIsHeldByThread());
