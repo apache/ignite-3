@@ -146,9 +146,6 @@ public final class CollectionUtils {
         }
 
         return new AbstractCollection<>() {
-            /** Total size of the collections. */
-            int size = -1;
-
             /** {@inheritDoc} */
             @Override
             public Iterator<T> iterator() {
@@ -158,17 +155,26 @@ public final class CollectionUtils {
             /** {@inheritDoc} */
             @Override
             public int size() {
-                if (size == -1) {
-                    int s = 0;
+                int size = 0;
 
-                    for (Collection<T> collection : collections) {
-                        s += collection.size();
-                    }
+                for (int i = 0; i < collections.length; i++) {
+                    size += collections[i].size();
 
-                    size = s;
                 }
 
                 return size;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean contains(Object o) {
+                for (int i = 0; i < collections.length; i++) {
+                    if (collections[i].contains(o)) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         };
     }

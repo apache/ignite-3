@@ -19,12 +19,10 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
@@ -39,7 +37,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
@@ -146,8 +143,6 @@ public class CheckpointTimeoutLockTest {
         CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, readWriteLock0, 0, () -> true, mock(Checkpointer.class));
         CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, readWriteLock1, 1, () -> true, mock(Checkpointer.class));
 
-        ExecutorService executor = newFixedThreadPool(2);
-
         try {
             timeoutLock0.start();
             timeoutLock1.start();
@@ -157,8 +152,8 @@ public class CheckpointTimeoutLockTest {
 
             CountDownLatch startThreadLatch = new CountDownLatch(2);
 
-            CompletableFuture<?> readLockFuture0 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock0), executor);
-            CompletableFuture<?> readLockFuture1 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock1), executor);
+            CompletableFuture<?> readLockFuture0 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock0));
+            CompletableFuture<?> readLockFuture1 = runAsync(() -> checkpointReadLock(startThreadLatch, timeoutLock1));
 
             assertTrue(startThreadLatch.await(100, MILLISECONDS));
 
@@ -173,8 +168,6 @@ public class CheckpointTimeoutLockTest {
             writeUnlock(readWriteLock1);
 
             closeAll(timeoutLock0::stop, timeoutLock1::stop);
-
-            shutdownAndAwaitTermination(executor, 100, MILLISECONDS);
         }
     }
 
@@ -185,8 +178,6 @@ public class CheckpointTimeoutLockTest {
 
         CheckpointTimeoutLock timeoutLock0 = new CheckpointTimeoutLock(log, readWriteLock0, 0, () -> true, mock(Checkpointer.class));
         CheckpointTimeoutLock timeoutLock1 = new CheckpointTimeoutLock(log, readWriteLock1, 1, () -> true, mock(Checkpointer.class));
-
-        ExecutorService executor = newFixedThreadPool(2);
 
         try {
             timeoutLock0.start();
@@ -206,7 +197,7 @@ public class CheckpointTimeoutLockTest {
                 } finally {
                     interruptedThreadLatch.countDown();
                 }
-            }, executor);
+            });
 
             CompletableFuture<?> readLockFuture1 = runAsync(() -> {
                 currentThread().interrupt();
@@ -216,7 +207,7 @@ public class CheckpointTimeoutLockTest {
                 } finally {
                     interruptedThreadLatch.countDown();
                 }
-            }, executor);
+            });
 
             assertTrue(startThreadLatch.await(100, MILLISECONDS));
 
@@ -236,8 +227,6 @@ public class CheckpointTimeoutLockTest {
             writeUnlock(readWriteLock1);
 
             closeAll(timeoutLock0::stop, timeoutLock1::stop);
-
-            shutdownAndAwaitTermination(executor, 100, MILLISECONDS);
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -111,7 +112,7 @@ class IgniteUtilsTest {
 
         // Checks interrupt.
 
-        CompletableFuture.runAsync(() -> {
+        runAsync(() -> {
             try {
                 Thread.currentThread().interrupt();
 

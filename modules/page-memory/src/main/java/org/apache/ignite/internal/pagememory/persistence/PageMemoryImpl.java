@@ -62,7 +62,6 @@ import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1235,7 +1234,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     @TestOnly
     public Set<FullPageId> dirtyPages() {
         if (segments == null) {
-            return Collections.emptySet();
+            return Set.of();
         }
 
         Set<FullPageId> res = new HashSet<>((int) loadedPages());
@@ -1279,7 +1278,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         private long memPerRepl;
 
         /** Pages marked as dirty since the last checkpoint. */
-        private volatile Collection<FullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
+        private volatile Set<FullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
 
         /** Atomic size counter for {@link #dirtyPages}. */
         private final AtomicLong dirtyPagesCntr = new AtomicLong();
@@ -2033,7 +2032,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 throw new IgniteInternalException("Failed to begin checkpoint (it is already in progress).");
             }
 
-            Collection<FullPageId> dirtyPages = seg.dirtyPages;
+            Set<FullPageId> dirtyPages = seg.dirtyPages;
             collections[i] = dirtyPages;
 
             seg.checkpointPages = new CheckpointPages(dirtyPages, allowToReplace);

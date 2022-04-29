@@ -27,8 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -42,7 +42,7 @@ public class CheckpointPagesTest {
     @Test
     void testContains() {
         CheckpointPages checkpointPages = new CheckpointPages(
-                List.of(new FullPageId(0, 0), new FullPageId(1, 0)),
+                Set.of(new FullPageId(0, 0), new FullPageId(1, 0)),
                 completedFuture(null)
         );
 
@@ -56,7 +56,7 @@ public class CheckpointPagesTest {
     @Test
     void testSize() {
         CheckpointPages checkpointPages = new CheckpointPages(
-                List.of(new FullPageId(0, 0), new FullPageId(1, 0)),
+                Set.of(new FullPageId(0, 0), new FullPageId(1, 0)),
                 completedFuture(null)
         );
 
@@ -66,7 +66,7 @@ public class CheckpointPagesTest {
     @Test
     void testMarkAsSaved() {
         CheckpointPages checkpointPages = new CheckpointPages(
-                new ArrayList<>(List.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0))),
+                new HashSet<>(Set.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0))),
                 completedFuture(null)
         );
 
@@ -85,7 +85,7 @@ public class CheckpointPagesTest {
 
     @Test
     void testAllowToSave() throws Exception {
-        List<FullPageId> pages = List.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0));
+        Set<FullPageId> pages = Set.of(new FullPageId(0, 0), new FullPageId(1, 0), new FullPageId(2, 0));
 
         CheckpointPages checkpointPages = new CheckpointPages(pages, completedFuture(null));
 

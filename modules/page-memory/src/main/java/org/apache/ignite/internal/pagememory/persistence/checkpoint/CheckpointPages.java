@@ -19,7 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 
-import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,17 +30,17 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * View of pages which should be stored during current checkpoint.
  */
 public class CheckpointPages {
-    private final Collection<FullPageId> segCheckpointPages;
+    private final Set<FullPageId> segCheckpointPages;
 
     private final CompletableFuture<?> allowToReplace;
 
     /**
      * Constructor.
      *
-     * @param pages Pages which would be stored to disk in current checkpoint, does not copy the collection.
+     * @param pages Pages which would be stored to disk in current checkpoint, does not copy the set.
      * @param replaceFuture The sign which allows replacing pages from a checkpoint by page replacer.
      */
-    public CheckpointPages(Collection<FullPageId> pages, CompletableFuture<?> replaceFuture) {
+    public CheckpointPages(Set<FullPageId> pages, CompletableFuture<?> replaceFuture) {
         segCheckpointPages = pages;
         allowToReplace = replaceFuture;
     }

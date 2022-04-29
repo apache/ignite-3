@@ -17,15 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -173,10 +171,7 @@ public class CheckpointReadWriteLockTest {
         assertTrue(lock0.checkpointLockIsHeldByThread());
         assertTrue(lock1.checkpointLockIsHeldByThread());
 
-        runAsync(
-                () -> assertTrue(lock2.checkpointLockIsHeldByThread()),
-                newSingleThreadExecutor(new NamedThreadFactory("checkpoint-runner"))
-        ).get(1, TimeUnit.SECONDS);
+        runAsync(() -> assertTrue(lock2.checkpointLockIsHeldByThread())).get(1, TimeUnit.SECONDS);
 
         runAsync(() -> {
             assertFalse(lock0.checkpointLockIsHeldByThread());
