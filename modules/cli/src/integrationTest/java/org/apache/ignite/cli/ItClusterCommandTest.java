@@ -18,6 +18,7 @@
 package org.apache.ignite.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -38,7 +39,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CountDownLatch;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -81,7 +82,7 @@ class ItClusterCommandTest extends AbstractCliTest {
 
     @BeforeEach
     void setup(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
-        AtomicBoolean allNodesAreInPhysicalTopology = new AtomicBoolean(false);
+        CountDownLatch allNodesAreInPhysicalTopology = new CountDownLatch(1);
 
         Handler physicalTopologyWaiter = physicalTopologyWaiter(allNodesAreInPhysicalTopology);
         topologyLogger.addHandler(physicalTopologyWaiter);
@@ -97,12 +98,12 @@ class ItClusterCommandTest extends AbstractCliTest {
         ctx = ApplicationContext.run(Environment.TEST);
     }
 
-    private Handler physicalTopologyWaiter(AtomicBoolean physicalTopologyIsFull) {
+    private Handler physicalTopologyWaiter(CountDownLatch physicalTopologyIsFull) {
         return new HandlerAdapter() {
             @Override
             public void publish(LogRecord record) {
                 if (record.getMessage().contains("Topology snapshot [nodes=" + NODES.size() + "]")) {
-                    physicalTopologyIsFull.set(true);
+                    physicalTopologyIsFull.countDown();
                 }
             }
         };
@@ -116,8 +117,8 @@ class ItClusterCommandTest extends AbstractCliTest {
         CompletableFuture.allOf(futures).join();
     }
 
-    private void waitTillAllNodesJoinPhysicalTopology(AtomicBoolean allNodesAreInPhysicalTopology) throws InterruptedException {
-        assertTrue(IgniteTestUtils.waitForCondition(allNodesAreInPhysicalTopology::get, 10_000));
+    private void waitTillAllNodesJoinPhysicalTopology(CountDownLatch allNodesAreInPhysicalTopology) throws InterruptedException {
+        assertTrue(allNodesAreInPhysicalTopology.await(10, SECONDS), "Physical topology was not formed in time");
     }
 
     /**
