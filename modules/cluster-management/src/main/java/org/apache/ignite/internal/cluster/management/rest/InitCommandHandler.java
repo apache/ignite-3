@@ -54,14 +54,10 @@ public class InitCommandHandler implements RequestHandler {
             InitCommand command = readContent(request);
 
             if (log.isInfoEnabled()) {
-                log.info(
-                        "Received init command:\n\tMeta Storage nodes: {}\n\tCMG nodes: {}",
-                        command.metaStorageNodes(),
-                        command.cmgNodes()
-                );
+                log.info("Received init command:\n\t{}}", command);
             }
 
-            return clusterInitializer.initCluster(command.metaStorageNodes(), command.cmgNodes())
+            return clusterInitializer.initCluster(command.metaStorageNodes(), command.cmgNodes(), command.clusterName())
                     .thenApply(v -> successResponse(response))
                     .exceptionally(e -> errorResponse(response, e));
         } catch (Exception e) {

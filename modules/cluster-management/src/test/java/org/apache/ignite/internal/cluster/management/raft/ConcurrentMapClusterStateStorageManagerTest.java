@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
-
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Message for delivering the cluster state information.
+ * Tests for {@link RaftStorageManager} based on {@link ConcurrentMapClusterStateStorage}.
  */
-@Transferable(CmgMessageGroup.CLUSTER_STATE)
-public interface ClusterStateMessage extends NetworkMessage {
-    @Marshallable
-    ClusterState clusterState();
+public class ConcurrentMapClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
+    @Override
+    ClusterStateStorage clusterStateStorage() {
+        return new ConcurrentMapClusterStateStorage();
+    }
 }

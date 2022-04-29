@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Command sent by a node that intends to join a cluster. This command will trigger node validation.
@@ -26,13 +29,22 @@ import org.apache.ignite.raft.client.WriteCommand;
 public class JoinRequestCommand implements WriteCommand {
     private final ClusterNode node;
 
+    private final IgniteProductVersion igniteVersion;
+
+    @Nullable
+    private final ClusterTag clusterTag;
+
     /**
      * Creates a new command.
      *
      * @param node Node that wants to enter the logical topology.
+     * @param igniteVersion Version of the Ignite node.
+     * @param clusterTag Cluster tag.
      */
-    public JoinRequestCommand(ClusterNode node) {
+    public JoinRequestCommand(ClusterNode node, IgniteProductVersion igniteVersion, @Nullable ClusterTag clusterTag) {
         this.node = node;
+        this.igniteVersion = igniteVersion;
+        this.clusterTag = clusterTag;
     }
 
     /**
@@ -42,5 +54,24 @@ public class JoinRequestCommand implements WriteCommand {
      */
     public ClusterNode node() {
         return node;
+    }
+
+    /**
+     * Returns the version of the Ignite node.
+     *
+     * @return Version of the Ignite node.
+     */
+    public IgniteProductVersion igniteVersion() {
+        return igniteVersion;
+    }
+
+    /**
+     * Returns the cluster tag.
+     *
+     * @return Cluster tag.
+     */
+    @Nullable
+    public ClusterTag clusterTag() {
+        return clusterTag;
     }
 }

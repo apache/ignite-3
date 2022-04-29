@@ -15,35 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+package org.apache.ignite.internal.cluster.management;
 
+import java.util.Collection;
 import java.util.Set;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.WriteCommand;
+import java.util.UUID;
 
 /**
- * Command that gets executed when a node needs to be removed from the logical topology.
+ * Local in-memory state of a {@link ClusterManagementGroupManager}.
  */
-public class NodesLeaveCommand implements WriteCommand {
-    private final Set<ClusterNode> nodes;
+class InMemoryState {
+    /** Node names that host the Meta Storage. */
+    private final Collection<String> metaStorageNodes;
 
-    /**
-     * Creates a new command.
-     *
-     * @param nodes Nodes that need to be removed from the logical topology.
-     */
-    public NodesLeaveCommand(Set<ClusterNode> nodes) {
-        assert !nodes.isEmpty();
+    /** Validation token obtained after successful remote validation on the CMG leader. */
+    private final UUID validationToken;
 
-        this.nodes = nodes;
+    InMemoryState(Collection<String> metaStorageNodes, UUID validationToken) {
+        this.metaStorageNodes = Set.copyOf(metaStorageNodes);
+        this.validationToken = validationToken;
     }
 
-    /**
-     * Returns the nodes that need to be removed from the logical topology.
-     *
-     * @return Nodes that need to be removed from the logical topology.
-     */
-    public Set<ClusterNode> nodes() {
-        return nodes;
+    Collection<String> metaStorageNodes() {
+        return metaStorageNodes;
+    }
+
+    UUID validationToken() {
+        return validationToken;
     }
 }

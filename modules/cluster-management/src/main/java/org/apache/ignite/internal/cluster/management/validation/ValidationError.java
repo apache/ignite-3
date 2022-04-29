@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
-
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+package org.apache.ignite.internal.cluster.management.validation;
 
 /**
- * Message for delivering the cluster state information.
+ * Class representing a validation error.
  */
-@Transferable(CmgMessageGroup.CLUSTER_STATE)
-public interface ClusterStateMessage extends NetworkMessage {
-    @Marshallable
-    ClusterState clusterState();
+public class ValidationError {
+    private final String rejectReason;
+
+    ValidationError(String rejectReason) {
+        this.rejectReason = rejectReason;
+    }
+
+    public String rejectReason() {
+        return rejectReason;
+    }
 }

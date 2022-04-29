@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -35,15 +37,14 @@ import org.jetbrains.annotations.Nullable;
  * A wrapper around a {@link ClusterStateStorage} which provides convenient methods.
  */
 class RaftStorageManager {
-    /**
-     * Storage key for the CMG state.
-     */
-    private static final byte[] CMG_STATE_KEY = "cmg_state".getBytes(StandardCharsets.UTF_8);
+    /** Storage key for the CMG state. */
+    private static final byte[] CMG_STATE_KEY = "cmg_state".getBytes(UTF_8);
 
-    /**
-     * Prefix for the keys for logical topology nodes.
-     */
-    private static final byte[] LOGICAL_TOPOLOGY_PREFIX = "logical_".getBytes(StandardCharsets.UTF_8);
+    /** Prefix for the keys for logical topology nodes. */
+    private static final byte[] LOGICAL_TOPOLOGY_PREFIX = "logical_".getBytes(UTF_8);
+
+    /** Prefix for validation tokens. */
+    private static final byte[] VALIDATION_TOKEN_PREFIX = "validation_".getBytes(UTF_8);
 
     private final ClusterStateStorage storage;
 
@@ -58,9 +59,7 @@ class RaftStorageManager {
      */
     @Nullable
     ClusterState getClusterState() {
-        byte[] state = storage.get(CMG_STATE_KEY);
-
-        return state == null ? null : (ClusterState) ByteUtils.fromBytes(state);
+        return get(CMG_STATE_KEY, ClusterState.class);
     }
 
     /**
@@ -72,6 +71,9 @@ class RaftStorageManager {
         storage.put(CMG_STATE_KEY, ByteUtils.toBytes(state));
     }
 
+    /**
+     * Retrieves the current logical topology.
+     */
     Collection<ClusterNode> getLogicalTopology() {
         Cursor<ClusterNode> cursor = storage.getWithPrefix(
                 LOGICAL_TOPOLOGY_PREFIX,
@@ -81,7 +83,7 @@ class RaftStorageManager {
         try (cursor) {
             return cursor.stream().collect(toList());
         } catch (Exception e) {
-            throw new IgniteInternalException("Unable to get data from Rocks DB", e);
+            throw new IgniteInternalException("Unable to get data from storage", e);
         }
     }
 
@@ -108,10 +110,65 @@ class RaftStorageManager {
     }
 
     private static byte[] logicalTopologyKey(ClusterNode node) {
-        byte[] nodeIdBytes = node.id().getBytes(StandardCharsets.UTF_8);
+        return prefixedKey(LOGICAL_TOPOLOGY_PREFIX, node.id());
+    }
 
-        return ByteBuffer.allocate(LOGICAL_TOPOLOGY_PREFIX.length + nodeIdBytes.length)
-                .put(LOGICAL_TOPOLOGY_PREFIX)
+    /**
+     * Retrieves the validation token for a given node.
+     *
+     * @return Validation token or {@code null} if it does not exist.
+     */
+    @Nullable
+    UUID getValidationToken(ClusterNode node) {
+        return get(validationTokenKey(node.id()), UUID.class);
+    }
+
+    /**
+     * Saves the validation token for a given node.
+     */
+    void putValidationToken(ClusterNode node, UUID token) {
+        storage.put(validationTokenKey(node.id()), ByteUtils.toBytes(token));
+    }
+
+    /**
+     * Removes the validation token for a given node.
+     */
+    void removeValidationToken(String nodeId) {
+        storage.remove(validationTokenKey(nodeId));
+    }
+
+    private static byte[] validationTokenKey(String nodeId) {
+        return prefixedKey(VALIDATION_TOKEN_PREFIX, nodeId);
+    }
+
+    /**
+     * Returns a collection of node IDs that passed the validation (i.e. node IDs which have a corresponding validation token).
+     */
+    Collection<String> getValidatedNodeIds() {
+        Cursor<String> cursor = storage.getWithPrefix(
+                VALIDATION_TOKEN_PREFIX,
+                (k, v) -> new String(k, VALIDATION_TOKEN_PREFIX.length, k.length - VALIDATION_TOKEN_PREFIX.length, UTF_8)
+        );
+
+        try (cursor) {
+            return cursor.stream().collect(toList());
+        } catch (Exception e) {
+            throw new IgniteInternalException("Unable to get data from storage", e);
+        }
+    }
+
+    @Nullable
+    private <T> T get(byte[] key, Class<T> cls) {
+        byte[] value = storage.get(key);
+
+        return value == null ? null : cls.cast(ByteUtils.fromBytes(value));
+    }
+
+    private static byte[] prefixedKey(byte[] prefix, String nodeId) {
+        byte[] nodeIdBytes = nodeId.getBytes(UTF_8);
+
+        return ByteBuffer.allocate(prefix.length + nodeIdBytes.length)
+                .put(prefix)
                 .put(nodeIdBytes)
                 .array();
     }

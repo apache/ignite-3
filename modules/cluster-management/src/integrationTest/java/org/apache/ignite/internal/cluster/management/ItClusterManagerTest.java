@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -33,14 +34,17 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,23 +61,30 @@ public class ItClusterManagerTest {
     @WorkDirectory
     private Path workDir;
 
-    @BeforeEach
-    void setUp(TestInfo testInfo) throws IOException {
-        var addr1 = new NetworkAddress("localhost", PORT_BASE);
-        var addr2 = new NetworkAddress("localhost", PORT_BASE + 1);
+    @AfterEach
+    void tearDown() {
+        stopCluster();
+    }
 
-        var nodeFinder = new StaticNodeFinder(List.of(addr1, addr2));
+    private void startCluster(int numNodes, TestInfo testInfo) throws IOException {
+        List<NetworkAddress> addrs = IntStream.range(0, numNodes)
+                .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
+                .collect(toList());
 
-        cluster.add(new MockNode(testInfo, addr1, nodeFinder, workDir.resolve("node0")));
-        cluster.add(new MockNode(testInfo, addr2, nodeFinder, workDir.resolve("node1")));
+        StaticNodeFinder nodeFinder = new StaticNodeFinder(addrs);
+
+        for (int i = 0; i < numNodes; ++i) {
+            var node = new MockNode(testInfo, addrs.get(i), nodeFinder, workDir.resolve("node" + i));
+
+            cluster.add(node);
+        }
 
         for (MockNode node : cluster) {
             node.start();
         }
     }
 
-    @AfterEach
-    void tearDown() {
+    private void stopCluster() {
         for (MockNode node : cluster) {
             node.beforeNodeStop();
         }
@@ -87,7 +98,9 @@ public class ItClusterManagerTest {
      * Tests initial cluster setup.
      */
     @Test
-    void testInit() throws Exception {
+    void testInit(TestInfo testInfo) throws Exception {
+        startCluster(2, testInfo);
+
         String[] cmgNodes = { cluster.get(0).localMember().name() };
 
         String[] metaStorageNodes = { cluster.get(1).localMember().name() };
@@ -107,8 +120,12 @@ public class ItClusterManagerTest {
      * Tests that init fails in case some nodes cannot be found.
      */
     @Test
-    void testInitDeadNodes() {
-        String[] allNodes = { cluster.get(0).localMember().name(), cluster.get(1).localMember().name() };
+    void testInitDeadNodes(TestInfo testInfo) throws IOException {
+        startCluster(2, testInfo);
+
+        String[] allNodes = cluster.stream()
+                .map(node -> node.localMember().name())
+                .toArray(String[]::new);
 
         MockNode nodeToStop = cluster.remove(0);
 
@@ -122,8 +139,12 @@ public class ItClusterManagerTest {
      * Tests that re-running init after a failed init attempt can succeed.
      */
     @Test
-    void testInitCancel() throws Exception {
-        String[] allNodes = { cluster.get(0).localMember().name(), cluster.get(1).localMember().name() };
+    void testInitCancel(TestInfo testInfo) throws Exception {
+        startCluster(2, testInfo);
+
+        String[] allNodes = cluster.stream()
+                .map(node -> node.localMember().name())
+                .toArray(String[]::new);
 
         // stop a CMG node to make the init fail
 
@@ -149,7 +170,9 @@ public class ItClusterManagerTest {
      * Tests a scenario when a node is restarted.
      */
     @Test
-    void testNodeRestart() throws Exception {
+    void testNodeRestart(TestInfo testInfo) throws Exception {
+        startCluster(2, testInfo);
+
         String[] cmgNodes = { cluster.get(0).localMember().name() };
 
         String[] metaStorageNodes = { cluster.get(1).localMember().name() };
@@ -176,6 +199,8 @@ public class ItClusterManagerTest {
      */
     @Test
     void testNodeJoin(TestInfo testInfo) throws Exception {
+        startCluster(2, testInfo);
+
         String[] cmgNodes = { cluster.get(0).localMember().name() };
 
         initCluster(cmgNodes, cmgNodes);
@@ -200,7 +225,9 @@ public class ItClusterManagerTest {
      * Tests a scenario when a node leaves a cluster.
      */
     @Test
-    void testNodeLeave() throws Exception {
+    void testNodeLeave(TestInfo testInfo) throws Exception {
+        startCluster(2, testInfo);
+
         String[] cmgNodes = { cluster.get(0).localMember().name() };
 
         initCluster(cmgNodes, cmgNodes);
@@ -215,6 +242,44 @@ public class ItClusterManagerTest {
         waitForLogicalTopology();
 
         assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+    }
+
+    /**
+     * Tests a scenario when a node, that participated in a cluster, tries to join a new one.
+     */
+    @Test
+    void testJoinInvalidTag(TestInfo testInfo) throws Exception {
+        // Start a cluster and initialize it
+        startCluster(2, testInfo);
+
+        String[] cmgNodes = { cluster.get(0).localMember().name() };
+
+        initCluster(cmgNodes, cmgNodes);
+
+        // Stop the cluster
+        stopCluster();
+
+        // Remove all persistent state from the first node
+        IgniteUtils.deleteIfExists(workDir.resolve("node0"));
+
+        // Start the nodes again
+        for (MockNode node : cluster) {
+            node.restart();
+        }
+
+        // Initialize the cluster again, but with a different name. It is expected that the second node will try to join the CMG
+        // and will be rejected.
+        cluster.get(0).clusterManager().initCluster(
+                Arrays.asList(cmgNodes),
+                Arrays.asList(cmgNodes),
+                "cluster2"
+        );
+
+        assertThrowsWithCause(
+                () -> cluster.get(1).clusterManager().joinFuture().get(10, TimeUnit.SECONDS),
+                IgniteInternalException.class,
+                "Join request denied, reason: Cluster tags do not match"
+        );
     }
 
     private ClusterNode[] currentPhysicalTopology() {
@@ -232,7 +297,11 @@ public class ItClusterManagerTest {
     }
 
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException, InterruptedException {
-        cluster.get(0).clusterManager().initCluster(Arrays.asList(metaStorageNodes), Arrays.asList(cmgNodes));
+        cluster.get(0).clusterManager().initCluster(
+                Arrays.asList(metaStorageNodes),
+                Arrays.asList(cmgNodes),
+                "cluster"
+        );
 
         waitForLogicalTopology();
     }

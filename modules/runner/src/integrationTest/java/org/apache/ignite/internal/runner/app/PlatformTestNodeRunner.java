@@ -111,7 +111,7 @@ public class PlatformTestNodeRunner {
 
         String metaStorageNodeName = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 
         System.out.println("Initialization complete");
 

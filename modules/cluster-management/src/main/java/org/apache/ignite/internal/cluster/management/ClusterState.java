@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
  * Represents a cluster state. It contains:
@@ -34,9 +35,28 @@ public final class ClusterState implements Serializable {
 
     private final Set<String> msNodes;
 
-    public ClusterState(Collection<String> cmgNodes, Collection<String> metaStorageNodes) {
+    private final IgniteProductVersion igniteVersion;
+
+    private final ClusterTag clusterTag;
+
+    /**
+     * Creates a new cluster state.
+     *
+     * @param cmgNodes Node names that host the CMG.
+     * @param metaStorageNodes Node names that host the Meta Storage.
+     * @param igniteVersion Version of Ignite nodes that comprise this cluster.
+     * @param clusterTag Cluster tag.
+     */
+    public ClusterState(
+            Collection<String> cmgNodes,
+            Collection<String> metaStorageNodes,
+            IgniteProductVersion igniteVersion,
+            ClusterTag clusterTag
+    ) {
         this.cmgNodes = Set.copyOf(cmgNodes);
         this.msNodes = Set.copyOf(metaStorageNodes);
+        this.igniteVersion = igniteVersion;
+        this.clusterTag = clusterTag;
     }
 
     public Set<String> cmgNodes() {
@@ -45,6 +65,14 @@ public final class ClusterState implements Serializable {
 
     public Set<String> metaStorageNodes() {
         return msNodes;
+    }
+
+    public IgniteProductVersion igniteVersion() {
+        return igniteVersion;
+    }
+
+    public ClusterTag clusterTag() {
+        return clusterTag;
     }
 
     @Override
@@ -56,12 +84,13 @@ public final class ClusterState implements Serializable {
             return false;
         }
         ClusterState that = (ClusterState) o;
-        return cmgNodes.equals(that.cmgNodes) && msNodes.equals(that.msNodes);
+        return cmgNodes.equals(that.cmgNodes) && msNodes.equals(that.msNodes) && igniteVersion.equals(that.igniteVersion)
+                && clusterTag.equals(that.clusterTag);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(cmgNodes, msNodes);
+        return Objects.hash(cmgNodes, msNodes, igniteVersion, clusterTag);
     }
 
     @Override
@@ -69,6 +98,8 @@ public final class ClusterState implements Serializable {
         return "ClusterState{"
                 + "cmgNodes=" + cmgNodes
                 + ", msNodes=" + msNodes
+                + ", igniteVersion=" + igniteVersion
+                + ", clusterTag=" + clusterTag
                 + '}';
     }
 }

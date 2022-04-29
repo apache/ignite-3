@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.stream.Collectors.toList;
+
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
@@ -30,6 +34,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCom
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -45,8 +50,11 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final RaftStorageManager storage;
 
+    private final ValidationTokenManager validationTokenManager;
+
     public CmgRaftGroupListener(ClusterStateStorage storage) {
         this.storage = new RaftStorageManager(storage);
+        this.validationTokenManager = new ValidationTokenManager(this.storage);
     }
 
     @Override
@@ -73,15 +81,42 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             if (command instanceof WriteStateCommand) {
                 storage.putClusterState(((WriteStateCommand) command).clusterState());
-            } else if (command instanceof JoinRequestCommand) {
-                // TODO: perform validation https://issues.apache.org/jira/browse/IGNITE-16717
-            } else if (command instanceof JoinReadyCommand) {
-                storage.putLogicalTopologyNode(((JoinReadyCommand) command).node());
-            } else if (command instanceof NodesLeaveCommand) {
-                storage.removeLogicalTopologyNodes(((NodesLeaveCommand) command).nodes());
-            }
 
-            clo.result(null);
+                clo.result(null);
+            } else if (command instanceof JoinRequestCommand) {
+                Serializable response = validationTokenManager.validateNode((JoinRequestCommand) command);
+
+                clo.result(response);
+            } else if (command instanceof JoinReadyCommand) {
+                Serializable response = validationTokenManager.completeValidation((JoinReadyCommand) command);
+
+                // Non-null response means that the node has not passed the validation step.
+                if (response == null) {
+                    addNodeToLogicalTopology((JoinReadyCommand) command);
+                }
+
+                clo.result(response);
+            } else if (command instanceof NodesLeaveCommand) {
+                removeNodesFromLogicalTopology((NodesLeaveCommand) command);
+
+                clo.result(null);
+            }
+        }
+    }
+
+    private void addNodeToLogicalTopology(JoinReadyCommand command) {
+        storage.putLogicalTopologyNode(command.node());
+
+        log.info("Node {} has been added to the logical topology", command.node().name());
+    }
+
+    private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
+        Set<ClusterNode> nodes = command.nodes();
+
+        storage.removeLogicalTopologyNodes(nodes);
+
+        if (log.isInfoEnabled()) {
+            log.info("Nodes {} have been removed from the logical topology", nodes.stream().map(ClusterNode::name).collect(toList()));
         }
     }
 
@@ -106,7 +141,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        // no-op
+        // Raft storage lifecycle is managed by outside components.
+        validationTokenManager.close();
     }
 
     @Override

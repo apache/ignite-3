@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+package org.apache.ignite.internal.cluster.management.validation;
 
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.raft.client.WriteCommand;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Command for saving a {@link ClusterState}.
+ * Class containing information necessary for performing validation of a node.
  */
-public class WriteStateCommand implements WriteCommand {
-    private final ClusterState clusterState;
+public class ValidationInfo {
+    private final IgniteProductVersion igniteVersion;
 
-    /**
-     * Creates a new command.
-     *
-     * @param clusterState State to save.
-     */
-    public WriteStateCommand(ClusterState clusterState) {
-        this.clusterState = clusterState;
+    @Nullable
+    private final ClusterTag clusterTag;
+
+    public ValidationInfo(IgniteProductVersion igniteVersion, @Nullable ClusterTag clusterTag) {
+        this.igniteVersion = igniteVersion;
+        this.clusterTag = clusterTag;
     }
 
-    /**
-     * Returns the state that needs to be saved in the Raft storage.
-     *
-     * @return State to save.
-     */
-    public ClusterState clusterState() {
-        return clusterState;
+    public IgniteProductVersion igniteVersion() {
+        return igniteVersion;
+    }
+
+    @Nullable
+    public ClusterTag clusterTag() {
+        return clusterTag;
     }
 }

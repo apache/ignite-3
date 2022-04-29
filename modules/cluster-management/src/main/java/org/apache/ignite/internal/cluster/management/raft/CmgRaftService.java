@@ -17,11 +17,17 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.lang.Thread.sleep;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
@@ -30,16 +36,28 @@ import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateComm
 import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.JoinDeniedResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
+import org.apache.ignite.internal.cluster.management.raft.responses.NodeValidatedResponse;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
 public class CmgRaftService {
+    private static final IgniteLogger log = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+
+    /**
+     * Number of attempts when trying to resolve a {@link Peer} into a {@link ClusterNode}.
+     */
+    private static final int MAX_RESOLVE_ATTEMPTS = 5;
+
     private final RaftGroupService raftService;
 
     private final ClusterService clusterService;
@@ -88,15 +106,21 @@ public class CmgRaftService {
     /**
      * Sends a {@link JoinRequestCommand}, starting the validation procedure.
      *
-     * @return Future that represents the state of the operation.
+     * @return Future that either resolves into a join token in case of successful validation or into an {@link IgniteInternalException}
+     *         otherwise.
+     * @see ValidationTokenManager
      */
-    public CompletableFuture<Void> startJoinCluster() {
+    public CompletableFuture<UUID> startJoinCluster(@Nullable ClusterTag clusterTag) {
         ClusterNode localMember = clusterService.topologyService().localMember();
 
-        return raftService.run(new JoinRequestCommand(localMember))
-                .thenAccept(response -> {
+        return raftService.run(new JoinRequestCommand(localMember, IgniteProductVersion.CURRENT_VERSION, clusterTag))
+                .thenApply(response -> {
                     if (response instanceof JoinDeniedResponse) {
                         throw new IgniteInternalException("Join request denied, reason: " + ((JoinDeniedResponse) response).reason());
+                    } else if (response instanceof NodeValidatedResponse) {
+                        return ((NodeValidatedResponse) response).validationToken();
+                    } else {
+                        throw new IgniteInternalException("Unexpected response: " + response);
                     }
                 });
     }
@@ -104,15 +128,18 @@ public class CmgRaftService {
     /**
      * Sends a {@link JoinReadyCommand} thus adding the current node to the local topology.
      *
+     * @param validationToken Join token, obtained from {@link #startJoinCluster}.
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> completeJoinCluster() {
+    public CompletableFuture<Void> completeJoinCluster(UUID validationToken) {
         ClusterNode localMember = clusterService.topologyService().localMember();
 
-        return raftService.run(new JoinReadyCommand(localMember))
+        return raftService.run(new JoinReadyCommand(localMember, validationToken))
                 .thenAccept(response -> {
                     if (response instanceof JoinDeniedResponse) {
                         throw new IgniteInternalException("JoinReady request denied, reason: " + ((JoinDeniedResponse) response).reason());
+                    } else if (response != null) {
+                        throw new IgniteInternalException("Unexpected response: " + response);
                     }
                 });
     }
@@ -153,11 +180,30 @@ public class CmgRaftService {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Converts a {@link Peer} into a {@link ClusterNode}.
+     *
+     * <p>This method tries to resolve the given {@code peer} multiple times, because it might be offline temporarily.
+     */
     private ClusterNode resolvePeer(Peer peer) {
-        ClusterNode node = clusterService.topologyService().getByAddress(peer.address());
+        NetworkAddress addr = peer.address();
 
-        assert node != null;
+        for (int i = 0; i < MAX_RESOLVE_ATTEMPTS; ++i) {
+            ClusterNode node = clusterService.topologyService().getByAddress(addr);
 
-        return node;
+            if (node != null) {
+                return node;
+            }
+
+            log.debug("Unable to resolve Raft peer, address {} is unavailable. Remaining attempts: {}", addr, MAX_RESOLVE_ATTEMPTS - i);
+
+            try {
+                sleep(100);
+            } catch (InterruptedException e) {
+                throw new IgniteInternalException("Interrupted while resolving CMG node address", e);
+            }
+        }
+
+        throw new IgniteInternalException(String.format("Node %s is not present in the physical topology", addr));
     }
 }

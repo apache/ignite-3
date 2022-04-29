@@ -15,35 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+package org.apache.ignite.internal.cluster.management.raft.responses;
 
-import java.util.Set;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.WriteCommand;
+import java.io.Serializable;
+import java.util.UUID;
 
 /**
- * Command that gets executed when a node needs to be removed from the logical topology.
+ * Class indicating a successful validation response.
  */
-public class NodesLeaveCommand implements WriteCommand {
-    private final Set<ClusterNode> nodes;
+public class NodeValidatedResponse implements Serializable {
+    private final UUID validationToken;
 
-    /**
-     * Creates a new command.
-     *
-     * @param nodes Nodes that need to be removed from the logical topology.
-     */
-    public NodesLeaveCommand(Set<ClusterNode> nodes) {
-        assert !nodes.isEmpty();
-
-        this.nodes = nodes;
+    public NodeValidatedResponse(UUID validationToken) {
+        this.validationToken = validationToken;
     }
 
     /**
-     * Returns the nodes that need to be removed from the logical topology.
+     * Returns the validation token.
      *
-     * @return Nodes that need to be removed from the logical topology.
+     * @return Validation token.
      */
-    public Set<ClusterNode> nodes() {
-        return nodes;
+    public UUID validationToken() {
+        return validationToken;
     }
 }
