@@ -20,9 +20,7 @@ package org.apache.ignite.cli;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,7 +31,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -96,11 +93,7 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
     }
 
     private void startClusterWithoutInit(Path workDir, TestInfo testInfo) {
-        CompletableFuture<?>[] futures = NODES.stream()
-                .map(node -> runAsync(() -> startNodeWithoutInit(node, workDir, testInfo)))
-                .toArray(CompletableFuture[]::new);
-
-        assertThat(CompletableFuture.allOf(futures), willCompleteSuccessfully());
+        NODES.parallelStream().forEach(node -> startNodeWithoutInit(node, workDir, testInfo));
     }
 
     private void waitTillAllNodesJoinPhysicalTopology(CountDownLatch allNodesAreInPhysicalTopology) throws InterruptedException {
@@ -114,10 +107,15 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
      * @param workDir   working directory
      * @param testInfo  test info
      */
-    private void startNodeWithoutInit(Node node, Path workDir, TestInfo testInfo) throws IOException {
+    private void startNodeWithoutInit(Node node, Path workDir, TestInfo testInfo) {
         String nodeName = testNodeName(testInfo, node.nodeIndex);
 
-        String config = configJsonFor(node);
+        String config;
+        try {
+            config = configJsonFor(node);
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot load config", e);
+        }
 
         IgnitionManager.start(nodeName, config, workDir.resolve(nodeName));
     }
