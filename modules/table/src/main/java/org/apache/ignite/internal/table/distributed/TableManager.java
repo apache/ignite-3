@@ -20,9 +20,11 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.Collections.unmodifiableMap;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPendingKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsStableKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -1400,7 +1402,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     }
 
                     int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
-                    UUID tblId = extractTableId(evt.entryEvent().newEntry().key());
+                    UUID tblId = extractTableId(evt.entryEvent().newEntry().key(), PENDING_ASSIGNMENTS_PREFIX);
 
                     var pendingAssignments = metaStorageMgr.get(partAssignmentsPendingKey(partitionRaftGroupName(tblId, part))).join();
 
@@ -1464,6 +1466,70 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             @Override
             public void onError(@NotNull Throwable e) {
                 LOG.error("Error while processing pending assignments event", e);
+            }
+        });
+
+        metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), new WatchListener() {
+            @Override
+            public boolean onUpdate(@NotNull WatchEvent evt) {
+                if (!busyLock.enterBusy()) {
+                    throw new IgniteInternalException(new NodeStoppingException());
+                }
+
+                try {
+                    assert evt.single();
+
+                    if (evt.entryEvent().newEntry().value() == null) {
+                        return true;
+                    }
+
+                    int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
+                    UUID tblId = extractTableId(evt.entryEvent().newEntry().key(), STABLE_ASSIGNMENTS_PREFIX);
+
+                    var stableAssignments = metaStorageMgr.get(partAssignmentsStableKey(partitionRaftGroupName(tblId, part))).join();
+
+                    if (!Arrays.equals(stableAssignments.value(), evt.entryEvent().newEntry().value())) {
+                        return true;
+                    }
+
+                    TableImpl tbl = tablesByIdVv.latest().get(tblId);
+
+                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
+
+                    String grpId = partitionRaftGroupName(tblId, part);
+
+                    List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
+                            ByteUtils.fromBytes(tblCfg.assignments().value());
+
+                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+
+                    var toStop = assignments.get(part).stream()
+                            .filter(p -> !newPeers.contains(p))
+                            .collect(Collectors.toList());
+
+                    try {
+                        ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+
+                        if (toStop.contains(localMember)) {
+                            raftMgr.stopRaftGroup(grpId);
+
+                            RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
+
+                            partGrpSvc.shutdown();
+                        }
+                    } catch (NodeStoppingException e) {
+                        // no-op
+                    }
+
+                    return true;
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }
+
+            @Override
+            public void onError(@NotNull Throwable e) {
+                LOG.error("Error while processing stable assignments event", e);
             }
         });
     }

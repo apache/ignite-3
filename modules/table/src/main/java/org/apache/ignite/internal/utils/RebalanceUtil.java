@@ -99,6 +99,9 @@ public class RebalanceUtil {
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
 
+    /** Key prefix for stable assignments. */
+    public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
+
     /**
      * Key that is needed for the rebalance algorithm.
      *
@@ -140,7 +143,7 @@ public class RebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
     public static ByteArray partAssignmentsStableKey(String partId) {
-        return new ByteArray("assignments.stable." + partId);
+        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
     /**
@@ -149,14 +152,14 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Table id.
      */
-    public static UUID extractTableId(ByteArray key) {
+    public static UUID extractTableId(ByteArray key, String prefix) {
         var strKey = key.toString();
 
-        return UUID.fromString(strKey.substring(PENDING_ASSIGNMENTS_PREFIX.length(), strKey.indexOf("_part_")));
+        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
     /**
-     * Extract partition number from the pending key of partition.
+     * Extract partition number from the rebalance key of partition.
      *
      * @param key Key.
      * @return Partition number.
