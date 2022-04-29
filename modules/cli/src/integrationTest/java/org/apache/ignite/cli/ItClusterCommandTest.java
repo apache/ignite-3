@@ -101,7 +101,7 @@ class ItClusterCommandTest extends AbstractCliTest {
     private Handler physicalTopologyWaiter(AtomicBoolean physicalTopologyIsFull) {
         return new HandlerAdapter() {
             @Override
-            public synchronized void publish(LogRecord record) {
+            public void publish(LogRecord record) {
                 if (record.getMessage().contains("Topology snapshot [nodes=" + NODES.size() + "]")) {
                     physicalTopologyIsFull.set(true);
                 }
