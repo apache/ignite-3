@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -114,7 +115,7 @@ class ItClusterCommandTest extends AbstractCliTest {
                 .map(node -> runAsync(() -> startNodeWithoutInit(node, workDir, testInfo)))
                 .toArray(CompletableFuture[]::new);
 
-        CompletableFuture.allOf(futures).join();
+        assertThat(CompletableFuture.allOf(futures), willCompleteSuccessfully());
     }
 
     private void waitTillAllNodesJoinPhysicalTopology(CountDownLatch allNodesAreInPhysicalTopology) throws InterruptedException {
