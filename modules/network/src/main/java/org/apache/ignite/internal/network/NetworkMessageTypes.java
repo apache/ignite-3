@@ -57,6 +57,10 @@ public class NetworkMessageTypes {
      */
     public static final short HANDSHAKE_START_RESPONSE = 4;
 
+
+    public static final short HANDSHAKE_FINISH = 8;
+    public static final short ACKNOWLEDGEMENT = 9;
+
     /**
      * Type for {@link ClassDescriptorMessage}.
      */

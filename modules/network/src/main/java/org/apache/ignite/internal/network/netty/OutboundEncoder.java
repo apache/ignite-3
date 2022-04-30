@@ -38,6 +38,9 @@ import org.apache.ignite.network.serialization.MessageSerializer;
  * An encoder for the outbound messages that uses {@link DirectMessageWriter}.
  */
 public class OutboundEncoder extends MessageToMessageEncoder<OutNetworkObject> {
+    /** Handler name. */
+    public static final String NAME = "outbound-encoder";
+
     private static final NetworkMessagesFactory MSG_FACTORY = new NetworkMessagesFactory();
 
     /** Serialization registry. */

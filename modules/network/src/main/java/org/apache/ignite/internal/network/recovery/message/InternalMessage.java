@@ -17,27 +17,15 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.network.NetworkMessage;
 
 /**
- * Handshake start message, contains info about the node.
- * This message is sent from a server to a client at the connection opening.
+ * Message that does not need an acknowledgement from the remote node.
  */
-@Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends InternalMessage {
-    /**
-     * Returns launch id.
-     *
-     * @return Launch id.
-     */
-    UUID launchId();
-
-    /**
-     * Returns consistent id.
-     *
-     * @return Consistent id.
-     */
-    String consistentId();
+public interface InternalMessage extends NetworkMessage {
+    /** {@inheritDoc} */
+    @Override
+    default boolean needAck() {
+        return false;
+    }
 }

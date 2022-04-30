@@ -17,41 +17,20 @@
 
 package org.apache.ignite.internal.network.recovery.message;
 
-import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
+import static org.apache.ignite.internal.network.NetworkMessageTypes.HANDSHAKE_FINISH;
+
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Handshake start response message, contains info about the node, connection id and the quantity of the received messages.
- * This message is sent from a client to a server as a response to the {@link HandshakeStartMessage}.
+ * Handshake finish message, contains the quantity of the received messages.
+ * This message is sent from a server to a client as a response to the {@link HandshakeStartResponseMessage}.
  */
-@Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
-public interface HandshakeStartResponseMessage extends InternalMessage {
-    /**
-     * Returns launch id.
-     *
-     * @return Launch id.
-     */
-    UUID launchId();
-
-    /**
-     * Returns consistent id.
-     *
-     * @return Consistent id.
-     */
-    String consistentId();
-
+@Transferable(HANDSHAKE_FINISH)
+public interface HandshakeFinishMessage extends InternalMessage {
     /**
      * Returns number of received messages.
      *
      * @return Number of received messages.
      */
     long receivedCount();
-
-    /**
-     * Returns connection id.
-     *
-     * @return Connection id.
-     */
-    short connectionId();
 }
