@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.network.handshake;
 
-import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.network.NetworkMessage;
 
@@ -28,29 +27,25 @@ import org.apache.ignite.network.NetworkMessage;
  */
 public interface HandshakeManager {
     /**
-     * Initialize handshake manager with the channel.
+     * Initializes the handshake manager.
      *
-     * @param channel Channel.
-     * @return Action to perform by {@link HandshakeHandler}.
+     * @param handlerContext Channel handler context.
      */
-    HandshakeResult init(Channel channel);
+    void onInit(ChannelHandlerContext handlerContext);
 
     /**
-     * Handle an event of the connection opening.
-     *
-     * @param channel Channel.
-     * @return Action to perform by {@link HandshakeHandler}.
+     * Handles an event of the connection opening.
      */
-    HandshakeResult onConnectionOpen(Channel channel);
+    default void onConnectionOpen() {
+        // No-op.
+    }
 
     /**
-     * Handle an incoming message.
+     * Handles an incoming message.
      *
-     * @param channel Channel.
      * @param message Message to handle.
-     * @return Action to perform by {@link HandshakeHandler}.
      */
-    HandshakeResult onMessage(Channel channel, NetworkMessage message);
+    void onMessage(NetworkMessage message);
 
     /**
      * Returns future that represents the handshake operation.

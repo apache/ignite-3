@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.netty;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.network.NetworkMessage;
 
@@ -27,6 +28,9 @@ import org.apache.ignite.network.NetworkMessage;
  * Network message handler that delegates handling to {@link #messageListener}.
  */
 public class MessageHandler extends ChannelInboundHandlerAdapter {
+    /** Handler name. */
+    public static final String NAME = "message-handler";
+
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
 
@@ -53,6 +57,10 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         NetworkMessage message = (NetworkMessage) msg;
+
+        if (message instanceof AcknowledgementMessage) {
+            return;
+        }
 
         messageListener.accept(new InNetworkObject(message, consistentId, serializationService.compositeDescriptorRegistry()));
     }

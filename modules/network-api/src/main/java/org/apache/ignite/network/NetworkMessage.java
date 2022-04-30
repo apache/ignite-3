@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.ints.IntSet;
  */
 public interface NetworkMessage {
     /** Size of the message type (in bytes), used during (de-)serialization. */
-    static final int MSG_TYPE_SIZE_BYTES = 4;
+    int MSG_TYPE_SIZE_BYTES = 4;
 
     /**
      * Message type. Must be <b>distinct</b> among all messages in a <i>message group</i>. Only positive values are allowed.
@@ -50,5 +50,14 @@ public interface NetworkMessage {
 
     default void unmarshal(Object marshaller, Object descriptors) throws Exception {
         // No-op.
+    }
+
+    /**
+     * Returns {@code true} if this message needs an acknowledgement from the remote node, {@code false} otherwise.
+     *
+     * @return {@code true} if this message needs an acknowledgement from the remote node, {@code false} otherwise.
+     */
+    default boolean needAck() {
+        return true;
     }
 }
