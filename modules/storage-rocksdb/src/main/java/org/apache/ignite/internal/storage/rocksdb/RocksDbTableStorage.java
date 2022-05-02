@@ -47,6 +47,7 @@ import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorag
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -229,6 +230,12 @@ class RocksDbTableStorage implements TableStorage {
         meta.putPartitionId(partId);
 
         return storage;
+    }
+
+    // This API is not yet ready. But we need to test mv storages anyways.
+    @TestOnly
+    public RocksDbMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle());
     }
 
     /** {@inheritDoc} */

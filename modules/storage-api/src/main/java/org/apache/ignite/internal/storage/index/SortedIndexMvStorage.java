@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import java.util.UUID;
 import java.util.function.IntPredicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -70,6 +71,28 @@ public interface SortedIndexMvStorage {
     boolean supportsBackwardsScan();
 
     boolean supportsIndexOnlyScan();
+
+    /**
+     * Returns a range of index values between the lower bound and the upper bound, consistent with the passed transaction id.
+     *
+     * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
+     *      {@code null} means unbounded.
+     * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
+     *      {@code null} means unbounded.
+     * @param flags Control flags. {@link #GREATER} | {@link #LESS} | {@link #FORWARD} by default. Other available values
+     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL} and {@link #BACKWARDS}.
+     * @param txId Transaction id for consistent multi-versioned index scan.
+     * @param partitionFilter Partition filter predicate. {@code null} means returning data from all partitions.
+     * @return Cursor with fetched index rows.
+     * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
+     */
+    Cursor<IndexRowEx> scan(
+            @Nullable IndexRowPrefix lowerBound,
+            @Nullable IndexRowPrefix upperBound,
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
+            UUID txId,
+            @Nullable IntPredicate partitionFilter
+    );
 
     /**
      * Returns a range of index values between the lower bound and the upper bound, consistent with the passed timestamp.
