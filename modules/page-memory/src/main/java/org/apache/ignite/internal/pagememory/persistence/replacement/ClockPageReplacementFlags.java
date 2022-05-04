@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.getLong;
@@ -43,7 +43,7 @@ public class ClockPageReplacementFlags {
      * @param totalPagesCnt Total pages count.
      * @param memPtr Pointer to memory region.
      */
-    ClockPageReplacementFlags(int totalPagesCnt, long memPtr) {
+    public ClockPageReplacementFlags(int totalPagesCnt, long memPtr) {
         pagesCnt = totalPagesCnt;
         flagsPtr = memPtr;
 

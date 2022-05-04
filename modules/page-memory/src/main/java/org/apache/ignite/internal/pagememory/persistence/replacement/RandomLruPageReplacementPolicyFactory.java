@@ -15,33 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.mem;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
 
 /**
- * Direct memory provider interface. Not thread-safe.
+ * {@link RandomLruPageReplacementPolicy} factory.
  */
-public interface DirectMemoryProvider {
-    /**
-     * Initializes provider with the chunk sizes.
-     *
-     * @param chunkSizes Chunk sizes.
-     */
-    void initialize(long[] chunkSizes);
+public class RandomLruPageReplacementPolicyFactory implements PageReplacementPolicyFactory {
+    /** {@inheritDoc} */
+    @Override
+    public long requiredMemory(int pagesCnt) {
+        return 0;
+    }
 
-    /**
-     * Shuts down the provider.
-     *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse.
-     */
-    void shutdown(boolean deallocate);
-
-    /**
-     * Attempts to allocate next memory region. Will return {@code null} if no more regions are available.
-     *
-     * @return Next memory region.
-     */
-    @Nullable
-    DirectMemoryRegion nextRegion();
+    /** {@inheritDoc} */
+    @Override
+    public PageReplacementPolicy create(Segment seg, long ptr, int pagesCnt) {
+        return new RandomLruPageReplacementPolicy(seg);
+    }
 }

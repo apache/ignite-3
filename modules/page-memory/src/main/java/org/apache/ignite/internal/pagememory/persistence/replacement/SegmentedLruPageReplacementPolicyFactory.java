@@ -15,27 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.replacement;
 
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
 
 /**
- * Page replacement policy factory.
+ * {@link SegmentedLruPageReplacementPolicy} factory.
  */
-public interface PageReplacementPolicyFactory {
-    /**
-     * Calculates amount of memory required to service {@code pagesCnt} pages.
-     *
-     * @param pagesCnt Pages count.
-     */
-    long requiredMemory(int pagesCnt);
+public class SegmentedLruPageReplacementPolicyFactory implements PageReplacementPolicyFactory {
+    /** {@inheritDoc} */
+    @Override
+    public long requiredMemory(int pagesCnt) {
+        return SegmentedLruPageList.requiredMemory(pagesCnt);
+    }
 
-    /**
-     * Create page replacement policy.
-     *
-     * @param seg Page memory segment.
-     * @param ptr Pointer to memory region.
-     * @param pagesCnt Pages count.
-     */
-    PageReplacementPolicy create(Segment seg, long ptr, int pagesCnt);
+    /** {@inheritDoc} */
+    @Override
+    public PageReplacementPolicy create(Segment seg, long ptr, int pagesCnt) {
+        return new SegmentedLruPageReplacementPolicy(seg, ptr, pagesCnt);
+    }
 }

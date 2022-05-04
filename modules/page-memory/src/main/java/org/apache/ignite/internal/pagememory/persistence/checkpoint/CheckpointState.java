@@ -15,33 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.mem;
-
-import org.jetbrains.annotations.Nullable;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 /**
- * Direct memory provider interface. Not thread-safe.
+ * Possible checkpoint states. Ordinal is important. Every next state follows the previous one.
  */
-public interface DirectMemoryProvider {
-    /**
-     * Initializes provider with the chunk sizes.
-     *
-     * @param chunkSizes Chunk sizes.
-     */
-    void initialize(long[] chunkSizes);
+// TODO: IGNITE-16898 Review states
+public enum CheckpointState {
+    /** Checkpoint is waiting to execution. **/
+    SCHEDULED,
 
-    /**
-     * Shuts down the provider.
-     *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse.
-     */
-    void shutdown(boolean deallocate);
+    /** Checkpoint was awakened and it is preparing to start. **/
+    LOCK_TAKEN,
 
-    /**
-     * Attempts to allocate next memory region. Will return {@code null} if no more regions are available.
-     *
-     * @return Next memory region.
-     */
-    @Nullable
-    DirectMemoryRegion nextRegion();
+    /** Dirty pages snapshot has been taken. **/
+    PAGE_SNAPSHOT_TAKEN,
+
+    /** Checkpoint counted the pages and write lock was released. **/
+    LOCK_RELEASED,
+
+    /** Checkpoint marker was stored to disk. **/
+    MARKER_STORED_TO_DISK,
+
+    /** Checkpoint was finished. **/
+    FINISHED
 }

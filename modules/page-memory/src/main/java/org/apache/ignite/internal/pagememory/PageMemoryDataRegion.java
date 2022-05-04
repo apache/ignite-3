@@ -15,33 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.mem;
+package org.apache.ignite.internal.pagememory;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Direct memory provider interface. Not thread-safe.
+ * Data region based on {@link PageMemory}.
  */
-public interface DirectMemoryProvider {
+public interface PageMemoryDataRegion {
     /**
-     * Initializes provider with the chunk sizes.
-     *
-     * @param chunkSizes Chunk sizes.
+     * Returns {@link true} if the date region is persistent.
      */
-    void initialize(long[] chunkSizes);
+    boolean persistent();
 
     /**
-     * Shuts down the provider.
-     *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse.
-     */
-    void shutdown(boolean deallocate);
-
-    /**
-     * Attempts to allocate next memory region. Will return {@code null} if no more regions are available.
-     *
-     * @return Next memory region.
+     * Returns page memory, {@code null} if not started.
      */
     @Nullable
-    DirectMemoryRegion nextRegion();
+    PageMemory pageMemory();
 }

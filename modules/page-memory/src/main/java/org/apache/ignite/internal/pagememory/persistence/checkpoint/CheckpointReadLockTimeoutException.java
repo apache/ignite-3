@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
+
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * {@link ClockPageReplacementPolicy} factory.
+ * Indicates checkpoint read lock acquisition failure which did not lead to node invalidation.
  */
-public class ClockPageReplacementPolicyFactory implements PageReplacementPolicyFactory {
-    /** {@inheritDoc} */
-    @Override
-    public long requiredMemory(int pagesCnt) {
-        return ClockPageReplacementFlags.requiredMemory(pagesCnt);
-    }
+// TODO: IGNITE-16899 Change to inherit from IgniteInternalCheckedException
+public class CheckpointReadLockTimeoutException extends IgniteInternalException {
+    private static final long serialVersionUID = 0L;
 
-    /** {@inheritDoc} */
-    @Override
-    public PageReplacementPolicy create(PageMemoryImpl.Segment seg, long ptr, int pagesCnt) {
-        return new ClockPageReplacementPolicy(seg, ptr, pagesCnt);
+    /**
+     * Constructor.
+     *
+     * @param msg Error message.
+     */
+    CheckpointReadLockTimeoutException(String msg) {
+        super(msg);
     }
 }

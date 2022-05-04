@@ -15,33 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.mem;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Direct memory provider interface. Not thread-safe.
+ * Empty.
  */
-public interface DirectMemoryProvider {
+// TODO: IGNITE-16898 Continue porting the code
+public abstract class Checkpointer {
     /**
-     * Initializes provider with the chunk sizes.
+     * Changes the information for a scheduled checkpoint if it was scheduled further than {@code delayFromNow}, or do nothing otherwise.
      *
-     * @param chunkSizes Chunk sizes.
+     * @param delayFromNow Delay from now in milliseconds.
+     * @param reason Wakeup reason.
+     * @return Nearest scheduled checkpoint which is not started yet (dirty pages weren't collected yet).
      */
-    void initialize(long[] chunkSizes);
+    public abstract CheckpointProgress scheduleCheckpoint(long delayFromNow, String reason);
 
     /**
-     * Shuts down the provider.
-     *
-     * @param deallocate {@code True} to deallocate memory, {@code false} to allow memory reuse.
+     * Returns runner thread, {@code null} if the worker has not yet started executing.
      */
-    void shutdown(boolean deallocate);
-
-    /**
-     * Attempts to allocate next memory region. Will return {@code null} if no more regions are available.
-     *
-     * @return Next memory region.
-     */
-    @Nullable
-    DirectMemoryRegion nextRegion();
+    public abstract @Nullable Thread runner();
 }

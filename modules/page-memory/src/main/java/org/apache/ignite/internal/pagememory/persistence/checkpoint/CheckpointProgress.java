@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.Segment;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
- * {@link RandomLruPageReplacementPolicy} factory.
+ * Represents information of progress of a current checkpoint and allows obtaining future to wait for a particular checkpoint state.
  */
-public class RandomLruPageReplacementPolicyFactory implements PageReplacementPolicyFactory {
-    /** {@inheritDoc} */
-    @Override
-    public long requiredMemory(int pagesCnt) {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public PageReplacementPolicy create(Segment seg, long ptr, int pagesCnt) {
-        return new RandomLruPageReplacementPolicy(seg);
-    }
+// TODO: IGNITE-16898 Continue porting the code
+public interface CheckpointProgress {
+    /**
+     * Returns future which can be used for detection when current checkpoint reaches the specific state.
+     */
+    CompletableFuture<?> futureFor(CheckpointState state);
 }
