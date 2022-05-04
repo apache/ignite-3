@@ -281,7 +281,7 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      */
     public void complete(long causalityToken) {
-        onStorageRevisionUpdate(causalityToken);
+        completeOnRevision(causalityToken, false);
     }
 
     /**
@@ -336,6 +336,8 @@ public class VersionedValue<T> {
         );
 
         if (res == null || res.isCompletedExceptionally()) {
+            notifyCompletionListeners(causalityToken, value, throwable);
+
             return;
         }
 
@@ -485,6 +487,17 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      */
     private CompletableFuture<?> onStorageRevisionUpdate(long causalityToken) {
+        return completeOnRevision(causalityToken, true);
+    }
+
+    /**
+     * Complete because of explicit token update.
+     *
+     * @param causalityToken Token.
+     * @param performRevisionCallback Whether to perform storage revision callback.
+     * @return Future.
+     */
+    private CompletableFuture<?> completeOnRevision(long causalityToken, boolean performRevisionCallback) {
         long actualToken0 = actualToken;
 
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
@@ -495,14 +508,14 @@ public class VersionedValue<T> {
         }
 
         return completeUpdatesIfPresent(causalityToken)
-            .thenCompose(v -> {
-                if (storageRevisionUpdateCallback != null) {
-                    return storageRevisionUpdateCallback.apply(this, causalityToken);
-                } else {
-                    return completedFuture(null);
-                }
-            })
-            .thenRun(() -> completeOnStorageRevisionUpdate(causalityToken));
+                .thenCompose(v -> {
+                    if (storageRevisionUpdateCallback != null && performRevisionCallback) {
+                        return storageRevisionUpdateCallback.apply(this, causalityToken);
+                    } else {
+                        return completedFuture(null);
+                    }
+                })
+                .thenRun(() -> completeOnStorageRevisionUpdate(causalityToken));
     }
 
     /**
@@ -514,6 +527,8 @@ public class VersionedValue<T> {
     private CompletableFuture<?> completeUpdatesIfPresent(long causalityToken) {
         synchronized (updateMutex) {
             CompletableFuture<T> updaterFuture = this.updaterFuture;
+
+            this.updaterFuture = null;
 
             if (updaterFuture != null) {
                 return updaterFuture.whenComplete((v, t) -> completeInternal(causalityToken, v, t));

@@ -25,10 +25,19 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.lang.IgniteTriConsumer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,6 +50,11 @@ public class VersionedValueTest {
 
     /** The test revision register is used to move the revision forward. */
     public static final TestRevisionRegister REGISTER = new TestRevisionRegister();
+
+    @BeforeEach
+    public void clearRegister() {
+        REGISTER.clear();
+    }
 
     /**
      * The test gets a value for {@link VersionedValue} before the value is calculated.
@@ -64,7 +78,7 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         assertTrue(fut.isDone());
 
@@ -107,13 +121,13 @@ public class VersionedValueTest {
 
         longVersionedValue.complete(0, TEST_VALUE);
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.apply(1L).join();
+        REGISTER.moveRevision(1L).join();
 
         assertTrue(fut.isDone());
 
@@ -134,8 +148,8 @@ public class VersionedValueTest {
 
         longVersionedValue.complete(0, TEST_VALUE);
 
-        REGISTER.moveRevision.apply(0L).join();
-        REGISTER.moveRevision.apply(1L).join();
+        REGISTER.moveRevision(0L).join();
+        REGISTER.moveRevision(1L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
@@ -155,12 +169,12 @@ public class VersionedValueTest {
 
         longVersionedValue.complete(0, TEST_VALUE);
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         longVersionedValue.complete(1, TEST_VALUE);
 
-        REGISTER.moveRevision.apply(1L).join();
-        REGISTER.moveRevision.apply(2L).join();
+        REGISTER.moveRevision(1L).join();
+        REGISTER.moveRevision(2L).join();
 
         assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(0));
     }
@@ -174,14 +188,14 @@ public class VersionedValueTest {
 
         longVersionedValue.complete(0, TEST_VALUE);
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.apply(1L).join();
-        REGISTER.moveRevision.apply(2L).join();
+        REGISTER.moveRevision(1L).join();
+        REGISTER.moveRevision(2L).join();
 
         assertTrue(fut.isDone());
         assertTrue(longVersionedValue.get(2).isDone());
@@ -198,7 +212,7 @@ public class VersionedValueTest {
 
         longVersionedValue.complete(0, TEST_VALUE);
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
@@ -212,7 +226,7 @@ public class VersionedValueTest {
             assertFalse(fut.isDone());
         }
 
-        REGISTER.moveRevision.apply(1L).join();
+        REGISTER.moveRevision(1L).join();
 
         assertTrue(fut.isDone());
 
@@ -240,11 +254,111 @@ public class VersionedValueTest {
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.get());
+    }
+
+    /**
+     * Test asynchronous update closure.
+     */
+    @Test
+    public void testAsyncUpdate() {
+        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
+
+        CompletableFuture<Integer> fut = new CompletableFuture<>();
+
+        vv.update(0L, (v, e) -> fut);
+
+        CompletableFuture<Integer> vvFut = vv.get(0L);
+
+        CompletableFuture<?> revFut = REGISTER.moveRevision(0L);
+
+        assertFalse(fut.isDone());
+        assertFalse(vvFut.isDone());
+        assertFalse(revFut.isDone());
+
+        fut.complete(1);
+
+        revFut.join();
+
+        assertTrue(vvFut.isDone());
+
+        // Test async callback.
+        CompletableFuture<?> cbFut = new CompletableFuture<>();
+
+        vv = new VersionedValue<>((v, t) -> cbFut, REGISTER);
+
+        revFut = REGISTER.moveRevision(1L);
+
+        vvFut = vv.get(1L);
+
+        assertFalse(vvFut.isDone());
+        assertFalse(revFut.isDone());
+
+        cbFut.complete(null);
+
+        assertTrue(vvFut.isDone());
+        assertTrue(revFut.isDone());
+    }
+
+    /**
+     * Test with multiple versioned values and asynchronous completion.
+     */
+    @Test
+    public void testAsyncMultiVv() {
+        final String registryName = "Registry";
+        final String assignmentName = "Assignment";
+        final String tableName = "T1_";
+
+        VersionedValue<Map<UUID, String>> tablesVv = new VersionedValue<>(f -> {}, HashMap::new);
+        VersionedValue<Map<UUID, String>> schemasVv = new VersionedValue<>(REGISTER, HashMap::new);
+        VersionedValue<Map<UUID, String>> assignmentsVv = new VersionedValue<>(REGISTER, HashMap::new);
+
+        schemasVv.whenComplete((token, value, ex) -> tablesVv.complete(token));
+
+        BiFunction<Long, UUID, CompletableFuture<String>> schemaRegistry =
+            (token, uuid) -> schemasVv.get(token).thenApply(schemas -> schemas.get(uuid));
+
+        // Adding table.
+        long token = 0L;
+        UUID tableId = UUID.randomUUID();
+
+        CompletableFuture<String> tableFut = schemaRegistry.apply(token, tableId)
+            .thenCombine(assignmentsVv.get(token), (registry, assignments) -> tableName + registry + assignments.get(tableId));
+
+        tablesVv.update(token, (old, e) -> tableFut.thenApply(table -> {
+           Map<UUID, String> val = new HashMap<>(old);
+
+           val.put(tableId, table);
+
+           return val;
+        }));
+
+        CompletableFuture<String> userFut = tablesVv.get(token).thenApply(map -> map.get(tableId));
+
+        schemasVv.update(token, (old, e) -> {
+            old.put(tableId, registryName);
+
+            return completedFuture(old);
+        });
+
+        assignmentsVv.update(token, (old, e) -> {
+            old.put(tableId, assignmentName);
+
+            return completedFuture(old);
+        });
+
+        assertFalse(tableFut.isDone());
+        assertFalse(userFut.isDone());
+
+        REGISTER.moveRevision(token).join();
+
+        tableFut.join();
+
+        assertEquals(tableName + registryName + assignmentName, userFut.join());
     }
 
     /**
@@ -314,7 +428,7 @@ public class VersionedValueTest {
 
         vv.update(0, (a, e) -> completedFuture(a == null ? null : a + 1));
 
-        REGISTER.moveRevision.apply(0L).join();
+        REGISTER.moveRevision(0L).join();
 
         assertTrue(f.isDone());
 
@@ -322,16 +436,95 @@ public class VersionedValueTest {
     }
 
     /**
+     * Test {@link VersionedValue#whenComplete(IgniteTriConsumer)}.
+     */
+    @Test
+    public void testWhenComplete() {
+        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
+
+        AtomicInteger a = new AtomicInteger();
+
+        IgniteTriConsumer<Long, Integer, Throwable> listener = (t, v, e) -> {
+            if (e == null)
+                a.set(v);
+            else
+                a.set(-1);
+        };
+
+        vv.whenComplete(listener);
+
+        // Test complete.
+        vv.complete(0L, TEST_VALUE);
+
+        assertEquals(TEST_VALUE, a.get());
+
+        REGISTER.moveRevision(0L).join();
+
+        // Test update.
+        vv.update(1L, (v, e) -> completedFuture(++v));
+
+        assertEquals(TEST_VALUE, a.get());
+
+        REGISTER.moveRevision(1L).join();
+
+        assertEquals(TEST_VALUE + 1, a.get());
+
+        // Test move revision.
+        REGISTER.moveRevision(2L).join();
+
+        assertEquals(TEST_VALUE + 1, a.get());
+
+        // Test complete exceptionally.
+        vv.completeExceptionally(3L, new Exception());
+
+        assertEquals(-1, a.get());
+
+        REGISTER.moveRevision(3L).join();
+
+        // Test remove listener.
+        vv.removeWhenComplete(listener);
+
+        a.set(0);
+
+        vv.complete(4L, TEST_VALUE);
+
+        assertEquals(0, a.get());
+
+        REGISTER.moveRevision(4L).join();
+    }
+
+    /**
      * Test revision register.
      */
     private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
         /** Revision consumer. */
-        Function<Long, CompletableFuture<?>> moveRevision;
+        List<Function<Long, CompletableFuture<?>>> moveRevisionList = new ArrayList<>();
 
         /** {@inheritDoc} */
         @Override
         public void accept(Function<Long, CompletableFuture<?>> function) {
-            moveRevision = function;
+            moveRevisionList.add(function);
+        }
+
+        /**
+         * Clear list.
+         */
+        public void clear() {
+            moveRevisionList.clear();
+        }
+
+        /**
+         * Move revision.
+         *
+         * @param revision Revision.
+         * @return Future for all listeners.
+         */
+        public CompletableFuture<?> moveRevision(long revision) {
+            List<CompletableFuture<?>> futures = new ArrayList<>();
+
+            moveRevisionList.forEach(m -> futures.add(m.apply(revision)));
+
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[] {}));
         }
     }
 }
