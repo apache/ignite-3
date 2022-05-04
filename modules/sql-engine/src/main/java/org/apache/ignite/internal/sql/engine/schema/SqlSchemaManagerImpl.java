@@ -21,8 +21,10 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,11 +52,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
 
-    private final Runnable onSchemaUpdatedCallback;
-
     private final TableManager tableManager;
 
     private final VersionedValue<SchemaPlus> calciteSchemaVv;
+
+    private final Set<SchemaUpdateListener> listeners = new CopyOnWriteArraySet<>();
 
     /**
      * Constructor.
@@ -62,11 +64,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public SqlSchemaManagerImpl(
             TableManager tableManager,
-            Consumer<Function<Long, CompletableFuture<?>>> registry,
-            Runnable onSchemaUpdatedCallback
+            Consumer<Function<Long, CompletableFuture<?>>> registry
     ) {
-        this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
-
         this.tableManager = tableManager;
         schemasVv = new VersionedValue<>(registry, HashMap::new);
         tablesVv = new VersionedValue<>(registry, HashMap::new);
@@ -111,6 +110,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         return table;
+    }
+
+    public void registerListener(SchemaUpdateListener listener) {
+        listeners.add(listener);
     }
 
     private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
@@ -295,7 +298,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             return completedFuture(newCalciteSchema);
         });
 
-        onSchemaUpdatedCallback.run();
+        listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
     }
 
     private IgniteTableImpl convert(TableImpl table) {

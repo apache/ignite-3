@@ -17,15 +17,25 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -78,5 +88,40 @@ class IgniteUtilsTest {
         assertFalse(isPow2(6));
         assertFalse(isPow2(7));
         assertFalse(isPow2(9));
+    }
+
+    @Test
+    void testGetUninterruptibly() throws Exception {
+        assertThat(getUninterruptibly(completedFuture(true)), equalTo(true));
+        assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
+
+        ExecutionException exception0 = assertThrows(
+                ExecutionException.class,
+                () -> getUninterruptibly(failedFuture(new Exception("test")))
+        );
+
+        assertThat(exception0.getCause(), instanceOf(Exception.class));
+        assertThat(exception0.getCause().getMessage(), equalTo("test"));
+        assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
+
+        CompletableFuture<?> canceledFuture = new CompletableFuture<>();
+        canceledFuture.cancel(false);
+
+        assertThrows(CancellationException.class, () -> getUninterruptibly(canceledFuture));
+        assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
+
+        // Checks interrupt.
+
+        runAsync(() -> {
+            try {
+                Thread.currentThread().interrupt();
+
+                getUninterruptibly(completedFuture(null));
+
+                assertThat(Thread.currentThread().isInterrupted(), equalTo(true));
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }).get(1, TimeUnit.SECONDS);
     }
 }

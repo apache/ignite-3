@@ -91,8 +91,7 @@ public class SqlSchemaManagerTest {
 
         schemaManager = new SqlSchemaManagerImpl(
                 tableManager,
-                testRevisionRegister,
-                () -> {}
+                testRevisionRegister
         );
 
         testRevisionRegister.moveForward();

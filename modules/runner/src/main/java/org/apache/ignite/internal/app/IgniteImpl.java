@@ -348,6 +348,9 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts ignite node.
      *
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
      * @param cfg Optional node configuration based on
      *         {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}. Following rules are used for applying the
      *         configuration properties:

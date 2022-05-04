@@ -21,8 +21,8 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSu
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -228,11 +228,11 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 0, 0, "0").check();
 
         // Target table alias duplicate source table name.
-        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
+        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 test1 USING test1 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
 
         // Source table alias duplicate target table name.
-        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
+        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 test2 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET d = b + 1"), "Duplicate relation name");
 
         // Without aliases, reference columns by table name.
@@ -242,11 +242,11 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         assertQuery("SELECT * FROM test2").returns(1, 1, 0, "0").check();
 
         // Ambiguous column name in condition.
-        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
+        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 ON a = test1.a "
                 + "WHEN MATCHED THEN UPDATE SET a = test1.a + 1"), "Column 'A' is ambiguous");
 
         // Ambiguous column name in update statement.
-        assertThrows(IgniteInternalException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
+        assertThrows(CalciteContextException.class, () -> sql("MERGE INTO test2 USING test1 ON c = e "
                 + "WHEN MATCHED THEN UPDATE SET a = a + 1"), "Column 'A' is ambiguous");
 
         // With aliases, reference columns by table alias.

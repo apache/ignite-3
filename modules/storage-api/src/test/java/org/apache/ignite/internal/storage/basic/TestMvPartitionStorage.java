@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.basic;
 
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -27,7 +26,10 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.UuidRowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV partition storage.
  */
 public class TestMvPartitionStorage implements MvPartitionStorage {
-    private final ConcurrentMap<ByteBuffer, VersionChain> map = new ConcurrentHashMap<>();
+    private final ConcurrentMap<RowId, VersionChain> map = new ConcurrentHashMap<>();
 
     private final List<TestSortedIndexMvStorage> indexes;
 
@@ -68,55 +70,85 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException {
-        map.compute(row.keySlice(), (keyBuf, versionChain) -> {
-            if (versionChain != null && versionChain.begin == null && !txId.equals(versionChain.txId)) {
-                throw new TxIdMismatchException();
+    public RowId insert(BinaryRow row, UUID txId) throws StorageException {
+        RowId rowId = UuidRowId.randomRowId(0);
+
+        addWrite(rowId, row, txId);
+
+        return rowId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException {
+        BinaryRow[] res = {null};
+
+        map.compute(rowId, (ignored, versionChain) -> {
+            if (versionChain != null && versionChain.begin == null) {
+                if (!txId.equals(versionChain.txId)) {
+                    throw new TxIdMismatchException();
+                }
+
+                cleanupIndexesForAbortedRow(versionChain, rowId);
+
+                res[0] = versionChain.row;
+
+                return VersionChain.createUncommitted(row, txId, versionChain.next);
             }
 
             return VersionChain.createUncommitted(row, txId, versionChain);
         });
 
-        if (row.hasValue()) {
+        if (row != null) {
             for (TestSortedIndexMvStorage index : indexes) {
-                index.append(row);
+                index.append(row, rowId);
             }
         }
+
+        return res[0];
     }
 
     /** {@inheritDoc} */
     @Override
-    public void abortWrite(BinaryRow key) {
-        map.computeIfPresent(key.keySlice(), (ignored, versionChain) -> {
+    public @Nullable BinaryRow abortWrite(RowId rowId) {
+        BinaryRow[] res = {null};
+
+        map.computeIfPresent(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
-            BinaryRow aborted = versionChain.row;
+            cleanupIndexesForAbortedRow(versionChain, rowId);
 
-            if (aborted.hasValue()) {
-                for (TestSortedIndexMvStorage index : indexes) {
-                    abortWrite(versionChain.next, aborted, index);
-                }
-            }
+            res[0] = versionChain.row;
 
             return versionChain.next;
         });
+
+        return res[0];
     }
 
-    private void abortWrite(VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
+    private void abortWrite(RowId rowId, VersionChain head, BinaryRow aborted, TestSortedIndexMvStorage index) {
         for (VersionChain cur = head; cur != null; cur = cur.next) {
             if (index.matches(aborted, cur.row)) {
                 return;
             }
         }
 
-        index.remove(aborted);
+        index.remove(aborted, rowId);
+    }
+
+    private void cleanupIndexesForAbortedRow(VersionChain versionChain, RowId rowId) {
+        if (versionChain.row != null) {
+            for (TestSortedIndexMvStorage index : indexes) {
+                abortWrite(rowId, versionChain.next, versionChain.row, index);
+            }
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void commitWrite(BinaryRow key, Timestamp timestamp) {
-        map.compute(key.keySlice(), (keyBuf, versionChain) -> {
+    public void commitWrite(RowId rowId, Timestamp timestamp) {
+        map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null;
 
@@ -126,21 +158,40 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    @Nullable
-    public BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp) {
-        VersionChain versionChain = map.get(key.keySlice());
+    public @Nullable BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException {
+        VersionChain versionChain = map.get(rowId);
 
-        return read(versionChain, timestamp);
+        return read(versionChain, null, txId, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable BinaryRow read(RowId rowId, @Nullable Timestamp timestamp) {
+        VersionChain versionChain = map.get(rowId);
+
+        return read(versionChain, timestamp, null, null);
     }
 
     @Nullable
-    private BinaryRow read(VersionChain versionChain, @Nullable Timestamp timestamp) {
+    private BinaryRow read(VersionChain versionChain, @Nullable Timestamp timestamp, @Nullable UUID txId, Predicate<BinaryRow> filter) {
+        assert timestamp == null ^ txId == null;
+
         if (versionChain == null) {
             return null;
         }
 
         if (timestamp == null) {
-            return versionChain.row.hasValue() ? versionChain.row : null;
+            BinaryRow binaryRow = versionChain.row;
+
+            if (filter != null && !filter.test(binaryRow)) {
+                return null;
+            }
+
+            if (versionChain.txId != null && !versionChain.txId.equals(txId)) {
+                throw new TxIdMismatchException();
+            }
+
+            return binaryRow;
         }
 
         VersionChain cur = versionChain;
@@ -151,9 +202,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         while (cur != null) {
             if (timestamp.compareTo(cur.begin) >= 0) {
-                BinaryRow row = cur.row;
+                BinaryRow binaryRow = cur.row;
 
-                return row.hasValue() ? row : null;
+                if (filter != null && !filter.test(binaryRow)) {
+                    return null;
+                }
+
+                return binaryRow;
             }
 
             cur = cur.next;
@@ -164,13 +219,29 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     /** {@inheritDoc} */
     @Override
-    public Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) {
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, UUID txId) {
         Iterator<BinaryRow> iterator = map.values().stream()
-                .map(versionChain -> read(versionChain, timestamp))
+                .map(versionChain -> read(versionChain, null, txId, filter))
                 .filter(Objects::nonNull)
-                .filter(keyFilter)
                 .iterator();
 
         return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> filter, Timestamp timestamp) {
+        Iterator<BinaryRow> iterator = map.values().stream()
+                .map(versionChain -> read(versionChain, timestamp, null, filter))
+                .filter(Objects::nonNull)
+                .iterator();
+
+        return Cursor.fromIterator(iterator);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() throws Exception {
+        // No-op.
     }
 }

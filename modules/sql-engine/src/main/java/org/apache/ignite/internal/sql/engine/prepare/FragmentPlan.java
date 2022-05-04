@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -46,6 +48,12 @@ public class FragmentPlan implements QueryPlan {
     @Override
     public Type type() {
         return Type.FRAGMENT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ResultSetMetadata metadata() {
+        return List::of;
     }
 
     /** {@inheritDoc} */

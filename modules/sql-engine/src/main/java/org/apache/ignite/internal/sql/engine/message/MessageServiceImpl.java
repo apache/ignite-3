@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -40,8 +38,6 @@ import org.jetbrains.annotations.Nullable;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class MessageServiceImpl implements MessageService {
-    private static final UUID QUERY_ID_STUB = UUID.randomUUID();
-
     private static final IgniteLogger LOG = IgniteLogger.forClass(MessageServiceImpl.class);
 
     private final TopologyService topSrvc;
@@ -88,7 +84,7 @@ public class MessageServiceImpl implements MessageService {
                     .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
 
             try {
-                messagingSrvc.send(node, msg).get();
+                messagingSrvc.send(node, msg).join();
             } catch (Exception ex) {
                 if (ex instanceof IgniteInternalCheckedException) {
                     throw (IgniteInternalCheckedException) ex;
@@ -124,11 +120,7 @@ public class MessageServiceImpl implements MessageService {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(nodeId, msg));
         } else {
-            taskExecutor.execute(
-                    QUERY_ID_STUB,
-                    ThreadLocalRandom.current().nextLong(1024),
-                    () -> onMessageInternal(nodeId, msg)
-            );
+            taskExecutor.execute(() -> onMessageInternal(nodeId, msg));
         }
     }
 

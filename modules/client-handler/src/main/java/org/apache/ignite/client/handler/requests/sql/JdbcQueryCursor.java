@@ -17,9 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import java.util.NoSuchElementException;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
@@ -28,15 +31,15 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
  * <p>The {@link JdbcQueryCursor#maxRows} parameter limits the amount of rows to be returned by the cursor.
  * Its value can either be a positive value or equal to zero, where zero means no limit.
  */
-public class JdbcQueryCursor<T> implements SqlCursor<T> {
+public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
     /** Max rows. */
     private final long maxRows;
 
     /** Query result rows. */
-    private final SqlCursor<T> cur;
+    private final AsyncSqlCursor<T> cur;
 
     /** Number of fetched rows. */
-    private long fetched;
+    private final AtomicLong fetched = new AtomicLong();
 
     /**
      * Constructor.
@@ -44,47 +47,33 @@ public class JdbcQueryCursor<T> implements SqlCursor<T> {
      * @param maxRows Max amount of rows cursor will return, or zero if unlimited.
      * @param cur Query cursor.
      */
-    public JdbcQueryCursor(int maxRows, SqlCursor<T> cur) {
+    public JdbcQueryCursor(int maxRows, AsyncSqlCursor<T> cur) {
         this.maxRows = maxRows;
         this.cur = cur;
-
-        this.fetched = 0;
     }
 
-    /**
-     * Returns true if the iteration has more elements and the limit of maxRows has not been reached.
-     *
-     * @return {@code true} if the cursor has more rows and the limit of the maximum rows hasn't been reached.
-     */
+    /** {@inheritDoc} */
     @Override
-    public boolean hasNext() {
-        return cur.hasNext() && !(maxRows > 0 && fetched >= maxRows);
-    }
+    public CompletionStage<BatchedResult<T>> requestNextAsync(int rows) {
+        long fetched0 = fetched.addAndGet(rows);
+        return cur.requestNextAsync(rows).thenApply(batch -> {
+            if (maxRows == 0 || fetched0 < maxRows) {
+                return batch;
+            }
 
-    /**
-     * Returns the next element in the iteration if the iteration has more elements
-     * and the limit of maxRows has not been reached.
-     *
-     * @return the next element if the cursor has more rows and the limit of the maximum rows hasn't been reached.
-     * @throws NoSuchElementException if the iteration has no more elements.
-     */
-    @Override
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
+            if (fetched0 - rows < maxRows) {
+                return new BatchedResult<>(batch.items()
+                        .subList(0, (int) (maxRows - fetched0 + rows)), false);
+            }
 
-        T res = cur.next();
-
-        fetched++;
-
-        return res;
+            return new BatchedResult<>(List.of(), false);
+        });
     }
 
     /** {@inheritDoc} */
     @Override 
-    public void close() throws Exception {
-        cur.close();
+    public CompletableFuture<Void> closeAsync() {
+        return cur.closeAsync();
     }
 
     /** {@inheritDoc} */

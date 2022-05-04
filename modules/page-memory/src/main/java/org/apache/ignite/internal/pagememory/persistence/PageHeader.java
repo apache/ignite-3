@@ -33,7 +33,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 /**
  * Page header.
  */
-class PageHeader {
+public class PageHeader {
     /** Page marker. */
     public static final long PAGE_MARKER = 0x0000000000000001L;
 

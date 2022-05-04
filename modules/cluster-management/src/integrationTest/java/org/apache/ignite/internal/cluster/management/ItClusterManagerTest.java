@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -221,13 +222,13 @@ public class ItClusterManagerTest {
     }
 
     private void waitForLogicalTopology() throws InterruptedException {
-        waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             CompletableFuture<Collection<ClusterNode>> logicalTopology = cluster.get(0).clusterManager().logicalTopology();
 
             assertThat(logicalTopology, willCompleteSuccessfully());
 
             return logicalTopology.join().size() == cluster.size();
-        }, 1000);
+        }, 10000));
     }
 
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException, InterruptedException {
