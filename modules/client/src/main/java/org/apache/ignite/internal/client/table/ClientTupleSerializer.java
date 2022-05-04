@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Tuple serializer.
  */
-class ClientTupleSerializer {
+public class ClientTupleSerializer {
     /** Default instance. */
     public static final ClientTupleSerializer DEFAULT = new ClientTupleSerializer(new UUID(0, 0));
 

@@ -28,6 +28,9 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.table.ClientRecordBinaryView;
+import org.apache.ignite.internal.client.table.ClientTable;
+import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -40,13 +43,18 @@ public class ClientCompute implements IgniteCompute {
     /** Channel. */
     private final ReliableChannel ch;
 
+    /** Tables. */
+    private final ClientTables tables;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param tables Tales.
      */
-    public ClientCompute(ReliableChannel ch) {
+    public ClientCompute(ReliableChannel ch, ClientTables tables) {
         this.ch = ch;
+        this.tables = tables;
     }
 
     /** {@inheritDoc} */
@@ -94,35 +102,24 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
         // TODO: IGNITE-16925 - implement partition awareness.
-        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, w -> {
+        // TODO: Cache tables?
+        return tables.tableAsync(table).thenCompose(tbl -> ((ClientTable)tbl).doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (s, w) -> {
             w.out().packString(table);
 
-            // TODO: Write key.
-            // 1. Get table by name and write tuple with schema
-            //    We could cache the table by name. If the table gets re-created, then the ID won't be valid anymore, and we can just retry the request.
-            // 2. Write schemaless tuple somehow.
-            w.out().packNil();
+            ClientRecordBinaryView recView = (ClientRecordBinaryView) tbl.recordView();
+            w.out().packUuid(((ClientTable) tbl).tableId());
+            w.out().packInt(s.version());
+            recView.serializer().writeTuple(null, key, s, w, true, true);
 
             w.out().packString(jobClassName);
             w.out().packObjectArray(args);
-        }, r -> (R) r.in().unpackObjectWithType(), null);
+        }, r -> (R) r.unpackObjectWithType()));
     }
 
     /** {@inheritDoc} */
     @Override
     public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
         // TODO: IGNITE-16786 - implement this
-        // TODO: Only if mapper is null and key is int
-
-        // Flow:
-        // 1. Get partitions number for the table
-        // 2. Get key hash.
-        // 3. Partition = hash % partitionCount
-        // 4. Get partition assignment
-
-        // TODO: Issues
-        // 1. We can't cache partitions by name (table can be dropped and re-created with a different partition count)
-        // 2. How do we sync current partition assignment? Send updates from the server?
 
         throw new UnsupportedOperationException("Not implemented yet");
     }
