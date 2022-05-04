@@ -1510,10 +1510,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         if (toStop.contains(localMember)) {
                             raftMgr.stopRaftGroup(grpId);
-
-                            RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
-
-                            partGrpSvc.shutdown();
                         }
                     } catch (NodeStoppingException e) {
                         // no-op
