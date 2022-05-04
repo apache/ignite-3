@@ -26,11 +26,11 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPend
 import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPlannedKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsStableKey;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -41,7 +41,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Status;
@@ -68,9 +67,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Busy lock of parent component for synchronous stop. */
     private IgniteSpinBusyLock busyLock;
 
-    /** Resolver that resolves a network address to cluster node. */
-    private final Function<NetworkAddress, ClusterNode> clusterNodeRslvr;
-
     /**
      * Constructs new listener.
      *
@@ -84,14 +80,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             TableConfiguration tblConfiguration,
             String partId,
             int partNum,
-            IgniteSpinBusyLock busyLock,
-            Function<NetworkAddress, ClusterNode> clusterNodeRslvr) {
+            IgniteSpinBusyLock busyLock) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
         this.busyLock = busyLock;
-        this.clusterNodeRslvr = clusterNodeRslvr;
     }
 
     /** {@inheritDoc} */
@@ -104,7 +98,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     @Override
     public void onNewPeersConfigurationApplied(List<PeerId> peers) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(new NodeStoppingException());
+            return;
         }
 
         try {
@@ -127,15 +121,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      */
     private void doOnNewPeersConfigurationApplied(List<PeerId> peers) {
         Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
-                Set.of(partAssignmentsPlannedKey(partId), partAssignmentsPendingKey(partId))).join();
+                Set.of(
+                        partAssignmentsPlannedKey(partId),
+                        partAssignmentsPendingKey(partId),
+                        partAssignmentsStableKey(partId))).join();
 
         Entry plannedEntry = keys.get(partAssignmentsPlannedKey(partId));
 
-        List<ClusterNode> appliedPeers = peers
-                .stream()
-                .map(p -> clusterNodeRslvr.apply(
-                        NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort())))
-                .collect(Collectors.toList());
+        List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
+                keys.get(partAssignmentsPendingKey(partId)).value(), keys.get(partAssignmentsStableKey(partId)).value());
 
         tblConfiguration.change(ch -> {
             List<List<ClusterNode>> assignments =
@@ -164,5 +158,32 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 doOnNewPeersConfigurationApplied(peers);
             }
         }
+    }
+
+    private static List<ClusterNode> resolveClusterNodes(
+            List<PeerId> peers, byte[] pendingAssignments, byte[] stableAssignments) {
+        Map<NetworkAddress, ClusterNode> resolveRegistry = new HashMap<>();
+
+        if (pendingAssignments != null) {
+            ((List<ClusterNode>) ByteUtils.fromBytes(pendingAssignments)).forEach(n -> resolveRegistry.put(n.address(), n));
+        }
+
+        if (stableAssignments != null) {
+            ((List<ClusterNode>) ByteUtils.fromBytes(stableAssignments)).forEach(n -> resolveRegistry.put(n.address(), n));
+        }
+
+        List<ClusterNode> resolvedNodes = new ArrayList<>(peers.size());
+
+        for (PeerId p : peers) {
+            var addr = NetworkAddress.from(p.getEndpoint().getIp() + ":" + p.getEndpoint().getPort());
+
+            if (resolveRegistry.containsKey(addr)) {
+                resolvedNodes.add(resolveRegistry.get(addr));
+            } else {
+                throw new IgniteInternalException("Can't find appropriate cluster node for raft group peer: " + p);
+            }
+        }
+
+        return resolvedNodes;
     }
 }
