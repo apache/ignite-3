@@ -30,10 +30,9 @@ public interface MappingService {
      * Returns Nodes responsible for executing intermediate fragments (fragments without Scan leafs). Such fragments may be executed on any
      * cluster node, actual list of nodes is chosen on the basis of adopted selection strategy (using node filter).
      *
-     * @param topVer     Topology version.
-     * @param single     Flag, indicating that a fragment should execute in a single node.
+     * @param single     Flag, indicating that a fragment should execute on a single node.
      * @param nodeFilter Node filter.
      * @return Nodes mapping for intermediate fragments.
      */
-    List<String> executionNodes(long topVer, boolean single, @Nullable Predicate<ClusterNode> nodeFilter);
+    List<String> executionNodes(boolean single, @Nullable Predicate<ClusterNode> nodeFilter);
 }

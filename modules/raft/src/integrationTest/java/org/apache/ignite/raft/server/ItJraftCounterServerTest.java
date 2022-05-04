@@ -216,9 +216,9 @@ class ItJraftCounterServerTest extends RaftServerAbstractTest {
 
         cons.accept(opts);
 
-        JraftServerImpl server = new JraftServerImpl(service, dataPath, opts) {
+        JraftServerImpl server = new JraftServerImpl(service, dataPath.resolve("node" + idx), opts) {
             @Override
-            public void stop() {
+            public void stop() throws Exception {
                 servers.remove(this);
 
                 super.stop();

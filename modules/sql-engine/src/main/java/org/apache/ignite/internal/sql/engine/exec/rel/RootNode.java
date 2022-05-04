@@ -29,10 +29,10 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
@@ -100,7 +100,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         lock.lock();
         try {
             if (waiting != -1 || !outBuff.isEmpty()) {
-                ex.compareAndSet(null, new IgniteException("Query was cancelled"));
+                ex.compareAndSet(null, new ExecutionCancelledException());
             }
 
             closed = true; // an exception has to be set first to get right check order
@@ -165,7 +165,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
     /** {@inheritDoc} */
     @Override
-    protected void onErrorInternal(Throwable e) {
+    public void onError(Throwable e) {
         if (!ex.compareAndSet(null, e)) {
             ex.get().addSuppressed(e);
         }
@@ -272,10 +272,10 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             return;
         }
 
-        if (e instanceof IgniteException) {
-            throw (IgniteException) e;
+        if (e instanceof RuntimeException) {
+            throw (RuntimeException) e;
         } else {
-            throw new IgniteException("An error occurred while query executing.", e);
+            throw new IgniteInternalException("An error occurred while query executing.", e);
         }
         // TODO: rework with SQL error code
         //        if (e instanceof IgniteSQLException)

@@ -312,11 +312,11 @@ public class ItMetaStorageRaftGroupTest {
         opt3.setReplicationStateListeners(
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
 
-        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), dataPath, opt1);
+        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), dataPath.resolve("node1"), opt1);
 
-        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), dataPath, opt2);
+        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), dataPath.resolve("node2"), opt2);
 
-        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), dataPath, opt3);
+        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), dataPath.resolve("node3"), opt3);
 
         metaStorageRaftSrv1.start();
 

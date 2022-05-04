@@ -20,7 +20,6 @@ package org.apache.ignite.internal.vault;
 import java.util.Arrays;
 import java.util.Objects;
 import org.apache.ignite.lang.ByteArray;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a vault unit as entry with key and value.
@@ -37,15 +36,15 @@ public final class VaultEntry {
     private final ByteArray key;
 
     /** Value. */
-    private final byte @Nullable [] val;
+    private final byte[] val;
 
     /**
      * Constructs {@code VaultEntry} instance from the given key and value.
      *
      * @param key Key as a {@code ByteArray}. Cannot be null.
-     * @param val Value as a {@code byte[]}.
+     * @param val Value as a {@code byte[]}. Cannot be null.
      */
-    public VaultEntry(ByteArray key, byte @Nullable [] val) {
+    public VaultEntry(ByteArray key, byte[] val) {
         this.key = key;
         this.val = val;
     }
@@ -60,21 +59,12 @@ public final class VaultEntry {
     }
 
     /**
-     * Returns a value. Can be {@code null} if the entry is empty.
+     * Returns a value.
      *
      * @return Value.
      */
-    public byte @Nullable [] value() {
+    public byte[] value() {
         return val;
-    }
-
-    /**
-     * Returns value which denotes whether this entry is empty or not.
-     *
-     * @return {@code True} if entry is empty, otherwise - {@code false}.
-     */
-    public boolean empty() {
-        return val == null;
     }
 
     /** {@inheritDoc} */

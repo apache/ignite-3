@@ -29,8 +29,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -42,6 +40,7 @@ import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -214,11 +213,14 @@ class DefaultUserObjectMarshallerWithExternalizableTest {
     void writingObjectInsideWriteExternalMarshalsTheObjectInOurFormat() throws Exception {
         MarshalledObject marshalled = marshaller.marshal(new ExternalizableWritingAndReadingObject(new IntHolder(42)));
 
-        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(marshalled.bytes()));
+        IgniteUnsafeDataInput dis = new IgniteUnsafeDataInput(marshalled.bytes());
         ProtocolMarshalling.readDescriptorOrCommandId(dis);
         ProtocolMarshalling.readObjectId(dis);
 
+        int externalDataLength = dis.readInt();
         byte[] externalBytes = dis.readAllBytes();
+
+        assertThat(externalBytes.length, is(externalDataLength));
 
         IntHolder nested = marshaller.unmarshal(externalBytes, descriptorRegistry);
         assertThat(nested, is(notNullValue()));

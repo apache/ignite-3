@@ -37,6 +37,7 @@ import java.util.Map;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -187,6 +188,19 @@ public class DataStorageModulesTest {
         assertThat(fields.get(FIRST), equalTo(Map.of("strVal", String.class, "intVal", int.class)));
 
         assertThat(fields.get(SECOND), equalTo(Map.of("strVal", String.class, "longVal", long.class)));
+    }
+
+    @Test
+    void testFilterUnknownDataStorageSchema() {
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
+
+        assertThat(
+                dataStorageModules.collectSchemasFields(List.of(
+                        FirstDataStorageConfigurationSchema.class,
+                        UnknownDataStorageConfigurationSchema.class
+                )),
+                aMapWithSize(1)
+        );
     }
 
     static DataStorageModule createMockedDataStorageModule(String name) {

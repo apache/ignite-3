@@ -329,7 +329,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
         final MethodDefinition methodDef = classDef.declareMethod(
                 EnumSet.of(Access.PUBLIC),
                 "marshal",
-                ParameterizedType.type(BinaryRow.class),
+                ParameterizedType.type(Row.class),
                 Parameter.arg("key", Object.class),
                 Parameter.arg("val", Object.class)
         ).addException(MarshallerException.class);
@@ -352,19 +352,23 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
 
         final BytecodeBlock block = new BytecodeBlock();
         block.append(
-                keyMarsh.marshallObject(
-                        classDef.getType(),
-                        asm,
-                        methodDef.getScope().getVariable("key"))
-        )
+                        keyMarsh.marshallObject(
+                                classDef.getType(),
+                                asm,
+                                methodDef.getScope().getVariable("key"))
+                )
                 .append(
                         valMarsh.marshallObject(
                                 classDef.getType(),
                                 asm,
                                 methodDef.getScope().getVariable("val"))
                 )
-                .append(BytecodeExpressions.newInstance(ByteBufferRow.class,
-                        asm.invoke("toBytes", byte[].class)))
+                .append(
+                        BytecodeExpressions.newInstance(Row.class,
+                                methodDef.getThis().getField("schema", SchemaDescriptor.class),
+                                BytecodeExpressions.newInstance(ByteBufferRow.class,
+                                        asm.invoke("toBytes", byte[].class)).cast(BinaryRow.class))
+                )
                 .retObject();
 
         final Variable ex = methodDef.getScope().createTempVariable(Throwable.class);

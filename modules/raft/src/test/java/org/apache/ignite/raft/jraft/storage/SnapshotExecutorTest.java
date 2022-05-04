@@ -43,6 +43,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcRequestClosure;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
+import org.apache.ignite.raft.jraft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.raft.jraft.storage.snapshot.Snapshot;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotExecutorImpl;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -124,7 +125,8 @@ public class SnapshotExecutorTest extends BaseStorageTest {
         options.setScheduler(timerManager);
         Mockito.when(node.getOptions()).thenReturn(options);
         Mockito.when(node.getRpcClientService()).thenReturn(raftClientService);
-        Mockito.when(node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory());
+        DefaultLogStorageFactory logStorageProvider = Mockito.mock(DefaultLogStorageFactory.class);
+        Mockito.when(node.getServiceFactory()).thenReturn(new DefaultJRaftServiceFactory(logStorageProvider));
         executor = new SnapshotExecutorImpl();
         final SnapshotExecutorOptions opts = new SnapshotExecutorOptions();
         opts.setFsmCaller(fSMCaller);

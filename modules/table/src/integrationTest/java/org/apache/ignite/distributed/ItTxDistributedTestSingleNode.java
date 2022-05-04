@@ -175,7 +175,7 @@ public class ItTxDistributedTestSingleNode extends TxAbstractTest {
                 new NamedThreadFactory(Loza.CLIENT_POOL_NAME));
 
         for (int i = 0; i < nodes; i++) {
-            var raftSrv = new Loza(cluster.get(i), workDir);
+            var raftSrv = new Loza(cluster.get(i), workDir.resolve("node" + i));
 
             raftSrv.start();
 

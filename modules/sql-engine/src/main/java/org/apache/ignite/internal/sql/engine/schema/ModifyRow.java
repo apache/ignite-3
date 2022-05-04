@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 
 /** POJO to store row and modify operation. */
 public class ModifyRow {
@@ -26,16 +26,16 @@ public class ModifyRow {
         INSERT_ROW, UPDATE_ROW, DELETE_ROW
     }
 
-    private final BinaryRow row;
+    private final BinaryRowEx row;
 
     private final Operation op;
 
-    public ModifyRow(BinaryRow row, Operation op) {
+    public ModifyRow(BinaryRowEx row, Operation op) {
         this.row = row;
         this.op = op;
     }
 
-    public BinaryRow getRow() {
+    public BinaryRowEx getRow() {
         return row;
     }
 

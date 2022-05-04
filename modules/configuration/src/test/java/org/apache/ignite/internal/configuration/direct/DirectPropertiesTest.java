@@ -116,7 +116,7 @@ public class DirectPropertiesTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         registry.stop();
     }
 

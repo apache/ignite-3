@@ -26,10 +26,12 @@ import static org.apache.ignite.internal.util.CollectionUtils.setOf;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CollectionUtils.viewReadOnly;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -114,13 +116,42 @@ public class CollectionUtilsTest {
     @Test
     void testCollectionUnion() {
         assertTrue(union().isEmpty());
-        assertTrue(union().isEmpty());
+        assertTrue(union((Collection<Object>[]) null).isEmpty());
         assertTrue(union(List.of()).isEmpty());
 
         assertEquals(List.of(1), collect(union(List.of(1), List.of())));
         assertEquals(List.of(1), collect(union(List.of(), List.of(1))));
 
         assertEquals(List.of(1, 2), collect(union(List.of(1), List.of(2))));
+        assertEquals(List.of(1, 2, 2), collect(union(List.of(1), List.of(2), List.of(2))));
+
+        assertFalse(union().contains(0));
+        assertFalse(union(List.of()).contains(0));
+        assertFalse(union(List.of(1)).contains(0));
+        assertFalse(union(List.of(1), List.of()).contains(0));
+        assertFalse(union(List.of(), List.of(1)).contains(0));
+        assertFalse(union(List.of(1), List.of(2, 3)).contains(0));
+
+        assertTrue(union(List.of(0)).contains(0));
+        assertTrue(union(List.of(), List.of(0)).contains(0));
+        assertTrue(union(List.of(0), List.of()).contains(0));
+
+        assertEquals(0, union().size());
+        assertEquals(0, union(List.of()).size());
+        assertEquals(1, union(List.of(1)).size());
+        assertEquals(1, union(List.of(), List.of(1)).size());
+        assertEquals(1, union(List.of(1), List.of()).size());
+        assertEquals(2, union(List.of(1), List.of(2)).size());
+        assertEquals(3, union(List.of(1), List.of(2, 3)).size());
+        assertEquals(5, union(List.of(1, 4, 5), List.of(2, 3)).size());
+
+        List<Integer> integers = new ArrayList<>(List.of(1, 2, 3));
+
+        Collection<Integer> union = union(integers);
+
+        integers.remove(0);
+
+        assertEquals(2, union.size());
     }
 
     /**

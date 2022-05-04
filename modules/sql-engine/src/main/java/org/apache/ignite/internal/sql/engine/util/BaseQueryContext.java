@@ -23,7 +23,9 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import com.google.common.collect.Multimap;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
+import java.util.UUID;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
@@ -47,9 +49,9 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.logger.NullLogger;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Base query context.
@@ -141,14 +143,20 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     private final QueryCancel cancel;
 
+    private final UUID queryId;
+
+    private final Object[] parameters;
+
     private CalciteCatalogReader catalogReader;
 
     /**
      * Private constructor, used by a builder.
      */
     private BaseQueryContext(
+            UUID queryId,
             FrameworkConfig cfg,
             QueryCancel cancel,
+            Object[] parameters,
             IgniteLogger log
     ) {
         super(Contexts.chain(cfg.getContext()));
@@ -156,8 +164,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
         // link frameworkConfig#context() to this.
         this.cfg = Frameworks.newConfigBuilder(cfg).context(this).build();
 
+        this.queryId = queryId;
         this.log = log;
         this.cancel = cancel;
+        this.parameters = parameters;
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, cfg.getTypeSystem());
 
@@ -172,6 +182,14 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
     public static BaseQueryContext empty() {
         return EMPTY_CONTEXT;
+    }
+
+    public UUID queryId() {
+        return queryId;
+    }
+
+    public Object[] parameters() {
+        return parameters;
     }
 
     public FrameworkConfig config() {
@@ -239,23 +257,37 @@ public final class BaseQueryContext extends AbstractQueryContext {
 
         private IgniteLogger log = new NullLogger();
 
-        public Builder frameworkConfig(@NotNull FrameworkConfig frameworkCfg) {
-            this.frameworkCfg = frameworkCfg;
+        private UUID queryId = UUID.randomUUID();
+
+        private Object[] parameters = ArrayUtils.OBJECT_EMPTY_ARRAY;
+
+        public Builder frameworkConfig(FrameworkConfig frameworkCfg) {
+            this.frameworkCfg = Objects.requireNonNull(frameworkCfg);
             return this;
         }
 
-        public Builder cancel(@NotNull QueryCancel cancel) {
-            this.cancel = cancel;
+        public Builder cancel(QueryCancel cancel) {
+            this.cancel = Objects.requireNonNull(cancel);
             return this;
         }
 
-        public Builder logger(@NotNull IgniteLogger log) {
-            this.log = log;
+        public Builder logger(IgniteLogger log) {
+            this.log = Objects.requireNonNull(log);
+            return this;
+        }
+
+        public Builder queryId(UUID queryId) {
+            this.queryId = Objects.requireNonNull(queryId);
+            return this;
+        }
+
+        public Builder parameters(Object... parameters) {
+            this.parameters = Objects.requireNonNull(parameters);
             return this;
         }
 
         public BaseQueryContext build() {
-            return new BaseQueryContext(frameworkCfg, cancel, log);
+            return new BaseQueryContext(queryId, frameworkCfg, cancel, parameters, log);
         }
     }
 }

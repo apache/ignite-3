@@ -23,8 +23,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentMappingException;
@@ -41,8 +39,6 @@ import org.jetbrains.annotations.NotNull;
  */
 public class QueryTemplate {
     private final List<Fragment> fragments;
-
-    private final AtomicReference<ExecutionPlan> executionPlan = new AtomicReference<>();
 
     /**
      * Constructor.
@@ -65,24 +61,13 @@ public class QueryTemplate {
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ExecutionPlan map(MappingService mappingService, MappingQueryContext ctx) {
-        ExecutionPlan executionPlan = this.executionPlan.get();
-        if (executionPlan != null && Objects.equals(executionPlan.topologyVersion(), ctx.topologyVersion())) {
-            return executionPlan;
-        }
-
         List<Fragment> fragments = Commons.transform(this.fragments, fragment -> fragment.attach(ctx.cluster()));
 
         Exception ex = null;
         RelMetadataQuery mq = first(fragments).root().getCluster().getMetadataQuery();
         for (int i = 0; i < 3; i++) {
             try {
-                ExecutionPlan executionPlan0 = new ExecutionPlan(ctx.topologyVersion(), map(mappingService, fragments, ctx, mq));
-
-                if (executionPlan == null || executionPlan.topologyVersion() < executionPlan0.topologyVersion()) {
-                    this.executionPlan.compareAndSet(executionPlan, executionPlan0);
-                }
-
-                return executionPlan0;
+                return new ExecutionPlan(map(mappingService, fragments, ctx, mq));
             } catch (FragmentMappingException e) {
                 if (ex == null) {
                     ex = e;

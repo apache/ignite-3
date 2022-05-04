@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
@@ -42,6 +43,7 @@ import org.apache.ignite.internal.cluster.management.raft.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftGroupListener;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.rest.InitCommandHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
@@ -436,7 +438,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             }
 
             raftService
-                    .thenCompose(CmgRaftService::joinCluster)
+                    .thenCompose(CmgRaftService::startJoinCluster)
                     .thenRun(() -> metaStorageNodes.complete(state.metaStorageNodes()));
         }
     }
@@ -550,7 +552,15 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
     public CompletableFuture<Collection<String>> metaStorageNodes() {
-        return metaStorageNodes;
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return metaStorageNodes;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -559,8 +569,63 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @return Future that, when complete, resolves into a list of nodes that comprise the logical topology.
      */
     public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
-        synchronized (raftServiceLock) {
-            return raftService.thenCompose(CmgRaftService::logicalTopology);
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
+
+        try {
+            return raftService().thenCompose(CmgRaftService::logicalTopology);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns a future that resolves after the join request finishes either successfully or with an error.
+     *
+     * @return Future that represents the state of the join.
+     */
+    public CompletableFuture<Void> joinFuture() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            // See the "raftService()" method for a description why "metaStorageNodes" is used here.
+            return metaStorageNodes.thenAccept(v -> {});
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Issues the {@link JoinReadyCommand} thus completing the join procedure. If this method succeeds, the node will be added to the
+     * logical topology.
+     *
+     * @return Future that represents the state of the operation.
+     */
+    public CompletableFuture<Void> onJoinReady() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftService().thenCompose(CmgRaftService::completeJoinCluster);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<CmgRaftService> raftService() {
+        // Using the "metaStorageNodes" future here, because there exists a guarantee, that if this future completes successfully, then
+        // the CMG Raft service must have already been started (reference to "raftService" is not null).
+        return metaStorageNodes
+                .thenCompose(v -> {
+                    synchronized (raftServiceLock) {
+                        assert raftService != null;
+
+                        return raftService;
+                    }
+                });
     }
 }

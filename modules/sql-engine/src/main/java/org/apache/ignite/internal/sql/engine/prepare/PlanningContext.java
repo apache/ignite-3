@@ -41,8 +41,6 @@ public final class PlanningContext implements Context {
 
     private final String qry;
 
-    private final Object[] parameters;
-
     private final CancelFlag cancelFlag = new CancelFlag(new AtomicBoolean());
 
     private Function<RuleSet, RuleSet> rulesFilter;
@@ -54,11 +52,9 @@ public final class PlanningContext implements Context {
      */
     private PlanningContext(
             Context parentCtx,
-            String qry,
-            Object[] parameters
+            String qry
     ) {
         this.qry = qry;
-        this.parameters = parameters;
         this.parentCtx = parentCtx;
     }
 
@@ -79,9 +75,8 @@ public final class PlanningContext implements Context {
     /**
      * Get query parameters.
      */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public Object[] parameters() {
-        return parameters;
+        return unwrap(BaseQueryContext.class).parameters();
     }
 
     // Helper methods
@@ -186,8 +181,6 @@ public final class PlanningContext implements Context {
 
         private String qry;
 
-        private Object[] parameters;
-
         public Builder parentContext(@NotNull Context parentCtx) {
             this.parentCtx = parentCtx;
             return this;
@@ -198,18 +191,13 @@ public final class PlanningContext implements Context {
             return this;
         }
 
-        public Builder parameters(@NotNull Object... parameters) {
-            this.parameters = parameters;
-            return this;
-        }
-
         /**
          * Builds planner context.
          *
          * @return Planner context.
          */
         public PlanningContext build() {
-            return new PlanningContext(parentCtx, qry, parameters);
+            return new PlanningContext(parentCtx, qry);
         }
     }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -51,5 +53,29 @@ class SchemaMismatchHandlers {
     void onFieldTypeChanged(Class<?> layerClass, Object instance, String fieldName, Class<?> remoteType, Object fieldValue)
             throws SchemaMismatchException {
         handlerFor(layerClass).onFieldTypeChanged(instance, fieldName, remoteType, fieldValue);
+    }
+
+    void onExternalizableIgnored(Object instance, ObjectInput externalData) throws SchemaMismatchException {
+        handlerFor(instance.getClass()).onExternalizableIgnored(instance, externalData);
+    }
+
+    void onExternalizableMissed(Object instance) throws SchemaMismatchException {
+        handlerFor(instance.getClass()).onExternalizableMissed(instance);
+    }
+
+    boolean onReadResolveAppeared(Object instance) throws SchemaMismatchException {
+        return handlerFor(instance.getClass()).onReadResolveAppeared(instance);
+    }
+
+    void onReadResolveDisappeared(Object instance) throws SchemaMismatchException {
+        handlerFor(instance.getClass()).onReadResolveDisappeared(instance);
+    }
+
+    void onReadObjectIgnored(Class<?> layerClass, Object instance, ObjectInputStream objectData) throws SchemaMismatchException {
+        handlerFor(layerClass).onReadObjectIgnored(instance, objectData);
+    }
+
+    void onReadObjectMissed(Class<?> layerClass, Object instance) throws SchemaMismatchException {
+        handlerFor(layerClass).onReadObjectMissed(instance);
     }
 }

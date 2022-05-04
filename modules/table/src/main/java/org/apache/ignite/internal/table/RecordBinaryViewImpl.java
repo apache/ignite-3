@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -381,8 +382,8 @@ public class RecordBinaryViewImpl extends AbstractTableView implements RecordVie
      * @param key  {@code true} to marshal only a key.
      * @return List of binary rows.
      */
-    private Collection<BinaryRow> mapToBinary(Collection<Tuple> rows, boolean key) {
-        Collection<BinaryRow> mapped = new ArrayList<>(rows.size());
+    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, boolean key) {
+        Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
 
         for (Tuple row : rows) {
             mapped.add(marshal(row, key));

@@ -43,7 +43,7 @@ public class MappingServiceImpl implements MappingService {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> executionNodes(long topVer, boolean single, @Nullable Predicate<ClusterNode> nodeFilter) {
+    public List<String> executionNodes(boolean single, @Nullable Predicate<ClusterNode> nodeFilter) {
         List<ClusterNode> nodes = new ArrayList<>(topSrvc.allMembers());
 
         if (nodeFilter != null) {

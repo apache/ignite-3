@@ -92,8 +92,10 @@ public class MetaStorageManager implements IgniteComponent {
     /** Raft manager that is used for metastorage raft group handling. */
     private final Loza raftMgr;
 
+    private final ClusterManagementGroupManager cmgMgr;
+
     /** Meta storage service. */
-    private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
+    private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
     /**
      * Aggregator of multiple watches to deploy them as one batch.
@@ -144,30 +146,15 @@ public class MetaStorageManager implements IgniteComponent {
     public MetaStorageManager(
             VaultManager vaultMgr,
             ClusterService clusterService,
-            ClusterManagementGroupManager cmgManager,
+            ClusterManagementGroupManager cmgMgr,
             Loza raftMgr,
             KeyValueStorage storage
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
+        this.cmgMgr = cmgMgr;
         this.storage = storage;
-
-        this.metaStorageSvcFut = cmgManager.metaStorageNodes()
-                // use default executor to avoid blocking CMG manager threads
-                .thenComposeAsync(metaStorageNodes -> {
-                    if (!busyLock.enterBusy()) {
-                        return CompletableFuture.failedFuture(new NodeStoppingException());
-                    }
-
-                    try {
-                        isInitialized = true;
-
-                        return initializeMetaStorage(metaStorageNodes);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
     }
 
     private CompletableFuture<MetaStorageService> initializeMetaStorage(Collection<String> metaStorageNodes) {
@@ -202,7 +189,21 @@ public class MetaStorageManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        // NO-OP
+        this.metaStorageSvcFut = cmgMgr.metaStorageNodes()
+                // use default executor to avoid blocking CMG manager threads
+                .thenComposeAsync(metaStorageNodes -> {
+                    if (!busyLock.enterBusy()) {
+                        return CompletableFuture.failedFuture(new NodeStoppingException());
+                    }
+
+                    try {
+                        isInitialized = true;
+
+                        return initializeMetaStorage(metaStorageNodes);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                });
     }
 
     /** {@inheritDoc} */
@@ -693,7 +694,12 @@ public class MetaStorageManager implements IgniteComponent {
         }
 
         try {
-            return new CursorWrapper<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, appliedRevision())));
+            CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
+                    appliedRevision(),
+                    (svc, appliedRevision) -> svc.range(keyFrom, keyTo, appliedRevision)
+            );
+
+            return new CursorWrapper<>(cursorFuture);
         } finally {
             busyLock.leaveBusy();
         }
@@ -718,19 +724,22 @@ public class MetaStorageManager implements IgniteComponent {
         }
 
         try {
-            var rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
+            KeyCriterion.RangeCriterion rangeCriterion = KeyCriterion.RangeCriterion.fromPrefixKey(keyPrefix);
 
-            return new CursorWrapper<>(
-                    metaStorageSvcFut.thenApply(svc -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision()))
+            CompletableFuture<Cursor<Entry>> cursorFuture = metaStorageSvcFut.thenCombine(
+                    appliedRevision(),
+                    (svc, appliedRevision) -> svc.range(rangeCriterion.from(), rangeCriterion.to(), appliedRevision)
             );
+
+            return new CursorWrapper<>(cursorFuture);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
     /**
-     * Retrieves entries for the given key prefix in lexicographic order. Short cut for {@link #prefix(ByteArray, long)} where {@code
-     * revUpperBound == -1}.
+     * Retrieves entries for the given key prefix in lexicographic order. Short cut for {@link #prefix(ByteArray, long)} where
+     * {@code revUpperBound == -1}.
      *
      * @param keyPrefix Prefix of the key to retrieve the entries. Couldn't be {@code null}.
      * @return Cursor built upon entries corresponding to the given range and revision.
@@ -792,10 +801,9 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Returns applied revision for {@link VaultManager#putAll} operation.
      */
-    private long appliedRevision() {
-        byte[] appliedRevision = vaultMgr.get(APPLIED_REV).join().value();
-
-        return appliedRevision == null ? 0L : bytesToLong(appliedRevision);
+    private CompletableFuture<Long> appliedRevision() {
+        return vaultMgr.get(APPLIED_REV)
+                .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
     }
 
     /**
@@ -821,9 +829,12 @@ public class MetaStorageManager implements IgniteComponent {
     }
 
     private CompletableFuture<IgniteUuid> updateAggregatedWatch() {
-        return watchAggregator.watch(appliedRevision() + 1, this::storeEntries)
-                .map(this::dispatchAppropriateMetaStorageWatch)
-                .orElseGet(() -> CompletableFuture.completedFuture(null));
+        return appliedRevision()
+                .thenCompose(appliedRevision ->
+                        watchAggregator.watch(appliedRevision + 1, this::storeEntries)
+                                .map(this::dispatchAppropriateMetaStorageWatch)
+                                .orElseGet(() -> CompletableFuture.completedFuture(null))
+                );
     }
 
     /**
@@ -833,24 +844,24 @@ public class MetaStorageManager implements IgniteComponent {
      * @param revision associated revision.
      */
     private void storeEntries(Collection<IgniteBiTuple<ByteArray, byte[]>> entries, long revision) {
-        Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(entries.size() + 1);
+        appliedRevision()
+                .thenCompose(appliedRevision -> {
+                    if (revision <= appliedRevision) {
+                        throw new IgniteInternalException(String.format(
+                                "Current revision (%d) must be greater than the revision in the Vault (%d)",
+                                revision, appliedRevision
+                        ));
+                    }
 
-        batch.put(APPLIED_REV, longToBytes(revision));
+                    Map<ByteArray, byte[]> batch = IgniteUtils.newHashMap(entries.size() + 1);
 
-        entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
+                    batch.put(APPLIED_REV, longToBytes(revision));
 
-        byte[] appliedRevisionBytes = vaultMgr.get(APPLIED_REV).join().value();
+                    entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-        long appliedRevision = appliedRevisionBytes == null ? 0L : bytesToLong(appliedRevisionBytes);
-
-        if (revision <= appliedRevision) {
-            throw new IgniteInternalException(String.format(
-                    "Current revision (%d) must be greater than the revision in the Vault (%d)",
-                    revision, appliedRevision
-            ));
-        }
-
-        vaultMgr.putAll(batch).join();
+                    return vaultMgr.putAll(batch);
+                })
+                .join();
     }
 
     // TODO: IGNITE-14691 Temporally solution that should be removed after implementing reactive watches.
@@ -862,8 +873,6 @@ public class MetaStorageManager implements IgniteComponent {
 
         /** Inner iterator future. */
         private final CompletableFuture<Iterator<T>> innerIterFut;
-
-        private final InnerIterator it = new InnerIterator();
 
         /**
          * Constructor.
@@ -883,11 +892,9 @@ public class MetaStorageManager implements IgniteComponent {
             }
 
             try {
-                innerCursorFut.thenApply(cursor -> {
+                innerCursorFut.thenAccept(cursor -> {
                     try {
                         cursor.close();
-
-                        return null;
                     } catch (Exception e) {
                         throw new IgniteInternalException(e);
                     }
@@ -900,50 +907,36 @@ public class MetaStorageManager implements IgniteComponent {
         /** {@inheritDoc} */
         @Override
         public boolean hasNext() {
-            return it.hasNext();
+            if (!busyLock.enterBusy()) {
+                return false;
+            }
+
+            try {
+                try {
+                    return innerIterFut.thenApply(Iterator::hasNext).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new IgniteInternalException(e);
+                }
+            } finally {
+                busyLock.leaveBusy();
+            }
         }
 
         /** {@inheritDoc} */
         @Override
         public T next() {
-            return it.next();
-        }
-
-        private class InnerIterator implements Iterator<T> {
-            /** {@inheritDoc} */
-            @Override
-            public boolean hasNext() {
-                if (!busyLock.enterBusy()) {
-                    return false;
-                }
-
-                try {
-                    try {
-                        return innerIterFut.thenApply(Iterator::hasNext).get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new IgniteInternalException(e);
-                    }
-                } finally {
-                    busyLock.leaveBusy();
-                }
+            if (!busyLock.enterBusy()) {
+                throw new NoSuchElementException("No such element because node is stopping.");
             }
 
-            /** {@inheritDoc} */
-            @Override
-            public T next() {
-                if (!busyLock.enterBusy()) {
-                    throw new NoSuchElementException("No such element because node is stopping.");
-                }
-
+            try {
                 try {
-                    try {
-                        return innerIterFut.thenApply(Iterator::next).get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new IgniteInternalException(e);
-                    }
-                } finally {
-                    busyLock.leaveBusy();
+                    return innerIterFut.thenApply(Iterator::next).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new IgniteInternalException(e);
                 }
+            } finally {
+                busyLock.leaveBusy();
             }
         }
     }

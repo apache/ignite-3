@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ConcurrentMapClusterStateStorage;
@@ -160,7 +161,7 @@ public class ItDistributedConfigurationStorageTest {
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
 
-            waitForCondition(() -> Objects.nonNull(node.vaultManager.get(MetaStorageManager.APPLIED_REV).join().value()), 3000);
+            waitForCondition(() -> Objects.nonNull(node.vaultManager.get(MetaStorageManager.APPLIED_REV).join()), 3000);
         } finally {
             node.stop();
         }
@@ -170,9 +171,9 @@ public class ItDistributedConfigurationStorageTest {
         try {
             node2.start();
 
-            Data storageData = node2.cfgStorage.readAll();
+            CompletableFuture<Data> storageData = node2.cfgStorage.readAll();
 
-            assertThat(storageData.values(), equalTo(data));
+            assertThat(storageData.thenApply(Data::values), willBe(equalTo(data)));
         } finally {
             node2.stop();
         }

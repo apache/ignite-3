@@ -20,13 +20,27 @@ package org.apache.ignite.internal.network.serialization.marshal;
 import static java.util.stream.Collectors.toList;
 import static net.bytebuddy.dynamic.loading.ClassLoadingStrategy.Default.CHILD_FIRST;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +70,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 class DefaultUserObjectMarshallerWithSchemaChangeTest {
+    private static final byte[] INT_42_BYTES_IN_LITTLE_ENDIAN = {42, 0, 0, 0};
+
     private final ClassDescriptorRegistry localRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory localFactory = new ClassDescriptorFactory(localRegistry);
     private final DefaultUserObjectMarshaller localMarshaller = new DefaultUserObjectMarshaller(localRegistry, localFactory);
@@ -154,28 +170,28 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
 
         Object remoteInstance = instantiate(remoteClass);
-        IgniteTestUtils.setFieldValue(remoteInstance, "value", "fourty two");
+        IgniteTestUtils.setFieldValue(remoteInstance, "value", "forty two");
 
         Object unmarshalled = marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
 
-        verify(schemaMismatchHandler).onFieldTypeChanged(unmarshalled, "value", String.class, "fourty two");
+        verify(schemaMismatchHandler).onFieldTypeChanged(unmarshalled, "value", String.class, "forty two");
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     void nonPrimitiveFieldTypeChangedToSuperClassIsCompatibleChange() throws Exception {
         Class<?> remoteClass = addFieldTo(Empty.class, "value", String.class);
         Class<?> localClass = addFieldTo(Empty.class, "value", CharSequence.class);
 
+        //noinspection unchecked
         localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
 
         Object remoteInstance = instantiate(remoteClass);
-        IgniteTestUtils.setFieldValue(remoteInstance, "value", "fourty two");
+        IgniteTestUtils.setFieldValue(remoteInstance, "value", "forty two");
 
         Object unmarshalled = marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
 
         CharSequence localFieldValue = (CharSequence) IgniteTestUtils.getFieldValue(unmarshalled, localClass, "value");
-        assertThat(localFieldValue.toString(), is("fourty two"));
+        assertThat(localFieldValue.toString(), is("forty two"));
 
         verify(schemaMismatchHandler, never()).onFieldTypeChanged(any(), any(), any(), any());
     }
@@ -201,7 +217,7 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
 
         ClassDescriptor remoteDescriptor = remoteRegistry.getRequiredDescriptor(remoteClass);
 
-        ClassDescriptor reconstructedDescriptor = ClassDescriptor.remote(
+        ClassDescriptor reconstructedDescriptor = ClassDescriptor.forRemote(
                 localDescriptor.localClass(),
                 remoteDescriptor.descriptorId(),
                 remoteDescriptor.superClassDescriptor(),
@@ -259,6 +275,243 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         }
     }
 
+    @Test
+    void removalOfExternalizableInterfaceCausesUnfilledDeserializationResult() throws Exception {
+        Object unmarshalled = marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(0));
+    }
+
+    @Test
+    void removalOfExternalizableInterfaceTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class);
+
+        verify(schemaMismatchHandler).onExternalizableIgnored(eq(unmarshalled), any());
+    }
+
+    @Test
+    void onExternalizableIgnoredReceivesStreamWithExactlyExternalizedDataAvailable() throws Exception {
+        doAnswer(invocation -> {
+            InputStream externalDataStream = invocation.getArgument(1);
+            byte[] externalData = externalDataStream.readAllBytes();
+
+            assertThat(externalData, is(INT_42_BYTES_IN_LITTLE_ENDIAN));
+
+            return null;
+        }).when(schemaMismatchHandler).onExternalizableIgnored(any(), any());
+
+        marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class);
+    }
+
+    @Test
+    void onExternalizableIgnoredSkipsExternalDataEvenIfHandlerDoesNotReadIt() throws Exception {
+        doNothing().when(schemaMismatchHandler).onExternalizableIgnored(any(), any());
+
+        assertDoesNotThrow(() -> marshalExternalizableUnmarshalNonExternalizableBasedOn(ExternalizationReady.class));
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private Object marshalExternalizableUnmarshalNonExternalizableBasedOn(Class<?> baseClass)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        return marshalWithInterfaceUnmarshalWithoutInterfaceBasedOn(baseClass, Externalizable.class);
+    }
+
+    private Object marshalWithInterfaceUnmarshalWithoutInterfaceBasedOn(Class<?> baseClass, Class<?> iface)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        @SuppressWarnings("UnnecessaryLocalVariable")
+        Class<?> localClass = baseClass;
+        Class<?> remoteClass = addInterface(baseClass, iface);
+
+        //noinspection unchecked
+        localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
+
+        Object remoteInstance = instantiate(remoteClass);
+        IgniteTestUtils.setFieldValue(remoteInstance, "value", 42);
+
+        return marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+    }
+
+    private Class<?> addInterface(Class<?> baseClass, Class<?> iface) {
+        return new ByteBuddy()
+                .redefine(baseClass)
+                .implement(iface)
+                .make()
+                .load(getClass().getClassLoader(), CHILD_FIRST)
+                .getLoaded();
+    }
+
+    @Test
+    void additionOfExternalizableInterfaceCausesStandardDeserialization() throws Exception {
+        Object unmarshalled = marshalNonExternalizableUnmarshalExternalizableBasedOn(ExternalizationReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(42));
+    }
+
+    @Test
+    void additionOfExternalizableInterfaceTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalNonExternalizableUnmarshalExternalizableBasedOn(ExternalizationReady.class);
+
+        verify(schemaMismatchHandler).onExternalizableMissed(unmarshalled);
+    }
+
+    @Test
+    void onExternalizableMissedIsFiredAfterObjectIsFilledInStandardWay() throws Exception {
+        doAnswer(invocation -> {
+            Object object = invocation.getArgument(0);
+            int fieldValue = (int) IgniteTestUtils.getFieldValue(object, object.getClass(), "value");
+
+            assertThat(fieldValue, is(42));
+
+            return null;
+        }).when(schemaMismatchHandler).onExternalizableMissed(any());
+
+        Object unmarshalled = marshalNonExternalizableUnmarshalExternalizableBasedOn(ExternalizationReady.class);
+
+        verify(schemaMismatchHandler).onExternalizableMissed(unmarshalled);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private Object marshalNonExternalizableUnmarshalExternalizableBasedOn(Class<?> baseClass)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        return marshalWithoutInterfaceUnmarshalWithInterfaceBasedOn(baseClass, Externalizable.class);
+    }
+
+    private Object marshalWithoutInterfaceUnmarshalWithInterfaceBasedOn(Class<?> baseClass, Class<?> iface)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        @SuppressWarnings("UnnecessaryLocalVariable")
+        Class<?> remoteClass = baseClass;
+        Class<?> localClass = addInterface(baseClass, iface);
+
+        //noinspection unchecked
+        localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
+
+        Object remoteInstance = instantiate(remoteClass);
+        IgniteTestUtils.setFieldValue(remoteInstance, "value", 42);
+
+        return marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+    }
+
+    @Test
+    void apparitionOfReadResolveMethodTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalNonSerializableUnmarshalSerializableBasedOn(ReadResolveReady.class);
+
+        verify(schemaMismatchHandler).onReadResolveAppeared(unmarshalled);
+    }
+
+    @Test
+    void whenOnReadResolveAppearedReturnsFalseThenReadResolveIsApplied() throws Exception {
+        when(schemaMismatchHandler.onReadResolveAppeared(any())).thenReturn(false);
+
+        Object unmarshalled = marshalNonSerializableUnmarshalSerializableBasedOn(ReadResolveReady.class);
+
+        int value = (int) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(value, is(42));
+    }
+
+    @Test
+    void whenOnReadResolveAppearedReturnsTrueThenReadResolveIsApplied() throws Exception {
+        when(schemaMismatchHandler.onReadResolveAppeared(any())).thenReturn(true);
+
+        Object unmarshalled = marshalNonSerializableUnmarshalSerializableBasedOn(ReadResolveReady.class);
+
+        int value = (int) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(value, equalTo(42 + ReadResolveReady.READ_RESOLVE_INCREMENT));
+    }
+
+    private Object marshalNonSerializableUnmarshalSerializableBasedOn(Class<?> baseClass)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        return marshalWithoutInterfaceUnmarshalWithInterfaceBasedOn(baseClass, Serializable.class);
+    }
+
+    @Test
+    void disappearanceOfReadResolveLeavesCoreFieldFillingUnchanged() throws Exception {
+        Object unmarshalled = marshalSerializableUnmarshalNonSerializableBasedOn(ReadResolveReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(42));
+    }
+
+    @Test
+    void disappearanceOfReadResolveTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalSerializableUnmarshalNonSerializableBasedOn(ReadResolveReady.class);
+
+        verify(schemaMismatchHandler).onReadResolveDisappeared(unmarshalled);
+    }
+
+    private Object marshalSerializableUnmarshalNonSerializableBasedOn(Class<?> baseClass)
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        return marshalWithInterfaceUnmarshalWithoutInterfaceBasedOn(baseClass, Serializable.class);
+    }
+
+    @Test
+    void disappearanceOfReadObjectCausesUnfilledDeserializationResult() throws Exception {
+        Object unmarshalled = marshalSerializableUnmarshalNonSerializableBasedOn(WriteReadObjectReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(0));
+    }
+
+    @Test
+    void disappearanceOfReadObjectTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalSerializableUnmarshalNonSerializableBasedOn(WriteReadObjectReady.class);
+
+        verify(schemaMismatchHandler).onReadObjectIgnored(eq(unmarshalled), any());
+    }
+
+    @Test
+    void onReadObjectIgnoredReceivesStreamWithExactlyWriteObjectDataAvailable() throws Exception {
+        doAnswer(invocation -> {
+            InputStream writeObjectDataStream = invocation.getArgument(1);
+            byte[] writeObjectData = writeObjectDataStream.readAllBytes();
+
+            assertThat(writeObjectData, is(INT_42_BYTES_IN_LITTLE_ENDIAN));
+
+            return null;
+        }).when(schemaMismatchHandler).onReadObjectIgnored(any(), any());
+
+        marshalSerializableUnmarshalNonSerializableBasedOn(WriteReadObjectReady.class);
+    }
+
+    @Test
+    void onReadObjectIgnoredSkipsWriteObjectDataEvenIfHandlerDoesNotReadIt() throws Exception {
+        doNothing().when(schemaMismatchHandler).onReadObjectIgnored(any(), any());
+
+        assertDoesNotThrow(() -> marshalSerializableUnmarshalNonSerializableBasedOn(WriteReadObjectReady.class));
+    }
+
+    @Test
+    void additionOfReadObjectMethodCausesStandardDeserialization() throws Exception {
+        Object unmarshalled = marshalNonSerializableUnmarshalSerializableBasedOn(WriteReadObjectReady.class);
+
+        int localFieldValue = (Integer) IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value");
+        assertThat(localFieldValue, is(42));
+    }
+
+    @Test
+    void additionOfReadObjectMethodTriggersHandlerInvocation() throws Exception {
+        Object unmarshalled = marshalNonSerializableUnmarshalSerializableBasedOn(WriteReadObjectReady.class);
+
+        verify(schemaMismatchHandler).onReadObjectMissed(unmarshalled);
+    }
+
+    @Test
+    void onReadObjectMissedIsFiredAfterObjectIsFilledInStandardWay() throws Exception {
+        doAnswer(invocation -> {
+            Object object = invocation.getArgument(0);
+            int fieldValue = (int) IgniteTestUtils.getFieldValue(object, object.getClass(), "value");
+
+            assertThat(fieldValue, is(42));
+
+            return null;
+        }).when(schemaMismatchHandler).onReadObjectMissed(any());
+
+        Object unmarshalled = marshalNonSerializableUnmarshalSerializableBasedOn(WriteReadObjectReady.class);
+
+        verify(schemaMismatchHandler).onReadObjectMissed(unmarshalled);
+    }
+
     private static class Empty {
     }
 
@@ -278,6 +531,57 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
                     + "type=" + type
                     + ", value=" + value
                     + '}';
+        }
+    }
+
+    private static class ExternalizationReady {
+        private int value;
+
+        public ExternalizationReady() {
+            // no-op
+        }
+
+        @SuppressWarnings("unused")
+        public void writeExternal(ObjectOutput out) throws IOException {
+            out.writeInt(value);
+        }
+
+        @SuppressWarnings("unused")
+        public void readExternal(ObjectInput in) throws IOException {
+            value = in.readInt();
+        }
+    }
+
+    private static class ReadResolveReady {
+        private static final int READ_RESOLVE_INCREMENT = 100;
+
+        private int value;
+
+        @SuppressWarnings("unused")
+        private ReadResolveReady() {
+        }
+
+        private ReadResolveReady(int value) {
+            this.value = value;
+        }
+
+        @SuppressWarnings("unused")
+        private Object readResolve() {
+            return new ReadResolveReady(value + READ_RESOLVE_INCREMENT);
+        }
+    }
+
+    private static class WriteReadObjectReady {
+        private int value;
+
+        @SuppressWarnings("unused")
+        private void writeObject(ObjectOutputStream stream) throws IOException {
+            stream.writeInt(value);
+        }
+
+        @SuppressWarnings("unused")
+        private void readObject(ObjectInputStream stream) throws IOException {
+            value = stream.readInt();
         }
     }
 }

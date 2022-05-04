@@ -370,7 +370,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
 
         JraftServerImpl server = new JraftServerImpl(service, jraft) {
             @Override
-            public void stop() {
+            public void stop() throws Exception {
                 super.stop();
 
                 service.stop();
