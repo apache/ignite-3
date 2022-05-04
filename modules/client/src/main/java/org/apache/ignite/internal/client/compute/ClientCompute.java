@@ -28,6 +28,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -92,9 +93,19 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
-        // TODO: IGNITE-16786 - implement this
-        // TODO: Only if key has a single int column.
-        throw new UnsupportedOperationException("Not implemented yet");
+        // TODO: IGNITE-16925 - implement partition awareness.
+        return ch.serviceAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, w -> {
+            w.out().packString(table);
+
+            // TODO: Write key.
+            // 1. Get table by name and write tuple with schema
+            //    We could cache the table by name. If the table gets re-created, then the ID won't be valid anymore, and we can just retry the request.
+            // 2. Write schemaless tuple somehow.
+            w.out().packNil();
+
+            w.out().packString(jobClassName);
+            w.out().packObjectArray(args);
+        }, r -> (R) r.in().unpackObjectWithType(), null);
     }
 
     /** {@inheritDoc} */
