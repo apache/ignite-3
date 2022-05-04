@@ -17,10 +17,32 @@ package org.apache.ignite.lang;
 
 import java.util.Objects;
 
+/**
+ * Represents a closure that accepts three input parameters and returns no result.
+ *
+ * @param <T> The type of the first parameter to the closure.
+ * @param <U> The type of the second parameter to the closure.
+ * @param <V> The type of the third parameter to the closure.
+ */
 @FunctionalInterface
 public interface IgniteTriConsumer<T, U, V> {
+    /**
+     * Performs the operation on the given arguments.
+     *
+     * @param t The first argument.
+     * @param u The second argument.
+     * @param v The third argument.
+     */
     void accept(T t, U u, V v);
 
+    /**
+     * Returns a composed {@code IgniteTriConsumer} that performs, in sequence, this operation followed by the {@code after} closure.
+     * If {@code after} throws an exception, it should be handled by the caller of the closure. If performing this closure throws
+     * an exception, the {@code after} closure will not be performed.
+     *
+     * @param after Closure to execute after this {@code IgniteTriConsumer} completes.
+     * @return Composed {@code IgniteTriConsumer}.
+     */
     default IgniteTriConsumer<T, U, V> andThen(IgniteTriConsumer<? super T, ? super U, ? super V> after) {
         Objects.requireNonNull(after);
 

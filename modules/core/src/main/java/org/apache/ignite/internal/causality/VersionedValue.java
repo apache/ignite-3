@@ -85,6 +85,11 @@ public class VersionedValue<T> {
     /** Value that can be used as default. */
     private volatile T defaultVal;
 
+    /**
+     * Future that will be completed after all updates over the value in context of current causality token will be performed.
+     * This {@code updaterFuture} is {@code null} if no updates in context of current causality token have been initiated.
+     * See {@link #update(long, BiFunction)}.
+     */
     private volatile CompletableFuture<T> updaterFuture = null;
 
     /**
@@ -94,9 +99,9 @@ public class VersionedValue<T> {
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Consumer<Long>} that should be called on every update of storage revision as a
-     *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #complete(long, T)}
-     *                                      operations.
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
+     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      concurrently with {@link #complete(long, T)} operations.
      * @param historySize                   Size of the history of changes to store, including last applied token.
      * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
      *                                      evaluate the default value if the value is not initialized yet.
@@ -119,14 +124,14 @@ public class VersionedValue<T> {
     /**
      * Constructor.
      *
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this
-     *                                  VersionedValue should be able to listen to, for receiving storage revision updates.
-     *                                  This closure is called once on a construction of this VersionedValue and accepts a
-     *                                  {@code Consumer<Long>} that should be called on every update of storage revision as a
-     *                                  listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #complete(long, T)}
-     *                                  operations.
-     * @param defaultVal                Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
-     *                                  evaluate the default value if the value is not initialized yet.
+     * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
+     *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
+     *                                      This closure is called once on a construction of this VersionedValue and accepts a
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
+     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      concurrently with {@link #complete(long, T)} operations.
+     * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
+     *                                      evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
             Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
@@ -142,9 +147,9 @@ public class VersionedValue<T> {
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Consumer<Long>} that should be called on every update of storage revision as a
-     *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with
-     *                                      {@link #complete(long, T)} and {@link #update(long, BiFunction)} operations.
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
+     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      concurrently with {@link #complete(long, T)} operations.
      */
     public VersionedValue(
             @Nullable BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback,
@@ -156,11 +161,12 @@ public class VersionedValue<T> {
     /**
      * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiFunction, Consumer, int, Supplier)}.
      *
-     * @param observableRevisionUpdater A closure intended to connect this VersionedValue with a revision updater, that this VersionedValue
-     *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
-     *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
-     *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                  concurrently with {@link #complete(long, T)} operations.
+     * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
+     *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
+     *                                      This closure is called once on a construction of this VersionedValue and accepts a
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
+     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      concurrently with {@link #complete(long, T)} operations.
      */
     public VersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
         this(null, observableRevisionUpdater);
@@ -298,7 +304,8 @@ public class VersionedValue<T> {
     }
 
     /**
-     * Comparisons an exception to the causality token.
+     * Save the exception associated with the given causality token. If someone has got a future to await the value associated
+     * with the given causality token (see {@link #get(long)}, then the future will be completed.
      *
      * @param causalityToken Causality token.
      * @param throwable An exception.
@@ -342,6 +349,16 @@ public class VersionedValue<T> {
         notifyCompletionListeners(causalityToken, value, throwable);
     }
 
+    /**
+     * Builds an error message for the case when there is a conflict between history and a value or exception that is going to be
+     * saved.
+     *
+     * @param future Future.
+     * @param token Token.
+     * @param value Value.
+     * @param throwable Throwable.
+     * @return Error message.
+     */
     private String completeInternalConflictErrorMessage(CompletableFuture<T> future, long token, T value, Throwable throwable) {
         return future.handle(
             (prevValue, prevThrowable) ->
@@ -361,12 +378,13 @@ public class VersionedValue<T> {
      * Updates the value using the given updater. The updater receives the value on previous token, or default value
      * (see constructor) if the value isn't initialized, or current intermediate value, if this method has been already
      * called for the same token; and returns a new value.<br>
+     * The updater will be called after updaters that had been passed to previous calls of this method complete.
      * If an exception ({@link CancellationException} or {@link CompletionException}) was thrown when calculating the value for previous
-     * token, then {@code fail} updater is used to process the exception and calculate a new value.<br>
+     * token, then updater is used to process the exception and calculate a new value.<br>
      * This method can be called multiple times for the same token, and doesn't complete the future created for this token.
-     * The future is supposed to be completed by storage revision update in this case. If this method has been called at least
-     * once on the given token, the updater will receive a value that was evaluated by updater on previous call, as intermediate
-     * result.<br>
+     * The future is supposed to be completed by storage revision update or a call of {@link #complete(long)} in this case.
+     * If this method has been called at least once on the given token, the updater will receive a value that was evaluated
+     * by updater on previous call, as intermediate result.<br>
      * As the order of multiple calls of this method on the same token is unknown, operations done by the updater must be
      * commutative. For example:
      * <ul>
@@ -378,13 +396,12 @@ public class VersionedValue<T> {
      * </ul>
      * Regardless of order in which this method's calls are made, V3 should be the final result.
      * <br>
-     * The method should return previous value (previous intermediate value, or a value for previous token, if this method
-     * is called for first time for given token).
+     * The method should return a future that will be completed when {@code updater} completes.
      *
      * @param causalityToken Causality token.
-     * @param complete       The function is invoked if the previous future completed successfully.
-     * @param fail           The function is invoked if the previous future completed with an exception.
-     * @return               Updated value.
+     * @param updater        The binary function that accepts previous value and exception, if present, and update it to compute
+     *                       the new value.
+     * @return               Future for updated value.
      */
     public CompletableFuture<T> update(
         long causalityToken,
@@ -411,14 +428,33 @@ public class VersionedValue<T> {
         }
     }
 
+    /**
+     * Add listener for completions of this versioned value on every token. It will be called on every {@link #complete(long)},
+     * {@link #complete(long, Object)}, {@link #completeExceptionally(long, Throwable)} and also, if none of mentioned methods was
+     * called explicitly, on storage revision update,
+     *
+     * @param action Action to perform.
+     */
     public void whenComplete(IgniteTriConsumer<Long, T, Throwable> action) {
         completionListeners.add(action);
     }
 
+    /**
+     * Removes a completion listener, see {@link #whenComplete(IgniteTriConsumer)}.
+     *
+     * @param action Action to remove.
+     */
     public void removeWhenComplete(IgniteTriConsumer<Long, T, Throwable> action) {
         completionListeners.remove(action);
     }
 
+    /**
+     * Notify completion listeners.
+     *
+     * @param causalityToken Token.
+     * @param value Value.
+     * @param throwable Throwable.
+     */
     private void notifyCompletionListeners(long causalityToken, T value, Throwable throwable) {
         List<Exception> exceptions = new ArrayList<>();
 
@@ -469,6 +505,12 @@ public class VersionedValue<T> {
             .thenRun(() -> completeOnStorageRevisionUpdate(causalityToken));
     }
 
+    /**
+     * Complete this versioned value on the given token, if any updates in context of current causality token have been initiated.
+     *
+     * @param causalityToken Causality token.
+     * @return Future.
+     */
     private CompletableFuture<?> completeUpdatesIfPresent(long causalityToken) {
         synchronized (updateMutex) {
             CompletableFuture<T> updaterFuture = this.updaterFuture;
@@ -481,6 +523,11 @@ public class VersionedValue<T> {
         }
     }
 
+    /**
+     * Complete on storage revision update, if needed.
+     *
+     * @param causalityToken Causality token.
+     */
     private void completeOnStorageRevisionUpdate(long causalityToken) {
         completeRelatedFuture(causalityToken);
 
@@ -509,8 +556,15 @@ public class VersionedValue<T> {
         if (!future.isDone()) {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
-            CompletableFuture<T> previousFuture =
-                    entryBefore == null ? completedFuture(getDefault()) : entryBefore.getValue();
+            CompletableFuture<T> previousFuture;
+
+            if (entryBefore == null) {
+                synchronized (updateMutex) {
+                    previousFuture = completedFuture(getDefault());
+                }
+            } else {
+                previousFuture = entryBefore.getValue();
+            }
 
             assert previousFuture.isDone() : IgniteStringFormatter.format("No future for token [token={}]", causalityToken);
 
@@ -528,11 +582,17 @@ public class VersionedValue<T> {
         }
     }
 
+    /**
+     * Return a future for previous or default value. Should be protected by {@link #updateMutex}.
+     *
+     * @param actualToken Token.
+     * @return Future.
+     */
     private CompletableFuture<T> previousOrDefaultValueFuture(long actualToken) {
         Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken);
 
         if (histEntry == null) {
-            return completedFuture( getDefault());
+            return completedFuture(getDefault());
         } else {
             CompletableFuture<T> prevFuture = histEntry.getValue();
 
@@ -563,6 +623,12 @@ public class VersionedValue<T> {
         }
     }
 
+    /**
+     * Check that the given causality token os correct according to the actual token.
+     *
+     * @param actualToken Actual token.
+     * @param causalityToken Causality token.
+     */
     private static void checkToken(long actualToken, long causalityToken) {
         assert actualToken == NOT_INITIALIZED || actualToken + 1 == causalityToken : IgniteStringFormatter.format(
             "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken);
