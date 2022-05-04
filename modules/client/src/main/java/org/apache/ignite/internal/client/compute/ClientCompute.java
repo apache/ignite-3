@@ -64,7 +64,6 @@ public class ClientCompute implements IgniteCompute {
             throw new IllegalArgumentException("nodes must not be empty.");
         }
 
-        // TODO: Cluster awareness (IGNITE-16771): match specified nodes to known connections.
         ClusterNode node = randomNode(nodes);
 
         return executeOnOneNode(node, jobClassName, args);
