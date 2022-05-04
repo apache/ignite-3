@@ -17,23 +17,28 @@
 
 package org.apache.ignite.internal.causality;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.lang.IgniteTriConsumer;
 import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 /**
  * Parametrized type to store several versions of the value.
@@ -48,14 +53,13 @@ public class VersionedValue<T> {
     /** Default history size. */
     private static final int DEFAULT_HISTORY_SIZE = 2;
 
-    /** Last applied causality token. */
-    private volatile long actualToken = NOT_INITIALIZED;
-
     /** Size of stored history. */
     private final int historySize;
 
     /** Closure applied on storage revision update. */
     private final BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback;
+
+    private final List<IgniteTriConsumer<Long, T, Throwable>> completionListeners = new CopyOnWriteArrayList<>();
 
     /** Versioned value storage. */
     private final ConcurrentNavigableMap<Long, CompletableFuture<T>> history = new ConcurrentSkipListMap<>();
@@ -66,23 +70,22 @@ public class VersionedValue<T> {
      */
     private final ReadWriteLock trimHistoryLock = new ReentrantReadWriteLock();
 
-    /** Temporary value for {@link #update(long, Function, Function)}. */
-    private volatile T tempValue = null;
-
-    /** Whether {@link #update(long, Function, Function)} was called since the last revision update. */
-    private volatile boolean isUpdating = false;
-
-    /** Update mutex. */
-    private final Object updateMutex = new Object();
-
     /** Initial future. The future will be completed when {@link VersionedValue} sets a first value. */
     private final CompletableFuture<T> initFut = new CompletableFuture<>();
 
     /** The supplier may provide a value which will used as a default. */
     private final Supplier<T> defaultValSupplier;
 
+    /** Update mutex. */
+    private final Object updateMutex = new Object();
+
+    /** Last applied causality token. */
+    private volatile long actualToken = NOT_INITIALIZED;
+
     /** Value that can be used as default. */
     private volatile T defaultVal;
+
+    private volatile CompletableFuture<T> updaterFuture = null;
 
     /**
      * Constructor.
@@ -92,10 +95,10 @@ public class VersionedValue<T> {
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
      *                                      {@code Consumer<Long>} that should be called on every update of storage revision as a
-     *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #set(long, T)}
+     *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #complete(long, T)}
      *                                      operations.
      * @param historySize                   Size of the history of changes to store, including last applied token.
-     * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
+     * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
      *                                      evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
@@ -120,9 +123,9 @@ public class VersionedValue<T> {
      *                                  VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                  This closure is called once on a construction of this VersionedValue and accepts a
      *                                  {@code Consumer<Long>} that should be called on every update of storage revision as a
-     *                                  listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #set(long, T)}
+     *                                  listener. IMPORTANT: Revision update shouldn't happen concurrently with {@link #complete(long, T)}
      *                                  operations.
-     * @param defaultVal                Supplier of the default value, that is used on {@link #update(long, Function, Function)} to
+     * @param defaultVal                Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
      *                                  evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
@@ -141,7 +144,7 @@ public class VersionedValue<T> {
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
      *                                      {@code Consumer<Long>} that should be called on every update of storage revision as a
      *                                      listener. IMPORTANT: Revision update shouldn't happen concurrently with
-     *                                      {@link #set(long, T)} and {@link #update(long, Function, Function)} operations.
+     *                                      {@link #complete(long, T)} and {@link #update(long, BiFunction)} operations.
      */
     public VersionedValue(
             @Nullable BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback,
@@ -157,7 +160,7 @@ public class VersionedValue<T> {
      *                                  should be able to listen to, for receiving storage revision updates. This closure is called once on
      *                                  a construction of this VersionedValue and accepts a {@code Consumer<Long>} that should be called
      *                                  on every update of storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                  concurrently with {@link #set(long, T)} operations.
+     *                                  concurrently with {@link #complete(long, T)} operations.
      */
     public VersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
         this(null, observableRevisionUpdater);
@@ -193,6 +196,8 @@ public class VersionedValue<T> {
      * @return The future.
      */
     private CompletableFuture<T> getInternal(long causalityToken) {
+        long actualToken = this.actualToken;
+
         if (history.floorEntry(causalityToken) == null) {
             throw new OutdatedTokenException(causalityToken, actualToken, historySize);
         }
@@ -234,13 +239,11 @@ public class VersionedValue<T> {
     }
 
     /**
-     * Returns a default value.
+     * Returns a default value. It isn't thread safe and should be protected by {@link #updateMutex} in all usages.
      *
      * @return The value.
      */
     private T getDefault() {
-        // It is thread safe, as it's protected by either updateMutex or exclusiveness of #onStorageRevisionUpdate
-        // in all usages of getDefault().
         if (defaultValSupplier != null && defaultVal == null) {
             defaultVal = defaultValSupplier.get();
         }
@@ -252,7 +255,7 @@ public class VersionedValue<T> {
      * Gets a value for less or equal token than the actual {@link #actualToken}.
      *
      * @param causalityToken Causality token.
-     * @return A completed future that contained a value.
+     * @return A completed future that contains a value.
      * @throws OutdatedTokenException If outdated token is passed as an argument.
      */
     private CompletableFuture<T> getValueForPreviousToken(long causalityToken) {
@@ -270,19 +273,28 @@ public class VersionedValue<T> {
      * with the given causality token (see {@link #get(long)}, then the future will be completed.
      *
      * @param causalityToken Causality token.
+     */
+    public void complete(long causalityToken) {
+        onStorageRevisionUpdate(causalityToken);
+    }
+
+    /**
+     * Save the version of the value associated with the given causality token. If someone has got a future to await the value associated
+     * with the given causality token (see {@link #get(long)}, then the future will be completed.
+     *
+     * @param causalityToken Causality token.
      * @param value          Current value.
      */
-    public void set(long causalityToken, T value) {
+    public void complete(long causalityToken, T value) {
         long actualToken0 = actualToken;
 
         if (actualToken0 == NOT_INITIALIZED) {
             history.put(causalityToken, initFut);
         }
 
-        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
-                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
+        checkToken(actualToken0, causalityToken);
 
-        setValueInternal(causalityToken, value);
+        completeInternal(causalityToken, value, null);
     }
 
     /**
@@ -291,17 +303,58 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      * @param throwable An exception.
      */
-    public void fail(long causalityToken, Throwable throwable) {
+    public void completeExceptionally(long causalityToken, Throwable throwable) {
         long actualToken0 = actualToken;
 
         if (actualToken0 == NOT_INITIALIZED) {
             history.put(causalityToken, initFut);
         }
 
-        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
-                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
+        checkToken(actualToken0, causalityToken);
 
-        failInternal(causalityToken, throwable);
+        completeInternal(causalityToken, null, throwable);
+    }
+
+    /**
+     * This internal method assigns either value or exception according to specific token.
+     *
+     * @param causalityToken Causality token.
+     * @param value          Value to set.
+     * @param throwable      An exception.
+     */
+    private void completeInternal(long causalityToken, T value, Throwable throwable) {
+        CompletableFuture<T> res = history.putIfAbsent(
+            causalityToken,
+            throwable == null ? completedFuture(value) : failedFuture(throwable)
+        );
+
+        if (res == null || res.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert !res.isDone() : completeInternalConflictErrorMessage(res, causalityToken, value, throwable);
+
+        if (throwable == null)
+            res.complete(value);
+        else
+            res.completeExceptionally(throwable);
+
+        notifyCompletionListeners(causalityToken, value, throwable);
+    }
+
+    private String completeInternalConflictErrorMessage(CompletableFuture<T> future, long token, T value, Throwable throwable) {
+        return future.handle(
+            (prevValue, prevThrowable) ->
+                IgniteStringFormatter.format(
+                    "Different values associated with the token [token={}, value={}, exception={}, prevValue={}, prevException={}]",
+                    token,
+                    value,
+                    throwable,
+                    prevValue,
+                    prevThrowable
+                )
+        )
+        .join();
     }
 
     /**
@@ -333,94 +386,64 @@ public class VersionedValue<T> {
      * @param fail           The function is invoked if the previous future completed with an exception.
      * @return               Updated value.
      */
-    public T update(long causalityToken, Function<T, T> complete, Function<Throwable, T> fail) {
-        long actualToken0 = actualToken;
+    public CompletableFuture<T> update(
+        long causalityToken,
+        BiFunction<T, Throwable, CompletableFuture<T>> updater
+    ) {
+        long actualToken = this.actualToken;
 
-        assert actualToken0 == NOT_INITIALIZED || actualToken0 + 1 == causalityToken : IgniteStringFormatter.format(
-                "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken0);
+        checkToken(actualToken, causalityToken);
 
-        try {
-            synchronized (updateMutex) {
-                T previousValue;
+        synchronized (updateMutex) {
+            CompletableFuture<T> updaterFuture = this.updaterFuture;
 
-                if (isUpdating) {
-                    previousValue = tempValue;
-                } else {
-                    Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken0);
+            CompletableFuture<T> future = updaterFuture == null ? previousOrDefaultValueFuture(actualToken) : updaterFuture;
 
-                    if (histEntry == null) {
-                        previousValue = getDefault();
-                    } else {
-                        assert histEntry.getValue().isDone() : "Previous value should be ready.";
+            CompletableFuture<CompletableFuture<T>> f0 = future
+                .handle(updater::apply)
+                .handle((fut, e) -> e == null ? fut : failedFuture(e));
 
-                        previousValue = histEntry.getValue().join();
-                    }
-                }
+            updaterFuture = f0.thenCompose(Function.identity());
 
-                isUpdating = true;
+            this.updaterFuture = updaterFuture;
 
-                T res = complete.apply(previousValue);
-
-                tempValue = res;
-
-                return res;
-            }
-        } catch (CancellationException | CompletionException e) {
-            synchronized (updateMutex) {
-                isUpdating = true;
-
-                T res = fail.apply(e);
-
-                tempValue = res;
-
-                return res;
-            }
+            return updaterFuture;
         }
     }
 
-    /**
-     * This internal method assigns value according to specific token without additional checks.
-     *
-     * @param causalityToken Causality token.
-     * @param value          Value to set.
-     */
-    private void setValueInternal(long causalityToken, T value) {
-        CompletableFuture<T> res = history.putIfAbsent(causalityToken, completedFuture(value));
-
-        if (res == null || res.isCompletedExceptionally()) {
-            return;
-        }
-
-        assert !res.isDone() : IgniteStringFormatter.format("Different values associated with the token "
-            + "[token={}, value={}, prevValue={}]", causalityToken, value, res.join());
-
-        res.complete(value);
+    public void whenComplete(IgniteTriConsumer<Long, T, Throwable> action) {
+        completionListeners.add(action);
     }
 
-    /**
-     * Fails a future associated with this causality token.
-     *
-     * @param causalityToken Causality token.
-     * @param throwable      An exception.
-     */
-    private void failInternal(long causalityToken, Throwable throwable) {
-        CompletableFuture<T> res = history.putIfAbsent(causalityToken, CompletableFuture.failedFuture(throwable));
+    public void removeWhenComplete(IgniteTriConsumer<Long, T, Throwable> action) {
+        completionListeners.remove(action);
+    }
 
-        if (res == null || res.isCompletedExceptionally()) {
-            return;
+    private void notifyCompletionListeners(long causalityToken, T value, Throwable throwable) {
+        List<Exception> exceptions = new ArrayList<>();
+
+        for (IgniteTriConsumer<Long, T, Throwable> listener : completionListeners) {
+            try {
+                listener.accept(causalityToken, value, throwable);
+            } catch (Exception e) {
+                exceptions.add(e);
+            }
         }
 
-        assert !res.isDone() : IgniteStringFormatter.format("A value already has associated with the token "
-                + "[token={}, ex={}, value={}]", causalityToken, throwable, res.join());
+        if (!exceptions.isEmpty()) {
+            IgniteInternalException ex = new IgniteInternalException();
 
-        res.completeExceptionally(throwable);
+            exceptions.forEach(ex::addSuppressed);
+
+            throw ex;
+        }
     }
 
     /**
      * Should be called on a storage revision update. This also triggers completion of a future created for the given causality token. It
      * implies that all possible updates associated with this token have been already applied to the component.
      * <br>
-     * This method should not be called concurrently with {@link #update(long, Function, Function)} and {@link #set(long, Object)}
+     * This method should not be called concurrently with {@link #update(long, BiFunction)} and {@link #complete(long, Object)}
      * methods, as the storage revision update listener is supposed to be called after all other configuration listeners.
      *
      * @param causalityToken Causality token.
@@ -435,40 +458,46 @@ public class VersionedValue<T> {
             history.put(causalityToken, initFut);
         }
 
-        if (isUpdating) {
-            setValueInternal(causalityToken, tempValue);
+        return completeUpdatesIfPresent(causalityToken)
+            .thenCompose(v -> {
+                if (storageRevisionUpdateCallback != null) {
+                    return storageRevisionUpdateCallback.apply(this, causalityToken);
+                } else {
+                    return completedFuture(null);
+                }
+            })
+            .thenRun(() -> completeOnStorageRevisionUpdate(causalityToken));
+    }
 
-            isUpdating = false;
-        }
+    private CompletableFuture<?> completeUpdatesIfPresent(long causalityToken) {
+        synchronized (updateMutex) {
+            CompletableFuture<T> updaterFuture = this.updaterFuture;
 
-        Runnable afterCallback = () -> {
-            completeRelatedFuture(causalityToken);
-
-            if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
-                trimToSize(causalityToken);
+            if (updaterFuture != null) {
+                return updaterFuture.whenComplete((v, t) -> completeInternal(causalityToken, v, t));
+            } else {
+                return completedFuture(null);
             }
-
-            Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
-
-            assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
-                "Future for the token is not completed [token={}]", causalityToken);
-
-            actualToken = causalityToken;
-        };
-
-        if (storageRevisionUpdateCallback != null) {
-            return storageRevisionUpdateCallback.apply(this, causalityToken).
-                thenRun(() -> afterCallback.run());
-        }
-        else {
-            afterCallback.run();
-
-            return completedFuture(null);
         }
     }
 
+    private void completeOnStorageRevisionUpdate(long causalityToken) {
+        completeRelatedFuture(causalityToken);
+
+        if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
+            trimToSize(causalityToken);
+        }
+
+        Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
+
+        assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
+            "Future for the token is not completed [token={}]", causalityToken);
+
+        actualToken = causalityToken;
+    }
+
     /**
-     * Completes a future related with a specific causality token.
+     * Completes a future related with a specific causality token. It is called only on storage revision update.
      *
      * @param causalityToken The token which is becoming an actual.
      */
@@ -488,10 +517,28 @@ public class VersionedValue<T> {
             previousFuture.whenComplete((t, throwable) -> {
                 if (throwable != null) {
                     future.completeExceptionally(throwable);
+
+                    notifyCompletionListeners(causalityToken, null, throwable);
                 } else {
                     future.complete(t);
+
+                    notifyCompletionListeners(causalityToken, t, null);
                 }
             });
+        }
+    }
+
+    private CompletableFuture<T> previousOrDefaultValueFuture(long actualToken) {
+        Entry<Long, CompletableFuture<T>> histEntry = history.floorEntry(actualToken);
+
+        if (histEntry == null) {
+            return completedFuture( getDefault());
+        } else {
+            CompletableFuture<T> prevFuture = histEntry.getValue();
+
+            assert prevFuture.isDone() : "Previous value should be ready.";
+
+            return prevFuture;
         }
     }
 
@@ -514,5 +561,10 @@ public class VersionedValue<T> {
         } finally {
             trimHistoryLock.writeLock().unlock();
         }
+    }
+
+    private static void checkToken(long actualToken, long causalityToken) {
+        assert actualToken == NOT_INITIALIZED || actualToken + 1 == causalityToken : IgniteStringFormatter.format(
+            "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken);
     }
 }

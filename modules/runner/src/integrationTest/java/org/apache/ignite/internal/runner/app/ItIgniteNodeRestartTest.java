@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -249,9 +250,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> {
             clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                c.apply(newStorageRevision).join();
-
-                return CompletableFuture.completedFuture(null);
+                return c.apply(newStorageRevision);
             });
         };
 
@@ -338,7 +337,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         // Deploy all registered watches because all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
 
-        configurationCatchUpFuture.join();
+        assertThat(configurationCatchUpFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
@@ -1020,11 +1019,28 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<?> onUpdate(long appliedRevision) {
+            log.info("qqq applying revision " + appliedRevision);
+
+            CompletableFuture<?> res = super.onUpdate(appliedRevision);
+
             if (revisionCallback != null) {
-                revisionCallback.accept(appliedRevision);
+                res.thenRun(() -> {
+                    runAsync(() -> {
+                        try {
+                            Thread.sleep(10);
+                        }
+                        catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                        revisionCallback.accept(appliedRevision);
+                    });
+                });
             }
 
-            return super.onUpdate(appliedRevision);
+            log.info("qqq after applied revision " + appliedRevision + ", future=" + res + ", isDone=" + res.isDone());
+
+            return res;
         }
     }
 }
