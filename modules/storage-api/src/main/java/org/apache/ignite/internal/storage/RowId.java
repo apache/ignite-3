@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli;
-
-import org.junit.jupiter.api.BeforeAll;
+package org.apache.ignite.internal.storage;
 
 /**
- * Base class for any CLI tests.
+ * Interface that represents row id in primary index of the table.
+ *
+ * @see MvPartitionStorage
  */
-public abstract class AbstractCliTest {
+public interface RowId {
     /**
-     * Sets up a dumb terminal before tests.
+     * Returns a partition id for current row id.
      */
-    @BeforeAll
-    static void beforeAll() {
-        System.setProperty("org.jline.terminal.dumb", "true");
-    }
+    int partitionId();
 }

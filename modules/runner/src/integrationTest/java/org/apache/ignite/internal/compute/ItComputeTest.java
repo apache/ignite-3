@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for Compute functionality.
  */
+@SuppressWarnings("resource")
 class ItComputeTest extends AbstractClusterIntegrationTest {
     @Test
     void executesJobLocally() throws Exception {
