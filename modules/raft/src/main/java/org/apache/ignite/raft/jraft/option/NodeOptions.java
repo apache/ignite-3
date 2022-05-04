@@ -38,6 +38,7 @@ import org.apache.ignite.raft.jraft.util.StringUtils;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.apache.ignite.raft.jraft.util.timer.Timer;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Node options.
@@ -105,10 +106,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     // a valid instance.
     private StateMachine fsm;
 
+    // Listener for raft group reconfiguration events.
     private RaftGroupEventsListener raftGrpEvtsLsnr;
-
-    // Describe a specific LogStorage in format ${type}://${parameters}
-    private String logUri;
 
     // Describe a specific RaftMetaStorage in format ${type}://${parameters}
     private String raftMetaUri;
@@ -434,7 +433,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         return raftGrpEvtsLsnr;
     }
 
-    public void setRaftGrpEvtsLsnr(RaftGroupEventsListener raftGrpEvtsLsnr) {
+    public void setRaftGrpEvtsLsnr(@NotNull RaftGroupEventsListener raftGrpEvtsLsnr) {
         this.raftGrpEvtsLsnr = raftGrpEvtsLsnr;
     }
 

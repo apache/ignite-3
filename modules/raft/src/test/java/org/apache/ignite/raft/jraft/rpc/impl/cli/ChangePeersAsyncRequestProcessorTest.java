@@ -24,8 +24,10 @@ import java.util.List;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
+import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
+import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncResponse;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
@@ -49,7 +51,14 @@ public class ChangePeersAsyncRequestProcessorTest extends AbstractCliRequestProc
     public void verify(String interest, Node node, ArgumentCaptor<Closure> doneArg) {
         assertEquals(ChangePeersAsyncRequest.class.getName(), interest);
         Mockito.verify(node).changePeersAsync(eq(JRaftUtils.getConfiguration("localhost:8084,localhost:8085")),
-                eq(1L));
+                eq(1L), doneArg.capture());
+        Closure done = doneArg.getValue();
+        assertNotNull(done);
+        done.run(Status.OK());
         assertNotNull(this.asyncContext.getResponseObject());
+        assertEquals("[localhost:8081, localhost:8082, localhost:8083]", this.asyncContext
+                .as(ChangePeersAsyncResponse.class).oldPeersList().toString());
+        assertEquals("[localhost:8084, localhost:8085]", this.asyncContext.as(ChangePeersAsyncResponse.class)
+                .newPeersList().toString());
     }
 }

@@ -70,6 +70,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -314,12 +315,12 @@ public class JraftServerImpl implements RaftServer {
     /** {@inheritDoc} */
     @Override
     public synchronized boolean startRaftGroup(String groupId, RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
-        return startRaftGroup(groupId, null, lsnr, initialConf);
+        return startRaftGroup(groupId, RaftGroupEventsListener.noopLsnr, lsnr, initialConf);
     }
 
     /** {@inheritDoc} */
     @Override
-    public synchronized boolean startRaftGroup(String groupId, RaftGroupEventsListener evLsnr,
+    public synchronized boolean startRaftGroup(String groupId, @NotNull RaftGroupEventsListener evLsnr,
             RaftGroupListener lsnr, @Nullable List<Peer> initialConf) {
         if (groups.containsKey(groupId)) {
             return false;

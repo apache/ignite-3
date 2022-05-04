@@ -18,16 +18,9 @@
 package org.apache.ignite.internal.baseline;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
-import org.apache.ignite.configuration.schemas.runner.ClusterConfiguration;
-import org.apache.ignite.configuration.schemas.runner.ClusterView;
+import org.apache.ignite.internal.configuration.ConfigurationManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.lang.NodeStoppingException;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 
@@ -38,29 +31,32 @@ import org.apache.ignite.network.ClusterService;
 // TODO: https://issues.apache.org/jira/browse/IGNITE-14716 Adapt concept of baseline topology IEP-4.
 @SuppressWarnings({"FieldCanBeLocal", "unused"})
 public class BaselineManager implements IgniteComponent {
-    /** Cluster configuration in order to handle and listen baseline specific configuration. */
-    private final ClusterConfiguration clusterConfiguration;
+    /** Configuration manager in order to handle and listen baseline specific configuration. */
+    private final ConfigurationManager configurationMgr;
+
+    /**
+     * MetaStorage manager in order to watch private distributed baseline specific configuration, cause ConfigurationManger handles only
+     * public configuration.
+     */
+    private final MetaStorageManager metastorageMgr;
 
     /** Cluster network service in order to retrieve information about current cluster nodes. */
     private final ClusterService clusterSvc;
 
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double stopping the component. */
-    AtomicBoolean stopGuard = new AtomicBoolean();
-
     /**
      * The constructor.
      *
-     * @param clusterConfiguration Cluster configuration.
+     * @param configurationMgr Configuration manager.
+     * @param metastorageMgr   MetaStorage manager.
      * @param clusterSvc       Cluster network service.
      */
     public BaselineManager(
-            ClusterConfiguration clusterConfiguration,
+            ConfigurationManager configurationMgr,
+            MetaStorageManager metastorageMgr,
             ClusterService clusterSvc
     ) {
-        this.clusterConfiguration = clusterConfiguration;
+        this.configurationMgr = configurationMgr;
+        this.metastorageMgr = metastorageMgr;
         this.clusterSvc = clusterSvc;
     }
 
@@ -73,79 +69,16 @@ public class BaselineManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void stop() {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return;
-        }
-
-        busyLock.block();
+        // TODO: IGNITE-15161 Implement component's stop.
     }
 
     /**
      * Gets all nodes which participant in baseline and may process user data.
-     * TODO: delete this when main functionality of the rebalance will be implemented
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-16011
      *
      * @return All nodes which were in baseline.
      */
     public Collection<ClusterNode> nodes() {
         return clusterSvc.topologyService().allMembers();
-    }
-
-    /**
-     * Gets all nodes which participant in baseline and may process user data.
-     *
-     * @return All nodes which were in baseline.
-     */
-    public Collection<ClusterNode> baselineNodes() throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            List<String> baselineNodeNames = List.of(clusterConfiguration.baselineNodes().value());
-
-            return clusterSvc.topologyService().allMembers().stream()
-                    .filter(node -> baselineNodeNames.contains(node.name()))
-                    .collect(Collectors.toList());
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Sets the provided nodes as a new baseline of the cluster.
-     *
-     * @param baselineNodes Set of baseline nodes.
-     * @throws NodeStoppingException If a node is stopping during the method invocation.
-     */
-    public void setBaseline(Set<String> baselineNodes) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            clusterConfiguration.change(clusterChange -> clusterChange.changeBaselineNodes(baselineNodes.toArray(new String[0]))).join();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
-     * Sets the listener on a baseline change.
-     *
-     * @param listener Listener for a baseline change.
-     * @throws NodeStoppingException If a node is stopping during the method invocation.
-     */
-    public void listenBaselineChange(ConfigurationListener<ClusterView> listener) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            clusterConfiguration.listen(listener);
-        } finally {
-            busyLock.leaveBusy();
-        }
     }
 }
 

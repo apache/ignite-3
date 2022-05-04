@@ -96,7 +96,7 @@ public class TestCluster {
 
     private LinkedHashSet<PeerId> learners;
 
-    private RaftGroupEventsListener raftGrpEvtsLsnr;
+    private RaftGroupEventsListener raftGrpEvtsLsnr = RaftGroupEventsListener.noopLsnr;
 
     public JRaftServiceFactory getRaftServiceFactory() {
         return this.raftServiceFactory;
