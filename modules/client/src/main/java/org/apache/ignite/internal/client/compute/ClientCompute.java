@@ -94,6 +94,7 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
         // TODO: IGNITE-16786 - implement this
+        // TODO: Only if key has a single int column.
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
@@ -101,9 +102,18 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
         // TODO: IGNITE-16786 - implement this
-        // TODO: Get partitions number for the table
+        // TODO: Only if mapper is null and key is int
+
+        // Flow:
+        // 1. Get partitions number for the table
+        // 2. Get key hash.
+        // 3. Partition = hash % partitionCount
+        // 4. Get partition assignment
+
+        // TODO: Issues
         // 1. We can't cache partitions by name (table can be dropped and re-created with a different partition count)
         // 2. How do we sync current partition assignment? Send updates from the server?
+
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
