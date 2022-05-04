@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +49,8 @@ import org.jetbrains.annotations.Nullable;
  * Runtime context allowing access to the tables in a database.
  */
 public class ExecutionContext<RowT> extends AbstractQueryContext implements DataContext {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ExecutionContext.class);
+
     private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 
     /**
@@ -68,8 +71,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
     private final String locNodeId;
 
     private final String originatingNodeId;
-
-    private final long topVer;
 
     private final RowHandler<RowT> handler;
 
@@ -102,7 +103,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
             UUID qryId,
             String locNodeId,
             String originatingNodeId,
-            long topVer,
             FragmentDescription fragmentDesc,
             RowHandler<RowT> handler,
             Map<String, Object> params
@@ -117,7 +117,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
         this.params = params;
         this.locNodeId = locNodeId;
         this.originatingNodeId = originatingNodeId;
-        this.topVer = topVer;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
@@ -127,6 +126,10 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
 
         long ts = System.currentTimeMillis();
         startTs = ts + TIME_ZONE.getOffset(ts);
+
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Context created [qryId={}, fragmentId={}]", qryId, fragmentId());
+        }
     }
 
     /**
@@ -148,6 +151,10 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     public ColocationGroup target() {
         return fragmentDesc.target();
+    }
+
+    public FragmentDescription description() {
+        return fragmentDesc;
     }
 
     /**
@@ -204,13 +211,6 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      */
     public String localNodeId() {
         return locNodeId;
-    }
-
-    /**
-     * Get topology version.
-     */
-    public long topologyVersion() {
-        return topVer;
     }
 
     /** {@inheritDoc} */
@@ -337,7 +337,13 @@ public class ExecutionContext<RowT> extends AbstractQueryContext implements Data
      * @return {@code True} if flag was changed by this call.
      */
     public boolean cancel() {
-        return !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
+        boolean res = !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
+
+        if (res && LOG.isTraceEnabled()) {
+            LOG.trace("Context cancelled [qryId={}, fragmentId={}]", qryId, fragmentId());
+        }
+
+        return res;
     }
 
     public boolean isCancelled() {

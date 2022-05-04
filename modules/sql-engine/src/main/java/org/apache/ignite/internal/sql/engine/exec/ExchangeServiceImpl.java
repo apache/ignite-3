@@ -24,15 +24,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.QueryRegistry;
-import org.apache.ignite.internal.sql.engine.RunningQuery;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.InboxCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchAcknowledgeMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
-import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.metadata.FragmentDescription;
@@ -58,8 +55,6 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private final MessageService msgSrvc;
 
-    private final QueryRegistry queryRegistry;
-
     /**
      * Constructor. TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -67,21 +62,18 @@ public class ExchangeServiceImpl implements ExchangeService {
             String localNodeId,
             QueryTaskExecutor taskExecutor,
             MailboxRegistry mailboxRegistry,
-            MessageService msgSrvc,
-            QueryRegistry queryRegistry
+            MessageService msgSrvc
     ) {
         this.localNodeId = localNodeId;
         this.taskExecutor = taskExecutor;
         this.mailboxRegistry = mailboxRegistry;
         this.msgSrvc = msgSrvc;
-        this.queryRegistry = queryRegistry;
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
         msgSrvc.register((n, m) -> onMessage(n, (InboxCloseMessage) m), SqlQueryMessageGroup.INBOX_CLOSE_MESSAGE);
-        msgSrvc.register((n, m) -> onMessage(n, (QueryCloseMessage) m), SqlQueryMessageGroup.QUERY_CLOSE_MESSAGE);
         msgSrvc.register((n, m) -> onMessage(n, (QueryBatchAcknowledgeMessage) m), SqlQueryMessageGroup.QUERY_BATCH_ACK);
         msgSrvc.register((n, m) -> onMessage(n, (QueryBatchMessage) m), SqlQueryMessageGroup.QUERY_BATCH_MESSAGE);
     }
@@ -177,17 +169,6 @@ public class ExchangeServiceImpl implements ExchangeService {
         }
     }
 
-    protected void onMessage(String nodeId, QueryCloseMessage msg) {
-        RunningQuery qry = queryRegistry.query(msg.queryId());
-
-        if (qry != null) {
-            qry.cancel();
-        } else {
-            LOG.warn("Stale query close message received: ["
-                    + "nodeId=" + nodeId + ", queryId=" + msg.queryId() + "]");
-        }
-    }
-
     protected void onMessage(String nodeId, QueryBatchAcknowledgeMessage msg) {
         Outbox<?> outbox = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
 
@@ -251,7 +232,6 @@ public class ExchangeServiceImpl implements ExchangeService {
                 qryId,
                 localNodeId,
                 nodeId,
-                -1,
                 new FragmentDescription(
                         fragmentId,
                         null,

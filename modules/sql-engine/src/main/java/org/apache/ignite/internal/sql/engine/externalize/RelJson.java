@@ -437,16 +437,12 @@ class RelJson {
                     }
 
                     map.put("operands", list);
-
-                    if (node.getKind() == SqlKind.CAST) {
-                        map.put("type", toJson(node.getType()));
-                    }
+                    map.put("type", toJson(node.getType()));
 
                     if (call.getOperator() instanceof SqlFunction) {
                         if (((SqlFunction) call.getOperator()).getFunctionType().isUserDefined()) {
                             SqlOperator op = call.getOperator();
                             map.put("class", op.getClass().getName());
-                            map.put("type", toJson(node.getType()));
                             map.put("deterministic", op.isDeterministic());
                             map.put("dynamic", op.isDynamicFunction());
                         }
@@ -455,7 +451,6 @@ class RelJson {
                     if (call instanceof RexOver) {
                         RexOver over = (RexOver) call;
                         map.put("distinct", over.isDistinct());
-                        map.put("type", toJson(node.getType()));
                         map.put("window", toJson(over.getWindow()));
                     }
 

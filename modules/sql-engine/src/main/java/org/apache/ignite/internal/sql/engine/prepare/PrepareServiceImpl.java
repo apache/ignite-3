@@ -21,10 +21,18 @@ import static java.util.Collections.singletonList;
 import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
@@ -33,13 +41,16 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.calcite.tools.ValidationException;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
@@ -47,44 +58,94 @@ import org.jetbrains.annotations.Nullable;
 /**
  * An implementation of the {@link PrepareService} that uses a Calcite-based query planner to validate and optimize a given query.
  */
-public class PrepareServiceImpl implements PrepareService {
+public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener {
+    private static final long THREAD_TIMEOUT_MS = 60_000;
+
+    private static final int THREAD_COUNT = 4;
+
     private final DdlSqlToCommandConverter ddlConverter;
+
+    private final ConcurrentMap<CacheKey, CompletableFuture<QueryPlan>> cache;
+
+    private final String nodeName;
+
+    private volatile ThreadPoolExecutor planningPool;
+
+    /**
+     * Factory method.
+     *
+     * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
+     * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param dataStorageManager Data storage manager.
+     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
+     */
+    public static PrepareServiceImpl create(
+            String nodeName,
+            int cacheSize,
+            DataStorageManager dataStorageManager,
+            Map<String, Map<String, Class<?>>> dataStorageFields
+    ) {
+        return new PrepareServiceImpl(
+                nodeName,
+                cacheSize,
+                new DdlSqlToCommandConverter(dataStorageFields, dataStorageManager::defaultDataStorage)
+        );
+    }
 
     /**
      * Constructor.
      *
-     * @param dataStorageManager Data storage manager.
-     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
+     * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
+     * @param cacheSize Size of the cache of query plans. Should be non negative.
+     * @param ddlConverter A converter of the DDL-related AST to the actual command.
      */
     public PrepareServiceImpl(
-            DataStorageManager dataStorageManager,
-            Map<String, Map<String, Class<?>>> dataStorageFields
+            String nodeName,
+            int cacheSize,
+            DdlSqlToCommandConverter ddlConverter
     ) {
-        ddlConverter = new DdlSqlToCommandConverter(
-                dataStorageFields,
-                dataStorageManager::defaultDataStorage
-        );
+        this.nodeName = nodeName;
+        this.ddlConverter = ddlConverter;
+
+        cache = Caffeine.newBuilder()
+                .maximumSize(cacheSize)
+                .<CacheKey, CompletableFuture<QueryPlan>>build()
+                .asMap();
     }
 
     /** {@inheritDoc} */
     @Override
     public void start() {
+        planningPool = new ThreadPoolExecutor(
+                THREAD_COUNT,
+                THREAD_COUNT,
+                THREAD_TIMEOUT_MS,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                new NamedThreadFactory(NamedThreadFactory.threadPrefix(nodeName, "sql-planning-pool"))
+        );
+
+        planningPool.allowCoreThreadTimeOut(true);
     }
 
     /** {@inheritDoc} */
     @Override
     public void stop() throws Exception {
+        planningPool.shutdownNow();
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan prepareSingle(SqlNode sqlNode, PlanningContext ctx) {
+    @Override
+    public CompletableFuture<QueryPlan> prepareAsync(SqlNode sqlNode, BaseQueryContext ctx) {
         try {
             assert single(sqlNode);
 
-            ctx.planner().reset();
+            var planningContext = PlanningContext.builder()
+                    .parentContext(ctx)
+                    .build();
 
             if (SqlKind.DDL.contains(sqlNode.getKind())) {
-                return prepareDdl(sqlNode, ctx);
+                return prepareDdl(sqlNode, planningContext);
             }
 
             switch (sqlNode.getKind()) {
@@ -95,86 +156,106 @@ public class PrepareServiceImpl implements PrepareService {
                 case UNION:
                 case EXCEPT:
                 case INTERSECT:
-                    return prepareQuery(sqlNode, ctx);
+                    return prepareQuery(sqlNode, planningContext);
 
                 case INSERT:
                 case DELETE:
                 case UPDATE:
                 case MERGE:
-                    return prepareDml(sqlNode, ctx);
+                    return prepareDml(sqlNode, planningContext);
 
                 case EXPLAIN:
-                    return prepareExplain(sqlNode, ctx);
+                    return prepareExplain(sqlNode, planningContext);
 
                 default:
                     throw new IgniteInternalException("Unsupported operation ["
                             + "sqlNodeKind=" + sqlNode.getKind() + "; "
-                            + "querySql=\"" + ctx.query() + "\"]");
+                            + "querySql=\"" + planningContext.query() + "\"]");
             }
-        } catch (ValidationException | CalciteContextException e) {
+        } catch (CalciteContextException e) {
             throw new IgniteInternalException("Failed to validate query. " + e.getMessage(), e);
         }
     }
 
-    private QueryPlan prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
-        assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
-
-        return new DdlPlan(ddlConverter.convert((SqlDdl) sqlNode, ctx));
+    /** {@inheritDoc} */
+    @Override
+    public void onSchemaUpdated() {
+        cache.clear();
     }
 
-    private QueryPlan prepareExplain(SqlNode explain, PlanningContext ctx) throws ValidationException {
-        IgnitePlanner planner = ctx.planner();
+    private CompletableFuture<QueryPlan> prepareDdl(SqlNode sqlNode, PlanningContext ctx) {
+        assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
-        SqlNode sql = ((SqlExplain) explain).getExplicandum();
+        return CompletableFuture.completedFuture(new DdlPlan(ddlConverter.convert((SqlDdl) sqlNode, ctx)));
+    }
 
-        // Validate
-        sql = planner.validate(sql);
+    private CompletableFuture<QueryPlan> prepareExplain(SqlNode explain, PlanningContext ctx) {
+        return CompletableFuture.supplyAsync(() -> {
+            IgnitePlanner planner = ctx.planner();
 
-        // Convert to Relational operators graph
-        IgniteRel igniteRel = optimize(sql, planner);
+            SqlNode sql = ((SqlExplain) explain).getExplicandum();
 
-        String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
+            // Validate
+            sql = planner.validate(sql);
 
-        return new ExplainPlan(plan, explainFieldsMetadata(ctx));
+            // Convert to Relational operators graph
+            IgniteRel igniteRel = optimize(sql, planner);
+
+            String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
+
+            return new ExplainPlan(plan, explainFieldsMetadata(ctx));
+        }, planningPool);
     }
 
     private boolean single(SqlNode sqlNode) {
         return !(sqlNode instanceof SqlNodeList);
     }
 
-    private QueryPlan prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
-        IgnitePlanner planner = ctx.planner();
+    private CompletableFuture<QueryPlan> prepareQuery(SqlNode sqlNode, PlanningContext ctx) {
+        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
 
-        // Validate
-        ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
+        var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+            IgnitePlanner planner = ctx.planner();
 
-        sqlNode = validated.sqlNode();
+            // Validate
+            ValidationResult validated = planner.validateAndGetTypeMetadata(sqlNode);
 
-        IgniteRel igniteRel = optimize(sqlNode, planner);
+            SqlNode validatedNode = validated.sqlNode();
 
-        // Split query plan to query fragments.
-        List<Fragment> fragments = new Splitter().go(igniteRel);
+            IgniteRel igniteRel = optimize(validatedNode, planner);
 
-        QueryTemplate template = new QueryTemplate(fragments);
+            // Split query plan to query fragments.
+            List<Fragment> fragments = new Splitter().go(igniteRel);
 
-        return new MultiStepQueryPlan(template, resultSetMetadata(ctx, validated.dataType(), validated.origins()));
+            QueryTemplate template = new QueryTemplate(fragments);
+
+            return new MultiStepQueryPlan(template, resultSetMetadata(ctx, validated.dataType(), validated.origins()));
+        }, planningPool));
+
+        return planFut.thenApply(QueryPlan::copy);
     }
 
-    private QueryPlan prepareDml(SqlNode sqlNode, PlanningContext ctx) throws ValidationException {
-        IgnitePlanner planner = ctx.planner();
+    private CompletableFuture<QueryPlan> prepareDml(SqlNode sqlNode, PlanningContext ctx) {
+        var key = new CacheKey(ctx.schemaName(), sqlNode.toString());
 
-        // Validate
-        sqlNode = planner.validate(sqlNode);
+        var planFut = cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> {
+            IgnitePlanner planner = ctx.planner();
 
-        // Convert to Relational operators graph
-        IgniteRel igniteRel = optimize(sqlNode, planner);
+            // Validate
+            SqlNode validatedNode = planner.validate(sqlNode);
 
-        // Split query plan to query fragments.
-        List<Fragment> fragments = new Splitter().go(igniteRel);
+            // Convert to Relational operators graph
+            IgniteRel igniteRel = optimize(validatedNode, planner);
 
-        QueryTemplate template = new QueryTemplate(fragments);
+            // Split query plan to query fragments.
+            List<Fragment> fragments = new Splitter().go(igniteRel);
 
-        return new MultiStepDmlPlan(template, resultSetMetadata(ctx, igniteRel.getRowType(), null));
+            QueryTemplate template = new QueryTemplate(fragments);
+
+            return new MultiStepDmlPlan(template, resultSetMetadata(ctx, igniteRel.getRowType(), null));
+        }, planningPool));
+
+        return planFut.thenApply(QueryPlan::copy);
     }
 
     private ResultSetMetadata explainFieldsMetadata(PlanningContext ctx) {
@@ -187,11 +268,30 @@ public class PrepareServiceImpl implements PrepareService {
         return resultSetMetadata(ctx, planDataType, null);
     }
 
-    private ResultSetMetadataInternal resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
+    private ResultSetMetadata resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
             @Nullable List<List<String>> origins) {
-        return new ResultSetMetadataImpl(
-                TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins),
-                origins
+        return new LazyResultSetMetadata(
+                () -> {
+                    RelDataType rowType = TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
+
+                    List<ResultFieldMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
+
+                    for (int i = 0; i < rowType.getFieldCount(); ++i) {
+                        RelDataTypeField fld = rowType.getFieldList().get(i);
+
+                        fieldsMeta.add(
+                                new ResultFieldMetadataImpl(
+                                        fld.getName(),
+                                        TypeUtils.nativeType(fld.getType()),
+                                        fld.getIndex(),
+                                        fld.getType().isNullable(),
+                                        origins == null ? List.of() : origins.get(i)
+                                )
+                        );
+                    }
+
+                    return fieldsMeta;
+                }
         );
     }
 }

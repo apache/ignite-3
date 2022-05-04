@@ -52,6 +52,7 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -511,6 +512,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16905")
     public void testDate() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);
 
@@ -544,6 +546,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
      */
     @SuppressWarnings("deprecation")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16905")
     public void testTime() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);
 
@@ -569,6 +572,7 @@ public class ItJdbcResultSetSelfTest extends AbstractJdbcSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16905")
     public void testTimestamp() throws Exception {
         ResultSet rs = stmt.executeQuery(STATIC_SQL);
 

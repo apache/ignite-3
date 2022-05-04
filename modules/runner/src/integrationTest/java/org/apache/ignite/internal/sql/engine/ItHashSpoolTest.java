@@ -50,6 +50,7 @@ public class ItHashSpoolTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     @SuppressWarnings("unchecked")
     public void testHashSpoolCondition() {
         sql("CREATE TABLE t(id INT PRIMARY KEY, i INTEGER)");

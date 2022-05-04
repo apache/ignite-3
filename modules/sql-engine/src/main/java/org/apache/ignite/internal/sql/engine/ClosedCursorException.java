@@ -17,18 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.UUID;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Query which is currently executing on the server.
+ * The exception is used to complete result stage of {@link AsyncCursor#requestNextAsync(int)} invocation when invoked on a closed cursor.
  */
-public interface RunningQuery {
-    /** Returns identifier of the query. */
-    UUID id();
-
-    /** Returns the current state of the query. */
-    QueryState state();
-
-    /** Cancels the query. */
-    void cancel();
+public class ClosedCursorException extends IgniteInternalCheckedException {
 }

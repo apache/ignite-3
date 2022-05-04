@@ -15,18 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+package org.apache.ignite.internal.sql.engine;
 
 /**
- * Results set metadata.
+ * Sql query cursor.
+ *
+ * @param <T> Type of elements.
  */
-public interface ResultSetMetadataInternal extends ResultSetMetadata {
+public interface AsyncSqlCursor<T> extends AsyncCursor<T> {
     /**
-     * Get fields metadata.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Returns query type.
      */
-    RelDataType rowType();
+    SqlQueryType queryType();
+
+    /**
+     * Returns column metadata.
+     */
+    ResultSetMetadata metadata();
 }

@@ -17,33 +17,33 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 
 /**
- * QueryPlanCache interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Results set metadata holder.
  */
-public interface QueryPlanCache extends LifecycleAware {
-    /**
-     * Get query plan from cache if exists, otherwise prepare plan, put to cache and return the prepared plan.
-     *
-     * @param key          Cache key.
-     * @param planSupplier Factory method to generate a plan on cache miss.
-     * @return Query plan.
-     */
-    QueryPlan queryPlan(CacheKey key, Supplier<QueryPlan> planSupplier);
+public class LazyResultSetMetadata implements ResultSetMetadata {
+    private final Supplier<List<ResultFieldMetadata>> fieldsMetaProvider;
 
-    /**
-     * Get query plan from cache if exists, otherwise returns {@code null}.
-     *
-     * @param key Cache key.
-     * @return Query plan.
-     */
-    QueryPlan queryPlan(CacheKey key);
+    /** Fields metadata. */
+    private volatile List<ResultFieldMetadata> fields;
 
-    /**
-     * Clear cache.
-     */
-    void clear();
+    public LazyResultSetMetadata(
+            Supplier<List<ResultFieldMetadata>> fieldsMetaProvider
+    ) {
+        this.fieldsMetaProvider = fieldsMetaProvider;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ResultFieldMetadata> fields() {
+        if (fields == null) {
+            fields = fieldsMetaProvider.get();
+        }
+
+        return fields;
+    }
 }

@@ -15,22 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
-
-import java.util.List;
+package org.apache.ignite.internal.sql.engine.schema;
 
 /**
- * ExecutionPlan.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A schema change listener.
  */
-class ExecutionPlan {
-    private final List<Fragment> fragments;
-
-    ExecutionPlan(List<Fragment> fragments) {
-        this.fragments = List.copyOf(fragments);
-    }
-
-    public List<Fragment> fragments() {
-        return fragments;
-    }
+@FunctionalInterface
+public interface SchemaUpdateListener {
+    /**
+     * A callback that will be fired when the SQL schema changes.
+     */
+    void onSchemaUpdated();
 }
