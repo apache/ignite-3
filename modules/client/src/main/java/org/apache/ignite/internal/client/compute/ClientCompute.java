@@ -101,6 +101,9 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
         // TODO: IGNITE-16786 - implement this
+        // TODO: Get partitions number for the table
+        // 1. We can't cache partitions by name (table can be dropped and re-created with a different partition count)
+        // 2. How do we sync current partition assignment? Send updates from the server?
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
