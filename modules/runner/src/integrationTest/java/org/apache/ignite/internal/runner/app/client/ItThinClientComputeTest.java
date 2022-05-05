@@ -135,6 +135,16 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testExecuteColocatedTupleKey() {
+        // TODO
+    }
+
+    @Test
+    void testExecuteColocatedPojoKey() {
+        // TODO
+    }
+
+    @Test
     void testAllSupportedArgTypes() {
         testEchoArg(Byte.MAX_VALUE);
         testEchoArg(Short.MAX_VALUE);
