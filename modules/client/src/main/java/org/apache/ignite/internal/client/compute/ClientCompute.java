@@ -31,6 +31,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientRecordBinaryView;
+import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
@@ -130,9 +131,28 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
-        // TODO: IGNITE-16786 - implement this
+        // TODO: IGNITE-16925 - implement partition awareness.
+        // TODO: Deduplicate with above.
+        return tables.tableAsync(table).thenCompose(t -> {
+            if (t == null) {
+                throw new IgniteClientException("Table '" + table + "' does not exist.");
+            }
 
-        throw new UnsupportedOperationException("Not implemented yet");
+            ClientTable tableInternal = (ClientTable)t;
+
+            return tableInternal.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (schema, outputChannel) -> {
+                ClientMessagePacker w = outputChannel.out();
+
+                w.packUuid(tableInternal.tableId());
+                w.packInt(schema.version());
+
+                var serializer = new ClientRecordSerializer<>(tableInternal.tableId(), keyMapper);
+                serializer.writeTuple(null, key, schema, outputChannel, true, true);
+
+                w.packString(jobClassName);
+                w.packObjectArray(args);
+            }, r -> (R) r.unpackObjectWithType());
+        });
     }
 
     /** {@inheritDoc} */

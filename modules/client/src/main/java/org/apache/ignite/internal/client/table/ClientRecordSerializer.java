@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Record serializer.
  */
-class ClientRecordSerializer<R> {
+public class ClientRecordSerializer<R> {
     /** Table ID. */
     private final UUID tableId;
 
