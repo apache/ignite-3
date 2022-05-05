@@ -17,15 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -38,17 +38,21 @@ public class ClientComputeExecuteColocatedRequest {
      * @param in        Unpacker.
      * @param out       Packer.
      * @param compute   Compute.
+     * @param tables    Tables.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteCompute compute) {
-        String jobClassName = in.unpackString();
+            IgniteCompute compute,
+            IgniteTables tables) {
+        var table = readTable(in, tables);
+        var keyTuple = readTuple(in, table, true);
 
+        String jobClassName = in.unpackString();
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
+        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectWithType);
     }
 
     @NotNull
