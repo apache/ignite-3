@@ -627,6 +627,14 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
+        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
+            RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
+
+            when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
+
+            return completedFuture(raftGrpSrvcMock);
+        });
+
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
                 UUID.randomUUID().toString(),
                 "node0",
