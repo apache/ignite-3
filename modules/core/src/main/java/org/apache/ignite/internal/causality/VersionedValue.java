@@ -460,11 +460,13 @@ public class VersionedValue<T> {
      * @param throwable Throwable.
      */
     private void notifyCompletionListeners(long causalityToken, T value, Throwable throwable) {
+        Throwable unpackedThrowable = throwable instanceof CompletionException ? throwable.getCause() : throwable;
+
         List<Exception> exceptions = new ArrayList<>();
 
         for (IgniteTriConsumer<Long, T, Throwable> listener : completionListeners) {
             try {
-                listener.accept(causalityToken, value, throwable);
+                listener.accept(causalityToken, value, unpackedThrowable);
             } catch (Exception e) {
                 exceptions.add(e);
             }

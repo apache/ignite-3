@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.causality;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -33,9 +35,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteTriConsumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -302,6 +306,47 @@ public class VersionedValueTest {
 
         assertTrue(vvFut.isDone());
         assertTrue(revFut.isDone());
+    }
+
+    /**
+     * Test the case when exception happens in updater.
+     */
+    @Test
+    public void testExceptionOnUpdate() {
+        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER, () -> 0);
+
+        final int count = 4;
+        final int successfulCompletionsCount = count / 2;
+
+        AtomicInteger actualSuccessfulCompletionsCount = new AtomicInteger();
+
+        final String exceptionMsg = "test msg";
+
+        for (int i = 0; i < count; i++) {
+            vv.update(0L, (v, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
+                if (v == successfulCompletionsCount)
+                    throw new IgniteInternalException(exceptionMsg);
+
+                actualSuccessfulCompletionsCount.incrementAndGet();
+
+                return completedFuture(++v);
+            });
+        }
+
+        AtomicReference<Throwable> exceptionRef = new AtomicReference<>();
+
+        vv.whenComplete((t, v, e) -> exceptionRef.set(e));
+
+        vv.complete(0L);
+
+        assertThrowsWithCause(() -> vv.get(0L).join(), IgniteInternalException.class);
+
+        assertEquals(exceptionMsg, exceptionRef.get().getMessage());
+        assertEquals(successfulCompletionsCount, actualSuccessfulCompletionsCount.get());
     }
 
     /**
