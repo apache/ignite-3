@@ -330,11 +330,11 @@ public class VersionedValueTest {
                 .thenCombine(assignmentsVv.get(token), (registry, assignments) -> tableName + registry + assignments.get(tableId));
 
         tablesVv.update(token, (old, e) -> tableFut.thenApply(table -> {
-               Map<UUID, String> val = new HashMap<>(old);
+            Map<UUID, String> val = new HashMap<>(old);
 
-               val.put(tableId, table);
+            val.put(tableId, table);
 
-               return val;
+            return val;
         }));
 
         CompletableFuture<String> userFut = tablesVv.get(token).thenApply(map -> map.get(tableId));

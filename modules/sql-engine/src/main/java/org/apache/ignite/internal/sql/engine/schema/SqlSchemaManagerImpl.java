@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -40,9 +43,6 @@ import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 
 /**
  * Holds actual schema and mutates it on schema change, requested by Ignite.

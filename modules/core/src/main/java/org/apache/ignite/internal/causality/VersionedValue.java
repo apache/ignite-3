@@ -59,6 +59,7 @@ public class VersionedValue<T> {
     /** Closure applied on storage revision update. */
     private final BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback;
 
+    /** List of completion listeners, see {@link #whenComplete(IgniteTriConsumer)} */
     private final List<IgniteTriConsumer<Long, T, Throwable>> completionListeners = new CopyOnWriteArrayList<>();
 
     /** Versioned value storage. */
@@ -99,8 +100,8 @@ public class VersionedValue<T> {
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
-     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update of
+     *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
      * @param historySize                   Size of the history of changes to store, including last applied token.
      * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
@@ -127,8 +128,8 @@ public class VersionedValue<T> {
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
-     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update of
+     *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
      * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
      *                                      evaluate the default value if the value is not initialized yet.
@@ -147,8 +148,8 @@ public class VersionedValue<T> {
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
-     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update of
+     *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
      */
     public VersionedValue(
@@ -164,8 +165,8 @@ public class VersionedValue<T> {
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update o
-     *                                      f storage revision as a listener. IMPORTANT: Revision update shouldn't happen
+     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update of
+     *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
      */
     public VersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
@@ -516,7 +517,20 @@ public class VersionedValue<T> {
                         return completedFuture(null);
                     }
                 })
-                .thenRun(() -> completeOnStorageRevisionUpdate(causalityToken));
+                .thenRun(() -> {
+                    completeRelatedFuture(causalityToken);
+
+                    if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
+                        trimToSize(causalityToken);
+                    }
+
+                    Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
+
+                    assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
+                        "Future for the token is not completed [token={}]", causalityToken);
+
+                    actualToken = causalityToken;
+                });
     }
 
     /**
@@ -537,26 +551,6 @@ public class VersionedValue<T> {
                 return completedFuture(null);
             }
         }
-    }
-
-    /**
-     * Complete on storage revision update, if needed.
-     *
-     * @param causalityToken Causality token.
-     */
-    private void completeOnStorageRevisionUpdate(long causalityToken) {
-        completeRelatedFuture(causalityToken);
-
-        if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
-            trimToSize(causalityToken);
-        }
-
-        Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
-
-        assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
-            "Future for the token is not completed [token={}]", causalityToken);
-
-        actualToken = causalityToken;
     }
 
     /**
@@ -596,7 +590,7 @@ public class VersionedValue<T> {
                 }
             });
         } else if (entry.getKey() < causalityToken) {
-            // Notifying listeners when there were no updates, no explicit completions.
+            // Notifying listeners when there were neither updates nor explicit completions.
             // This future is previous, it is always done.
             future.whenComplete((v, e) -> notifyCompletionListeners(causalityToken, v, e));
         }
