@@ -381,7 +381,7 @@ public class ClientTableCommon {
             TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
 
             if (table == null) {
-                throw
+                throw new ClientTableIdDoesNotExistException("Table does not exist: " + tableId);
             }
 
             return table;
