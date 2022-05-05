@@ -39,6 +39,8 @@ import org.junit.jupiter.api.Test;
  * Compute tests.
  */
 public class ClientComputeTest {
+    private static final String TABLE_NAME = "tbl1";
+
     private TestServer server1;
     private TestServer server2;
     private TestServer server3;
@@ -103,7 +105,7 @@ public class ClientComputeTest {
 
         try (var client = getClient(server1)) {
             Tuple key = Tuple.create().set("key", "k");
-            String res = client.compute().<String>executeColocated("tbl1", key, "job").join();
+            String res = client.compute().<String>executeColocated(TABLE_NAME, key, "job").join();
 
             assertEquals("s1", res);
         }
@@ -135,9 +137,12 @@ public class ClientComputeTest {
     }
 
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), shouldDropConnection, "s1");
-        server2 = new TestServer(10910, 10, 0, new FakeIgnite(), shouldDropConnection, "s2");
-        server3 = new TestServer(10920, 10, 0, new FakeIgnite(), shouldDropConnection, "s3");
+        FakeIgnite ignite = new FakeIgnite();
+        ignite.tables().createTable(TABLE_NAME, null);
+
+        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, "s1");
+        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, "s2");
+        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, "s3");
     }
 
     private Set<ClusterNode> getClusterNodes(String... names) {
