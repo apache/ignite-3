@@ -31,10 +31,11 @@ public class FastTimestamps {
 
     private static void startUpdater() {
         Thread updater = new Thread("FastTimestamps updater") {
+            /** {@inheritDoc} */
             @Override
             public void run() {
                 while (true) {
-                    coarseCurrentTimeMillis = System.currentTimeMillis();
+                    coarseCurrentTimeMillis = Math.max(coarseCurrentTimeMillis, System.currentTimeMillis());
                     try {
                         Thread.sleep(UPDATE_FREQUENCY_MS);
                     } catch (InterruptedException e) {
