@@ -248,11 +248,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> {
-            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                return c.apply(newStorageRevision);
-            });
-        };
+        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
+                .listenUpdateStorageRevision(newStorageRevision -> c.apply(newStorageRevision));
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
@@ -1019,27 +1016,11 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<?> onUpdate(long appliedRevision) {
-            log.info("qqq applying revision " + appliedRevision);
-
-            CompletableFuture<?> res = super.onUpdate(appliedRevision);
-
             if (revisionCallback != null) {
-                res.thenRun(() -> {
-                    runAsync(() -> {
-                        try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-
-                        revisionCallback.accept(appliedRevision);
-                    });
-                });
+                revisionCallback.accept(appliedRevision);
             }
 
-            log.info("qqq after applied revision " + appliedRevision + ", future=" + res + ", isDone=" + res.isDone());
-
-            return res;
+            return super.onUpdate(appliedRevision);
         }
     }
 }
