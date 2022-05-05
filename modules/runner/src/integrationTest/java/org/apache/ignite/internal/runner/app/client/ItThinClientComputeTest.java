@@ -46,6 +46,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -140,18 +141,16 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @ParameterizedTest
     @CsvSource({"1,3345", "2,3345", "3,3344", "4,3344"})
-    void testExecuteColocatedTupleKey(long key, int port) {
-        String table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
-        Tuple keyTuple = Tuple.create().set(COLUMN_KEY, key);
+    void testExecuteColocated(int key, int port) {
+        var table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
+        var keyTuple = Tuple.create().set(COLUMN_KEY, key);
+        var keyPojo = new TestPojo(key);
 
-        String res = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
+        String tupleRes = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
+        assertEquals("ItThinClientComputeTest_null_" + port, tupleRes);
 
-        assertEquals("ItThinClientComputeTest_null_" + port, res);
-    }
-
-    @Test
-    void testExecuteColocatedPojoKey() {
-        // TODO
+        String pojoRes = client().compute().executeColocated(table, keyPojo, Mapper.of(TestPojo.class), NodeNameJob.class).join();
+        assertEquals("ItThinClientComputeTest_null_" + port, pojoRes);
     }
 
     @Test
