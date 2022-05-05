@@ -32,6 +32,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -105,9 +106,12 @@ public class ClientComputeTest {
 
         try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
-            String res = client.compute().<String>executeColocated(TABLE_NAME, key, "job").join();
 
-            assertEquals("s2", res);
+            String res1 = client.compute().<String>executeColocated(TABLE_NAME, key, "job").join();
+            assertEquals("s2", res1);
+
+            String res2 = client.compute().<Long, String>executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), "job").join();
+            assertEquals("s2", res2);
         }
     }
 
