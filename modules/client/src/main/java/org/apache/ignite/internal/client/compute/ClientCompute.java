@@ -23,11 +23,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -43,11 +46,17 @@ import org.apache.ignite.table.mapper.Mapper;
  * Client compute implementation.
  */
 public class ClientCompute implements IgniteCompute {
+    /** Indicates a missing table. */
+    private static final Object MISSING_TABLE_TOKEN = new Object();
+
     /** Channel. */
     private final ReliableChannel ch;
 
     /** Tables. */
     private final ClientTables tables;
+
+    /** Cached tables. */
+    private final ConcurrentHashMap<String, ClientTable> tableCache = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -107,27 +116,36 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         // TODO: IGNITE-16925 - implement partition awareness.
-        // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
-        return tables.tableAsync(tableName).thenCompose(t -> {
-            if (t == null) {
-                throw new IgniteClientException("Table '" + tableName + "' does not exist.");
-            }
+        return getTable(tableName)
+                .thenCompose(t -> {
+                    if (t == null) {
+                        throw new IgniteClientException("Table '" + tableName + "' does not exist.");
+                    }
 
-            ClientTable tableInternal = (ClientTable) t;
+                    ClientTable tableInternal = (ClientTable) t;
 
-            return tableInternal.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (schema, outputChannel) -> {
-                ClientMessagePacker w = outputChannel.out();
+                    return tableInternal
+                            .doSchemaOutOpAsync(
+                                    ClientOp.COMPUTE_EXECUTE_COLOCATED,
+                                    (schema, outputChannel) -> {
+                                        ClientMessagePacker w = outputChannel.out();
 
-                w.packUuid(tableInternal.tableId());
-                w.packInt(schema.version());
+                                        w.packUuid(tableInternal.tableId());
+                                        w.packInt(schema.version());
 
-                ClientTupleSerializer serializer = new ClientTupleSerializer(tableInternal.tableId());
-                serializer.writeTuple(null, key, schema, outputChannel, true, true);
+                                        ClientTupleSerializer serializer = new ClientTupleSerializer(tableInternal.tableId());
+                                        serializer.writeTuple(null, key, schema, outputChannel, true, true);
 
-                w.packString(jobClassName);
-                w.packObjectArray(args);
-            }, r -> (R) r.unpackObjectWithType());
-        });
+                                        w.packString(jobClassName);
+                                        w.packObjectArray(args);
+                                    },
+                                    r -> (R) r.unpackObjectWithType())
+                            .handle((res, err) -> handleMissingTable(tableName, res, err));
+                })
+                .thenCompose(r ->
+                        r == MISSING_TABLE_TOKEN
+                                ? executeColocated(tableName, key, jobClassName, args)
+                                : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
@@ -139,28 +157,36 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(jobClassName);
 
         // TODO: IGNITE-16925 - implement partition awareness.
-        // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
-        // OR add overloads with Table to solve the same issue?
-        return tables.tableAsync(tableName).thenCompose(t -> {
-            if (t == null) {
-                throw new IgniteClientException("Table '" + tableName + "' does not exist.");
-            }
+        return getTable(tableName)
+                .thenCompose(t -> {
+                    if (t == null) {
+                        throw new IgniteClientException("Table '" + tableName + "' does not exist.");
+                    }
 
-            ClientTable tableInternal = (ClientTable) t;
+                    ClientTable tableInternal = (ClientTable) t;
 
-            return tableInternal.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (schema, outputChannel) -> {
-                ClientMessagePacker w = outputChannel.out();
+                    return tableInternal
+                            .doSchemaOutOpAsync(
+                                    ClientOp.COMPUTE_EXECUTE_COLOCATED,
+                                    (schema, outputChannel) -> {
+                                        ClientMessagePacker w = outputChannel.out();
 
-                w.packUuid(tableInternal.tableId());
-                w.packInt(schema.version());
+                                        w.packUuid(tableInternal.tableId());
+                                        w.packInt(schema.version());
 
-                var serializer = new ClientRecordSerializer<>(tableInternal.tableId(), keyMapper);
-                serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
+                                        var serializer = new ClientRecordSerializer<>(tableInternal.tableId(), keyMapper);
+                                        serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
 
-                w.packString(jobClassName);
-                w.packObjectArray(args);
-            }, r -> (R) r.unpackObjectWithType());
-        });
+                                        w.packString(jobClassName);
+                                        w.packObjectArray(args);
+                                    },
+                                    r -> (R) r.unpackObjectWithType())
+                            .handle((res, err) -> handleMissingTable(tableName, res, err));
+                })
+                .thenCompose(r ->
+                        r == MISSING_TABLE_TOKEN
+                                ? executeColocated(tableName, key, keyMapper, jobClassName, args)
+                                : CompletableFuture.completedFuture(r));
     }
 
     /** {@inheritDoc} */
@@ -209,5 +235,34 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return iterator.next();
+    }
+
+    private CompletableFuture<Table> getTable(String tableName) {
+        var cached = tableCache.get(tableName);
+
+        if (cached != null) {
+            return CompletableFuture.completedFuture(cached);
+        }
+
+        return tables.tableAsync(tableName).thenApply(t -> {
+            tableCache.put(t.name(), (ClientTable) t);
+            return t;
+        });
+    }
+
+    private <R> R handleMissingTable(String tableName, R res, Throwable err) {
+        if (err instanceof IgniteClientException &&
+                ((IgniteClientException) err).errorCode() == ClientErrorCode.TABLE_DOES_NOT_EXIST) {
+            // Cached table was removed - retrieve by name and retry.
+            tableCache.remove(tableName);
+
+            return (R) MISSING_TABLE_TOKEN;
+        }
+
+        if (err != null) {
+            throw new RuntimeException(err);
+        }
+
+        return res;
     }
 }
