@@ -51,7 +51,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client compute integration test.
@@ -147,10 +146,11 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyPojo = new TestPojo(key);
 
         String tupleRes = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
-        assertEquals("ItThinClientComputeTest_null_" + port, tupleRes);
-
         String pojoRes = client().compute().executeColocated(table, keyPojo, Mapper.of(TestPojo.class), NodeNameJob.class).join();
-        assertEquals("ItThinClientComputeTest_null_" + port, pojoRes);
+
+        String expectedNode = "ItThinClientComputeTest_null_" + port;
+        assertEquals(expectedNode, tupleRes);
+        assertEquals(expectedNode, pojoRes);
     }
 
     @Test
