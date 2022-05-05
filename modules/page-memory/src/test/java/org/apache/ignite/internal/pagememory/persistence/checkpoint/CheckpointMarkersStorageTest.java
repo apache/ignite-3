@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.FileWriter;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,7 +52,13 @@ public class CheckpointMarkersStorageTest {
 
     @Test
     void testFailCreateCheckpointDir() throws Exception {
-        Path testFile = createFile(workDir.resolve("test"));
+        Path testFile = createFile(workDir.resolve("testFile"));
+
+        try (FileWriter fileWriter = new FileWriter(testFile.toFile())) {
+            fileWriter.write("testString");
+
+            fileWriter.flush();
+        }
 
         IgniteInternalCheckedException exception = assertThrows(
                 IgniteInternalCheckedException.class,
