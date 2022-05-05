@@ -48,7 +48,7 @@ public class ClientTupleSerializer {
      *
      * @param tableId Table id.
      */
-    ClientTupleSerializer(UUID tableId) {
+    public ClientTupleSerializer(UUID tableId) {
         this.tableId = tableId;
     }
 
