@@ -103,11 +103,11 @@ public class ClientComputeTest {
     public void testExecuteColocated() throws Exception {
         initServers(reqId -> false);
 
-        try (var client = getClient(server1)) {
+        try (var client = getClient(server2)) {
             Tuple key = Tuple.create().set("key", "k");
             String res = client.compute().<String>executeColocated(TABLE_NAME, key, "job").join();
 
-            assertEquals("s1", res);
+            assertEquals("s2", res);
         }
     }
 
