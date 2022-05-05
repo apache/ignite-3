@@ -45,8 +45,12 @@ import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Thin client compute integration test.
@@ -134,9 +138,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cause.getMessage(), containsString("TransactionException: Custom job error"));
     }
 
-    @Test
-    void testExecuteColocatedTupleKey() {
-        // TODO
+    @ParameterizedTest
+    @CsvSource({"1,3345", "2,3345", "3,3344", "4,3344"})
+    void testExecuteColocatedTupleKey(long key, int port) {
+        String table = String.format("%s.%s", SCHEMA_NAME, TABLE_NAME);
+        Tuple keyTuple = Tuple.create().set(COLUMN_KEY, key);
+
+        String res = client().compute().executeColocated(table, keyTuple, NodeNameJob.class).join();
+
+        assertEquals("ItThinClientComputeTest_null_" + port, res);
     }
 
     @Test
