@@ -84,8 +84,7 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> executeColocated(String table, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        // TODO: IGNITE-16786 - implement this
-        throw new UnsupportedOperationException("Not implemented yet");
+        return executeColocated(table, key, jobClass.getName(), args);
     }
 
     /** {@inheritDoc} */
@@ -97,13 +96,16 @@ public class ClientCompute implements IgniteCompute {
             Class<? extends ComputeJob<R>> jobClass,
             Object... args
     ) {
-        // TODO: IGNITE-16786 - implement this
-        throw new UnsupportedOperationException("Not implemented yet");
+        return executeColocated(table, key, keyMapper, jobClass.getName(), args);
     }
 
     /** {@inheritDoc} */
     @Override
     public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
+        Objects.requireNonNull(table);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(jobClassName);
+
         // TODO: IGNITE-16925 - implement partition awareness.
         // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
         return tables.tableAsync(table).thenCompose(t -> {
@@ -131,6 +133,11 @@ public class ClientCompute implements IgniteCompute {
     /** {@inheritDoc} */
     @Override
     public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
+        Objects.requireNonNull(table);
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(keyMapper);
+        Objects.requireNonNull(jobClassName);
+
         // TODO: IGNITE-16925 - implement partition awareness.
         // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
         return tables.tableAsync(table).thenCompose(t -> {
