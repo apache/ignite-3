@@ -18,6 +18,7 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -103,6 +104,20 @@ public class ClientComputeTest {
             String res = client.compute().<String>executeColocated("tbl1", key, "job").join();
 
             assertEquals("s1", res);
+        }
+    }
+
+    @Test
+    public void testExecuteColocatedThrowsClientExceptionWhenTableDoesNotExist() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            Tuple key = Tuple.create().set("key", "k");
+
+            var ex = assertThrows(IgniteClientException.class,
+                    () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
+
+            assertEquals("Table 'bad-tbl' does not exist.", ex.getMessage());
         }
     }
 

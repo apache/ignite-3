@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
@@ -105,6 +106,10 @@ public class ClientCompute implements IgniteCompute {
         // TODO: IGNITE-16925 - implement partition awareness.
         // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
         return tables.tableAsync(table).thenCompose(t -> {
+            if (table == null) {
+                throw new IgniteClientException("Table '" + table + "' does not exist.");
+            }
+
             ClientTable tableInternal = (ClientTable)t;
 
             return tableInternal.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (schema, outputChannel) -> {
