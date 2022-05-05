@@ -18,7 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 /**
- * Raised when table with the specified ID does not exist.
+ * Raised when table with the specified ID does not exist (was dropped).
  */
 public class ClientTableIdDoesNotExistException extends RuntimeException {
     /**

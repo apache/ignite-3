@@ -39,6 +39,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataReque
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableIdDoesNotExistException;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -248,7 +249,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-            packer.packInt(ClientErrorCode.FAILED);
+
+            var errorCode = err instanceof ClientTableIdDoesNotExistException
+                    ? ClientErrorCode.TABLE_DOES_NOT_EXIST
+                    : ClientErrorCode.FAILED;
+
+            packer.packInt(errorCode);
 
             String msg = err.getMessage();
 
