@@ -59,7 +59,7 @@ public class VersionedValue<T> {
     /** Closure applied on storage revision update. */
     private final BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback;
 
-    /** List of completion listeners, see {@link #whenComplete(IgniteTriConsumer)} */
+    /** List of completion listeners, see {@link #whenComplete(IgniteTriConsumer)}. */
     private final List<IgniteTriConsumer<Long, T, Throwable>> completionListeners = new CopyOnWriteArrayList<>();
 
     /** Versioned value storage. */
