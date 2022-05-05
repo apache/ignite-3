@@ -25,6 +25,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
@@ -424,7 +425,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
-                return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+                return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);
