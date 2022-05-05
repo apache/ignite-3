@@ -328,8 +328,9 @@ public class VersionedValueTest {
                     return failedFuture(e);
                 }
 
-                if (v == successfulCompletionsCount)
+                if (v == successfulCompletionsCount) {
                     throw new IgniteInternalException(exceptionMsg);
+                }
 
                 actualSuccessfulCompletionsCount.incrementAndGet();
 
