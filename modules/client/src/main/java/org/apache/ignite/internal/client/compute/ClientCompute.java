@@ -83,34 +83,34 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String table, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
-        return executeColocated(table, key, jobClass.getName(), args);
+    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, Class<? extends ComputeJob<R>> jobClass, Object... args) {
+        return executeColocated(tableName, key, jobClass.getName(), args);
     }
 
     /** {@inheritDoc} */
     @Override
     public <K, R> CompletableFuture<R> executeColocated(
-            String table,
+            String tableName,
             K key,
             Mapper<K> keyMapper,
             Class<? extends ComputeJob<R>> jobClass,
             Object... args
     ) {
-        return executeColocated(table, key, keyMapper, jobClass.getName(), args);
+        return executeColocated(tableName, key, keyMapper, jobClass.getName(), args);
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
-        Objects.requireNonNull(table);
+    public <R> CompletableFuture<R> executeColocated(String tableName, Tuple key, String jobClassName, Object... args) {
+        Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(jobClassName);
 
         // TODO: IGNITE-16925 - implement partition awareness.
         // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
-        return tables.tableAsync(table).thenCompose(t -> {
+        return tables.tableAsync(tableName).thenCompose(t -> {
             if (t == null) {
-                throw new IgniteClientException("Table '" + table + "' does not exist.");
+                throw new IgniteClientException("Table '" + tableName + "' does not exist.");
             }
 
             ClientTable tableInternal = (ClientTable) t;
@@ -132,17 +132,18 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> CompletableFuture<R> executeColocated(String table, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
-        Objects.requireNonNull(table);
+    public <K, R> CompletableFuture<R> executeColocated(String tableName, K key, Mapper<K> keyMapper, String jobClassName, Object... args) {
+        Objects.requireNonNull(tableName);
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(jobClassName);
 
         // TODO: IGNITE-16925 - implement partition awareness.
         // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
-        return tables.tableAsync(table).thenCompose(t -> {
+        // OR add overloads with Table to solve the same issue?
+        return tables.tableAsync(tableName).thenCompose(t -> {
             if (t == null) {
-                throw new IgniteClientException("Table '" + table + "' does not exist.");
+                throw new IgniteClientException("Table '" + tableName + "' does not exist.");
             }
 
             ClientTable tableInternal = (ClientTable) t;
