@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientRecordBinaryView;
 import org.apache.ignite.internal.client.table.ClientTable;
@@ -102,18 +103,23 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <R> CompletableFuture<R> executeColocated(String table, Tuple key, String jobClassName, Object... args) {
         // TODO: IGNITE-16925 - implement partition awareness.
-        // TODO: Cache tables?
-        return tables.tableAsync(table).thenCompose(tbl -> ((ClientTable)tbl).doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (s, w) -> {
-            w.out().packString(table);
+        // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
+        return tables.tableAsync(table).thenCompose(t -> {
+            ClientTable tableInternal = (ClientTable)t;
 
-            ClientRecordBinaryView recView = (ClientRecordBinaryView) tbl.recordView();
-            w.out().packUuid(((ClientTable) tbl).tableId());
-            w.out().packInt(s.version());
-            recView.serializer().writeTuple(null, key, s, w, true, true);
+            return tableInternal.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (schema, outputChannel) -> {
+                ClientMessagePacker w = outputChannel.out();
 
-            w.out().packString(jobClassName);
-            w.out().packObjectArray(args);
-        }, r -> (R) r.unpackObjectWithType()));
+                w.packUuid(tableInternal.tableId()); // TODO: If the table does not exist, return special error code?
+                w.packInt(schema.version());
+
+                ClientTupleSerializer serializer = ((ClientRecordBinaryView) t.recordView()).serializer();
+                serializer.writeTuple(null, key, schema, outputChannel, true, true);
+
+                w.packString(jobClassName);
+                w.packObjectArray(args);
+            }, r -> (R) r.unpackObjectWithType());
+        });
     }
 
     /** {@inheritDoc} */

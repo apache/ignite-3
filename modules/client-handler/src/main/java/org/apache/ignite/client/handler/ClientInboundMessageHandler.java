@@ -417,6 +417,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
 
+            case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+                return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
