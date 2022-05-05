@@ -110,7 +110,7 @@ public class ClientCompute implements IgniteCompute {
             return tableInternal.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED, (schema, outputChannel) -> {
                 ClientMessagePacker w = outputChannel.out();
 
-                w.packUuid(tableInternal.tableId()); // TODO: If the table does not exist, return special error code?
+                w.packUuid(tableInternal.tableId());
                 w.packInt(schema.version());
 
                 ClientTupleSerializer serializer = ((ClientRecordBinaryView) t.recordView()).serializer();

@@ -28,6 +28,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -90,6 +91,18 @@ public class ClientComputeTest {
 
                 assertEquals("s3", res);
             }
+        }
+    }
+
+    @Test
+    public void testExecuteColocated() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            Tuple key = Tuple.create().set("key", "k");
+            String res = client.compute().<String>executeColocated("tbl1", key, "job").join();
+
+            assertEquals("s1", res);
         }
     }
 
