@@ -18,10 +18,12 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -114,10 +116,11 @@ public class ClientComputeTest {
         try (var client = getClient(server1)) {
             Tuple key = Tuple.create().set("key", "k");
 
-            var ex = assertThrows(IgniteClientException.class,
+            var ex = assertThrows(CompletionException.class,
                     () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
 
-            assertEquals("Table 'bad-tbl' does not exist.", ex.getMessage());
+            assertInstanceOf(IgniteClientException.class, ex.getCause());
+            assertEquals("Table 'bad-tbl' does not exist.", ex.getCause().getMessage());
         }
     }
 

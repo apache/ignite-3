@@ -106,7 +106,7 @@ public class ClientCompute implements IgniteCompute {
         // TODO: IGNITE-16925 - implement partition awareness.
         // TODO: Cache tables by name. If the table gets dropped, reset table cache and try again.
         return tables.tableAsync(table).thenCompose(t -> {
-            if (table == null) {
+            if (t == null) {
                 throw new IgniteClientException("Table '" + table + "' does not exist.");
             }
 
