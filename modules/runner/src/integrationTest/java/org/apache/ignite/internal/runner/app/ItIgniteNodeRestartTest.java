@@ -1028,8 +1028,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                     runAsync(() -> {
                         try {
                             Thread.sleep(10);
-                        }
-                        catch (InterruptedException e) {
+                        } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
 

@@ -142,8 +142,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(
                 causalityToken,
                 (schemas, e) -> {
-                    if (e != null)
+                    if (e != null) {
                         return failedFuture(e);
+                    }
 
                     Map<String, IgniteSchema> res =  new HashMap<>(schemas);
 
@@ -166,8 +167,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(
                     causalityToken,
                     (schemas, e) -> {
-                        if (e != null)
+                        if (e != null) {
                             return failedFuture(e);
+                        }
 
                         Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
@@ -192,8 +194,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(
                 causalityToken,
                 (schemas, e) -> {
-                    if (e != null)
+                    if (e != null) {
                         return failedFuture(e);
+                    }
 
                     Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
@@ -207,8 +210,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         .update(
                             causalityToken,
                             (tables, ex) -> {
-                                if (ex != null)
+                                if (ex != null) {
                                     return failedFuture(ex);
+                                }
 
                                 Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
@@ -247,8 +251,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     ) {
         CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(causalityToken,
                 (schemas, e) -> {
-                    if (e != null)
+                    if (e != null) {
                         return failedFuture(e);
+                    }
 
                     Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
@@ -264,8 +269,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                         return tablesVv
                             .update(causalityToken,
                                 (tables, ex) -> {
-                                    if (ex != null)
+                                    if (ex != null) {
                                         return failedFuture(ex);
+                                    }
 
                                     Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
@@ -292,8 +298,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         schemasFut.join().forEach(newCalciteSchema::add);
 
         calciteSchemaVv.update(causalityToken, (s, e) -> {
-            if (e != null)
+            if (e != null) {
                 return failedFuture(e);
+            }
 
             return completedFuture(newCalciteSchema);
         });

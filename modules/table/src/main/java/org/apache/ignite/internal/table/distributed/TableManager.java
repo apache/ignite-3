@@ -367,8 +367,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
 
         tablesByIdVv.update(causalityToken, (tablesById, e) -> {
-            if (e != null)
+            if (e != null) {
                 return failedFuture(e);
+            }
 
             TableImpl table = tablesById.get(tblId);
 
@@ -424,8 +425,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             // Create new raft nodes according to new assignments.
             tablesByIdVv.update(causalityToken, (tablesById, e) -> {
-                if (e != null)
+                if (e != null) {
                     return failedFuture(e);
+                }
 
                 InternalTable internalTable = tablesById.get(tblId).internalTable();
 
@@ -524,8 +526,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         var table = new TableImpl(internalTable, schemaRegistry);
 
         tablesVv.update(causalityToken, (previous, e) -> {
-            if (e != null)
+            if (e != null) {
                 return failedFuture(e);
+            }
 
             var val = new HashMap<>(previous);
 
@@ -535,8 +538,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         tablesByIdVv.update(causalityToken, (previous, e) -> {
-            if (e != null)
+            if (e != null) {
                 return failedFuture(e);
+            }
 
             var val = new HashMap<>(previous);
 
@@ -651,8 +655,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
 
             tablesVv.update(causalityToken, (previousVal, e) -> {
-                if (e != null)
-                     return failedFuture(e);
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
                 var map = new HashMap<>(previousVal);
 
@@ -664,8 +669,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             AtomicReference<TableImpl> tableHolder = new AtomicReference<>();
 
             tablesByIdVv.update(causalityToken, (previousVal, e) -> {
-                if (e != null)
+                if (e != null) {
                     return failedFuture(e);
+                }
 
                 var map = new HashMap<>(previousVal);
 

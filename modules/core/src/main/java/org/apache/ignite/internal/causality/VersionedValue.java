@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.causality;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -36,9 +39,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTriConsumer;
 import org.jetbrains.annotations.Nullable;
-
-import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 
 /**
  * Parametrized type to store several versions of the value.
@@ -331,8 +331,8 @@ public class VersionedValue<T> {
      */
     private void completeInternal(long causalityToken, T value, Throwable throwable) {
         CompletableFuture<T> res = history.putIfAbsent(
-            causalityToken,
-            throwable == null ? completedFuture(value) : failedFuture(throwable)
+                causalityToken,
+                throwable == null ? completedFuture(value) : failedFuture(throwable)
         );
 
         if (res == null || res.isCompletedExceptionally()) {
@@ -343,10 +343,11 @@ public class VersionedValue<T> {
 
         assert !res.isDone() : completeInternalConflictErrorMessage(res, causalityToken, value, throwable);
 
-        if (throwable == null)
+        if (throwable == null) {
             res.complete(value);
-        else
+        } else {
             res.completeExceptionally(throwable);
+        }
 
         notifyCompletionListeners(causalityToken, value, throwable);
     }
@@ -406,8 +407,8 @@ public class VersionedValue<T> {
      * @return               Future for updated value.
      */
     public CompletableFuture<T> update(
-        long causalityToken,
-        BiFunction<T, Throwable, CompletableFuture<T>> updater
+            long causalityToken,
+            BiFunction<T, Throwable, CompletableFuture<T>> updater
     ) {
         long actualToken = this.actualToken;
 
@@ -419,8 +420,8 @@ public class VersionedValue<T> {
             CompletableFuture<T> future = updaterFuture == null ? previousOrDefaultValueFuture(actualToken) : updaterFuture;
 
             CompletableFuture<CompletableFuture<T>> f0 = future
-                .handle(updater::apply)
-                .handle((fut, e) -> e == null ? fut : failedFuture(e));
+                    .handle(updater::apply)
+                    .handle((fut, e) -> e == null ? fut : failedFuture(e));
 
             updaterFuture = f0.thenCompose(Function.identity());
 
@@ -594,6 +595,10 @@ public class VersionedValue<T> {
                     notifyCompletionListeners(causalityToken, t, null);
                 }
             });
+        } else if (entry.getKey() < causalityToken) {
+            // Notifying listeners when there were no updates, no explicit completions.
+            // This future is previous, it is always done.
+            future.whenComplete((v, e) -> notifyCompletionListeners(causalityToken, v, e));
         }
     }
 

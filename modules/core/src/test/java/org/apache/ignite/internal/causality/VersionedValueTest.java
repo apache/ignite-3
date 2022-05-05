@@ -320,21 +320,21 @@ public class VersionedValueTest {
         schemasVv.whenComplete((token, value, ex) -> tablesVv.complete(token));
 
         BiFunction<Long, UUID, CompletableFuture<String>> schemaRegistry =
-            (token, uuid) -> schemasVv.get(token).thenApply(schemas -> schemas.get(uuid));
+                (token, uuid) -> schemasVv.get(token).thenApply(schemas -> schemas.get(uuid));
 
         // Adding table.
         long token = 0L;
         UUID tableId = UUID.randomUUID();
 
         CompletableFuture<String> tableFut = schemaRegistry.apply(token, tableId)
-            .thenCombine(assignmentsVv.get(token), (registry, assignments) -> tableName + registry + assignments.get(tableId));
+                .thenCombine(assignmentsVv.get(token), (registry, assignments) -> tableName + registry + assignments.get(tableId));
 
         tablesVv.update(token, (old, e) -> tableFut.thenApply(table -> {
-           Map<UUID, String> val = new HashMap<>(old);
+               Map<UUID, String> val = new HashMap<>(old);
 
-           val.put(tableId, table);
+               val.put(tableId, table);
 
-           return val;
+               return val;
         }));
 
         CompletableFuture<String> userFut = tablesVv.get(token).thenApply(map -> map.get(tableId));
@@ -443,54 +443,75 @@ public class VersionedValueTest {
         VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
 
         AtomicInteger a = new AtomicInteger();
+        AtomicInteger cntr = new AtomicInteger(-1);
 
         IgniteTriConsumer<Long, Integer, Throwable> listener = (t, v, e) -> {
-            if (e == null)
+            if (e == null) {
                 a.set(v);
-            else
+            } else {
                 a.set(-1);
+            }
+
+            cntr.incrementAndGet();
         };
 
         vv.whenComplete(listener);
 
         // Test complete.
-        vv.complete(0L, TEST_VALUE);
+        long token = 0;
+
+        vv.complete(token, TEST_VALUE);
 
         assertEquals(TEST_VALUE, a.get());
+        assertEquals(token, cntr.get());
 
-        REGISTER.moveRevision(0L).join();
+        REGISTER.moveRevision(token).join();
 
         // Test update.
-        vv.update(1L, (v, e) -> completedFuture(++v));
+        token = 1;
+
+        vv.update(token, (v, e) -> completedFuture(++v));
 
         assertEquals(TEST_VALUE, a.get());
 
-        REGISTER.moveRevision(1L).join();
+        REGISTER.moveRevision(token).join();
 
         assertEquals(TEST_VALUE + 1, a.get());
+        assertEquals(token, cntr.get());
 
         // Test move revision.
-        REGISTER.moveRevision(2L).join();
+        token = 2;
+
+        REGISTER.moveRevision(token).join();
 
         assertEquals(TEST_VALUE + 1, a.get());
+        assertEquals(token, cntr.get());
 
         // Test complete exceptionally.
-        vv.completeExceptionally(3L, new Exception());
+        token = 3;
+
+        vv.completeExceptionally(token, new Exception());
 
         assertEquals(-1, a.get());
+        assertEquals(token, cntr.get());
 
-        REGISTER.moveRevision(3L).join();
+        REGISTER.moveRevision(token).join();
+
+        assertEquals(token, cntr.get());
 
         // Test remove listener.
+        token = 4;
+
         vv.removeWhenComplete(listener);
 
         a.set(0);
 
-        vv.complete(4L, TEST_VALUE);
+        vv.complete(token, TEST_VALUE);
 
         assertEquals(0, a.get());
+        assertEquals(token - 1, cntr.get());
 
-        REGISTER.moveRevision(4L).join();
+        REGISTER.moveRevision(token).join();
     }
 
     /**
