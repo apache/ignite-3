@@ -48,7 +48,7 @@ public interface CheckpointListener {
     /**
      * Callback before the start of the checkpoint.
      *
-     * <p>Acquire checkpoint read lock.
+     * <p>Holds checkpoint read lock.
      *
      * @param progress Progress of the current checkpoint.
      * @throws IgniteInternalCheckedException If failed.
@@ -58,6 +58,8 @@ public interface CheckpointListener {
 
     /**
      * Callback after checkpoint ends.
+     *
+     * <p>Does not hold checkpoint read and write locks.
      *
      * @param progress Progress of the current checkpoint.
      * @throws IgniteInternalCheckedException If failed.

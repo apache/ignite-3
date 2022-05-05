@@ -46,6 +46,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Abstraction responsible for managing checkpoint markers storage.
  */
+// TODO: IGNITE-15818 At the moment, a simple implementation has been made, it may need to be redone, you need to check it
 public class CheckpointMarkersStorage {
     /** Earliest checkpoint map changes threshold system properties. */
     public static final String IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD = "IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD";

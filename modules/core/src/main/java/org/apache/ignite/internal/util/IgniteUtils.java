@@ -336,9 +336,9 @@ public class IgniteUtils {
     }
 
     /**
-     * Gets absolute value for integer. If integer is {@link Integer#MIN_VALUE}, then {@code 0} is returned.
+     * Gets absolute value for long. If long is {@link Long#MIN_VALUE}, then {@code 0} is returned.
      *
-     * @param i Integer.
+     * @param i Long value.
      * @return Absolute value.
      */
     public static long safeAbs(long i) {

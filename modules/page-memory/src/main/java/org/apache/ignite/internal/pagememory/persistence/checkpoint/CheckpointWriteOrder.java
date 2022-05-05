@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-
 import org.jetbrains.annotations.Nullable;
 
 /**

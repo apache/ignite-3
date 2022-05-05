@@ -33,7 +33,7 @@ public interface PageStoreWriter {
      * @param fullPageId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
      * PageMemoryImpl#beginCheckpoint(CompletableFuture)} method call.
      * @param buf Temporary buffer to write changes into.
-     * @param tag {@code Partition generation} if data was read, {@code null} otherwise (data already saved to storage).
+     * @param tag {@code Partition generation} if data was read.
      * @throws IgniteInternalCheckedException If write page failed.
      */
     void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
