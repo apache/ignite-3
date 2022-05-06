@@ -38,7 +38,6 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -117,31 +116,20 @@ public class ClientCompute implements IgniteCompute {
 
         // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(t -> {
-                    if (t == null) {
-                        throw new IgniteClientException("Table '" + tableName + "' does not exist.");
-                    }
+                .thenCompose(t -> t.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED,
+                        (schema, outputChannel) -> {
+                            ClientMessagePacker w = outputChannel.out();
 
-                    ClientTable tableInternal = (ClientTable) t;
+                            w.packUuid(t.tableId());
+                            w.packInt(schema.version());
 
-                    return tableInternal
-                            .doSchemaOutOpAsync(
-                                    ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                                    (schema, outputChannel) -> {
-                                        ClientMessagePacker w = outputChannel.out();
+                            ClientTupleSerializer serializer = new ClientTupleSerializer(t.tableId());
+                            serializer.writeTuple(null, key, schema, outputChannel, true, true);
 
-                                        w.packUuid(tableInternal.tableId());
-                                        w.packInt(schema.version());
-
-                                        ClientTupleSerializer serializer = new ClientTupleSerializer(tableInternal.tableId());
-                                        serializer.writeTuple(null, key, schema, outputChannel, true, true);
-
-                                        w.packString(jobClassName);
-                                        w.packObjectArray(args);
-                                    },
-                                    r -> (R) r.unpackObjectWithType())
-                            .handle((res, err) -> handleMissingTable(tableName, res, err));
-                })
+                            w.packString(jobClassName);
+                            w.packObjectArray(args);
+                        }, r -> (R) r.unpackObjectWithType()))
+                .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         r == MISSING_TABLE_TOKEN
                                 ? executeColocated(tableName, key, jobClassName, args)
@@ -158,31 +146,20 @@ public class ClientCompute implements IgniteCompute {
 
         // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(t -> {
-                    if (t == null) {
-                        throw new IgniteClientException("Table '" + tableName + "' does not exist.");
-                    }
+                .thenCompose(t -> t.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED,
+                        (schema, outputChannel) -> {
+                            ClientMessagePacker w = outputChannel.out();
 
-                    ClientTable tableInternal = (ClientTable) t;
+                            w.packUuid(t.tableId());
+                            w.packInt(schema.version());
 
-                    return tableInternal
-                            .doSchemaOutOpAsync(
-                                    ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                                    (schema, outputChannel) -> {
-                                        ClientMessagePacker w = outputChannel.out();
+                            var serializer = new ClientRecordSerializer<>(t.tableId(), keyMapper);
+                            serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
 
-                                        w.packUuid(tableInternal.tableId());
-                                        w.packInt(schema.version());
-
-                                        var serializer = new ClientRecordSerializer<>(tableInternal.tableId(), keyMapper);
-                                        serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
-
-                                        w.packString(jobClassName);
-                                        w.packObjectArray(args);
-                                    },
-                                    r -> (R) r.unpackObjectWithType())
-                            .handle((res, err) -> handleMissingTable(tableName, res, err));
-                })
+                            w.packString(jobClassName);
+                            w.packObjectArray(args);
+                        }, r -> (R) r.unpackObjectWithType()))
+                .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         r == MISSING_TABLE_TOKEN
                                 ? executeColocated(tableName, key, keyMapper, jobClassName, args)
@@ -237,7 +214,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private CompletableFuture<Table> getTable(String tableName) {
+    private CompletableFuture<ClientTable> getTable(String tableName) {
         var cached = tableCache.get(tableName);
 
         if (cached != null) {
@@ -245,8 +222,14 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return tables.tableAsync(tableName).thenApply(t -> {
-            tableCache.put(t.name(), (ClientTable) t);
-            return t;
+            if (t == null) {
+                throw new IgniteClientException("Table '" + tableName + "' does not exist.");
+            }
+
+            ClientTable clientTable = (ClientTable) t;
+            tableCache.put(t.name(), clientTable);
+
+            return clientTable;
         });
     }
 
