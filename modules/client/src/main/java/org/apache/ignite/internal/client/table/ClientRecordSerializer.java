@@ -71,15 +71,7 @@ public class ClientRecordSerializer<R> {
         return mapper;
     }
 
-    public void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
-        out.out().packUuid(tableId);
-        writeTx(tx, out);
-        out.out().packInt(schema.version());
-
-        writeRecRaw(rec, schema, out.out(), part);
-    }
-
-    public void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
 
@@ -88,6 +80,18 @@ public class ClientRecordSerializer<R> {
         } catch (MarshallerException e) {
             throw new IgniteClientException(e.getMessage(), e);
         }
+    }
+
+    public void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+        writeRecRaw(rec, mapper, schema, out, part);
+    }
+
+    public void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
+        out.out().packUuid(tableId);
+        writeTx(tx, out);
+        out.out().packInt(schema.version());
+
+        writeRecRaw(rec, schema, out.out(), part);
     }
 
     public void writeRecs(

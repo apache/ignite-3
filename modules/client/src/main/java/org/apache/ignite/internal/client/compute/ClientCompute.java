@@ -204,9 +204,7 @@ public class ClientCompute implements IgniteCompute {
                     w.packUuid(t.tableId());
                     w.packInt(schema.version());
 
-                    // TODO: Use static method call
-                    var serializer = new ClientRecordSerializer<>(t.tableId(), keyMapper);
-                    serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
+                    ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, w, TuplePart.KEY);
 
                     w.packString(jobClassName);
                     w.packObjectArray(args);
