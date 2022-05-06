@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
+import java.io.ObjectInputStream.GetField;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
@@ -69,7 +70,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * with a class which structure differs from our local version of the class.
  */
 @ExtendWith(MockitoExtension.class)
-class DefaultUserObjectMarshallerWithSchemaChangeTest {
+public class DefaultUserObjectMarshallerWithSchemaChangeTest {
     private static final byte[] INT_42_BYTES_IN_LITTLE_ENDIAN = {42, 0, 0, 0};
 
     private final ClassDescriptorRegistry localRegistry = new ClassDescriptorRegistry();
@@ -82,6 +83,8 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
 
     @Mock
     private SchemaMismatchHandler<Object> schemaMismatchHandler;
+
+    public static GetFieldReader getFieldReader;
 
     @SuppressWarnings("unchecked")
     @ParameterizedTest
@@ -217,7 +220,7 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
 
         ClassDescriptor remoteDescriptor = remoteRegistry.getRequiredDescriptor(remoteClass);
 
-        ClassDescriptor reconstructedDescriptor = ClassDescriptor.forRemote(
+        ClassDescriptor reconstructedRemoteDescriptor = ClassDescriptor.forRemote(
                 localDescriptor.localClass(),
                 remoteDescriptor.descriptorId(),
                 remoteDescriptor.superClassDescriptor(),
@@ -233,9 +236,9 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
 
         CompositeDescriptorRegistry compositeRegistry = new CompositeDescriptorRegistry(
                 new MapBackedIdIndexedDescriptors(
-                        Int2ObjectMaps.singleton(reconstructedDescriptor.descriptorId(), reconstructedDescriptor)
+                        Int2ObjectMaps.singleton(reconstructedRemoteDescriptor.descriptorId(), reconstructedRemoteDescriptor)
                 ),
-                new MapBackedClassIndexedDescriptors(Map.of(reconstructedDescriptor.localClass(), reconstructedDescriptor)),
+                new MapBackedClassIndexedDescriptors(Map.of(reconstructedRemoteDescriptor.localClass(), reconstructedRemoteDescriptor)),
                 localRegistry
         );
 
@@ -273,6 +276,53 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("extraFieldsForGetField")
+    void getFieldReturnsDefaultValueWhenRemoteClassHasExtraField(ExtraFieldForGetField extraField) throws Exception {
+        Class<?> remoteClass = SerializableWithDefaultedGetField.class;
+        Class<?> localClass = addFieldTo(remoteClass, "addedLocally", extraField.type);
+
+        Object remoteInstance = instantiate(remoteClass);
+
+        getFieldReader = extraField.reader;
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+
+        Object valueReadFromGetField = IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "readValue");
+        assertThat(valueReadFromGetField, is(extraField.expectedValue));
+    }
+
+    private static Stream<Arguments> extraFieldsForGetField() {
+        String fieldName = "addedLocally";
+        return Stream.of(
+                new ExtraFieldForGetField(byte.class, (byte) 10, field -> field.get(fieldName, (byte) 10)),
+                new ExtraFieldForGetField(short.class, (short) 11, field -> field.get(fieldName, (short) 11)),
+                new ExtraFieldForGetField(int.class, 12, field -> field.get(fieldName, 12)),
+                new ExtraFieldForGetField(long.class, (long) 13, field -> field.get(fieldName, (long) 13)),
+                new ExtraFieldForGetField(float.class, (float) 14, field -> field.get(fieldName, (float) 14)),
+                new ExtraFieldForGetField(double.class, (double) 15, field -> field.get(fieldName, (double) 15)),
+                new ExtraFieldForGetField(char.class, 'x', field -> field.get(fieldName, 'x')),
+                new ExtraFieldForGetField(boolean.class, true, field -> field.get(fieldName, true)),
+                new ExtraFieldForGetField(String.class, "Bye", field -> field.get(fieldName, "Bye"))
+        ).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("extraFields")
+    void getFieldDefaultedReturnsTrueForFieldsAddedLocally(ExtraField extraField) throws Exception {
+        Class<?> remoteClass = SerializableWithDefaultedGetField.class;
+        Class<?> localClass = addFieldTo(remoteClass, "addedLocally", extraField.type);
+
+        Object remoteInstance = instantiate(remoteClass);
+
+        getFieldReader = getField -> getField.defaulted("addedLocally");
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+
+        Object valueReadFromGetField = IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "readValue");
+        assertThat(valueReadFromGetField, is(true));
     }
 
     @Test
@@ -530,6 +580,55 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
             return "ExtraField{"
                     + "type=" + type
                     + ", value=" + value
+                    + '}';
+        }
+    }
+
+    private static class SerializableWithDefaultedGetField implements Serializable {
+        Object readValue;
+
+        private void writeObject(ObjectOutputStream stream) throws IOException {
+            stream.putFields();
+            stream.writeFields();;
+        }
+
+        private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+            GetField getField = stream.readFields();
+            readValue = getFieldReader.read(getField);
+        }
+    }
+
+    /**
+     * Reads a value from {@link GetField}.
+     */
+    public interface GetFieldReader {
+        /**
+         * Reads a value from the given {@link GetField}.
+         *
+         * @param getField {@link GetField} instance
+         * @return a value extracted from GetField
+         * @throws IOException if something goes wrong
+         */
+        Object read(GetField getField) throws IOException;
+    }
+
+    private static class ExtraFieldForGetField {
+        private final Class<?> type;
+        private final Object expectedValue;
+        private final GetFieldReader reader;
+
+        private ExtraFieldForGetField(Class<?> type, Object expectedValue, GetFieldReader reader) {
+            this.type = type;
+            this.expectedValue = expectedValue;
+            this.reader = reader;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return "ExtraFieldForGetField{"
+                    + "type=" + type
+                    + ", value=" + expectedValue
                     + '}';
         }
     }
