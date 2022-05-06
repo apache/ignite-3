@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents information of progress of a current checkpoint and allows obtaining future to wait for a particular checkpoint state.
  */
-// TODO: IGNITE-16898 Continue porting the code,
+// TODO: IGNITE-16898 Continue porting the code
 public interface CheckpointProgress {
     /**
      * Returns checkpoint ID.
@@ -38,6 +38,11 @@ public interface CheckpointProgress {
     @Nullable String reason();
 
     /**
+     * Return {@code true} If checkpoint already started but have not finished yet.
+     */
+    boolean inProgress();
+
+    /**
      * Returns future which can be used for detection when current checkpoint reaches the specific state.
      */
     CompletableFuture<?> futureFor(CheckpointState state);
@@ -46,4 +51,19 @@ public interface CheckpointProgress {
      * Returns number of dirty pages in current checkpoint. If checkpoint is not running, returns {@code 0}.
      */
     int currentCheckpointPagesCount();
+
+    /**
+     * Returns counter for written checkpoint pages. Not {@code null} only if checkpoint is running.
+     */
+    @Nullable AtomicInteger writtenPagesCounter();
+
+    /**
+     * Returns counter for fsynced checkpoint pages. Not {@code null} only if checkpoint is running.
+     */
+    @Nullable AtomicInteger syncedPagesCounter();
+
+    /**
+     * Returns Counter for evicted pages during current checkpoint. Not {@code null} only if checkpoint is running.
+     */
+    @Nullable AtomicInteger evictedPagesCounter();
 }

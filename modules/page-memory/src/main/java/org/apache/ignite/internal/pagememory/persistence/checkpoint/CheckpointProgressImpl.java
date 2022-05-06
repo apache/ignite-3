@@ -18,23 +18,23 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.SCHEDULED;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Empty.
+ * Data class representing the state of running/scheduled checkpoint.
  */
-// TODO: IGNITE-16898 Наполнить, написать тесты
 class CheckpointProgressImpl implements CheckpointProgress {
-    /**
-     * Checkpoint id.
-     */
+    /** Checkpoint id. */
     private final UUID id = UUID.randomUUID();
 
     /** Scheduled time of checkpoint. */
@@ -43,13 +43,17 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /** Current checkpoint state. */
     private volatile AtomicReference<CheckpointState> state = new AtomicReference<>(SCHEDULED);
 
+    /** Future which would be finished when corresponds state is set. */
+    private final Map<CheckpointState, CompletableFuture<?>> stateFutures = new ConcurrentHashMap<>();
+
     /** Wakeup reason. */
     private volatile String reason;
 
     /** Number of dirty pages in current checkpoint at the beginning of checkpoint. */
     private volatile int currCheckpointPagesCnt;
 
-    /** Cause of fail, which has happened during the checkpoint or null if checkpoint was successful. */
+    /** Cause of fail, which has happened during the checkpoint or {@code null} if checkpoint was successful. */
+    @Nullable
     private volatile Throwable failCause;
 
     /** Counter for written checkpoint pages. Not {@link null} only if checkpoint is running. */
@@ -67,58 +71,16 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /**
      * Constructor.
      *
-     * @param nextCheckpointTimeout Timeout until next checkpoint.
+     * @param nextCheckpointTimeout Timeout until next checkpoint in nanos.
      */
     CheckpointProgressImpl(long nextCheckpointTimeout) {
-        // Avoid overflow on nextCpNanos.
-        nextCheckpointTimeout = Math.min(TimeUnit.DAYS.toMillis(365), nextCheckpointTimeout);
-
-        nextCheckpointNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(nextCheckpointTimeout);
-    }
-
-    /**
-     * Returns scheduled time of checkpoint.
-     */
-    public long nextCheckpointNanos() {
-        return nextCheckpointNanos;
-    }
-
-    /**
-     * Sets new scheduled time of checkpoint.
-     *
-     * @param nextCheckpointNanos New scheduled time of checkpoint.
-     */
-    public void nextCheckpointNanos(long nextCheckpointNanos) {
-        this.nextCheckpointNanos = nextCheckpointNanos;
+        nextCheckpointNanos(nextCheckpointTimeout);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> futureFor(CheckpointState state) {
-        return null;
-    }
-
-    /**
-     * Changing checkpoint state if order of state is correct.
-     *
-     * @param newState New checkpoint state.
-     */
-    public void transitTo(CheckpointState newState) {
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int currentCheckpointPagesCount() {
-        return currCheckpointPagesCnt;
-    }
-
-    /**
-     * Sets current checkpoint pages num to store.
-     *
-     * @param num Pages to store.
-     */
-    public void currentCheckpointPagesCount(int num) {
-        currCheckpointPagesCnt = num;
+    public UUID id() {
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -138,8 +100,74 @@ class CheckpointProgressImpl implements CheckpointProgress {
 
     /** {@inheritDoc} */
     @Override
-    public UUID id() {
-        return id;
+    public boolean inProgress() {
+        return greaterOrEqualTo(LOCK_RELEASED) && !greaterOrEqualTo(FINISHED);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<?> futureFor(CheckpointState state) {
+        CompletableFuture<?> stateFut = stateFutures.computeIfAbsent(state, (k) -> new CompletableFuture<>());
+
+        if (greaterOrEqualTo(state)) {
+            completeFuture(stateFut, failCause);
+        }
+
+        return stateFut;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int currentCheckpointPagesCount() {
+        return currCheckpointPagesCnt;
+    }
+
+    /**
+     * Sets current checkpoint pages num to store.
+     *
+     * @param num Pages to store.
+     */
+    public void currentCheckpointPagesCount(int num) {
+        currCheckpointPagesCnt = num;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable AtomicInteger writtenPagesCounter() {
+        return writtenPagesCntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable AtomicInteger syncedPagesCounter() {
+        return syncedPagesCntr;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable AtomicInteger evictedPagesCounter() {
+        return evictedPagesCntr;
+    }
+
+    /**
+     * Returns scheduled time of checkpoint.
+     */
+    public long nextCheckpointNanos() {
+        return nextCheckpointNanos;
+    }
+
+    /**
+     * Sets new scheduled time of checkpoint.
+     *
+     * @param nextCheckpointNanos New scheduled time of checkpoint in nanos.
+     */
+    public void nextCheckpointNanos(long nextCheckpointNanos) {
+        // Avoid overflow on nextCheckpointNanos.
+        nextCheckpointNanos = Math.max(0, nextCheckpointNanos);
+
+        nextCheckpointNanos = Math.min(TimeUnit.DAYS.toNanos(365), nextCheckpointNanos);
+
+        this.nextCheckpointNanos = System.nanoTime() + nextCheckpointNanos;
     }
 
     /**
@@ -167,6 +195,21 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     /**
+     * Changing checkpoint state if order of state is correct.
+     *
+     * @param newState New checkpoint state.
+     */
+    public void transitTo(CheckpointState newState) {
+        CheckpointState state = this.state.get();
+
+        if (state.ordinal() < newState.ordinal()) {
+            this.state.compareAndSet(state, newState);
+
+            doFinishFuturesWhichLessOrEqualTo(newState);
+        }
+    }
+
+    /**
      * Mark this checkpoint execution as failed.
      *
      * @param error Causal error of fail.
@@ -178,11 +221,43 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     /**
-     * Returns {@code true} if current state equal to given state.
+     * Returns {@code true} if current state equal or greater to given state.
      *
      * @param expectedState Expected state.
      */
     public boolean greaterOrEqualTo(CheckpointState expectedState) {
         return state.get().ordinal() >= expectedState.ordinal();
+    }
+
+    /**
+     * Returns current state.
+     */
+    CheckpointState state() {
+        return state.get();
+    }
+
+    /**
+     * Finishing futures with correct result in direct state order until lastState(included).
+     *
+     * @param lastState State until which futures should be done.
+     */
+    private void doFinishFuturesWhichLessOrEqualTo(CheckpointState lastState) {
+        for (CheckpointState old : CheckpointState.values()) {
+            completeFuture(stateFutures.get(old), failCause);
+
+            if (old == lastState) {
+                return;
+            }
+        }
+    }
+
+    private static void completeFuture(@Nullable CompletableFuture<?> future, @Nullable Throwable throwable) {
+        if (future != null && !future.isDone()) {
+            if (throwable != null) {
+                future.completeExceptionally(throwable);
+            } else {
+                future.complete(null);
+            }
+        }
     }
 }
