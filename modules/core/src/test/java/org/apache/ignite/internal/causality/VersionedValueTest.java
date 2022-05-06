@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,20 +68,13 @@ public class VersionedValueTest {
      */
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(
-                (integerVersionedValue, token) -> {
-                    integerVersionedValue.complete(token, TEST_VALUE);
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(REGISTER, 2, null);
 
-                    return completedFuture(null);
-                },
-                REGISTER,
-                2,
-                null
-        );
-
-        CompletableFuture<Integer> fut = longVersionedValue.get(0);
+        CompletableFuture<Integer> fut = intVersionedValue.get(0);
 
         assertFalse(fut.isDone());
+
+        intVersionedValue.complete(0L, TEST_VALUE);
 
         REGISTER.moveRevision(0L).join();
 
@@ -88,7 +82,7 @@ public class VersionedValueTest {
 
         assertEquals(TEST_VALUE, fut.join());
 
-        assertSame(fut.join(), longVersionedValue.get(0).join());
+        assertSame(fut.join(), intVersionedValue.get(0).join());
     }
 
     /**
@@ -188,7 +182,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testAutocompleteFuture() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> completedFuture(null), REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -212,7 +206,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testUpdate() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> completedFuture(null), REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         longVersionedValue.complete(0, TEST_VALUE);
 
@@ -235,6 +229,8 @@ public class VersionedValueTest {
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE + incrementCount, fut.get());
+
+        assertThrows(AssertionError.class, () -> longVersionedValue.update(1L, (i, t) -> completedFuture(null)));
     }
 
     /**
@@ -244,7 +240,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testUpdatePredefined() throws Exception {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>((b, r) -> completedFuture(null), REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
         CompletableFuture<Integer> fut = longVersionedValue.get(0);
 
@@ -289,23 +285,6 @@ public class VersionedValueTest {
         revFut.join();
 
         assertTrue(vvFut.isDone());
-
-        // Test async callback.
-        CompletableFuture<?> cbFut = new CompletableFuture<>();
-
-        vv = new VersionedValue<>((v, t) -> cbFut, REGISTER);
-
-        revFut = REGISTER.moveRevision(1L);
-
-        vvFut = vv.get(1L);
-
-        assertFalse(vvFut.isDone());
-        assertFalse(revFut.isDone());
-
-        cbFut.complete(null);
-
-        assertTrue(vvFut.isDone());
-        assertTrue(revFut.isDone());
     }
 
     /**

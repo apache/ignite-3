@@ -38,7 +38,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteTriConsumer;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Parametrized type to store several versions of the value.
@@ -55,9 +54,6 @@ public class VersionedValue<T> {
 
     /** Size of stored history. */
     private final int historySize;
-
-    /** Closure applied on storage revision update. */
-    private final BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback;
 
     /** List of completion listeners, see {@link #whenComplete(IgniteTriConsumer)}. */
     private final List<IgniteTriConsumer<Long, T, Throwable>> completionListeners = new CopyOnWriteArrayList<>();
@@ -96,7 +92,6 @@ public class VersionedValue<T> {
     /**
      * Constructor.
      *
-     * @param storageRevisionUpdateCallback Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}).
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
      *                                      This closure is called once on a construction of this VersionedValue and accepts a
@@ -108,13 +103,10 @@ public class VersionedValue<T> {
      *                                      evaluate the default value if the value is not initialized yet.
      */
     public VersionedValue(
-            @Nullable BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback,
             Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
             int historySize,
             Supplier<T> defaultVal
     ) {
-        this.storageRevisionUpdateCallback = storageRevisionUpdateCallback;
-
         this.historySize = historySize;
 
         this.defaultValSupplier = defaultVal;
@@ -138,29 +130,11 @@ public class VersionedValue<T> {
             Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
             Supplier<T> defaultVal
     ) {
-        this(null, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, defaultVal);
+        this(observableRevisionUpdater, DEFAULT_HISTORY_SIZE, defaultVal);
     }
 
     /**
-     * Constructor with default history size that equals 2. See {@link #VersionedValue(BiFunction, Consumer, int, Supplier)}.
-     *
-     * @param storageRevisionUpdateCallback Closure applied on storage revision update (see {@link #onStorageRevisionUpdate(long)}.
-     * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
-     *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
-     *                                      This closure is called once on a construction of this VersionedValue and accepts a
-     *                                      {@code Function<Long, CompletableFuture<?>>} that should be called on every update of
-     *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
-     *                                      concurrently with {@link #complete(long, T)} operations.
-     */
-    public VersionedValue(
-            @Nullable BiFunction<VersionedValue<T>, Long, CompletableFuture<?>> storageRevisionUpdateCallback,
-            Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater
-    ) {
-        this(storageRevisionUpdateCallback, observableRevisionUpdater, DEFAULT_HISTORY_SIZE, null);
-    }
-
-    /**
-     * Constructor with default history size that equals 2 and no closure. See {@link #VersionedValue(BiFunction, Consumer, int, Supplier)}.
+     * Constructor with default history size that equals 2. See {@link #VersionedValue(Consumer, int, Supplier)}.
      *
      * @param observableRevisionUpdater     A closure intended to connect this VersionedValue with a revision updater, that this
      *                                      VersionedValue should be able to listen to, for receiving storage revision updates.
@@ -170,7 +144,7 @@ public class VersionedValue<T> {
      *                                      concurrently with {@link #complete(long, T)} operations.
      */
     public VersionedValue(Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater) {
-        this(null, observableRevisionUpdater);
+        this(observableRevisionUpdater, DEFAULT_HISTORY_SIZE, null);
     }
 
     /**
@@ -282,7 +256,7 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      */
     public void complete(long causalityToken) {
-        completeOnRevision(causalityToken, false);
+        completeOnRevision(causalityToken);
     }
 
     /**
@@ -491,17 +465,16 @@ public class VersionedValue<T> {
      * @param causalityToken Causality token.
      */
     private CompletableFuture<?> onStorageRevisionUpdate(long causalityToken) {
-        return completeOnRevision(causalityToken, true);
+        return completeOnRevision(causalityToken);
     }
 
     /**
      * Complete because of explicit token update.
      *
      * @param causalityToken Token.
-     * @param performRevisionCallback Whether to perform storage revision callback.
      * @return Future.
      */
-    private CompletableFuture<?> completeOnRevision(long causalityToken, boolean performRevisionCallback) {
+    private CompletableFuture<?> completeOnRevision(long causalityToken) {
         long actualToken0 = actualToken;
 
         assert causalityToken > actualToken0 : IgniteStringFormatter.format(
@@ -512,13 +485,6 @@ public class VersionedValue<T> {
         }
 
         return completeUpdatesIfPresent(causalityToken)
-                .thenCompose(v -> {
-                    if (storageRevisionUpdateCallback != null && performRevisionCallback) {
-                        return storageRevisionUpdateCallback.apply(this, causalityToken);
-                    } else {
-                        return completedFuture(null);
-                    }
-                })
                 .thenRun(() -> {
                     completeRelatedFuture(causalityToken);
 
