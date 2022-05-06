@@ -485,7 +485,12 @@ public class VersionedValueTest {
         // Test complete.
         long token = 0;
 
+        final long finalToken0 = token;
+
         vv.complete(token, TEST_VALUE);
+
+        assertThrows(AssertionError.class, () -> vv.complete(finalToken0, 0));
+        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken0, new Exception()));
 
         assertEquals(TEST_VALUE, a.get());
         assertEquals(token, cntr.get());
@@ -515,7 +520,12 @@ public class VersionedValueTest {
         // Test complete exceptionally.
         token = 3;
 
+        final long finalToken3 = token;
+
         vv.completeExceptionally(token, new Exception());
+
+        assertThrows(AssertionError.class, () -> vv.complete(finalToken3, 0));
+        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken3, new Exception()));
 
         assertEquals(-1, a.get());
         assertEquals(token, cntr.get());

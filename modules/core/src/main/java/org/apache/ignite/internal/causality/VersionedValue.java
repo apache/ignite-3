@@ -29,6 +29,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
@@ -76,11 +77,11 @@ public class VersionedValue<T> {
     /** Update mutex. */
     private final Object updateMutex = new Object();
 
+    /** Value that can be used as default. */
+    private final AtomicReference<T> defaultValRef;
+
     /** Last applied causality token. */
     private volatile long actualToken = NOT_INITIALIZED;
-
-    /** Value that can be used as default. */
-    private volatile T defaultVal;
 
     /**
      * Future that will be completed after all updates over the value in context of current causality token will be performed.
@@ -100,7 +101,8 @@ public class VersionedValue<T> {
      *                                      concurrently with {@link #complete(long, T)} operations.
      * @param historySize                   Size of the history of changes to store, including last applied token.
      * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
-     *                                      evaluate the default value if the value is not initialized yet.
+     *                                      evaluate the default value if the value is not initialized yet. It is not guaranteed to
+     *                                      execute only once.
      */
     public VersionedValue(
             Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
@@ -110,6 +112,8 @@ public class VersionedValue<T> {
         this.historySize = historySize;
 
         this.defaultValSupplier = defaultVal;
+
+        this.defaultValRef = defaultValSupplier == null ? null : new AtomicReference<>();
 
         observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
     }
@@ -124,7 +128,8 @@ public class VersionedValue<T> {
      *                                      storage revision as a listener. IMPORTANT: Revision update shouldn't happen
      *                                      concurrently with {@link #complete(long, T)} operations.
      * @param defaultVal                    Supplier of the default value, that is used on {@link #update(long, BiFunction)} to
-     *                                      evaluate the default value if the value is not initialized yet.
+     *                                      evaluate the default value if the value is not initialized yet. It is not guaranteed to
+     *                                      execute only once.
      */
     public VersionedValue(
             Consumer<Function<Long, CompletableFuture<?>>> observableRevisionUpdater,
@@ -214,22 +219,24 @@ public class VersionedValue<T> {
             }
         }
 
-        synchronized (updateMutex) {
-            return getDefault();
-        }
+        return getDefault();
     }
 
     /**
-     * Returns a default value. It isn't thread safe and should be protected by {@link #updateMutex} in all usages.
+     * Creates (if needed) and returns a default value.
      *
      * @return The value.
      */
     private T getDefault() {
-        if (defaultValSupplier != null && defaultVal == null) {
-            defaultVal = defaultValSupplier.get();
+        if (defaultValSupplier != null && defaultValRef.get() == null) {
+            T defaultVal = defaultValSupplier.get();
+
+            assert defaultVal != null : "Default value can't be null.";
+
+            defaultValRef.compareAndSet(null, defaultVal);
         }
 
-        return defaultVal;
+        return defaultValRef == null ? null : defaultValRef.get();
     }
 
     /**
@@ -310,7 +317,7 @@ public class VersionedValue<T> {
                 throwable == null ? completedFuture(value) : failedFuture(throwable)
         );
 
-        if (res == null || res.isCompletedExceptionally()) {
+        if (res == null) {
             notifyCompletionListeners(causalityToken, value, throwable);
 
             return;
@@ -484,40 +491,29 @@ public class VersionedValue<T> {
             history.put(causalityToken, initFut);
         }
 
-        return completeUpdatesIfPresent(causalityToken)
-                .thenRun(() -> {
-                    completeRelatedFuture(causalityToken);
-
-                    if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
-                        trimToSize(causalityToken);
-                    }
-
-                    Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
-
-                    assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
-                        "Future for the token is not completed [token={}]", causalityToken);
-
-                    actualToken = causalityToken;
-                });
-    }
-
-    /**
-     * Complete this versioned value on the given token, if any updates in context of current causality token have been initiated.
-     *
-     * @param causalityToken Causality token.
-     * @return Future.
-     */
-    private CompletableFuture<?> completeUpdatesIfPresent(long causalityToken) {
         synchronized (updateMutex) {
-            CompletableFuture<T> updaterFuture = this.updaterFuture;
+            CompletableFuture<T> updaterFuture0 = updaterFuture;
 
-            this.updaterFuture = null;
+            CompletableFuture<?> completeUpdatesFuture = updaterFuture0 == null
+                ? completedFuture(null)
+                : updaterFuture0.whenComplete((v, t) -> completeInternal(causalityToken, v, t));
 
-            if (updaterFuture != null) {
-                return updaterFuture.whenComplete((v, t) -> completeInternal(causalityToken, v, t));
-            } else {
-                return completedFuture(null);
-            }
+            updaterFuture = null;
+
+            actualToken = causalityToken;
+
+            return completeUpdatesFuture.thenRun(() -> {
+                completeRelatedFuture(causalityToken);
+
+                if (history.size() > 1 && causalityToken - history.firstKey() >= historySize) {
+                    trimToSize(causalityToken);
+                }
+
+                Entry<Long, CompletableFuture<T>> entry = history.floorEntry(causalityToken);
+
+                assert entry != null && entry.getValue().isDone() : IgniteStringFormatter.format(
+                    "Future for the token is not completed [token={}]", causalityToken);
+            });
         }
     }
 
@@ -534,15 +530,7 @@ public class VersionedValue<T> {
         if (!future.isDone()) {
             Entry<Long, CompletableFuture<T>> entryBefore = history.headMap(causalityToken).lastEntry();
 
-            CompletableFuture<T> previousFuture;
-
-            if (entryBefore == null) {
-                synchronized (updateMutex) {
-                    previousFuture = completedFuture(getDefault());
-                }
-            } else {
-                previousFuture = entryBefore.getValue();
-            }
+            CompletableFuture<T> previousFuture = entryBefore == null ? completedFuture(getDefault()) : entryBefore.getValue();
 
             assert previousFuture.isDone() : IgniteStringFormatter.format("No future for token [token={}]", causalityToken);
 
@@ -565,7 +553,7 @@ public class VersionedValue<T> {
     }
 
     /**
-     * Return a future for previous or default value. Should be protected by {@link #updateMutex}.
+     * Return a future for previous or default value.
      *
      * @param actualToken Token.
      * @return Future.
