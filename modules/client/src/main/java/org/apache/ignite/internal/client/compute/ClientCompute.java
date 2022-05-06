@@ -116,19 +116,7 @@ public class ClientCompute implements IgniteCompute {
 
         // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(t -> t.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                        (schema, outputChannel) -> {
-                            ClientMessagePacker w = outputChannel.out();
-
-                            w.packUuid(t.tableId());
-                            w.packInt(schema.version());
-
-                            ClientTupleSerializer serializer = new ClientTupleSerializer(t.tableId());
-                            serializer.writeTuple(null, key, schema, outputChannel, true, true);
-
-                            w.packString(jobClassName);
-                            w.packObjectArray(args);
-                        }, r -> (R) r.unpackObjectWithType()))
+                .thenCompose(table -> this.<R>executeColocatedTupleKey(table, key, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         r == MISSING_TABLE_TOKEN
@@ -146,19 +134,7 @@ public class ClientCompute implements IgniteCompute {
 
         // TODO: IGNITE-16925 - implement partition awareness.
         return getTable(tableName)
-                .thenCompose(t -> t.doSchemaOutOpAsync(ClientOp.COMPUTE_EXECUTE_COLOCATED,
-                        (schema, outputChannel) -> {
-                            ClientMessagePacker w = outputChannel.out();
-
-                            w.packUuid(t.tableId());
-                            w.packInt(schema.version());
-
-                            var serializer = new ClientRecordSerializer<>(t.tableId(), keyMapper);
-                            serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
-
-                            w.packString(jobClassName);
-                            w.packObjectArray(args);
-                        }, r -> (R) r.unpackObjectWithType()))
+                .thenCompose(table -> this.<K, R>executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
                         r == MISSING_TABLE_TOKEN
@@ -212,6 +188,53 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return iterator.next();
+    }
+
+    private <K, R> CompletableFuture<R> executeColocatedObjectKey(
+            ClientTable t,
+            K key,
+            Mapper<K> keyMapper,
+            String jobClassName,
+            Object[] args) {
+        return t.doSchemaOutOpAsync(
+                ClientOp.COMPUTE_EXECUTE_COLOCATED,
+                (schema, outputChannel) -> {
+                    ClientMessagePacker w = outputChannel.out();
+
+                    w.packUuid(t.tableId());
+                    w.packInt(schema.version());
+
+                    // TODO: Use static method call
+                    var serializer = new ClientRecordSerializer<>(t.tableId(), keyMapper);
+                    serializer.writeRecRaw(key, schema, w, TuplePart.KEY);
+
+                    w.packString(jobClassName);
+                    w.packObjectArray(args);
+                },
+                r -> (R) r.unpackObjectWithType());
+    }
+
+    private <R> CompletableFuture<R> executeColocatedTupleKey(
+            ClientTable t,
+            Tuple key,
+            String jobClassName,
+            Object[] args) {
+        return t.doSchemaOutOpAsync(
+                ClientOp.COMPUTE_EXECUTE_COLOCATED,
+                (schema, outputChannel) -> {
+                    ClientMessagePacker w = outputChannel.out();
+
+                    w.packUuid(t.tableId());
+                    w.packInt(schema.version());
+
+                    // TODO: Use static method call
+                    var serializer = new ClientTupleSerializer(t.tableId());
+                    serializer.writeTuple(null, key, schema, outputChannel, true, true);
+
+                    w.packString(jobClassName);
+                    w.packObjectArray(args);
+                },
+                r -> (R) r.unpackObjectWithType());
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
