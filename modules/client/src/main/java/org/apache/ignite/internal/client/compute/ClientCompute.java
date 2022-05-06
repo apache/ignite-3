@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.client.IgniteClientException;
@@ -119,6 +120,7 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(table -> this.<R>executeColocatedTupleKey(table, key, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
+                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
                                 ? executeColocated(tableName, key, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
@@ -137,6 +139,7 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(table -> this.<K, R>executeColocatedObjectKey(table, key, keyMapper, jobClassName, args))
                 .handle((res, err) -> handleMissingTable(tableName, res, err))
                 .thenCompose(r ->
+                        // If a table was dropped, try again: maybe a new table was created with the same name and new id.
                         r == MISSING_TABLE_TOKEN
                                 ? executeColocated(tableName, key, keyMapper, jobClassName, args)
                                 : CompletableFuture.completedFuture(r));
@@ -234,6 +237,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {
+        // Cache tables by name to avoid extra network call on every executeColocated.
         var cached = tableCache.get(tableName);
 
         if (cached != null) {
@@ -253,16 +257,25 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <R> R handleMissingTable(String tableName, R res, Throwable err) {
-        if (err instanceof IgniteClientException &&
-                ((IgniteClientException) err).errorCode() == ClientErrorCode.TABLE_DOES_NOT_EXIST) {
-            // Cached table was removed - retrieve by name and retry.
-            tableCache.remove(tableName);
+        if (err instanceof CompletionException) {
+            err = err.getCause();
+        }
 
-            return (R) MISSING_TABLE_TOKEN;
+        if (err instanceof IgniteClientException) {
+            IgniteClientException clientEx = (IgniteClientException) err;
+
+            if (clientEx.errorCode() == ClientErrorCode.TABLE_DOES_NOT_EXIST) {
+                // Cached table was dropped - remove from cache.
+                tableCache.remove(tableName);
+
+                return (R) MISSING_TABLE_TOKEN;
+            }
+
+            throw new IgniteClientException(clientEx.getMessage(), clientEx.errorCode(), clientEx);
         }
 
         if (err != null) {
-            throw new RuntimeException(err);
+            throw new IgniteClientException(err.getMessage(), err);
         }
 
         return res;
