@@ -177,20 +177,20 @@ public class VersionedValue<T> {
      * @return The future.
      */
     private CompletableFuture<T> getInternal(long causalityToken) {
-        long actualToken = this.actualToken;
+        long actualToken0 = this.actualToken;
 
         if (history.floorEntry(causalityToken) == null) {
-            throw new OutdatedTokenException(causalityToken, actualToken, historySize);
+            throw new OutdatedTokenException(causalityToken, actualToken0, historySize);
         }
 
-        if (causalityToken <= actualToken) {
+        if (causalityToken <= actualToken0) {
             return getValueForPreviousToken(causalityToken);
         }
 
         trimHistoryLock.readLock().lock();
 
         try {
-            if (causalityToken <= actualToken) {
+            if (causalityToken <= actualToken0) {
                 return getValueForPreviousToken(causalityToken);
             }
 
@@ -385,14 +385,14 @@ public class VersionedValue<T> {
             long causalityToken,
             BiFunction<T, Throwable, CompletableFuture<T>> updater
     ) {
-        long actualToken = this.actualToken;
+        long actualToken0 = this.actualToken;
 
-        checkToken(actualToken, causalityToken);
+        checkToken(actualToken0, causalityToken);
 
         synchronized (updateMutex) {
             CompletableFuture<T> updaterFuture = this.updaterFuture;
 
-            CompletableFuture<T> future = updaterFuture == null ? previousOrDefaultValueFuture(actualToken) : updaterFuture;
+            CompletableFuture<T> future = updaterFuture == null ? previousOrDefaultValueFuture(actualToken0) : updaterFuture;
 
             CompletableFuture<CompletableFuture<T>> f0 = future
                     .handle(updater::apply)
