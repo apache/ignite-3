@@ -23,13 +23,11 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.PENDING_ASSIGNMENTS
 import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPendingKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsStableKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +43,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.NamedListView;
@@ -1383,7 +1382,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     }
 
     /**
-     * Register the new meta storage listener for changes in pending partitions.
+     * Register the new meta storage listener for changes in the rebalance-specific keys.
      */
     private void registerRebalanceListeners() {
         metaStorageMgr.registerWatchByPrefix(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), new WatchListener() {
@@ -1403,56 +1402,60 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
                     UUID tblId = extractTableId(evt.entryEvent().newEntry().key(), PENDING_ASSIGNMENTS_PREFIX);
 
-                    var pendingAssignments = metaStorageMgr.get(partAssignmentsPendingKey(partitionRaftGroupName(tblId, part))).join();
-
-                    if (!Arrays.equals(pendingAssignments.value(), evt.entryEvent().newEntry().value())) {
-                        return true;
-                    }
+                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
 
                     TableImpl tbl = tablesByIdVv.latest().get(tblId);
 
-                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
+                    var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partitionRaftGroupName(tblId, part))).join();
 
-                    String grpId = partitionRaftGroupName(tblId, part);
+                    // Do not change peers if this is a stale event, but start raft node for the sake of the consistency in a starting and
+                    // stopping raft nodes.
+                    if (evt.entryEvent().newEntry().revision() < pendingAssignments.revision()) {
 
-                    Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
-                            new VersionedRowStore(
-                                    tbl.internalTable().storage().getOrCreatePartition(part), txManager));
+                        ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
 
-                    Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
-                            metaStorageMgr,
-                            tblCfg,
-                            grpId,
-                            part,
-                            busyLock);
+                        String grpId = partitionRaftGroupName(tblId, part);
 
-                    List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
-                            ByteUtils.fromBytes(tblCfg.assignments().value());
+                        Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
+                                new VersionedRowStore(
+                                        tbl.internalTable().storage().getOrCreatePartition(part), txManager));
 
-                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+                        Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
+                                metaStorageMgr,
+                                tblCfg,
+                                grpId,
+                                part,
+                                busyLock);
 
-                    var deltaPeers = newPeers.stream()
-                            .filter(p -> !assignments.get(part).contains(p))
-                            .collect(Collectors.toList());
+                        List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
+                                ByteUtils.fromBytes(tblCfg.assignments().value());
 
-                    try {
-                        raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier, raftGrpEvtsLsnrSupplier);
+                        var deltaPeers = newPeers.stream()
+                                .filter(p -> !assignments.get(part).contains(p))
+                                .collect(Collectors.toList());
 
-                        var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
-                        RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
-
-                        IgniteBiTuple<Peer, Long> leaderWithTerm =
-                                partGrpSvc.refreshAndGetLeaderWithTerm().join();
-
-                        ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
-
-                        // run update of raft configuration if this node is a leader
-                        if (localMember.address().equals(leaderWithTerm.get1().address())) {
-                            partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
+                        try {
+                            raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier,
+                                    raftGrpEvtsLsnrSupplier);
+                        } catch (NodeStoppingException e) {
+                            // no-op
                         }
-                    } catch (NodeStoppingException e) {
-                        // no-op
+
+                        return true;
+                    }
+
+                    var newNodes = newPeers.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+                    RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
+
+                    IgniteBiTuple<Peer, Long> leaderWithTerm =
+                            partGrpSvc.refreshAndGetLeaderWithTerm().join();
+
+                    ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
+
+                    // run update of raft configuration if this node is a leader
+                    if (localMember.address().equals(leaderWithTerm.get1().address())) {
+                        partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
                     }
 
                     return true;
@@ -1484,32 +1487,23 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
                     UUID tblId = extractTableId(evt.entryEvent().newEntry().key(), STABLE_ASSIGNMENTS_PREFIX);
 
-                    var stableAssignments = metaStorageMgr.get(partAssignmentsStableKey(partitionRaftGroupName(tblId, part))).join();
+                    String partId = partitionRaftGroupName(tblId, part);
 
-                    if (!Arrays.equals(stableAssignments.value(), evt.entryEvent().newEntry().value())) {
-                        return true;
-                    }
+                    var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
 
-                    TableImpl tbl = tablesByIdVv.latest().get(tblId);
+                    var pendingAssignments = (List<ClusterNode>) ByteUtils.fromBytes(
+                            metaStorageMgr.get(pendingPartAssignmentsKey(partId),
+                                    evt.entryEvent().newEntry().revision()).join().value()
+                    );
 
-                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
-
-                    String grpId = partitionRaftGroupName(tblId, part);
-
-                    List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
-                            ByteUtils.fromBytes(tblCfg.assignments().value());
-
-                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
-
-                    var toStop = assignments.get(part).stream()
-                            .filter(p -> !newPeers.contains(p))
+                    List<ClusterNode> appliedPeers = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .collect(Collectors.toList());
 
                     try {
                         ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
 
-                        if (toStop.contains(localMember)) {
-                            raftMgr.stopRaftGroup(grpId);
+                        if (!appliedPeers.contains(localMember)) {
+                            raftMgr.stopRaftGroup(partId);
                         }
                     } catch (NodeStoppingException e) {
                         // no-op

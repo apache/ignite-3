@@ -58,11 +58,11 @@ public class RebalanceUtil {
             int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
-        ByteArray partAssignmentsPendingKey = partAssignmentsPendingKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        ByteArray partAssignmentsPlannedKey = partAssignmentsPlannedKey(partId);
+        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
-        ByteArray partAssignmentsStableKey = partAssignmentsStableKey(partId);
+        ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(
                 AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas).get(partNum));
@@ -120,7 +120,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partAssignmentsPendingKey(String partId) {
+    public static ByteArray pendingPartAssignmentsKey(String partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -131,7 +131,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partAssignmentsPlannedKey(String partId) {
+    public static ByteArray plannedPartAssignmentsKey(String partId) {
         return new ByteArray("assignments.planned." + partId);
     }
 
@@ -142,7 +142,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partAssignmentsStableKey(String partId) {
+    public static ByteArray stablePartAssignmentsKey(String partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
