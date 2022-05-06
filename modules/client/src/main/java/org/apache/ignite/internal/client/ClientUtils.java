@@ -171,6 +171,7 @@ public class ClientUtils {
                 return null;
 
             case ClientOp.COMPUTE_EXECUTE:
+            case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientOperationType.COMPUTE_EXECUTE;
 
             case ClientOp.CLUSTER_GET_NODES:
