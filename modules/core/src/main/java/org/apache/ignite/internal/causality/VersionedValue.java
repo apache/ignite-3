@@ -495,8 +495,8 @@ public class VersionedValue<T> {
             CompletableFuture<T> updaterFuture0 = updaterFuture;
 
             CompletableFuture<?> completeUpdatesFuture = updaterFuture0 == null
-                ? completedFuture(null)
-                : updaterFuture0.whenComplete((v, t) -> completeInternal(causalityToken, v, t));
+                    ? completedFuture(null)
+                    : updaterFuture0.whenComplete((v, t) -> completeInternal(causalityToken, v, t));
 
             updaterFuture = null;
 
