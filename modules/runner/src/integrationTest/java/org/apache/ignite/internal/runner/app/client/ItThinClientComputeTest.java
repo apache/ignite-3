@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -152,11 +151,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         String expectedNode = "ItThinClientComputeTest_null_" + port;
         assertEquals(expectedNode, tupleRes);
         assertEquals(expectedNode, pojoRes);
-    }
-
-    void testExecuteColocatedUpdatesTableCacheOnTableDrop() {
-        // TODO
-        assertFalse(true);
     }
 
     @Test

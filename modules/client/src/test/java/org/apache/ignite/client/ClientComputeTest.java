@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 public class ClientComputeTest {
     private static final String TABLE_NAME = "tbl1";
 
+    private FakeIgnite ignite;
     private TestServer server1;
     private TestServer server2;
     private TestServer server3;
@@ -130,6 +131,28 @@ public class ClientComputeTest {
         }
     }
 
+    @Test
+    void testExecuteColocatedUpdatesTableCacheOnTableDrop() throws Exception {
+        String tableName = "drop-me";
+
+        initServers(reqId -> false);
+        ignite.tables().createTable(tableName, null);
+
+        try (var client = getClient(server3)) {
+            Tuple key = Tuple.create().set("key", "k");
+
+            String res1 = client.compute().<String>executeColocated(tableName, key, "job").join();
+            assertEquals("s3", res1);
+
+            // Drop table and create a new one with a different ID.
+            ignite.tables().dropTable(tableName);
+            ignite.tables().createTable(tableName, null);
+
+            String res2 = client.compute().<Long, String>executeColocated(tableName, 1L, Mapper.of(Long.class), "job").join();
+            assertEquals("s3", res2);
+        }
+    }
+
     private IgniteClient getClient(TestServer... servers) {
         String[] addresses = Arrays.stream(servers).map(s -> "127.0.0.1:" + s.port()).toArray(String[]::new);
 
@@ -141,7 +164,7 @@ public class ClientComputeTest {
     }
 
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
-        FakeIgnite ignite = new FakeIgnite();
+        ignite = new FakeIgnite();
         ignite.tables().createTable(TABLE_NAME, null);
 
         server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, "s1");
