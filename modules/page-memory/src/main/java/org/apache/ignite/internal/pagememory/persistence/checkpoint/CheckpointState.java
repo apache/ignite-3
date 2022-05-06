@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 /**
  * Possible checkpoint states. Ordinal is important. Every next state follows the previous one.
  */
-// TODO: IGNITE-16898 Review states
 public enum CheckpointState {
     /** Checkpoint is waiting to execution. **/
     SCHEDULED,

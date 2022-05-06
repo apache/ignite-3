@@ -20,7 +20,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 /**
  * Empty.
  */
-// TODO: IGNITE-16898 Continue porting the code
+// TODO: IGNITE-16935 Continue porting the code
 public abstract class Checkpointer {
     public abstract Thread runner();
 

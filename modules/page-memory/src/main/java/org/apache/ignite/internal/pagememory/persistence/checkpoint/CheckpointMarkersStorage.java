@@ -66,7 +66,7 @@ public class CheckpointMarkersStorage {
     private final Set<UUID> checkpointIds;
 
     /** Earliest checkpoint map changes threshold. */
-    // TODO: IGNITE-16898 Move to config
+    // TODO: IGNITE-16935 Move to config
     private final int earliestCheckpointChangesThreshold = getInteger(IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD, 5);
 
     /**
