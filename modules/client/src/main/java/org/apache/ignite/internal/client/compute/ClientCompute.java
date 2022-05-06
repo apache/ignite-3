@@ -264,7 +264,7 @@ public class ClientCompute implements IgniteCompute {
         if (err instanceof IgniteClientException) {
             IgniteClientException clientEx = (IgniteClientException) err;
 
-            if (clientEx.errorCode() == ClientErrorCode.TABLE_DOES_NOT_EXIST) {
+            if (clientEx.errorCode() == ClientErrorCode.TABLE_ID_DOES_NOT_EXIST) {
                 // Cached table was dropped - remove from cache.
                 tableCache.remove(tableName);
 

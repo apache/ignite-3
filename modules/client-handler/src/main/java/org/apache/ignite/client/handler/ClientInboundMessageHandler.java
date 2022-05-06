@@ -252,7 +252,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             packer.packLong(requestId);
 
             var errorCode = err instanceof ClientTableIdDoesNotExistException
-                    ? ClientErrorCode.TABLE_DOES_NOT_EXIST
+                    ? ClientErrorCode.TABLE_ID_DOES_NOT_EXIST
                     : ClientErrorCode.FAILED;
 
             packer.packInt(errorCode);
