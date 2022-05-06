@@ -71,6 +71,16 @@ public class ClientRecordSerializer<R> {
         return mapper;
     }
 
+    /**
+     * Writes a record without header.
+     *
+     * @param rec Record.
+     * @param mapper Mapper.
+     * @param schema Schema.
+     * @param out Packer.
+     * @param part Tuple part.
+     * @param <R> Record type.
+     */
     public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
