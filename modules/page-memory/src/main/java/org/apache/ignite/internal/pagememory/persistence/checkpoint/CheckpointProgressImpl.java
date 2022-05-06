@@ -44,7 +44,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile AtomicReference<CheckpointState> state = new AtomicReference<>(SCHEDULED);
 
     /** Future which would be finished when corresponds state is set. */
-    private final Map<CheckpointState, CompletableFuture<?>> stateFutures = new ConcurrentHashMap<>();
+    private final Map<CheckpointState, CompletableFuture<Void>> stateFutures = new ConcurrentHashMap<>();
 
     /** Wakeup reason. */
     private volatile String reason;
@@ -106,8 +106,8 @@ class CheckpointProgressImpl implements CheckpointProgress {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<?> futureFor(CheckpointState state) {
-        CompletableFuture<?> stateFut = stateFutures.computeIfAbsent(state, (k) -> new CompletableFuture<>());
+    public CompletableFuture<Void> futureFor(CheckpointState state) {
+        CompletableFuture<Void> stateFut = stateFutures.computeIfAbsent(state, (k) -> new CompletableFuture<>());
 
         if (greaterOrEqualTo(state)) {
             completeFuture(stateFut, failCause);

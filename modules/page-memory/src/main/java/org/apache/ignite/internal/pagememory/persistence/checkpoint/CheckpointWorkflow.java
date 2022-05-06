@@ -46,7 +46,6 @@ import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 
 /**

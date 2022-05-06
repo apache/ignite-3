@@ -22,7 +22,6 @@ import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
 import static java.nio.file.Files.list;
-import static java.nio.file.Files.notExists;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toCollection;
@@ -81,12 +80,10 @@ public class CheckpointMarkersStorage {
     ) throws IgniteInternalCheckedException {
         checkpointDir = storagePath.resolve("cp");
 
-        if (notExists(checkpointDir)) {
-            try {
-                createDirectories(checkpointDir);
-            } catch (IOException e) {
-                throw new IgniteInternalCheckedException("Could not create directory for checkpoint metadata: " + checkpointDir, e);
-            }
+        try {
+            createDirectories(checkpointDir);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException("Could not create directory for checkpoint metadata: " + checkpointDir, e);
         }
 
         checkCheckpointDir(checkpointDir);
