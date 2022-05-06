@@ -67,6 +67,11 @@ public class ClientRecordSerializer<R> {
         oneColumnMode = MarshallerUtil.mode(mapper.targetType()) != null;
     }
 
+    /**
+     * Gets the mapper.
+     *
+     * @return Mapper.
+     */
     Mapper<R> mapper() {
         return mapper;
     }
