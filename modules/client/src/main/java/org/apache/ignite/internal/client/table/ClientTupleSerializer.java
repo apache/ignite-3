@@ -106,6 +106,18 @@ public class ClientTupleSerializer {
             out.out().packInt(schema.version());
         }
 
+        writeTupleRaw(tuple, schema, out, keyOnly);
+    }
+
+    /**
+     * Writes {@link Tuple} without header.
+     *
+     * @param tuple Tuple.
+     * @param schema Schema.
+     * @param out Out.
+     * @param keyOnly Key only.
+     */
+    public static void writeTupleRaw(@NotNull Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
         var columns = schema.columns();
         var count = keyOnly ? schema.keyColumnCount() : columns.length;
 
