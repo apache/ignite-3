@@ -57,7 +57,7 @@ public class ClientRecordSerializer<R> {
      * @param tableId       Table ID.
      * @param mapper        Mapper.
      */
-    public ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
+    ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
         assert tableId != null;
         assert mapper != null;
 
@@ -67,7 +67,7 @@ public class ClientRecordSerializer<R> {
         oneColumnMode = MarshallerUtil.mode(mapper.targetType()) != null;
     }
 
-    public Mapper<R> mapper() {
+    Mapper<R> mapper() {
         return mapper;
     }
 
@@ -82,11 +82,11 @@ public class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         writeRecRaw(rec, mapper, schema, out, part);
     }
 
-    public void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
+    void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
         out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
@@ -94,7 +94,7 @@ public class ClientRecordSerializer<R> {
         writeRecRaw(rec, schema, out.out(), part);
     }
 
-    public void writeRecs(
+    void writeRecs(
             @Nullable Transaction tx,
             @Nullable R rec,
             @Nullable R rec2,
@@ -117,7 +117,7 @@ public class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(
+    void writeRecs(
             @Nullable Transaction tx,
             @NotNull Collection<R> recs,
             ClientSchema schema,
@@ -141,7 +141,7 @@ public class ClientRecordSerializer<R> {
         }
     }
 
-    public Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
+    Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
 
         if (cnt == 0) {
@@ -168,7 +168,7 @@ public class ClientRecordSerializer<R> {
         return res;
     }
 
-    public R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
+    R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerReader reader = new ClientMarshallerReader(in);
 
@@ -179,7 +179,7 @@ public class ClientRecordSerializer<R> {
         }
     }
 
-    public R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
+    R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
         if (oneColumnMode) {
             return keyRec;
         }

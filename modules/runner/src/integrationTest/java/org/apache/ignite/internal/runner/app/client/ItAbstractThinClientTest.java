@@ -157,6 +157,9 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
         return client;
     }
 
+    /**
+     * Test class.
+     */
     protected static class TestPojo {
         public TestPojo() {
             //No-op.

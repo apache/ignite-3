@@ -45,7 +45,7 @@ public class ClientTupleSerializer {
      *
      * @param tableId Table id.
      */
-    public ClientTupleSerializer(UUID tableId) {
+    ClientTupleSerializer(UUID tableId) {
         this.tableId = tableId;
     }
 
@@ -56,7 +56,7 @@ public class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    public void writeTuple(
+    void writeTuple(
             @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
@@ -73,7 +73,7 @@ public class ClientTupleSerializer {
      * @param out Out.
      * @param keyOnly Key only.
      */
-    public void writeTuple(
+    void writeTuple(
             @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
@@ -92,7 +92,7 @@ public class ClientTupleSerializer {
      * @param keyOnly Key only.
      * @param skipHeader Skip header.
      */
-    public void writeTuple(
+    void writeTuple(
             @Nullable Transaction tx,
             @NotNull Tuple tuple,
             ClientSchema schema,
@@ -139,7 +139,7 @@ public class ClientTupleSerializer {
      * @param out Out.
      * @param skipHeader Skip header.
      */
-    public void writeKvTuple(
+    void writeKvTuple(
             @Nullable Transaction tx,
             @NotNull Tuple key,
             @Nullable Tuple val,
@@ -175,7 +175,7 @@ public class ClientTupleSerializer {
      * @param schema Schema.
      * @param out Out.
      */
-    public void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
+    void writeKvTuples(@Nullable Transaction tx, Map<Tuple, Tuple> pairs, ClientSchema schema, PayloadOutputChannel out) {
         out.out().packUuid(tableId);
         writeTx(tx, out);
         out.out().packInt(schema.version());
@@ -194,7 +194,7 @@ public class ClientTupleSerializer {
      * @param out Out.
      * @param keyOnly Key only.
      */
-    public void writeTuples(
+    void writeTuples(
             @Nullable Transaction tx,
             @NotNull Collection<Tuple> tuples,
             ClientSchema schema,
@@ -211,7 +211,7 @@ public class ClientTupleSerializer {
         }
     }
 
-    public static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+    static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var tuple = new ClientTuple(schema);
 
         var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
@@ -223,7 +223,7 @@ public class ClientTupleSerializer {
         return tuple;
     }
 
-    public static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
+    static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in, Tuple keyTuple) {
         var tuple = new ClientTuple(schema);
 
         for (var i = 0; i < schema.columns().length; i++) {
@@ -239,7 +239,7 @@ public class ClientTupleSerializer {
         return tuple;
     }
 
-    public static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
+    static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
@@ -255,7 +255,7 @@ public class ClientTupleSerializer {
         return valTuple;
     }
 
-    public static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
+    static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
         var keyColCnt = schema.keyColumnCount();
         var colCnt = schema.columns().length;
 
@@ -283,7 +283,7 @@ public class ClientTupleSerializer {
      * @param in In.
      * @return Tuple pairs.
      */
-    public static Map<Tuple, Tuple> readKvTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
+    static Map<Tuple, Tuple> readKvTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         Map<Tuple, Tuple> res = new HashMap<>(cnt);
 
@@ -300,11 +300,11 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    public static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
+    static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in) {
         return readTuples(schema, in, false);
     }
 
-    public static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
+    static Collection<Tuple> readTuples(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
@@ -315,7 +315,7 @@ public class ClientTupleSerializer {
         return res;
     }
 
-    public static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
+    static Collection<Tuple> readTuplesNullable(ClientSchema schema, ClientMessageUnpacker in) {
         var cnt = in.unpackInt();
         var res = new ArrayList<Tuple>(cnt);
 
