@@ -17,16 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.table.manager.IgniteTables;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Compute execute colocated request.
@@ -53,25 +52,5 @@ public class ClientComputeExecuteColocatedRequest {
         Object[] args = unpackArgs(in);
 
         return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectWithType);
-    }
-
-    @NotNull
-    private static Object[] unpackArgs(ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        int argCnt = in.unpackArrayHeader();
-
-        if (argCnt == 0) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        Object[] args = new Object[argCnt];
-
-        for (int i = 0; i < argCnt; i++) {
-            args[i] = in.unpackObjectWithType();
-        }
-        return args;
     }
 }

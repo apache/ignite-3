@@ -354,13 +354,4 @@ public class ClientRecordBinaryView implements RecordView<Tuple> {
     ) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
-
-    /**
-     * Gets the tuple serializer.
-     *
-     * @return Serializer.
-     */
-    public ClientTupleSerializer serializer() {
-        return ser;
-    }
 }
