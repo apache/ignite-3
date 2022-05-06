@@ -115,7 +115,7 @@ public class VersionedValue<T> {
 
         this.defaultValRef = defaultValSupplier == null ? null : new AtomicReference<>();
 
-        observableRevisionUpdater.accept(this::onStorageRevisionUpdate);
+        observableRevisionUpdater.accept(this::completeOnRevision);
     }
 
     /**
@@ -463,20 +463,8 @@ public class VersionedValue<T> {
     }
 
     /**
-     * Should be called on a storage revision update. This also triggers completion of a future created for the given causality token. It
-     * implies that all possible updates associated with this token have been already applied to the component.
-     * <br>
-     * This method should not be called concurrently with {@link #update(long, BiFunction)} and {@link #complete(long, Object)}
-     * methods, as the storage revision update listener is supposed to be called after all other configuration listeners.
-     *
-     * @param causalityToken Causality token.
-     */
-    private CompletableFuture<?> onStorageRevisionUpdate(long causalityToken) {
-        return completeOnRevision(causalityToken);
-    }
-
-    /**
-     * Complete because of explicit token update.
+     * Complete because of explicit token update. This also triggers completion of a future created for the given causality token.
+     * This future completes after all updaters are complete (see {@link #update(long, BiFunction)}).
      *
      * @param causalityToken Token.
      * @return Future.
