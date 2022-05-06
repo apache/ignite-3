@@ -91,7 +91,6 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion2 = newDataRegion(true, mock(PageMemoryImpl.class));
 
         workflow = new CheckpointWorkflow(
-                log,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 RANDOM,
@@ -172,7 +171,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
-        workflow = new CheckpointWorkflow(log, markersStorage, readWriteLock, RANDOM, () -> List.of(dataRegion));
+        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, () -> List.of(dataRegion));
 
         workflow.start();
 
@@ -276,7 +275,6 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
         workflow = new CheckpointWorkflow(
-                log,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 RANDOM,
@@ -304,7 +302,6 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
         workflow = new CheckpointWorkflow(
-                log,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 SEQUENTIAL,
@@ -333,7 +330,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, pageMemory);
 
-        workflow = new CheckpointWorkflow(log, markersStorage, readWriteLock, RANDOM, () -> List.of(dataRegion));
+        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, () -> List.of(dataRegion));
 
         workflow.start();
 

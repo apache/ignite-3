@@ -80,9 +80,6 @@ class CheckpointWorkflow implements IgniteComponent {
     /** This number of threads will be created and used for parallel sorting. */
     private static final int PARALLEL_SORT_THREADS = Math.min(Runtime.getRuntime().availableProcessors(), 8);
 
-    /** Logger. */
-    private final IgniteLogger log;
-
     /** Checkpoint marker storage. */
     private final CheckpointMarkersStorage checkpointMarkersStorage;
 
@@ -101,20 +98,17 @@ class CheckpointWorkflow implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param log Logger.
      * @param checkpointMarkersStorage Checkpoint marker storage.
      * @param checkpointReadWriteLock Checkpoint read write lock.
      * @param checkpointWriteOrder Checkpoint write order.
      * @param dataRegionsSupplier Supplier of persistent data regions for the checkpointing.
      */
     public CheckpointWorkflow(
-            IgniteLogger log,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
             CheckpointWriteOrder checkpointWriteOrder,
             Supplier<Collection<PageMemoryDataRegion>> dataRegionsSupplier
     ) {
-        this.log = log;
         this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
         this.checkpointWriteOrder = checkpointWriteOrder;
