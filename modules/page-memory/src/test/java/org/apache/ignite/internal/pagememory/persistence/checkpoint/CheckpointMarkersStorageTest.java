@@ -59,7 +59,11 @@ public class CheckpointMarkersStorageTest {
             fileWriter.flush();
         }
 
-        new CheckpointMarkersStorage(testFile);
+        try {
+            new CheckpointMarkersStorage(testFile);
+        } catch (Throwable t) {
+            t.printStackTrace(System.err);
+        }
 
         IgniteInternalCheckedException exception = assertThrows(
                 IgniteInternalCheckedException.class,
