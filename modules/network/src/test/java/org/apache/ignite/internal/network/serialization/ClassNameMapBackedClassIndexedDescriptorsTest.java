@@ -27,27 +27,27 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class MapBackedClassIndexedDescriptorsTest {
+class ClassNameMapBackedClassIndexedDescriptorsTest {
     private final ClassDescriptorRegistry unrelatedRegistry = new ClassDescriptorRegistry();
 
     @Test
     void retrievesKnownDescriptorByClass() {
         ClassDescriptor descriptor = unrelatedRegistry.getRequiredDescriptor(String.class);
-        var descriptors = new MapBackedClassIndexedDescriptors(Map.of(String.class, descriptor));
+        var descriptors = new ClassNameMapBackedClassIndexedDescriptors(Map.of(String.class.getName(), descriptor));
 
         assertThat(descriptors.getDescriptor(String.class), is(descriptor));
     }
 
     @Test
     void doesNotFindAnythingByClassWhenMapDoesNotContainTheClassDescriptor() {
-        var descriptors = new MapBackedClassIndexedDescriptors(emptyMap());
+        var descriptors = new ClassNameMapBackedClassIndexedDescriptors(emptyMap());
 
         assertThat(descriptors.getDescriptor(String.class), is(nullValue()));
     }
 
     @Test
     void throwsWhenQueriedAboutUnknownDescriptorByClass() {
-        var descriptors = new MapBackedClassIndexedDescriptors(emptyMap());
+        var descriptors = new ClassNameMapBackedClassIndexedDescriptors(emptyMap());
 
         Throwable thrownEx = assertThrows(IllegalStateException.class, () -> descriptors.getRequiredDescriptor(String.class));
         assertThat(thrownEx.getMessage(), startsWith("Did not find a descriptor by class"));

@@ -396,12 +396,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     ) throws IOException, UnmarshalException {
         int objectId = readObjectId(input);
 
-        Object preInstantiatedObject = preInstantiate(remoteDescriptor, input, context);
-        context.registerReference(objectId, preInstantiatedObject, unshared);
+        Object object = preInstantiate(remoteDescriptor, input, context);
+        context.registerReference(objectId, object, unshared);
 
-        fillObjectFrom(input, preInstantiatedObject, remoteDescriptor, context);
+        fillObjectFrom(input, object, remoteDescriptor, context);
 
-        return preInstantiatedObject;
+        return object;
     }
 
     private Object preInstantiate(ClassDescriptor remoteDescriptor, IgniteDataInput input, UnmarshallingContext context)
@@ -492,5 +492,10 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
     @Override
     public <T> void replaceSchemaMismatchHandler(Class<T> layerClass, SchemaMismatchHandler<T> handler) {
         schemaMismatchHandlers.registerHandler(layerClass, handler);
+    }
+
+    @Override
+    public <T> void replaceSchemaMismatchHandler(String layerClassName, SchemaMismatchHandler<T> handler) {
+        schemaMismatchHandlers.registerHandler(layerClassName, handler);
     }
 }

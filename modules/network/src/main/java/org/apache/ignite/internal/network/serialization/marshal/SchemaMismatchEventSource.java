@@ -31,4 +31,15 @@ public interface SchemaMismatchEventSource {
      * @param <T>        layer type
      */
     <T> void replaceSchemaMismatchHandler(Class<T> layerClass, SchemaMismatchHandler<T> handler);
+
+    /**
+     * Sets the {@link SchemaMismatchHandler} for the given class if not set or replaces the existing one.
+     *
+     * <p>Note that the handlers are per declared class, not per concrete class lineage.
+     *
+     * @param layerClassName the name of the class; for schema changes concerning this class the events will be generated
+     * @param handler    the handler that will handle the schema mismatch events
+     * @param <T>        layer type
+     */
+    <T> void replaceSchemaMismatchHandler(String layerClassName, SchemaMismatchHandler<T> handler);
 }
