@@ -763,7 +763,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     private interface FieldFiller {
-        void fillWith(ObjectInputStream.GetField getField, WithReadFields target) throws IOException;
+        void fillWith(ObjectInputStream.GetField getField, WithReadFields target) throws IOException, ClassNotFoundException;
     }
 
     private static class WithReadFields implements Serializable {

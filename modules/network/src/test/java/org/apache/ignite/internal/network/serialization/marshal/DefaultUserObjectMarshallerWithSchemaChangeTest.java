@@ -609,7 +609,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest {
          * @return a value extracted from GetField
          * @throws IOException if something goes wrong
          */
-        Object read(GetField getField) throws IOException;
+        Object read(GetField getField) throws IOException, ClassNotFoundException;
     }
 
     private static class ExtraFieldForGetField {
