@@ -31,10 +31,13 @@ import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Contexts;
+import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptSchema;
+import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.prepare.CalciteCatalogReader;
+import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.metadata.Metadata;
 import org.apache.calcite.rel.metadata.MetadataDef;
@@ -48,6 +51,9 @@ import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
+import org.apache.ignite.internal.sql.engine.trait.CorrelationTraitDef;
+import org.apache.ignite.internal.sql.engine.trait.DistributionTraitDef;
+import org.apache.ignite.internal.sql.engine.trait.RewindabilityTraitDef;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteLogger;
@@ -93,6 +99,10 @@ public final class BaseQueryContext extends AbstractQueryContext {
                 // prevent memory leaks.
             }
         };
+
+        for (RelTraitDef<?> def : EMPTY_CONTEXT.cfg.getTraitDefs()) {
+            DUMMY_PLANNER.addRelTraitDef(def);
+        }
 
         RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
         TYPE_FACTORY = new IgniteTypeFactory(typeSys);
@@ -249,6 +259,13 @@ public final class BaseQueryContext extends AbstractQueryContext {
         private static final FrameworkConfig EMPTY_CONFIG =
                 Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                         .defaultSchema(createRootSchema(false))
+                        .traitDefs(new RelTraitDef<?>[] {
+                                ConventionTraitDef.INSTANCE,
+                                RelCollationTraitDef.INSTANCE,
+                                DistributionTraitDef.INSTANCE,
+                                RewindabilityTraitDef.INSTANCE,
+                                CorrelationTraitDef.INSTANCE,
+                        })
                         .build();
 
         private FrameworkConfig frameworkCfg = EMPTY_CONFIG;
