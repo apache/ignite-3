@@ -1435,10 +1435,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId),
                             pendingAssignmentsWatchEvent.revision()).join().value();
 
-                    List<ClusterNode> assignments = stableAssignments == null ?
+                    List<ClusterNode> assignments = stableAssignments == null
                             // This is for the case when the first rebalance occurs.
-                            ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part) :
-                            (List<ClusterNode>) ByteUtils.fromBytes(stableAssignments);
+                            ? ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part)
+                            : (List<ClusterNode>) ByteUtils.fromBytes(stableAssignments);
 
                     var deltaPeers = newPeers.stream()
                             .filter(p -> !assignments.contains(p))
