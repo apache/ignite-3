@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.NoUncommittedVersionException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -114,8 +115,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
-            assert versionChain != null;
-            assert versionChain.begin == null && versionChain.txId != null;
+            if (versionChain.txId == null) {
+                throw new NoUncommittedVersionException();
+            }
+
+            assert versionChain.begin == null;
 
             cleanupIndexesForAbortedRow(versionChain, rowId);
 

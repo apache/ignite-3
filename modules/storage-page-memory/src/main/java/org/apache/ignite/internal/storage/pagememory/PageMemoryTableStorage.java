@@ -29,16 +29,18 @@ import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 // TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
-abstract class PageMemoryTableStorage implements TableStorage {
+public abstract class PageMemoryTableStorage implements TableStorage {
     protected final AbstractPageMemoryDataRegion dataRegion;
 
     protected final TableConfiguration tableCfg;
@@ -178,4 +180,10 @@ abstract class PageMemoryTableStorage implements TableStorage {
      * @throws StorageException If there is an error while creating the partition storage.
      */
     protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
+
+    // This API is not yet ready. But we need to test mv storages anyways.
+    @TestOnly
+    public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
+        return new PageMemoryMvPartitionStorage(partitionId, tableCfg.value(), dataRegion);
+    }
 }

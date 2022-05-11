@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
-
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+package org.apache.ignite.internal.storage.pagememory.mv.io;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * Interface for VersionChain B+Tree-related IO.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
-    {
-        storage = new TestMvPartitionStorage(List.of());
-    }
-
+public interface VersionChainIo {
+    /**
+     * Returns the link for the row in the page by index.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index.
+     */
+    long link(long pageAddr, int idx);
 }

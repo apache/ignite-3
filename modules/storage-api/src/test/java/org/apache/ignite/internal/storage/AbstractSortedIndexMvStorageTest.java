@@ -227,7 +227,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
+        RowId rowId = freshRowId(0);
 
         UUID txId = UUID.randomUUID();
 
@@ -257,7 +257,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
+        RowId rowId = freshRowId(0);
 
         Timestamp insertTs = Timestamp.nextVersion();
 
@@ -296,7 +296,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
+        RowId rowId = freshRowId(0);
 
         UUID txId = UUID.randomUUID();
 
@@ -328,7 +328,7 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
+        RowId rowId = freshRowId(0);
 
         Timestamp insertTs = Timestamp.nextVersion();
 

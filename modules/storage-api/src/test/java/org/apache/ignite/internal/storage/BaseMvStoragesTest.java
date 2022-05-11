@@ -86,7 +86,6 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    @Nullable
     protected static TestKey key(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
@@ -102,6 +101,10 @@ public abstract class BaseMvStoragesTest {
         } catch (MarshallerException e) {
             throw new IgniteException(e);
         }
+    }
+
+    protected RowId freshRowId(int partitionId) {
+        return UuidRowId.randomRowId(partitionId);
     }
 
     /**

@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,17 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * {@link RowId} implementation which identifies the row data using row link in page-memory.
+ *
+ * @see RowId
+ * @see PageIdUtils#link(long, int)
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
-    {
-        storage = new TestMvPartitionStorage(List.of());
+public class LinkRowId implements RowId {
+    private final long rowLink;
+
+    public LinkRowId(long rowLink) {
+        this.rowLink = rowLink;
     }
 
+    @Override
+    public int partitionId() {
+        long pageId = PageIdUtils.pageId(rowLink);
+        return PageIdUtils.partitionId(pageId);
+    }
+
+    long versionChainLink() {
+        return rowLink;
+    }
 }

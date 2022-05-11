@@ -28,6 +28,8 @@ import org.jetbrains.annotations.Nullable;
  * Multi-versioned partition storage.
  * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Their API are very similar,
  * although there are very important differences that will be addressed in the future.
+ *
+ * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
 public interface MvPartitionStorage extends AutoCloseable {
     /**
@@ -63,12 +65,17 @@ public interface MvPartitionStorage extends AutoCloseable {
     RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
 
     /**
-     * Creates an uncommitted version, assigned to the given transaction id.
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
+     * In details:
+     * - if there is no uncommitted version, a new uncommitted version is added
+     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
+     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
      *
      * @param rowId Row id.
      * @param row Binary row to update. Key only row means value removal.
      * @param txId Transaction id.
-     * @return Previour row associated with the row id.
+     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
+     *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
@@ -78,7 +85,7 @@ public interface MvPartitionStorage extends AutoCloseable {
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
      * @param rowId Row id.
-     * @return Previour row associated with the row id.
+     * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;

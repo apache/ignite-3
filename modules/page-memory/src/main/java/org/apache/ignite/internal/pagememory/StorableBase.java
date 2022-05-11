@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,17 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
-
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+package org.apache.ignite.internal.pagememory;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * Base of {@link Storable} containing useful trivial implementations of some methods.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
-    {
-        storage = new TestMvPartitionStorage(List.of());
+public abstract class StorableBase implements Storable {
+    private final int partitionId;
+    private long link;
+
+    protected StorableBase(int partitionId) {
+        this.partitionId = partitionId;
     }
 
+    @Override
+    public final void link(long link) {
+        this.link = link;
+    }
+
+    @Override
+    public final long link() {
+        return link;
+    }
+
+    @Override
+    public final int partition() {
+        return partitionId;
+    }
 }

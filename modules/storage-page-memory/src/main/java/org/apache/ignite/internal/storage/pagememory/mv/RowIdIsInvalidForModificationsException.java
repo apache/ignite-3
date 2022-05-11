@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * Thrown when trying to do a modification at {@link RowId} that has already become invalid for writes.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
-    {
-        storage = new TestMvPartitionStorage(List.of());
-    }
-
+class RowIdIsInvalidForModificationsException extends IgniteInternalException {
 }
