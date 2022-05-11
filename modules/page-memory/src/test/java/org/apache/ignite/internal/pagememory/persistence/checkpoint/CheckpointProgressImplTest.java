@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.SCHEDULED;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -64,19 +66,22 @@ public class CheckpointProgressImplTest {
 
     @Test
     void testNextCheckpointNanos() {
-        assertThat(new CheckpointProgressImpl(0).nextCheckpointNanos(), lessThanOrEqualTo(nanoTime()));
-
-        assertThat(new CheckpointProgressImpl(-1).nextCheckpointNanos(), lessThanOrEqualTo(nanoTime()));
-
-        assertThat(new CheckpointProgressImpl(Long.MIN_VALUE).nextCheckpointNanos(), lessThanOrEqualTo(nanoTime()));
+        assertThat(
+                new CheckpointProgressImpl(0).nextCheckpointNanos(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(nanoTime()))
+        );
 
         long year = TimeUnit.DAYS.toNanos(365);
 
-        assertThat(new CheckpointProgressImpl(Long.MAX_VALUE).nextCheckpointNanos(), lessThanOrEqualTo(nanoTime() + year));
+        assertThat(
+                new CheckpointProgressImpl(year).nextCheckpointNanos(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(nanoTime() + year))
+        );
 
-        assertThat(new CheckpointProgressImpl(year).nextCheckpointNanos(), lessThanOrEqualTo(nanoTime() + year));
-
-        assertThat(new CheckpointProgressImpl(10).nextCheckpointNanos(), lessThanOrEqualTo(nanoTime() + 10));
+        assertThat(
+                new CheckpointProgressImpl(10).nextCheckpointNanos(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(nanoTime() + 10))
+        );
     }
 
     @Test

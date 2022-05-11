@@ -30,18 +30,18 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.GridConcurrentMultiPairQueue.Result;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link GridConcurrentMultiPairQueue} testing.
+ * For {@link IgniteConcurrentMultiPairQueue} testing.
  */
-public class GridConcurrentMultiPairQueueTest {
-    private GridConcurrentMultiPairQueue<Integer, Integer> queue;
+public class IgniteConcurrentMultiPairQueueTest {
+    private IgniteConcurrentMultiPairQueue<Integer, Integer> queue;
 
-    private GridConcurrentMultiPairQueue<Integer, Integer> queue2;
+    private IgniteConcurrentMultiPairQueue<Integer, Integer> queue2;
 
     private Map<Integer, Collection<Integer>> mapForCheck;
 
@@ -82,7 +82,7 @@ public class GridConcurrentMultiPairQueueTest {
         mapForCheck2.put(20, synchronizedCollection(new ArrayList<>(Arrays.asList(arr1))));
         mapForCheck2.put(50, synchronizedCollection(new ArrayList<>(Arrays.asList(arr3))));
 
-        queue = new GridConcurrentMultiPairQueue<>(keyWithArr);
+        queue = new IgniteConcurrentMultiPairQueue<>(keyWithArr);
 
         Map<Integer, Collection<Integer>> keyWithColl = new HashMap<>();
 
@@ -93,7 +93,7 @@ public class GridConcurrentMultiPairQueueTest {
         keyWithColl.put(50, synchronizedCollection(new ArrayList<>(Arrays.asList(arr3))));
         keyWithColl.put(60, synchronizedCollection(new ArrayList<>(Arrays.asList(arr6))));
 
-        queue2 = new GridConcurrentMultiPairQueue<>(keyWithColl);
+        queue2 = new IgniteConcurrentMultiPairQueue<>(keyWithColl);
     }
 
     @Test

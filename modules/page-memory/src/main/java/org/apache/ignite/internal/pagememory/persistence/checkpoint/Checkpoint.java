@@ -25,13 +25,13 @@ import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
  */
 class Checkpoint {
     /** Checkpoint pages. */
-    final GridConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages;
+    final IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages;
 
     /** Checkpoint progress status. */
     final CheckpointProgressImpl progress;
 
     /** Number of dirty pages. */
-    final int pagesSize;
+    final int dirtyPagesSize;
 
     /**
      * Constructor.
@@ -40,19 +40,19 @@ class Checkpoint {
      * @param progress Checkpoint progress status.
      */
     Checkpoint(
-            GridConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages,
+            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages,
             CheckpointProgressImpl progress
     ) {
         this.dirtyPages = dirtyPages;
         this.progress = progress;
 
-        pagesSize = dirtyPages.initialSize();
+        dirtyPagesSize = dirtyPages.initialSize();
     }
 
     /**
      * Returns {@code true} if this checkpoint contains at least one dirty page.
      */
     public boolean hasDelta() {
-        return pagesSize != 0;
+        return dirtyPagesSize != 0;
     }
 }

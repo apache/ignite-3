@@ -35,7 +35,7 @@ public class FastTimestamps {
             @Override
             public void run() {
                 while (true) {
-                    coarseCurrentTimeMillis = Math.max(coarseCurrentTimeMillis, System.currentTimeMillis());
+                    coarseCurrentTimeMillis = System.currentTimeMillis();
                     try {
                         Thread.sleep(UPDATE_FREQUENCY_MS);
                     } catch (InterruptedException e) {

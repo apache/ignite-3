@@ -17,12 +17,10 @@
 
 package org.apache.ignite.internal.util.worker;
 
-import java.util.EventListener;
-
 /**
  * This interface defines worker listener.
  */
-public interface IgniteWorkerListener extends EventListener {
+public interface IgniteWorkerListener {
     /**
      * Callback before executing the {@link IgniteWorker#body body of the worker}.
      *

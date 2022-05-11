@@ -34,7 +34,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.RANDOM;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.SEQUENTIAL;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.GridConcurrentMultiPairQueue.EMPTY;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -59,7 +59,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.GridConcurrentMultiPairQueue.Result;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -94,7 +94,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 RANDOM,
-                () -> List.of(dataRegion0, dataRegion1)
+                List.of(dataRegion0, dataRegion1)
         );
 
         workflow.start();
@@ -171,7 +171,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, () -> List.of(dataRegion));
+        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, List.of(dataRegion));
 
         workflow.start();
 
@@ -278,7 +278,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 RANDOM,
-                () -> List.of(dataRegion)
+                List.of(dataRegion)
         );
 
         workflow.start();
@@ -305,7 +305,7 @@ public class CheckpointWorkflowTest {
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
                 SEQUENTIAL,
-                () -> List.of(dataRegion)
+                List.of(dataRegion)
         );
 
         CheckpointProgressImpl progressImpl = mock(CheckpointProgressImpl.class);
@@ -330,7 +330,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, pageMemory);
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, () -> List.of(dataRegion));
+        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, List.of(dataRegion));
 
         workflow.start();
 
@@ -375,7 +375,7 @@ public class CheckpointWorkflowTest {
         verify(pageMemory, times(1)).finishCheckpoint();
     }
 
-    private List<IgniteBiTuple<PageMemoryImpl, FullPageId>> collect(GridConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> queue) {
+    private List<IgniteBiTuple<PageMemoryImpl, FullPageId>> collect(IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> queue) {
         List<IgniteBiTuple<PageMemoryImpl, FullPageId>> res = new ArrayList<>();
 
         Result<PageMemoryImpl, FullPageId> result = new Result<>();

@@ -26,7 +26,6 @@ import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.lang.IgniteSystemProperties.getInteger;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -47,9 +46,6 @@ import org.jetbrains.annotations.Nullable;
  */
 // TODO: IGNITE-15818 At the moment, a simple implementation has been made, it may need to be redone, you need to check it
 public class CheckpointMarkersStorage {
-    /** Earliest checkpoint map changes threshold system properties. */
-    public static final String IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD = "IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD";
-
     /** Checkpoint start marker. */
     private static final String CHECKPOINT_START_MARKER = "START";
 
@@ -64,10 +60,6 @@ public class CheckpointMarkersStorage {
 
     /** Checkpoint IDs. */
     private final Set<UUID> checkpointIds;
-
-    /** Earliest checkpoint map changes threshold. */
-    // TODO: IGNITE-16935 Move to config
-    private final int earliestCheckpointChangesThreshold = getInteger(IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD, 5);
 
     /**
      * Constructor.
@@ -93,7 +85,7 @@ public class CheckpointMarkersStorage {
                     .map(CheckpointMarkersStorage::parseCheckpointIdFromMarkerFile)
                     .collect(toCollection(ConcurrentHashMap::newKeySet));
         } catch (IOException e) {
-            throw new IgniteInternalCheckedException("Could not reads checkpoint markers: " + checkpointDir, e);
+            throw new IgniteInternalCheckedException("Could not read checkpoint markers: " + checkpointDir, e);
         }
     }
 
@@ -136,15 +128,13 @@ public class CheckpointMarkersStorage {
             throw new IgniteInternalCheckedException("Could not create end checkpoint marker: " + checkpointEndMarker, e);
         }
 
-        if (checkpointIds.size() >= earliestCheckpointChangesThreshold) {
-            for (Iterator<UUID> it = checkpointIds.iterator(); it.hasNext(); ) {
-                UUID id = it.next();
+        for (Iterator<UUID> it = checkpointIds.iterator(); it.hasNext(); ) {
+            UUID id = it.next();
 
-                if (!id.equals(checkpointId)) {
-                    removeCheckpointMarkers(id);
+            if (!id.equals(checkpointId)) {
+                removeCheckpointMarkers(id);
 
-                    it.remove();
-                }
+                it.remove();
             }
         }
     }

@@ -31,8 +31,6 @@ import org.jetbrains.annotations.Nullable;
  * Extension to standard {@link Runnable} interface.
  *
  * <p>Adds proper details to be used with {@link Executor} implementations.
- *
- * <p>Only for internal use.
  */
 public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
     /** Ignite logger. */

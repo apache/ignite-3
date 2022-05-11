@@ -33,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data class representing the state of running/scheduled checkpoint.
  */
+// TODO: IGNITE-16950 Check for a race between futureFor, transitTo and fail
 class CheckpointProgressImpl implements CheckpointProgress {
     /** Checkpoint id. */
     private final UUID id = UUID.randomUUID();
@@ -71,10 +72,10 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /**
      * Constructor.
      *
-     * @param nextCheckpointTimeout Timeout until next checkpoint in nanos.
+     * @param delay Delay in nanos before next checkpoint is to be executed. Value is from {@code 0} to {@code 365} days.
      */
-    CheckpointProgressImpl(long nextCheckpointTimeout) {
-        nextCheckpointNanos(nextCheckpointTimeout);
+    CheckpointProgressImpl(long delay) {
+        nextCheckpointNanos(delay);
     }
 
     /** {@inheritDoc} */
@@ -131,43 +132,44 @@ class CheckpointProgressImpl implements CheckpointProgress {
         currCheckpointPagesCnt = num;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns counter for written checkpoint pages. Not {@code null} only if checkpoint is running.
+     */
     public @Nullable AtomicInteger writtenPagesCounter() {
         return writtenPagesCntr;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns counter for fsynced checkpoint pages. Not {@code null} only if checkpoint is running.
+     */
     public @Nullable AtomicInteger syncedPagesCounter() {
         return syncedPagesCntr;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns Counter for evicted pages during current checkpoint. Not {@code null} only if checkpoint is running.
+     */
     public @Nullable AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
     }
 
     /**
-     * Returns scheduled time of checkpoint.
+     * Returns scheduled time of checkpoint in nanos.
      */
     public long nextCheckpointNanos() {
         return nextCheckpointNanos;
     }
 
     /**
-     * Sets new scheduled time of checkpoint.
+     * Sets new scheduled time of checkpoint in nanos.
      *
-     * @param nextCheckpointNanos New scheduled time of checkpoint in nanos.
+     * @param delay Delay in nanos before next checkpoint is to be executed. Value is from {@code 0} to {@code 365} days.
      */
-    public void nextCheckpointNanos(long nextCheckpointNanos) {
-        // Avoid overflow on nextCheckpointNanos.
-        nextCheckpointNanos = Math.max(0, nextCheckpointNanos);
+    public void nextCheckpointNanos(long delay) {
+        assert delay >= 0 : delay;
+        assert delay <= TimeUnit.DAYS.toNanos(365) : delay;
 
-        nextCheckpointNanos = Math.min(TimeUnit.DAYS.toNanos(365), nextCheckpointNanos);
-
-        this.nextCheckpointNanos = System.nanoTime() + nextCheckpointNanos;
+        this.nextCheckpointNanos = System.nanoTime() + delay;
     }
 
     /**

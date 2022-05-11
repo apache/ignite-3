@@ -21,7 +21,6 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.list;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMarkersStorage.IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD;
 import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExists;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -33,7 +32,6 @@ import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -80,6 +78,23 @@ public class CheckpointMarkersStorageTest {
     }
 
     @Test
+    void testTmpMarkersFiles() throws Exception {
+        createDirectories(cpDir());
+
+        UUID id = UUID.randomUUID();
+
+        createFile(cpDir().resolve(startMarkerFileName(id) + ".tmp"));
+        createFile(cpDir().resolve(endMarkerFileName(id) + ".tmp"));
+
+        IgniteInternalCheckedException exception = assertThrows(
+                IgniteInternalCheckedException.class,
+                () -> new CheckpointMarkersStorage(workDir)
+        );
+
+        assertThat(exception.getMessage(), startsWith("Not checkpoint markers found, they need to be removed manually"));
+    }
+
+    @Test
     void testCheckpointWithoutEndMarker() throws Exception {
         createDirectories(cpDir());
 
@@ -96,19 +111,15 @@ public class CheckpointMarkersStorageTest {
     @Test
     void testCreateMarkers() throws Exception {
         UUID id0 = UUID.randomUUID();
-        UUID id1 = UUID.randomUUID();
 
         CheckpointMarkersStorage markersStorage = new CheckpointMarkersStorage(workDir);
 
         markersStorage.onCheckpointBegin(id0);
         markersStorage.onCheckpointEnd(id0);
 
-        markersStorage.onCheckpointBegin(id1);
-        markersStorage.onCheckpointEnd(id1);
-
         assertThat(
                 list(cpDir()).collect(toSet()),
-                equalTo(Set.of(startMarkerFilePath(id0), endMarkerFilePath(id0), startMarkerFilePath(id1), endMarkerFilePath(id1)))
+                equalTo(Set.of(startMarkerFilePath(id0), endMarkerFilePath(id0)))
         );
 
         deleteIfExists(cpDir());
@@ -129,7 +140,6 @@ public class CheckpointMarkersStorageTest {
     }
 
     @Test
-    @WithSystemProperty(key = IGNITE_CHECKPOINT_MAP_SNAPSHOT_THRESHOLD, value = "3")
     void testCleanupMarkers() throws Exception {
         CheckpointMarkersStorage markersStorage = new CheckpointMarkersStorage(workDir);
 
@@ -157,10 +167,18 @@ public class CheckpointMarkersStorageTest {
     }
 
     private Path startMarkerFilePath(UUID id) {
-        return cpDir().resolve(id + "-START.bin");
+        return cpDir().resolve(startMarkerFileName(id));
     }
 
     private Path endMarkerFilePath(UUID id) {
-        return cpDir().resolve(id + "-END.bin");
+        return cpDir().resolve(endMarkerFileName(id));
+    }
+
+    private static String startMarkerFileName(UUID id) {
+        return id + "-START.bin";
+    }
+
+    private static String endMarkerFileName(UUID id) {
+        return id + "-END.bin";
     }
 }

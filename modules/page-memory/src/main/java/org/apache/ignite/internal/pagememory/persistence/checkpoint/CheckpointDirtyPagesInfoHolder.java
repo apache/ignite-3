@@ -27,22 +27,22 @@ import org.apache.ignite.lang.IgniteBiTuple;
  */
 class CheckpointDirtyPagesInfoHolder {
     /** Total number of dirty pages. */
-    final int pageCount;
+    final int dirtyPageCount;
 
     /** Collection of dirty pages per {@link PageMemoryImpl} distribution. */
-    final Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> pages;
+    final Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> dirtyPages;
 
     /**
      * Constructor.
      *
-     * @param pages Collection of dirty pages per {@link PageMemoryImpl} distribution.
-     * @param pageCount Total number of dirty pages.
+     * @param dirtyPages Collection of dirty pages per {@link PageMemoryImpl} distribution.
+     * @param dirtyPageCount Total number of dirty pages.
      */
     public CheckpointDirtyPagesInfoHolder(
-            Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> pages,
-            int pageCount
+            Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> dirtyPages,
+            int dirtyPageCount
     ) {
-        this.pages = pages;
-        this.pageCount = pageCount;
+        this.dirtyPages = dirtyPages;
+        this.dirtyPageCount = dirtyPageCount;
     }
 }

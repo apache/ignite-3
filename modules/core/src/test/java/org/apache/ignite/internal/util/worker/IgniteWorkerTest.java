@@ -186,6 +186,8 @@ public class IgniteWorkerTest {
             /** {@inheritDoc} */
             @Override
             protected void body() throws InterruptedException {
+                Thread.currentThread().interrupt();
+
                 throw new InterruptedException();
             }
 
