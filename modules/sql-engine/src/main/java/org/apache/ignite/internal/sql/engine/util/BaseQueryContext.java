@@ -100,7 +100,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             }
         };
 
-        for (RelTraitDef<?> def : EMPTY_CONTEXT.cfg.getTraitDefs()) {
+        for (RelTraitDef<?> def : EMPTY_CONTEXT.config().getTraitDefs()) {
             DUMMY_PLANNER.addRelTraitDef(def);
         }
 
