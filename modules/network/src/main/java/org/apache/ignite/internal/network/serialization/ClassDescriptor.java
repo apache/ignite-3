@@ -635,7 +635,7 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
-     * Return offset into primitive fields data (which has size {@link #primitiveFieldsDataSize()}).
+     * Returns offset into primitive fields data (which has size {@link #primitiveFieldsDataSize()}).
      * These are different from the offsets used in the context of {@link sun.misc.Unsafe}.
      *
      * @param fieldName    primitive field name
@@ -649,26 +649,36 @@ public class ClassDescriptor implements DeclaredType {
                     + ", but it was used as " + requiredTypeName);
         }
 
-        if (primitiveFieldDataOffsets == null) {
-            primitiveFieldDataOffsets = primitiveFieldDataOffsetsMap(fields);
-        }
+        ensurePrimitiveDataOffsetsMapComputed();
 
         assert primitiveFieldDataOffsets.containsKey(fieldName);
 
         return primitiveFieldDataOffsets.getInt(fieldName);
     }
 
-    private FieldDescriptor requiredFieldByName(String fieldName) {
-        if (fieldsByName == null) {
-            fieldsByName = fieldsByNameMap(fields);
+    private void ensurePrimitiveDataOffsetsMapComputed() {
+        if (primitiveFieldDataOffsets == null) {
+            primitiveFieldDataOffsets = primitiveFieldDataOffsetsMap(fields);
         }
+    }
 
-        FieldDescriptor fieldDesc = fieldsByName.get(fieldName);
+    private FieldDescriptor requiredFieldByName(String fieldName) {
+        FieldDescriptor fieldDesc = fieldByName(fieldName);
+
         if (fieldDesc == null) {
             throw new IllegalStateException("Did not find a field with name " + fieldName);
         }
 
         return fieldDesc;
+    }
+
+    @Nullable
+    private FieldDescriptor fieldByName(String fieldName) {
+        if (fieldsByName == null) {
+            fieldsByName = fieldsByNameMap(fields);
+        }
+
+        return fieldsByName.get(fieldName);
     }
 
     private static Map<String, FieldDescriptor> fieldsByNameMap(List<FieldDescriptor> fields) {
@@ -691,21 +701,55 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
+     * Returns {@code true} iff the described class has a primitive field with the given name.
+     *
+     * @param fieldName    primitive field name
+     * @return {@code true} iff the described class has a primitive field with the given name
+     */
+    private boolean hasPrimitiveField(String fieldName) {
+        FieldDescriptor fieldDesc = fieldByName(fieldName);
+
+        if (fieldDesc == null) {
+            return false;
+        }
+
+        ensurePrimitiveDataOffsetsMapComputed();
+
+        return primitiveFieldDataOffsets.containsKey(fieldName);
+    }
+
+    /**
+     * Returns {@code true} iff the given primitive field does not exist in the remote class corresponding to this descriptor,
+     * but it does exist in the local version of the class.
+     *
+     * @param fieldName    primitive field name
+     * @return {@code true} iff the given primitive field does not exist in the remote class corresponding to this descriptor,
+     *     but it does exist in the local version of the class
+     */
+    public boolean isPrimitiveFieldAddedLocally(String fieldName) {
+        return !this.hasPrimitiveField(fieldName) && this.local().hasPrimitiveField(fieldName);
+    }
+
+    /**
      * Returns index of a non-primitive (i.e. object) field in the object fields array.
      *
      * @param fieldName object field name
      * @return index of a non-primitive (i.e. object) field in the object fields array
      */
     public int objectFieldIndex(String fieldName) {
-        if (objectFieldIndices == null) {
-            objectFieldIndices = computeObjectFieldIndices(fields);
-        }
+        ensureObjectFieldIndicesComputed();
 
         if (!objectFieldIndices.containsKey(fieldName)) {
             throw new IllegalStateException("Did not find an object field with name " + fieldName);
         }
 
         return objectFieldIndices.getInt(fieldName);
+    }
+
+    private void ensureObjectFieldIndicesComputed() {
+        if (objectFieldIndices == null) {
+            objectFieldIndices = computeObjectFieldIndices(fields);
+        }
     }
 
     private Object2IntMap<String> computeObjectFieldIndices(List<FieldDescriptor> fields) {
@@ -720,6 +764,30 @@ public class ClassDescriptor implements DeclaredType {
         }
 
         return Object2IntMaps.unmodifiable(map);
+    }
+
+    /**
+     * Returns @{code true} iff the described class has an object field with the given name.
+     *
+     * @param fieldName object field name
+     * @return @{code true} iff the described class has an object field with the given name
+     */
+    private boolean hasObjectField(String fieldName) {
+        ensureObjectFieldIndicesComputed();
+
+        return objectFieldIndices.containsKey(fieldName);
+    }
+
+    /**
+     * Returns {@code true} iff the given object field does not exist in the remote class corresponding to this descriptor,
+     * but it does exist in the local version of the class.
+     *
+     * @param fieldName    object field name
+     * @return {@code true} iff the given object field does not exist in the remote class corresponding to this descriptor,
+     *     but it does exist in the local version of the class
+     */
+    public boolean isObjectFieldAddedLocally(String fieldName) {
+        return !this.hasObjectField(fieldName) && this.local().hasObjectField(fieldName);
     }
 
     /**

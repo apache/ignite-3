@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.client.handler.requests.table;
 
 /**
- * Client error codes.
+ * Raised when table with the specified ID does not exist (was dropped).
  */
-public class ClientErrorCode {
-    /** Operation succeeded (no error). */
-    public static final int SUCCESS = 0;
-
-    /** General error (uncategorized). */
-    public static final int FAILED = 1;
-
-    /** Authentication or authorization failure. */
-    public static final int AUTH_FAILED = 2;
-
-    /** Table id does not exist. */
-    public static final int TABLE_ID_DOES_NOT_EXIST = 3;
+public class ClientTableIdDoesNotExistException extends RuntimeException {
+    /**
+     * Constructor.
+     *
+     * @param message Exception message.
+     */
+    public ClientTableIdDoesNotExistException(String message) {
+        super(message);
+    }
 }

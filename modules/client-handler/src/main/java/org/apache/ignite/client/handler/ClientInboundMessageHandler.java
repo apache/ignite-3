@@ -25,6 +25,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
@@ -39,6 +40,7 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataReque
 import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableIdDoesNotExistException;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -248,7 +250,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-            packer.packInt(ClientErrorCode.FAILED);
+
+            var errorCode = err instanceof ClientTableIdDoesNotExistException
+                    ? ClientErrorCode.TABLE_ID_DOES_NOT_EXIST
+                    : ClientErrorCode.FAILED;
+
+            packer.packInt(errorCode);
 
             String msg = err.getMessage();
 
@@ -416,6 +423,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+
+            case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+                return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);

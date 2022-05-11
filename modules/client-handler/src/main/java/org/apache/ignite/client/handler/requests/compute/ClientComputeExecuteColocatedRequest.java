@@ -17,75 +17,40 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
+import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.unpackArgs;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTable;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterService;
-import org.jetbrains.annotations.NotNull;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
- * Compute execute request.
+ * Compute execute colocated request.
  */
-public class ClientComputeExecuteRequest {
+public class ClientComputeExecuteColocatedRequest {
     /**
      * Processes the request.
      *
      * @param in        Unpacker.
      * @param out       Packer.
      * @param compute   Compute.
-     * @param cluster   Cluster.
+     * @param tables    Tables.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteCompute compute,
-            ClusterService cluster) {
-        var nodeName = in.tryUnpackNil() ? null : in.unpackString();
-
-        var node = nodeName == null
-                ? cluster.topologyService().localMember()
-                : cluster.topologyService().getByConsistentId(nodeName);
-
-        if (node == null) {
-            throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
-        }
+            IgniteTables tables) {
+        var table = readTable(in, tables);
+        var keyTuple = readTuple(in, table, true);
 
         String jobClassName = in.unpackString();
-
         Object[] args = unpackArgs(in);
 
-        return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
-    }
-
-    /**
-     * Unpacks args.
-     *
-     * @param in Unpacker.
-     * @return Args array.
-     */
-    @NotNull
-    public static Object[] unpackArgs(ClientMessageUnpacker in) {
-        if (in.tryUnpackNil()) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        int argCnt = in.unpackArrayHeader();
-
-        if (argCnt == 0) {
-            return OBJECT_EMPTY_ARRAY;
-        }
-
-        Object[] args = new Object[argCnt];
-
-        for (int i = 0; i < argCnt; i++) {
-            args[i] = in.unpackObjectWithType();
-        }
-        return args;
+        return compute.executeColocated(table.name(), keyTuple, jobClassName, args).thenAccept(out::packObjectWithType);
     }
 }
