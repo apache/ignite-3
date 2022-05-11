@@ -1408,39 +1408,41 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partitionRaftGroupName(tblId, part))).join();
 
-                    // Do not change peers if this is a stale event, but start raft node for the sake of the consistency in a starting and
-                    // stopping raft nodes.
+                    assert evt.entryEvent().newEntry().revision() <= pendingAssignments.revision()
+                            : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
+
+                    ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
+
+                    String grpId = partitionRaftGroupName(tblId, part);
+
+                    Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
+                            new VersionedRowStore(
+                                    tbl.internalTable().storage().getOrCreatePartition(part), txManager));
+
+                    Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
+                            metaStorageMgr,
+                            tblCfg,
+                            grpId,
+                            part,
+                            busyLock);
+
+                    List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
+                            ByteUtils.fromBytes(tblCfg.assignments().value());
+
+                    var deltaPeers = newPeers.stream()
+                            .filter(p -> !assignments.get(part).contains(p))
+                            .collect(Collectors.toList());
+
+                    try {
+                        raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier,
+                                raftGrpEvtsLsnrSupplier);
+                    } catch (NodeStoppingException e) {
+                        // no-op
+                    }
+
+                    // Do not change peers if this is a stale event, but start raft node before for the sake of the
+                    // consistency in a starting and stopping raft nodes.
                     if (evt.entryEvent().newEntry().revision() < pendingAssignments.revision()) {
-
-                        ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
-
-                        String grpId = partitionRaftGroupName(tblId, part);
-
-                        Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
-                                new VersionedRowStore(
-                                        tbl.internalTable().storage().getOrCreatePartition(part), txManager));
-
-                        Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
-                                metaStorageMgr,
-                                tblCfg,
-                                grpId,
-                                part,
-                                busyLock);
-
-                        List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
-                                ByteUtils.fromBytes(tblCfg.assignments().value());
-
-                        var deltaPeers = newPeers.stream()
-                                .filter(p -> !assignments.get(part).contains(p))
-                                .collect(Collectors.toList());
-
-                        try {
-                            raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier,
-                                    raftGrpEvtsLsnrSupplier);
-                        } catch (NodeStoppingException e) {
-                            // no-op
-                        }
-
                         return true;
                     }
 
@@ -1448,8 +1450,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     RaftGroupService partGrpSvc = tbl.internalTable().partitionRaftGroupService(part);
 
-                    IgniteBiTuple<Peer, Long> leaderWithTerm =
-                            partGrpSvc.refreshAndGetLeaderWithTerm().join();
+                    IgniteBiTuple<Peer, Long> leaderWithTerm = partGrpSvc.refreshAndGetLeaderWithTerm().join();
 
                     ClusterNode localMember = raftMgr.server().clusterService().topologyService().localMember();
 
