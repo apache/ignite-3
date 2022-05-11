@@ -100,6 +100,7 @@ public final class BaseQueryContext extends AbstractQueryContext {
             }
         };
 
+        // Dummy planner must contain all trait definitions to create singleton cluster with all default traits.
         for (RelTraitDef<?> def : EMPTY_CONTEXT.config().getTraitDefs()) {
             DUMMY_PLANNER.addRelTraitDef(def);
         }
