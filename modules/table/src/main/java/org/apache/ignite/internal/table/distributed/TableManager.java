@@ -1432,7 +1432,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             busyLock);
 
                     // Stable assignments from the meta store, which revision is bounded by the current pending event.
-                    byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId), pendingAssignmentsWatchEvent.revision()).join().value();
+                    byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId),
+                            pendingAssignmentsWatchEvent.revision()).join().value();
 
                     List<ClusterNode> assignments = stableAssignments == null ?
                             // This is for the case when the first rebalance occurs.
