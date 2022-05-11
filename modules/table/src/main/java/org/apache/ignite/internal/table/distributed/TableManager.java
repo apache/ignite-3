@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.STABLE_ASSIGNMENTS_
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractPartitionNumber;
 import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.client.Entry;
 import org.apache.ignite.internal.metastorage.client.WatchEvent;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
 import org.apache.ignite.internal.raft.Loza;
@@ -1395,25 +1397,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 try {
                     assert evt.single();
 
-                    if (evt.entryEvent().newEntry().value() == null) {
+                    Entry pendingAssignmentsWatchEvent = evt.entryEvent().newEntry();
+
+                    if (pendingAssignmentsWatchEvent.value() == null) {
                         return true;
                     }
 
-                    int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
-                    UUID tblId = extractTableId(evt.entryEvent().newEntry().key(), PENDING_ASSIGNMENTS_PREFIX);
+                    int part = extractPartitionNumber(pendingAssignmentsWatchEvent.key());
+                    UUID tblId = extractTableId(pendingAssignmentsWatchEvent.key(), PENDING_ASSIGNMENTS_PREFIX);
 
-                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value()));
+                    String partId = partitionRaftGroupName(tblId, part);
+
+                    // Assignments of the pending rebalance that we received through the meta storage watch mechanism.
+                    List<ClusterNode> newPeers = ((List<ClusterNode>) ByteUtils.fromBytes(pendingAssignmentsWatchEvent.value()));
+
+                    var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).join();
+
+                    assert pendingAssignmentsWatchEvent.revision() <= pendingAssignments.revision()
+                            : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
 
                     TableImpl tbl = tablesByIdVv.latest().get(tblId);
 
-                    var pendingAssignments = metaStorageMgr.get(pendingPartAssignmentsKey(partitionRaftGroupName(tblId, part))).join();
-
-                    assert evt.entryEvent().newEntry().revision() <= pendingAssignments.revision()
-                            : "Meta Storage watch cannot notify about an event with the revision that is more than the actual revision.";
-
                     ExtendedTableConfiguration tblCfg = (ExtendedTableConfiguration) tablesCfg.tables().get(tbl.name());
-
-                    String grpId = partitionRaftGroupName(tblId, part);
 
                     Supplier<RaftGroupListener> raftGrpLsnrSupplier = () -> new PartitionListener(tblId,
                             new VersionedRowStore(
@@ -1422,27 +1427,33 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier = () -> new RebalanceRaftGroupEventsListener(
                             metaStorageMgr,
                             tblCfg,
-                            grpId,
+                            partId,
                             part,
                             busyLock);
 
-                    List<List<ClusterNode>> assignments = (List<List<ClusterNode>>)
-                            ByteUtils.fromBytes(tblCfg.assignments().value());
+                    // Stable assignments from the meta store which revision is bounded by the current pending event.
+                    var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(
+                            metaStorageMgr.get(stablePartAssignmentsKey(partId), pendingAssignmentsWatchEvent.revision()).join().value());
+
+                    List<ClusterNode> assignments = stableAssignments.isEmpty() ?
+                            // This is for the case when the first rebalance occurs.
+                            ((List<List<ClusterNode>>) ByteUtils.fromBytes(tblCfg.assignments().value())).get(part) :
+                            stableAssignments;
 
                     var deltaPeers = newPeers.stream()
-                            .filter(p -> !assignments.get(part).contains(p))
+                            .filter(p -> !assignments.contains(p))
                             .collect(Collectors.toList());
 
                     try {
-                        raftMgr.startRaftGroupNode(grpId, assignments.get(part), deltaPeers, raftGrpLsnrSupplier,
+                        raftMgr.startRaftGroupNode(partId, assignments, deltaPeers, raftGrpLsnrSupplier,
                                 raftGrpEvtsLsnrSupplier);
                     } catch (NodeStoppingException e) {
                         // no-op
                     }
 
-                    // Do not change peers if this is a stale event, but start raft node before for the sake of the
-                    // consistency in a starting and stopping raft nodes.
-                    if (evt.entryEvent().newEntry().revision() < pendingAssignments.revision()) {
+                    // Do not change peers of the raft group if this is a stale event.
+                    // Note that we start raft node before for the sake of the consistency in a starting and stopping raft nodes.
+                    if (pendingAssignmentsWatchEvent.revision() < pendingAssignments.revision()) {
                         return true;
                     }
 
@@ -1481,20 +1492,22 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 try {
                     assert evt.single();
 
-                    if (evt.entryEvent().newEntry().value() == null) {
+                    Entry stableAssignmentsWatchEvent = evt.entryEvent().newEntry();
+
+                    if (stableAssignmentsWatchEvent.value() == null) {
                         return true;
                     }
 
-                    int part = extractPartitionNumber(evt.entryEvent().newEntry().key());
-                    UUID tblId = extractTableId(evt.entryEvent().newEntry().key(), STABLE_ASSIGNMENTS_PREFIX);
+                    int part = extractPartitionNumber(stableAssignmentsWatchEvent.key());
+                    UUID tblId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
 
                     String partId = partitionRaftGroupName(tblId, part);
 
-                    var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(evt.entryEvent().newEntry().value());
+                    var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
                     var pendingAssignments = (List<ClusterNode>) ByteUtils.fromBytes(
                             metaStorageMgr.get(pendingPartAssignmentsKey(partId),
-                                    evt.entryEvent().newEntry().revision()).join().value()
+                                    stableAssignmentsWatchEvent.revision()).join().value()
                     );
 
                     List<ClusterNode> appliedPeers = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
