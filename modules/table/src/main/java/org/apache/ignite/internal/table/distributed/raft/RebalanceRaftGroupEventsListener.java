@@ -22,9 +22,9 @@ import static org.apache.ignite.internal.metastorage.client.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.client.Operations.ops;
 import static org.apache.ignite.internal.metastorage.client.Operations.put;
 import static org.apache.ignite.internal.metastorage.client.Operations.remove;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPendingKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsPlannedKey;
-import static org.apache.ignite.internal.utils.RebalanceUtil.partAssignmentsStableKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -122,14 +122,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private void doOnNewPeersConfigurationApplied(List<PeerId> peers) {
         Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
                 Set.of(
-                        partAssignmentsPlannedKey(partId),
-                        partAssignmentsPendingKey(partId),
-                        partAssignmentsStableKey(partId))).join();
+                        plannedPartAssignmentsKey(partId),
+                        pendingPartAssignmentsKey(partId),
+                        stablePartAssignmentsKey(partId))).join();
 
-        Entry plannedEntry = keys.get(partAssignmentsPlannedKey(partId));
+        Entry plannedEntry = keys.get(plannedPartAssignmentsKey(partId));
 
         List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
-                keys.get(partAssignmentsPendingKey(partId)).value(), keys.get(partAssignmentsStableKey(partId)).value());
+                keys.get(pendingPartAssignmentsKey(partId)).value(), keys.get(stablePartAssignmentsKey(partId)).value());
 
         tblConfiguration.change(ch -> {
             List<List<ClusterNode>> assignments =
@@ -140,20 +140,20 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         if (plannedEntry.value() != null) {
             if (!metaStorageMgr.invoke(If.iif(
-                    revision(partAssignmentsPlannedKey(partId)).eq(plannedEntry.revision()),
+                    revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
                     ops(
-                            put(partAssignmentsStableKey(partId), ByteUtils.toBytes(appliedPeers)),
-                            put(partAssignmentsPendingKey(partId), plannedEntry.value()),
-                            remove(partAssignmentsPlannedKey(partId)))
+                            put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
+                            put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
+                            remove(plannedPartAssignmentsKey(partId)))
                             .yield(true),
                     ops().yield(false))).join().getAsBoolean()) {
                 doOnNewPeersConfigurationApplied(peers);
             }
         } else {
             if (!metaStorageMgr.invoke(If.iif(
-                    notExists(partAssignmentsPlannedKey(partId)),
-                    ops(put(partAssignmentsStableKey(partId), ByteUtils.toBytes(appliedPeers)),
-                            remove(partAssignmentsPendingKey(partId))).yield(true),
+                    notExists(plannedPartAssignmentsKey(partId)),
+                    ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
+                            remove(pendingPartAssignmentsKey(partId))).yield(true),
                     ops().yield(false))).join().getAsBoolean()) {
                 doOnNewPeersConfigurationApplied(peers);
             }

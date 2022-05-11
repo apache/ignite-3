@@ -58,11 +58,11 @@ public class RebalanceUtil {
             int partitions, int replicas, long revision, MetaStorageManager metaStorageMgr, int partNum) {
         ByteArray partChangeTriggerKey = partChangeTriggerKey(partId);
 
-        ByteArray partAssignmentsPendingKey = partAssignmentsPendingKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
-        ByteArray partAssignmentsPlannedKey = partAssignmentsPlannedKey(partId);
+        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
-        ByteArray partAssignmentsStableKey = partAssignmentsStableKey(partId);
+        ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
         byte[] partAssignmentsBytes = ByteUtils.toBytes(
                 AffinityUtils.calculateAssignments(baselineNodes, partitions, replicas).get(partNum));
@@ -99,6 +99,9 @@ public class RebalanceUtil {
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
 
+    /** Key prefix for stable assignments. */
+    public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
+
     /**
      * Key that is needed for the rebalance algorithm.
      *
@@ -117,7 +120,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partAssignmentsPendingKey(String partId) {
+    public static ByteArray pendingPartAssignmentsKey(String partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
     }
 
@@ -128,7 +131,7 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partAssignmentsPlannedKey(String partId) {
+    public static ByteArray plannedPartAssignmentsKey(String partId) {
         return new ByteArray("assignments.planned." + partId);
     }
 
@@ -139,8 +142,8 @@ public class RebalanceUtil {
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
      */
-    public static ByteArray partAssignmentsStableKey(String partId) {
-        return new ByteArray("assignments.stable." + partId);
+    public static ByteArray stablePartAssignmentsKey(String partId) {
+        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
     }
 
     /**
@@ -149,14 +152,14 @@ public class RebalanceUtil {
      * @param key Key.
      * @return Table id.
      */
-    public static UUID extractTableId(ByteArray key) {
+    public static UUID extractTableId(ByteArray key, String prefix) {
         var strKey = key.toString();
 
-        return UUID.fromString(strKey.substring(PENDING_ASSIGNMENTS_PREFIX.length(), strKey.indexOf("_part_")));
+        return UUID.fromString(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
     }
 
     /**
-     * Extract partition number from the pending key of partition.
+     * Extract partition number from the rebalance key of partition.
      *
      * @param key Key.
      * @return Partition number.
