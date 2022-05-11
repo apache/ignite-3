@@ -100,13 +100,14 @@ public final class BaseQueryContext extends AbstractQueryContext {
             }
         };
 
+
+        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
+        TYPE_FACTORY = new IgniteTypeFactory(typeSys);
+
         // Dummy planner must contain all trait definitions to create singleton cluster with all default traits.
         for (RelTraitDef<?> def : EMPTY_CONTEXT.config().getTraitDefs()) {
             DUMMY_PLANNER.addRelTraitDef(def);
         }
-
-        RelDataTypeSystem typeSys = CALCITE_CONNECTION_CONFIG.typeSystem(RelDataTypeSystem.class, FRAMEWORK_CONFIG.getTypeSystem());
-        TYPE_FACTORY = new IgniteTypeFactory(typeSys);
 
         DFLT_REX_BUILDER = new RexBuilder(TYPE_FACTORY);
 
