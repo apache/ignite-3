@@ -65,5 +65,4 @@ public class PipelineUtils {
         pipeline.addBefore(HandshakeHandler.NAME, InboundRecoveryHandler.NAME, new InboundRecoveryHandler(descriptor, factory));
         pipeline.addAfter(HandshakeHandler.NAME, MessageHandler.NAME, messageHandler);
     }
-
 }

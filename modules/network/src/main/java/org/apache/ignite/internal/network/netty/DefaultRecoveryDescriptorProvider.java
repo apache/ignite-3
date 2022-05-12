@@ -29,6 +29,9 @@ import org.apache.ignite.internal.tostring.S;
  * Default implementation of the {@link RecoveryDescriptorProvider}.
  */
 public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProvider {
+    // TODO: IGNITE-16954 Make this configurable
+    private static final int DEFAULT_QUEUE_LIMIT = 10;
+
     /** Recovery descriptors. */
     private final Map<ChannelKey, RecoveryDescriptor> recoveryDescriptors = new ConcurrentHashMap<>();
 
@@ -37,7 +40,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
     public RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound) {
         var key = new ChannelKey(consistentId, launchId, connectionIndex, inbound);
 
-        return recoveryDescriptors.computeIfAbsent(key, channelKey -> new RecoveryDescriptor(10));
+        return recoveryDescriptors.computeIfAbsent(key, channelKey -> new RecoveryDescriptor(DEFAULT_QUEUE_LIMIT));
     }
 
     /** Channel key. */

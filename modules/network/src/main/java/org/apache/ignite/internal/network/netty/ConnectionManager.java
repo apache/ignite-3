@@ -76,10 +76,11 @@ public class ConnectionManager {
     /** Message listeners. */
     private final List<Consumer<InNetworkObject>> listeners = new CopyOnWriteArrayList<>();
 
-    private final UUID launchId;
-
     /** Node consistent id. */
     private final String consistentId;
+
+    /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
+    private final UUID launchId;
 
     /** Start flag. */
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -87,6 +88,7 @@ public class ConnectionManager {
     /** Stop flag. */
     private final AtomicBoolean stopped = new AtomicBoolean(false);
 
+    /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
 
     /**
@@ -94,6 +96,7 @@ public class ConnectionManager {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
+     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      */
