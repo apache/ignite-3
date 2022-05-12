@@ -25,9 +25,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.SCHEDULED;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.allOf;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -66,21 +64,20 @@ public class CheckpointProgressImplTest {
 
     @Test
     void testNextCheckpointNanos() {
+        long startNanos = nanoTime();
+
+        CheckpointProgressImpl progressImpl = new CheckpointProgressImpl(10);
+
+        long endNanos = nanoTime();
+
         assertThat(
-                new CheckpointProgressImpl(0).nextCheckpointNanos(),
-                allOf(greaterThan(0L), lessThanOrEqualTo(nanoTime()))
+                progressImpl.nextCheckpointNanos() - startNanos,
+                greaterThanOrEqualTo(0L)
         );
 
-        long year = TimeUnit.DAYS.toNanos(365);
-
         assertThat(
-                new CheckpointProgressImpl(year).nextCheckpointNanos(),
-                allOf(greaterThan(0L), lessThanOrEqualTo(nanoTime() + year))
-        );
-
-        assertThat(
-                new CheckpointProgressImpl(10).nextCheckpointNanos(),
-                allOf(greaterThan(0L), lessThanOrEqualTo(nanoTime() + 10))
+                endNanos + 10 - progressImpl.nextCheckpointNanos(),
+                greaterThanOrEqualTo(0L)
         );
     }
 
