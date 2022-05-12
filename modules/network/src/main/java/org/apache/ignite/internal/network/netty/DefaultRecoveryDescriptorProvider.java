@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network.netty;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
@@ -76,16 +75,29 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
+
             ChannelKey that = (ChannelKey) o;
-            return connectionId == that.connectionId && inbound == that.inbound && consistentId.equals(that.consistentId)
-                    && launchId.equals(
-                    that.launchId);
+
+            if (connectionId != that.connectionId) {
+                return false;
+            }
+            if (inbound != that.inbound) {
+                return false;
+            }
+            if (!consistentId.equals(that.consistentId)) {
+                return false;
+            }
+            return launchId.equals(that.launchId);
         }
 
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return Objects.hash(consistentId, launchId, connectionId, inbound);
+            int result = consistentId.hashCode();
+            result = 31 * result + launchId.hashCode();
+            result = 31 * result + (int) connectionId;
+            result = 31 * result + (inbound ? 1 : 0);
+            return result;
         }
 
         /** {@inheritDoc} */
