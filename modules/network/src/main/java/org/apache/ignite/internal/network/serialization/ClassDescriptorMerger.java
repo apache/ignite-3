@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.network.serialization;
 
+import static java.util.stream.Collectors.toSet;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Merges {@link ClassDescriptor} components.
@@ -68,5 +72,58 @@ class ClassDescriptorMerger {
         }
 
         return List.copyOf(mergedFields);
+    }
+
+    static List<MergedLayer> mergeLineages(List<ClassDescriptor> localLineage, List<ClassDescriptor> remoteLineage) {
+        Set<String> commonClassNames = classNames(localLineage);
+        commonClassNames.retainAll(classNames(remoteLineage));
+
+        Predicate<ClassDescriptor> isCommon = layer -> commonClassNames.contains(layer.className());
+
+        List<MergedLayer> result = new ArrayList<>();
+
+        int localIndex = 0;
+        int remoteIndex = 0;
+
+        while (localIndex < localLineage.size() && remoteIndex < remoteLineage.size()) {
+            while (localIndex < localLineage.size() && !isCommon.test(localLineage.get(localIndex))) {
+                result.add(MergedLayer.localOnly(localLineage.get(localIndex)));
+                localIndex++;
+            }
+            while (remoteIndex < remoteLineage.size() && !isCommon.test(remoteLineage.get(remoteIndex))) {
+                result.add(MergedLayer.remoteOnly(remoteLineage.get(remoteIndex)));
+                remoteIndex++;
+            }
+
+            if (localIndex >= localLineage.size() || remoteIndex >= remoteLineage.size()) {
+                break;
+            }
+
+            // in both lists, we are standing on descriptors with same class name
+            ClassDescriptor localLayer = localLineage.get(localIndex);
+            ClassDescriptor remoteLayer = remoteLineage.get(remoteIndex);
+            result.add(new MergedLayer(localLayer, remoteLayer));
+
+            localIndex++;
+            remoteIndex++;
+        }
+
+        // tails
+        while (localIndex < localLineage.size()) {
+            result.add(MergedLayer.localOnly(localLineage.get(localIndex)));
+            localIndex++;
+        }
+        while (remoteIndex < remoteLineage.size()) {
+            result.add(MergedLayer.remoteOnly(remoteLineage.get(remoteIndex)));
+            remoteIndex++;
+        }
+
+        return List.copyOf(result);
+    }
+
+    private static Set<String> classNames(List<ClassDescriptor> localLineage) {
+        return localLineage.stream()
+                .map(ClassDescriptor::className)
+                .collect(toSet());
     }
 }

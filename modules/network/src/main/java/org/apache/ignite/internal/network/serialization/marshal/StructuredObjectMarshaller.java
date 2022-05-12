@@ -27,6 +27,7 @@ import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.FieldAccessor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.MergedField;
+import org.apache.ignite.internal.network.serialization.MergedLayer;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputStream.UosGetField;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
@@ -211,10 +212,25 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     void fillStructuredObjectFrom(IgniteDataInput input, Object object, ClassDescriptor remoteDescriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        List<ClassDescriptor> remoteLineage = remoteDescriptor.lineage();
+        List<MergedLayer> lineage = remoteDescriptor.mergedLineage();
 
-        for (ClassDescriptor remoteLayer : remoteLineage) {
-            fillStructuredObjectLayerFrom(input, remoteLayer, object, context);
+        for (MergedLayer mergedLayer : lineage) {
+            if (mergedLayer.hasRemote()) {
+                fillStructuredObjectLayerFrom(input, mergedLayer.remote(), object, context);
+            } else if (mergedLayer.hasLocal()) {
+                fireEventsForLocalOnlyLayer(object, mergedLayer.local());
+            }
+        }
+    }
+
+    private void fireEventsForLocalOnlyLayer(Object object, ClassDescriptor localLayer) throws SchemaMismatchException {
+        fireOnFieldMissedOnLayerFields(object, localLayer);
+        schemaMismatchHandlers.onReadObjectMissed(localLayer.className(), object);
+    }
+
+    private void fireOnFieldMissedOnLayerFields(Object object, ClassDescriptor layer) throws SchemaMismatchException {
+        for (FieldDescriptor localField : layer.fields()) {
+            schemaMismatchHandlers.onFieldMissed(layer.className(), object, localField.name());
         }
     }
 
@@ -224,17 +240,19 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             Object object,
             UnmarshallingContext context
     ) throws IOException, UnmarshalException {
-        ClassDescriptor localLayer = remoteLayer.local();
+        boolean hasReadObjectLocally = remoteLayer.hasLocal() && remoteLayer.local().hasReadObject();
 
-        if (remoteLayer.hasWriteObject() && localLayer.hasReadObject()) {
-            fillObjectWithReadObjectFrom(input, object, remoteLayer, context);
-        } else if (remoteLayer.hasWriteObject() && !localLayer.hasReadObject()) {
-            fireReadObjectIgnored(remoteLayer, object, input, context);
+        if (remoteLayer.hasWriteObject()) {
+            if (hasReadObjectLocally) {
+                fillObjectWithReadObjectFrom(input, object, remoteLayer, context);
+            } else {
+                fireReadObjectIgnored(remoteLayer, object, input, context);
+            }
         } else {
             defaultFillFieldsFrom(input, object, remoteLayer, context);
 
-            if (localLayer.hasReadObject()) {
-                schemaMismatchHandlers.onReadObjectMissed(remoteLayer.localClass(), object);
+            if (hasReadObjectLocally) {
+                schemaMismatchHandlers.onReadObjectMissed(remoteLayer.className(), object);
             }
         }
     }
@@ -287,21 +305,21 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         IgniteDataInput externalDataInput = new IgniteUnsafeDataInput(writeObjectDataBytes);
 
         try (var oos = new UosObjectInputStream(externalDataInput, valueReader, unsharedReader, this, context)) {
-            schemaMismatchHandlers.onReadObjectIgnored(remoteLayer.localClass(), object, oos);
+            schemaMismatchHandlers.onReadObjectIgnored(remoteLayer.className(), object, oos);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor remoteLayer, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
+        @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, remoteLayer);
 
-        for (MergedField mergedField : descriptor.mergedFields()) {
+        for (MergedField mergedField : remoteLayer.mergedFields()) {
             if (mergedField.hasRemote()) {
-                fillFieldWithNullSkippedCheckFrom(input, object, mergedField, descriptor, nullsBitSet, context);
+                fillFieldWithNullSkippedCheckFrom(input, object, mergedField, remoteLayer, nullsBitSet, context);
             } else {
-                schemaMismatchHandlers.onFieldMissed(descriptor.localClass(), object, mergedField.name());
+                schemaMismatchHandlers.onFieldMissed(remoteLayer.className(), object, mergedField.name());
             }
         }
     }
@@ -365,13 +383,13 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     private void fireFieldIgnored(ClassDescriptor layerDescriptor, Object object, MergedField mergedField, Object fieldValue)
             throws SchemaMismatchException {
-        schemaMismatchHandlers.onFieldIgnored(layerDescriptor.localClass(), object, mergedField.name(), fieldValue);
+        schemaMismatchHandlers.onFieldIgnored(layerDescriptor.className(), object, mergedField.name(), fieldValue);
     }
 
     private void fireFieldTypeChanged(ClassDescriptor layerDescriptor, Object object, MergedField mergedField, Object fieldValue)
             throws SchemaMismatchException {
         schemaMismatchHandlers.onFieldTypeChanged(
-                layerDescriptor.localClass(),
+                layerDescriptor.className(),
                 object,
                 mergedField.name(),
                 mergedField.remote().localClass(),

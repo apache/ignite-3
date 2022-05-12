@@ -48,7 +48,7 @@ public interface FieldAccessor {
         if (field != null) {
             return new UnsafeFieldAccessor(field);
         } else {
-            return new BrokenFieldAccessor(fieldName, declaringClass);
+            return new BrokenFieldAccessor(fieldName, declaringClass.getName());
         }
     }
 

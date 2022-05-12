@@ -21,12 +21,12 @@ import java.util.Map;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A map-backed implementation of {@link ClassIndexedDescriptors}.
+ * A map-backed implementation of {@link ClassIndexedDescriptors}, map stores class names as keys.
  */
-public class MapBackedClassIndexedDescriptors implements ClassIndexedDescriptors {
-    private final Map<Class<?>, ClassDescriptor> descriptorsByClass;
+public class ClassNameMapBackedClassIndexedDescriptors implements ClassIndexedDescriptors {
+    private final Map<String, ClassDescriptor> descriptorsByClass;
 
-    public MapBackedClassIndexedDescriptors(Map<Class<?>, ClassDescriptor> descriptorsByClass) {
+    public ClassNameMapBackedClassIndexedDescriptors(Map<String, ClassDescriptor> descriptorsByClass) {
         this.descriptorsByClass = descriptorsByClass;
     }
 
@@ -34,6 +34,6 @@ public class MapBackedClassIndexedDescriptors implements ClassIndexedDescriptors
     @Override
     @Nullable
     public ClassDescriptor getDescriptor(Class<?> clazz) {
-        return descriptorsByClass.get(clazz);
+        return descriptorsByClass.get(clazz.getName());
     }
 }
