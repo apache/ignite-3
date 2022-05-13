@@ -165,10 +165,19 @@ public class IgniteConcurrentMultiPairQueue<K, V> {
     }
 
     /**
-     * Returns Constant initialisation size.
+     * Returns constant initialisation size.
      */
     public int initialSize() {
         return maxPos;
+    }
+
+    /**
+     * Returns the number of elements in this queue.
+     */
+    public int size() {
+        int currentPosition = pos.get();
+
+        return currentPosition >= maxPos ? 0 : maxPos - currentPosition;
     }
 
     /**

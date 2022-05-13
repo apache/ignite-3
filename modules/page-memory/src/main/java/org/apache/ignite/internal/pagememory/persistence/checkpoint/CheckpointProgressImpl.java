@@ -42,7 +42,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
     private volatile long nextCheckpointNanos;
 
     /** Current checkpoint state. */
-    private volatile AtomicReference<CheckpointState> state = new AtomicReference<>(SCHEDULED);
+    private final AtomicReference<CheckpointState> state = new AtomicReference<>(SCHEDULED);
 
     /** Future which would be finished when corresponds state is set. */
     private final Map<CheckpointState, CompletableFuture<Void>> stateFutures = new ConcurrentHashMap<>();
@@ -57,17 +57,14 @@ class CheckpointProgressImpl implements CheckpointProgress {
     @Nullable
     private volatile Throwable failCause;
 
-    /** Counter for written checkpoint pages. Not {@link null} only if checkpoint is running. */
-    @Nullable
-    private volatile AtomicInteger writtenPagesCntr;
+    /** Counter for written checkpoint pages. */
+    private final AtomicInteger writtenPagesCntr = new AtomicInteger();
 
-    /** Counter for fsynced checkpoint pages. Not {@link null} only if checkpoint is running. */
-    @Nullable
-    private volatile AtomicInteger syncedPagesCntr;
+    /** Counter for fsynced checkpoint pages. */
+    private final AtomicInteger syncedPagesCntr = new AtomicInteger();
 
-    /** Counter for evicted checkpoint pages. Not {@link null} only if checkpoint is running. */
-    @Nullable
-    private volatile AtomicInteger evictedPagesCntr;
+    /** Counter for evicted checkpoint pages. */
+    private final AtomicInteger evictedPagesCntr = new AtomicInteger();
 
     /**
      * Constructor.
@@ -133,23 +130,23 @@ class CheckpointProgressImpl implements CheckpointProgress {
     }
 
     /**
-     * Returns counter for written checkpoint pages. Not {@code null} only if checkpoint is running.
+     * Returns counter for written checkpoint pages.
      */
-    public @Nullable AtomicInteger writtenPagesCounter() {
+    public AtomicInteger writtenPagesCounter() {
         return writtenPagesCntr;
     }
 
     /**
-     * Returns counter for fsynced checkpoint pages. Not {@code null} only if checkpoint is running.
+     * Returns counter for fsynced checkpoint pages.
      */
-    public @Nullable AtomicInteger syncedPagesCounter() {
+    public AtomicInteger syncedPagesCounter() {
         return syncedPagesCntr;
     }
 
     /**
-     * Returns Counter for evicted pages during current checkpoint. Not {@code null} only if checkpoint is running.
+     * Returns Counter for evicted pages during current checkpoint.
      */
-    public @Nullable AtomicInteger evictedPagesCounter() {
+    public AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
     }
 
@@ -176,11 +173,7 @@ class CheckpointProgressImpl implements CheckpointProgress {
      * Clear checkpoint progress counters.
      */
     public void clearCounters() {
-        currCheckpointPagesCnt = 0;
-
-        writtenPagesCntr = null;
-        syncedPagesCntr = null;
-        evictedPagesCntr = null;
+        initCounters(0);
     }
 
     /**
@@ -191,9 +184,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
     public void initCounters(int pagesSize) {
         currCheckpointPagesCnt = pagesSize;
 
-        writtenPagesCntr = new AtomicInteger();
-        syncedPagesCntr = new AtomicInteger();
-        evictedPagesCntr = new AtomicInteger();
+        writtenPagesCntr.set(0);
+        syncedPagesCntr.set(0);
+        evictedPagesCntr.set(0);
     }
 
     /**

@@ -15,27 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.persistence;
+package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Interface for write page to {@link PageStore}.
+ * Interface which allows writing one page to page store.
  */
-// TODO: IGNITE-15818 Maybe refactor.
-public interface PageStoreWriter {
+public interface CheckpointPageWriter {
     /**
-     * Callback for write page. {@link PageMemoryImpl} will copy page content to buffer before call.
+     * Writes the page to the page store.
      *
-     * @param fullPageId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
-     * PageMemoryImpl#beginCheckpoint(CompletableFuture)} method call.
-     * @param buf Temporary buffer to write changes into.
-     * @param tag {@code Partition generation} if data was read.
-     * @throws IgniteInternalCheckedException If write page failed.
+     * @param fullPageId Full page id.
+     * @param buf Byte buffer to write from.
+     * @param tag Page tag.
+     * @return {@link PageStore} which was used to write.
+     * @throws IgniteInternalCheckedException If failed.
      */
-    void writePage(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
+    PageStore write(FullPageId fullPageId, ByteBuffer buf, int tag) throws IgniteInternalCheckedException;
 }

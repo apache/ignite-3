@@ -193,6 +193,8 @@ public class CheckpointWorkflowTest {
 
         List<String> events = new ArrayList<>();
 
+        CheckpointMetricsTracker tracker = mock(CheckpointMetricsTracker.class);
+
         workflow.addCheckpointListener(new TestCheckpointListener(events) {
             /** {@inheritDoc} */
             @Override
@@ -206,6 +208,13 @@ public class CheckpointWorkflowTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
                 verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+
+                verify(tracker, times(0)).onWriteLockWaitStart();
+                verify(tracker, times(0)).onMarkCheckpointBeginStart();
+                verify(tracker, times(0)).onMarkCheckpointBeginEnd();
+                verify(tracker, times(0)).onWriteLockRelease();
+                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
             }
 
             /** {@inheritDoc} */
@@ -220,6 +229,13 @@ public class CheckpointWorkflowTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN)));
 
                 verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+
+                verify(tracker, times(1)).onWriteLockWaitStart();
+                verify(tracker, times(1)).onMarkCheckpointBeginStart();
+                verify(tracker, times(0)).onMarkCheckpointBeginEnd();
+                verify(tracker, times(0)).onWriteLockRelease();
+                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
             }
 
             /** {@inheritDoc} */
@@ -238,10 +254,24 @@ public class CheckpointWorkflowTest {
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
 
                 verify(markersStorage, times(0)).onCheckpointBegin(checkpointId);
+
+                verify(tracker, times(1)).onWriteLockWaitStart();
+                verify(tracker, times(1)).onMarkCheckpointBeginStart();
+                verify(tracker, times(1)).onMarkCheckpointBeginEnd();
+                verify(tracker, times(1)).onWriteLockRelease();
+                verify(tracker, times(0)).onSplitAndSortCheckpointPagesStart();
+                verify(tracker, times(0)).onSplitAndSortCheckpointPagesEnd();
             }
         }, dataRegion);
 
-        Checkpoint checkpoint = workflow.markCheckpointBegin(coarseCurrentTimeMillis(), progressImpl);
+        Checkpoint checkpoint = workflow.markCheckpointBegin(coarseCurrentTimeMillis(), progressImpl, tracker);
+
+        verify(tracker, times(1)).onWriteLockWaitStart();
+        verify(tracker, times(1)).onMarkCheckpointBeginStart();
+        verify(tracker, times(1)).onMarkCheckpointBeginEnd();
+        verify(tracker, times(1)).onWriteLockRelease();
+        verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
+        verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
         List<IgniteBiTuple<PageMemoryImpl, FullPageId>> pairs = collect(checkpoint.dirtyPages);
 
@@ -287,7 +317,11 @@ public class CheckpointWorkflowTest {
 
         when(progressImpl.futureFor(MARKER_STORED_TO_DISK)).thenReturn(completedFuture(null));
 
-        Checkpoint checkpoint = workflow.markCheckpointBegin(coarseCurrentTimeMillis(), progressImpl);
+        Checkpoint checkpoint = workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                progressImpl,
+                mock(CheckpointMetricsTracker.class)
+        );
 
         assertThat(
                 collect(checkpoint.dirtyPages).stream().map(IgniteBiTuple::getValue).collect(toList()),
@@ -312,7 +346,11 @@ public class CheckpointWorkflowTest {
 
         when(progressImpl.futureFor(MARKER_STORED_TO_DISK)).thenReturn(completedFuture(null));
 
-        Checkpoint checkpoint = workflow.markCheckpointBegin(coarseCurrentTimeMillis(), progressImpl);
+        Checkpoint checkpoint = workflow.markCheckpointBegin(
+                coarseCurrentTimeMillis(),
+                progressImpl,
+                mock(CheckpointMetricsTracker.class)
+        );
 
         assertThat(
                 collect(checkpoint.dirtyPages).stream().map(IgniteBiTuple::getValue).collect(toList()),
