@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.network.recovery;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.HandshakeManager;
+import org.apache.ignite.internal.network.netty.HandshakeHandler;
+import org.apache.ignite.internal.network.netty.MessageHandler;
+import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.netty.PipelineUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
@@ -36,7 +42,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Recovery protocol handshake manager for a server.
  */
-public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager {
+public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Launch id. */
     private final UUID launchId;
 
@@ -45,6 +51,24 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
 
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
+
+    /** Handshake completion future. */
+    private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
+
+    /** Remote node's launch id. */
+    private UUID remoteLaunchId;
+
+    /** Remote node's consistent id. */
+    private String remoteConsistentId;
+
+    /** Netty pipeline channel handler context. */
+    private ChannelHandlerContext ctx;
+
+    /** Channel. */
+    private Channel channel;
+
+    /** Netty pipeline handshake handler. */
+    private HandshakeHandler handler;
 
     /** Count of messages received by the remote node. */
     private long receivedCount;
@@ -70,6 +94,14 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
         this.consistentId = consistentId;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onInit(ChannelHandlerContext handlerContext) {
+        this.ctx = handlerContext;
+        this.channel = handlerContext.channel();
+        this.handler = (HandshakeHandler) ctx.handler();
     }
 
     /** {@inheritDoc} */
@@ -160,6 +192,31 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
                 finishHandshake();
             }
         });
+    }
+
+    /**
+     * Creates a message handler using the consistent id of a remote node.
+     *
+     * @return New message handler.
+     */
+    private MessageHandler createMessageHandler() {
+        return handler.createMessageHandler(remoteConsistentId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<NettySender> handshakeFuture() {
+        return handshakeCompleteFuture;
+    }
+
+    /**
+     * Finishes handshaking process by removing handshake handler from the pipeline and creating a {@link NettySender}.
+     */
+    private void finishHandshake() {
+        // Removes handshake handler from the pipeline as the handshake is finished
+        this.ctx.pipeline().remove(this.handler);
+
+        handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
     }
 
     @TestOnly
