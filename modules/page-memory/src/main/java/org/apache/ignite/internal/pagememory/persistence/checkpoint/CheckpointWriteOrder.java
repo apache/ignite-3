@@ -17,36 +17,35 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Represents information of progress of a current checkpoint and allows obtaining future to wait for a particular checkpoint state.
+ * This enum defines order of writing pages to disk storage during checkpoint.
  */
-public interface CheckpointProgress {
+public enum CheckpointWriteOrder {
     /**
-     * Returns checkpoint ID.
+     * Pages are written in order provided by checkpoint pages collection iterator (which is basically a hashtable).
      */
-    UUID id();
+    RANDOM,
 
     /**
-     * Returns description of the reason of the current checkpoint.
+     * All checkpoint pages are collected into single list and sorted by page index. Provides almost sequential disk writes, which can be
+     * much faster on some SSD models.
      */
-    @Nullable String reason();
+    SEQUENTIAL;
 
     /**
-     * Return {@code true} If checkpoint already started but have not finished yet.
+     * Enumerated values.
      */
-    boolean inProgress();
+    private static final CheckpointWriteOrder[] VALS = values();
 
     /**
-     * Returns future which can be used for detection when current checkpoint reaches the specific state.
+     * Efficiently gets enumerated value from its ordinal.
+     *
+     * @param ord Ordinal value.
+     * @return Enumerated value or {@code null} if ordinal out of range.
      */
-    CompletableFuture<?> futureFor(CheckpointState state);
-
-    /**
-     * Returns number of dirty pages in current checkpoint. If checkpoint is not running, returns {@code 0}.
-     */
-    int currentCheckpointPagesCount();
+    public static @Nullable CheckpointWriteOrder fromOrdinal(int ord) {
+        return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
+    }
 }

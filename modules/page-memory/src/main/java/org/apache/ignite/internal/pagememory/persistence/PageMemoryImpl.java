@@ -1186,7 +1186,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         boolean wasDirty = dirty(absPtr, dirty);
 
         if (dirty) {
-            // TODO: IGNITE-16898 Don't forget add assertion for checkpoint lock held by this thread
+            // TODO: IGNITE-16935 Don't forget add assertion for checkpoint lock held by this thread
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());

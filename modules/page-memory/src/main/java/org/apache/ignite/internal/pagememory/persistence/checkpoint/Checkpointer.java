@@ -17,24 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Empty.
  */
-// TODO: IGNITE-16898 Continue porting the code
+// TODO: IGNITE-16935 Continue porting the code
 public abstract class Checkpointer {
-    /**
-     * Changes the information for a scheduled checkpoint if it was scheduled further than {@code delayFromNow}, or do nothing otherwise.
-     *
-     * @param delayFromNow Delay from now in milliseconds.
-     * @param reason Wakeup reason.
-     * @return Nearest scheduled checkpoint which is not started yet (dirty pages weren't collected yet).
-     */
-    public abstract CheckpointProgress scheduleCheckpoint(long delayFromNow, String reason);
+    public abstract Thread runner();
 
-    /**
-     * Returns runner thread, {@code null} if the worker has not yet started executing.
-     */
-    public abstract @Nullable Thread runner();
+    public abstract CheckpointProgress scheduleCheckpoint(long l, String s);
 }

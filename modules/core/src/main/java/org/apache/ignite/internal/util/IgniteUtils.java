@@ -332,9 +332,17 @@ public class IgniteUtils {
      * @return Absolute value.
      */
     public static int safeAbs(int i) {
-        i = Math.abs(i);
+        return Math.max(Math.abs(i), 0);
+    }
 
-        return i < 0 ? 0 : i;
+    /**
+     * Gets absolute value for long. If long is {@link Long#MIN_VALUE}, then {@code 0} is returned.
+     *
+     * @param i Long value.
+     * @return Absolute value.
+     */
+    public static long safeAbs(long i) {
+        return Math.max(Math.abs(i), 0);
     }
 
     /**
