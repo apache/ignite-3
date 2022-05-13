@@ -30,6 +30,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Recovery protocol handshake manager for a client.
@@ -44,7 +45,14 @@ public class RecoveryClientHandshakeManager extends BaseRecoveryHandshakeManager
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
 
+    /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
+
+    /** Connection id. */
+    private final short connectionId;
+
+    /** Recovery descriptor. */
+    private RecoveryDescriptor recoveryDescriptor;
 
     /**
      * Constructor.
@@ -89,7 +97,7 @@ public class RecoveryClientHandshakeManager extends BaseRecoveryHandshakeManager
 
             recoveryDescriptor.acknowledge(receivedCount);
 
-            long cnt = recoveryDescriptor.unacknowledgedCount();
+            int cnt = recoveryDescriptor.unacknowledgedCount();
 
             if (cnt == 0) {
                 finishHandshake();
@@ -108,7 +116,7 @@ public class RecoveryClientHandshakeManager extends BaseRecoveryHandshakeManager
             return;
         }
 
-        long cnt = recoveryDescriptor.unacknowledgedCount();
+        int cnt = recoveryDescriptor.unacknowledgedCount();
 
         if (cnt == 0) {
             finishHandshake();
@@ -136,5 +144,10 @@ public class RecoveryClientHandshakeManager extends BaseRecoveryHandshakeManager
                 );
             }
         });
+    }
+
+    @TestOnly
+    public RecoveryDescriptor recoveryDescriptor() {
+        return recoveryDescriptor;
     }
 }

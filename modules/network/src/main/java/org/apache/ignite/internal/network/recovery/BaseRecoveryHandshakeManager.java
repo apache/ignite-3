@@ -25,7 +25,6 @@ import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Base recovery handshake manager.
@@ -40,9 +39,6 @@ public abstract class BaseRecoveryHandshakeManager implements HandshakeManager {
     /** Remote node's consistent id. */
     protected String remoteConsistentId;
 
-    /** Connection id. */
-    protected short connectionId;
-
     /** Netty pipeline channel handler context. */
     protected ChannelHandlerContext ctx;
 
@@ -51,9 +47,6 @@ public abstract class BaseRecoveryHandshakeManager implements HandshakeManager {
 
     /** Netty pipeline handshake handler. */
     protected HandshakeHandler handler;
-
-    /** Recovery descriptor. */
-    protected RecoveryDescriptor recoveryDescriptor;
 
     /** {@inheritDoc} */
     @Override
@@ -78,12 +71,6 @@ public abstract class BaseRecoveryHandshakeManager implements HandshakeManager {
         return handshakeCompleteFuture;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public void onConnectionOpen() {
-        // No-op.
-    }
-
     /**
      * Finishes handshaking process by removing handshake handler from the pipeline and creating a {@link NettySender}.
      */
@@ -92,10 +79,5 @@ public abstract class BaseRecoveryHandshakeManager implements HandshakeManager {
         this.ctx.pipeline().remove(this.handler);
 
         handshakeCompleteFuture.complete(new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId));
-    }
-
-    @TestOnly
-    public RecoveryDescriptor recoveryDescriptor() {
-        return recoveryDescriptor;
     }
 }

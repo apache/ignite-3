@@ -52,7 +52,7 @@ public class DefaultRecoveryDescriptorProvider implements RecoveryDescriptorProv
 
         /**
          * Connection id. Every connection between this node and a remote node has a unique connection id,
-         * but connections with different nodes may have same ids.
+         * but connections with different nodes may have the same ids.
          */
         private final short connectionId;
 

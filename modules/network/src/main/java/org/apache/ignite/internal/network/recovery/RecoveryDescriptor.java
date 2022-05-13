@@ -20,6 +20,7 @@ package org.apache.ignite.internal.network.recovery;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.OutNetworkObject;
 
@@ -28,7 +29,7 @@ import org.apache.ignite.network.OutNetworkObject;
  */
 public class RecoveryDescriptor {
     /** Unacknowledged messages. */
-    private final ArrayDeque<OutNetworkObject> unacknowledgedMessages;
+    private final Queue<OutNetworkObject> unacknowledgedMessages;
 
     /** Count of sent messages. */
     private long sentCount;
@@ -64,7 +65,7 @@ public class RecoveryDescriptor {
      */
     public void acknowledge(long messagesReceivedByRemote) {
         while (acknowledgedCount < messagesReceivedByRemote) {
-            OutNetworkObject req = unacknowledgedMessages.pollFirst();
+            OutNetworkObject req = unacknowledgedMessages.poll();
 
             assert req != null;
 
@@ -77,13 +78,14 @@ public class RecoveryDescriptor {
      *
      * @return The number of the messages unacknowledged by the remote node.
      */
-    public long unacknowledgedCount() {
+    public int unacknowledgedCount() {
         long res = sentCount - acknowledgedCount;
+        int size = unacknowledgedMessages.size();
 
         assert res >= 0;
-        assert res == unacknowledgedMessages.size();
+        assert res == size;
 
-        return res;
+        return size;
     }
 
     /**
@@ -103,7 +105,7 @@ public class RecoveryDescriptor {
     public void add(OutNetworkObject msg) {
         msg.shouldBeSavedForRecovery(false);
         sentCount++;
-        unacknowledgedMessages.addLast(msg);
+        unacknowledgedMessages.add(msg);
     }
 
     /**

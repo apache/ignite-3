@@ -74,8 +74,8 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
-        var clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
-        var serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
 
         EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
 
@@ -106,8 +106,9 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptor serverRecoveryDescriptor = serverRecovery.getRecoveryDescriptor("client", clientLaunchId, CONNECTION_ID, true);
         addUnacknowledgedMessages(serverRecoveryDescriptor);
 
-        var clientHandshakeManager = createRecoveryClientHandshakeManager("client", clientLaunchId, clientRecovery);
-        var serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager("client", clientLaunchId,
+                clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(serverRecovery);
 
         var messageCaptor = new AtomicReference<TestMessage>();
         EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, (inObject) -> {
@@ -155,8 +156,9 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptor clientRecoveryDescriptor = clientRecovery.getRecoveryDescriptor("server", serverLaunchId, CONNECTION_ID, false);
         addUnacknowledgedMessages(clientRecoveryDescriptor);
 
-        var clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
-        var serverHandshakeManager = createRecoveryServerHandshakeManager("server", serverLaunchId, serverRecovery);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager("server", serverLaunchId,
+                serverRecovery);
 
         var messageCaptor = new AtomicReference<TestMessage>();
         EmbeddedChannel clientSideChannel = setupChannel(clientHandshakeManager, noMessageListener);
@@ -200,14 +202,14 @@ public class RecoveryHandshakeTest {
         RecoveryDescriptorProvider node1Recovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider node2Recovery = createRecoveryDescriptorProvider();
 
-        var node1Uuid = UUID.randomUUID();
-        var node2Uuid = UUID.randomUUID();
+        UUID node1Uuid = UUID.randomUUID();
+        UUID node2Uuid = UUID.randomUUID();
 
-        var chm1 = createRecoveryClientHandshakeManager("client", node1Uuid, node1Recovery);
-        var shm1 = createRecoveryServerHandshakeManager("client", node1Uuid, node1Recovery);
+        RecoveryClientHandshakeManager chm1 = createRecoveryClientHandshakeManager("client", node1Uuid, node1Recovery);
+        RecoveryServerHandshakeManager shm1 = createRecoveryServerHandshakeManager("client", node1Uuid, node1Recovery);
 
-        var chm2 = createRecoveryClientHandshakeManager("server", node2Uuid, node2Recovery);
-        var shm2 = createRecoveryServerHandshakeManager("server", node2Uuid, node2Recovery);
+        RecoveryClientHandshakeManager chm2 = createRecoveryClientHandshakeManager("server", node2Uuid, node2Recovery);
+        RecoveryServerHandshakeManager shm2 = createRecoveryServerHandshakeManager("server", node2Uuid, node2Recovery);
 
         EmbeddedChannel out1to2 = setupChannel(chm1, noMessageListener);
         EmbeddedChannel in1to2 = setupChannel(shm1, noMessageListener);
@@ -243,15 +245,17 @@ public class RecoveryHandshakeTest {
      */
     private void testExactlyOnce(boolean serverDidntReceiveAck) throws Exception {
         var server = "server";
-        var serverLaunchId = UUID.randomUUID();
+        UUID serverLaunchId = UUID.randomUUID();
         var client = "client";
-        var clientLaunchId = UUID.randomUUID();
+        UUID clientLaunchId = UUID.randomUUID();
 
         RecoveryDescriptorProvider clientRecovery = createRecoveryDescriptorProvider();
         RecoveryDescriptorProvider serverRecovery = createRecoveryDescriptorProvider();
 
-        var clientHandshakeManager = createRecoveryClientHandshakeManager(client, clientLaunchId, clientRecovery);
-        var serverHandshakeManager = createRecoveryServerHandshakeManager(server, serverLaunchId, serverRecovery);
+        RecoveryClientHandshakeManager clientHandshakeManager = createRecoveryClientHandshakeManager(client, clientLaunchId,
+                clientRecovery);
+        RecoveryServerHandshakeManager serverHandshakeManager = createRecoveryServerHandshakeManager(server, serverLaunchId,
+                serverRecovery);
 
         var receivedFirst = new AtomicBoolean();
 
@@ -265,7 +269,7 @@ public class RecoveryHandshakeTest {
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
 
-        var ch = serverDidntReceiveAck ? serverSideChannel : clientSideChannel;
+        EmbeddedChannel ch = serverDidntReceiveAck ? serverSideChannel : clientSideChannel;
 
         // Add two messages to the outbound
         ch.writeOutbound(new OutNetworkObject(TEST_MESSAGES_FACTORY.testMessage().msg("1").build(), Collections.emptyList()));
@@ -340,7 +344,7 @@ public class RecoveryHandshakeTest {
         /** {@inheritDoc} */
         @Override
         public void accept(InNetworkObject inNetworkObject) {
-            var msg = (TestMessage) inNetworkObject.message();
+            TestMessage msg = (TestMessage) inNetworkObject.message();
             if (expectedMessage.equals(msg.msg())) {
                 if (!flag.compareAndSet(false, true)) {
                     fail();

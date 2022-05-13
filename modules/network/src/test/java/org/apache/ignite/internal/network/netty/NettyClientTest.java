@@ -263,11 +263,5 @@ public class NettyClientTest {
         public void onInit(ChannelHandlerContext ctx) {
             // No-op.
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public void onConnectionOpen() {
-            // No-op.
-        }
     }
 }

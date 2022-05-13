@@ -27,7 +27,7 @@ import org.apache.ignite.network.NetworkMessage;
  */
 public interface HandshakeManager {
     /**
-     * Initializes handshake manager with the channel.
+     * Initializes the handshake manager.
      *
      * @param handlerContext Channel handler context.
      */
@@ -36,7 +36,9 @@ public interface HandshakeManager {
     /**
      * Handles an event of the connection opening.
      */
-    void onConnectionOpen();
+    default void onConnectionOpen() {
+        // No-op.
+    }
 
     /**
      * Handles an incoming message.

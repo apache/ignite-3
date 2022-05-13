@@ -31,6 +31,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.OutNetworkObject;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -45,9 +46,14 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
 
+    /** Count of messages received by the remote node. */
     private long receivedCount;
 
+    /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider recoveryDescriptorProvider;
+
+    /** Recovery descriptor. */
+    private RecoveryDescriptor recoveryDescriptor;
 
     /**
      * Constructor.
@@ -94,10 +100,9 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
             this.remoteLaunchId = msg.launchId();
             this.remoteConsistentId = msg.consistentId();
             this.receivedCount = msg.receivedCount();
-            this.connectionId = msg.connectionId();
 
             this.recoveryDescriptor = recoveryDescriptorProvider.getRecoveryDescriptor(remoteConsistentId, remoteLaunchId,
-                    connectionId, true);
+                    msg.connectionId(), true);
 
             handshake(recoveryDescriptor);
 
@@ -121,12 +126,12 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
                 .build();
 
         CompletableFuture<Void> sendFuture = NettyUtils.toCompletableFuture(
-                ctx.channel().writeAndFlush(new OutNetworkObject(response, Collections.emptyList(), false))
+                channel.write(new OutNetworkObject(response, Collections.emptyList(), false))
         );
 
         descriptor.acknowledge(receivedCount);
 
-        int unacknowledgedCount = (int) descriptor.unacknowledgedCount();
+        int unacknowledgedCount = descriptor.unacknowledgedCount();
 
         if (unacknowledgedCount > 0) {
             var futs = new CompletableFuture[unacknowledgedCount + 1];
@@ -136,11 +141,13 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
 
             for (int i = 0; i < networkMessages.size(); i++) {
                 OutNetworkObject networkMessage = networkMessages.get(i);
-                futs[i + 1] = NettyUtils.toCompletableFuture(ctx.channel().writeAndFlush(networkMessage));
+                futs[i + 1] = NettyUtils.toCompletableFuture(channel.write(networkMessage));
             }
 
             sendFuture = CompletableFuture.allOf(futs);
         }
+
+        channel.flush();
 
         boolean hasUnacknowledgedMessages = unacknowledgedCount > 0;
 
@@ -153,5 +160,10 @@ public class RecoveryServerHandshakeManager extends BaseRecoveryHandshakeManager
                 finishHandshake();
             }
         });
+    }
+
+    @TestOnly
+    public RecoveryDescriptor recoveryDescriptor() {
+        return recoveryDescriptor;
     }
 }

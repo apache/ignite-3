@@ -185,7 +185,8 @@ public class ConnectionManager {
 
         // Get an existing client or create a new one. NettyClient provides a CompletableFuture that resolves
         // when the client is ready for write operations, so previously started client, that didn't establish connection
-        // or didn't perform the handhsake operaton, can be reused.
+        // or didn't perform the handshake operation, can be reused.
+        // TODO: IGNITE-16948 Connection id may be different from 0
         NettyClient client = clients.compute(address, (addr, existingClient) ->
                 existingClient != null && !existingClient.failedToConnect() && !existingClient.isDisconnected()
                         ? existingClient : connect(addr, (short) 0)
@@ -234,9 +235,9 @@ public class ConnectionManager {
                 this::onMessage
         );
 
-        client.start(clientBootstrap).whenComplete((nodeInfo, throwable) -> {
+        client.start(clientBootstrap).whenComplete((sender, throwable) -> {
             if (throwable == null) {
-                // No-op
+                channels.put(sender.consistentId(), sender);
             } else {
                 clients.remove(address);
             }
@@ -289,11 +290,11 @@ public class ConnectionManager {
         return stopped.get();
     }
 
-    protected HandshakeManager createClientHandshakeManager(short connectionId) {
+    private HandshakeManager createClientHandshakeManager(short connectionId) {
         return new RecoveryClientHandshakeManager(launchId, consistentId, connectionId, FACTORY, descriptorProvider);
     }
 
-    protected HandshakeManager createServerHandshakeManager() {
+    private HandshakeManager createServerHandshakeManager() {
         return new RecoveryServerHandshakeManager(launchId, consistentId, FACTORY, descriptorProvider);
     }
 
