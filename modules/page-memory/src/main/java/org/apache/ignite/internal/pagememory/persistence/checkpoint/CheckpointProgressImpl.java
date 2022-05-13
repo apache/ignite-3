@@ -33,7 +33,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data class representing the state of running/scheduled checkpoint.
  */
-// TODO: IGNITE-16950 Check for a race between futureFor, transitTo and fail
 class CheckpointProgressImpl implements CheckpointProgress {
     /** Checkpoint id. */
     private final UUID id = UUID.randomUUID();
