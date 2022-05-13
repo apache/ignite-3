@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -246,13 +247,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        Consumer<Consumer<Long>> registry = (c) -> {
-            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                c.accept(newStorageRevision);
-
-                return CompletableFuture.completedFuture(null);
-            });
-        };
+        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
+                .listenUpdateStorageRevision(newStorageRevision -> c.apply(newStorageRevision));
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
@@ -337,7 +333,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         // Deploy all registered watches because all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
 
-        configurationCatchUpFuture.join();
+        assertThat(configurationCatchUpFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
