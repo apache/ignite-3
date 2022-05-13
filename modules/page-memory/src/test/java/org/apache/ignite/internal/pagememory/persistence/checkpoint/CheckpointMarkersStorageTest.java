@@ -28,6 +28,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
@@ -51,7 +52,7 @@ public class CheckpointMarkersStorageTest {
     void testFailCreateCheckpointDir() throws Exception {
         Path testFile = createFile(workDir.resolve("testFile"));
 
-        try (FileWriter fileWriter = new FileWriter(testFile.toFile())) {
+        try (FileWriter fileWriter = new FileWriter(testFile.toFile(), StandardCharsets.UTF_8)) {
             fileWriter.write("testString");
 
             fileWriter.flush();
