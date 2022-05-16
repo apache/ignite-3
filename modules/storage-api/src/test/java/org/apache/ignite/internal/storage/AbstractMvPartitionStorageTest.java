@@ -53,7 +53,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     public void testEmpty() throws Exception {
         MvPartitionStorage pk = partitionStorage();
 
-        RowId rowId = UuidRowId.randomRowId(0);
+        RowId rowId = pk.insert(binaryRow(new TestKey(1, "1"), new TestValue(1, "1")), UUID.randomUUID());
+
+        pk.abortWrite(rowId);
+
         assertEquals(0, rowId.partitionId());
 
         // Read.
