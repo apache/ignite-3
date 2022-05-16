@@ -56,7 +56,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see TemporalTypesHelper
  */
-public class Row implements BinaryRowEx, SchemaAware, BinaryTuple {
+public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
     /**
      * Null map offset.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859

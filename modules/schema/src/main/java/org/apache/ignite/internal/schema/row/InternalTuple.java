@@ -28,10 +28,10 @@ import java.util.UUID;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 
 /**
- * General interface to describe binary tuples outside of their data layout and column schemas.
+ * General interface to describe tuples outside of their data layout and column schemas.
  * Accessor methods may or may not throw {@link InvalidTypeException} depending on the implementation.
  */
-public interface BinaryTuple {
+public interface InternalTuple {
     /**
      * Returns a number of values in the tuple.
      */
