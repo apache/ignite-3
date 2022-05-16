@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.cluster.management.raft.responses;
 
 import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.raft.commands.NodeJoinCommand;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 
 /**
- * Response returned for a {@link NodeJoinCommand}, indicating that a join request has been rejected.
+ * Response returned for a {@link JoinRequestCommand}, indicating that a join request has been rejected.
  */
 public class JoinDeniedResponse implements Serializable {
     private final String reason;

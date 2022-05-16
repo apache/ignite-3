@@ -61,9 +61,9 @@ public class PerSessionSerializationService {
     private final Int2ObjectMap<ClassDescriptor> mergedIdToDescriptorMap = new Int2ObjectOpenHashMap<>();
     /**
      * Map with merged class descriptors. They are the result of the merging of a local and a remote descriptor.
-     * The key in this map is the class.
+     * The key in this map is the class name.
      */
-    private final Map<Class<?>, ClassDescriptor> mergedClassToDescriptorMap = new HashMap<>();
+    private final Map<String, ClassDescriptor> mergedClassToDescriptorMap = new HashMap<>();
 
     /**
      * A collection of the descriptors that were sent to the remote node.
@@ -86,7 +86,7 @@ public class PerSessionSerializationService {
         this.serializationService = serializationService;
         this.descriptors = new CompositeDescriptorRegistry(
                 new MapBackedIdIndexedDescriptors(mergedIdToDescriptorMap),
-                new MapBackedClassIndexedDescriptors(mergedClassToDescriptorMap),
+                new ClassNameMapBackedClassIndexedDescriptors(mergedClassToDescriptorMap),
                 serializationService.getLocalDescriptorRegistry()
         );
     }
@@ -134,14 +134,10 @@ public class PerSessionSerializationService {
      * @param descriptorIds Class descriptors.
      * @return List of class descriptor network messages.
      */
-    @Nullable
     public static List<ClassDescriptorMessage> createClassDescriptorsMessages(IntSet descriptorIds, ClassDescriptorRegistry registry) {
-        List<ClassDescriptorMessage> messages = descriptorIds.intStream()
-                .mapToObj(registry::getDescriptor)
-                .filter(descriptor -> {
-                    int descriptorId = descriptor.descriptorId();
-                    return !shouldBeBuiltIn(descriptorId);
-                })
+        return descriptorIds.intStream()
+                .mapToObj(registry::getRequiredDescriptor)
+                .filter(descriptor -> !shouldBeBuiltIn(descriptor.descriptorId()))
                 .map(descriptor -> {
                     List<FieldDescriptorMessage> fields = descriptor.fields().stream()
                             .map(d -> {
@@ -168,9 +164,8 @@ public class PerSessionSerializationService {
                             .componentTypeName(descriptor.componentTypeName())
                             .attributes(classDescriptorAttributeFlags(descriptor))
                             .build();
-                }).collect(toList());
-
-        return messages;
+                })
+                .collect(toList());
     }
 
     private static byte fieldFlags(FieldDescriptor fieldDescriptor) {
@@ -240,11 +235,10 @@ public class PerSessionSerializationService {
                 if (knownMergedDescriptor(classMessage.descriptorId())) {
                     it.remove();
                 } else if (dependenciesAreMerged(classMessage)) {
-                    Class<?> localClass = classForName(classMessage.className());
-                    ClassDescriptor mergedDescriptor = messageToMergedClassDescriptor(classMessage, localClass);
+                    ClassDescriptor mergedDescriptor = messageToMergedClassDescriptor(classMessage);
 
                     mergedIdToDescriptorMap.put(classMessage.descriptorId(), mergedDescriptor);
-                    mergedClassToDescriptorMap.put(localClass, mergedDescriptor);
+                    mergedClassToDescriptorMap.put(classMessage.className(), mergedDescriptor);
 
                     it.remove();
 
@@ -271,36 +265,29 @@ public class PerSessionSerializationService {
      * Converts {@link ClassDescriptorMessage} to a {@link ClassDescriptor} and merges it with a local {@link ClassDescriptor} of the
      * same class.
      *
-     * @param clsMsg ClassDescriptorMessage.
-     * @param localClass the local class
+     * @param classMessage ClassDescriptorMessage.
      * @return Merged class descriptor.
      */
-    private ClassDescriptor messageToMergedClassDescriptor(ClassDescriptorMessage clsMsg, Class<?> localClass) {
-        ClassDescriptor localDescriptor = serializationService.getOrCreateLocalDescriptor(localClass);
-        return buildRemoteDescriptor(clsMsg, localClass, localDescriptor);
+    private ClassDescriptor messageToMergedClassDescriptor(ClassDescriptorMessage classMessage) {
+        @Nullable Class<?> localClass = maybeClassForName(classMessage.className());
+
+        if (localClass != null) {
+            return buildRemoteDescriptor(classMessage, localClass);
+        } else {
+            return buildRemoteDescriptor(classMessage);
+        }
     }
 
-    private ClassDescriptor buildRemoteDescriptor(
-            ClassDescriptorMessage classMessage,
-            Class<?> localClass,
-            ClassDescriptor localDescriptor
-    ) {
+    private ClassDescriptor buildRemoteDescriptor(ClassDescriptorMessage classMessage, Class<?> localClass) {
+        ClassDescriptor localDescriptor = serializationService.getOrCreateLocalDescriptor(localClass);
+
         List<FieldDescriptor> remoteFields = classMessage.fields().stream()
-                .map(fieldMsg -> fieldDescriptorFromMessage(fieldMsg, localClass))
+                .map(fieldMessage -> fieldDescriptorFromMessage(fieldMessage, localClass))
                 .collect(toList());
 
-        SerializationType serializationType = SerializationType.getByValue(classMessage.serializationType());
+        Serialization serialization = buildSerialization(classMessage);
 
-        var serialization = new Serialization(
-                serializationType,
-                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_WRITE_OBJECT_MASK),
-                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_OBJECT_MASK),
-                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_OBJECT_NO_DATA_MASK),
-                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_WRITE_REPLACE_MASK),
-                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_RESOLVE_MASK)
-        );
-
-        return ClassDescriptor.remote(
+        return ClassDescriptor.forRemote(
                 localClass,
                 classMessage.descriptorId(),
                 remoteSuperClassDescriptor(classMessage),
@@ -312,6 +299,40 @@ public class PerSessionSerializationService {
                 remoteFields,
                 serialization,
                 localDescriptor
+        );
+    }
+
+    private ClassDescriptor buildRemoteDescriptor(ClassDescriptorMessage classMessage) {
+        List<FieldDescriptor> remoteFields = classMessage.fields().stream()
+                .map(fieldMessage -> fieldDescriptorFromMessage(fieldMessage, classMessage.className()))
+                .collect(toList());
+
+        Serialization serialization = buildSerialization(classMessage);
+
+        return ClassDescriptor.forRemote(
+                classMessage.className(),
+                classMessage.descriptorId(),
+                remoteSuperClassDescriptor(classMessage),
+                remoteComponentTypeDescriptor(classMessage),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_PRIMITIVE_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_ARRAY_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_ENUM_MASK),
+                bitValue(classMessage.attributes(), ClassDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT_MASK),
+                remoteFields,
+                serialization
+        );
+    }
+
+    private Serialization buildSerialization(ClassDescriptorMessage classMessage) {
+        SerializationType serializationType = SerializationType.getByValue(classMessage.serializationType());
+
+        return new Serialization(
+                serializationType,
+                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_WRITE_OBJECT_MASK),
+                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_OBJECT_MASK),
+                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_OBJECT_NO_DATA_MASK),
+                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_WRITE_REPLACE_MASK),
+                bitValue(classMessage.serializationFlags(), ClassDescriptorMessage.HAS_READ_RESOLVE_MASK)
         );
     }
 
@@ -335,16 +356,29 @@ public class PerSessionSerializationService {
         return remoteClassDescriptor(clsMsg.componentTypeDescriptorId(), clsMsg.componentTypeName());
     }
 
-    private FieldDescriptor fieldDescriptorFromMessage(FieldDescriptorMessage fieldMsg, Class<?> declaringClass) {
-        int typeDescriptorId = fieldMsg.typeDescriptorId();
+    private FieldDescriptor fieldDescriptorFromMessage(FieldDescriptorMessage fieldMessage, Class<?> declaringClass) {
+        int typeDescriptorId = fieldMessage.typeDescriptorId();
         return FieldDescriptor.remote(
-                fieldMsg.name(),
-                fieldType(typeDescriptorId, fieldMsg.className()),
+                fieldMessage.name(),
+                fieldType(typeDescriptorId, fieldMessage.className()),
                 typeDescriptorId,
-                bitValue(fieldMsg.flags(), FieldDescriptorMessage.UNSHARED_MASK),
-                bitValue(fieldMsg.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
-                bitValue(fieldMsg.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.UNSHARED_MASK),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
                 declaringClass
+        );
+    }
+
+    private FieldDescriptor fieldDescriptorFromMessage(FieldDescriptorMessage fieldMessage, String declaringClassName) {
+        int typeDescriptorId = fieldMessage.typeDescriptorId();
+        return FieldDescriptor.remote(
+                fieldMessage.name(),
+                fieldType(typeDescriptorId, fieldMessage.className()),
+                typeDescriptorId,
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.UNSHARED_MASK),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_PRIMITIVE),
+                bitValue(fieldMessage.flags(), FieldDescriptorMessage.IS_RUNTIME_TYPE_KNOWN_UPFRONT),
+                declaringClassName
         );
     }
 
@@ -352,7 +386,7 @@ public class PerSessionSerializationService {
         if (shouldBeBuiltIn(descriptorId)) {
             return serializationService.getLocalDescriptor(descriptorId);
         } else {
-            return mergedClassToDescriptorMap.get(classForName(typeName));
+            return mergedClassToDescriptorMap.get(typeName);
         }
     }
 
@@ -360,15 +394,26 @@ public class PerSessionSerializationService {
         if (shouldBeBuiltIn(descriptorId)) {
             return BuiltInType.findByDescriptorId(descriptorId).clazz();
         } else {
-            return classForName(typeName);
+            return requiredClassForName(typeName);
         }
     }
 
-    private Class<?> classForName(String className) {
+    private Class<?> requiredClassForName(String className) {
+        Class<?> result = maybeClassForName(className);
+
+        if (result == null) {
+            throw new SerializationException("Class " + className + " is not found");
+        }
+
+        return result;
+    }
+
+    @Nullable
+    private Class<?> maybeClassForName(String className) {
         try {
             return Class.forName(className, true, classLoader);
         } catch (ClassNotFoundException e) {
-            throw new SerializationException("Class " + className + " is not found", e);
+            return null;
         }
     }
 

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
@@ -70,19 +69,15 @@ public class DdlCommandHandler {
 
     private final DataStorageManager dataStorageManager;
 
-    private final Supplier<String> defaultDataStorageViewSupplier;
-
     /**
      * Constructor.
      */
     public DdlCommandHandler(
             TableManager tableManager,
-            DataStorageManager dataStorageManager,
-            Supplier<String> defaultDataStorageViewSupplier
+            DataStorageManager dataStorageManager
     ) {
         this.tableManager = tableManager;
         this.dataStorageManager = dataStorageManager;
-        this.defaultDataStorageViewSupplier = defaultDataStorageViewSupplier;
     }
 
     /** Handles ddl commands. */
@@ -149,9 +144,7 @@ public class DdlCommandHandler {
                     .columns(colsInner)
                     .withPrimaryKey(pkeyDef.build()).build(), tableChange);
 
-            String dataStorage = dataStorageManager.defaultDataStorage(defaultDataStorageViewSupplier.get());
-
-            tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(dataStorage, Map.of()));
+            tableChange.changeDataStorage(dataStorageManager.tableDataStorageConsumer(cmd.dataStorage(), cmd.dataStorageOptions()));
 
             if (cmd.partitions() != null) {
                 conv.changePartitions(cmd.partitions());

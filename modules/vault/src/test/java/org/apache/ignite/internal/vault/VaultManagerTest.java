@@ -23,24 +23,29 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.vault.inmemory.InMemoryVaultService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite for the {@link VaultManager}.
  */
 public class VaultManagerTest {
-    private static final int TIMEOUT_SECONDS = 1;
-
     private final VaultManager vaultManager = new VaultManager(new InMemoryVaultService());
+
+    @BeforeEach
+    void setUp() {
+        vaultManager.start();
+    }
 
     /**
      * After each.
      */
     @AfterEach
     void tearDown() throws Exception {
+        vaultManager.beforeNodeStop();
+
         vaultManager.stop();
     }
 
@@ -48,14 +53,14 @@ public class VaultManagerTest {
      * Tests the {@link VaultManager#putName} and {@link VaultManager#name} methods.
      */
     @Test
-    void testName() throws Exception {
+    void testName() {
         assertThat(vaultManager.name(), willBe(nullValue(String.class)));
 
-        vaultManager.putName("foobar").get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        assertThat(vaultManager.putName("foobar"), willBe(nullValue(Void.class)));
 
         assertThat(vaultManager.name(), willBe(equalTo("foobar")));
 
-        vaultManager.putName("foobarbaz").get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        assertThat(vaultManager.putName("foobarbaz"), willBe(nullValue(Void.class)));
 
         assertThat(vaultManager.name(), willBe(equalTo("foobarbaz")));
     }
@@ -67,7 +72,7 @@ public class VaultManagerTest {
     void testEmptyName() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> vaultManager.putName("").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                () -> vaultManager.putName("")
         );
     }
 }

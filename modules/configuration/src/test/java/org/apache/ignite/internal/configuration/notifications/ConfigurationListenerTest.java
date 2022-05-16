@@ -179,7 +179,7 @@ public class ConfigurationListenerTest {
     }
 
     @AfterEach
-    public void after() {
+    public void after() throws Exception {
         registry.stop();
     }
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
@@ -70,7 +69,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testExcept() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
+        var rows = sql("SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
 
         assertEquals(1, rows.size());
         assertEquals("Igor", rows.get(0).get(0));
@@ -78,14 +77,14 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testExceptFromEmpty() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
+        var rows = sql("SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
     @Test
     public void testExceptSeveralColumns() {
-        List<List<?>> rows = sql("SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
+        var rows = sql("SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
 
         assertEquals(4, rows.size());
         assertEquals(3, countIf(rows, r -> r.get(0).equals("Igor")));
@@ -94,7 +93,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testExceptAll() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
+        var rows = sql("SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
 
         assertEquals(4, rows.size());
         assertEquals(3, countIf(rows, r -> r.get(0).equals("Igor")));
@@ -103,7 +102,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testExceptNested() {
-        List<List<?>> rows =
+        var rows =
                 sql("SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
 
         assertEquals(2, rows.size());
@@ -159,7 +158,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
         }
 
         // Check 2 partitioned caches.
-        List<List<?>> rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT SELECT val FROM BIG_TABLE2");
+        var rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT SELECT val FROM BIG_TABLE2");
 
         assertEquals(3, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(0)));
@@ -189,7 +188,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testIntersect() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
+        var rows = sql("SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -198,7 +197,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testIntersectAll() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
+        var rows = sql("SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
 
         assertEquals(3, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -207,14 +206,14 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testIntersectEmpty() {
-        List<List<?>> rows = sql("SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
+        var rows = sql("SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
     @Test
     public void testIntersectSeveralColumns() {
-        List<List<?>> rows = sql("SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
+        var rows = sql("SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
 
         assertEquals(2, rows.size());
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
@@ -236,7 +235,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testUnionAll() {
-        List<List<?>> rows = sql("SELECT name, salary FROM emp1 "
+        var rows = sql("SELECT name, salary FROM emp1 "
                 + "UNION ALL "
                 + "SELECT name, salary FROM emp2 "
                 + "UNION ALL "
@@ -247,7 +246,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testUnion() {
-        List<List<?>> rows = sql("SELECT name, salary FROM emp1 "
+        var rows = sql("SELECT name, salary FROM emp1 "
                 + "UNION "
                 + "SELECT name, salary FROM emp2 "
                 + "UNION "
@@ -258,7 +257,7 @@ public class ItSetOpTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void testUnionWithDistinct() {
-        List<List<?>> rows = sql(
+        var rows = sql(
                 "SELECT distinct(name) FROM emp1 UNION SELECT name from emp2");
 
         assertEquals(3, rows.size());

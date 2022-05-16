@@ -660,7 +660,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(response.statusCode()).thenReturn(HttpURLConnection.HTTP_OK);
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
-            var expSentContent = "{\"metastorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
+            var expSentContent = "{\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
                     + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"]}";
 
             CommandLine cmd = cmd(ctx);

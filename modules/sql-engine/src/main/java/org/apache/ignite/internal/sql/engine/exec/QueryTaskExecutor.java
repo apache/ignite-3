@@ -19,12 +19,13 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * QueryTaskExecutor interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface QueryTaskExecutor extends LifecycleAware {
+public interface QueryTaskExecutor extends LifecycleAware, Executor {
     /**
      * Executes a query task in a thread, responsible for particular query fragment.
      *

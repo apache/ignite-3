@@ -31,14 +31,41 @@ public class OutNetworkObject {
     private final List<ClassDescriptorMessage> descriptors;
 
     /**
+     * Flag indicating if this outgoing message should be added to the unacknowledged messages queue of the recovery descriptor.
+     * Acknowledgement message and handshake messages should not have this flag set to {@code true}. After adding the message
+     * to the queue this flag should be set to {@code false}.
+     */
+    private boolean shouldBeSavedForRecovery;
+
+    /**
      * Constructor.
      *
      * @param networkMessage Network message.
      * @param descriptors Class descriptors.
      */
     public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors) {
+        this(networkMessage, descriptors, true);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param networkMessage Network message.
+     * @param descriptors Class descriptors.
+     * @param shouldBeSavedForRecovery See {@link #shouldBeSavedForRecovery}.
+     */
+    public OutNetworkObject(NetworkMessage networkMessage, List<ClassDescriptorMessage> descriptors, boolean shouldBeSavedForRecovery) {
         this.networkMessage = networkMessage;
         this.descriptors = descriptors;
+        this.shouldBeSavedForRecovery = shouldBeSavedForRecovery;
+    }
+
+    public boolean shouldBeSavedForRecovery() {
+        return shouldBeSavedForRecovery;
+    }
+
+    public void shouldBeSavedForRecovery(boolean shouldBeSavedForRecovery) {
+        this.shouldBeSavedForRecovery = shouldBeSavedForRecovery;
     }
 
     public NetworkMessage networkMessage() {

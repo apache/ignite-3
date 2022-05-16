@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
+import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
 import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
@@ -29,8 +30,10 @@ import static org.apache.ignite.internal.pagememory.io.PageIo.setPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.dirty;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.fullPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.isAcquired;
+import static org.apache.ignite.internal.pagememory.persistence.PageHeader.readPageId;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.tempBufferPointer;
 import static org.apache.ignite.internal.pagememory.persistence.PageHeader.writeTimestamp;
+import static org.apache.ignite.internal.pagememory.persistence.PagePool.SEGMENT_INDEX_MASK;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.effectivePageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
@@ -43,25 +46,30 @@ import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapInt;
 import static org.apache.ignite.internal.util.GridUnsafe.compareAndSwapLong;
 import static org.apache.ignite.internal.util.GridUnsafe.copyMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.getInt;
+import static org.apache.ignite.internal.util.GridUnsafe.getLong;
 import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.setMemory;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
+import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
 import static org.apache.ignite.internal.util.IgniteUtils.hexLong;
 import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWAYS;
+import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
@@ -75,7 +83,14 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.util.GridUnsafe;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
+import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
+import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
+import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicy;
+import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicyFactory;
+import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicyFactory;
+import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -109,6 +124,13 @@ import org.jetbrains.annotations.TestOnly;
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PageMemoryImpl implements PageMemoryEx {
+    /**
+     * When set to {@code true} (default), pages are written to page store without holding segment lock (with delay).
+     * Because other thread may require exactly the same page to be loaded from store, reads are protected by locking.
+     */
+    // TODO: IGNITE-16350 Move to config or something else.
+    public static final String IGNITE_DELAYED_REPLACED_PAGE_WRITE = "IGNITE_DELAYED_REPLACED_PAGE_WRITE";
+
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryImpl.class);
 
@@ -116,10 +138,10 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final long RELATIVE_PTR_MASK = 0xFFFFFFFFFFFFFFL;
 
     /** Invalid relative pointer value. */
-    static final long INVALID_REL_PTR = RELATIVE_PTR_MASK;
+    public static final long INVALID_REL_PTR = RELATIVE_PTR_MASK;
 
     /** Pointer which means that this page is outdated (for example, group was destroyed, partition eviction'd happened. */
-    static final long OUTDATED_REL_PTR = INVALID_REL_PTR + 1;
+    public static final long OUTDATED_REL_PTR = INVALID_REL_PTR + 1;
 
     /** Page lock offset. */
     public static final int PAGE_LOCK_OFFSET = 32;
@@ -148,7 +170,8 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Direct memory allocator. */
     private final DirectMemoryProvider directMemoryProvider;
 
-    /** Segments array. */
+    /** Segments array, {@code null} if not {@link #start() started}. */
+    @Nullable
     private volatile Segment[] segments;
 
     /** Lock for segments changes. */
@@ -168,11 +191,28 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Flag indicating page replacement started (rotation with disk), allocating new page requires freeing old one. */
     private volatile int pageReplacementWarned;
 
-    /** Segments sizes. */
+    /** Segments sizes, the last one being the {@link #checkpointPool checkpoint buffer} size. */
     private final long[] sizes;
 
     /** {@code False} if memory was not started or already stopped and is not supposed for any usage. */
     private volatile boolean started;
+
+    /** See {@link #safeToUpdate()}. */
+    private final AtomicBoolean safeToUpdate = new AtomicBoolean(true);
+
+    /** Checkpoint page pool, {@code null} if not {@link #start() started}. */
+    @Nullable
+    private volatile PagePool checkpointPool;
+
+    /**
+     * Delayed page replacement (rotation with disk) tracker. Because other thread may require exactly the same page to be loaded from
+     * store, reads are protected by locking, {@code null} if delayed write functionality is disabled.
+     */
+    @Nullable
+    private final DelayedPageReplacementTracker delayedPageReplacementTracker;
+
+    /** Flush dirty page closure. */
+    private final PageStoreWriter flushDirtyPage;
 
     /**
      * Constructor.
@@ -180,9 +220,10 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param directMemoryProvider Memory allocator to use.
      * @param dataRegionCfg Data region configuration.
      * @param ioRegistry IO registry.
-     * @param sizes Segments sizes.
+     * @param sizes Segments sizes, the last one being the checkpoint buffer size.
      * @param pmPageMgr Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
+     * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
      */
     public PageMemoryImpl(
             DirectMemoryProvider directMemoryProvider,
@@ -190,7 +231,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             PageIoRegistry ioRegistry,
             long[] sizes,
             PageReadWriteManager pmPageMgr,
-            @Nullable PageChangeTracker changeTracker
+            @Nullable PageChangeTracker changeTracker,
+            PageStoreWriter flushDirtyPage
     ) {
         this.directMemoryProvider = directMemoryProvider;
         this.dataRegionCfg = dataRegionCfg.value();
@@ -198,6 +240,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         this.sizes = sizes;
         this.pmPageMgr = pmPageMgr;
         this.changeTracker = changeTracker;
+        this.flushDirtyPage = flushDirtyPage;
 
         int pageSize = this.dataRegionCfg.pageSize();
 
@@ -223,6 +266,9 @@ public class PageMemoryImpl implements PageMemoryEx {
             default:
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
+
+        delayedPageReplacementTracker = getBoolean(IGNITE_DELAYED_REPLACED_PAGE_WRITE, true)
+                ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
     }
 
     /** {@inheritDoc} */
@@ -254,6 +300,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             Segment[] segments = new Segment[regs - 1];
 
             DirectMemoryRegion cpReg = regions.get(regs - 1);
+
+            checkpointPool = new PagePool(regs - 1, cpReg, sysPageSize, rwLock);
 
             long checkpointBuf = cpReg.size();
 
@@ -542,8 +590,6 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** {@inheritDoc} */
     @Override
     public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        assert started;
-
         return acquirePage(grpId, pageId, statHolder, false);
     }
 
@@ -748,23 +794,6 @@ public class PageMemoryImpl implements PageMemoryEx {
     @Override
     public int realPageSize(int grpId) {
         return pageSize();
-    }
-
-    /**
-     * Returns Max dirty ratio from the segments.
-     */
-    double getDirtyPagesRatio() {
-        if (segments == null) {
-            return 0;
-        }
-
-        double res = 0;
-
-        for (Segment segment : segments) {
-            res = Math.max(res, segment.getDirtyPagesRatio());
-        }
-
-        return res;
     }
 
     /**
@@ -1014,6 +1043,44 @@ public class PageMemoryImpl implements PageMemoryEx {
     private long postWriteLockPage(long absPtr, FullPageId fullId) {
         writeTimestamp(absPtr, coarseCurrentTimeMillis());
 
+        // Create a buffer copy if the page is scheduled for a checkpoint.
+        if (isInCheckpoint(fullId) && tempBufferPointer(absPtr) == INVALID_REL_PTR) {
+            long tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
+
+            if (tmpRelPtr == INVALID_REL_PTR) {
+                rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+
+                throw new IgniteInternalException(
+                        "Failed to allocate temporary buffer for checkpoint (increase checkpointPageBufferSize configuration property): "
+                                + dataRegionCfg.name());
+            }
+
+            // Pin the page until checkpoint is not finished.
+            PageHeader.acquirePage(absPtr);
+
+            long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
+
+            copyMemory(
+                    null,
+                    absPtr + PAGE_OVERHEAD,
+                    null,
+                    tmpAbsPtr + PAGE_OVERHEAD,
+                    pageSize()
+            );
+
+            assert getType(tmpAbsPtr + PAGE_OVERHEAD) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
+            assert getVersion(tmpAbsPtr + PAGE_OVERHEAD) != 0 :
+                    "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
+
+            dirty(absPtr, false);
+            tempBufferPointer(absPtr, tmpRelPtr);
+            // info for checkpoint buffer cleaner.
+            fullPageId(tmpAbsPtr, fullId);
+
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
+            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
+        }
+
         assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
@@ -1042,7 +1109,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             long pageId = getPageId(page + PAGE_OVERHEAD);
 
             try {
-                assert pageId != 0 : hexLong(PageHeader.readPageId(page));
+                assert pageId != 0 : hexLong(readPageId(page));
 
                 rwLock.writeUnlock(page + PAGE_LOCK_OFFSET, tag(pageId));
 
@@ -1119,11 +1186,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         boolean wasDirty = dirty(absPtr, dirty);
 
         if (dirty) {
+            // TODO: IGNITE-16935 Don't forget add assertion for checkpoint lock held by this thread
+
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
 
                 if (seg.dirtyPages.add(pageId)) {
-                    seg.dirtyPagesCntr.incrementAndGet();
+                    if (seg.dirtyPagesCntr.incrementAndGet() >= seg.maxDirtyPages) {
+                        safeToUpdate.set(false);
+                    }
                 }
             }
         } else {
@@ -1141,7 +1212,14 @@ public class PageMemoryImpl implements PageMemoryEx {
         return segments[idx];
     }
 
-    private static int segmentIndex(int grpId, long pageId, int segments) {
+    /**
+     * Returns segment index.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param segments Number of segments.
+     */
+    public static int segmentIndex(int grpId, long pageId, int segments) {
         pageId = effectivePageId(pageId);
 
         // Take a prime number larger than total number of partitions.
@@ -1154,12 +1232,12 @@ public class PageMemoryImpl implements PageMemoryEx {
      * Returns a collection of all pages currently marked as dirty. Will create a collection copy.
      */
     @TestOnly
-    public Collection<FullPageId> dirtyPages() {
+    public Set<FullPageId> dirtyPages() {
         if (segments == null) {
-            return Collections.emptySet();
+            return Set.of();
         }
 
-        Collection<FullPageId> res = new HashSet<>((int) loadedPages());
+        Set<FullPageId> res = new HashSet<>((int) loadedPages());
 
         for (Segment seg : segments) {
             res.addAll(seg.dirtyPages);
@@ -1171,7 +1249,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     /**
      * Page segment.
      */
-    class Segment extends ReentrantReadWriteLock {
+    public class Segment extends ReentrantReadWriteLock {
         /** Serial version uid. */
         private static final long serialVersionUID = 0L;
 
@@ -1200,10 +1278,14 @@ public class PageMemoryImpl implements PageMemoryEx {
         private long memPerRepl;
 
         /** Pages marked as dirty since the last checkpoint. */
-        private volatile Collection<FullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
+        private volatile Set<FullPageId> dirtyPages = ConcurrentHashMap.newKeySet();
 
         /** Atomic size counter for {@link #dirtyPages}. */
         private final AtomicLong dirtyPagesCntr = new AtomicLong();
+
+        /** Wrapper of pages of current checkpoint. */
+        @Nullable
+        private volatile CheckpointPages checkpointPages;
 
         /** Maximum number of dirty pages. */
         private final long maxDirtyPages;
@@ -1268,13 +1350,6 @@ public class PageMemoryImpl implements PageMemoryEx {
             } finally {
                 writeLock().unlock();
             }
-        }
-
-        /**
-         * Returns dirtyRatio to be compared with Throttle threshold.
-         */
-        private double getDirtyPagesRatio() {
-            return dirtyPagesCntr.doubleValue() / pages();
         }
 
         /**
@@ -1357,12 +1432,39 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
 
             if (isDirty(absPtr)) {
+                CheckpointPages checkpointPages = this.checkpointPages;
+                // Can evict a dirty page only if should be written by a checkpoint.
+                // These pages does not have tmp buffer.
+                if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
+                    assert pmPageMgr != null;
+
+                    PageStoreWriter saveDirtyPage = delayedPageReplacementTracker != null
+                            ? delayedPageReplacementTracker.delayedPageWrite() : flushDirtyPage;
+
+                    saveDirtyPage.writePage(
+                            fullPageId,
+                            wrapPointer(absPtr + PAGE_OVERHEAD, pageSize()),
+                            partGeneration(
+                                    fullPageId.groupId(),
+                                    partitionId(fullPageId.pageId())
+                            )
+                    );
+
+                    setDirty(fullPageId, absPtr, false, true);
+
+                    checkpointPages.markAsSaved(fullPageId);
+
+                    loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
+
+                    return true;
+                }
+
                 return false;
+            } else {
+                loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
+
+                return true;
             }
-
-            loadedPages.remove(fullPageId.groupId(), fullPageId.effectivePageId());
-
-            return true;
         }
 
         /**
@@ -1386,8 +1488,27 @@ public class PageMemoryImpl implements PageMemoryEx {
 
             dirty(absPtr, false);
 
+            long tmpBufPtr = tempBufferPointer(absPtr);
+
+            if (tmpBufPtr != INVALID_REL_PTR) {
+                zeroMemory(checkpointPool.absolute(tmpBufPtr) + PAGE_OVERHEAD, pageSize());
+
+                tempBufferPointer(absPtr, INVALID_REL_PTR);
+
+                // We pinned the page when allocated the temp buffer, release it now.
+                PageHeader.releasePage(absPtr);
+
+                releaseCheckpointBufferPage(tmpBufPtr);
+            }
+
             if (rmv) {
                 loadedPages.remove(grpId, effectivePageId(pageId));
+            }
+
+            CheckpointPages cpPages = checkpointPages;
+
+            if (cpPages != null) {
+                cpPages.markAsSaved(new FullPageId(pageId, grpId));
             }
 
             Collection<FullPageId> dirtyPages = this.dirtyPages;
@@ -1549,8 +1670,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         /**
          * Returns IO registry.
          */
-        PageIoRegistry ioRegistry() {
+        public PageIoRegistry ioRegistry() {
             return ioRegistry;
+        }
+
+        /**
+         * Gets checkpoint pages.
+         */
+        public CheckpointPages checkpointPages() {
+            return checkpointPages;
         }
     }
 
@@ -1568,7 +1696,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
     private static long updateAtomicLong(long ptr, long delta) {
         while (true) {
-            long old = GridUnsafe.getLong(ptr);
+            long old = getLong(ptr);
 
             long updated = old + delta;
 
@@ -1597,5 +1725,338 @@ public class PageMemoryImpl implements PageMemoryEx {
          * @param pageMemoryEx Page memory.
          */
         void apply(long page, FullPageId fullPageId, PageMemoryEx pageMemoryEx);
+    }
+
+    /**
+     * Heuristic method which allows a thread to check if it is safe to start memory structure modifications in regard with checkpointing.
+     * May return false-negative result during or after partition eviction.
+     *
+     * @return {@code False} if there are too many dirty pages and a thread should wait for a checkpoint to begin.
+     */
+    public boolean safeToUpdate() {
+        if (segments != null) {
+            return safeToUpdate.get();
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns number of pages used in checkpoint buffer.
+     */
+    public int usedCheckpointBufferPages() {
+        PagePool checkpointPool = this.checkpointPool;
+
+        return checkpointPool == null ? 0 : checkpointPool.size();
+    }
+
+    /**
+     * Returns max number of pages in checkpoint buffer.
+     */
+    public int maxCheckpointBufferPages() {
+        PagePool checkpointPool = this.checkpointPool;
+
+        return checkpointPool == null ? 0 : checkpointPool.pages();
+    }
+
+    private void releaseCheckpointBufferPage(long tmpBufPtr) {
+        checkpointPool.releaseFreePage(tmpBufPtr);
+    }
+
+    /**
+     * Returns {@code true} if it was added to the checkpoint list.
+     *
+     * @param pageId Page ID to check if it was added to the checkpoint list.
+     */
+    boolean isInCheckpoint(FullPageId pageId) {
+        Segment seg = segment(pageId.groupId(), pageId.pageId());
+
+        CheckpointPages pages0 = seg.checkpointPages;
+
+        return pages0 != null && pages0.contains(pageId);
+    }
+
+    /**
+     * Returns {@code true} if remove successfully.
+     *
+     * @param fullPageId Page ID to clear.
+     */
+    boolean clearCheckpoint(FullPageId fullPageId) {
+        Segment seg = segment(fullPageId.groupId(), fullPageId.pageId());
+
+        CheckpointPages pages0 = seg.checkpointPages;
+
+        assert pages0 != null;
+
+        return pages0.markAsSaved(fullPageId);
+    }
+
+    /**
+     * Makes a full copy of the dirty page for checkpointing, then marks the page as not dirty.
+     *
+     * @param absPtr Absolute page pointer.
+     * @param fullId Full page id.
+     * @param buf Buffer for copy page content for future write via {@link PageStoreWriter}.
+     * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be copied) in case
+     *      checkpoint temporary buffer is used.
+     * @param pageStoreWriter Checkpoint page writer.
+     */
+    private void copyPageForCheckpoint(
+            long absPtr,
+            FullPageId fullId,
+            ByteBuffer buf,
+            int tag,
+            boolean pageSingleAcquire,
+            PageStoreWriter pageStoreWriter
+    ) throws IgniteInternalCheckedException {
+        assert absPtr != 0;
+        assert isAcquired(absPtr) || !isInCheckpoint(fullId);
+
+        // Exception protection flag.
+        // No need to write if exception occurred.
+        boolean canWrite = false;
+
+        boolean locked = rwLock.tryWriteLock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+
+        if (!locked) {
+            // We release the page only once here because this page will be copied sometime later and
+            // will be released properly then.
+            if (!pageSingleAcquire) {
+                PageHeader.releasePage(absPtr);
+            }
+
+            buf.clear();
+
+            if (isInCheckpoint(fullId)) {
+                pageStoreWriter.writePage(fullId, buf, TRY_AGAIN_TAG);
+            }
+
+            return;
+        }
+
+        if (!clearCheckpoint(fullId)) {
+            rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+
+            if (!pageSingleAcquire) {
+                PageHeader.releasePage(absPtr);
+            }
+
+            return;
+        }
+
+        try {
+            long tmpRelPtr = tempBufferPointer(absPtr);
+
+            if (tmpRelPtr != INVALID_REL_PTR) {
+                tempBufferPointer(absPtr, INVALID_REL_PTR);
+
+                long tmpAbsPtr = checkpointPool.absolute(tmpRelPtr);
+
+                copyInBuffer(tmpAbsPtr, buf);
+
+                fullPageId(tmpAbsPtr, NULL_PAGE);
+
+                zeroMemory(tmpAbsPtr + PAGE_OVERHEAD, pageSize());
+
+                releaseCheckpointBufferPage(tmpRelPtr);
+
+                // Need release again because we pin page when resolve abs pointer,
+                // and page did not have tmp buffer page.
+                if (!pageSingleAcquire) {
+                    PageHeader.releasePage(absPtr);
+                }
+            } else {
+                copyInBuffer(absPtr, buf);
+
+                dirty(absPtr, false);
+            }
+
+            assert getType(buf) != 0 : "Invalid state. Type is 0! pageId = " + hexLong(fullId.pageId());
+            assert getVersion(buf) != 0 : "Invalid state. Version is 0! pageId = " + hexLong(fullId.pageId());
+
+            canWrite = true;
+        } finally {
+            rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
+
+            if (canWrite) {
+                buf.rewind();
+
+                pageStoreWriter.writePage(fullId, buf, tag);
+
+                buf.rewind();
+            }
+
+            // We pinned the page either when allocated the temp buffer, or when resolved abs pointer.
+            // Must release the page only after write unlock.
+            PageHeader.releasePage(absPtr);
+        }
+    }
+
+    /**
+     * Prepare page for write during checkpoint. {@link PageStoreWriter} will be called when the page will be ready to write.
+     *
+     * @param fullId Page ID to get byte buffer for. The page ID must be present in the collection returned by the {@link
+     * #beginCheckpoint(CompletableFuture)} method call.
+     * @param buf Temporary buffer to write changes into.
+     * @param pageStoreWriter Checkpoint page write context.
+     * @throws IgniteInternalCheckedException If failed to obtain page data.
+     */
+    public void checkpointWritePage(
+            FullPageId fullId,
+            ByteBuffer buf,
+            PageStoreWriter pageStoreWriter
+    ) throws IgniteInternalCheckedException {
+        assert buf.remaining() == pageSize();
+
+        Segment seg = segment(fullId.groupId(), fullId.pageId());
+
+        long absPtr = 0;
+
+        long relPtr;
+
+        int tag;
+
+        boolean pageSingleAcquire = false;
+
+        seg.readLock().lock();
+
+        try {
+            if (!isInCheckpoint(fullId)) {
+                return;
+            }
+
+            relPtr = resolveRelativePointer(seg, fullId, tag = generationTag(seg, fullId));
+
+            // Page may have been cleared during eviction. We have nothing to do in this case.
+            if (relPtr == INVALID_REL_PTR) {
+                return;
+            }
+
+            if (relPtr != OUTDATED_REL_PTR) {
+                absPtr = seg.absolute(relPtr);
+
+                // Pin the page until page will not be copied. This helpful to prevent page replacement of this page.
+                if (tempBufferPointer(absPtr) == INVALID_REL_PTR) {
+                    PageHeader.acquirePage(absPtr);
+                } else {
+                    pageSingleAcquire = true;
+                }
+            }
+        } finally {
+            seg.readLock().unlock();
+        }
+
+        if (relPtr == OUTDATED_REL_PTR) {
+            seg.writeLock().lock();
+
+            try {
+                // Double-check.
+                relPtr = resolveRelativePointer(seg, fullId, generationTag(seg, fullId));
+
+                if (relPtr == INVALID_REL_PTR) {
+                    return;
+                }
+
+                if (relPtr == OUTDATED_REL_PTR) {
+                    relPtr = seg.refreshOutdatedPage(
+                            fullId.groupId(),
+                            fullId.effectivePageId(),
+                            true
+                    );
+
+                    seg.pageReplacementPolicy.onRemove(relPtr);
+
+                    seg.pool.releaseFreePage(relPtr);
+                }
+
+                return;
+            } finally {
+                seg.writeLock().unlock();
+            }
+        }
+
+        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter);
+    }
+
+    /**
+     * Get arbitrary page from cp buffer.
+     */
+    public FullPageId pullPageFromCpBuffer() {
+        long idx = getLong(checkpointPool.lastAllocatedIdxPtr);
+
+        long lastIdx = ThreadLocalRandom.current().nextLong(idx / 2, idx);
+
+        while (--lastIdx > 1) {
+            assert (lastIdx & SEGMENT_INDEX_MASK) == 0L;
+
+            long relative = checkpointPool.relative(lastIdx);
+
+            long freePageAbsPtr = checkpointPool.absolute(relative);
+
+            FullPageId fullPageId = fullPageId(freePageAbsPtr);
+
+            if (fullPageId.pageId() == NULL_PAGE.pageId() || fullPageId.groupId() == NULL_PAGE.groupId()) {
+                continue;
+            }
+
+            if (!isInCheckpoint(fullPageId)) {
+                continue;
+            }
+
+            return fullPageId;
+        }
+
+        return NULL_PAGE;
+    }
+
+    /**
+     * Gets a collection of dirty page IDs since the last checkpoint. If a dirty page is being written after the checkpointing operation
+     * begun, the modifications will be written to a temporary buffer which will be flushed to the main memory after the checkpointing
+     * finished. This method must be called when no concurrent operations on pages are performed.
+     *
+     * @param allowToReplace The sign which allows replacing pages from a checkpoint by page replacer.
+     * @return Collection view of dirty page IDs.
+     * @throws IgniteInternalException If checkpoint has been already started and was not finished.
+     */
+    public Collection<FullPageId> beginCheckpoint(CompletableFuture<?> allowToReplace) throws IgniteInternalException {
+        if (segments == null) {
+            return List.of();
+        }
+
+        Collection<FullPageId>[] collections = new Collection[segments.length];
+
+        for (int i = 0; i < segments.length; i++) {
+            Segment seg = segments[i];
+
+            if (seg.checkpointPages != null) {
+                throw new IgniteInternalException("Failed to begin checkpoint (it is already in progress).");
+            }
+
+            Set<FullPageId> dirtyPages = seg.dirtyPages;
+            collections[i] = dirtyPages;
+
+            seg.checkpointPages = new CheckpointPages(dirtyPages, allowToReplace);
+
+            seg.resetDirtyPages();
+        }
+
+        safeToUpdate.set(true);
+
+        return CollectionUtils.union(collections);
+    }
+
+    /**
+     * Finishes checkpoint operation.
+     */
+    public void finishCheckpoint() {
+        if (segments == null) {
+            return;
+        }
+
+        synchronized (segmentsLock) {
+            for (Segment seg : segments) {
+                seg.checkpointPages = null;
+            }
+        }
     }
 }

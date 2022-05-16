@@ -87,7 +87,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch = new ReliableChannel(chFactory, cfg);
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
-        compute = new ClientCompute(ch);
+        compute = new ClientCompute(ch, tables);
     }
 
     /**

@@ -17,12 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -45,11 +52,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
 
-    private final Runnable onSchemaUpdatedCallback;
-
     private final TableManager tableManager;
 
     private final VersionedValue<SchemaPlus> calciteSchemaVv;
+
+    private final Set<SchemaUpdateListener> listeners = new CopyOnWriteArraySet<>();
 
     /**
      * Constructor.
@@ -57,11 +64,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      */
     public SqlSchemaManagerImpl(
             TableManager tableManager,
-            Consumer<Consumer<Long>> registry,
-            Runnable onSchemaUpdatedCallback
+            Consumer<Function<Long, CompletableFuture<?>>> registry
     ) {
-        this.onSchemaUpdatedCallback = onSchemaUpdatedCallback;
-
         this.tableManager = tableManager;
         schemasVv = new VersionedValue<>(registry, HashMap::new);
         tablesVv = new VersionedValue<>(registry, HashMap::new);
@@ -108,6 +112,10 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return table;
     }
 
+    public void registerListener(SchemaUpdateListener listener) {
+        listeners.add(listener);
+    }
+
     private @Nullable IgniteTable awaitLatestTableSchema(UUID tableId) {
         try {
             TableImpl table = tableManager.table(tableId);
@@ -131,21 +139,22 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      */
     public synchronized void onSchemaCreated(String schemaName, long causalityToken) {
-        Map<String, IgniteSchema> schemasMap = schemasVv.update(
+        CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(
                 causalityToken,
-                schemas -> {
+                (schemas, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
                     Map<String, IgniteSchema> res =  new HashMap<>(schemas);
 
                     res.putIfAbsent(schemaName, new IgniteSchema(schemaName));
 
-                    return res;
-                },
-                e -> {
-                    throw new IgniteInternalException(e);
+                    return completedFuture(res);
                 }
         );
 
-        rebuild(causalityToken, schemasMap);
+        rebuild(causalityToken, schemasMapFut);
     }
 
     /**
@@ -155,21 +164,22 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * @param causalityToken Causality token.
      */
     public synchronized void onSchemaDropped(String schemaName, long causalityToken) {
-        Map<String, IgniteSchema> schemasMap = schemasVv.update(
+        CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(
                     causalityToken,
-                    schemas -> {
+                    (schemas, e) -> {
+                        if (e != null) {
+                            return failedFuture(e);
+                        }
+
                         Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                         res.remove(schemaName);
 
-                        return res;
-                    },
-                    e -> {
-                        throw new IgniteInternalException(e);
+                        return completedFuture(res);
                     }
         );
 
-        rebuild(causalityToken, schemasMap);
+        rebuild(causalityToken, schemasMapFut);
     }
 
     /**
@@ -181,9 +191,13 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table,
             long causalityToken
     ) {
-        Map<String, IgniteSchema> schemasMap = schemasVv.update(
+        CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(
                 causalityToken,
-                schemas -> {
+                (schemas, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
                     Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                     IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
@@ -192,28 +206,26 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
                     schema.addTable(removeSchema(schemaName, table.name()), igniteTable);
 
-                    tablesVv.update(
+                    return tablesVv
+                        .update(
                             causalityToken,
-                            tables -> {
+                            (tables, ex) -> {
+                                if (ex != null) {
+                                    return failedFuture(ex);
+                                }
+
                                 Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
                                 resTbls.put(igniteTable.id(), igniteTable);
 
-                                return resTbls;
-                            },
-                            e -> {
-                                throw new IgniteInternalException(e);
+                                return completedFuture(resTbls);
                             }
-                    );
-
-                    return res;
-                },
-                e -> {
-                    throw new IgniteInternalException(e);
+                        )
+                        .thenCompose(tables -> completedFuture(res));
                 }
         );
 
-        rebuild(causalityToken, schemasMap);
+        rebuild(causalityToken, schemasMapFut);
     }
 
     /**
@@ -237,8 +249,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             String tableName,
             long causalityToken
     ) {
-        Map<String, IgniteSchema> schemasMap = schemasVv.update(causalityToken,
-                schemas -> {
+        CompletableFuture<Map<String, IgniteSchema>> schemasMapFut = schemasVv.update(causalityToken,
+                (schemas, e) -> {
+                    if (e != null) {
+                        return failedFuture(e);
+                    }
+
                     Map<String, IgniteSchema> res = new HashMap<>(schemas);
 
                     IgniteSchema schema = res.computeIfAbsent(schemaName, IgniteSchema::new);
@@ -250,42 +266,46 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                     if (table != null) {
                         schema.removeTable(calciteTableName);
 
-                        tablesVv.update(causalityToken,
-                                tables -> {
+                        return tablesVv
+                            .update(causalityToken,
+                                (tables, ex) -> {
+                                    if (ex != null) {
+                                        return failedFuture(ex);
+                                    }
+
                                     Map<UUID, IgniteTable> resTbls = new HashMap<>(tables);
 
                                     resTbls.remove(table.id());
 
-                                    return resTbls;
-                                },
-                                e -> {
-                                    throw new IgniteInternalException(e);
+                                    return completedFuture(resTbls);
                                 }
-                        );
+                            )
+                            .thenCompose(tables -> completedFuture(res));
                     }
 
-                    return res;
-                },
-                e -> {
-                    throw new IgniteInternalException(e);
+                    return completedFuture(res);
                 }
         );
 
-        rebuild(causalityToken, schemasMap);
+        rebuild(causalityToken, schemasMapFut);
     }
 
-    private void rebuild(long causalityToken, Map<String, IgniteSchema> schemas) {
+    private void rebuild(long causalityToken, CompletableFuture<Map<String, IgniteSchema>> schemasFut) {
         SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
         newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
-        schemas.forEach(newCalciteSchema::add);
+        schemasFut.join().forEach(newCalciteSchema::add);
 
-        calciteSchemaVv.update(causalityToken, s -> newCalciteSchema, e -> {
-            throw new IgniteInternalException(e);
+        calciteSchemaVv.update(causalityToken, (s, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
+            return completedFuture(newCalciteSchema);
         });
 
-        onSchemaUpdatedCallback.run();
+        listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
     }
 
     private IgniteTableImpl convert(TableImpl table) {

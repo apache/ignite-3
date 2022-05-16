@@ -34,8 +34,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -329,9 +332,17 @@ public class IgniteUtils {
      * @return Absolute value.
      */
     public static int safeAbs(int i) {
-        i = Math.abs(i);
+        return Math.max(Math.abs(i), 0);
+    }
 
-        return i < 0 ? 0 : i;
+    /**
+     * Gets absolute value for long. If long is {@link Long#MIN_VALUE}, then {@code 0} is returned.
+     *
+     * @param i Long value.
+     * @return Absolute value.
+     */
+    public static long safeAbs(long i) {
+        return Math.max(Math.abs(i), 0);
     }
 
     /**
@@ -689,5 +700,30 @@ public class IgniteUtils {
      */
     public static boolean isPow2(int i) {
         return i > 0 && (i & (i - 1)) == 0;
+    }
+
+    /**
+     * Waits if necessary for this future to complete, and then returns its result ignoring interrupts.
+     *
+     * @return Result value.
+     * @throws CancellationException If this future was cancelled.
+     * @throws ExecutionException If this future completed exceptionally.
+     */
+    public static <T> T getUninterruptibly(CompletableFuture<T> future) throws ExecutionException {
+        boolean interrupted = false;
+
+        try {
+            while (true) {
+                try {
+                    return future.get();
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

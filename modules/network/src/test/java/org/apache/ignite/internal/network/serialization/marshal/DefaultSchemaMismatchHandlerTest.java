@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
+import java.io.ObjectInput;
 import org.junit.jupiter.api.Test;
 
 class DefaultSchemaMismatchHandlerTest {
@@ -37,6 +42,32 @@ class DefaultSchemaMismatchHandlerTest {
 
     @Test
     void throwsOnFieldTypeChanged() {
-        assertThrows(SchemaMismatchException.class, () -> handler.onFieldTypeChanged(new Object(), "field", int.class, "value"));
+        var ex = assertThrows(SchemaMismatchException.class, () -> handler.onFieldTypeChanged(new Object(), "field", int.class, "value"));
+        assertThat(ex.getMessage(), is("field type changed, serialized as int, value value of type java.lang.String"));
+    }
+
+    @Test
+    void throwsOnExternalizableIgnored() {
+        var ex = assertThrows(SchemaMismatchException.class,
+                () -> handler.onExternalizableIgnored(new Object(), mock(ObjectInput.class))
+        );
+        assertThat(ex.getMessage(),
+                is("Class java.lang.Object was serialized as an Externalizable remotely, but locally it is not an Externalizable")
+        );
+    }
+
+    @Test
+    void doesNothingOnExternalizableMissed() {
+        assertDoesNotThrow(() -> handler.onExternalizableMissed(new Object()));
+    }
+
+    @Test
+    void doesNothingOnReadResolveDisappeared() {
+        assertDoesNotThrow(() -> handler.onReadResolveDisappeared(new Object()));
+    }
+
+    @Test
+    void returnsTrueOnReadResolveAppeared() throws Exception {
+        assertTrue(handler.onReadResolveAppeared(new Object()));
     }
 }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.network.serialization;
 
 /** Exception that occurs during (de-)serialization. */
 public class SerializationException extends RuntimeException {
-    public SerializationException(String message, Throwable cause) {
-        super(message, cause);
+    public SerializationException(String message) {
+        super(message);
     }
 }

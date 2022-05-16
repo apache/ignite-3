@@ -115,7 +115,7 @@ public class ConfigurationAsmGeneratorTest {
     }
 
     @AfterEach
-    void afterEach() {
+    void afterEach() throws Exception {
         changer.stop();
     }
 

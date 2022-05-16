@@ -43,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -104,7 +105,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.mockito.Mockito;
 
 /**
  * These tests check node restart scenarios.
@@ -250,17 +250,13 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 modules.distributed().polymorphicSchemaExtensions()
         );
 
-        Consumer<Consumer<Long>> registry = (c) -> {
-            clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                c.accept(newStorageRevision);
-
-                return CompletableFuture.completedFuture(null);
-            });
-        };
+        Consumer<Function<Long, CompletableFuture<?>>> registry = (c) -> clusterCfgMgr.configurationRegistry()
+                .listenUpdateStorageRevision(newStorageRevision -> c.apply(newStorageRevision));
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
                         clusterCfgMgr.configurationRegistry(),
                         getPartitionsStorePath(dir)
@@ -275,7 +271,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 registry,
                 tblCfg,
                 raftMgr,
-                Mockito.mock(BaselineManager.class),
+                mock(BaselineManager.class),
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageManager,
@@ -336,7 +332,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         };
 
         CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
-                metaStorageMgr,
                 clusterCfgMgr,
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
@@ -347,7 +342,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         // Deploy all registered watches because all components are ready and have registered their listeners.
         metaStorageMgr.deployWatches();
 
-        configurationCatchUpFuture.join();
+        assertThat(configurationCatchUpFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
@@ -818,7 +813,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         stopNode(0);
         stopNode(1);
 
-        ignite0 = startNode(testInfo, 0);
+        startNode(testInfo, 0);
 
         @Language("HOCON") String cfgString = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG,
                 DEFAULT_NODE_PORT + 11,

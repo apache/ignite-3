@@ -38,11 +38,6 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
     FragmentDescription fragmentDescription();
 
     /**
-     * Get topology version.
-     */
-    long topologyVersion();
-
-    /**
      * Get fragment plan.
      */
     String root();

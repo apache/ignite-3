@@ -119,6 +119,7 @@ public class NodeManager {
             addAddOpens(cmdArgs, "java.base/java.lang.reflect=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/java.io=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/java.nio=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.math=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/java.util=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/jdk.internal.misc=ALL-UNNAMED");
 
@@ -149,7 +150,7 @@ public class NodeManager {
             Process p = pb.start();
 
             try (var spinner = new Spinner(out, "Starting a new Ignite node")) {
-                if (!waitForStart("Apache Ignite started successfully!", logFile, p, NODE_START_TIMEOUT, spinner)) {
+                if (!waitForStart("REST protocol started successfully", logFile, p, NODE_START_TIMEOUT, spinner)) {
                     p.destroyForcibly();
 
                     throw new IgniteCliException("Node wasn't started during timeout period "

@@ -40,6 +40,8 @@ import org.apache.ignite.configuration.schemas.store.DataStorageView;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageChange;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageView;
+import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -68,35 +70,48 @@ public class DataStorageManagerTest {
     )
     private DataStorageConfiguration dataStorageConfig;
 
+    @InjectConfiguration(polymorphicExtensions = {
+            HashIndexConfigurationSchema.class,
+            UnknownDataStorageConfigurationSchema.class,
+            FirstDataStorageConfigurationSchema.class,
+            SecondDataStorageConfigurationSchema.class
+    })
+    private TablesConfiguration tablesConfig;
+
     @Test
     void testDefaultDataStorageSingleStorage() {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                tablesConfig,
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
-        assertThat(SECOND, equalTo(dataStorageManager.defaultDataStorage(SECOND)));
-
-        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage(UNKNOWN_DATA_STORAGE)));
+        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));
     }
 
     @Test
-    void testDefaultDataStorageMultipleStorages() {
+    void testDefaultDataStorageMultipleStorages() throws Exception {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                 createMockedDataStorageModule(FIRST),
                 createMockedDataStorageModule(SECOND)
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                tablesConfig,
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
-        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage(FIRST)));
+        assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.defaultDataStorage()));
 
-        assertThat(SECOND, equalTo(dataStorageManager.defaultDataStorage(SECOND)));
+        tablesConfig.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
+        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));
 
-        assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.defaultDataStorage(UNKNOWN_DATA_STORAGE)));
+        tablesConfig.defaultDataStorage().update(SECOND).get(1, TimeUnit.SECONDS);
+        assertThat(SECOND, equalTo(dataStorageManager.defaultDataStorage()));
+
+        tablesConfig.defaultDataStorage().update(UNKNOWN_DATA_STORAGE).get(1, TimeUnit.SECONDS);
+        assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.defaultDataStorage()));
     }
 
     @Test
@@ -107,6 +122,7 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                tablesConfig,
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
@@ -149,6 +165,7 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                tablesConfig,
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
@@ -184,6 +201,7 @@ public class DataStorageManagerTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(createMockedDataStorageModule(FIRST)));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                tablesConfig,
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
@@ -204,6 +222,7 @@ public class DataStorageManagerTest {
         ));
 
         DataStorageManager dataStorageManager = new DataStorageManager(
+                tablesConfig,
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 

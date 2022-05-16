@@ -52,6 +52,8 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
                 sizes,
                 new TestPageReadWriteManager(),
                 (page, fullPageId, pageMemoryEx) -> {
+                },
+                (fullPageId, buf, tag) -> {
                 }
         );
     }

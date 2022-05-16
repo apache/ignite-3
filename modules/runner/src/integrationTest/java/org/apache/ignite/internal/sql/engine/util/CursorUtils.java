@@ -17,17 +17,55 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
+import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
- * Commons.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * Utility class to work with cursors.
  */
 public class CursorUtils {
-    public static List<List<?>> getAllFromCursor(Cursor<List<?>> cur) {
+    /**
+     * Read the cursor till the end and collect rows in the list. Order expected to be preserved.
+     *
+     * @param cur The cursor to read.
+     * @return List of rows that were read from the cursor.
+     */
+    public static <T> List<T> getAllFromCursor(Cursor<T> cur) {
         return StreamSupport.stream(cur.spliterator(), false).collect(Collectors.toList());
+    }
+
+    /**
+     * Read the cursor till the end and collect rows in the list. Order expected to be preserved.
+     *
+     * @param cur The cursor to read.
+     * @return List of rows that were read from the cursor.
+     */
+    public static <T> List<T> getAllFromCursor(AsyncCursor<T> cur) {
+        List<T> res = new ArrayList<>();
+        int batchSize = 256;
+
+        var consumer = new Consumer<BatchedResult<T>>() {
+            @Override
+            public void accept(BatchedResult<T> br) {
+                res.addAll(br.items());
+
+                if (br.hasMore()) {
+                    cur.requestNextAsync(batchSize).thenAccept(this);
+                }
+            }
+        };
+
+        await(cur.requestNextAsync(batchSize).thenAccept(consumer));
+        await(cur.closeAsync());
+
+        return res;
     }
 }

@@ -91,7 +91,7 @@ public class InternalIdTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         registry.stop();
     }
 

@@ -59,23 +59,23 @@ public abstract class ConfigurationStorageTest {
         assertThat(storage.write(data, 0), willBe(equalTo(true)));
 
         // test that reading without a prefix retrieves all data
-        Map<String, ? extends Serializable> latestData = storage.readAllLatest("");
+        CompletableFuture<Map<String, ? extends Serializable>> latestData = storage.readAllLatest("");
 
-        assertThat(latestData, equalTo(data));
+        assertThat(latestData, willBe(equalTo(data)));
 
         // test that reading with a common prefix retrieves all data
         latestData = storage.readAllLatest("foo");
 
-        assertThat(latestData, equalTo(data));
+        assertThat(latestData, willBe(equalTo(data)));
 
         // test that reading with a specific prefix retrieves corresponding data
         latestData = storage.readAllLatest("foo1");
 
-        assertThat(latestData, equalTo(Map.of("foo1", "bar1")));
+        assertThat(latestData, willBe(equalTo(Map.of("foo1", "bar1"))));
 
         // test that reading with a nonexistent prefix retrieves no data
         latestData = storage.readAllLatest("baz");
 
-        assertThat(latestData, anEmptyMap());
+        assertThat(latestData, willBe(anEmptyMap()));
     }
 }

@@ -241,20 +241,6 @@ class DefaultUserObjectMarshallerWithSerializableTest {
     }
 
     @Test
-    void invokesWriteObjectEvenWhenThereIsNoReadObject() throws Exception {
-        marshalAndUnmarshalNonNull(new WithWriteObjectButNoReadObject());
-
-        assertTrue(writeObjectCalled);
-    }
-
-    @Test
-    void invokesReadObjectEvenWhenThereIsNoWriteObject() throws Exception {
-        marshalAndUnmarshalNonNull(new WithReadObjectButNoWriteObject());
-
-        assertTrue(readObjectCalled);
-    }
-
-    @Test
     void explicitSerialPersistentFieldsChangesSerializableFieldsList() throws Exception {
         SerializableWithExplicitSerialPersistentFields unmarshalled = marshalAndUnmarshalNonNull(
                 new SerializableWithExplicitSerialPersistentFields()

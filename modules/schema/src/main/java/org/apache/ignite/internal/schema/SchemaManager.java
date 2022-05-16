@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.schema;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.directProxy;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 
@@ -27,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
@@ -70,7 +73,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
     private final VersionedValue<Map<UUID, SchemaRegistryImpl>> registriesVv;
 
     /** Constructor. */
-    public SchemaManager(Consumer<Consumer<Long>> registry, TablesConfiguration tablesCfg) {
+    public SchemaManager(Consumer<Function<Long, CompletableFuture<?>>> registry, TablesConfiguration tablesCfg) {
         this.registriesVv = new VersionedValue<>(registry, HashMap::new);
 
         this.tablesCfg = tablesCfg;
@@ -108,7 +111,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null);
 
-        return CompletableFuture.completedFuture(null);
+        return completedFuture(null);
     }
 
     private void createSchema(long causalityToken, UUID tableId, String tableName, SchemaDescriptor schemaDescriptor) {
@@ -123,8 +126,14 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
     }
 
-    private void createSchemaInternal(long causalityToken, UUID tableId, String tableName, SchemaDescriptor schemaDescriptor) {
-        registriesVv.update(causalityToken, registries -> {
+    private CompletableFuture<?> createSchemaInternal(long causalityToken, UUID tableId, String tableName, SchemaDescriptor schemaDescriptor) {
+        return registriesVv.update(causalityToken, (registries, e) -> {
+            if (e != null) {
+                return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
+                    "Cannot create a schema for the table [tblId={}, ver={}]", tableId, schemaDescriptor.version()), e)
+                );
+            }
+
             SchemaRegistryImpl reg = registries.get(tableId);
 
             if (reg == null) {
@@ -137,10 +146,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
                 reg.onSchemaRegistered(schemaDescriptor);
             }
 
-            return registries;
-        }, th -> {
-            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a schema for the table "
-                + "[tblId={}, ver={}]", tableId, schemaDescriptor.version()), th);
+            return completedFuture(registries);
         });
     }
 
@@ -304,16 +310,20 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @param causalityToken Causality token.
      * @param tableId Table id.
      */
-    public void dropRegistry(long causalityToken, UUID tableId) {
-        registriesVv.update(causalityToken, registries -> {
+    public CompletableFuture<?> dropRegistry(long causalityToken, UUID tableId) {
+        return registriesVv.update(causalityToken, (registries, e) -> {
+            if (e != null) {
+                return failedFuture(new IgniteInternalException(
+                        IgniteStringFormatter.format("Cannot remove a schema registry for the table [tblId={}]", tableId), e
+                    )
+                );
+            }
+
             registries = new HashMap<>(registries);
 
             registries.remove(tableId);
 
-            return registries;
-        }, th -> {
-            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot remove a schema registry for the table "
-                + "[tblId={}]", tableId), th);
+            return completedFuture(registries);
         });
     }
 

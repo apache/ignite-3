@@ -26,6 +26,9 @@ import org.apache.ignite.lang.IgniteLogger;
  * Netty handler for suppressing IO exceptions that can happen if a remote peer abruptly closes the connection.
  */
 class IoExceptionSuppressingHandler extends ChannelInboundHandlerAdapter {
+    /** Handler name. */
+    public static final String NAME = "io-exception-suppressing-handler";
+
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(IoExceptionSuppressingHandler.class);
 

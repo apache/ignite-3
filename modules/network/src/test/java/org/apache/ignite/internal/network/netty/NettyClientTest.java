@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -34,7 +35,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.internal.network.handshake.HandshakeResult;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.NetworkMessage;
 import org.junit.jupiter.api.AfterEach;
@@ -248,8 +248,8 @@ public class NettyClientTest {
 
         /** {@inheritDoc} */
         @Override
-        public HandshakeResult onMessage(Channel channel, NetworkMessage message) {
-            return HandshakeResult.removeHandler(null, null);
+        public void onMessage(NetworkMessage message) {
+            // No-op.
         }
 
         /** {@inheritDoc} */
@@ -260,14 +260,8 @@ public class NettyClientTest {
 
         /** {@inheritDoc} */
         @Override
-        public HandshakeResult init(Channel channel) {
-            return HandshakeResult.noOp();
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public HandshakeResult onConnectionOpen(Channel channel) {
-            return HandshakeResult.noOp();
+        public void onInit(ChannelHandlerContext ctx) {
+            // No-op.
         }
     }
 }

@@ -354,6 +354,7 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16276")
     public void testExecuteQueryMultipleOnlyDml() throws Exception {
         Statement stmt0 = conn.createStatement();
 

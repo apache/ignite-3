@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
 import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 
@@ -83,7 +85,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.IgniteSystemProperties;
@@ -163,7 +164,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      * @param schemaManager Schema manager.
      */
     public TableManager(
-            Consumer<Consumer<Long>> registry,
+            Consumer<Function<Long, CompletableFuture<?>>> registry,
             TablesConfiguration tablesCfg,
             Loza raftMgr,
             BaselineManager baselineMgr,
@@ -255,7 +256,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     new NodeStoppingException()
             );
 
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -287,7 +288,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     new NodeStoppingException()
             );
 
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -312,7 +313,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      */
     private CompletableFuture<?> onUpdateAssignments(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
+            return failedFuture(new NodeStoppingException());
         }
 
         try {
@@ -365,7 +366,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             toAdd.removeAll(oldPartitionAssignment);
 
             // Create new raft nodes according to new assignments.
-            tablesByIdVv.update(causalityToken, tablesById -> {
+            tablesByIdVv.update(causalityToken, (tablesById, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
                 InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                 try {
@@ -384,14 +389,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         return null;
                     });
-                } catch (NodeStoppingException e) {
-                    throw new AssertionError("Loza was stopped before Table manager", e);
+                } catch (NodeStoppingException ex) {
+                    throw new AssertionError("Loza was stopped before Table manager", ex);
                 }
 
-                return tablesById;
-            }, th -> {
-                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot start RAFT group for table"
-                        + " [tableId={}, part={}]", tblId, partId), th);
+                return completedFuture(tablesById);
             });
         }
 
@@ -446,14 +448,16 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         CompletableFuture<Void> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
 
-        tablesByIdVv.update(causalityToken, previous -> {
+        tablesByIdVv.update(causalityToken, (previous, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
+
             var val = new HashMap<>(previous);
 
             val.put(tblId, table);
 
-            return val;
-        }, th -> {
-            throw new IgniteInternalException(IgniteStringFormatter.format("Cannot create a table [name={}, id={}]", name, tblId), th);
+            return completedFuture(val);
         });
 
         // TODO should be reworked in IGNITE-16763
@@ -499,17 +503,18 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             AtomicReference<TableImpl> tableHolder = new AtomicReference<>();
 
-            tablesByIdVv.update(causalityToken, previousVal -> {
+            tablesByIdVv.update(causalityToken, (previousVal, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
+
                 var map = new HashMap<>(previousVal);
 
                 TableImpl table = map.remove(tblId);
 
                 tableHolder.set(table);
 
-                return map;
-            }, th -> {
-                throw new IgniteInternalException(IgniteStringFormatter.format("Cannot drop a table [name={}, id={}]", name, tblId),
-                    th);
+                return completedFuture(map);
             });
 
             TableImpl table = tableHolder.get();

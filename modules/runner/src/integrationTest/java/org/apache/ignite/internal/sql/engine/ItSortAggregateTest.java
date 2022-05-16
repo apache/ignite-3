@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.List;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -109,7 +108,7 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void mapReduceAggregate() {
-        List<List<?>> res = sql(
+        var res = sql(
                 "SELECT /*+ DISABLE_RULE('HashAggregateConverterRule') */"
                         + "SUM(val0), SUM(val1), grp0 FROM TEST "
                         + "GROUP BY grp0 "
@@ -128,7 +127,7 @@ public class ItSortAggregateTest extends AbstractBasicIntegrationTest {
 
     @Test
     public void correctCollationsOnMapReduceSortAgg() {
-        List<List<?>> cursors = sql("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)");
+        var cursors = sql("SELECT PK FROM TEST_ONE_COL_IDX WHERE col0 IN (SELECT col0 FROM TEST_ONE_COL_IDX)");
 
         assertEquals(ROWS, cursors.size());
     }
