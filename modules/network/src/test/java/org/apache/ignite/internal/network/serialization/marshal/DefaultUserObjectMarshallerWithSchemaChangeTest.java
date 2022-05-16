@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,21 +39,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
+import java.io.ObjectInputStream.GetField;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.description.modifier.Visibility;
+import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.implementation.StubMethod;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.ClassNameMapBackedClassIndexedDescriptors;
 import org.apache.ignite.internal.network.serialization.CompositeDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
-import org.apache.ignite.internal.network.serialization.MapBackedClassIndexedDescriptors;
 import org.apache.ignite.internal.network.serialization.MapBackedIdIndexedDescriptors;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.jetbrains.annotations.Nullable;
@@ -69,8 +75,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * with a class which structure differs from our local version of the class.
  */
 @ExtendWith(MockitoExtension.class)
-class DefaultUserObjectMarshallerWithSchemaChangeTest {
+public class DefaultUserObjectMarshallerWithSchemaChangeTest {
     private static final byte[] INT_42_BYTES_IN_LITTLE_ENDIAN = {42, 0, 0, 0};
+    private static final String NON_LEAF_CLASS_NAME = "test.NonLeaf";
+    private static final String LEAF_CLASS_NAME = "test.Leaf";
 
     private final ClassDescriptorRegistry localRegistry = new ClassDescriptorRegistry();
     private final ClassDescriptorFactory localFactory = new ClassDescriptorFactory(localRegistry);
@@ -82,6 +90,8 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
 
     @Mock
     private SchemaMismatchHandler<Object> schemaMismatchHandler;
+
+    public static GetFieldReader getFieldReader;
 
     @SuppressWarnings("unchecked")
     @ParameterizedTest
@@ -100,9 +110,9 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         verify(schemaMismatchHandler).onFieldIgnored(unmarshalled, "addedRemotely", extraField.value);
     }
 
-    private Class<?> addFieldTo(Class<?> localClass, String fieldName, Class<?> fieldType) {
+    private Class<?> addFieldTo(Class<?> baseClass, String fieldName, Class<?> fieldType) {
         return new ByteBuddy()
-                .redefine(localClass)
+                .redefine(baseClass)
                 .defineField(fieldName, fieldType, Visibility.PRIVATE)
                 .make()
                 .load(getClass().getClassLoader(), CHILD_FIRST)
@@ -202,6 +212,16 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         return unmarshalNotNullLocally(marshalled, localClass, remoteClass);
     }
 
+    private Object marshalRemotelyAndUnmarshalLocally(
+            Object remoteInstance,
+            Class<?> localClass,
+            Class<?> remoteClass,
+            Function<ClassDescriptor, ClassDescriptor> reconstructSuperDescriptor
+    ) throws MarshalException, UnmarshalException {
+        MarshalledObject marshalled = remoteMarshaller.marshal(remoteInstance);
+        return unmarshalNotNullLocally(marshalled, localClass, remoteClass, reconstructSuperDescriptor);
+    }
+
     private <T> T unmarshalNotNullLocally(MarshalledObject marshalled, Class<?> localClass, Class<?> remoteClass)
             throws UnmarshalException {
         T unmarshalled = unmarshalLocally(marshalled, localClass, remoteClass);
@@ -209,18 +229,39 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         return unmarshalled;
     }
 
+    private <T> T unmarshalNotNullLocally(
+            MarshalledObject marshalled,
+            Class<?> localClass,
+            Class<?> remoteClass,
+            Function<ClassDescriptor, ClassDescriptor> reconstructSuperDescriptor
+    ) throws UnmarshalException {
+        T unmarshalled = unmarshalLocally(marshalled, localClass, remoteClass, reconstructSuperDescriptor);
+        assertThat(unmarshalled, is(notNullValue()));
+        return unmarshalled;
+    }
+
     @Nullable
     private <T> T unmarshalLocally(MarshalledObject marshalled, Class<?> localClass, Class<?> remoteClass)
             throws UnmarshalException {
+        return unmarshalLocally(marshalled, localClass, remoteClass, Function.identity());
+    }
+
+    @Nullable
+    private <T> T unmarshalLocally(
+            MarshalledObject marshalled,
+            Class<?> localClass,
+            Class<?> remoteClass,
+            Function<ClassDescriptor, ClassDescriptor> reconstructSuperDescriptor
+    ) throws UnmarshalException {
         localFactory.create(localClass);
         ClassDescriptor localDescriptor = localRegistry.getRequiredDescriptor(localClass);
 
         ClassDescriptor remoteDescriptor = remoteRegistry.getRequiredDescriptor(remoteClass);
 
-        ClassDescriptor reconstructedDescriptor = ClassDescriptor.forRemote(
+        ClassDescriptor reconstructedRemoteDescriptor = ClassDescriptor.forRemote(
                 localDescriptor.localClass(),
                 remoteDescriptor.descriptorId(),
-                remoteDescriptor.superClassDescriptor(),
+                reconstructSuperDescriptor.apply(remoteDescriptor.superClassDescriptor()),
                 remoteDescriptor.componentTypeDescriptor(),
                 remoteDescriptor.isPrimitive(),
                 remoteDescriptor.isArray(),
@@ -233,9 +274,11 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
 
         CompositeDescriptorRegistry compositeRegistry = new CompositeDescriptorRegistry(
                 new MapBackedIdIndexedDescriptors(
-                        Int2ObjectMaps.singleton(reconstructedDescriptor.descriptorId(), reconstructedDescriptor)
+                        Int2ObjectMaps.singleton(reconstructedRemoteDescriptor.descriptorId(), reconstructedRemoteDescriptor)
                 ),
-                new MapBackedClassIndexedDescriptors(Map.of(reconstructedDescriptor.localClass(), reconstructedDescriptor)),
+                new ClassNameMapBackedClassIndexedDescriptors(
+                        Map.of(reconstructedRemoteDescriptor.localClass().getName(), reconstructedRemoteDescriptor)
+                ),
                 localRegistry
         );
 
@@ -273,6 +316,243 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Test
+    void whenClassIsMergedIntoItsSubclassLocallyThenItsFieldsShouldNotBeFilledOnUnmarshalling() throws Exception {
+        Object unmarshalled = marshalRemotelyAndUnmarshalWithSuperclassDisappearingLocally();
+
+        assertThat(IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "value1"), is(0));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void whenClassIsMergedIntoItsSubclassLocallyThenItsFieldsShouldTriggerFieldMissedAndIgnoredEventsOnUnmarshalling() throws Exception {
+        SchemaMismatchHandler<Object> nonLeafLayerHandler = mock(SchemaMismatchHandler.class);
+        SchemaMismatchHandler<Object> leafLayerHandler = mock(SchemaMismatchHandler.class);
+
+        localMarshaller.replaceSchemaMismatchHandler(LEAF_CLASS_NAME, leafLayerHandler);
+        localMarshaller.replaceSchemaMismatchHandler(NON_LEAF_CLASS_NAME, nonLeafLayerHandler);
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalWithSuperclassDisappearingLocally();
+
+        verify(leafLayerHandler).onFieldMissed(unmarshalled, "value1");
+        verify(nonLeafLayerHandler).onFieldIgnored(unmarshalled, "value1", 1);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void whenClassWithWriteObjectMethodIsMergedIntoItsSubclassLocallyThenReadObjectIgnoredEventShouldBeTriggeredOnUnmarshalling()
+            throws Exception {
+        SchemaMismatchHandler<Object> nonLeafLayerHandler = mock(SchemaMismatchHandler.class);
+
+        localMarshaller.replaceSchemaMismatchHandler(NON_LEAF_CLASS_NAME, nonLeafLayerHandler);
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalWithSuperclassDisappearingLocally(this::withEmptyWriteObjectMethod);
+
+        verify(nonLeafLayerHandler).onReadObjectIgnored(eq(unmarshalled), any());
+    }
+
+    private DynamicType.Builder<Object> withEmptyWriteObjectMethod(DynamicType.Builder<Object> builder) {
+        return builder
+                .implement(Serializable.class)
+                .defineMethod("writeObject", void.class, Visibility.PRIVATE)
+                .withParameters(ObjectOutputStream.class)
+                .intercept(StubMethod.INSTANCE);
+    }
+
+    private Object marshalRemotelyAndUnmarshalWithSuperclassDisappearingLocally()
+            throws MarshalException, ReflectiveOperationException, UnmarshalException {
+        return marshalRemotelyAndUnmarshalWithSuperclassDisappearingLocally(UnaryOperator.identity());
+    }
+
+    private Object marshalRemotelyAndUnmarshalWithSuperclassDisappearingLocally(
+            UnaryOperator<DynamicType.Builder<Object>> remoteNonLeafClassCustomizer
+    ) throws ReflectiveOperationException, MarshalException, UnmarshalException {
+
+        DynamicType.Builder<Object> remoteNonLeafClassBuilder = new ByteBuddy()
+                .subclass(Object.class)
+                .name(NON_LEAF_CLASS_NAME)
+                .defineField("value1", int.class, Visibility.PRIVATE);
+
+        Class<?> remoteNonLeafClass = remoteNonLeafClassCustomizer.apply(remoteNonLeafClassBuilder)
+                .make()
+                .load(getClass().getClassLoader(), CHILD_FIRST)
+                .getLoaded();
+        Class<?> remoteLeafClass = new ByteBuddy()
+                .subclass(remoteNonLeafClass)
+                .name(LEAF_CLASS_NAME)
+                .defineField("value2", int.class, Visibility.PRIVATE)
+                .make()
+                .load(remoteNonLeafClass.getClassLoader())
+                .getLoaded();
+
+        Class<?> localLeafClass = new ByteBuddy()
+                .subclass(Object.class)
+                .name(LEAF_CLASS_NAME)
+                .defineField("value1", int.class, Visibility.PRIVATE)
+                .defineField("value2", int.class, Visibility.PRIVATE)
+                .make()
+                .load(getClass().getClassLoader(), CHILD_FIRST)
+                .getLoaded();
+
+        Object remoteInstance = instantiate(remoteLeafClass);
+        IgniteTestUtils.setFieldValue(remoteInstance, remoteInstance.getClass().getSuperclass(), "value1", 1);
+        IgniteTestUtils.setFieldValue(remoteInstance, remoteLeafClass, "value2", 2);
+
+        return marshalRemotelyAndUnmarshalLocally(
+                remoteInstance,
+                localLeafClass,
+                remoteLeafClass,
+                this::toRemoteDescriptorWithoutLocalClass
+        );
+    }
+
+    private ClassDescriptor toRemoteDescriptorWithoutLocalClass(ClassDescriptor superDescriptor) {
+        return ClassDescriptor.forRemote(
+                superDescriptor.className(),
+                superDescriptor.descriptorId(),
+                superDescriptor.superClassDescriptor(),
+                superDescriptor.componentTypeDescriptor(),
+                superDescriptor.isPrimitive(),
+                superDescriptor.isArray(),
+                superDescriptor.isRuntimeEnum(),
+                superDescriptor.isRuntimeTypeKnownUpfront(),
+                superDescriptor.fields(),
+                superDescriptor.serialization()
+        );
+    }
+
+    @Test
+    void whenSuperclassIsSplitFromClassLocallyThenSuperclassFieldsShouldNotBeFilledOnUnmarshalling() throws Exception {
+        Object unmarshalled = marshalRemotelyAndUnmarshalWithSuperclassAppearingLocally();
+
+        assertThat(IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass().getSuperclass(), "value1"), is(0));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void whenSuperclassIsSplitFromClassLocallyThenSuperclassFieldsShouldTriggerFieldMissedAndIgnoredEventsOnUnmarshalling()
+            throws Exception {
+        SchemaMismatchHandler<Object> nonLeafLayerHandler = mock(SchemaMismatchHandler.class);
+        SchemaMismatchHandler<Object> leafLayerHandler = mock(SchemaMismatchHandler.class);
+
+        localMarshaller.replaceSchemaMismatchHandler(LEAF_CLASS_NAME, leafLayerHandler);
+        localMarshaller.replaceSchemaMismatchHandler(NON_LEAF_CLASS_NAME, nonLeafLayerHandler);
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalWithSuperclassAppearingLocally();
+
+        verify(leafLayerHandler).onFieldIgnored(unmarshalled, "value1", 1);
+        verify(nonLeafLayerHandler).onFieldMissed(unmarshalled, "value1");
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void whenSuperclassWithReadObjectMethodIsSplitFromClassLocallyThenReadObjectMissedEventShouldBeTriggeredOnUnmarshalling()
+            throws Exception {
+        SchemaMismatchHandler<Object> nonLeafLayerHandler = mock(SchemaMismatchHandler.class);
+
+        localMarshaller.replaceSchemaMismatchHandler(NON_LEAF_CLASS_NAME, nonLeafLayerHandler);
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalWithSuperclassAppearingLocally(this::withEmptyReadObjectMethod);
+
+        verify(nonLeafLayerHandler).onReadObjectMissed(eq(unmarshalled));
+    }
+
+    private DynamicType.Builder<Object> withEmptyReadObjectMethod(DynamicType.Builder<Object> builder) {
+        return builder
+                .implement(Serializable.class)
+                .defineMethod("readObject", void.class, Visibility.PRIVATE)
+                .withParameters(ObjectInputStream.class)
+                .intercept(StubMethod.INSTANCE);
+    }
+
+    private Object marshalRemotelyAndUnmarshalWithSuperclassAppearingLocally()
+            throws ReflectiveOperationException, MarshalException, UnmarshalException {
+        return marshalRemotelyAndUnmarshalWithSuperclassAppearingLocally(UnaryOperator.identity());
+    }
+
+    private Object marshalRemotelyAndUnmarshalWithSuperclassAppearingLocally(
+            UnaryOperator<DynamicType.Builder<Object>> localNonLeafClassCustomizer
+    ) throws ReflectiveOperationException, MarshalException, UnmarshalException {
+
+        Class<?> remoteLeafClass = new ByteBuddy()
+                .subclass(Object.class)
+                .name(LEAF_CLASS_NAME)
+                .defineField("value1", int.class, Visibility.PRIVATE)
+                .defineField("value2", int.class, Visibility.PRIVATE)
+                .make()
+                .load(getClass().getClassLoader(), CHILD_FIRST)
+                .getLoaded();
+
+        DynamicType.Builder<Object> localNonLeafClassBuilder = new ByteBuddy()
+                .subclass(Object.class)
+                .name(NON_LEAF_CLASS_NAME)
+                .defineField("value1", int.class, Visibility.PRIVATE);
+        Class<?> localNonLeafClass = localNonLeafClassCustomizer.apply(localNonLeafClassBuilder)
+                .make()
+                .load(getClass().getClassLoader(), CHILD_FIRST)
+                .getLoaded();
+        Class<?> localLeafClass = new ByteBuddy()
+                .subclass(localNonLeafClass)
+                .name(LEAF_CLASS_NAME)
+                .defineField("value2", int.class, Visibility.PRIVATE)
+                .make()
+                .load(localNonLeafClass.getClassLoader())
+                .getLoaded();
+
+        Object remoteInstance = instantiate(remoteLeafClass);
+        IgniteTestUtils.setFieldValue(remoteInstance, remoteInstance.getClass(), "value1", 1);
+        IgniteTestUtils.setFieldValue(remoteInstance, remoteInstance.getClass(), "value2", 2);
+
+        return marshalRemotelyAndUnmarshalLocally(remoteInstance, localLeafClass, remoteLeafClass);
+    }
+
+    @ParameterizedTest
+    @MethodSource("extraFieldsForGetField")
+    void getFieldReturnsDefaultValueWhenRemoteClassHasExtraField(ExtraFieldForGetField extraField) throws Exception {
+        Class<?> remoteClass = SerializableWithDefaultedGetField.class;
+        Class<?> localClass = addFieldTo(remoteClass, "addedLocally", extraField.type);
+
+        Object remoteInstance = instantiate(remoteClass);
+
+        getFieldReader = extraField.reader;
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+
+        Object valueReadFromGetField = IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "readValue");
+        assertThat(valueReadFromGetField, is(extraField.expectedValue));
+    }
+
+    private static Stream<Arguments> extraFieldsForGetField() {
+        String fieldName = "addedLocally";
+        return Stream.of(
+                new ExtraFieldForGetField(byte.class, (byte) 10, field -> field.get(fieldName, (byte) 10)),
+                new ExtraFieldForGetField(short.class, (short) 11, field -> field.get(fieldName, (short) 11)),
+                new ExtraFieldForGetField(int.class, 12, field -> field.get(fieldName, 12)),
+                new ExtraFieldForGetField(long.class, (long) 13, field -> field.get(fieldName, (long) 13)),
+                new ExtraFieldForGetField(float.class, (float) 14, field -> field.get(fieldName, (float) 14)),
+                new ExtraFieldForGetField(double.class, (double) 15, field -> field.get(fieldName, (double) 15)),
+                new ExtraFieldForGetField(char.class, 'x', field -> field.get(fieldName, 'x')),
+                new ExtraFieldForGetField(boolean.class, true, field -> field.get(fieldName, true)),
+                new ExtraFieldForGetField(String.class, "Bye", field -> field.get(fieldName, "Bye"))
+        ).map(Arguments::of);
+    }
+
+    @ParameterizedTest
+    @MethodSource("extraFields")
+    void getFieldDefaultedReturnsTrueForFieldsAddedLocally(ExtraField extraField) throws Exception {
+        Class<?> remoteClass = SerializableWithDefaultedGetField.class;
+        Class<?> localClass = addFieldTo(remoteClass, "addedLocally", extraField.type);
+
+        Object remoteInstance = instantiate(remoteClass);
+
+        getFieldReader = getField -> getField.defaulted("addedLocally");
+
+        Object unmarshalled = marshalRemotelyAndUnmarshalLocally(remoteInstance, localClass, remoteClass);
+
+        Object valueReadFromGetField = IgniteTestUtils.getFieldValue(unmarshalled, unmarshalled.getClass(), "readValue");
+        assertThat(valueReadFromGetField, is(true));
     }
 
     @Test
@@ -530,6 +810,55 @@ class DefaultUserObjectMarshallerWithSchemaChangeTest {
             return "ExtraField{"
                     + "type=" + type
                     + ", value=" + value
+                    + '}';
+        }
+    }
+
+    private static class SerializableWithDefaultedGetField implements Serializable {
+        Object readValue;
+
+        private void writeObject(ObjectOutputStream stream) throws IOException {
+            stream.putFields();
+            stream.writeFields();
+        }
+
+        private void readObject(ObjectInputStream stream) throws IOException, ClassNotFoundException {
+            GetField getField = stream.readFields();
+            readValue = getFieldReader.read(getField);
+        }
+    }
+
+    /**
+     * Reads a value from {@link GetField}.
+     */
+    public interface GetFieldReader {
+        /**
+         * Reads a value from the given {@link GetField}.
+         *
+         * @param getField {@link GetField} instance
+         * @return a value extracted from GetField
+         * @throws IOException if something goes wrong
+         */
+        Object read(GetField getField) throws IOException, ClassNotFoundException;
+    }
+
+    private static class ExtraFieldForGetField {
+        private final Class<?> type;
+        private final Object expectedValue;
+        private final GetFieldReader reader;
+
+        private ExtraFieldForGetField(Class<?> type, Object expectedValue, GetFieldReader reader) {
+            this.type = type;
+            this.expectedValue = expectedValue;
+            this.reader = reader;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return "ExtraFieldForGetField{"
+                    + "type=" + type
+                    + ", value=" + expectedValue
                     + '}';
         }
     }

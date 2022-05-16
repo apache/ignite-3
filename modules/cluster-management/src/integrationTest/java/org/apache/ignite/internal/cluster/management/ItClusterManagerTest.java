@@ -20,17 +20,19 @@ package org.apache.ignite.internal.cluster.management;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.NodeStoppingException;
@@ -189,9 +191,7 @@ public class ItClusterManagerTest {
 
         node.start();
 
-        assertThat(node.clusterManager().metaStorageNodes(), will(containsInAnyOrder(cmgNodes)));
-
-        assertThat(currentPhysicalTopology(), is(arrayWithSize(cluster.size())));
+        waitForLogicalTopology();
 
         assertThat(node.clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
@@ -222,7 +222,13 @@ public class ItClusterManagerTest {
     }
 
     private void waitForLogicalTopology() throws InterruptedException {
-        waitForCondition(() -> cluster.get(0).clusterManager().logicalTopology().join().size() == cluster.size(), 1000);
+        assertTrue(waitForCondition(() -> {
+            CompletableFuture<Collection<ClusterNode>> logicalTopology = cluster.get(0).clusterManager().logicalTopology();
+
+            assertThat(logicalTopology, willCompleteSuccessfully());
+
+            return logicalTopology.join().size() == cluster.size();
+        }, 10000));
     }
 
     private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException, InterruptedException {

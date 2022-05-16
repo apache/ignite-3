@@ -125,4 +125,7 @@ public class ClientOp {
 
     /** Get cluster nodes. */
     public static final int CLUSTER_GET_NODES = 48;
+
+    /** Execute compute job. */
+    public static final int COMPUTE_EXECUTE_COLOCATED = 49;
 }

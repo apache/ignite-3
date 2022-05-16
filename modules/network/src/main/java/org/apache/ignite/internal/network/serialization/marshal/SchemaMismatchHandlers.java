@@ -26,33 +26,41 @@ import java.util.Map;
  * A colleciton of {@link SchemaMismatchHandler}s keyed by classes to which they relate.
  */
 class SchemaMismatchHandlers {
-    private final Map<Class<?>, SchemaMismatchHandler<?>> handlers = new HashMap<>();
+    private final Map<String, SchemaMismatchHandler<?>> handlers = new HashMap<>();
     private final SchemaMismatchHandler<Object> defaultHandler = new DefaultSchemaMismatchHandler();
 
     <T> void registerHandler(Class<T> layerClass, SchemaMismatchHandler<T> handler) {
-        handlers.put(layerClass, handler);
+        registerHandler(layerClass.getName(), handler);
+    }
+
+    <T> void registerHandler(String layerClassName, SchemaMismatchHandler<T> handler) {
+        handlers.put(layerClassName, handler);
+    }
+
+    private SchemaMismatchHandler<Object> handlerFor(Class<?> clazz) {
+        return handlerFor(clazz.getName());
     }
 
     @SuppressWarnings("unchecked")
-    private SchemaMismatchHandler<Object> handlerFor(Class<?> clazz) {
-        SchemaMismatchHandler<Object> handler = (SchemaMismatchHandler<Object>) handlers.get(clazz);
+    private SchemaMismatchHandler<Object> handlerFor(String className) {
+        SchemaMismatchHandler<Object> handler = (SchemaMismatchHandler<Object>) handlers.get(className);
         if (handler == null) {
             handler = defaultHandler;
         }
         return handler;
     }
 
-    void onFieldIgnored(Class<?> layerClass, Object instance, String fieldName, Object fieldValue) throws SchemaMismatchException {
-        handlerFor(layerClass).onFieldIgnored(instance, fieldName, fieldValue);
+    void onFieldIgnored(String layerClassName, Object instance, String fieldName, Object fieldValue) throws SchemaMismatchException {
+        handlerFor(layerClassName).onFieldIgnored(instance, fieldName, fieldValue);
     }
 
-    void onFieldMissed(Class<?> layerClass, Object instance, String fieldName) throws SchemaMismatchException {
-        handlerFor(layerClass).onFieldMissed(instance, fieldName);
+    void onFieldMissed(String layerClassName, Object instance, String fieldName) throws SchemaMismatchException {
+        handlerFor(layerClassName).onFieldMissed(instance, fieldName);
     }
 
-    void onFieldTypeChanged(Class<?> layerClass, Object instance, String fieldName, Class<?> remoteType, Object fieldValue)
+    void onFieldTypeChanged(String layerClassName, Object instance, String fieldName, Class<?> remoteType, Object fieldValue)
             throws SchemaMismatchException {
-        handlerFor(layerClass).onFieldTypeChanged(instance, fieldName, remoteType, fieldValue);
+        handlerFor(layerClassName).onFieldTypeChanged(instance, fieldName, remoteType, fieldValue);
     }
 
     void onExternalizableIgnored(Object instance, ObjectInput externalData) throws SchemaMismatchException {
@@ -71,11 +79,11 @@ class SchemaMismatchHandlers {
         handlerFor(instance.getClass()).onReadResolveDisappeared(instance);
     }
 
-    void onReadObjectIgnored(Class<?> layerClass, Object instance, ObjectInputStream objectData) throws SchemaMismatchException {
-        handlerFor(layerClass).onReadObjectIgnored(instance, objectData);
+    void onReadObjectIgnored(String layerClassName, Object instance, ObjectInputStream objectData) throws SchemaMismatchException {
+        handlerFor(layerClassName).onReadObjectIgnored(instance, objectData);
     }
 
-    void onReadObjectMissed(Class<?> layerClass, Object instance) throws SchemaMismatchException {
-        handlerFor(layerClass).onReadObjectMissed(instance);
+    void onReadObjectMissed(String layerClassName, Object instance) throws SchemaMismatchException {
+        handlerFor(layerClassName).onReadObjectMissed(instance);
     }
 }

@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Record serializer.
  */
-class ClientRecordSerializer<R> {
+public class ClientRecordSerializer<R> {
     /** Table ID. */
     private final UUID tableId;
 
@@ -57,7 +57,7 @@ class ClientRecordSerializer<R> {
      * @param tableId       Table ID.
      * @param mapper        Mapper.
      */
-    public ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
+    ClientRecordSerializer(UUID tableId, Mapper<R> mapper) {
         assert tableId != null;
         assert mapper != null;
 
@@ -67,19 +67,26 @@ class ClientRecordSerializer<R> {
         oneColumnMode = MarshallerUtil.mode(mapper.targetType()) != null;
     }
 
-    public Mapper<R> mapper() {
+    /**
+     * Gets the mapper.
+     *
+     * @return Mapper.
+     */
+    Mapper<R> mapper() {
         return mapper;
     }
 
-    public void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
-        out.out().packUuid(tableId);
-        writeTx(tx, out);
-        out.out().packInt(schema.version());
-
-        writeRecRaw(rec, schema, out.out(), part);
-    }
-
-    public void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+    /**
+     * Writes a record without header.
+     *
+     * @param rec Record.
+     * @param mapper Mapper.
+     * @param schema Schema.
+     * @param out Packer.
+     * @param part Tuple part.
+     * @param <R> Record type.
+     */
+    public static <R> void writeRecRaw(@Nullable R rec, Mapper<R> mapper, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerWriter writer = new ClientMarshallerWriter(out);
 
@@ -90,7 +97,19 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(
+    void writeRecRaw(@Nullable R rec, ClientSchema schema, ClientMessagePacker out, TuplePart part) {
+        writeRecRaw(rec, mapper, schema, out, part);
+    }
+
+    void writeRec(@Nullable Transaction tx, @Nullable R rec, ClientSchema schema, PayloadOutputChannel out, TuplePart part) {
+        out.out().packUuid(tableId);
+        writeTx(tx, out);
+        out.out().packInt(schema.version());
+
+        writeRecRaw(rec, schema, out.out(), part);
+    }
+
+    void writeRecs(
             @Nullable Transaction tx,
             @Nullable R rec,
             @Nullable R rec2,
@@ -113,7 +132,7 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public void writeRecs(
+    void writeRecs(
             @Nullable Transaction tx,
             @NotNull Collection<R> recs,
             ClientSchema schema,
@@ -137,7 +156,7 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
+    Collection<R> readRecs(ClientSchema schema, ClientMessageUnpacker in, boolean nullable, TuplePart part) {
         var cnt = in.unpackInt();
 
         if (cnt == 0) {
@@ -164,7 +183,7 @@ class ClientRecordSerializer<R> {
         return res;
     }
 
-    public R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
+    R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
         Marshaller marshaller = schema.getMarshaller(mapper, part);
         ClientMarshallerReader reader = new ClientMarshallerReader(in);
 
@@ -175,7 +194,7 @@ class ClientRecordSerializer<R> {
         }
     }
 
-    public R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
+    R readValRec(@NotNull R keyRec, ClientSchema schema, ClientMessageUnpacker in) {
         if (oneColumnMode) {
             return keyRec;
         }

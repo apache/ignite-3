@@ -150,11 +150,13 @@ public class ItCmgRaftServiceTest {
 
         assertThat(node1.raftService.logicalTopology(), willBe(empty()));
 
-        assertThat(node1.raftService.joinCluster(), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(), willCompleteSuccessfully());
+        assertThat(node1.raftService.completeJoinCluster(), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(contains(clusterNode1)));
 
-        assertThat(node2.raftService.joinCluster(), willCompleteSuccessfully());
+        assertThat(node2.raftService.startJoinCluster(), willCompleteSuccessfully());
+        assertThat(node2.raftService.completeJoinCluster(), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
@@ -168,7 +170,7 @@ public class ItCmgRaftServiceTest {
     }
 
     /**
-     * Tests that {@link CmgRaftService#joinCluster} and {@link CmgRaftService#removeFromCluster} methods are idempotent.
+     * Tests that {@link CmgRaftService#startJoinCluster} and {@link CmgRaftService#removeFromCluster} methods are idempotent.
      */
     @Test
     void testLogicalTopologyIdempotence() {
@@ -178,12 +180,16 @@ public class ItCmgRaftServiceTest {
         ClusterNode clusterNode1 = node1.localMember();
         ClusterNode clusterNode2 = node2.localMember();
 
-        assertThat(node1.raftService.joinCluster(), willCompleteSuccessfully());
-        assertThat(node2.raftService.joinCluster(), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(), willCompleteSuccessfully());
+        assertThat(node2.raftService.startJoinCluster(), willCompleteSuccessfully());
+
+        assertThat(node1.raftService.completeJoinCluster(), willCompleteSuccessfully());
+        assertThat(node2.raftService.completeJoinCluster(), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
-        assertThat(node1.raftService.joinCluster(), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(), willCompleteSuccessfully());
+        assertThat(node1.raftService.completeJoinCluster(), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 

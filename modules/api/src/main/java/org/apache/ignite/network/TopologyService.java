@@ -22,9 +22,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Entry point for obtaining information about a cluster's topology.
- *
- * <p>TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
  */
+// TODO: allow removing event handlers, see https://issues.apache.org/jira/browse/IGNITE-14519
 public interface TopologyService {
     /**
      * Returns information of the current node.

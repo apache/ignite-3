@@ -102,7 +102,6 @@ public class AbstractExecutionTest extends IgniteAbstractTest {
                 UUID.randomUUID(),
                 "fake-test-node",
                 "fake-test-node",
-                0,
                 fragmentDesc,
                 ArrayRowHandler.INSTANCE,
                 Map.of()

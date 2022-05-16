@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+
 /**
  * QueryPlan interface.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -31,6 +33,11 @@ public interface QueryPlan {
      * Get query type.
      */
     Type type();
+
+    /**
+     * Get fields metadata.
+     */
+    ResultSetMetadata metadata();
 
     /**
      * Clones this plan.

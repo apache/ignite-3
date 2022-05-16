@@ -254,13 +254,13 @@ class UosObjectInputStream extends ObjectInputStream {
 
     class UosGetField extends GetField {
         private final DataInput input = UosObjectInputStream.this;
-        private final ClassDescriptor descriptor;
+        private final ClassDescriptor remoteDescriptor;
 
         private final byte[] primitiveFieldsData;
         private final Object[] objectFieldVals;
 
         private UosGetField(ClassDescriptor currentObjectDescriptor) {
-            this.descriptor = currentObjectDescriptor;
+            this.remoteDescriptor = currentObjectDescriptor;
 
             primitiveFieldsData = new byte[currentObjectDescriptor.primitiveFieldsDataSize()];
             objectFieldVals = new Object[currentObjectDescriptor.objectFieldsCount()];
@@ -271,81 +271,114 @@ class UosObjectInputStream extends ObjectInputStream {
         public ObjectStreamClass getObjectStreamClass() {
             // TODO: IGNITE-16572 - make it support schema changes
 
-            return ObjectStreamClass.lookupAny(descriptor.localClass());
+            return ObjectStreamClass.lookupAny(remoteDescriptor.localClass());
         }
 
         /** {@inheritDoc} */
         @Override
         public boolean defaulted(String name) {
-            // TODO: IGNITE-16571 - actually take into account whether it's defaulted or not
-            return false;
+            return remoteDescriptor.isPrimitiveFieldAddedLocally(name) || remoteDescriptor.isObjectFieldAddedLocally(name);
         }
-
-        // TODO: IGNITE-16571 - return default values if the field exists locally but not in the stream being parsed
 
         /** {@inheritDoc} */
         @Override
-        public boolean get(String name, boolean val) throws IOException {
+        public boolean get(String name, boolean defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getBoolean(primitiveFieldsData, primitiveFieldDataOffset(name, boolean.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public byte get(String name, byte val) throws IOException {
+        public byte get(String name, byte defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return primitiveFieldsData[primitiveFieldDataOffset(name, byte.class)];
         }
 
         /** {@inheritDoc} */
         @Override
-        public char get(String name, char val) throws IOException {
+        public char get(String name, char defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getChar(primitiveFieldsData, primitiveFieldDataOffset(name, char.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public short get(String name, short val) throws IOException {
+        public short get(String name, short defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getShort(primitiveFieldsData, primitiveFieldDataOffset(name, short.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public int get(String name, int val) throws IOException {
+        public int get(String name, int defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getInt(primitiveFieldsData, primitiveFieldDataOffset(name, int.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public long get(String name, long val) throws IOException {
+        public long get(String name, long defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getLong(primitiveFieldsData, primitiveFieldDataOffset(name, long.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public float get(String name, float val) throws IOException {
+        public float get(String name, float defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getFloat(primitiveFieldsData, primitiveFieldDataOffset(name, float.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public double get(String name, double val) throws IOException {
+        public double get(String name, double defaultValue) throws IOException {
+            if (remoteDescriptor.isPrimitiveFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
             return LittleEndianBits.getDouble(primitiveFieldsData, primitiveFieldDataOffset(name, double.class));
         }
 
         /** {@inheritDoc} */
         @Override
-        public Object get(String name, Object val) throws IOException {
-            return objectFieldVals[descriptor.objectFieldIndex(name)];
+        public Object get(String name, Object defaultValue) throws IOException {
+            if (remoteDescriptor.isObjectFieldAddedLocally(name)) {
+                return defaultValue;
+            }
+
+            return objectFieldVals[remoteDescriptor.objectFieldIndex(name)];
         }
 
         private int primitiveFieldDataOffset(String fieldName, Class<?> requiredType) {
-            return descriptor.primitiveFieldDataOffset(fieldName, requiredType.getName());
+            return remoteDescriptor.primitiveFieldDataOffset(fieldName, requiredType.getName());
         }
 
         private void readFields() throws IOException {
-            @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
+            @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, remoteDescriptor);
 
             int objectFieldIndex = 0;
-            for (FieldDescriptor fieldDesc : descriptor.fields()) {
+            for (FieldDescriptor fieldDesc : remoteDescriptor.fields()) {
                 objectFieldIndex = readNext(fieldDesc, objectFieldIndex, nullsBitSet);
             }
         }
@@ -360,13 +393,13 @@ class UosObjectInputStream extends ObjectInputStream {
         }
 
         private void readPrimitive(FieldDescriptor fieldDesc) throws IOException {
-            int offset = descriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.typeName());
+            int offset = remoteDescriptor.primitiveFieldDataOffset(fieldDesc.name(), fieldDesc.typeName());
             int length = fieldDesc.primitiveWidthInBytes();
             input.readFully(primitiveFieldsData, offset, length);
         }
 
         private int readObject(FieldDescriptor fieldDesc, int objectFieldIndex, @Nullable BitSet nullsBitSet) throws IOException {
-            if (!StructuredObjectMarshaller.nullWasSkippedWhileWriting(fieldDesc, descriptor, nullsBitSet)) {
+            if (!StructuredObjectMarshaller.nullWasSkippedWhileWriting(fieldDesc, remoteDescriptor, nullsBitSet)) {
                 Object readObject;
                 if (fieldDesc.isUnshared()) {
                     readObject = doReadUnsharedOf(fieldDesc);

@@ -27,20 +27,20 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Mailbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.apache.ignite.internal.sql.engine.util.NodeLeaveHandler;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.network.TopologyService;
+import org.apache.ignite.network.TopologyEventHandler;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * MailboxRegistryImpl.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class MailboxRegistryImpl implements MailboxRegistry {
-    private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
+public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandler {
+    private static final IgniteLogger LOG = IgniteLogger.forClass(MailboxRegistryImpl.class);
 
-    private final TopologyService topSrvc;
+    private static final Predicate<Mailbox<?>> ALWAYS_TRUE = o -> true;
 
     private final Map<MailboxKey, Outbox<?>> locals;
 
@@ -50,9 +50,7 @@ public class MailboxRegistryImpl implements MailboxRegistry {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public MailboxRegistryImpl(TopologyService topSrvc) {
-        this.topSrvc = topSrvc;
-
+    public MailboxRegistryImpl() {
         locals = new ConcurrentHashMap<>();
         remotes = new ConcurrentHashMap<>();
     }
@@ -60,13 +58,21 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        topSrvc.addEventHandler(new NodeLeaveHandler(this::onNodeLeft));
+        // NO-OP
     }
 
     /** {@inheritDoc} */
     @Override
     public <T> Inbox<T> register(Inbox<T> inbox) {
         Inbox<T> old = (Inbox<T>) remotes.putIfAbsent(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
+
+        if (LOG.isTraceEnabled()) {
+            if (old != null) {
+                LOG.trace("Inbox already registered [qryId={}, fragmentId={}]", inbox.queryId(), inbox.fragmentId());
+            } else {
+                LOG.trace("Inbox registered [qryId={}, fragmentId={}]", inbox.queryId(), inbox.fragmentId());
+            }
+        }
 
         return old != null ? old : inbox;
     }
@@ -76,19 +82,33 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     public void register(Outbox<?> outbox) {
         Outbox<?> res = locals.put(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
 
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Outbox registered [qryId={}, fragmentId={}]", outbox.queryId(), outbox.fragmentId());
+        }
+
         assert res == null : res;
     }
 
     /** {@inheritDoc} */
     @Override
     public void unregister(Inbox<?> inbox) {
-        remotes.remove(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
+        boolean removed = remotes.remove(new MailboxKey(inbox.queryId(), inbox.exchangeId()), inbox);
+
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Inbox {} unregistered [qryId={}, fragmentId={}]", removed ? "was" : "wasn't",
+                    inbox.queryId(), inbox.fragmentId());
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public void unregister(Outbox<?> outbox) {
-        locals.remove(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
+        boolean removed = locals.remove(new MailboxKey(outbox.queryId(), outbox.exchangeId()), outbox);
+
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Outbox {} unregistered [qryId={}, fragmentId={}]", removed ? "was" : "wasn't",
+                    outbox.queryId(), outbox.fragmentId());
+        }
     }
 
     /** {@inheritDoc} */
@@ -119,11 +139,6 @@ public class MailboxRegistryImpl implements MailboxRegistry {
                 .collect(Collectors.toList());
     }
 
-    private void onNodeLeft(ClusterNode node) {
-        locals.values().forEach(n -> n.onNodeLeft(node.id()));
-        remotes.values().forEach(n -> n.onNodeLeft(node.id()));
-    }
-
     private static Predicate<Mailbox<?>> makeFilter(@Nullable UUID qryId, long fragmentId, long exchangeId) {
         Predicate<Mailbox<?>> filter = ALWAYS_TRUE;
         if (qryId != null) {
@@ -150,6 +165,19 @@ public class MailboxRegistryImpl implements MailboxRegistry {
     public void stop() {
         locals.clear();
         remotes.clear();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onAppeared(ClusterNode member) {
+        // NO-OP
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void onDisappeared(ClusterNode member) {
+        locals.values().forEach(n -> n.onNodeLeft(member.id()));
+        remotes.values().forEach(n -> n.onNodeLeft(member.id()));
     }
 
     private static class MailboxKey {

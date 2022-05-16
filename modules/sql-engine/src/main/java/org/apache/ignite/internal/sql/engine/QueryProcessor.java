@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteException;
 
@@ -35,7 +36,7 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      * */
-    List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params);
+    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params);
 
     /**
      * Execute the query with given schema name and parameters.
@@ -48,5 +49,5 @@ public interface QueryProcessor extends IgniteComponent {
      *
      * @throws IgniteException in case of an error.
      * */
-    List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params);
+    List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
 }

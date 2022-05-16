@@ -248,6 +248,8 @@ public class TypeUtils {
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
 
+        resultType = TypeUtils.getResultType(Commons.typeFactory(), ectx.unwrap(BaseQueryContext.class).catalogReader(), resultType, null);
+
         if (hasConvertableFields(resultType)) {
             RowHandler<RowT> handler = ectx.rowHandler();
             List<RelDataType> types = RelOptUtil.getFieldTypeList(resultType);

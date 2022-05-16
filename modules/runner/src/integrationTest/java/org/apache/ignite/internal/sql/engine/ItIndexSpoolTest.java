@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
 import java.util.List;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.schema.SchemaBuilders;
@@ -68,16 +66,10 @@ public class ItIndexSpoolTest extends AbstractBasicIntegrationTest {
     public void test(int rows) {
         prepareDataSet(rows);
 
-        QueryProcessor engine = ((IgniteImpl) CLUSTER_NODES.get(0)).queryEngine();
-
-        List<SqlCursor<List<?>>> cursors = engine.query(
-                "PUBLIC",
-                "SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
+        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
                         + "JOIN TEST1 as T1 on T0.jid = T1.jid "
         );
-
-        List<List<?>> res = getAllFromCursor(cursors.get(0));
 
         assertThat(res.size(), is(rows));
 

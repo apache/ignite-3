@@ -408,9 +408,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     @Test
-    void getFieldAlwaysReturnsFalseForDefaulted() {
-        // TODO: IGNITE-16571 - test that defaulted() works as intended when it's ready
-
+    void getFieldDefaultedReturnsFalseIfFieldExistsBeforeAndAfterSerialization() {
         fieldFiller = (getField, target) -> {
             assertFalse(getField.defaulted("byteVal"));
         };
@@ -765,7 +763,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     private interface FieldFiller {
-        void fillWith(ObjectInputStream.GetField getField, WithReadFields target) throws IOException;
+        void fillWith(ObjectInputStream.GetField getField, WithReadFields target) throws IOException, ClassNotFoundException;
     }
 
     private static class WithReadFields implements Serializable {

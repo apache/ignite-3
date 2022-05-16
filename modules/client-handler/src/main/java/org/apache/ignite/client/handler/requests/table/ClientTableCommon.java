@@ -55,7 +55,7 @@ import org.msgpack.core.MessageTypeException;
 /**
  * Common table functionality.
  */
-class ClientTableCommon {
+public class ClientTableCommon {
     /**
      * Writes a schema.
      *
@@ -378,7 +378,13 @@ class ClientTableCommon {
         UUID tableId = unpacker.unpackUuid();
 
         try {
-            return ((IgniteTablesInternal) tables).table(tableId);
+            TableImpl table = ((IgniteTablesInternal) tables).table(tableId);
+
+            if (table == null) {
+                throw new ClientTableIdDoesNotExistException("Table does not exist: " + tableId);
+            }
+
+            return table;
         } catch (NodeStoppingException e) {
             throw new IgniteException(e);
         }

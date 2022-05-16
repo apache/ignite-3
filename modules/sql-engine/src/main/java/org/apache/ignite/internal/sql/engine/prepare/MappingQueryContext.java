@@ -29,19 +29,15 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 public class MappingQueryContext {
     private final String locNodeId;
 
-    private final long topVer;
-
     private RelOptCluster cluster;
 
     /**
      * Constructor.
      *
      * @param locNodeId Local node identifier.
-     * @param topVer    Topology version to map.
      */
-    public MappingQueryContext(String locNodeId, long topVer) {
+    public MappingQueryContext(String locNodeId) {
         this.locNodeId = locNodeId;
-        this.topVer = topVer;
     }
 
     /** Creates a cluster. */
@@ -58,9 +54,5 @@ public class MappingQueryContext {
 
     public String localNodeId() {
         return locNodeId;
-    }
-
-    public long topologyVersion() {
-        return topVer;
     }
 }

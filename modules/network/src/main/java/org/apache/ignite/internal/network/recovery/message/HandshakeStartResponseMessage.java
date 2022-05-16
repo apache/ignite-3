@@ -19,14 +19,14 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Handshake start response message.
+ * Handshake start response message, contains info about the node, connection id and the quantity of the received messages.
+ * This message is sent from a client to a server as a response to the {@link HandshakeStartMessage}.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START_RESPONSE)
-public interface HandshakeStartResponseMessage extends NetworkMessage {
+public interface HandshakeStartResponseMessage extends InternalMessage {
     /**
      * Returns launch id.
      *
@@ -49,9 +49,9 @@ public interface HandshakeStartResponseMessage extends NetworkMessage {
     long receivedCount();
 
     /**
-     * Returns connections count.
+     * Returns connection id.
      *
-     * @return Connections count.
+     * @return Connection id.
      */
-    long connectionsCount();
+    short connectionId();
 }

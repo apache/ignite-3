@@ -18,9 +18,12 @@
 package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -28,6 +31,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +40,9 @@ import org.junit.jupiter.api.Test;
  * Compute tests.
  */
 public class ClientComputeTest {
+    private static final String TABLE_NAME = "tbl1";
+
+    private FakeIgnite ignite;
     private TestServer server1;
     private TestServer server2;
     private TestServer server3;
@@ -93,6 +101,58 @@ public class ClientComputeTest {
         }
     }
 
+    @Test
+    public void testExecuteColocated() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server2)) {
+            Tuple key = Tuple.create().set("key", "k");
+
+            String res1 = client.compute().<String>executeColocated(TABLE_NAME, key, "job").join();
+            assertEquals("s2", res1);
+
+            String res2 = client.compute().<Long, String>executeColocated(TABLE_NAME, 1L, Mapper.of(Long.class), "job").join();
+            assertEquals("s2", res2);
+        }
+    }
+
+    @Test
+    public void testExecuteColocatedThrowsClientExceptionWhenTableDoesNotExist() throws Exception {
+        initServers(reqId -> false);
+
+        try (var client = getClient(server1)) {
+            Tuple key = Tuple.create().set("key", "k");
+
+            var ex = assertThrows(CompletionException.class,
+                    () -> client.compute().<String>executeColocated("bad-tbl", key, "job").join());
+
+            assertInstanceOf(IgniteClientException.class, ex.getCause());
+            assertEquals("Table 'bad-tbl' does not exist.", ex.getCause().getMessage());
+        }
+    }
+
+    @Test
+    void testExecuteColocatedUpdatesTableCacheOnTableDrop() throws Exception {
+        String tableName = "drop-me";
+
+        initServers(reqId -> false);
+        ignite.tables().createTable(tableName, null);
+
+        try (var client = getClient(server3)) {
+            Tuple key = Tuple.create().set("key", "k");
+
+            String res1 = client.compute().<String>executeColocated(tableName, key, "job").join();
+            assertEquals("s3", res1);
+
+            // Drop table and create a new one with a different ID.
+            ignite.tables().dropTable(tableName);
+            ignite.tables().createTable(tableName, null);
+
+            String res2 = client.compute().<Long, String>executeColocated(tableName, 1L, Mapper.of(Long.class), "job").join();
+            assertEquals("s3", res2);
+        }
+    }
+
     private IgniteClient getClient(TestServer... servers) {
         String[] addresses = Arrays.stream(servers).map(s -> "127.0.0.1:" + s.port()).toArray(String[]::new);
 
@@ -104,9 +164,12 @@ public class ClientComputeTest {
     }
 
     private void initServers(Function<Integer, Boolean> shouldDropConnection) {
-        server1 = new TestServer(10900, 10, 0, new FakeIgnite(), shouldDropConnection, "s1");
-        server2 = new TestServer(10910, 10, 0, new FakeIgnite(), shouldDropConnection, "s2");
-        server3 = new TestServer(10920, 10, 0, new FakeIgnite(), shouldDropConnection, "s3");
+        ignite = new FakeIgnite();
+        ignite.tables().createTable(TABLE_NAME, null);
+
+        server1 = new TestServer(10900, 10, 0, ignite, shouldDropConnection, "s1");
+        server2 = new TestServer(10910, 10, 0, ignite, shouldDropConnection, "s2");
+        server3 = new TestServer(10920, 10, 0, ignite, shouldDropConnection, "s3");
     }
 
     private Set<ClusterNode> getClusterNodes(String... names) {

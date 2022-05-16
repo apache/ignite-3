@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+
 /**
  * Distributed query plan.
  */
@@ -27,7 +29,7 @@ public class MultiStepQueryPlan extends AbstractMultiStepPlan {
      *
      * @param meta Fields metadata.
      */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
+    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
         super(queryTemplate, meta);
     }
 

@@ -154,12 +154,12 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
+                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
                         .build())
                 .query(sql)
-                .parameters(2)
                 .build();
 
         assertNotNull(ctx);
@@ -172,7 +172,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES), 0L));
+        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
 
         assertNotNull(plan);
 
@@ -234,12 +234,12 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
+                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
                         .build())
                 .query(sql)
-                .parameters(2)
                 .build();
 
         IgniteRel phys = physicalPlan(sql, ctx);
@@ -250,7 +250,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES), 0L));
+        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
 
         assertNotNull(plan);
 
@@ -317,12 +317,12 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
+                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
                         .build())
                 .query(sql)
-                .parameters(2)
                 .build();
 
         IgniteRel phys = physicalPlan(sql, ctx);
@@ -333,7 +333,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES), 0L));
+        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -398,12 +398,12 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
+                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
                         .build())
                 .query(sql)
-                .parameters(2)
                 .build();
 
         IgniteRel phys = physicalPlan(sql, ctx);
@@ -414,7 +414,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES), 0L));
+        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
 
         assertNotNull(plan);
 
@@ -480,12 +480,12 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
+                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
                         .build())
                 .query(sql)
-                .parameters(2)
                 .build();
 
         IgniteRel phys = physicalPlan(sql, ctx);
@@ -496,7 +496,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES), 0L));
+        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
 
         assertEquals(3, plan.fragments().size());
     }
@@ -557,12 +557,12 @@ public class PlannerTest extends AbstractPlannerTest {
         PlanningContext ctx = PlanningContext.builder()
                 .parentContext(BaseQueryContext.builder()
                         .logger(log)
+                        .parameters(2)
                         .frameworkConfig(newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(schema)
                                 .build())
                         .build())
                 .query(sql)
-                .parameters(2)
                 .build();
 
         IgniteRel phys = physicalPlan(sql, ctx);
@@ -573,7 +573,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         assertNotNull(plan);
 
-        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES), 0L));
+        plan.init(this::intermediateMapping, mapContext(CollectionUtils.first(NODES)));
 
         assertNotNull(plan);
 
@@ -861,12 +861,12 @@ public class PlannerTest extends AbstractPlannerTest {
      * IntermediateMapping.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    private List<String> intermediateMapping(long topVer, boolean single,
+    private List<String> intermediateMapping(boolean single,
             @Nullable Predicate<ClusterNode> filter) {
         return single ? select(NODES, 0) : select(NODES, 0, 1, 2, 3);
     }
 
-    private static MappingQueryContext mapContext(String locNodeId, long topVer) {
-        return new MappingQueryContext(locNodeId, topVer);
+    private static MappingQueryContext mapContext(String locNodeId) {
+        return new MappingQueryContext(locNodeId);
     }
 }

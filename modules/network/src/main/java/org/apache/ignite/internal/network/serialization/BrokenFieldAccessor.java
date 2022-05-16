@@ -22,11 +22,11 @@ package org.apache.ignite.internal.network.serialization;
  */
 class BrokenFieldAccessor implements FieldAccessor {
     private final String fieldName;
-    private final Class<?> declaringClass;
+    private final String declaringClassName;
 
-    BrokenFieldAccessor(String fieldName, Class<?> declaringClass) {
+    BrokenFieldAccessor(String fieldName, String declaringClassName) {
         this.fieldName = fieldName;
-        this.declaringClass = declaringClass;
+        this.declaringClassName = declaringClassName;
     }
 
     /** {@inheritDoc} */
@@ -137,9 +137,8 @@ class BrokenFieldAccessor implements FieldAccessor {
         throw brokenException();
     }
 
-    private RuntimeException brokenException() {
-        return new IllegalStateException("Field " + declaringClass.getName() + "#" + fieldName
+    private IllegalStateException brokenException() {
+        return new IllegalStateException("Field " + declaringClassName + "#" + fieldName
                 + " is missing locally, no accesses to it should be performed, this is a bug");
     }
-
 }

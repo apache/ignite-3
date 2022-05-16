@@ -23,7 +23,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -130,25 +129,7 @@ public class NettyServer {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
 
-                            ch.pipeline().addLast(
-                                    /*
-                                     * Decoder that uses the MessageReader
-                                     * to read chunked data.
-                                     */
-                                    new InboundDecoder(sessionSerializationService),
-                                    // Handshake handler.
-                                    new HandshakeHandler(manager,
-                                            (consistentId) -> new MessageHandler(messageListener, consistentId, sessionSerializationService)
-                                    ),
-                                    /*
-                                     * Encoder that uses the MessageWriter
-                                     * to write chunked data.
-                                     */
-                                    new ChunkedWriteHandler(),
-                                    // Converts NetworkMessage to a ChunkedNetworkMessageInput
-                                    new OutboundEncoder(sessionSerializationService),
-                                    new IoExceptionSuppressingHandler()
-                            );
+                            PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);
 
                             manager.handshakeFuture().thenAccept(newConnectionListener);
                         }

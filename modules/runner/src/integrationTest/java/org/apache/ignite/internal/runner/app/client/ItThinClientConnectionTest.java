@@ -72,18 +72,4 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
             }
         }
     }
-
-    private static class TestPojo {
-        public TestPojo() {
-            //No-op.
-        }
-
-        public TestPojo(int key) {
-            this.key = key;
-        }
-
-        public int key;
-
-        public String val;
-    }
 }

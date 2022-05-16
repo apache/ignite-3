@@ -32,8 +32,6 @@ import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -41,7 +39,6 @@ import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
-import org.apache.ignite.cli.spec.IgniteCliSpec;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -50,21 +47,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
-import picocli.CommandLine;
 
 /**
  * Integration test for {@code ignite config} commands.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ItConfigCommandTest extends AbstractCliTest {
+public class ItConfigCommandTest extends AbstractCliIntegrationTest {
     /** DI context. */
     private ApplicationContext ctx;
-
-    /** stderr. */
-    private final ByteArrayOutputStream err = new ByteArrayOutputStream();
-
-    /** stdout. */
-    private final ByteArrayOutputStream out = new ByteArrayOutputStream();
 
     /** Node. */
     private IgniteImpl node;
@@ -184,20 +174,6 @@ public class ItConfigCommandTest extends AbstractCliTest {
         assertTrue(outResult.containsKey("inbound"));
 
         assertFalse(outResult.containsKey("node"));
-    }
-
-    /**
-     * Creates a new command line interpreter.
-     *
-     * @param applicationCtx DI context.
-     * @return New command line instance.
-     */
-    private CommandLine cmd(ApplicationContext applicationCtx) {
-        CommandLine.IFactory factory = new CommandFactory(applicationCtx);
-
-        return new CommandLine(IgniteCliSpec.class, factory)
-                .setErr(new PrintWriter(err, true))
-                .setOut(new PrintWriter(out, true));
     }
 
     /**

@@ -680,7 +680,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         rel.getInputs().forEach(this::clearTraits);
     }
 
-    abstract static class TestTable implements InternalIgniteTable {
+    /** Test table. */
+    public abstract static class TestTable implements InternalIgniteTable {
         private final String name;
 
         private final RelProtoDataType protoType;
@@ -693,19 +694,23 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         private final UUID id = UUID.randomUUID();
 
-        TestTable(RelDataType type) {
+        /** Constructor. */
+        public TestTable(RelDataType type) {
             this(type, 100.0);
         }
 
-        TestTable(RelDataType type, String name) {
+        /** Constructor. */
+        public TestTable(RelDataType type, String name) {
             this(name, type, 100.0);
         }
 
-        TestTable(RelDataType type, double rowCnt) {
+        /** Constructor. */
+        public TestTable(RelDataType type, double rowCnt) {
             this(UUID.randomUUID().toString(), type, rowCnt);
         }
 
-        TestTable(String name, RelDataType type, double rowCnt) {
+        /** Constructor. */
+        public TestTable(String name, RelDataType type, double rowCnt) {
             protoType = RelDataTypeImpl.proto(type);
             this.rowCnt = rowCnt;
             this.name = name;
@@ -871,6 +876,10 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             return this;
         }
 
+        /**
+         * AddIndex.
+         * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+         */
         public TestTable addIndex(String name, int... keys) {
             addIndex(TraitUtils.createCollation(Arrays.stream(keys).boxed().collect(Collectors.toList())), name);
 

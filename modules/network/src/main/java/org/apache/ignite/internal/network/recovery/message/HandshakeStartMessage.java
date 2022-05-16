@@ -19,14 +19,14 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Handshake start message.
+ * Handshake start message, contains info about the node.
+ * This message is sent from a server to a client at the connection opening.
  */
 @Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends NetworkMessage {
+public interface HandshakeStartMessage extends InternalMessage {
     /**
      * Returns launch id.
      *

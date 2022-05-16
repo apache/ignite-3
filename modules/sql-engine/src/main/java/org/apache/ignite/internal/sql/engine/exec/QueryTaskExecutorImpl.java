@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -30,6 +31,8 @@ import org.apache.ignite.lang.IgniteLogger;
  */
 public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
     private static final IgniteLogger LOG = IgniteLogger.forClass(QueryTaskExecutorImpl.class);
+
+    private static final UUID QUERY_ID_STUB = UUID.randomUUID();
 
     private final String nodeName;
 
@@ -49,7 +52,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 4,
-                NamedThreadFactory.threadPrefix(nodeName, "sqlExec"),
+                NamedThreadFactory.threadPrefix(nodeName, "sql-execution-pool"),
                 null,
                 false,
                 0
@@ -85,6 +88,16 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
                     }
                 },
                 hash(qryId, fragmentId)
+        );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void execute(Runnable command) {
+        execute(
+                QUERY_ID_STUB,
+                ThreadLocalRandom.current().nextLong(1024),
+                command
         );
     }
 

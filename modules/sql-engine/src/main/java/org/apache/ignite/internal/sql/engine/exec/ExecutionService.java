@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.RootQuery;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 
 /**
  * ExecutionService interface.
  * // TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public interface ExecutionService<RowT> extends LifecycleAware {
-    SqlCursor<List<?>> executePlan(RootQuery<RowT> qry, QueryPlan plan);
+public interface ExecutionService extends LifecycleAware {
+    AsyncCursor<List<Object>> executePlan(QueryPlan plan, BaseQueryContext ctx);
 }
