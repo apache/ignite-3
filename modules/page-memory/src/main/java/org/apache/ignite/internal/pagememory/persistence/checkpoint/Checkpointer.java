@@ -169,7 +169,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
 
-        scheduledCheckpointProgress = new CheckpointProgressImpl(nextCheckpointInterval());
+        scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
         // TODO: IGNITE-16935 Move checkpointWritePageThreads to config
         if (checkpointWritePageThreads > 1) {
@@ -213,7 +213,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
                     doCheckpoint();
                 } else {
                     synchronized (this) {
-                        scheduledCheckpointProgress.nextCheckpointNanos(nanoTime() + MILLISECONDS.toNanos(nextCheckpointInterval()));
+                        scheduledCheckpointProgress.nextCheckpointNanos(MILLISECONDS.toNanos(nextCheckpointInterval()));
                     }
                 }
             }
@@ -276,9 +276,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
 
                 current.futureFor(FINISHED).whenComplete(finishFutureListener);
             }
+        } else {
+            current = scheduledCheckpointProgress;
         }
-
-        current = scheduledCheckpointProgress;
 
         long nextNanos = nanoTime() + MILLISECONDS.toNanos(delayFromNow);
 
@@ -292,7 +292,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             if (current.nextCheckpointNanos() - nextNanos > 0) {
                 current.reason(reason);
 
-                current.nextCheckpointNanos(nextNanos);
+                current.nextCheckpointNanos(MILLISECONDS.toNanos(delayFromNow));
             }
 
             notifyAll();
@@ -301,7 +301,12 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         return current;
     }
 
-    private void doCheckpoint() throws IgniteInternalCheckedException {
+    /**
+     * Executes a checkpoint.
+     *
+     * @throws IgniteInternalCheckedException If failed.
+     */
+    void doCheckpoint() throws IgniteInternalCheckedException {
         Checkpoint chp = null;
 
         try {
@@ -425,7 +430,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         tracker.onPagesWriteStart();
 
         for (int i = 0; i < checkpointWritePageThreads; i++) {
-            Runnable write = checkpointPagesWriterFactory.build(
+            CheckpointPagesWriter write = checkpointPagesWriterFactory.build(
                     tracker,
                     checkpointPages,
                     updStores,
@@ -550,7 +555,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     /**
      * Waiting until the next checkpoint time.
      */
-    private void waitCheckpointEvent() {
+    void waitCheckpointEvent() {
         try {
             synchronized (this) {
                 long remaining = NANOSECONDS.toMillis(scheduledCheckpointProgress.nextCheckpointNanos() - nanoTime());
@@ -605,7 +610,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     /**
      * Update the current checkpoint info from the scheduled one.
      */
-    private void startCheckpointProgress() {
+    void startCheckpointProgress() {
         long checkpointStartTimestamp = coarseCurrentTimeMillis();
 
         // This can happen in an unlikely event of two checkpoints happening within a currentTimeMillis() granularity window.
@@ -623,7 +628,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             }
 
             // It is important that we assign a new progress object before checkpoint mark in page memory.
-            scheduledCheckpointProgress = new CheckpointProgressImpl(nextCheckpointInterval());
+            scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
             currentCheckpointProgress = curr;
         }
@@ -746,7 +751,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     }
 
     /**
-     * Gets a checkpoint interval with a randomized delay.
+     * Gets a checkpoint interval with a randomized delay in mills.
      *
      * <p>It helps when the cluster makes a checkpoint in the same time in every node.
      */

@@ -64,7 +64,7 @@ public class CheckpointPagesWriterTest {
 
     @Test
     void testWritePages() throws Exception {
-        PageMemoryImpl pageMemory = crePageMemoryImpl(3);
+        PageMemoryImpl pageMemory = createPageMemoryImpl(3);
 
         FullPageId fullPageId0 = new FullPageId(pageId(0, FLAG_DATA, 0), 0);
         FullPageId fullPageId1 = new FullPageId(pageId(0, FLAG_DATA, 1), 0);
@@ -221,7 +221,7 @@ public class CheckpointPagesWriterTest {
      * @param tryAgainTagFirstPageCount Number of first pages for which the tag value will be {@link PageMemoryImpl#TRY_AGAIN_TAG}.
      * @throws Exception If failed.
      */
-    private static PageMemoryImpl crePageMemoryImpl(int tryAgainTagFirstPageCount) throws Exception {
+    private static PageMemoryImpl createPageMemoryImpl(int tryAgainTagFirstPageCount) throws Exception {
         PageMemoryImpl pageMemory = mock(PageMemoryImpl.class);
 
         AtomicInteger pageCount = new AtomicInteger();

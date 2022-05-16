@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Data class representing the state of running/scheduled checkpoint.
@@ -64,6 +65,9 @@ class CheckpointProgressImpl implements CheckpointProgress {
 
     /** Counter for evicted checkpoint pages. */
     private final AtomicInteger evictedPagesCntr = new AtomicInteger();
+
+    @TestOnly
+    private volatile long nextCheckpointDelayNanos;
 
     /**
      * Constructor.
@@ -165,7 +169,8 @@ class CheckpointProgressImpl implements CheckpointProgress {
         assert delay >= 0 : delay;
         assert delay <= TimeUnit.DAYS.toNanos(365) : delay;
 
-        this.nextCheckpointNanos = System.nanoTime() + delay;
+        nextCheckpointNanos = System.nanoTime() + delay;
+        nextCheckpointDelayNanos = delay;
     }
 
     /**
@@ -253,5 +258,13 @@ class CheckpointProgressImpl implements CheckpointProgress {
                 future.complete(null);
             }
         }
+    }
+
+    /**
+     * Returns delay in nanos before next checkpoint is to be executed. Value is from {@code 0} to {@code 365} days.
+     */
+    @TestOnly
+    long nextCheckpointDelayNanos() {
+        return nextCheckpointDelayNanos;
     }
 }
