@@ -72,7 +72,7 @@ class CheckpointWorkflow implements IgniteComponent {
      * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])} in case
      * of {@link CheckpointWriteOrder#SEQUENTIAL}.
      */
-    // TODO: IGNITE-16935 Move to configuration
+    // TODO: IGNITE-16984 Move to configuration
     private final int parallelSortThreshold = getInteger(CHECKPOINT_PARALLEL_SORT_THRESHOLD, 512 * 1024);
 
     /** This number of threads will be created and used for parallel sorting. */

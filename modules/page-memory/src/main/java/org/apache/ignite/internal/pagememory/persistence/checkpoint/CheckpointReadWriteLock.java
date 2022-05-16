@@ -30,7 +30,7 @@ public class CheckpointReadWriteLock {
      * Any thread with a such prefix is managed by the checkpoint. So some conditions can rely on it(ex. we don't need a checkpoint lock
      * there because checkpoint is already held write lock).
      */
-    // TODO: IGNITE-16935 I think it needs to be redone or relocated
+    // TODO: IGNITE-16984 I think it needs to be redone or relocated
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     /** Checkpoint lock. */

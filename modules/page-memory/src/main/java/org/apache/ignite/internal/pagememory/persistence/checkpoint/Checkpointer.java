@@ -99,7 +99,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             + "reason='%s']";
 
     /** Avoid the start checkpoint if checkpointer was canceled. */
-    // TODO: IGNITE-16935 Move to config
+    // TODO: IGNITE-16984 Move to config
     private volatile boolean skipCheckpointOnNodeStop = getBoolean("IGNITE_PDS_SKIP_CHECKPOINT_ON_NODE_STOP", false);
 
     /** Pause detector. */
@@ -164,14 +164,14 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
         super(log, igniteInstanceName, "checkpoint-thread", workerListener);
 
         this.pauseDetector = detector;
-        // TODO: IGNITE-16935 Move to config: checkpointFrequency * checkpointFrequencyDeviation see 2.0
+        // TODO: IGNITE-16984 Move to config: checkpointFrequency * checkpointFrequencyDeviation see 2.0
         this.checkpointFrequencySupplier = checkpointFrequencySupplier;
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
-        // TODO: IGNITE-16935 Move checkpointWritePageThreads to config
+        // TODO: IGNITE-16984 Move checkpointWritePageThreads to config
         if (checkpointWritePageThreads > 1) {
             checkpointWritePagesPool = new ThreadPoolExecutor(
                     checkpointWritePageThreads,
