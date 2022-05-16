@@ -35,8 +35,6 @@ import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.configuration.schemas.network.ScaleCubeView;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.SerializationService;
@@ -103,9 +101,8 @@ public class ScaleCubeClusterServiceFactory {
                 connectionMgr = new ConnectionManager(
                         configView,
                         serializationService,
+                        launchId,
                         consistentId,
-                        () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-                        () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory),
                         nettyBootstrapFactory
                 );
 

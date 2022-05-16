@@ -15,29 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.recovery.message;
+package org.apache.ignite.internal.network.recovery;
 
 import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessageTypes;
-import org.apache.ignite.network.annotations.Transferable;
 
 /**
- * Handshake start message, contains info about the node.
- * This message is sent from a server to a client at the connection opening.
+ * Interface that provides recovery descriptors for channels between two nodes.
  */
-@Transferable(NetworkMessageTypes.HANDSHAKE_START)
-public interface HandshakeStartMessage extends InternalMessage {
+public interface RecoveryDescriptorProvider {
     /**
-     * Returns launch id.
+     * Returns a {@link RecoveryDescriptor}.
      *
-     * @return Launch id.
+     * @param consistentId Remote node consistent id.
+     * @param launchId Remote node launch id.
+     * @param connectionIndex Connection id.
+     * @param inbound {@code true} if the connection is inbound, {@code false} otherwise.
+     * @return Recovery descriptor.
      */
-    UUID launchId();
-
-    /**
-     * Returns consistent id.
-     *
-     * @return Consistent id.
-     */
-    String consistentId();
+    RecoveryDescriptor getRecoveryDescriptor(String consistentId, UUID launchId, short connectionIndex, boolean inbound);
 }

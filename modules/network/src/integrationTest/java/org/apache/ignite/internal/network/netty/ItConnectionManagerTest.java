@@ -46,8 +46,6 @@ import org.apache.ignite.configuration.schemas.network.NetworkView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -147,7 +145,7 @@ public class ItConnectionManagerTest {
         NettySender senderFrom1to2 = manager1.channel(null, new InetSocketAddress(port2)).get(3, TimeUnit.SECONDS);
 
         // Ensure a handshake has finished on both sides by sending a message.
-        // TODO: IGNITE-14085 When the recovery protocol is implemented replace this with simple
+        // TODO: IGNITE-16947 When the recovery protocol is implemented replace this with simple
         // CompletableFuture#get called on the send future.
         var messageReceivedOn2 = new CompletableFuture<Void>();
 
@@ -353,9 +351,8 @@ public class ItConnectionManagerTest {
         var manager = new ConnectionManager(
                 cfg,
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
+                launchId,
                 consistentId,
-                () -> new RecoveryServerHandshakeManager(launchId, consistentId, messageFactory),
-                () -> new RecoveryClientHandshakeManager(launchId, consistentId, messageFactory),
                 bootstrapFactory
         );
 
