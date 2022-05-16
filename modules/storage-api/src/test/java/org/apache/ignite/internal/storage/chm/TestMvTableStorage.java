@@ -28,6 +28,9 @@ import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Test table storage implementation.
+ */
 public class TestMvTableStorage implements MvTableStorage {
     private final TableConfiguration tableConfig;
 
