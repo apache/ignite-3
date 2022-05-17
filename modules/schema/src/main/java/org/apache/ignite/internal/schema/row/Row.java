@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.TemporalNativeType;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema-aware row.
@@ -55,7 +56,7 @@ import org.jetbrains.annotations.NotNull;
  *
  * @see TemporalTypesHelper
  */
-public class Row implements BinaryRowEx, SchemaAware {
+public class Row implements BinaryRowEx, SchemaAware, InternalTuple {
     /**
      * Null map offset.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -99,12 +100,16 @@ public class Row implements BinaryRowEx, SchemaAware {
         return schema;
     }
 
-    /**
-     * Get has value flag: {@code True} if row has non-null value, {@code false} otherwise.
-     */
+    /** {@inheritDoc} */
     @Override
     public boolean hasValue() {
         return row.hasValue();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int count() {
+        return schema.length();
     }
 
     /**
@@ -117,13 +122,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return schema.column(col).type().spec().objectValue(this, col);
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public byte byteValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -132,13 +132,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? 0 : chunk(isKeyCol).get(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Byte byteValueBoxed(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -147,13 +142,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? null : chunk(isKeyCol).get(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public short shortValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -162,13 +152,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? 0 : chunk(isKeyCol).getShort(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Short shortValueBoxed(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -177,13 +162,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? null : chunk(isKeyCol).getShort(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public int intValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -192,13 +172,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? 0 : chunk(isKeyCol).getInt(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Integer intValueBoxed(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -207,13 +182,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? null : chunk(isKeyCol).getInt(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public long longValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -222,13 +192,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? 0 : chunk(isKeyCol).getLong(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Long longValueBoxed(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -237,13 +202,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? null : chunk(isKeyCol).getLong(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public float floatValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -252,13 +212,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? 0.f : chunk(isKeyCol).getFloat(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Float floatValueBoxed(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -267,13 +222,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? null : chunk(isKeyCol).getFloat(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public double doubleValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -282,13 +232,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? 0.d : chunk(isKeyCol).getDouble(offset(off));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Double doubleValueBoxed(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -297,13 +242,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return off < 0 ? null : chunk(isKeyCol).getDouble(offset(off));
     }
 
-    /**
-     * Reads value from specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public BigDecimal decimalValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -323,13 +263,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return new BigDecimal(new BigInteger(bytes), type.scale());
     }
 
-    /**
-     * Reads value from specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public BigInteger numberValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -345,13 +280,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return new BigInteger(readBytes(chunk(isKeyCol), off, len));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public String stringValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -373,13 +303,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         }
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public byte[] bytesValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -395,13 +320,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return readBytes(chunk(isKeyCol), off, len);
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -421,13 +341,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return new UUID(msb, lsb);
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public BitSet bitmaskValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -443,13 +358,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return BitSet.valueOf(readBytes(chunk(isKeyCol), off, len));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public LocalDate dateValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -464,13 +374,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return readDate(chunk(isKeyCol), off);
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public LocalTime timeValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -487,13 +392,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return readTime(chunk(isKeyCol), off, type);
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public LocalDateTime dateTimeValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -512,13 +412,8 @@ public class Row implements BinaryRowEx, SchemaAware {
         return LocalDateTime.of(readDate(chunk, off), readTime(chunk, off + 3, type));
     }
 
-    /**
-     * Reads value for specified column.
-     *
-     * @param col Column index.
-     * @return Column value.
-     * @throws InvalidTypeException If actual column type does not match the requested column type.
-     */
+    /** {@inheritDoc} */
+    @Override
     public Instant timestampValue(int col) throws InvalidTypeException {
         boolean isKeyCol = schema.isKeyColumn(col);
 
@@ -544,6 +439,12 @@ public class Row implements BinaryRowEx, SchemaAware {
         return Instant.ofEpochSecond(seconds, nanos);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasNullValue(int col) {
+        return hasNullValue(col, null);
+    }
+
     /**
      * Checks whether the given column contains a null value.
      *
@@ -551,7 +452,7 @@ public class Row implements BinaryRowEx, SchemaAware {
      * @param expectedType Column type (needed for type checking).
      * @return {@code true} if this column contains a null value, {@code false} otherwise.
      */
-    public boolean hasNullValue(int col, NativeTypeSpec expectedType) {
+    public boolean hasNullValue(int col, @Nullable NativeTypeSpec expectedType) {
         boolean isKeyCol = schema.isKeyColumn(col);
 
         return findColumn(col, expectedType, isKeyCol) < 0;
@@ -627,7 +528,9 @@ public class Row implements BinaryRowEx, SchemaAware {
             cols = schema.valueColumns();
         }
 
-        if (cols.column(colIdx).type().spec() != type) {
+        NativeTypeSpec actualType = cols.column(colIdx).type().spec();
+
+        if (type != null && actualType != type) {
             throw new InvalidTypeException("Invalid column type requested [requested=" + type + ", column=" + cols.column(colIdx) + ']');
         }
 
@@ -643,7 +546,7 @@ public class Row implements BinaryRowEx, SchemaAware {
 
         dataOffset += format.vartableLength(format.readVartableSize(chunk, dataOffset));
 
-        return type.fixedLength()
+        return actualType.fixedLength()
                 ? fixedSizeColumnOffset(chunk, dataOffset, cols, colIdx, nullMapLen > 0) :
                 varlenColumnOffsetAndLength(chunk, dataOffset, cols, colIdx, nullMapLen, format);
     }
