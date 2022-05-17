@@ -74,6 +74,7 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 
 /**
  * Translates {@link RexNode REX expressions} to {@link Expression linq4j expressions}.
@@ -534,8 +535,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         SqlIntervalQualifier intervalQualifier = targetType.getIntervalQualifier();
 
                         Method method = intervalQualifier.isYearMonth()
-                                ? IgniteBuiltInMethod.PARSE_INTERVAL_YEAR_MONTH.method
-                                : IgniteBuiltInMethod.PARSE_INTERVAL_DAY_TIME.method;
+                                ? IgniteMethod.PARSE_INTERVAL_YEAR_MONTH.method()
+                                : IgniteMethod.PARSE_INTERVAL_DAY_TIME.method();
 
                         convert = Expressions.call(
                                 method,
