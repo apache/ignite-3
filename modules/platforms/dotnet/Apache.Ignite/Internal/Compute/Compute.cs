@@ -173,6 +173,26 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
+        private async Task<Table> GetTableAsync(string tableName)
+        {
+            if (_tableCache.TryGetValue(tableName, out var cachedTable))
+            {
+                return cachedTable;
+            }
+
+            var table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
+
+            if (table != null)
+            {
+                _tableCache[tableName] = table;
+                return table;
+            }
+
+            _tableCache.TryRemove(tableName, out _);
+
+            throw new IgniteClientException($"Table '{tableName}' does not exist.");
+        }
+
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
@@ -181,29 +201,35 @@ namespace Apache.Ignite.Internal.Compute
             params object[] args)
             where TKey : class
         {
+            // TODO: IGNITE-16990 - implement partition awareness.
             IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
             IgniteArgumentCheck.NotNull(key, nameof(key));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
-            // TODO: IGNITE-16990 - implement partition awareness.
-            // TODO: Handle cached table removal, add test
-            if (!_tableCache.TryGetValue(tableName, out var table))
+            while (true)
             {
-                table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
+                var table = await GetTableAsync(tableName).ConfigureAwait(false);
+                var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
 
-                _tableCache[tableName] = table ?? throw new IgniteClientException($"Table '{tableName}' does not exist.");
+                using var bufferWriter = Write(table, schema);
+
+                try
+                {
+                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
+
+                    return Read(res);
+                }
+                catch (IgniteClientException e) when (e.ErrorCode == ClientErrorCode.TableIdDoesNotExist)
+                {
+                    // Table was dropped - remove from cache.
+                    // Try again in case a new table with the same name exists.
+                    _tableCache.TryRemove(tableName, out _);
+                }
             }
 
-            var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
-
-            using var bufferWriter = new PooledArrayBufferWriter();
-            Write();
-
-            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
-            return Read(res);
-
-            void Write()
+            PooledArrayBufferWriter Write(Table table, Schema schema)
             {
+                var bufferWriter = new PooledArrayBufferWriter();
                 var w = bufferWriter.GetMessageWriter();
 
                 w.Write(table.Id);
@@ -216,6 +242,8 @@ namespace Apache.Ignite.Internal.Compute
                 w.WriteObjectArrayWithTypes(args);
 
                 w.Flush();
+
+                return bufferWriter;
             }
 
             static T Read(in PooledBuffer buf)

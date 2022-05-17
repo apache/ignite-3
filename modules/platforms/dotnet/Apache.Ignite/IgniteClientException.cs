@@ -29,9 +29,6 @@ namespace Apache.Ignite
         /** Error code field. */
         private const string ErrorCodeField = "StatusCode";
 
-        /** Error code. */
-        private readonly ClientErrorCode _errorCode;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
         /// </summary>
@@ -70,7 +67,7 @@ namespace Apache.Ignite
         public IgniteClientException(string message, Exception? cause, ClientErrorCode statusCode)
             : base(message, cause)
         {
-            _errorCode = statusCode;
+            ErrorCode = statusCode;
         }
 
         /// <summary>
@@ -81,8 +78,13 @@ namespace Apache.Ignite
         protected IgniteClientException(SerializationInfo info, StreamingContext ctx)
             : base(info, ctx)
         {
-            _errorCode = (ClientErrorCode) info.GetInt32(ErrorCodeField);
+            ErrorCode = (ClientErrorCode)info.GetInt32(ErrorCodeField);
         }
+
+        /// <summary>
+        /// Gets the error code.
+        /// </summary>
+        public ClientErrorCode ErrorCode { get; }
 
         /// <summary>
         /// When overridden in a derived class, sets the <see cref="SerializationInfo" />
@@ -96,7 +98,7 @@ namespace Apache.Ignite
         {
             base.GetObjectData(info, context);
 
-            info.AddValue(ErrorCodeField, (int) _errorCode);
+            info.AddValue(ErrorCodeField, (int) ErrorCode);
         }
     }
 }
