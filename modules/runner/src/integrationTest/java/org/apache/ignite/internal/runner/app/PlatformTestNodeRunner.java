@@ -35,6 +35,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.table.Table;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -161,7 +162,8 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
-            context.ignite().tables().createTable(
+
+            Table table = context.ignite().tables().createTable(
                     tableName,
                     tblChanger -> tblChanger
                             .changeColumns(cols ->
@@ -169,7 +171,7 @@ public class PlatformTestNodeRunner {
                             .changePrimaryKey(pk -> pk.changeColumns("key").changeColocationColumns("key"))
             );
 
-            return tableName;
+            return table.name();
         }
     }
 
