@@ -66,29 +66,25 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
-        {
-            return await ExecuteColocatedAsync<T, IIgniteTuple>(
+        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args) =>
+            await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
                     key,
-                    _ => TupleSerializerHandler.Instance,
+                    serializerHandlerFunc: static _ => TupleSerializerHandler.Instance,
                     jobClassName,
                     args)
                 .ConfigureAwait(false);
-        }
 
         /// <inheritdoc/>
         public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
-            where TKey : class
-        {
-            return await ExecuteColocatedAsync<T, TKey>(
+            where TKey : class =>
+            await ExecuteColocatedAsync<T, TKey>(
                     tableName,
                     key,
-                    table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    serializerHandlerFunc: static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
                     jobClassName,
                     args)
                 .ConfigureAwait(false);
-        }
 
         /// <inheritdoc/>
         public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
