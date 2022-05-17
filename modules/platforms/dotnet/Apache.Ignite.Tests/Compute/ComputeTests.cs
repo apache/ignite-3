@@ -181,7 +181,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteColocatedByTupleKey()
         {
-            await Client.Compute.ExecuteColocatedAsync<string>("TODO", new IgniteTuple(), EchoJob);
+            await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), EchoJob);
         }
 
         [Test]
@@ -190,7 +190,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
                 await Client.Compute.ExecuteColocatedAsync<string>("unknownTable", new IgniteTuple(), EchoJob));
 
-            Assert.AreEqual("Specified node is not present in the cluster: y", ex!.Message);
+            Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
