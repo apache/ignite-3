@@ -27,6 +27,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Table;
     using Proto;
     using Table;
+    using Table.Serialization;
 
     /// <summary>
     /// Compute API.
@@ -62,11 +63,46 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
         {
-            // TODO: IGNITE-16990 - implement partition awareness.
-            var table = await _tables.GetTableAsync(tableName).ConfigureAwait(false); // TODO: Cache by name.
+            IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
-            // var schema = table.GetLa
-            return default!;
+            // TODO: IGNITE-16990 - implement partition awareness.
+            // TODO: Cache by name.
+            var table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
+
+            if (table == null)
+            {
+                throw new IgniteClientException($"Table '{tableName}' does not exist.");
+            }
+
+            var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var bufferWriter = new PooledArrayBufferWriter();
+            Write();
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
+            return Read(res);
+
+            void Write()
+            {
+                var w = bufferWriter.GetMessageWriter();
+
+                w.Write(table.Id);
+                w.Write(schema.Version);
+
+                TupleSerializerHandler.Instance.Write(ref w, schema, key, true);
+
+                w.Write(jobClassName);
+                w.WriteObjectArrayWithTypes(args);
+            }
+
+            static T Read(in PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+
+                return (T)reader.ReadObjectWithType()!;
+            }
         }
 
         /// <inheritdoc/>

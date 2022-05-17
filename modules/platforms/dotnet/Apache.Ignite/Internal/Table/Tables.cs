@@ -36,7 +36,7 @@ namespace Apache.Ignite.Internal.Table
         private readonly ClientFailoverSocket _socket;
 
         /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
-        private readonly ConcurrentDictionary<Guid, ITable> _tables = new();
+        private readonly ConcurrentDictionary<Guid, Table> _tables = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tables"/> class.
@@ -50,28 +50,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<ITable?> GetTableAsync(string name)
         {
-            IgniteArgumentCheck.NotNull(name, nameof(name));
-
-            using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
-
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
-            return Read(resBuf.GetReader());
-
-            void Write(MessagePackWriter w)
-            {
-                w.Write(name);
-                w.Flush();
-            }
-
-            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
-            ITable? Read(MessagePackReader r) =>
-                r.NextMessagePackType == MessagePackType.Nil
-                    ? null
-                    : _tables.GetOrAdd(
-                        r.ReadGuid(),
-                        (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
-                        (name, _socket));
+            return await GetTableInternalAsync(name).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -91,12 +70,47 @@ namespace Apache.Ignite.Internal.Table
                     var id = r.ReadGuid();
                     var name = r.ReadString();
 
-                    // TODO: Instance caching? Do we even need it?
-                    res.Add(new Table(name, id, _socket));
+                    var table = _tables.GetOrAdd(
+                        id,
+                        static (Guid i, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, i, arg.Socket),
+                        (name, _socket));
+
+                    res.Add(table);
                 }
 
                 return res;
             }
+        }
+
+        /// <summary>
+        /// Gets the table by name.
+        /// </summary>
+        /// <param name="name">Name.</param>
+        /// <returns>Table.</returns>
+        internal async Task<Table?> GetTableInternalAsync(string name)
+        {
+            IgniteArgumentCheck.NotNull(name, nameof(name));
+
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
+            return Read(resBuf.GetReader());
+
+            void Write(MessagePackWriter w)
+            {
+                w.Write(name);
+                w.Flush();
+            }
+
+            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
+            Table? Read(MessagePackReader r) =>
+                r.NextMessagePackType == MessagePackType.Nil
+                    ? null
+                    : _tables.GetOrAdd(
+                        r.ReadGuid(),
+                        static (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
+                        (name, _socket));
         }
     }
 }
