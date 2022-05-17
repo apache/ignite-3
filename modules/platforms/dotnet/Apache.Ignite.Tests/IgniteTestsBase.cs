@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests
 {
     using System;
-    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using Log;
@@ -83,10 +82,8 @@ namespace Apache.Ignite.Tests
         }
 
         [TearDown]
-        public async Task TearDown()
+        public void TearDown()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(-5, 20).Select(x => GetTuple(x)));
-
             Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
         }
 
