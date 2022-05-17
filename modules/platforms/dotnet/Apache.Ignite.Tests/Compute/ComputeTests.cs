@@ -179,16 +179,16 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [TestCase(1, "PlatformTestNodeRunner")]
-        [TestCase(2, "PlatformTestNodeRunner_2")]
-        [TestCase(3, "PlatformTestNodeRunner")]
-        [TestCase(5, "PlatformTestNodeRunner_2")]
+        [TestCase(1, "")]
+        [TestCase(2, "_2")]
+        [TestCase(3, "")]
+        [TestCase(5, "_2")]
         public async Task TestExecuteColocatedByTupleKey(int key, string nodeName)
         {
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
 
-            Assert.AreEqual(nodeName, resNodeName);
+            Assert.AreEqual(PlatformTestNodeRunner + nodeName, resNodeName);
         }
 
         [Test]
