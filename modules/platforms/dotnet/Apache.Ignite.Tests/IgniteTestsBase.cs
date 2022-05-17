@@ -30,7 +30,7 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "PUB.tbl1";
+        protected const string TableName = "PUB.TBL1";
 
         protected const string KeyCol = "key";
 
