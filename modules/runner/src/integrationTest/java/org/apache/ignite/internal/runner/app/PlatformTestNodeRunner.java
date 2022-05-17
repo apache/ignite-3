@@ -161,7 +161,13 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
-            context.ignite().tables().createTable(tableName, null);
+            context.ignite().tables().createTable(
+                    tableName,
+                    tblChanger -> tblChanger
+                            .changeColumns(cols ->
+                                    cols.create("key", col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false)))
+                            .changePrimaryKey(pk -> pk.changeColumns("key").changeColocationColumns("key"))
+            );
 
             return tableName;
         }
