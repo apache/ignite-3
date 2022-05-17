@@ -193,6 +193,15 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
         }
 
+        [Test]
+        public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
+        {
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+                await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), EchoJob));
+
+            StringAssert.Contains("Missed key column: KEY", ex!.Message);
+        }
+
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
             (await Client.GetClusterNodesAsync()).OrderBy(n => n.Name).Skip(index).Take(1).ToList();
     }
