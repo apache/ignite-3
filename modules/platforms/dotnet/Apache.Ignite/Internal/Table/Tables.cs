@@ -70,9 +70,10 @@ namespace Apache.Ignite.Internal.Table
                     var id = r.ReadGuid();
                     var name = r.ReadString();
 
+                    // ReSharper disable once LambdaExpressionMustBeStatic (not supported by .NET Core 3.1, TODO IGNITE-16994)
                     var table = _tables.GetOrAdd(
                         id,
-                        static (Guid i, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, i, arg.Socket),
+                        (Guid id0, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id0, arg.Socket),
                         (name, _socket));
 
                     res.Add(table);
@@ -109,7 +110,7 @@ namespace Apache.Ignite.Internal.Table
                     ? null
                     : _tables.GetOrAdd(
                         r.ReadGuid(),
-                        static (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
+                        (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
                         (name, _socket));
         }
     }

@@ -70,7 +70,7 @@ namespace Apache.Ignite.Internal.Compute
             await ExecuteColocatedAsync<T, IIgniteTuple>(
                     tableName,
                     key,
-                    serializerHandlerFunc: static _ => TupleSerializerHandler.Instance,
+                    serializerHandlerFunc: _ => TupleSerializerHandler.Instance,
                     jobClassName,
                     args)
                 .ConfigureAwait(false);
@@ -81,7 +81,7 @@ namespace Apache.Ignite.Internal.Compute
             await ExecuteColocatedAsync<T, TKey>(
                     tableName,
                     key,
-                    serializerHandlerFunc: static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    serializerHandlerFunc: table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
                     jobClassName,
                     args)
                 .ConfigureAwait(false);
