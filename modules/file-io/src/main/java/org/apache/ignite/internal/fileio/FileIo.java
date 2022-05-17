@@ -67,7 +67,7 @@ public interface FileIo extends AutoCloseable {
      * Reads an up to {@code len} bytes from this file into the {@code buf}.
      *
      * @param buf Destination byte array.
-     * @param off The start offset in array {@code b} at which the data is written.
+     * @param off The start offset in array {@code buf} at which the data is written.
      * @param len Maximum number of bytes read.
      * @return Number of read bytes.
      * @throws IOException If some I/O error occurs.
@@ -97,7 +97,7 @@ public interface FileIo extends AutoCloseable {
      * Reads an up to {@code len} bytes from this file into the {@code buf}.
      *
      * @param buf Destination byte array.
-     * @param off The start offset in array {@code b} at which the data is written.
+     * @param off The start offset in array {@code buff} at which the data is written.
      * @param len Number of bytes read.
      * @return Number of written bytes.
      * @throws IOException If some I/O error occurs.

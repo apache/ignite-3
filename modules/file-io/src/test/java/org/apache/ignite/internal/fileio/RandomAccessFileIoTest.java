@@ -17,17 +17,27 @@
 
 package org.apache.ignite.internal.fileio;
 
-import java.io.IOException;
-import java.nio.file.OpenOption;
-import java.nio.file.Path;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
- * {@link AsyncFileIo} factory.
+ * For {@link RandomAccessFileIo} testing.
  */
-public class AsyncFileIoFactory implements FileIoFactory {
+public class RandomAccessFileIoTest extends AbstractFileIoTest {
+    @BeforeEach
+    void setUp() {
+        fileIoFactory = new RandomAccessFileIoFactory();
+    }
+
     /** {@inheritDoc} */
+    @Test
     @Override
-    public FileIo create(Path filePath, OpenOption... modes) throws IOException {
-        return new AsyncFileIo(filePath, modes);
+    void testFileIoFactory() throws Exception {
+        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(RandomAccessFileIo.class));
+        assertThat(fileIoFactory.create(workDir.resolve("test0"), CREATE), instanceOf(RandomAccessFileIo.class));
     }
 }
