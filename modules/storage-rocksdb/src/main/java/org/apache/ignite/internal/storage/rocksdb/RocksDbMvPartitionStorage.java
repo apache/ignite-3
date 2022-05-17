@@ -352,7 +352,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         //  - no one guarantees that there will only be a single cursor;
         //  - no one guarantees that returned cursor will not be used by other threads.
         // The thing is, we need this buffer to preserve its content between invocactions of "hasNext" method.
-        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN).putShort((short) partitionId);
+        ByteBuffer seekKeyBuf = ByteBuffer.allocate(seekKeyBufSize).order(BIG_ENDIAN);
 
         if (timestamp != null) {
             putTimestamp(seekKeyBuf.position(ROW_PREFIX_SIZE), timestamp);
@@ -507,14 +507,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
 
             private void incrementRowId(ByteBuffer buf) {
-                for (int i = ROW_PREFIX_SIZE - 1;; i--) {
-                    byte b = (byte) (buf.get(i) + 1);
+                long lsb = 1 + buf.getLong(Long.BYTES);
 
-                    buf.put(i, b);
+                buf.putLong(Long.BYTES, lsb);
 
-                    if (b != 0) {
-                        break;
-                    }
+                if (lsb == 0L) {
+                    long msb = 1 + buf.getLong(0);
+
+                    buf.putLong(0, msb);
                 }
             }
         };
