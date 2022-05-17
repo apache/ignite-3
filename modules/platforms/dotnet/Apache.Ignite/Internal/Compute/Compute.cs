@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Compute
 {
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
@@ -39,6 +40,9 @@ namespace Apache.Ignite.Internal.Compute
 
         /** Tables. */
         private readonly Tables _tables;
+
+        /** Cached tables. */
+        private readonly ConcurrentDictionary<string, Table> _tableCache = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Compute"/> class.
@@ -68,12 +72,12 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
             // TODO: IGNITE-16990 - implement partition awareness.
-            // TODO: Cache by name.
-            var table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
-
-            if (table == null)
+            // TODO: Handle cached table removal, add test
+            if (!_tableCache.TryGetValue(tableName, out var table))
             {
-                throw new IgniteClientException($"Table '{tableName}' does not exist.");
+                table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
+
+                _tableCache[tableName] = table ?? throw new IgniteClientException($"Table '{tableName}' does not exist.");
             }
 
             var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
