@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Compute
 {
+    using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
@@ -67,15 +68,26 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
         {
-            return await ExecuteColocatedAsync<T, IIgniteTuple>(tableName, key, TupleSerializerHandler.Instance, jobClassName, args)
+            return await ExecuteColocatedAsync<T, IIgniteTuple>(
+                    tableName,
+                    key,
+                    _ => TupleSerializerHandler.Instance,
+                    jobClassName,
+                    args)
                 .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
-        public Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+            where TKey : class
         {
-            // TODO: IGNITE-16990 - implement partition awareness.
-            throw new System.NotImplementedException();
+            return await ExecuteColocatedAsync<T, TKey>(
+                    tableName,
+                    key,
+                    table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    jobClassName,
+                    args)
+                .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -168,7 +180,7 @@ namespace Apache.Ignite.Internal.Compute
         private async Task<T> ExecuteColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
-            IRecordSerializerHandler<TKey> serializerHandler,
+            Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             string jobClassName,
             params object[] args)
             where TKey : class
@@ -201,6 +213,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(table.Id);
                 w.Write(schema.Version);
 
+                var serializerHandler = serializerHandlerFunc(table);
                 serializerHandler.Write(ref w, schema, key, true);
 
                 w.Write(jobClassName);

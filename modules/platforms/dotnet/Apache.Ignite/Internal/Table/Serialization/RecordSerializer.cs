@@ -49,6 +49,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
         }
 
         /// <summary>
+        /// Gets the handler.
+        /// </summary>
+        public IRecordSerializerHandler<T> Handler => _handler;
+
+        /// <summary>
         /// Reads the value part.
         /// </summary>
         /// <param name="buf">Buffer.</param>

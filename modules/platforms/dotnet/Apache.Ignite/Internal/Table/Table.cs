@@ -82,10 +82,19 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
+            where T : class =>
+            GetRecordViewInternal<T>();
+
+        /// <summary>
+        /// Gets the record view for the specified type.
+        /// </summary>
+        /// <typeparam name="T">Record type.</typeparam>
+        /// <returns>Record view.</returns>
+        internal RecordView<T> GetRecordViewInternal<T>()
             where T : class
         {
             // ReSharper disable once HeapView.CanAvoidClosure (generics prevent this)
-            return (IRecordView<T>)_recordViews.GetOrAdd(
+            return (RecordView<T>)_recordViews.GetOrAdd(
                 typeof(T),
                 _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
         }
