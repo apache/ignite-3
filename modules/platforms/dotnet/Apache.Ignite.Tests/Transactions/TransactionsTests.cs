@@ -28,6 +28,12 @@ namespace Apache.Ignite.Tests.Transactions
     /// </summary>
     public class TransactionsTests : IgniteTestsBase
     {
+        [TearDown]
+        public async Task CleanTable()
+        {
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(1, 2).Select(x => GetTuple(x)));
+        }
+
         [Test]
         public async Task TestRecordViewBinaryOperations()
         {
