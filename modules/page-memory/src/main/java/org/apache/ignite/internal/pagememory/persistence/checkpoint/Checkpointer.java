@@ -43,6 +43,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -108,6 +109,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     /** Supplier interval in ms after which the checkpoint is triggered if there are no other events. */
     private final LongSupplier checkpointFrequencySupplier;
 
+    /** Checkpoint frequency deviation. */
+    private final IntSupplier checkpointFrequencyDeviationSupplier;
+
     /** Strategy of where and how to get the pages. */
     private final CheckpointWorkflow checkpointWorkflow;
 
@@ -140,8 +144,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      * @param detector Long JVM pause detector.
      * @param checkpointWorkFlow Implementation of checkpoint.
      * @param factory Page writer factory.
-     * @param checkpointFrequencySupplier Supplier interval in ms after which the checkpoint is triggered if there are no other events.
      * @param checkpointWritePageThreads The number of IO-bound threads which will write pages to disk.
+     * @param checkpointFrequencySupplier Supplier interval in ms after which the checkpoint is triggered if there are no other events.
+     * @param checkpointFrequencyDeviationSupplier Deviation of checkpoint frequency.
      */
     Checkpointer(
             IgniteLogger log,
@@ -151,13 +156,16 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
             int checkpointWritePageThreads,
-            LongSupplier checkpointFrequencySupplier
+            LongSupplier checkpointFrequencySupplier,
+            IntSupplier checkpointFrequencyDeviationSupplier
     ) {
         super(log, igniteInstanceName, "checkpoint-thread", workerListener);
 
         this.pauseDetector = detector;
-        // TODO: IGNITE-16984 Move to config: checkpointFrequency * checkpointFrequencyDeviation see 2.0
+        // TODO: IGNITE-16984 Move to config
         this.checkpointFrequencySupplier = checkpointFrequencySupplier;
+        // TODO: IGNITE-16984 Move to config
+        this.checkpointFrequencyDeviationSupplier = checkpointFrequencyDeviationSupplier;
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
 
@@ -733,12 +741,20 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      *
      * <p>It helps when the cluster makes a checkpoint in the same time in every node.
      */
-    private long nextCheckpointInterval() {
-        long checkpointFrequency = checkpointFrequencySupplier.getAsLong();
+    long nextCheckpointInterval() {
+        long frequency = checkpointFrequencySupplier.getAsLong();
 
-        long startDelay = ThreadLocalRandom.current().nextLong(max(safeAbs(checkpointFrequency) / 100, 1))
-                - max(safeAbs(checkpointFrequency) / 200, 1);
+        int deviation = checkpointFrequencyDeviationSupplier.getAsInt();
 
-        return safeAbs(checkpointFrequency + startDelay);
+        if (deviation == 0) {
+            return frequency;
+        }
+
+        long deviationMills = frequency * deviation;
+
+        long startDelay = ThreadLocalRandom.current().nextLong(max(safeAbs(deviationMills) / 100, 1))
+                - max(safeAbs(deviationMills) / 200, 1);
+
+        return safeAbs(frequency + startDelay);
     }
 }

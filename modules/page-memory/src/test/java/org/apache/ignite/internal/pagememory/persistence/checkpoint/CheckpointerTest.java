@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
@@ -25,12 +26,15 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -51,6 +55,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -76,7 +82,8 @@ public class CheckpointerTest {
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
                 1,
-                () -> 1_000
+                () -> 1_000,
+                () -> 0
         );
 
         assertNull(checkpointer.runner());
@@ -100,7 +107,7 @@ public class CheckpointerTest {
 
     @Test
     void testScheduleCheckpoint() {
-        Checkpointer checkpointer = new Checkpointer(
+        Checkpointer checkpointer = spy(new Checkpointer(
                 log,
                 "test",
                 null,
@@ -108,34 +115,47 @@ public class CheckpointerTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 1,
-                () -> 1_000
-        );
+                () -> 1_000,
+                () -> 0
+        ));
 
         assertNull(checkpointer.currentProgress());
 
         CheckpointProgressImpl scheduledProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
 
-        long nextCheckpointDelayNanos = scheduledProgress.nextCheckpointDelayNanos();
-        String reason = scheduledProgress.reason();
+        long nextCheckpointNanosOnCreateCheckpointer = scheduledProgress.nextCheckpointNanos();
+        String reasonOnCreateCheckpointer = scheduledProgress.reason();
 
         assertThat(
-                nextCheckpointDelayNanos,
-                allOf(greaterThanOrEqualTo(MILLISECONDS.toNanos(995)), lessThanOrEqualTo(MILLISECONDS.toNanos(1005)))
+                nextCheckpointNanosOnCreateCheckpointer - nanoTime(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(MILLISECONDS.toNanos(1_000)))
         );
+
+        assertNull(reasonOnCreateCheckpointer);
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(3000, "test0"));
 
         assertNull(checkpointer.currentProgress());
 
-        assertEquals(nextCheckpointDelayNanos, scheduledProgress.nextCheckpointDelayNanos());
-        assertEquals(reason, scheduledProgress.reason());
+        assertEquals(nextCheckpointNanosOnCreateCheckpointer, scheduledProgress.nextCheckpointNanos());
+        assertEquals(reasonOnCreateCheckpointer, scheduledProgress.reason());
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(100, "test1"));
 
         assertNull(checkpointer.currentProgress());
 
-        assertEquals(MILLISECONDS.toNanos(100), scheduledProgress.nextCheckpointDelayNanos());
+        assertNotEquals(nextCheckpointNanosOnCreateCheckpointer, scheduledProgress.nextCheckpointNanos());
+        assertNotEquals(reasonOnCreateCheckpointer, scheduledProgress.reason());
+
+        assertThat(
+                scheduledProgress.nextCheckpointNanos() - nanoTime(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(MILLISECONDS.toNanos(100)))
+        );
+
         assertEquals("test1", scheduledProgress.reason());
+
+        long nextCheckpointNanosSchedule100Mills = scheduledProgress.nextCheckpointNanos();
+        String reasonSchedule100Mills = scheduledProgress.reason();
 
         // Checks after the start of a checkpoint.
 
@@ -147,19 +167,24 @@ public class CheckpointerTest {
 
         assertNotSame(scheduledProgress, checkpointer.scheduledProgress());
 
+        verify(checkpointer, times(1)).nextCheckpointInterval();
+
         scheduledProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
 
         assertThat(
-                scheduledProgress.nextCheckpointDelayNanos(),
-                allOf(greaterThanOrEqualTo(MILLISECONDS.toNanos(995)), lessThanOrEqualTo(MILLISECONDS.toNanos(1005)))
+                scheduledProgress.nextCheckpointNanos() - nanoTime(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(MILLISECONDS.toNanos(1_000)))
         );
+
+        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
+        assertEquals(reasonSchedule100Mills, currentProgress.reason());
 
         assertSame(currentProgress, checkpointer.scheduleCheckpoint(90, "test2"));
         assertSame(currentProgress, checkpointer.currentProgress());
         assertSame(scheduledProgress, checkpointer.scheduledProgress());
 
-        assertEquals(MILLISECONDS.toNanos(100), currentProgress.nextCheckpointDelayNanos());
-        assertEquals("test1", currentProgress.reason());
+        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
+        assertEquals(reasonSchedule100Mills, currentProgress.reason());
 
         currentProgress.transitTo(LOCK_TAKEN);
 
@@ -167,8 +192,15 @@ public class CheckpointerTest {
         assertSame(currentProgress, checkpointer.currentProgress());
         assertSame(scheduledProgress, checkpointer.scheduledProgress());
 
-        assertEquals(MILLISECONDS.toNanos(90), scheduledProgress.nextCheckpointDelayNanos());
+        assertThat(
+                scheduledProgress.nextCheckpointNanos() - nanoTime(),
+                allOf(greaterThan(0L), lessThanOrEqualTo(MILLISECONDS.toNanos(90)))
+        );
+
         assertEquals("test3", scheduledProgress.reason());
+
+        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
+        assertEquals(reasonSchedule100Mills, currentProgress.reason());
 
         // Checks the listener.
 
@@ -178,8 +210,12 @@ public class CheckpointerTest {
         assertSame(currentProgress, checkpointer.currentProgress());
         assertSame(scheduledProgress, checkpointer.scheduledProgress());
 
-        assertEquals(MILLISECONDS.toNanos(0), scheduledProgress.nextCheckpointDelayNanos());
+        assertThat(scheduledProgress.nextCheckpointNanos() - nanoTime(), lessThan(0L));
+
         assertEquals("test4", scheduledProgress.reason());
+
+        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
+        assertEquals(reasonSchedule100Mills, currentProgress.reason());
 
         verify(finishFutureListener, times(0)).accept(null, null);
 
@@ -190,6 +226,8 @@ public class CheckpointerTest {
         scheduledProgress.transitTo(FINISHED);
 
         verify(finishFutureListener, times(1)).accept(null, null);
+
+        verify(checkpointer, times(1)).nextCheckpointInterval();
     }
 
     @Test
@@ -202,7 +240,8 @@ public class CheckpointerTest {
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
                 1,
-                () -> 200
+                () -> 200,
+                () -> 0
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -234,7 +273,8 @@ public class CheckpointerTest {
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
                 1,
-                checkpointFrequencySupplier
+                checkpointFrequencySupplier,
+                () -> 0
         ));
 
         ((CheckpointProgressImpl) checkpointer.scheduledProgress())
@@ -304,7 +344,8 @@ public class CheckpointerTest {
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
                 1,
-                () -> 1_000
+                () -> 1_000,
+                () -> 0
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -314,6 +355,50 @@ public class CheckpointerTest {
         verify(checkpointer, times(1)).startCheckpointProgress();
 
         assertEquals(checkpointer.currentProgress().currentCheckpointPagesCount(), 3);
+    }
+
+    @Test
+    void testNextCheckpointInterval() {
+        AtomicLong checkpointFrequency = new AtomicLong();
+        AtomicInteger checkpointFrequencyDeviation = new AtomicInteger();
+
+        Checkpointer checkpointer = new Checkpointer(
+                log,
+                "test",
+                null,
+                null,
+                mock(CheckpointWorkflow.class),
+                mock(CheckpointPagesWriterFactory.class),
+                1,
+                checkpointFrequency::get,
+                checkpointFrequencyDeviation::get
+        );
+
+        // Checks case 0 deviation.
+
+        checkpointFrequencyDeviation.set(0);
+
+        checkpointFrequency.set(1_000);
+        assertEquals(1_000, checkpointer.nextCheckpointInterval());
+
+        checkpointFrequency.set(2_000);
+        assertEquals(2_000, checkpointer.nextCheckpointInterval());
+
+        // Checks for non-zero deviation.
+
+        checkpointFrequencyDeviation.set(10);
+
+        assertThat(
+                checkpointer.nextCheckpointInterval(),
+                allOf(greaterThanOrEqualTo(1_900L), lessThanOrEqualTo(2_100L))
+        );
+
+        checkpointFrequencyDeviation.set(200);
+
+        assertThat(
+                checkpointer.nextCheckpointInterval(),
+                allOf(greaterThanOrEqualTo(0L), lessThanOrEqualTo(4_000L))
+        );
     }
 
     private IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages(
