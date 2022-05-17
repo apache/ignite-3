@@ -24,6 +24,7 @@ namespace Apache.Ignite.Internal.Compute
     using Common;
     using Ignite.Compute;
     using Ignite.Network;
+    using Ignite.Table;
     using Proto;
 
     /// <summary>
@@ -50,6 +51,20 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), jobClassName, args).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
+        {
+            // TODO: IGNITE-16990 - implement partition awareness.
+            throw new System.NotImplementedException();
+        }
+
+        /// <inheritdoc/>
+        public Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+        {
+            // TODO: IGNITE-16990 - implement partition awareness.
+            throw new System.NotImplementedException();
         }
 
         /// <inheritdoc/>
@@ -82,7 +97,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
-            nodes is ICollection<IClusterNode> col ? col : nodes.ToList();
+            nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
         private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
         {
