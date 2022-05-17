@@ -32,7 +32,7 @@ namespace Apache.Ignite.Tests.Table
         [TearDown]
         public async Task CleanTable()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(-5, 20).Select(x => GetTuple(x)));
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(-1, 12).Select(x => GetTuple(x)));
         }
 
         [Test]
