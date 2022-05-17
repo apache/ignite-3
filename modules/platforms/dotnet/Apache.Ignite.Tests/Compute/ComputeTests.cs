@@ -50,6 +50,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
+        private const string TempTableName = "PUB.drop-me";
+
         [Test]
         public async Task TestGetClusterNodes()
         {
@@ -226,19 +228,26 @@ namespace Apache.Ignite.Tests.Compute
         {
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
-            var tableName = await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, "PUB.drop-me");
+            var tableName = await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, TempTableName);
 
-            var keyTuple = new IgniteTuple { [KeyCol] = 1 };
-            var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
+            try
+            {
+                var keyTuple = new IgniteTuple { [KeyCol] = 1 };
+                var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
 
-            // Drop table and create a new one with a different ID, then execute a computation again.
-            // This should update the cached table and complete the computation successfully.
-            await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
-            await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, tableName);
+                // Drop table and create a new one with a different ID, then execute a computation again.
+                // This should update the cached table and complete the computation successfully.
+                await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
+                await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, tableName);
 
-            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
+                var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
 
-            Assert.AreEqual(resNodeName, resNodeName2);
+                Assert.AreEqual(resNodeName, resNodeName2);
+            }
+            finally
+            {
+                await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
+            }
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
