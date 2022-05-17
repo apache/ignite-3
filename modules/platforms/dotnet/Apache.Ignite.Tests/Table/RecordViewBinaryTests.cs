@@ -30,6 +30,12 @@ namespace Apache.Ignite.Tests.Table
     /// </summary>
     public class RecordViewBinaryTests : IgniteTestsBase
     {
+        [TearDown]
+        public async Task CleanTable()
+        {
+            await TupleView.DeleteAllAsync(null, Enumerable.Range(-1, 12).Select(x => GetTuple(x)));
+        }
+
         [Test]
         public async Task TestUpsertGet()
         {
