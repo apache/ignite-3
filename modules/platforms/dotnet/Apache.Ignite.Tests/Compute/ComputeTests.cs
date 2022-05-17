@@ -27,6 +27,7 @@ namespace Apache.Ignite.Tests.Compute
     using Internal.Network;
     using Network;
     using NUnit.Framework;
+    using Table;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
@@ -183,12 +184,17 @@ namespace Apache.Ignite.Tests.Compute
         [TestCase(2, "_2")]
         [TestCase(3, "")]
         [TestCase(5, "_2")]
-        public async Task TestExecuteColocatedByTupleKey(int key, string nodeName)
+        public async Task TestExecuteColocated(int key, string nodeName)
         {
             var keyTuple = new IgniteTuple { [KeyCol] = key };
             var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
 
-            Assert.AreEqual(PlatformTestNodeRunner + nodeName, resNodeName);
+            var keyPoco = new Poco { Key = key };
+            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, NodeNameJob);
+
+            var expectedNodeName = PlatformTestNodeRunner + nodeName;
+            Assert.AreEqual(expectedNodeName, resNodeName);
+            Assert.AreEqual(expectedNodeName, resNodeName2);
         }
 
         [Test]
