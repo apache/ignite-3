@@ -95,6 +95,6 @@ namespace Apache.Ignite.Internal.Proto
         ClusterGetNodes = 48,
 
         /** Execute compute job. */
-        ComputeExecuteColocated = 39
+        ComputeExecuteColocated = 49
     }
 }

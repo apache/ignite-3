@@ -95,6 +95,8 @@ namespace Apache.Ignite.Internal.Compute
 
                 w.Write(jobClassName);
                 w.WriteObjectArrayWithTypes(args);
+
+                w.Flush();
             }
 
             static T Read(in PooledBuffer buf)
