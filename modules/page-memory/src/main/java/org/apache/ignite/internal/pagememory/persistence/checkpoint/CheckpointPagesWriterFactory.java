@@ -85,6 +85,7 @@ public class CheckpointPagesWriterFactory {
             CompletableFuture<?> doneWriteFut,
             Runnable beforePageWrite,
             CheckpointProgressImpl checkpointProgress,
+            // TODO: IGNITE-16993 Consider a lock replacement
             BooleanSupplier shutdownNow
     ) {
         return new CheckpointPagesWriter(

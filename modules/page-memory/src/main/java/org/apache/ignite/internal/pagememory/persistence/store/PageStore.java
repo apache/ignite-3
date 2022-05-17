@@ -96,13 +96,6 @@ public interface PageStore extends Closeable {
     void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException;
 
     /**
-     * Returns page offset within the page store.
-     *
-     * @param pageId Page ID.
-     */
-    long pageOffset(long pageId);
-
-    /**
      * Sync method used to ensure that the given pages are guaranteed to be written to the page store.
      *
      * @throws IgniteInternalCheckedException If sync failed (IO error occurred).
@@ -141,11 +134,6 @@ public interface PageStore extends Closeable {
      * Returns page size in bytes.
      */
     int pageSize();
-
-    /**
-     * Returns page store block size or negative value if unknown or not supported.
-     */
-    int blockSize();
 
     /**
      * Returns size of the page store in bytes.

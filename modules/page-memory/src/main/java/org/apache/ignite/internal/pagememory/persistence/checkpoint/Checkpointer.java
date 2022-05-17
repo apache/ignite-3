@@ -60,7 +60,6 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Checkpointer object is used for notification on checkpoint begin, predicate is {@code nextCheckpointTimestamps - now > 0}.
@@ -132,13 +131,6 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     /** Last checkpoint timestamp, read/update only in checkpoint thread. */
     private long lastCheckpointTimestamp;
 
-    @TestOnly
-    @Nullable
-    private volatile CompletableFuture<?> enableChangeAppliedFuture;
-
-    @TestOnly
-    private volatile boolean checkpointsEnabled = true;
-
     /**
      * Constructor.
      *
@@ -179,7 +171,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
                     30_000,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-IO")
+                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io")
             );
         } else {
             checkpointWritePagesPool = null;
@@ -194,32 +186,18 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
                 waitCheckpointEvent();
 
                 if (skipCheckpointOnNodeStop && (isCancelled() || shutdownNow)) {
-                    if (log.isInfoEnabled()) {
+                    if (log.isWarnEnabled()) {
                         log.warn("Skipping last checkpoint because node is stopping.");
                     }
 
                     return;
                 }
 
-                CompletableFuture<?> enableChangeAppliedFuture = this.enableChangeAppliedFuture;
-
-                if (enableChangeAppliedFuture != null) {
-                    enableChangeAppliedFuture.complete(null);
-
-                    this.enableChangeAppliedFuture = null;
-                }
-
-                if (checkpointsEnabled) {
-                    doCheckpoint();
-                } else {
-                    synchronized (this) {
-                        scheduledCheckpointProgress.nextCheckpointNanos(MILLISECONDS.toNanos(nextCheckpointInterval()));
-                    }
-                }
+                doCheckpoint();
             }
 
             // Final run after the cancellation.
-            if (checkpointsEnabled && !shutdownNow) {
+            if (!shutdownNow) {
                 doCheckpoint();
             }
 
@@ -762,21 +740,5 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
                 - max(safeAbs(checkpointFrequency) / 200, 1);
 
         return safeAbs(checkpointFrequency + startDelay);
-    }
-
-    /**
-     * For test use only.
-     *
-     * @deprecated Should be rewritten to public API.
-     */
-    @TestOnly
-    public CompletableFuture<?> enableCheckpoints(boolean enable) {
-        CompletableFuture<?> future = new CompletableFuture<>();
-
-        enableChangeAppliedFuture = future;
-
-        checkpointsEnabled = enable;
-
-        return future;
     }
 }

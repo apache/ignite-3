@@ -39,6 +39,9 @@ import org.jetbrains.annotations.Nullable;
  * accordingly.
  */
 public class LongJvmPauseDetector implements IgniteComponent {
+    /** Ignite JVM pause detector threshold default value. */
+    public static final int DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD = 500;
+
     /** System property to change default is IGNITE_JVM_PAUSE_DETECTOR_PRECISION. */
     public static final int DFLT_JVM_PAUSE_DETECTOR_PRECISION = 50;
 
@@ -49,7 +52,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
     private static final int PRECISION = getInteger("IGNITE_JVM_PAUSE_DETECTOR_PRECISION", DFLT_JVM_PAUSE_DETECTOR_PRECISION);
 
     /** Threshold. */
-    private final int threshold = getInteger("IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD", 500);
+    private final int threshold = getInteger("IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD", DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD);
 
     /** Event count. */
     private static final int EVT_CNT = getInteger("IGNITE_JVM_PAUSE_DETECTOR_LAST_EVENTS_COUNT",
