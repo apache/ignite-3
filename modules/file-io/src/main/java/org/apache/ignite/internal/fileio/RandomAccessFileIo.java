@@ -20,118 +20,128 @@ package org.apache.ignite.internal.fileio;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
 
 /**
- * Decorator class for {@link FileIo}.
+ * {@link FileIo} implementation based on {@link FileChannel}.
  */
-public class FileIoDecorator extends AbstractFileIo {
-    /** File I/O delegate. */
-    protected final FileIo delegate;
+public class RandomAccessFileIo extends AbstractFileIo {
+    /** File channel. */
+    private final FileChannel ch;
 
     /**
-     * Constructor.
+     * Creates I/O implementation for specified file.
      *
-     * @param delegate {@link FileIo} delegate.
+     * @param filePath File path.
+     * @param modes Open modes.
      */
-    public FileIoDecorator(FileIo delegate) {
-        this.delegate = delegate;
+    public RandomAccessFileIo(Path filePath, OpenOption... modes) throws IOException {
+        ch = FileChannel.open(filePath, modes);
     }
 
     /** {@inheritDoc} */
     @Override
     public long position() throws IOException {
-        return delegate.position();
+        return ch.position();
     }
 
     /** {@inheritDoc} */
     @Override
     public void position(long newPosition) throws IOException {
-        delegate.position(newPosition);
+        ch.position(newPosition);
     }
 
     /** {@inheritDoc} */
     @Override
     public int read(ByteBuffer destBuf) throws IOException {
-        return delegate.read(destBuf);
+        return ch.read(destBuf);
     }
 
     /** {@inheritDoc} */
     @Override
     public int read(ByteBuffer destBuf, long position) throws IOException {
-        return delegate.read(destBuf, position);
+        return ch.read(destBuf, position);
     }
 
     /** {@inheritDoc} */
     @Override
     public int read(byte[] buf, int off, int len) throws IOException {
-        return delegate.read(buf, off, len);
+        return ch.read(ByteBuffer.wrap(buf, off, len));
     }
 
     /** {@inheritDoc} */
     @Override
     public int write(ByteBuffer srcBuf) throws IOException {
-        return delegate.write(srcBuf);
+        return ch.write(srcBuf);
     }
 
     /** {@inheritDoc} */
     @Override
     public int write(ByteBuffer srcBuf, long position) throws IOException {
-        return delegate.write(srcBuf, position);
+        return ch.write(srcBuf, position);
     }
 
     /** {@inheritDoc} */
     @Override
     public int write(byte[] buf, int off, int len) throws IOException {
-        return delegate.write(buf, off, len);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public MappedByteBuffer map(int sizeBytes) throws IOException {
-        return delegate.map(sizeBytes);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void force() throws IOException {
-        delegate.force();
+        return ch.write(ByteBuffer.wrap(buf, off, len));
     }
 
     /** {@inheritDoc} */
     @Override
     public void force(boolean withMetadata) throws IOException {
-        delegate.force(withMetadata);
+        ch.force(withMetadata);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void force() throws IOException {
+        force(false);
     }
 
     /** {@inheritDoc} */
     @Override
     public long size() throws IOException {
-        return delegate.size();
+        return ch.size();
     }
 
     /** {@inheritDoc} */
     @Override
     public void clear() throws IOException {
-        delegate.clear();
+        ch.truncate(0);
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() throws IOException {
-        delegate.close();
+        ch.close();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public MappedByteBuffer map(int sizeBytes) throws IOException {
+        return ch.map(FileChannel.MapMode.READ_WRITE, 0, sizeBytes);
     }
 
     /** {@inheritDoc} */
     @Override
     public long transferTo(long position, long count, WritableByteChannel target) throws IOException {
-        return delegate.transferTo(position, count, target);
+        return ch.transferTo(position, count, target);
     }
 
     /** {@inheritDoc} */
     @Override
     public long transferFrom(ReadableByteChannel src, long position, long count) throws IOException {
-        return delegate.transferFrom(src, position, count);
+        long written = ch.transferFrom(src, position, count);
+
+        if (written > 0) {
+            position(position + written);
+        }
+
+        return written;
     }
 }

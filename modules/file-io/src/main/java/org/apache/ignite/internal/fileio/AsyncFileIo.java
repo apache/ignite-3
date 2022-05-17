@@ -45,9 +45,9 @@ public class AsyncFileIo extends AbstractFileIo {
     private final Set<ChannelOpFuture> asyncFutures = ConcurrentHashMap.newKeySet();
 
     /**
-     * Creates I/O implementation for specified {@code file}.
+     * Creates I/O implementation for specified file.
      *
-     * @param filePath Random access file path.
+     * @param filePath File path.
      * @param modes Open modes.
      * @throws IOException If some I/O error occurs.
      */

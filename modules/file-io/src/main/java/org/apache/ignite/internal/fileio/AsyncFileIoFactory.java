@@ -17,36 +17,17 @@
 
 package org.apache.ignite.internal.fileio;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
-
 import java.io.IOException;
-import java.io.Serializable;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 
 /**
- * {@link FileIo} factory definition.
+ * {@link AsyncFileIo} factory.
  */
-@FunctionalInterface
-public interface FileIoFactory extends Serializable {
-    /**
-     * Creates I/O interface for file with default I/O mode.
-     *
-     * @param filePath File path.
-     * @throws IOException If I/O interface creation was failed.
-     */
-    default FileIo create(Path filePath) throws IOException {
-        return create(filePath, CREATE, READ, WRITE);
+public class AsyncFileIoFactory implements FileIoFactory {
+    /** {@inheritDoc} */
+    @Override
+    public FileIo create(Path filePath, OpenOption... modes) throws IOException {
+        return new AsyncFileIo(filePath);
     }
-
-    /**
-     * Creates I/O interface for file with specified mode.
-     *
-     * @param filePath File path.
-     * @param modes Open modes.
-     * @throws IOException If I/O interface creation was failed.
-     */
-    FileIo create(Path filePath, OpenOption... modes) throws IOException;
 }
