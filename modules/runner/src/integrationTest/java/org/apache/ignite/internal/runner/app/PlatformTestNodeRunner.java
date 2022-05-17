@@ -156,6 +156,7 @@ public class PlatformTestNodeRunner {
     /**
      * Compute job that creates a table.
      */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
     private static class CreateTableJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
@@ -169,6 +170,7 @@ public class PlatformTestNodeRunner {
     /**
      * Compute job that drops a table.
      */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
     private static class DropTableJob implements ComputeJob<String> {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
