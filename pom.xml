@@ -78,6 +78,7 @@
         <module>modules/table</module>
         <module>modules/transactions</module>
         <module>modules/vault</module>
+        <module>modules/file-io</module>
     </modules>
 
     <profiles>
