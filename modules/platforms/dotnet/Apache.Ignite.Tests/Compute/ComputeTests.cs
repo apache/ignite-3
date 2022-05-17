@@ -181,7 +181,10 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestExecuteColocatedByTupleKey()
         {
-            await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), EchoJob);
+            var keyTuple = new IgniteTuple { [KeyCol] = 1 };
+            var nodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
+
+            Assert.AreEqual("ItThinClientComputeTest_null_3345", nodeName);
         }
 
         [Test]
