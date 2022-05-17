@@ -74,7 +74,7 @@ namespace Apache.Ignite.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            // ReSharper disable once ConstantConditionalAccessQualifier
+            // ReSharper disable once ConstantConditionalAccessQualifier, ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
             Client?.Dispose();
 
             Assert.Greater(_eventListener.BuffersRented, 0);
