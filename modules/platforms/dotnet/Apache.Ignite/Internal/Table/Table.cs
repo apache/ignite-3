@@ -35,9 +35,6 @@ namespace Apache.Ignite.Internal.Table
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
-        /** Table id. */
-        private readonly Guid _id;
-
         /** Schemas. */
         private readonly ConcurrentDictionary<int, Schema> _schemas = new();
 
@@ -60,7 +57,7 @@ namespace Apache.Ignite.Internal.Table
         {
             _socket = socket;
             Name = name;
-            _id = id;
+            Id = id;
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,
@@ -78,6 +75,11 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         internal ClientFailoverSocket Socket => _socket;
 
+        /// <summary>
+        /// Gets the table id.
+        /// </summary>
+        internal Guid Id { get; }
+
         /// <inheritdoc/>
         public IRecordView<T> GetRecordView<T>()
             where T : class
@@ -86,25 +88,6 @@ namespace Apache.Ignite.Internal.Table
             return (IRecordView<T>)_recordViews.GetOrAdd(
                 typeof(T),
                 _ => new RecordView<T>(this, new RecordSerializer<T>(this, new ObjectSerializerHandler<T>())));
-        }
-
-        /// <summary>
-        /// Writes the transaction id, if present.
-        /// </summary>
-        /// <param name="w">Writer.</param>
-        /// <param name="tx">Transaction.</param>
-        internal void WriteIdAndTx(ref MessagePackWriter w, Transactions.Transaction? tx)
-        {
-            w.Write(_id);
-
-            if (tx == null)
-            {
-                w.WriteNil();
-            }
-            else
-            {
-                w.Write(tx.Id);
-            }
         }
 
         /// <summary>
@@ -168,7 +151,7 @@ namespace Apache.Ignite.Internal.Table
             void Write()
             {
                 var w = writer.GetMessageWriter();
-                w.Write(_id);
+                w.Write(Id);
 
                 if (version == null)
                 {

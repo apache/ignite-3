@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Network;
     using Ignite.Table;
     using Proto;
+    using Table;
 
     /// <summary>
     /// Compute API.
@@ -35,13 +36,18 @@ namespace Apache.Ignite.Internal.Compute
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
+        /** Tables. */
+        private readonly Tables _tables;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Compute"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
-        public Compute(ClientFailoverSocket socket)
+        /// <param name="tables">Tables.</param>
+        public Compute(ClientFailoverSocket socket, Tables tables)
         {
             _socket = socket;
+            _tables = tables;
         }
 
         /// <inheritdoc/>
@@ -54,10 +60,14 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
+        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
         {
             // TODO: IGNITE-16990 - implement partition awareness.
-            throw new System.NotImplementedException();
+            var table = await _tables.GetTableAsync(tableName).ConfigureAwait(false); // TODO: Cache
+            
+            table.RecordBinaryView.DeleteAsync()
+
+            return default!;
         }
 
         /// <inheritdoc/>
