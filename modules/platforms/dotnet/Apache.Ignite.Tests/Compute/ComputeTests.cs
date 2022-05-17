@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Net;
     using System.Threading.Tasks;
     using Ignite.Compute;
+    using Ignite.Table;
     using Internal.Network;
     using Network;
     using NUnit.Framework;
@@ -175,6 +176,21 @@ namespace Apache.Ignite.Tests.Compute
 
                 Assert.AreEqual(expected ?? val, res);
             }
+        }
+
+        [Test]
+        public async Task TestExecuteColocatedByTupleKey()
+        {
+            await Client.Compute.ExecuteColocatedAsync<string>("TODO", new IgniteTuple(), EchoJob);
+        }
+
+        [Test]
+        public void TestExecuteColocatedThrowsWhenTableDoesNotExist()
+        {
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+                await Client.Compute.ExecuteColocatedAsync<string>("unknownTable", new IgniteTuple(), EchoJob));
+
+            Assert.AreEqual("Specified node is not present in the cluster: y", ex!.Message);
         }
 
         private async Task<List<IClusterNode>> GetNodeAsync(int index) =>
