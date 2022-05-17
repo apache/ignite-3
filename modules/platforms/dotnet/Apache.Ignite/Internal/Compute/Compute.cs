@@ -67,48 +67,8 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
         {
-            IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
-            IgniteArgumentCheck.NotNull(key, nameof(key));
-            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
-
-            // TODO: IGNITE-16990 - implement partition awareness.
-            // TODO: Handle cached table removal, add test
-            if (!_tableCache.TryGetValue(tableName, out var table))
-            {
-                table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
-
-                _tableCache[tableName] = table ?? throw new IgniteClientException($"Table '{tableName}' does not exist.");
-            }
-
-            var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
-
-            using var bufferWriter = new PooledArrayBufferWriter();
-            Write();
-
-            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
-            return Read(res);
-
-            void Write()
-            {
-                var w = bufferWriter.GetMessageWriter();
-
-                w.Write(table.Id);
-                w.Write(schema.Version);
-
-                TupleSerializerHandler.Instance.Write(ref w, schema, key, true);
-
-                w.Write(jobClassName);
-                w.WriteObjectArrayWithTypes(args);
-
-                w.Flush();
-            }
-
-            static T Read(in PooledBuffer buf)
-            {
-                var reader = buf.GetReader();
-
-                return (T)reader.ReadObjectWithType()!;
-            }
+            return await ExecuteColocatedAsync<T, IIgniteTuple>(tableName, key, TupleSerializerHandler.Instance, jobClassName, args)
+                .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -190,6 +150,58 @@ namespace Apache.Ignite.Internal.Compute
                 {
                     w.WriteNil();
                 }
+
+                w.Write(jobClassName);
+                w.WriteObjectArrayWithTypes(args);
+
+                w.Flush();
+            }
+
+            static T Read(in PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+
+                return (T)reader.ReadObjectWithType()!;
+            }
+        }
+
+        private async Task<T> ExecuteColocatedAsync<T, TKey>(
+            string tableName,
+            TKey key,
+            IRecordSerializerHandler<TKey> serializerHandler,
+            string jobClassName,
+            params object[] args)
+            where TKey : class
+        {
+            IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+
+            // TODO: IGNITE-16990 - implement partition awareness.
+            // TODO: Handle cached table removal, add test
+            if (!_tableCache.TryGetValue(tableName, out var table))
+            {
+                table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
+
+                _tableCache[tableName] = table ?? throw new IgniteClientException($"Table '{tableName}' does not exist.");
+            }
+
+            var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
+
+            using var bufferWriter = new PooledArrayBufferWriter();
+            Write();
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
+            return Read(res);
+
+            void Write()
+            {
+                var w = bufferWriter.GetMessageWriter();
+
+                w.Write(table.Id);
+                w.Write(schema.Version);
+
+                serializerHandler.Write(ref w, schema, key, true);
 
                 w.Write(jobClassName);
                 w.WriteObjectArrayWithTypes(args);
