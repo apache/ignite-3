@@ -27,12 +27,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
+import org.apache.ignite.table.Table;
 
 /**
  * Helper class for non-Java platform tests (.NET, C++, Python, ...). Starts nodes, populates tables and data for tests.
@@ -149,5 +152,40 @@ public class PlatformTestNodeRunner {
      */
     private static int getPort(IgniteImpl node) {
         return node.clientAddress().port();
+    }
+
+    /**
+     * Compute job that creates a table.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class CreateTableJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            String tableName = (String) args[0];
+
+            Table table = context.ignite().tables().createTable(
+                    tableName,
+                    tblChanger -> tblChanger
+                            .changeColumns(cols ->
+                                    cols.create("key", col -> col.changeType(t -> t.changeType("INT64")).changeNullable(false)))
+                            .changePrimaryKey(pk -> pk.changeColumns("key").changeColocationColumns("key"))
+            );
+
+            return table.name();
+        }
+    }
+
+    /**
+     * Compute job that drops a table.
+     */
+    @SuppressWarnings({"unused"}) // Used by platform tests.
+    private static class DropTableJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            String tableName = (String) args[0];
+            context.ignite().tables().dropTable(tableName);
+
+            return tableName;
+        }
     }
 }

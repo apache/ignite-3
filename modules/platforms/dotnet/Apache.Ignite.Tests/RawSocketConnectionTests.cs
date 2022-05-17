@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// ReSharper disable MustUseReturnValue
 namespace Apache.Ignite.Tests
 {
     using System;

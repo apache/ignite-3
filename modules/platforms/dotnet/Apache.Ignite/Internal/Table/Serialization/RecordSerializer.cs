@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
     using System.Collections.Generic;
     using Buffers;
     using MessagePack;
+    using Proto;
 
     /// <summary>
     /// Generic record serializer.
@@ -46,6 +47,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
             _table = table;
             _handler = handler;
         }
+
+        /// <summary>
+        /// Gets the handler.
+        /// </summary>
+        public IRecordSerializerHandler<T> Handler => _handler;
 
         /// <summary>
         /// Reads the value part.
@@ -195,7 +201,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var w = buf.GetMessageWriter();
 
-            _table.WriteIdAndTx(ref w, tx);
+            WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
             w.Flush();
 
@@ -236,10 +242,29 @@ namespace Apache.Ignite.Internal.Table.Serialization
             T rec,
             bool keyOnly = false)
         {
-            _table.WriteIdAndTx(ref w, tx);
+            WriteIdAndTx(ref w, tx);
             w.Write(schema.Version);
 
             _handler.Write(ref w, schema, rec, keyOnly);
+        }
+
+        /// <summary>
+        /// Writes table id and transaction id, if present.
+        /// </summary>
+        /// <param name="w">Writer.</param>
+        /// <param name="tx">Transaction.</param>
+        private void WriteIdAndTx(ref MessagePackWriter w, Transactions.Transaction? tx)
+        {
+            w.Write(_table.Id);
+
+            if (tx == null)
+            {
+                w.WriteNil();
+            }
+            else
+            {
+                w.Write(tx.Id);
+            }
         }
     }
 }
