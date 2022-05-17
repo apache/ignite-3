@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -149,5 +151,31 @@ public class PlatformTestNodeRunner {
      */
     private static int getPort(IgniteImpl node) {
         return node.clientAddress().port();
+    }
+
+    /**
+     * Compute job that creates a table.
+     */
+    private static class CreateTableJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            String tableName = (String) args[0];
+            context.ignite().tables().createTable(tableName, null);
+
+            return tableName;
+        }
+    }
+
+    /**
+     * Compute job that drops a table.
+     */
+    private static class DropTableJob implements ComputeJob<String> {
+        @Override
+        public String execute(JobExecutionContext context, Object... args) {
+            String tableName = (String) args[0];
+            context.ignite().tables().dropTable(tableName);
+
+            return tableName;
+        }
     }
 }
