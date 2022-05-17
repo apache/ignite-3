@@ -63,10 +63,9 @@ namespace Apache.Ignite.Internal.Compute
         public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args)
         {
             // TODO: IGNITE-16990 - implement partition awareness.
-            var table = await _tables.GetTableAsync(tableName).ConfigureAwait(false); // TODO: Cache
-            
-            table.RecordBinaryView.DeleteAsync()
+            var table = await _tables.GetTableAsync(tableName).ConfigureAwait(false); // TODO: Cache by name.
 
+            // var schema = table.GetLa
             return default!;
         }
 

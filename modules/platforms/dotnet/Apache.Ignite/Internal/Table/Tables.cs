@@ -35,7 +35,7 @@ namespace Apache.Ignite.Internal.Table
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
-        /** Cached tables. */
+        /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
         private readonly ConcurrentDictionary<Guid, ITable> _tables = new();
 
         /// <summary>
@@ -90,6 +90,8 @@ namespace Apache.Ignite.Internal.Table
                 {
                     var id = r.ReadGuid();
                     var name = r.ReadString();
+
+                    // TODO: Instance caching? Do we even need it?
                     res.Add(new Table(name, id, _socket));
                 }
 
