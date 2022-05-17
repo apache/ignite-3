@@ -46,9 +46,9 @@ namespace Apache.Ignite.Tests.Compute
 
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
-        private const string CreateTableJob = PlatformTestNodeRunner + "CreateTableJob";
+        private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
 
-        private const string DropTableJob = PlatformTestNodeRunner + "DropTableJob";
+        private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
         [Test]
         public async Task TestGetClusterNodes()
