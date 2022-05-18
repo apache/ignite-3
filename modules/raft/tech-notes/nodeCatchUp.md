@@ -22,14 +22,14 @@ and here we have several outcomes:
   calling the same `Replicator#waitForCaughtUp` that we described before.
 - If retrying went wrong or `Status` is `Error` and is not a timeout, we call `NodeImpl.ConfigurationCtx#onCaughtUp` with a success flag
   equals false, so the whole process of a configuration changing is reset with `RaftError.ECATCHUP` and corresponding
-  `RaftGroupEventsListener#onReconfigurationError` is called. Note that we do not preserve the original reason of failed catch up. Also, it
+  `RaftGroupEventsListener#onReconfigurationError` is called. Note that we do not preserve the original reason for failed catch up. Also, it
   is important, that `RaftGroupEventsListener#onReconfigurationError` can be called, when a current leader stepped down. In that case
   `ConfigurationCtx#reset(org.apache.ignite.raft.jraft.Status)` with status equals `null` will be called, and this `null` value will be
   passed to `RaftGroupEventsListener#onReconfigurationError`.
 
 ## Where the closure is invoked 
 
-Now let's discuss, when this closure is run. As we said before, it happens in `Replicator#notifyOnCaughtUp`, 
+Now let's discuss when this closure is run. As we said before, it happens in `Replicator#notifyOnCaughtUp`, 
 so lets track who call `Replicator#Replicator#notifyOnCaughtUp`
 
 Calls with successful statuses: 
@@ -38,10 +38,10 @@ Calls with successful statuses:
 
 Calls with error statuses:
 
-* `Replicator#onCatchUpTimedOut` with `RaftError.ETIMEDOUT`, called when timer event happens. As was described before, this timer is started
+* `Replicator#onCatchUpTimedOut` with `RaftError.ETIMEDOUT`, called when a timer event happens. As was described before, this timer is started
   when we call `Replicator#waitForCaughtUp`.
 * `Replicator#onHeartbeatReturned`, `Replicator#onAppendEntriesReturned`, or `Replicator#onTimeoutNowReturned` with `RaftError.EPERM`,
-  called when a follower returned a term higher than a leaders current term. This is a general check for RPC calls where we check terms and
+  called when a follower returns a term higher than a leader's current term. This is a general check for RPC calls where we check terms and
   decide, should we step down or not.
 * `Replicator#onTimeoutNowReturned` with `RaftError.ESTOP`, called when we passed to the method flag `stopAfterFinish` equals true. It happens
   when a leader is stepped down and we try to wake up a potential candidate for the optimisation purposes 
@@ -49,7 +49,7 @@ Calls with error statuses:
   `Replicator#sendTimeoutNowAndStop(this.wakingCandidate, this.options.getElectionTimeoutMs())` on a leader. For more details see
   `NodeImpl#stepDown`
 * `Replicator#onError` with `RaftError.ESTOP`. This is a general case when some replicator was stopped. For example, it might happen when
-  leader stepped down, or when node was shutdown, etc. Let's consider all places where `Replicator#onError` with `RaftError.ESTOP` can happen, to
+  a leader stepped down, or when a node was shutdown, etc. Let's consider all places where `Replicator#onError` with `RaftError.ESTOP` can happen, to
   do that we need to trace `Replicator#stop`
   - `NodeImpl#shutdown(org.apache.ignite.raft.jraft.Closure)` -- node shutdown case 
   - `ReplicatorGroupImpl#stopAll` -- happens when a leader steps down, including stopping all replicators. See `NodeImpl#stepDown`. 
@@ -61,7 +61,7 @@ Calls with error statuses:
   
 ## Waking up optimisation
 
-When leader faces some problem, it makes some optimisation when it steps down, to start a new voting with a new candidate immediately. In
+When a leader faces some problem, it makes some optimisation when it steps down, to start a new voting with a new candidate immediately. In
 that case, instead of stopping all replicators as usual, it preserves one replicator for stopping and sends `TimeoutNowRequest` to it. When
-the node receives that request, it elects itself and starts voting. Failed leader chose such node by searching the node with the largest 
+the node receives that request, it elects itself and starts voting. Failed leader chose such a node by searching for the node with the largest 
 log id among peers in the current configuration. For more details see `ReplicatorGroupImpl#stopAllAndFindTheNextCandidate` 
