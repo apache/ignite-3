@@ -123,29 +123,29 @@ public class CheckpointerTest {
 
         CheckpointProgressImpl scheduledProgress = (CheckpointProgressImpl) checkpointer.scheduledProgress();
 
-        long nextCheckpointNanosOnCreateCheckpointer = scheduledProgress.nextCheckpointNanos();
-        String reasonOnCreateCheckpointer = scheduledProgress.reason();
+        long onCreateCheckpointerNextCheckpointNanos = scheduledProgress.nextCheckpointNanos();
+        String onCreateCheckpointerReason = scheduledProgress.reason();
 
         assertThat(
-                nextCheckpointNanosOnCreateCheckpointer - nanoTime(),
+                onCreateCheckpointerNextCheckpointNanos - nanoTime(),
                 allOf(greaterThan(0L), lessThanOrEqualTo(MILLISECONDS.toNanos(1_000)))
         );
 
-        assertNull(reasonOnCreateCheckpointer);
+        assertNull(onCreateCheckpointerReason);
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(3000, "test0"));
 
         assertNull(checkpointer.currentProgress());
 
-        assertEquals(nextCheckpointNanosOnCreateCheckpointer, scheduledProgress.nextCheckpointNanos());
-        assertEquals(reasonOnCreateCheckpointer, scheduledProgress.reason());
+        assertEquals(onCreateCheckpointerNextCheckpointNanos, scheduledProgress.nextCheckpointNanos());
+        assertEquals(onCreateCheckpointerReason, scheduledProgress.reason());
 
         assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(100, "test1"));
 
         assertNull(checkpointer.currentProgress());
 
-        assertNotEquals(nextCheckpointNanosOnCreateCheckpointer, scheduledProgress.nextCheckpointNanos());
-        assertNotEquals(reasonOnCreateCheckpointer, scheduledProgress.reason());
+        assertNotEquals(onCreateCheckpointerNextCheckpointNanos, scheduledProgress.nextCheckpointNanos());
+        assertNotEquals(onCreateCheckpointerReason, scheduledProgress.reason());
 
         assertThat(
                 scheduledProgress.nextCheckpointNanos() - nanoTime(),
@@ -154,8 +154,8 @@ public class CheckpointerTest {
 
         assertEquals("test1", scheduledProgress.reason());
 
-        long nextCheckpointNanosSchedule100Mills = scheduledProgress.nextCheckpointNanos();
-        String reasonSchedule100Mills = scheduledProgress.reason();
+        long scheduledNextCheckpointNanos = scheduledProgress.nextCheckpointNanos();
+        String scheduledReason = scheduledProgress.reason();
 
         // Checks after the start of a checkpoint.
 
@@ -176,15 +176,15 @@ public class CheckpointerTest {
                 allOf(greaterThan(0L), lessThanOrEqualTo(MILLISECONDS.toNanos(1_000)))
         );
 
-        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
-        assertEquals(reasonSchedule100Mills, currentProgress.reason());
+        assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
+        assertEquals(scheduledReason, currentProgress.reason());
 
         assertSame(currentProgress, checkpointer.scheduleCheckpoint(90, "test2"));
         assertSame(currentProgress, checkpointer.currentProgress());
         assertSame(scheduledProgress, checkpointer.scheduledProgress());
 
-        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
-        assertEquals(reasonSchedule100Mills, currentProgress.reason());
+        assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
+        assertEquals(scheduledReason, currentProgress.reason());
 
         currentProgress.transitTo(LOCK_TAKEN);
 
@@ -199,8 +199,8 @@ public class CheckpointerTest {
 
         assertEquals("test3", scheduledProgress.reason());
 
-        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
-        assertEquals(reasonSchedule100Mills, currentProgress.reason());
+        assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
+        assertEquals(scheduledReason, currentProgress.reason());
 
         // Checks the listener.
 
@@ -214,8 +214,8 @@ public class CheckpointerTest {
 
         assertEquals("test4", scheduledProgress.reason());
 
-        assertEquals(nextCheckpointNanosSchedule100Mills, currentProgress.nextCheckpointNanos());
-        assertEquals(reasonSchedule100Mills, currentProgress.reason());
+        assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
+        assertEquals(scheduledReason, currentProgress.reason());
 
         verify(finishFutureListener, times(0)).accept(null, null);
 
@@ -301,6 +301,8 @@ public class CheckpointerTest {
         assertThat(exception.getCause(), instanceOf(NodeStoppingException.class));
 
         // Checks cancelled checkpointer.
+
+        checkpointer.shutdownCheckpointer(false);
 
         runAsync(checkpointer::body).get(200, MILLISECONDS);
 
@@ -393,11 +395,11 @@ public class CheckpointerTest {
                 allOf(greaterThanOrEqualTo(1_900L), lessThanOrEqualTo(2_100L))
         );
 
-        checkpointFrequencyDeviation.set(200);
+        checkpointFrequencyDeviation.set(20);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
-                allOf(greaterThanOrEqualTo(0L), lessThanOrEqualTo(4_000L))
+                allOf(greaterThanOrEqualTo(1_800L), lessThanOrEqualTo(2_200L))
         );
     }
 

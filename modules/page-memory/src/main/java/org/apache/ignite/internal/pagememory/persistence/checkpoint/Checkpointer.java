@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -97,10 +96,6 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             + "%s"
             + "pages=%d, "
             + "reason='%s']";
-
-    /** Avoid the start checkpoint if checkpointer was canceled. */
-    // TODO: IGNITE-16984 Move to config
-    private volatile boolean skipCheckpointOnNodeStop = getBoolean("IGNITE_PDS_SKIP_CHECKPOINT_ON_NODE_STOP", false);
 
     /** Pause detector. */
     @Nullable
@@ -193,7 +188,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             while (!isCancelled()) {
                 waitCheckpointEvent();
 
-                if (skipCheckpointOnNodeStop && (isCancelled() || shutdownNow)) {
+                if (isCancelled() || shutdownNow) {
                     if (log.isWarnEnabled()) {
                         log.warn("Skipping last checkpoint because node is stopping.");
                     }
@@ -668,10 +663,10 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     /**
      * Shutdown checkpointer.
      *
-     * @param cancel Cancel flag.
+     * @param shutdown Shutdown flag.
      */
-    public void shutdownCheckpointer(boolean cancel) {
-        if (cancel) {
+    public void shutdownCheckpointer(boolean shutdown) {
+        if (shutdown) {
             shutdownNow();
         } else {
             cancel();
@@ -725,15 +720,6 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      */
     boolean isShutdownNow() {
         return shutdownNow;
-    }
-
-    /**
-     * Skip checkpoint on node stop.
-     *
-     * @param skip If {@code true} skips checkpoint on node stop.
-     */
-    public void skipCheckpointOnNodeStop(boolean skip) {
-        skipCheckpointOnNodeStop = skip;
     }
 
     /**
