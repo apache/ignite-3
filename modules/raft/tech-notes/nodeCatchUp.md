@@ -34,14 +34,29 @@ Calls with successful statuses:
 
 Calls with error statuses:
 
-- `Replicator#onCatchUpTimedOut` with `RaftError.ETIMEDOUT`, called when timer event happens. As was described before, this timer is started
+* `Replicator#onCatchUpTimedOut` with `RaftError.ETIMEDOUT`, called when timer event happens. As was described before, this timer is started
   when we call `Replicator#waitForCaughtUp`.
-- `Replicator#onHeartbeatReturned`, `Replicator#onAppendEntriesReturned`, or `Replicator#onTimeoutNowReturned` with `RaftError.EPERM`,
+* `Replicator#onHeartbeatReturned`, `Replicator#onAppendEntriesReturned`, or `Replicator#onTimeoutNowReturned` with `RaftError.EPERM`,
   called when a follower returned a term higher than a leaders current term. This is a general check for RPC calls where we check terms and
   decide, should we step down or not.
-- `Replicator#onTimeoutNowReturned` with `RaftError.ESTOP`, called when we passed to the method flag `stopAfterFinish` equals true. It happens
-  when a leader is stepped down and we try to wake up a potential candidate for the optimisation purposes, so we call
+* `Replicator#onTimeoutNowReturned` with `RaftError.ESTOP`, called when we passed to the method flag `stopAfterFinish` equals true. It happens
+  when a leader is stepped down and we try to wake up a potential candidate for the optimisation purposes 
+(see [waking up optimisation](#Waking-up-optimisation)), so we call
   `Replicator#sendTimeoutNowAndStop(this.wakingCandidate, this.options.getElectionTimeoutMs())` on a leader. For more details see
   `NodeImpl#stepDown`
-- `Replicator#onError` with `RaftError.ESTOP`. This is a general case when some replicator was stopped. For example, it might happen when
-  a leader stepped down, or when a node was stopped, etc.
+* `Replicator#onError` with `RaftError.ESTOP`. This is a general case when some replicator was stopped. For example, it might happen when
+  leader stepped down, or when node was shutdown, etc. Let's consider all places where `Replicator#onError` with `RaftError.ESTOP` can happen, to
+  do that we need to trace `Replicator#stop`
+  - `NodeImpl#shutdown(org.apache.ignite.raft.jraft.Closure)` -- node shutdown case 
+  - `ReplicatorGroupImpl#stopAll` -- happend when a leader step down NodeImpl#stepDown. 
+  - `ReplicatorGroupImpl#stopReplicator` -- this happens when we call `ConfigurationCtx#reset(org.apache.ignite.raft.jraft.Status)`, 
+  when we successfully or not successfully changed configuration, so we have to start or stop replicators for new peers. 
+  - `ReplicatorGroupImpl#stopAllAndFindTheNextCandidate` -- called when a leader step down, in case we make
+    [waking up optimisation](#Waking-up-optimisation)
+
+  
+## Waking up optimisation
+When leader faces some problem, it can make some optimisation when it steps down, to start new voting with a new candidate immediately. In
+that case, instead of stopping all replicators as usual, it preserves one replicator for stopping and sends to it `TimeoutNowRequest`. When
+the node receives that request, it elects itself and starts voting. Failed leader chose such node by searching the node with the largest 
+log id among peers in the current configuration. For more details see `ReplicatorGroupImpl#stopAllAndFindTheNextCandidate` 
