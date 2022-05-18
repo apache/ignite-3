@@ -80,7 +80,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      *
      * @see #lastRow
      */
-    private boolean firstRequest = true;
+    private volatile boolean firstRequest = true;
 
     /**
      * Constructor.
@@ -220,13 +220,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         assert currentReq != null;
 
-        boolean hasMoreRow = waiting != -1 || lastRow != null;
+        taskScheduled.set(false);
 
         currentReq.fut.complete(new BatchedResult<>(currentReq.buff, waiting != -1 || lastRow != null));
 
-        if (pendingRequests.isEmpty()) {
-            taskScheduled.set(false);
-        }
+        boolean hasMoreRow = waiting != -1 || lastRow != null;
 
         if (hasMoreRow) {
             scheduleTask();
