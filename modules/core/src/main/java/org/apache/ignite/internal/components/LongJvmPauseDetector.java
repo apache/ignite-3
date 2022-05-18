@@ -25,6 +25,7 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
@@ -51,7 +52,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
     private static final int PRECISION = getInteger("IGNITE_JVM_PAUSE_DETECTOR_PRECISION", DFLT_JVM_PAUSE_DETECTOR_PRECISION);
 
     /** Threshold. */
-    private static final int THRESHOLD = getInteger("IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD", DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD);
+    private final int threshold = getInteger("IGNITE_JVM_PAUSE_DETECTOR_THRESHOLD", DEFAULT_JVM_PAUSE_DETECTOR_THRESHOLD);
 
     /** Event count. */
     private static final int EVT_CNT = getInteger("IGNITE_JVM_PAUSE_DETECTOR_LAST_EVENTS_COUNT",
@@ -117,7 +118,7 @@ public class LongJvmPauseDetector implements IgniteComponent {
                         final long now = System.currentTimeMillis();
                         final long pause = now - PRECISION - lastWakeUpTime;
 
-                        if (pause >= THRESHOLD) {
+                        if (pause >= threshold) {
                             LOG.warn("Possible too long JVM pause: " + pause + " milliseconds.");
 
                             synchronized (LongJvmPauseDetector.this) {
@@ -241,9 +242,16 @@ public class LongJvmPauseDetector implements IgniteComponent {
         return new IgniteBiTuple<>(longPausesTimestamps[lastPauseIdx], longPausesDurations[lastPauseIdx]);
     }
 
+    /**
+     * Return long JVM pause threshold in mills.
+     */
+    public long longJvmPauseThreshold() {
+        return threshold;
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return "S.toString(LongJVMPauseDetector.class, this)";
+        return S.toString(LongJvmPauseDetector.class, this);
     }
 }
