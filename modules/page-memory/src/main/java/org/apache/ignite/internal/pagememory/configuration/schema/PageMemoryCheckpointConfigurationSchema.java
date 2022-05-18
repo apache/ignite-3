@@ -59,6 +59,12 @@ public class PageMemoryCheckpointConfigurationSchema {
     @Value(hasDefault = true)
     public String writeOrder = SEQUENTIAL_WRITE_ORDER;
 
+    /**
+     * Starting from this number of dirty pages in checkpoint, they will be sorted in parallel in case of {@link #SEQUENTIAL_WRITE_ORDER}.
+     */
+    @Value(hasDefault = true)
+    public int parallelSortThreshold = 512 * 1024;
+
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
     @Min(0)
     @Value(hasDefault = true)
