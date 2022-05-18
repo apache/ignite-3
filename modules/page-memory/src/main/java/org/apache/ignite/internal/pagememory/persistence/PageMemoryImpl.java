@@ -83,6 +83,7 @@ import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
 import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
@@ -1186,7 +1187,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         boolean wasDirty = dirty(absPtr, dirty);
 
         if (dirty) {
-            // TODO: IGNITE-16935 Don't forget add assertion for checkpoint lock held by this thread
+            // TODO: IGNITE-16984 Don't forget add assertion for checkpoint lock held by this thread
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
@@ -1800,6 +1801,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param pageSingleAcquire Page is acquired only once. We don't pin the page second time (until page will not be copied) in case
      *      checkpoint temporary buffer is used.
      * @param pageStoreWriter Checkpoint page writer.
+     * @param tracker Checkpoint metrics tracker.
      */
     private void copyPageForCheckpoint(
             long absPtr,
@@ -1807,7 +1809,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             ByteBuffer buf,
             int tag,
             boolean pageSingleAcquire,
-            PageStoreWriter pageStoreWriter
+            PageStoreWriter pageStoreWriter,
+            CheckpointMetricsTracker tracker
     ) throws IgniteInternalCheckedException {
         assert absPtr != 0;
         assert isAcquired(absPtr) || !isInCheckpoint(fullId);
@@ -1858,6 +1861,8 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 zeroMemory(tmpAbsPtr + PAGE_OVERHEAD, pageSize());
 
+                tracker.onCopyOnWritePageWritten();
+
                 releaseCheckpointBufferPage(tmpRelPtr);
 
                 // Need release again because we pin page when resolve abs pointer,
@@ -1899,12 +1904,14 @@ public class PageMemoryImpl implements PageMemoryEx {
      * #beginCheckpoint(CompletableFuture)} method call.
      * @param buf Temporary buffer to write changes into.
      * @param pageStoreWriter Checkpoint page write context.
+     * @param tracker Checkpoint metrics tracker.
      * @throws IgniteInternalCheckedException If failed to obtain page data.
      */
     public void checkpointWritePage(
             FullPageId fullId,
             ByteBuffer buf,
-            PageStoreWriter pageStoreWriter
+            PageStoreWriter pageStoreWriter,
+            CheckpointMetricsTracker tracker
     ) throws IgniteInternalCheckedException {
         assert buf.remaining() == pageSize();
 
@@ -1975,7 +1982,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             }
         }
 
-        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter);
+        copyPageForCheckpoint(absPtr, fullId, buf, tag, pageSingleAcquire, pageStoreWriter, tracker);
     }
 
     /**

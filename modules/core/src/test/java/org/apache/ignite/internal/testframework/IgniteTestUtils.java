@@ -421,13 +421,26 @@ public final class IgniteTestUtils {
     /**
      * Waits for the condition.
      *
-     * @param cond          Condition.
+     * @param cond Condition.
+     * @param timeoutMillis Timeout in milliseconds.
+     * @return {@code True} if the condition was satisfied within the timeout.
+     * @throws InterruptedException If waiting was interrupted.
+     */
+    public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
+        return waitForCondition(cond, 50, timeoutMillis);
+    }
+
+    /**
+     * Waits for the condition.
+     *
+     * @param cond Condition.
+     * @param sleepMillis Sleep im milliseconds.
      * @param timeoutMillis Timeout in milliseconds.
      * @return {@code True} if the condition was satisfied within the timeout.
      * @throws InterruptedException If waiting was interrupted.
      */
     @SuppressWarnings("BusyWait")
-    public static boolean waitForCondition(BooleanSupplier cond, long timeoutMillis) throws InterruptedException {
+    public static boolean waitForCondition(BooleanSupplier cond, long sleepMillis, long timeoutMillis) throws InterruptedException {
         long stop = System.currentTimeMillis() + timeoutMillis;
 
         while (System.currentTimeMillis() < stop) {
@@ -435,7 +448,7 @@ public final class IgniteTestUtils {
                 return true;
             }
 
-            sleep(50);
+            sleep(sleepMillis);
         }
 
         return false;

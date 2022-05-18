@@ -72,7 +72,7 @@ class CheckpointWorkflow implements IgniteComponent {
      * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])} in case
      * of {@link CheckpointWriteOrder#SEQUENTIAL}.
      */
-    // TODO: IGNITE-16935 Move to configuration
+    // TODO: IGNITE-16984 Move to configuration
     private final int parallelSortThreshold = getInteger(CHECKPOINT_PARALLEL_SORT_THRESHOLD, 512 * 1024);
 
     /** This number of threads will be created and used for parallel sorting. */
@@ -129,12 +129,14 @@ class CheckpointWorkflow implements IgniteComponent {
      *
      * @param startCheckpointTimestamp Checkpoint start timestamp.
      * @param curr Current checkpoint event info.
+     * @param tracker Checkpoint metrics tracker.
      * @return Checkpoint collected info.
      * @throws IgniteInternalCheckedException If failed.
      */
     public Checkpoint markCheckpointBegin(
             long startCheckpointTimestamp,
-            CheckpointProgressImpl curr
+            CheckpointProgressImpl curr,
+            CheckpointMetricsTracker tracker
     ) throws IgniteInternalCheckedException {
         List<CheckpointListener> listeners = collectCheckpointListeners(dataRegions);
 
@@ -148,6 +150,8 @@ class CheckpointWorkflow implements IgniteComponent {
             checkpointReadWriteLock.readUnlock();
         }
 
+        tracker.onWriteLockWaitStart();
+
         checkpointReadWriteLock.writeLock();
 
         CheckpointDirtyPagesInfoHolder dirtyPages;
@@ -155,9 +159,13 @@ class CheckpointWorkflow implements IgniteComponent {
         try {
             curr.transitTo(LOCK_TAKEN);
 
+            tracker.onMarkCheckpointBeginStart();
+
             for (CheckpointListener listener : listeners) {
                 listener.onMarkCheckpointBegin(curr);
             }
+
+            tracker.onMarkCheckpointBeginEnd();
 
             // There are allowable to replace pages only after checkpoint entry was stored to disk.
             dirtyPages = beginCheckpoint(dataRegions, curr.futureFor(MARKER_STORED_TO_DISK));
@@ -167,6 +175,8 @@ class CheckpointWorkflow implements IgniteComponent {
             curr.transitTo(PAGE_SNAPSHOT_TAKEN);
         } finally {
             checkpointReadWriteLock.writeUnlock();
+
+            tracker.onWriteLockRelease();
         }
 
         curr.transitTo(LOCK_RELEASED);
@@ -180,7 +190,13 @@ class CheckpointWorkflow implements IgniteComponent {
 
             curr.transitTo(MARKER_STORED_TO_DISK);
 
-            return new Checkpoint(splitAndSortCpPagesIfNeeded(dirtyPages), curr);
+            tracker.onSplitAndSortCheckpointPagesStart();
+
+            IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> dirtyPages0 = splitAndSortCheckpointPagesIfNeeded(dirtyPages);
+
+            tracker.onSplitAndSortCheckpointPagesEnd();
+
+            return new Checkpoint(dirtyPages0, curr);
         }
 
         return new Checkpoint(EMPTY, curr);
@@ -301,7 +317,7 @@ class CheckpointWorkflow implements IgniteComponent {
         return execPool;
     }
 
-    private IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> splitAndSortCpPagesIfNeeded(
+    private IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> splitAndSortCheckpointPagesIfNeeded(
             CheckpointDirtyPagesInfoHolder dirtyPages
     ) throws IgniteInternalCheckedException {
         Set<IgniteBiTuple<PageMemoryImpl, FullPageId[]>> cpPagesPerRegion = new HashSet<>();
