@@ -192,6 +192,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         clusterNodeResolver = topologyService::getByAddress;
 
         tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
+
+        this.schemaManager.listen(SchemaEvent.COMPLETE, (parameters, e) -> {
+            tablesByIdVv.complete(parameters.causalityToken());
+
+            return false;
+        });
     }
 
     /** {@inheritDoc} */
@@ -523,9 +529,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             table.internalTable().storage().destroy();
 
-            tablesByIdVv.get(causalityToken).thenRun(() ->
-                    fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null)
-            );
+            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null);
 
             schemaManager.dropRegistry(causalityToken, table.tableId());
         } catch (Exception e) {

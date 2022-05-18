@@ -24,5 +24,8 @@ import org.apache.ignite.internal.manager.Event;
  */
 public enum SchemaEvent implements Event {
     /** This event is fired when a schema was created. */
-    CREATE
+    CREATE,
+
+    /** This event is fired when a schema changes are complete. */
+    COMPLETE
 }
