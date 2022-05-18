@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * Data region configuration for Page Memory storage engine.
+ * Data region configuration for page memory.
  */
 @Config
 public class PageMemoryDataRegionConfigurationSchema {
