@@ -42,11 +42,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
-import java.util.function.IntSupplier;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
@@ -101,11 +100,8 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
     @Nullable
     private final LongJvmPauseDetector pauseDetector;
 
-    /** Supplier interval in ms after which the checkpoint is triggered if there are no other events. */
-    private final LongSupplier checkpointFrequencySupplier;
-
-    /** Checkpoint frequency deviation. */
-    private final IntSupplier checkpointFrequencyDeviationSupplier;
+    /** Checkpoint config. */
+    private final PageMemoryCheckpointConfiguration checkpointConfig;
 
     /** Strategy of where and how to get the pages. */
     private final CheckpointWorkflow checkpointWorkflow;
@@ -139,9 +135,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      * @param detector Long JVM pause detector.
      * @param checkpointWorkFlow Implementation of checkpoint.
      * @param factory Page writer factory.
-     * @param checkpointWritePageThreads The number of IO-bound threads which will write pages to disk.
-     * @param checkpointFrequencySupplier Supplier interval in ms after which the checkpoint is triggered if there are no other events.
-     * @param checkpointFrequencyDeviationSupplier Deviation of checkpoint frequency.
+     * @param checkpointConfig Checkpoint configuration.
      */
     Checkpointer(
             IgniteLogger log,
@@ -150,23 +144,19 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             @Nullable LongJvmPauseDetector detector,
             CheckpointWorkflow checkpointWorkFlow,
             CheckpointPagesWriterFactory factory,
-            int checkpointWritePageThreads,
-            LongSupplier checkpointFrequencySupplier,
-            IntSupplier checkpointFrequencyDeviationSupplier
+            PageMemoryCheckpointConfiguration checkpointConfig
     ) {
         super(log, igniteInstanceName, "checkpoint-thread", workerListener);
 
         this.pauseDetector = detector;
-        // TODO: IGNITE-16984 Move to config
-        this.checkpointFrequencySupplier = checkpointFrequencySupplier;
-        // TODO: IGNITE-16984 Move to config
-        this.checkpointFrequencyDeviationSupplier = checkpointFrequencyDeviationSupplier;
+        this.checkpointConfig = checkpointConfig;
         this.checkpointWorkflow = checkpointWorkFlow;
         this.checkpointPagesWriterFactory = factory;
 
         scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
-        // TODO: IGNITE-16984 Move checkpointWritePageThreads to config
+        int checkpointWritePageThreads = checkpointConfig.threads().value();
+
         if (checkpointWritePageThreads > 1) {
             checkpointWritePagesPool = new ThreadPoolExecutor(
                     checkpointWritePageThreads,
@@ -728,9 +718,9 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      * <p>It helps when the cluster makes a checkpoint in the same time in every node.
      */
     long nextCheckpointInterval() {
-        long frequency = checkpointFrequencySupplier.getAsLong();
+        long frequency = checkpointConfig.frequency().value();
 
-        int deviation = checkpointFrequencyDeviationSupplier.getAsInt();
+        int deviation = checkpointConfig.frequencyDeviation().value();
 
         if (deviation == 0) {
             return frequency;
