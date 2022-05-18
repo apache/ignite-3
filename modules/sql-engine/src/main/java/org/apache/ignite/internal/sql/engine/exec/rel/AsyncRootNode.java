@@ -80,7 +80,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      *
      * @see #lastRow
      */
-    private volatile boolean firstRequest = true;
+    private boolean firstRequest = true;
 
     /**
      * Constructor.
