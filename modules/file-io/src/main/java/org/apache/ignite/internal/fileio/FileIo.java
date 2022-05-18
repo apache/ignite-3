@@ -77,6 +77,8 @@ public interface FileIo extends AutoCloseable {
     /**
      * Reads a sequence of bytes from this file into the {@code destBuf}.
      *
+     * <p>Tries to read either until the {@code destBuf} is full or until the end of the file.
+     *
      * @param destBuf Destination byte buffer.
      * @return Number of written bytes.
      * @throws IOException If some I/O error occurs.
@@ -85,6 +87,8 @@ public interface FileIo extends AutoCloseable {
 
     /**
      * Reads a sequence of bytes from this file into the {@code destBuf} starting from specified file {@code position}.
+     *
+     * <p>Tries to read either until the {@code destBuf} is full or until the end of the file.
      *
      * @param destBuf Destination byte buffer.
      * @param position Starting position of file.
@@ -95,6 +99,8 @@ public interface FileIo extends AutoCloseable {
 
     /**
      * Reads an up to {@code len} bytes from this file into the {@code buf}.
+     *
+     * <p>Tries to read either until the {@code len} or until the end of the file.
      *
      * @param buf Destination byte array.
      * @param off The start offset in array {@code buff} at which the data is written.
@@ -137,6 +143,8 @@ public interface FileIo extends AutoCloseable {
     /**
      * Writes a sequence of bytes to this file from the {@code srcBuf}.
      *
+     * <p>Tries to write either the entire {@code srcBuf} or to the end of the file.
+     *
      * @param srcBuf Source buffer.
      * @return Number of written bytes.
      * @throws IOException If some I/O error occurs.
@@ -145,6 +153,8 @@ public interface FileIo extends AutoCloseable {
 
     /**
      * Writes a sequence of bytes to this file from the {@code srcBuf} starting from specified file {@code position}.
+     *
+     * <p>Tries to write either the entire {@code srcBuf} or to the end of the file.
      *
      * @param srcBuf Source buffer.
      * @param position Starting file position.
@@ -155,6 +165,8 @@ public interface FileIo extends AutoCloseable {
 
     /**
      * Writes {@code len} bytes from the {@code buf} starting at offset {@code off} to this file.
+     *
+     * <p>Tries to write either to the {@code len} or to the end of the file.
      *
      * @param buf Source byte array.
      * @param off Start offset in the {@code buffer}.
@@ -215,7 +227,7 @@ public interface FileIo extends AutoCloseable {
      *
      * <p>This is a synchronous operation, so performing it on asynchronous channels makes no sense and not provided.
      *
-     * @param position The relative offset of the file where the transfer begins from.
+     * @param position Starting file position.
      * @param count The number of bytes to be transferred.
      * @param target Destination channel of the transfer.
      * @return Count of bytes which was successfully transferred.
@@ -229,7 +241,7 @@ public interface FileIo extends AutoCloseable {
      * Transfers bytes into this file from the given readable byte channel.
      *
      * @param src The source channel.
-     * @param position The position within the file at which the transfer is to begin.
+     * @param position Starting file position.
      * @param count The maximum number of bytes to be transferred.
      * @return The number of bytes, possibly zero, that were actually transferred.
      * @throws IOException If fails.

@@ -22,43 +22,21 @@ import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
- * For {@link AsyncFileIo} testing.
+ * For {@link FileIoDecorator} testing.
  */
-public class AsyncFileIoTest extends AbstractFileIoTest {
+public class FileIoDecoratorTest extends AbstractFileIoTest {
     @BeforeEach
     void setUp() {
-        fileIoFactory = new AsyncFileIoFactory();
+        fileIoFactory = (filePath, modes) -> new FileIoDecorator(new RandomAccessFileIo(filePath, modes));
     }
 
-    /** {@inheritDoc} */
-    @Test
     @Override
     void testFileIoFactory() throws Exception {
-        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(AbstractFileIo.class));
-        assertThat(fileIoFactory.create(workDir.resolve("test1"), CREATE, READ, WRITE), instanceOf(AbstractFileIo.class));
-    }
-
-    @Test
-    @Override
-    void testMap() {
-        assertThrows(UnsupportedOperationException.class, super::testMap);
-    }
-
-    @Test
-    @Override
-    void testTransferTo() {
-        assertThrows(UnsupportedOperationException.class, super::testTransferTo);
-    }
-
-    @Test
-    @Override
-    void testTransferFrom() {
-        assertThrows(UnsupportedOperationException.class, super::testTransferFrom);
+        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(FileIoDecorator.class));
+        assertThat(fileIoFactory.create(workDir.resolve("test1"), CREATE, READ, WRITE), instanceOf(FileIoDecorator.class));
     }
 }
