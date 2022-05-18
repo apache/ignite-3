@@ -191,7 +191,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         };
         clusterNodeResolver = topologyService::getByAddress;
 
-        tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
+        tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
         this.schemaManager.listen(SchemaEvent.COMPLETE, (parameters, e) -> {
             tablesByIdVv.complete(parameters.causalityToken());

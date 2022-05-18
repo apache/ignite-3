@@ -294,20 +294,20 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private void rebuild(long causalityToken, CompletableFuture<Map<String, IgniteSchema>> schemasFut) {
         schemasFut.thenCompose(schemas -> {
-                SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
+            SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-                newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+            newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
-                schemas.forEach(newCalciteSchema::add);
+            schemas.forEach(newCalciteSchema::add);
 
-                return calciteSchemaVv.update(causalityToken, (s, e) -> {
-                    if (e != null) {
-                        return failedFuture(e);
-                    }
+            return calciteSchemaVv.update(causalityToken, (s, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-                    return completedFuture(newCalciteSchema);
-                });
+                return completedFuture(newCalciteSchema);
             });
+        });
     }
 
     private IgniteTableImpl convert(TableImpl table) {

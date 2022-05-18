@@ -111,26 +111,49 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
 
-        createSchema(causalityToken, tblId, tableName, schemaDescriptor);
+        CompletableFuture<?> res = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
 
         fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null);
 
-        return completedFuture(null);
+        return res;
     }
 
-    private void createSchema(long causalityToken, UUID tableId, String tableName, SchemaDescriptor schemaDescriptor) {
+    /**
+     * Create new schema locally.
+     *
+     * @param causalityToken Causality token.
+     * @param tableId Table id.
+     * @param tableName Table name.
+     * @param schemaDescriptor Schema descriptor.
+     * @return Create schema future.
+     */
+    private CompletableFuture<?> createSchema(long causalityToken, UUID tableId, String tableName, SchemaDescriptor schemaDescriptor) {
         if (!busyLock.enterBusy()) {
             throw new IgniteException(new NodeStoppingException());
         }
 
         try {
-            createSchemaInternal(causalityToken, tableId, tableName, schemaDescriptor);
+            return createSchemaInternal(causalityToken, tableId, tableName, schemaDescriptor);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<?> createSchemaInternal(long causalityToken, UUID tableId, String tableName, SchemaDescriptor schemaDescriptor) {
+    /**
+     * Internal method for creating schema locally.
+     *
+     * @param causalityToken Causality token.
+     * @param tableId Table id.
+     * @param tableName Table name.
+     * @param schemaDescriptor Schema descriptor.
+     * @return Create schema future.
+     */
+    private CompletableFuture<?> createSchemaInternal(
+        long causalityToken,
+        UUID tableId,
+        String tableName,
+        SchemaDescriptor schemaDescriptor
+    ) {
         return registriesVv.update(causalityToken, (registries, e) -> {
             if (e != null) {
                 return failedFuture(new IgniteInternalException(IgniteStringFormatter.format(
@@ -154,6 +177,14 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         });
     }
 
+    /**
+     * Create schema registry for the table.
+     *
+     * @param tableId Table id.
+     * @param tableName Table name.
+     * @param initialSchema Initial schema for the registry.
+     * @return Schema registry.
+     */
     private SchemaRegistryImpl createSchemaRegistry(UUID tableId, String tableName, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(ver -> {
             if (!busyLock.enterBusy()) {
