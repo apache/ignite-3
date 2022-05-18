@@ -31,6 +31,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.NotNull;
@@ -169,8 +170,16 @@ public class TransactionImpl implements InternalTransaction {
                     address, commit, timestamp, local, entry.getValue());
         }
 
+        Set<NetworkAddress> allEnlistedNodes = new HashSet<>();
+
+        for (RaftGroupService svc : enlisted) {
+            for (Peer peer : svc.peers()) {
+                allEnlistedNodes.add(peer.address());
+            }
+        }
+
         // Handle coordinator's tx.
-        futs[i] = tmp.containsKey(address) ? CompletableFuture.completedFuture(null) :
+        futs[i] = allEnlistedNodes.contains(address) ? CompletableFuture.completedFuture(null) :
                 commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
 
         return CompletableFuture.allOf(futs);

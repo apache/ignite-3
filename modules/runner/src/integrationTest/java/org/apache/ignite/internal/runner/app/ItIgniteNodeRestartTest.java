@@ -898,12 +898,17 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
      * @param testInfo Test info.
      */
     @Test
-    @Disabled("IGNITE-16718")
     public void testCfgGap(TestInfo testInfo) {
         final int nodes = 4;
 
+        String nodeFinderConfig = IntStream.range(0, nodes)
+                .mapToObj(i -> "\"localhost:" + (DEFAULT_NODE_PORT + i) + "\"")
+                .collect(joining(",", "[", "]"));
+
         for (int i = 0; i < nodes; i++) {
-            startNode(testInfo, i);
+            String cfg = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + i, nodeFinderConfig);
+
+            startNode(testInfo, i, null, null, cfg);
         }
 
         createTableWithData(CLUSTER_NODES.get(0), "t1", nodes);
@@ -920,7 +925,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
 
         log.info("Starting the node.");
 
-        Ignite newNode = startNode(nodes - 1, igniteName, null, workDir);
+        String nodeCfg = IgniteStringFormatter.format(NODE_BOOTSTRAP_CFG, DEFAULT_NODE_PORT + nodes - 1, nodeFinderConfig);
+
+        startNode(nodes - 1, igniteName, nodeCfg, workDir);
 
         checkTableWithData(CLUSTER_NODES.get(0), "t1");
         checkTableWithData(CLUSTER_NODES.get(0), "t2");
