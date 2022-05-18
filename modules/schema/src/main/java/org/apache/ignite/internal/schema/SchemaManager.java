@@ -149,10 +149,10 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
      * @return Create schema future.
      */
     private CompletableFuture<?> createSchemaInternal(
-        long causalityToken,
-        UUID tableId,
-        String tableName,
-        SchemaDescriptor schemaDescriptor
+            long causalityToken,
+            UUID tableId,
+            String tableName,
+            SchemaDescriptor schemaDescriptor
     ) {
         return registriesVv.update(causalityToken, (registries, e) -> {
             if (e != null) {
