@@ -23,24 +23,32 @@ namespace Apache.Ignite.Tests.Compute
     using System.Net;
     using System.Threading.Tasks;
     using Ignite.Compute;
+    using Ignite.Table;
     using Internal.Network;
     using Network;
     using NUnit.Framework;
+    using Table;
 
     /// <summary>
     /// Tests <see cref="ICompute"/>.
     /// </summary>
     public class ComputeTests : IgniteTestsBase
     {
-        private const string ConcatJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$ConcatJob";
+        private const string ItThinClientComputeTest = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
-        private const string NodeNameJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$NodeNameJob";
+        private const string ConcatJob = ItThinClientComputeTest + "$ConcatJob";
 
-        private const string ErrorJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$ErrorJob";
+        private const string NodeNameJob = ItThinClientComputeTest + "$NodeNameJob";
 
-        private const string EchoJob = "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob";
+        private const string ErrorJob = ItThinClientComputeTest + "$ErrorJob";
+
+        private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
 
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
+
+        private const string CreateTableJob = PlatformTestNodeRunner + "$CreateTableJob";
+
+        private const string DropTableJob = PlatformTestNodeRunner + "$DropTableJob";
 
         [Test]
         public async Task TestGetClusterNodes()
@@ -174,6 +182,69 @@ namespace Apache.Ignite.Tests.Compute
                 var res = await Client.Compute.ExecuteAsync<object>(await Client.GetClusterNodesAsync(), EchoJob, val);
 
                 Assert.AreEqual(expected ?? val, res);
+            }
+        }
+
+        [Test]
+        [TestCase(1, "")]
+        [TestCase(2, "_2")]
+        [TestCase(3, "")]
+        [TestCase(5, "_2")]
+        public async Task TestExecuteColocated(int key, string nodeName)
+        {
+            var keyTuple = new IgniteTuple { [KeyCol] = key };
+            var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(TableName, keyTuple, NodeNameJob);
+
+            var keyPoco = new Poco { Key = key };
+            var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string, Poco>(TableName, keyPoco, NodeNameJob);
+
+            var expectedNodeName = PlatformTestNodeRunner + nodeName;
+            Assert.AreEqual(expectedNodeName, resNodeName);
+            Assert.AreEqual(expectedNodeName, resNodeName2);
+        }
+
+        [Test]
+        public void TestExecuteColocatedThrowsWhenTableDoesNotExist()
+        {
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+                await Client.Compute.ExecuteColocatedAsync<string>("unknownTable", new IgniteTuple(), EchoJob));
+
+            Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
+        }
+
+        [Test]
+        public void TestExecuteColocatedThrowsWhenKeyColumnIsMissing()
+        {
+            var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
+                await Client.Compute.ExecuteColocatedAsync<string>(TableName, new IgniteTuple(), EchoJob));
+
+            StringAssert.Contains("Missed key column: KEY", ex!.Message);
+        }
+
+        [Test]
+        public async Task TestExecuteColocatedUpdatesTableCacheOnTableDrop()
+        {
+            // Create table and use it in ExecuteColocated.
+            var nodes = await GetNodeAsync(0);
+            var tableName = await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, "PUB.drop-me");
+
+            try
+            {
+                var keyTuple = new IgniteTuple { [KeyCol] = 1 };
+                var resNodeName = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, NodeNameJob);
+
+                // Drop table and create a new one with a different ID, then execute a computation again.
+                // This should update the cached table and complete the computation successfully.
+                await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
+                await Client.Compute.ExecuteAsync<string>(nodes, CreateTableJob, tableName);
+
+                var resNodeName2 = await Client.Compute.ExecuteColocatedAsync<string>(tableName, keyTuple, NodeNameJob);
+
+                Assert.AreEqual(resNodeName, resNodeName2);
+            }
+            finally
+            {
+                await Client.Compute.ExecuteAsync<string>(nodes, DropTableJob, tableName);
             }
         }
 

@@ -52,6 +52,11 @@ namespace Apache.Ignite.Internal.Table
             _ser = ser;
         }
 
+        /// <summary>
+        /// Gets the record serializer.
+        /// </summary>
+        public RecordSerializer<T> RecordSerializer => _ser;
+
         /// <inheritdoc/>
         public async Task<T?> GetAsync(ITransaction? transaction, T key)
         {
