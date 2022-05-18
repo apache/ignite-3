@@ -1,17 +1,20 @@
 # Catching up process
 
 ## Entry point:
+
 We have a closure named `NodeImpl.OnCaughtUp`, which is responsible for the catching up process for every stale node/replicator on a leader.
 This closure is created every time we call `NodeImpl.ConfigurationCtx#addNewPeers` which happens on a raft configuration change, for example
 when we call `NodeImpl#changePeers`. In `NodeImpl.ConfigurationCtx#addNewPeers` method we assign `OnCaughtUp` closure with a corresponding
 replicator for a stale node. This is done inside `ReplicatorGroupImpl#waitCaughtUp`
-by calling `Replicator#waitForCaughtUp`. To be more precise, we save the closure in a filed `Replicator#catchUpClosure` and also we schedule
-timer on a replicator to call `Replicator#onCatchUpTimedOut` (by default it's called after election timeout).
+by calling `Replicator#waitForCaughtUp`. To be more precise, we save the closure in a field `Replicator#catchUpClosure` and also we schedule
+timer on a replicator to call `Replicator#onCatchUpTimedOut` (by default it is called after election timeout).
 
 ## Closure invocation
-So, we saved closure, it is time to discuss what happens when the closure is run. It happens in `Replicator#notifyOnCaughtUp`, we also call
-this method with a status of success or failure of a catching up process. When the closure is run, `NodeImpl#onCaughtUp` is called, this
-method checks the status of a process and here we have several outcomes:
+
+So, we saved closure, it is time to discuss what happens when the closure is run. It happens in `Replicator#notifyOnCaughtUp`, we call this
+method with a status of success or failure of a catching up process and propagate it to the closure by setting `Status.setError(int,
+java.lang.String, java.lang.Object...)`. When the closure is run, `NodeImpl#onCaughtUp` is called, this method checks the status of a process
+and here we have several outcomes:
 
 - `Status` is `OK` and `NodeImpl.ConfigurationCtx#onCaughtUp` with a success flag equals true is called, so we can move
   to `NodeImpl.ConfigurationCtx.nextStage` in a configuration changing process.
@@ -25,6 +28,7 @@ method checks the status of a process and here we have several outcomes:
   passed to `RaftGroupEventsListener#onReconfigurationError`.
 
 ## Where the closure is invoked 
+
 Now let's discuss, when this closure is run. As we said before, it happens in `Replicator#notifyOnCaughtUp`, 
 so lets track who call `Replicator#Replicator#notifyOnCaughtUp`
 
@@ -48,7 +52,7 @@ Calls with error statuses:
   leader stepped down, or when node was shutdown, etc. Let's consider all places where `Replicator#onError` with `RaftError.ESTOP` can happen, to
   do that we need to trace `Replicator#stop`
   - `NodeImpl#shutdown(org.apache.ignite.raft.jraft.Closure)` -- node shutdown case 
-  - `ReplicatorGroupImpl#stopAll` -- happend when a leader step down NodeImpl#stepDown. 
+  - `ReplicatorGroupImpl#stopAll` -- happens when a leader steps down, including stopping all replicators. See `NodeImpl#stepDown`. 
   - `ReplicatorGroupImpl#stopReplicator` -- this happens when we call `ConfigurationCtx#reset(org.apache.ignite.raft.jraft.Status)`, 
   when we successfully or not successfully changed configuration, so we have to start or stop replicators for new peers. 
   - `ReplicatorGroupImpl#stopAllAndFindTheNextCandidate` -- called when a leader step down, in case we make
@@ -56,7 +60,8 @@ Calls with error statuses:
 
   
 ## Waking up optimisation
-When leader faces some problem, it can make some optimisation when it steps down, to start new voting with a new candidate immediately. In
-that case, instead of stopping all replicators as usual, it preserves one replicator for stopping and sends to it `TimeoutNowRequest`. When
+
+When leader faces some problem, it makes some optimisation when it steps down, to start a new voting with a new candidate immediately. In
+that case, instead of stopping all replicators as usual, it preserves one replicator for stopping and sends `TimeoutNowRequest` to it. When
 the node receives that request, it elects itself and starts voting. Failed leader chose such node by searching the node with the largest 
 log id among peers in the current configuration. For more details see `ReplicatorGroupImpl#stopAllAndFindTheNextCandidate` 
