@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.fileio;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -37,11 +32,9 @@ public class AsyncFileIoTest extends AbstractFileIoTest {
     }
 
     /** {@inheritDoc} */
-    @Test
     @Override
-    void testFileIoFactory() throws Exception {
-        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(AbstractFileIo.class));
-        assertThat(fileIoFactory.create(workDir.resolve("test1"), CREATE, READ, WRITE), instanceOf(AbstractFileIo.class));
+    protected Class<? extends FileIo> fileIoClass() {
+        return AsyncFileIo.class;
     }
 
     @Test

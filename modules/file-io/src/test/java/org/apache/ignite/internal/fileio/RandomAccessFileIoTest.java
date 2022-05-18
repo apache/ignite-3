@@ -17,12 +17,7 @@
 
 package org.apache.ignite.internal.fileio;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * For {@link RandomAccessFileIo} testing.
@@ -34,10 +29,8 @@ public class RandomAccessFileIoTest extends AbstractFileIoTest {
     }
 
     /** {@inheritDoc} */
-    @Test
     @Override
-    void testFileIoFactory() throws Exception {
-        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(RandomAccessFileIo.class));
-        assertThat(fileIoFactory.create(workDir.resolve("test0"), CREATE), instanceOf(RandomAccessFileIo.class));
+    protected Class<? extends FileIo> fileIoClass() {
+        return RandomAccessFileIo.class;
     }
 }

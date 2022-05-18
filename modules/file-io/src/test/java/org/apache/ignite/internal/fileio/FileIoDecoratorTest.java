@@ -17,12 +17,6 @@
 
 package org.apache.ignite.internal.fileio;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.READ;
-import static java.nio.file.StandardOpenOption.WRITE;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -34,9 +28,9 @@ public class FileIoDecoratorTest extends AbstractFileIoTest {
         fileIoFactory = (filePath, modes) -> new FileIoDecorator(new RandomAccessFileIo(filePath, modes));
     }
 
+    /** {@inheritDoc} */
     @Override
-    void testFileIoFactory() throws Exception {
-        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(FileIoDecorator.class));
-        assertThat(fileIoFactory.create(workDir.resolve("test1"), CREATE, READ, WRITE), instanceOf(FileIoDecorator.class));
+    protected Class<? extends FileIo> fileIoClass() {
+        return FileIoDecorator.class;
     }
 }

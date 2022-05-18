@@ -21,7 +21,10 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.Arrays.copyOfRange;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +40,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * An abstract class for testing {@link FileIo} implementations.
@@ -48,8 +52,16 @@ public abstract class AbstractFileIoTest {
     @WorkDirectory
     protected Path workDir;
 
+    /**
+     * Returns the class inheritor of {@link FileIo} that should be created from {@link #fileIoFactory}.
+     */
+    protected abstract Class<? extends FileIo> fileIoClass();
+
     @Test
-    abstract void testFileIoFactory() throws Exception;
+    void testFileIoFactory() throws Exception {
+        assertThat(fileIoFactory.create(workDir.resolve("test0")), instanceOf(fileIoClass()));
+        assertThat(fileIoFactory.create(workDir.resolve("test1"), CREATE, READ, WRITE), instanceOf(fileIoClass()));
+    }
 
     @Test
     void testPosition() throws Exception {
@@ -64,344 +76,62 @@ public abstract class AbstractFileIoTest {
 
     @Test
     void testRead() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        writeBytes(testFilePath, randomBytes);
-
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.read(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 0, 1024), toByteArray(buffer));
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), toByteArray(buffer));
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), toByteArray(buffer));
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 3 * 1024, 4 * 1024), toByteArray(buffer));
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(-1, fileIo.read(buffer.rewind()));
-        assertEquals(4 * 1024, fileIo.position());
+        checkReadOperation(FileIo::read);
     }
 
     @Test
     void testReadByPosition() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        writeBytes(testFilePath, randomBytes);
-
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.read(buffer.rewind(), 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), toByteArray(buffer));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer.rewind(), 2 * 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), toByteArray(buffer));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(-1, fileIo.read(buffer.rewind(), 4 * 1024));
-        assertEquals(0, fileIo.position());
+        checkReadByPositionOperation((fileIo, position, buffer) -> fileIo.read(buffer, position));
     }
 
     @Test
     void testReadToByteArray() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        writeBytes(testFilePath, randomBytes);
-
-        byte[] buffer = new byte[1024];
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.read(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 0, 1024), buffer);
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), buffer);
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), buffer);
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.read(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 3 * 1024, 4 * 1024), buffer);
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(-1, fileIo.read(buffer, 0, 1024));
-        assertEquals(4 * 1024, fileIo.position());
+        checkReadOperation((fileIo, buffer) -> fileIo.read(buffer.array(), 0, 1024));
     }
 
     @Test
     void testReadFully() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        writeBytes(testFilePath, randomBytes);
-
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.readFully(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 0, 1024), toByteArray(buffer));
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), toByteArray(buffer));
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), toByteArray(buffer));
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer.rewind()));
-        assertArrayEquals(copyOfRange(randomBytes, 3 * 1024, 4 * 1024), toByteArray(buffer));
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(-1, fileIo.readFully(buffer.rewind()));
-        assertEquals(4 * 1024, fileIo.position());
+        checkReadOperation(FileIo::readFully);
     }
 
     @Test
     void testReadByPositionFully() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        writeBytes(testFilePath, randomBytes);
-
-        ByteBuffer buffer = ByteBuffer.allocate(1024);
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.readFully(buffer.rewind(), 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), toByteArray(buffer));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer.rewind(), 2 * 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), toByteArray(buffer));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(-1, fileIo.readFully(buffer.rewind(), 4 * 1024));
-        assertEquals(0, fileIo.position());
+        checkReadByPositionOperation((fileIo, position, buffer) -> fileIo.read(buffer, position));
     }
 
     @Test
     void testReadToByteArrayFully() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        writeBytes(testFilePath, randomBytes);
-
-        byte[] buffer = new byte[1024];
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.readFully(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 0, 1024), buffer);
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), buffer);
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), buffer);
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.readFully(buffer, 0, 1024));
-        assertArrayEquals(copyOfRange(randomBytes, 3 * 1024, 4 * 1024), buffer);
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(-1, fileIo.readFully(buffer, 0, 1024));
-        assertEquals(4 * 1024, fileIo.position());
+        checkReadOperation((fileIo, buffer) -> fileIo.readFully(buffer.array(), 0, 1024));
     }
 
     @Test
     void testWrite() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.write(ByteBuffer.wrap(copyOfRange(randomBytes, 0, 1024))));
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.write(ByteBuffer.wrap(copyOfRange(randomBytes, 1024, 2 * 1024))));
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.write(ByteBuffer.wrap(copyOfRange(randomBytes, 2 * 1024, 3 * 1024))));
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.write(ByteBuffer.wrap(copyOfRange(randomBytes, 3 * 1024, 4 * 1024))));
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(0, fileIo.write(ByteBuffer.wrap(new byte[0])));
-        assertEquals(4 * 1024, fileIo.position());
-
-        fileIo.force();
-
-        assertArrayEquals(randomBytes, toByteArray(testFilePath));
+        checkWriteOperation(FileIo::write);
     }
 
     @Test
     void testWriteByPosition() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.write(ByteBuffer.wrap(copyOfRange(randomBytes, 1024, 2 * 1024)), 1024));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(1024, fileIo.write(ByteBuffer.wrap(copyOfRange(randomBytes, 3 * 1024, 4 * 1024)), 2 * 1024));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(0, fileIo.write(ByteBuffer.wrap(new byte[0]), 3 * 1024));
-        assertEquals(0, fileIo.position());
-
-        fileIo.force();
-
-        byte[] expectedBytes = new byte[3 * 1024];
-
-        System.arraycopy(randomBytes, 1024, expectedBytes, 1024, 1024);
-        System.arraycopy(randomBytes, 3 * 1024, expectedBytes, 2 * 1024, 1024);
-
-        assertArrayEquals(expectedBytes, toByteArray(testFilePath));
+        checkWriteByPositionOperation((fileIo, position, buffer) -> fileIo.write(buffer, position));
     }
 
     @Test
     void testWriteFromByteArray() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.write(randomBytes, 0, 1024));
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.write(randomBytes, 1024, 1024));
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.write(randomBytes, 2 * 1024, 1024));
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.write(randomBytes, 3 * 1024, 1024));
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(0, fileIo.write(randomBytes, 4 * 1024, 0));
-        assertEquals(4 * 1024, fileIo.position());
-
-        fileIo.force();
-
-        assertArrayEquals(randomBytes, toByteArray(testFilePath));
+        checkWriteFromByteArrayOperation((fileIo, off, bytes) -> fileIo.write(bytes, (int) off, Math.min(1024, bytes.length)));
     }
 
     @Test
     void testWriteFully() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.writeFully(ByteBuffer.wrap(copyOfRange(randomBytes, 0, 1024))));
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(ByteBuffer.wrap(copyOfRange(randomBytes, 1024, 2 * 1024))));
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(ByteBuffer.wrap(copyOfRange(randomBytes, 2 * 1024, 3 * 1024))));
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(ByteBuffer.wrap(copyOfRange(randomBytes, 3 * 1024, 4 * 1024))));
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(0, fileIo.writeFully(ByteBuffer.wrap(new byte[0])));
-        assertEquals(4 * 1024, fileIo.position());
-
-        fileIo.force();
-
-        assertArrayEquals(randomBytes, toByteArray(testFilePath));
+        checkWriteOperation(FileIo::writeFully);
     }
 
     @Test
     void testWriteByPositionFully() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.writeFully(ByteBuffer.wrap(copyOfRange(randomBytes, 1024, 2 * 1024)), 1024));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(ByteBuffer.wrap(copyOfRange(randomBytes, 3 * 1024, 4 * 1024)), 2 * 1024));
-        assertEquals(0, fileIo.position());
-
-        assertEquals(0, fileIo.writeFully(ByteBuffer.wrap(new byte[0]), 3 * 1024));
-        assertEquals(0, fileIo.position());
-
-        fileIo.force();
-
-        byte[] expectedBytes = new byte[3 * 1024];
-
-        System.arraycopy(randomBytes, 1024, expectedBytes, 1024, 1024);
-        System.arraycopy(randomBytes, 3 * 1024, expectedBytes, 2 * 1024, 1024);
-
-        assertArrayEquals(expectedBytes, toByteArray(testFilePath));
+        checkWriteByPositionOperation((fileIo, position, buffer) -> fileIo.writeFully(buffer, position));
     }
 
     @Test
     void testWriteFromByteArrayFully() throws Exception {
-        byte[] randomBytes = randomByteArray(4 * 1024);
-
-        Path testFilePath = workDir.resolve("test");
-
-        FileIo fileIo = fileIoFactory.create(testFilePath);
-
-        assertEquals(1024, fileIo.writeFully(randomBytes, 0, 1024));
-        assertEquals(1024, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(randomBytes, 1024, 1024));
-        assertEquals(2 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(randomBytes, 2 * 1024, 1024));
-        assertEquals(3 * 1024, fileIo.position());
-
-        assertEquals(1024, fileIo.writeFully(randomBytes, 3 * 1024, 1024));
-        assertEquals(4 * 1024, fileIo.position());
-
-        assertEquals(0, fileIo.writeFully(randomBytes, 4 * 1024, 0));
-        assertEquals(4 * 1024, fileIo.position());
-
-        fileIo.force();
-
-        assertArrayEquals(randomBytes, toByteArray(testFilePath));
+        checkWriteFromByteArrayOperation((fileIo, off, bytes) -> fileIo.writeFully(bytes, (int) off, Math.min(1024, bytes.length)));
     }
 
     @Test
@@ -419,6 +149,12 @@ public abstract class AbstractFileIoTest {
         assertEquals(1024, mmap.capacity());
     }
 
+    /**
+     * Checks that no exceptions will be thrown when calling {@link FileIo#force()} and {@link FileIo#force(boolean)}, and after calling
+     * these methods, the written content can be read from the file (or os cache).
+     *
+     * @throws Exception If failed.
+     */
     @Test
     void testForce() throws Exception {
         Path testFilePath = workDir.resolve("test");
@@ -429,7 +165,7 @@ public abstract class AbstractFileIoTest {
 
         assertEquals(1024, fileIo.writeFully(randomBytes));
 
-        fileIo.force();
+        assertDoesNotThrow((Executable) fileIo::force);
 
         assertArrayEquals(toByteArray(randomBytes), toByteArray(testFilePath));
 
@@ -437,7 +173,7 @@ public abstract class AbstractFileIoTest {
 
         assertEquals(1024, fileIo.writeFully(randomBytes, 0));
 
-        fileIo.force(true);
+        assertDoesNotThrow(() -> fileIo.force(true));
 
         assertArrayEquals(toByteArray(randomBytes), toByteArray(testFilePath));
 
@@ -445,7 +181,7 @@ public abstract class AbstractFileIoTest {
 
         assertEquals(1024, fileIo.writeFully(randomBytes, 0));
 
-        fileIo.force(false);
+        assertDoesNotThrow(() -> fileIo.force(false));
 
         assertArrayEquals(toByteArray(randomBytes), toByteArray(testFilePath));
     }
@@ -560,7 +296,151 @@ public abstract class AbstractFileIoTest {
         assertArrayEquals(expectedBytes, toByteArray(test1FilePath));
     }
 
-    // TODO: IGNITE-16988 continue write tests
+    private void checkReadOperation(IoOperation<ByteBuffer, Integer> readOperation) throws Exception {
+        byte[] randomBytes = randomByteArray(4 * 1024);
+
+        Path testFilePath = workDir.resolve("test");
+
+        writeBytes(testFilePath, randomBytes);
+
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+        FileIo fileIo = fileIoFactory.create(testFilePath);
+
+        assertEquals(1024, readOperation.apply(fileIo, buffer.rewind()));
+        assertArrayEquals(copyOfRange(randomBytes, 0, 1024), toByteArray(buffer));
+        assertEquals(1024, fileIo.position());
+
+        assertEquals(1024, readOperation.apply(fileIo, buffer.rewind()));
+        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), toByteArray(buffer));
+        assertEquals(2 * 1024, fileIo.position());
+
+        assertEquals(1024, readOperation.apply(fileIo, buffer.rewind()));
+        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), toByteArray(buffer));
+        assertEquals(3 * 1024, fileIo.position());
+
+        assertEquals(1024, readOperation.apply(fileIo, buffer.rewind()));
+        assertArrayEquals(copyOfRange(randomBytes, 3 * 1024, 4 * 1024), toByteArray(buffer));
+        assertEquals(4 * 1024, fileIo.position());
+
+        assertEquals(-1, readOperation.apply(fileIo, buffer.rewind()));
+        assertEquals(4 * 1024, fileIo.position());
+    }
+
+    private void checkReadByPositionOperation(IoOperationByPosition<ByteBuffer, Integer> readOperation) throws Exception {
+        byte[] randomBytes = randomByteArray(4 * 1024);
+
+        Path testFilePath = workDir.resolve("test");
+
+        writeBytes(testFilePath, randomBytes);
+
+        ByteBuffer buffer = ByteBuffer.allocate(1024);
+
+        FileIo fileIo = fileIoFactory.create(testFilePath);
+
+        assertEquals(1024, readOperation.apply(fileIo, 1024, buffer.rewind()));
+        assertArrayEquals(copyOfRange(randomBytes, 1024, 2 * 1024), toByteArray(buffer));
+        assertEquals(0, fileIo.position());
+
+        assertEquals(1024, readOperation.apply(fileIo, 2 * 1024, buffer.rewind()));
+        assertArrayEquals(copyOfRange(randomBytes, 2 * 1024, 3 * 1024), toByteArray(buffer));
+        assertEquals(0, fileIo.position());
+
+        assertEquals(-1, readOperation.apply(fileIo, 4 * 1024, buffer.rewind()));
+        assertEquals(0, fileIo.position());
+    }
+
+    private void checkWriteOperation(IoOperation<ByteBuffer, Integer> writeOperation) throws Exception {
+        byte[] randomBytes = randomByteArray(4 * 1024);
+
+        ByteBuffer randomByteBuffer = ByteBuffer.wrap(randomBytes);
+
+        Path testFilePath = workDir.resolve("test");
+
+        FileIo fileIo = fileIoFactory.create(testFilePath);
+
+        assertEquals(1024, writeOperation.apply(fileIo, rangeBuffer(randomBytes, 0, 1024)));
+        assertEquals(1024, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, rangeBuffer(randomBytes, 1024, 2 * 1024)));
+        assertEquals(2 * 1024, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, sliceBuffer(randomByteBuffer, 2 * 1024, 3 * 1024)));
+        assertEquals(3 * 1024, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, sliceBuffer(randomByteBuffer, 3 * 1024, 4 * 1024)));
+        assertEquals(4 * 1024, fileIo.position());
+
+        assertEquals(0, writeOperation.apply(fileIo, ByteBuffer.wrap(new byte[0])));
+        assertEquals(4 * 1024, fileIo.position());
+
+        fileIo.force();
+
+        assertArrayEquals(randomBytes, toByteArray(testFilePath));
+    }
+
+    private void checkWriteFromByteArrayOperation(IoOperationByPosition<byte[], Integer> writeOperation) throws Exception {
+        byte[] randomBytes = randomByteArray(4 * 1024);
+
+        Path testFilePath = workDir.resolve("test");
+
+        FileIo fileIo = fileIoFactory.create(testFilePath);
+
+        assertEquals(1024, writeOperation.apply(fileIo, 0, randomBytes));
+        assertEquals(1024, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, 1024, randomBytes));
+        assertEquals(2 * 1024, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, 2 * 1024, randomBytes));
+        assertEquals(3 * 1024, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, 3 * 1024, randomBytes));
+        assertEquals(4 * 1024, fileIo.position());
+
+        assertEquals(0, writeOperation.apply(fileIo, 0, new byte[0]));
+        assertEquals(4 * 1024, fileIo.position());
+
+        fileIo.force();
+
+        assertArrayEquals(randomBytes, toByteArray(testFilePath));
+    }
+
+    private void checkWriteByPositionOperation(IoOperationByPosition<ByteBuffer, Integer> writeOperation) throws Exception {
+        byte[] randomBytes = randomByteArray(4 * 1024);
+
+        ByteBuffer randomByteBuffer = ByteBuffer.wrap(randomBytes);
+
+        Path testFilePath = workDir.resolve("test");
+
+        FileIo fileIo = fileIoFactory.create(testFilePath);
+
+        assertEquals(1024, writeOperation.apply(fileIo, 1024, rangeBuffer(randomBytes, 1024, 2 * 1024)));
+        assertEquals(0, fileIo.position());
+
+        assertEquals(1024, writeOperation.apply(fileIo, 2 * 1024, sliceBuffer(randomByteBuffer, 3 * 1024, 4 * 1024)));
+        assertEquals(0, fileIo.position());
+
+        assertEquals(0, writeOperation.apply(fileIo, 3 * 1024, ByteBuffer.wrap(new byte[0])));
+        assertEquals(0, fileIo.position());
+
+        fileIo.force();
+
+        byte[] expectedBytes = new byte[3 * 1024];
+
+        System.arraycopy(randomBytes, 1024, expectedBytes, 1024, 1024);
+        System.arraycopy(randomBytes, 3 * 1024, expectedBytes, 2 * 1024, 1024);
+
+        assertArrayEquals(expectedBytes, toByteArray(testFilePath));
+    }
+
+    private interface IoOperation<T, R> {
+        R apply(FileIo fileIo, T t) throws IOException;
+    }
+
+    private interface IoOperationByPosition<T, R> {
+        R apply(FileIo fileIo, long position, T t) throws IOException;
+    }
 
     private static void writeBytes(Path filePath, byte[] bytes) throws Exception {
         Files.write(filePath, bytes, CREATE, WRITE);
@@ -584,5 +464,13 @@ public abstract class AbstractFileIoTest {
 
     private static byte[] toByteArray(Path filePath) throws Exception {
         return Files.readAllBytes(filePath);
+    }
+
+    private static ByteBuffer rangeBuffer(byte[] bytes, int from, int to) {
+        return ByteBuffer.wrap(copyOfRange(bytes, from, to));
+    }
+
+    private static ByteBuffer sliceBuffer(ByteBuffer buffer, int from, int to) {
+        return buffer.position(from).limit(to).slice();
     }
 }
