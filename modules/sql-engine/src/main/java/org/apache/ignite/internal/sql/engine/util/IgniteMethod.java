@@ -63,16 +63,16 @@ public enum IgniteMethod {
     /** See {@link FragmentMappingMetadata#fragmentMapping(MappingQueryContext)}. */
     FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class),
 
-    /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)} */
+    /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
 
-    /** See {@link SqlParserUtil#intervalToMillis(String, SqlIntervalQualifier)} */
+    /** See {@link SqlParserUtil#intervalToMillis(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_DAY_TIME(SqlParserUtil.class, "intervalToMillis", String.class, SqlIntervalQualifier.class),
 
-    /** See {@link IgniteSqlFunctions#toString(ByteString)} */
+    /** See {@link IgniteSqlFunctions#toString(ByteString)}. */
     BYTESTRING_TO_STRING(IgniteSqlFunctions.class, "toString", ByteString.class),
 
-    /** See {@link IgniteSqlFunctions#toByteString(String)} */
+    /** See {@link IgniteSqlFunctions#toByteString(String)}. */
     STRING_TO_BYTESTRING(IgniteSqlFunctions.class, "toByteString", String.class);
 
     private final Method method;

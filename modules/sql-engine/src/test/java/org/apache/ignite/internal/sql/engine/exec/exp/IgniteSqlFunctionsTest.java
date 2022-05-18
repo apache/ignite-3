@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 public class IgniteSqlFunctionsTest {
     @Test
     public void testBigDecimalToString() {
-        assertNull(IgniteSqlFunctions.toString((BigDecimal)null));
+        assertNull(IgniteSqlFunctions.toString((BigDecimal) null));
 
         assertEquals(
                 "10",

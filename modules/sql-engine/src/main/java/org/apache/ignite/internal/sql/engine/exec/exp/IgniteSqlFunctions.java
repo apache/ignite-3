@@ -65,6 +65,11 @@ public class IgniteSqlFunctions {
         return x == null ? null : x.toPlainString();
     }
 
+    /** CAST(VARBINARY AS VARCHAR). */
+    public static String toString(ByteString b) {
+        return b == null ? null : new String(b.getBytes(), Commons.typeFactory().getDefaultCharset());
+    }
+
     private static BigDecimal setScale(int precision, int scale, BigDecimal decimal) {
         return precision == IgniteTypeSystem.INSTANCE.getDefaultPrecision(SqlTypeName.DECIMAL)
             ? decimal : decimal.setScale(scale, RoundingMode.HALF_UP);
@@ -151,11 +156,6 @@ public class IgniteSqlFunctions {
     /** CAST(VARCHAR AS VARBINARY). */
     public static ByteString toByteString(String s) {
         return s == null ? null : new ByteString(s.getBytes(Commons.typeFactory().getDefaultCharset()));
-    }
-
-    /** CAST(VARBINARY AS VARCHAR). */
-    public static String toString(ByteString b) {
-        return b == null ? null : new String(b.getBytes(), Commons.typeFactory().getDefaultCharset());
     }
 
     /**
