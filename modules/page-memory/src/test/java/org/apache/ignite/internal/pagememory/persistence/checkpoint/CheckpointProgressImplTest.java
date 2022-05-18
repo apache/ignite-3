@@ -87,25 +87,33 @@ public class CheckpointProgressImplTest {
 
         assertEquals(0, progressImpl.currentCheckpointPagesCount());
 
-        assertNull(progressImpl.writtenPagesCounter());
-        assertNull(progressImpl.syncedPagesCounter());
-        assertNull(progressImpl.evictedPagesCounter());
+        assertEquals(0, progressImpl.writtenPagesCounter().get());
+        assertEquals(0, progressImpl.syncedPagesCounter().get());
+        assertEquals(0, progressImpl.evictedPagesCounter().get());
+
+        progressImpl.writtenPagesCounter().incrementAndGet();
+        progressImpl.syncedPagesCounter().incrementAndGet();
+        progressImpl.evictedPagesCounter().incrementAndGet();
 
         progressImpl.initCounters(100500);
 
         assertEquals(100500, progressImpl.currentCheckpointPagesCount());
 
-        assertNotNull(progressImpl.writtenPagesCounter());
-        assertNotNull(progressImpl.syncedPagesCounter());
-        assertNotNull(progressImpl.evictedPagesCounter());
+        assertEquals(0, progressImpl.writtenPagesCounter().get());
+        assertEquals(0, progressImpl.syncedPagesCounter().get());
+        assertEquals(0, progressImpl.evictedPagesCounter().get());
+
+        progressImpl.writtenPagesCounter().incrementAndGet();
+        progressImpl.syncedPagesCounter().incrementAndGet();
+        progressImpl.evictedPagesCounter().incrementAndGet();
 
         progressImpl.clearCounters();
 
         assertEquals(0, progressImpl.currentCheckpointPagesCount());
 
-        assertNull(progressImpl.writtenPagesCounter());
-        assertNull(progressImpl.syncedPagesCounter());
-        assertNull(progressImpl.evictedPagesCounter());
+        assertEquals(0, progressImpl.writtenPagesCounter().get());
+        assertEquals(0, progressImpl.syncedPagesCounter().get());
+        assertEquals(0, progressImpl.evictedPagesCounter().get());
 
         progressImpl.currentCheckpointPagesCount(42);
 

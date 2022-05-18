@@ -23,7 +23,6 @@ import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
 import static java.nio.file.Files.list;
 import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
@@ -159,16 +158,17 @@ public class CheckpointMarkersStorage {
         assert isDirectory(checkpointDir) : checkpointDir;
 
         try {
-            Map<Boolean, List<Path>> files = list(checkpointDir)
-                    .collect(partitioningBy(path -> parseCheckpointIdFromMarkerFile(path) != null));
+            List<Path> notCheckpointMarkers = list(checkpointDir)
+                    .filter(path -> parseCheckpointIdFromMarkerFile(path) == null)
+                    .collect(toList());
 
-            if (!files.get(false).isEmpty()) {
+            if (!notCheckpointMarkers.isEmpty()) {
                 throw new IgniteInternalCheckedException(
-                        "Not checkpoint markers found, they need to be removed manually: " + files.get(false)
+                        "Not checkpoint markers found, they need to be removed manually: " + notCheckpointMarkers
                 );
             }
 
-            Map<UUID, List<Path>> checkpointMarkers = files.get(true).stream()
+            Map<UUID, List<Path>> checkpointMarkers = list(checkpointDir)
                     .collect(groupingBy(CheckpointMarkersStorage::parseCheckpointIdFromMarkerFile));
 
             List<UUID> checkpointsWithoutEndMarker = checkpointMarkers.entrySet().stream()
