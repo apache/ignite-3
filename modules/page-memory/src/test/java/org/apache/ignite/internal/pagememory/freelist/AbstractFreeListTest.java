@@ -172,7 +172,7 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
 
     private PageMemory createPageMemory(int pageSize) throws Exception {
         dataRegionCfg
-                .change(c -> c.changePageSize(pageSize).changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE))
+                .change(c -> c.changeInitSize(MAX_SIZE).changeMaxSize(MAX_SIZE))
                 .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
@@ -184,7 +184,8 @@ public class AbstractFreeListTest extends BaseIgniteAbstractTest {
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
                 dataRegionCfg,
-                ioRegistry
+                ioRegistry,
+                pageSize
         );
     }
 

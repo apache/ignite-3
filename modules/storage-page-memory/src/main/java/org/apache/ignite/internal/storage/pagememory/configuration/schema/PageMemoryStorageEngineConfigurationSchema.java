@@ -23,7 +23,12 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ExceptKeys;
+import org.apache.ignite.configuration.validation.Immutable;
+import org.apache.ignite.configuration.validation.Max;
+import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.PowerOfTwo;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 
@@ -34,6 +39,14 @@ import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 public class PageMemoryStorageEngineConfigurationSchema {
     /** Name of the default data region. */
     public static final String DEFAULT_DATA_REGION_NAME = "default";
+
+    /** Page size in bytes. */
+    @Immutable
+    @Min(1024)
+    @Max(16 * 1024)
+    @PowerOfTwo
+    @Value(hasDefault = true)
+    public int pageSize = 16 * 1024;
 
     /** Default data region. */
     @Name(DEFAULT_DATA_REGION_NAME)

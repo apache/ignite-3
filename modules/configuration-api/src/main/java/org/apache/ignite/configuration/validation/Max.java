@@ -33,8 +33,6 @@ import java.lang.annotation.Target;
 public @interface Max {
     /**
      * Returns the upper bound for the value.
-     *
-     * @return upper bound for the value.
      */
     long value();
 }

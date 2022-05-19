@@ -59,7 +59,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 (page, fullPageId, pageMemoryEx) -> {
                 },
                 (fullPageId, buf, tag) -> {
-                }
+                },
+                PAGE_SIZE
         );
     }
 

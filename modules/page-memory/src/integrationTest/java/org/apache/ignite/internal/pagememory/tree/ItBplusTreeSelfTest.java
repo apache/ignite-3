@@ -2734,7 +2734,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      */
     protected PageMemory createPageMemory() throws Exception {
         dataRegionCfg
-                .change(c -> c.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
+                .change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
                 .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
@@ -2744,7 +2744,8 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
                 dataRegionCfg,
-                ioRegistry
+                ioRegistry,
+                PAGE_SIZE
         );
     }
 

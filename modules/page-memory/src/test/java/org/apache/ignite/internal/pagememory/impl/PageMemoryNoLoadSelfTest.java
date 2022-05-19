@@ -317,9 +317,10 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-            provider,
-            dataRegionCfg,
-            ioRegistry
+                provider,
+                dataRegionCfg,
+                ioRegistry,
+                PAGE_SIZE
         );
     }
 

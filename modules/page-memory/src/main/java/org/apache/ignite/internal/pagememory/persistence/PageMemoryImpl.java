@@ -57,7 +57,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWAYS;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -125,13 +124,6 @@ import org.jetbrains.annotations.TestOnly;
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
 public class PageMemoryImpl implements PageMemoryEx {
-    /**
-     * When set to {@code true} (default), pages are written to page store without holding segment lock (with delay).
-     * Because other thread may require exactly the same page to be loaded from store, reads are protected by locking.
-     */
-    // TODO: IGNITE-16350 Move to config or something else.
-    public static final String IGNITE_DELAYED_REPLACED_PAGE_WRITE = "IGNITE_DELAYED_REPLACED_PAGE_WRITE";
-
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryImpl.class);
 
@@ -225,6 +217,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      * @param pmPageMgr Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
+     * @param pageSize Page size in bytes.
      */
     public PageMemoryImpl(
             DirectMemoryProvider directMemoryProvider,
@@ -233,7 +226,8 @@ public class PageMemoryImpl implements PageMemoryEx {
             long[] sizes,
             PageReadWriteManager pmPageMgr,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPage
+            PageStoreWriter flushDirtyPage,
+            int pageSize
     ) {
         this.directMemoryProvider = directMemoryProvider;
         this.dataRegionCfg = dataRegionCfg.value();
@@ -242,8 +236,6 @@ public class PageMemoryImpl implements PageMemoryEx {
         this.pmPageMgr = pmPageMgr;
         this.changeTracker = changeTracker;
         this.flushDirtyPage = flushDirtyPage;
-
-        int pageSize = this.dataRegionCfg.pageSize();
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
@@ -268,7 +260,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = getBoolean(IGNITE_DELAYED_REPLACED_PAGE_WRITE, true)
+        delayedPageReplacementTracker = dataRegionCfg.delayedReplacedPageWrite().value()
                 ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
     }
 

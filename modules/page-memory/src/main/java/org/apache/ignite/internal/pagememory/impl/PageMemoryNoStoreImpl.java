@@ -170,18 +170,18 @@ public class PageMemoryNoStoreImpl implements PageMemory {
      * @param directMemoryProvider Memory allocator to use.
      * @param dataRegionCfg Data region configuration.
      * @param ioRegistry IO registry.
+     * @param pageSize Page size in bytes.
      */
     public PageMemoryNoStoreImpl(
             DirectMemoryProvider directMemoryProvider,
             PageMemoryDataRegionConfiguration dataRegionCfg,
-            PageIoRegistry ioRegistry
+            PageIoRegistry ioRegistry,
+            int pageSize
     ) {
         this.directMemoryProvider = directMemoryProvider;
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
         this.dataRegionCfg = dataRegionCfg.value();
-
-        int pageSize = this.dataRegionCfg.pageSize();
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 

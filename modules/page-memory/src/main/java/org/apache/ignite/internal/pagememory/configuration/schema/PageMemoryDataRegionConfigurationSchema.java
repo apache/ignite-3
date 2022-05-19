@@ -21,7 +21,6 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.OneOf;
 
 /**
@@ -57,10 +56,6 @@ public class PageMemoryDataRegionConfigurationSchema {
     @InjectedName
     public String name;
 
-    @Immutable
-    @Value(hasDefault = true)
-    public int pageSize = 16 * 1024;
-
     @Value(hasDefault = true)
     public boolean persistent = false;
 
@@ -92,4 +87,8 @@ public class PageMemoryDataRegionConfigurationSchema {
 
     @Value(hasDefault = true)
     public boolean lazyMemoryAllocation = true;
+
+    /** Write to the page store without holding the segment lock (with a delay) for case of a persistent data region. */
+    @Value(hasDefault = true)
+    public boolean delayedReplacedPageWrite = true;
 }
