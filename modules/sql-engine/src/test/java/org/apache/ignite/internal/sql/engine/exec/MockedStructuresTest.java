@@ -58,6 +58,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -674,6 +675,8 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     }
 
     private TableManager createTableManager() {
+        SchemaManager sm = new SchemaManager(revisionUpdater, tblsCfg);
+
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -681,9 +684,11 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dataStorageManager
+                dataStorageManager,
+                sm
         );
 
+        sm.start();
         tableManager.start();
 
         return tableManager;
