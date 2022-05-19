@@ -738,14 +738,15 @@ public class IgniteUtils {
     public static void awaitForWorkersStop(Collection<IgniteWorker> workers, boolean cancel, @Nullable IgniteLogger log) {
         for (IgniteWorker worker : workers) {
             try {
-                if (cancel)
+                if (cancel) {
                     worker.cancel();
+                }
 
                 worker.join();
-            }
-            catch (Exception e) {
-                if (log != null && log.isWarnEnabled())
+            } catch (Exception e) {
+                if (log != null && log.isWarnEnabled()) {
                     log.warn("Failed to cancel ignite worker [" + worker.toString() + "]: " + e.getMessage());
+                }
             }
         }
     }
