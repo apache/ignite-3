@@ -285,12 +285,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         ) {
             this.schemaHolder = schemaHolder;
         }
-
-        /** {@inheritDoc} */
-        @Override
-        public void remove(@NotNull Throwable exception) {
-            // No-op.
-        }
     }
 
     private static class TableCreatedListener extends AbstractTableEventListener {

@@ -66,6 +66,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
@@ -232,7 +233,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig)
+                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
+                new SchemaManager(revisionUpdater, tblsCfg)
         );
 
         tblManagerFut.complete(tableManager);
@@ -598,7 +600,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig)
+                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
+                new SchemaManager(revisionUpdater, tblsCfg)
         );
 
         tableManager.start();
