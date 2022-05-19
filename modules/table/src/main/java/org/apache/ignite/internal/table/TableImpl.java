@@ -42,8 +42,17 @@ public class TableImpl implements Table {
     /** Internal table. */
     private final InternalTable tbl;
 
-    /** Schema registry. */
-    private final SchemaRegistry schemaReg;
+    /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
+    private volatile SchemaRegistry schemaReg;
+
+    /**
+     * Constructor.
+     *
+     * @param tbl       The table.
+     */
+    public TableImpl(InternalTable tbl) {
+        this.tbl = tbl;
+    }
 
     /**
      * Constructor.
@@ -82,6 +91,15 @@ public class TableImpl implements Table {
      */
     public SchemaRegistry schemaView() {
         return schemaReg;
+    }
+
+    /**
+     * Sets a schema view for the table.
+     */
+    public void schemaView(@NotNull SchemaRegistry schemaReg) {
+        assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + "]";
+
+        this.schemaReg = schemaReg;
     }
 
     /** {@inheritDoc} */
