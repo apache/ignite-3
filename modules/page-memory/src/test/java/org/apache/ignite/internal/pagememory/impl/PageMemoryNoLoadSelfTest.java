@@ -66,7 +66,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() throws Exception {
         dataRegionCfg
-                .change(cfg -> cfg.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
+                .change(cfg -> cfg.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
                 .get(1, SECONDS);
     }
 
