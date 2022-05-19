@@ -66,7 +66,7 @@ public interface AsyncResultSet {
      * table was already existed.
      *
      * <p>Note: when returns {@code false}, then either {@link #affectedRows()} return number of affected rows or {@link #hasRowSet()}
-     * returns {@code true}.
+     * returns {@code true} or conditional DDL query is not applied.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      * @see ResultSet#wasApplied()
