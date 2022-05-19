@@ -51,7 +51,7 @@ public class VersionedValue<T> {
     private static final long NOT_INITIALIZED = -1L;
 
     /** Default history size. */
-    public static final int DEFAULT_HISTORY_SIZE = 2;
+    private static final int DEFAULT_HISTORY_SIZE = 2;
 
     /** Size of stored history. */
     private final int historySize;

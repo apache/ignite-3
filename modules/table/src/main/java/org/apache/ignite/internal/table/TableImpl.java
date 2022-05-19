@@ -52,7 +52,6 @@ public class TableImpl implements Table {
      */
     public TableImpl(InternalTable tbl) {
         this.tbl = tbl;
-        this.schemaReg = schemaReg;
     }
 
     /**

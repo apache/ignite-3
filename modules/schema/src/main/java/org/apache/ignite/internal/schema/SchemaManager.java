@@ -111,11 +111,12 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
 
         SchemaDescriptor schemaDescriptor = SchemaSerializerImpl.INSTANCE.deserialize((schemasCtx.newValue().schema()));
 
-        CompletableFuture<?> res = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
+        CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
 
-        fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null);
+        registriesVv.get(causalityToken)
+            .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null));
 
-        return res;
+        return createSchemaFut;
     }
 
     /**

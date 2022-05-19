@@ -238,11 +238,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 return false;
             }
-
-            /** {@inheritDoc} */
-            @Override public void remove(@NotNull Throwable exception) {
-                // No-op.
-            }
         });
     }
 
@@ -450,7 +445,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
 
-        var table = new TableImpl(internalTable, null);
+        var table = new TableImpl(internalTable);
 
         CompletableFuture<Void> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
 
@@ -467,13 +462,13 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         });
 
         // TODO should be reworked in IGNITE-16763
-        schemaFut.thenCompose(v -> tablesByIdVv.get(causalityToken)).thenRun(() -> {
-            fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+        return tablesByIdVv.get(causalityToken)
+            .thenCompose(v -> schemaFut)
+            .thenRun(() -> {
+                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
 
-            completeApiCreateFuture(table);
-        });
-
-        return schemaFut;
+                completeApiCreateFuture(table);
+            });
     }
 
     /**
