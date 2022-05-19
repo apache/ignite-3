@@ -650,7 +650,7 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
 
         assert runner() == null : "Checkpointer is running.";
 
-        new IgniteThread(igniteInstanceName(), name(), this).start();
+        new IgniteThread(this).start();
     }
 
     /** {@inheritDoc} */

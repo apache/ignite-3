@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -723,6 +724,28 @@ public class IgniteUtils {
         } finally {
             if (interrupted) {
                 Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /**
+     * Stops workers from given collection and waits for their completion.
+     *
+     * @param workers Workers collection.
+     * @param cancel Whether it should cancel workers.
+     * @param log Logger.
+     */
+    public static void awaitForWorkersStop(Collection<IgniteWorker> workers, boolean cancel, @Nullable IgniteLogger log) {
+        for (IgniteWorker worker : workers) {
+            try {
+                if (cancel)
+                    worker.cancel();
+
+                worker.join();
+            }
+            catch (Exception e) {
+                if (log != null && log.isWarnEnabled())
+                    log.warn("Failed to cancel ignite worker [" + worker.toString() + "]: " + e.getMessage());
             }
         }
     }
