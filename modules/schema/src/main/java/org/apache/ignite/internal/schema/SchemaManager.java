@@ -114,7 +114,7 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         CompletableFuture<?> createSchemaFut = createSchema(causalityToken, tblId, tableName, schemaDescriptor);
 
         registriesVv.get(causalityToken)
-            .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null));
+                .thenRun(() -> fireEvent(SchemaEvent.CREATE, new SchemaEventParameters(causalityToken, tblId, schemaDescriptor), null));
 
         return createSchemaFut;
     }
