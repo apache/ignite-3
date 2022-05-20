@@ -22,6 +22,8 @@ import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +50,7 @@ public class RowVersion implements Storable {
     private final Timestamp timestamp;
     private final long nextLink;
     private final int valueSize;
+    @IgniteToStringExclude
     private final ByteBuffer value;
 
     /**
@@ -146,5 +149,10 @@ public class RowVersion implements Storable {
     @Override
     public IoVersions<? extends AbstractDataPageIo> ioVersions() {
         return RowVersionDataIo.VERSIONS;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(RowVersion.class, this);
     }
 }

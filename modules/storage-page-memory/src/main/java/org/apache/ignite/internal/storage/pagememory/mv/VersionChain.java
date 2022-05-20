@@ -22,6 +22,7 @@ import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainDataIo;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,9 +98,6 @@ public class VersionChain extends VersionChainLink implements Storable {
 
     @Override
     public String toString() {
-        return "VersionChain{"
-                + "partitionId=" + partitionId
-                + ", headLink=" + headLink
-                + '}';
+        return S.toString(VersionChain.class, this);
     }
 }
