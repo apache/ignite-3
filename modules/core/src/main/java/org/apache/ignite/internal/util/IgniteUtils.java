@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -267,6 +268,22 @@ public class IgniteUtils {
         for (int i = 0; i < len; i++) {
             // Can not use getLong because on little-endian it produces bs.
             addByteAsHex(sb, GridUnsafe.getByte(addr + i));
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Returns hex representation of memory region.
+     *
+     * @param buf Buffer which content should be converted to string.
+     */
+    public static String toHexString(ByteBuffer buf) {
+        StringBuilder sb = new StringBuilder(buf.capacity() * 2);
+
+        for (int i = 0; i < buf.capacity(); i++) {
+            // Can not use getLong because on little-endian it produces bs.
+            addByteAsHex(sb, buf.get(i));
         }
 
         return sb.toString();
