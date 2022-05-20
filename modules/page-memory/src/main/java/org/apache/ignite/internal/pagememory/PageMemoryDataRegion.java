@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.pagememory;
 
-import java.util.Objects;
-import org.jetbrains.annotations.Nullable;
-
 /**
  * Data region based on {@link PageMemory}.
  */
@@ -30,15 +27,7 @@ public interface PageMemoryDataRegion {
     boolean persistent();
 
     /**
-     * Returns page memory, {@code null} if not started.
-     */
-    @Nullable
-    PageMemory pageMemory();
-
-    /**
      * Returns page memory or throws an exception if not started.
      */
-    default PageMemory requiredPageMemory() {
-        return Objects.requireNonNull(pageMemory());
-    }
+    PageMemory pageMemory();
 }

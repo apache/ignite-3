@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import java.util.Objects;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract data region for {@link PageMemoryStorageEngine}. Based on a {@link PageMemory}.
@@ -64,7 +64,7 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
     /**
      * Returns page memory, {@code null} if not {@link #start started}.
      */
-    public @Nullable PageMemory pageMemory() {
-        return pageMemory;
+    public PageMemory pageMemory() {
+        return Objects.requireNonNull(pageMemory);
     }
 }
