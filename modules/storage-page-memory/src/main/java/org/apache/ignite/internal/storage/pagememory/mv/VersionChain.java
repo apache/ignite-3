@@ -27,6 +27,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents row version chain: that is, all versions of the row plus some row-level metadata.
+ *
+ * <p>NB: this represents the whole set of versions, not just one version in the chain.
  */
 public class VersionChain extends VersionChainLink implements Storable {
     public static long NULL_UUID_COMPONENT = 0;
