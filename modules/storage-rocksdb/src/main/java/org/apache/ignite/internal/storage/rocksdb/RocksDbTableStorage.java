@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -39,6 +40,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -47,7 +49,6 @@ import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorag
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -59,7 +60,7 @@ import org.rocksdb.RocksDBException;
 /**
  * Table storage implementation based on {@link RocksDB} instance.
  */
-class RocksDbTableStorage implements TableStorage {
+class RocksDbTableStorage implements TableStorage, MvTableStorage {
     /** Path for the directory that stores table data. */
     private final Path tablePath;
 
@@ -232,12 +233,6 @@ class RocksDbTableStorage implements TableStorage {
         return storage;
     }
 
-    // This API is not yet ready. But we need to test mv storages anyways.
-    @TestOnly
-    public RocksDbMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle());
-    }
-
     /** {@inheritDoc} */
     @Nullable
     @Override
@@ -261,6 +256,29 @@ class RocksDbTableStorage implements TableStorage {
 
             meta.removePartitionId(partId);
         }
+    }
+
+    @Override
+    public RocksDbMvPartitionStorage createPartition(int partitionId) throws StorageException {
+        getOrCreatePartition(partitionId);
+
+        return partition(partitionId);
+    }
+
+    @Override
+    public RocksDbMvPartitionStorage partition(int partitionId) {
+        if (getPartition(partitionId) == null) {
+            throw new NullPointerException("Partition doesn't exist");
+        }
+
+        return new RocksDbMvPartitionStorage(partitionId, db, partitionCf.handle());
+    }
+
+    @Override
+    public CompletableFuture<?> destroyPartition(int partitionId) throws StorageException {
+        dropPartition(partitionId);
+
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
