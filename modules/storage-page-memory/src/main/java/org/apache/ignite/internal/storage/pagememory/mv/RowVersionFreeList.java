@@ -25,6 +25,7 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -43,6 +44,8 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
      *
      * @param grpId              Group ID.
      * @param pageMem            Page memory.
+     * @param reuseList          Reuse list to track pages that can be reused after they get completely empty (if {@code null},
+     *                           the free list itself will be used as a ReuseList.
      * @param lockLsnr           Page lock listener.
      * @param metaPageId         Metadata page ID.
      * @param initNew            {@code True} if new metadata should be initialized.
@@ -54,6 +57,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     public RowVersionFreeList(
             int grpId,
             PageMemory pageMem,
+            @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
@@ -65,7 +69,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
                 grpId,
                 "RowVersionFreeList_" + grpId,
                 pageMem,
-                null,
+                reuseList,
                 lockLsnr,
                 FLAG_AUX,
                 LOG,

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -80,7 +81,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         }
 
         try {
-            rowVersionFreeList = createRowVersionFreeList(dataRegion.pageMemory(), groupId, partitionId);
+            rowVersionFreeList = createRowVersionFreeList(dataRegion.pageMemory(), groupId, partitionId, versionChainFreeList);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a RowVersionFreeList", e);
         }
@@ -111,13 +112,14 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         );
     }
 
-    private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, int groupId, int partitionId)
+    private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, int groupId, int partitionId, ReuseList reuseList)
             throws IgniteInternalCheckedException {
         long metaPageId = pageMemory.allocatePage(groupId, partitionId, FLAG_AUX);
 
         return new RowVersionFreeList(
                 groupId,
                 pageMemory,
+                reuseList,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,
