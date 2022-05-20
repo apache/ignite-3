@@ -28,7 +28,7 @@ import java.util.zip.CheckedInputStream;
 /**
  * Fast calculation of the CRC.
  */
-public final class FastCrc {
+public class FastCrc {
     /** CRC algo. */
     private static final ThreadLocal<CRC32> CRC = ThreadLocal.withInitial(CRC32::new);
 
