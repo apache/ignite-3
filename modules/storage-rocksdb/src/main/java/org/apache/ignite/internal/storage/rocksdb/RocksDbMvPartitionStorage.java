@@ -459,12 +459,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     // In all three cases we need to prepare the value of "seekKeyBuf" so that it has not-yet-scanned row id in it.
                     // the only valid way to do so is to treat row id payload as one big unsigned integer in Big Endian and increment it.
                     // It's important to note that increment may overflow. In this case "carry flag" will go into incrementing partition id.
-                    // This is fine for three reasons:
+                    // This is fine for two reasons:
                     //  - iterator has an upper bound, following "seek" will result in invalid iterator state.
                     //  - partition id iself cannot be overflown, because it's limited with a constant less than 0xFFFF. It's something like
                     //    65500, I think.
-                    //  - "seekKeyBuf" buffer value will not be used after that, so it's ok if we corrupt its data (in every other instance,
-                    //    buffer starts with a valid partition id, which is set during buffer's initialization).
                     incrementRowId(seekKeyBuf);
 
                     // Cache row and return "true" if it's found and not a tombstone.

@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Table storage that contains meta, partitions and SQL indexes.
@@ -43,8 +42,8 @@ public interface MvTableStorage {
      * @param partitionId Partition id.
      * @return Partition storage or {@code null}.
      * @throws IllegalArgumentException If partition id is out of bounds.
+     * @throws NullPointerException If partition doesn't exist.
      */
-    @Nullable
     MvPartitionStorage partition(int partitionId);
 
     /**

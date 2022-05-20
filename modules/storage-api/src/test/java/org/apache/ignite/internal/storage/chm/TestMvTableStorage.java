@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.chm;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -26,7 +27,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Test table storage implementation.
@@ -48,8 +48,8 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public @Nullable MvPartitionStorage partition(int partitionId) {
-        return partitions.get(partitionId);
+    public MvPartitionStorage partition(int partitionId) {
+        return Objects.requireNonNull(partitions.get(partitionId), "Partition doesn't exist");
     }
 
     @Override
