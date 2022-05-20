@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import java.util.AbstractList;
+
 /**
  * Holder of the group page stores (index and partitions).
  */
-class GroupPageStoreHolder {
+class GroupPageStoreHolder extends AbstractList<PageStore> {
     /** Index page store. */
     final PageStore idxStore;
 
@@ -36,5 +38,17 @@ class GroupPageStoreHolder {
     public GroupPageStoreHolder(PageStore idxStore, PageStore[] partStores) {
         this.idxStore = idxStore;
         this.partStores = partStores;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public PageStore get(int index) {
+        return index == partStores.length ? idxStore : partStores[index];
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int size() {
+        return partStores.length + 1;
     }
 }
