@@ -33,7 +33,7 @@ namespace Apache.Ignite.Tests.Table
             var tables = await Client.Tables.GetTablesAsync();
 
             Assert.AreEqual(1, tables.Count);
-            Assert.AreEqual("PUB.TBL1", tables[0].Name);
+            Assert.AreEqual(TableName, tables[0].Name);
         }
 
         [Test]
@@ -42,7 +42,7 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(TableName);
 
             Assert.IsNotNull(table);
-            Assert.AreEqual("PUB.tbl1", table!.Name);
+            Assert.AreEqual(TableName, table!.Name);
         }
 
         [Test]

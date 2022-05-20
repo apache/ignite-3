@@ -75,6 +75,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
             return newCalciteSchema;
         });
+
+        calciteSchemaVv.whenComplete((token, schema, e) -> listeners.forEach(SchemaUpdateListener::onSchemaUpdated));
     }
 
     /** {@inheritDoc} */
@@ -291,21 +293,21 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     private void rebuild(long causalityToken, CompletableFuture<Map<String, IgniteSchema>> schemasFut) {
-        SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
+        schemasFut.thenCompose(schemas -> {
+            SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+            newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
-        schemasFut.join().forEach(newCalciteSchema::add);
+            schemas.forEach(newCalciteSchema::add);
 
-        calciteSchemaVv.update(causalityToken, (s, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+            return calciteSchemaVv.update(causalityToken, (s, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            return completedFuture(newCalciteSchema);
+                return completedFuture(newCalciteSchema);
+            });
         });
-
-        listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
     }
 
     private IgniteTableImpl convert(TableImpl table) {

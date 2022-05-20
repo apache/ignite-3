@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests
 {
     using System;
-    using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Table;
     using Log;
@@ -30,7 +29,7 @@ namespace Apache.Ignite.Tests
     /// </summary>
     public class IgniteTestsBase
     {
-        protected const string TableName = "PUB.tbl1";
+        protected const string TableName = "PUB.TBL1";
 
         protected const string KeyCol = "key";
 
@@ -74,7 +73,7 @@ namespace Apache.Ignite.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            // ReSharper disable once ConstantConditionalAccessQualifier
+            // ReSharper disable once ConstantConditionalAccessQualifier, ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
             Client?.Dispose();
 
             Assert.Greater(_eventListener.BuffersRented, 0);
@@ -83,10 +82,8 @@ namespace Apache.Ignite.Tests
         }
 
         [TearDown]
-        public async Task TearDown()
+        public void TearDown()
         {
-            await TupleView.DeleteAllAsync(null, Enumerable.Range(-5, 20).Select(x => GetTuple(x)));
-
             Assert.AreEqual(_eventListener.BuffersReturned, _eventListener.BuffersRented);
         }
 

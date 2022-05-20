@@ -19,8 +19,10 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.Collections.synchronizedCollection;
 import static java.util.concurrent.ThreadLocalRandom.current;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
@@ -47,15 +50,15 @@ public class IgniteConcurrentMultiPairQueueTest {
 
     private Map<Integer, Collection<Integer>> mapForCheck2;
 
+    private Integer[] arr1 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19};
+
     private Integer[] arr2 = {2, 4};
 
-    private Integer[] arr1 = {1, 3, 5, 7, 9, 11, 13, 15, 17, 19};
+    private Integer[] arr3 = {100, 200, 300, 400, 500, 600, 600, 700};
 
     private Integer[] arr4 = {};
 
     private Integer[] arr5 = {};
-
-    private Integer[] arr3 = {100, 200, 300, 400, 500, 600, 600, 700};
 
     private Integer[] arr6 = {};
 
@@ -145,5 +148,31 @@ public class IgniteConcurrentMultiPairQueueTest {
         assertTrue(queue2.isEmpty());
 
         assertEquals(queue2.initialSize(), arr1.length + arr2.length + arr3.length + arr4.length);
+    }
+
+    @Test
+    void testSize() {
+        assertEquals(0, EMPTY.size());
+
+        assertEquals(2, new IgniteConcurrentMultiPairQueue<>(Map.of(0, List.of(1, 2))).size());
+        assertEquals(5, new IgniteConcurrentMultiPairQueue<>(Map.of(0, List.of(1, 2, 3, 4, 5))).size());
+
+        assertEquals(7, new IgniteConcurrentMultiPairQueue<>(Map.of(0, List.of(1, 2), 1, List.of(3, 4, 5, 6, 7))).size());
+
+        IgniteConcurrentMultiPairQueue pairQueue = new IgniteConcurrentMultiPairQueue<>(Map.of(0, List.of(1, 2, 3)));
+
+        assertEquals(3, pairQueue.size());
+
+        assertTrue(pairQueue.next(new Result()));
+        assertEquals(2, pairQueue.size());
+
+        assertTrue(pairQueue.next(new Result()));
+        assertEquals(1, pairQueue.size());
+
+        assertTrue(pairQueue.next(new Result()));
+        assertEquals(0, pairQueue.size());
+
+        assertFalse(pairQueue.next(new Result()));
+        assertEquals(0, pairQueue.size());
     }
 }

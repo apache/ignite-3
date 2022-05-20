@@ -35,6 +35,11 @@ namespace Apache.Ignite
         /// <summary>
         /// Authentication or authorization failure.
         /// </summary>
-        AuthFailed = 2
+        AuthFailed = 2,
+
+        /// <summary>
+        /// Table id does not exist.
+        /// </summary>
+        TableIdDoesNotExist = 3
     }
 }

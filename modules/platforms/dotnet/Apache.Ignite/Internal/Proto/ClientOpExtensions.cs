@@ -52,6 +52,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.TupleDeleteAllExact => ClientOperationType.TupleDeleteAllExact,
                 ClientOp.TupleGetAndDelete => ClientOperationType.TupleGetAndDelete,
                 ClientOp.ComputeExecute => ClientOperationType.ComputeExecute,
+                ClientOp.ComputeExecuteColocated => ClientOperationType.ComputeExecute,
                 ClientOp.TxBegin => null,
                 ClientOp.TxCommit => null,
                 ClientOp.TxRollback => null,
