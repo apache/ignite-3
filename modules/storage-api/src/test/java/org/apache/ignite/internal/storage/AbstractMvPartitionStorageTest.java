@@ -40,6 +40,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -96,7 +97,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         storage.addWrite(rowId, binaryRow, txId);
 
         // Read without timestamp returns uncommited row.
-        assertEquals(value, value(storage.read(rowId, txId)));
+        assertRowMatches(storage.read(rowId, txId), binaryRow);
 
         // Read with wrong transaction id should throw exception.
         assertThrows(TxIdMismatchException.class, () -> storage.read(rowId, newTransactionId()));
@@ -136,34 +137,34 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         assertNull(storage.read(rowId, tsBefore));
 
         // Row is valid at the time during and after writing.
-        assertEquals(value, value(storage.read(rowId, txId)));
-        assertEquals(value, value(storage.read(rowId, tsExact)));
-        assertEquals(value, value(storage.read(rowId, tsAfter)));
+        assertRowMatches(storage.read(rowId, tsExact), binaryRow);
+        assertRowMatches(storage.read(rowId, tsAfter), binaryRow);
 
         TestValue newValue = new TestValue(30, "duh");
 
         UUID newTxId = newTransactionId();
 
-        storage.addWrite(rowId, binaryRow(key, newValue), newTxId);
+        BinaryRow newRow = binaryRow(key, newValue);
+        storage.addWrite(rowId, newRow, newTxId);
 
         // Same checks, but now there are two different versions.
         assertNull(storage.read(rowId, tsBefore));
 
-        assertEquals(newValue, value(storage.read(rowId, newTxId)));
+        assertRowMatches(storage.read(rowId, newTxId), newRow);
 
-        assertEquals(value, value(storage.read(rowId, tsExact)));
-        assertEquals(value, value(storage.read(rowId, tsAfter)));
-        assertEquals(value, value(storage.read(rowId, Timestamp.nextVersion())));
+        assertRowMatches(storage.read(rowId, tsExact), binaryRow);
+        assertRowMatches(storage.read(rowId, tsAfter), binaryRow);
+        assertRowMatches(storage.read(rowId, Timestamp.nextVersion()), binaryRow);
 
         // Only latest time behavior changes after commit.
         storage.commitWrite(rowId, Timestamp.nextVersion());
 
-        assertEquals(newValue, value(storage.read(rowId, newTxId)));
+        assertRowMatches(storage.read(rowId, newTxId), newRow);
 
-        assertEquals(value, value(storage.read(rowId, tsExact)));
-        assertEquals(value, value(storage.read(rowId, tsAfter)));
+        assertRowMatches(storage.read(rowId, tsExact), binaryRow);
+        assertRowMatches(storage.read(rowId, tsAfter), binaryRow);
 
-        assertEquals(newValue, value(storage.read(rowId, Timestamp.nextVersion())));
+        assertRowMatches(storage.read(rowId, Timestamp.nextVersion()), newRow);
 
         // Remove.
         UUID removeTxId = newTransactionId();
@@ -174,10 +175,10 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         assertNull(storage.read(rowId, removeTxId));
 
-        assertEquals(value, value(storage.read(rowId, tsExact)));
-        assertEquals(value, value(storage.read(rowId, tsAfter)));
+        assertRowMatches(storage.read(rowId, tsExact), binaryRow);
+        assertRowMatches(storage.read(rowId, tsAfter), binaryRow);
 
-        assertEquals(newValue, value(storage.read(rowId, Timestamp.nextVersion())));
+        assertRowMatches(storage.read(rowId, Timestamp.nextVersion()), newRow);
 
         // Commit remove.
         Timestamp removeTs = Timestamp.nextVersion();
@@ -189,8 +190,8 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         assertNull(storage.read(rowId, removeTs));
         assertNull(storage.read(rowId, Timestamp.nextVersion()));
 
-        assertEquals(value, value(storage.read(rowId, tsExact)));
-        assertEquals(value, value(storage.read(rowId, tsAfter)));
+        assertRowMatches(storage.read(rowId, tsExact), binaryRow);
+        assertRowMatches(storage.read(rowId, tsAfter), binaryRow);
     }
 
     /**
@@ -291,8 +292,12 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, txId);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
+    }
+
+    private void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+        assertThat(rowUnderQuestion, is(notNullValue()));
+        assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }
 
     @Test
@@ -309,8 +314,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, newTransactionId());
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -322,8 +326,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId2, txId);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow2.bytes())));
+        assertRowMatches(foundRow, binaryRow2);
     }
 
     @Test
@@ -336,8 +339,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId2, txId);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow2.bytes())));
+        assertRowMatches(foundRow, binaryRow2);
     }
 
     @Test
@@ -348,8 +350,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, commitTimestamp);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -361,8 +362,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         Timestamp afterCommit = Timestamp.nextVersion();
         BinaryRow foundRow = storage.read(rowId, afterCommit);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -390,8 +390,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, secondVersionTs);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow2.bytes())));
+        assertRowMatches(foundRow, binaryRow2);
     }
 
     @Test
@@ -405,8 +404,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, firstVersionTs);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -422,8 +420,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, tsInBetween);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -436,8 +433,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         Timestamp latestTs = Timestamp.nextVersion();
         BinaryRow foundRow = storage.read(rowId, latestTs);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -455,8 +451,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, txId);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow2.bytes())));
+        assertRowMatches(foundRow, binaryRow2);
     }
 
     @Test
@@ -465,8 +460,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow returnedRow = storage.addWrite(rowId, binaryRow2, txId);
 
-        assertThat(returnedRow, is(notNullValue()));
-        assertThat(returnedRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(returnedRow, binaryRow);
     }
 
     @Test
@@ -515,8 +509,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, firstTimestamp);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -525,8 +518,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow rowFromRemoval = storage.addWrite(rowId, null, txId);
 
-        assertThat(rowFromRemoval, is(notNullValue()));
-        assertThat(rowFromRemoval.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(rowFromRemoval, binaryRow);
     }
 
     @Test
@@ -547,8 +539,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -570,8 +561,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow foundRow = storage.read(rowId, txId);
 
-        assertThat(foundRow, is(notNullValue()));
-        assertThat(foundRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(foundRow, binaryRow);
     }
 
     @Test
@@ -602,8 +592,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
         BinaryRow returnedRow = storage.abortWrite(rowId);
 
-        assertThat(returnedRow, is(notNullValue()));
-        assertThat(returnedRow.bytes(), is(equalTo(binaryRow.bytes())));
+        assertRowMatches(returnedRow, binaryRow);
     }
 
     @Test
