@@ -93,13 +93,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return false;
         }
 
-        //        assert page.items().size() == 1
-        //                && page.items().get(0).size() == 1
-        //                && page.items().get(0).get(0) instanceof Number
-        //                && !page.hasMore() : "Invalid DDL result: " + page;
+        assert page.items().size() == 1
+                && page.items().get(0).size() == 1
+                && page.items().get(0).get(0) instanceof Boolean
+                && !page.hasMore() : "Invalid DDL result: " + page;
 
-        //        return (int) (page.items().get(0).get(0)) == 1;
-        return true;
+        return (boolean) page.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -123,6 +122,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     @Override
     public boolean hasMorePages() {
         return page.hasMore();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletionStage<Void> closeAsync() {
+        return null;
     }
 
     private class Page implements Iterable<SqlRow> {

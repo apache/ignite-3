@@ -239,13 +239,13 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private AsyncCursor<List<Object>> executeDdl(DdlPlan plan) {
         try {
-            ddlCmdHnd.handle(plan.command());
+            boolean ret = ddlCmdHnd.handle(plan.command());
+
+            return new AsyncWrapper<>(Collections.singletonList(Collections.<Object>singletonList(ret)).iterator());
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException("Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
                     + ", err=" + e.getMessage() + ']', e);
         }
-
-        return new AsyncWrapper<>(Collections.emptyIterator());
     }
 
     private AsyncCursor<List<Object>> executeExplain(ExplainPlan plan) {

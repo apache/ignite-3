@@ -95,4 +95,9 @@ public interface AsyncResultSet {
      * @return {@code True} if there are more pages with results, {@code false} otherwise.
      */
     boolean hasMorePages();
+
+    /**
+     * Invalidates query result, stops the query and cleanups query resources.
+     */
+    CompletionStage<Void> closeAsync();
 }

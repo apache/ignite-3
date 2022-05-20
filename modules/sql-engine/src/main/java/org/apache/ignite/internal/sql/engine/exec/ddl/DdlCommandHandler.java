@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
@@ -81,21 +82,21 @@ public class DdlCommandHandler {
     }
 
     /** Handles ddl commands. */
-    public void handle(DdlCommand cmd) throws IgniteInternalCheckedException {
+    public boolean handle(DdlCommand cmd) throws IgniteInternalCheckedException {
         validateCommand(cmd);
 
         if (cmd instanceof CreateTableCommand) {
-            handleCreateTable((CreateTableCommand) cmd);
+            return handleCreateTable((CreateTableCommand) cmd);
         } else if (cmd instanceof DropTableCommand) {
-            handleDropTable((DropTableCommand) cmd);
+            return handleDropTable((DropTableCommand) cmd);
         } else if (cmd instanceof AlterTableAddCommand) {
-            handleAlterAddColumn((AlterTableAddCommand) cmd);
+            return handleAlterAddColumn((AlterTableAddCommand) cmd);
         } else if (cmd instanceof AlterTableDropCommand) {
-            handleAlterDropColumn((AlterTableDropCommand) cmd);
+            return handleAlterDropColumn((AlterTableDropCommand) cmd);
         } else if (cmd instanceof CreateIndexCommand) {
-            handleCreateIndex((CreateIndexCommand) cmd);
+            return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
-            handleDropIndex((DropIndexCommand) cmd);
+            return handleDropIndex((DropIndexCommand) cmd);
         } else {
             throw new IgniteInternalCheckedException("Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
@@ -115,7 +116,7 @@ public class DdlCommandHandler {
     }
 
     /** Handles create table command. */
-    private void handleCreateTable(CreateTableCommand cmd) {
+    private boolean handleCreateTable(CreateTableCommand cmd) {
         final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
 
         pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
@@ -162,32 +163,40 @@ public class DdlCommandHandler {
 
         try {
             tableManager.createTable(fullName, tblChanger);
+
+            return true;
         } catch (TableAlreadyExistsException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles drop table command. */
-    private void handleDropTable(DropTableCommand cmd) {
+    private boolean handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
         try {
             tableManager.dropTable(fullName);
+
+            return true;
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles add column command. */
-    private void handleAlterAddColumn(AlterTableAddCommand cmd) {
+    private boolean handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return;
+            return false;
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
@@ -197,17 +206,21 @@ public class DdlCommandHandler {
 
         try {
             addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
+
+            return true;
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles drop column command. */
-    private void handleAlterDropColumn(AlterTableDropCommand cmd) {
+    private boolean handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return;
+            return false;
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
@@ -217,15 +230,19 @@ public class DdlCommandHandler {
 
         try {
             dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
+
+            return true;
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles create index command. */
-    private void handleCreateIndex(CreateIndexCommand cmd) {
+    private boolean handleCreateIndex(CreateIndexCommand cmd) {
         // Only sorted idx for now.
         SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
 
@@ -244,21 +261,29 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
 
+        AtomicBoolean ret = new AtomicBoolean();
+
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
                 if (!cmd.ifIndexNotExists()) {
                     throw new IndexAlreadyExistsException(cmd.indexName());
                 } else {
+                    ret.set(false);
+
                     return;
                 }
             }
 
             idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
+
+            ret.set(true);
         }));
+
+        return ret.get();
     }
 
     /** Handles drop index command. */
-    private void handleDropIndex(DropIndexCommand cmd) {
+    private boolean handleDropIndex(DropIndexCommand cmd) {
         throw new UnsupportedOperationException("DROP INDEX command not supported for now.");
     }
 
