@@ -68,6 +68,15 @@ public class DataPagePayload {
     }
 
     /**
+     * Returns {@code true} if this payload links to next fragment.
+     *
+     * @return {@code true} if this payload links to next fragment
+     */
+    public boolean hasMoreFragments() {
+        return nextLink != 0;
+    }
+
+    /**
      * Returns payload bytes.
      *
      * @param pageAddr Page address.

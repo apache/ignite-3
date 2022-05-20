@@ -62,7 +62,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
     private final VersionChainFreeList versionChainFreeList;
     private final VersionChainTree versionChainTree;
-    private final DataPageReader<VersionChain> versionChainDataPageReader;
+    private final VersionChainDataPageReader versionChainDataPageReader;
     private final RowVersionFreeList rowVersionFreeList;
     private final DataPageReader<RowVersion> rowVersionDataPageReader;
 

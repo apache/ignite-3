@@ -30,7 +30,6 @@ import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains logic for reading values from page memory data pages (this includes handling multy-page values).
@@ -62,7 +61,6 @@ public abstract class DataPageReader<T> {
      * @throws IgniteInternalCheckedException If failed
      * @see org.apache.ignite.internal.pagememory.util.PageIdUtils#link(long, int)
      */
-    @Nullable
     public T getRowByLink(final long link) throws IgniteInternalCheckedException {
         assert link != 0;
 
@@ -87,16 +85,9 @@ public abstract class DataPageReader<T> {
 
                     int itemId = itemId(nextLink);
 
-                    if (handleNonExistentItemsGracefully() && !dataIo.itemExists(pageAddr, itemId, pageSize)) {
-                        assert nextLink == link : "It is not first page of a fragmented row, but the item does not exist, pageId="
-                                + pageId + ", itemId=" + itemId;
-
-                        return rowForNonExistingItem(pageId, itemId);
-                    }
-
                     DataPagePayload data = dataIo.readPayload(pageAddr, itemId, pageSize);
 
-                    if (data.nextLink() == 0 && nextLink == link) {
+                    if (!data.hasMoreFragments() && nextLink == link) {
                         // Good luck: we can read the row without fragments.
                         return readRowFromAddress(link, pageAddr + data.offset());
                     }
@@ -155,28 +146,4 @@ public abstract class DataPageReader<T> {
      * @see org.apache.ignite.internal.pagememory.util.PageIdUtils#link(long, int)
      */
     protected abstract T readRowFromAddress(long link, long pageAddr);
-
-    /**
-     * Returns {@code true} if graceful handling of non-existent items should be enabled.
-     * If it is enabled and a link with a non-existent item ID is provided, {@link #getRowByLink(long)} will return
-     * the result of {@link #rowForNonExistingItem(long, long)} invocation.
-     * If it is disabled, then an assertion will fail.
-     *
-     * @return {@code true} if graceful handling of non-existent items should be enabled
-     */
-    protected boolean handleNonExistentItemsGracefully() {
-        return false;
-    }
-
-    /**
-     * Returns a special row value that can be used as a marker to specify that the given itemId does not actually exist.
-     *
-     * @param pageId ID of the page
-     * @param itemId ID of the item
-     * @return special row value
-     */
-    @Nullable
-    protected T rowForNonExistingItem(long pageId, long itemId) {
-        throw new IllegalStateException("Item is invalid for pageId=" + pageId + ", itemId=" + itemId);
-    }
 }

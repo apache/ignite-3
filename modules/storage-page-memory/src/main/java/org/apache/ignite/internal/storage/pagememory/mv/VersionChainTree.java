@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -40,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 public class VersionChainTree extends BplusTree<VersionChainLink, VersionChain> {
     private final int partitionId;
 
-    private final DataPageReader<VersionChain> dataPageReader;
+    private final VersionChainDataPageReader dataPageReader;
 
     /**
      * Constructor.

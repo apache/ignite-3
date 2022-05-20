@@ -154,7 +154,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
                     DataPagePayload data = dataIo.readPayload(pageAddr, itemId, pageSize);
 
-                    if (data.nextLink() == 0 && nextLink == link) {
+                    if (!data.hasMoreFragments() && nextLink == link) {
                         // Good luck: we can read the row without fragments.
                         return readFullRow(link, hash, rowData, pageAddr + data.offset());
                     }
@@ -251,7 +251,7 @@ public class TableTree extends BplusTree<TableSearchRow, TableDataRow> {
 
                     DataPagePayload data = dataIo.readPayload(pageAddr, itemId, pageSize);
 
-                    if (data.nextLink() == 0 && nextLink == link) {
+                    if (!data.hasMoreFragments() && nextLink == link) {
                         // Good luck: we can compare the rows without fragments.
                         return compareRowsFull(pageAddr + data.offset(), row);
                     }

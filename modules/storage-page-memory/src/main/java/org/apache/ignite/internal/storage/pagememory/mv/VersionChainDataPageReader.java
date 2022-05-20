@@ -21,17 +21,17 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 
-import java.nio.ByteBuffer;
 import java.util.UUID;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
+import org.apache.ignite.internal.pagememory.datapage.NonFragmentableDataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link DataPageReader} for {@link VersionChain} instances.
  */
-class VersionChainDataPageReader extends DataPageReader<VersionChain> {
+class VersionChainDataPageReader extends NonFragmentableDataPageReader<VersionChain> {
     /**
      * Constructs a new instance.
      *
@@ -41,18 +41,6 @@ class VersionChainDataPageReader extends DataPageReader<VersionChain> {
      */
     public VersionChainDataPageReader(PageMemory pageMemory, int groupId, IoStatisticsHolder statisticsHolder) {
         super(pageMemory, groupId, statisticsHolder);
-    }
-
-    @Override
-    protected VersionChain readRowFromBuffer(long link, ByteBuffer wholePayloadBuf) {
-        long high = wholePayloadBuf.getLong();
-        long low = wholePayloadBuf.getLong();
-        UUID txId = assembleTxId(high, low);
-        long headLink = wholePayloadBuf.getLong();
-
-        assert wholePayloadBuf.position() == wholePayloadBuf.limit();
-
-        return new VersionChain(partitionOfLink(link), link, txId, headLink);
     }
 
     @Nullable
