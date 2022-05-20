@@ -227,11 +227,10 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
 
         UUID txId = UUID.randomUUID();
 
-        pk.addWrite(rowId, binaryRow(key, val), txId);
+        RowId rowId = pk.insert(binaryRow(key, val), txId);
 
         // Using transaction id.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
@@ -257,11 +256,10 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
 
         Timestamp insertTs = Timestamp.nextVersion();
 
-        pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
+        RowId rowId = pk.insert(binaryRow(key, val), UUID.randomUUID());
 
         pk.commitWrite(rowId, insertTs);
 
@@ -296,11 +294,10 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
 
         UUID txId = UUID.randomUUID();
 
-        pk.addWrite(rowId, binaryRow(key, val), txId);
+        RowId rowId = pk.insert(binaryRow(key, val), txId);
 
         // Using transaction id.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
@@ -328,11 +325,10 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
 
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
-        RowId rowId = UuidRowId.randomRowId(0);
 
         Timestamp insertTs = Timestamp.nextVersion();
 
-        pk.addWrite(rowId, binaryRow(key, val), UUID.randomUUID());
+        RowId rowId = pk.insert(binaryRow(key, val), UUID.randomUUID());
 
         pk.commitWrite(rowId, insertTs);
 

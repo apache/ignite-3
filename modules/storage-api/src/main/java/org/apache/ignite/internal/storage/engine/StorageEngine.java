@@ -45,4 +45,14 @@ public interface StorageEngine {
      * @throws StorageException If an error has occurs while creating the table.
      */
     TableStorage createTable(TableConfiguration tableCfg) throws StorageException;
+
+    /**
+     * Creates new table storage.
+     *
+     * @param tableCfg Table configuration.
+     * @throws StorageException If an error has occurs while creating the table.
+     */
+    default MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
+        throw new UnsupportedOperationException("createMvTable");
+    }
 }
