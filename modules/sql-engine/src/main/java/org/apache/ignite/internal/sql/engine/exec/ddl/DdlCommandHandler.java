@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.schemas.table.ColumnView;
 import org.apache.ignite.configuration.schemas.table.PrimaryKeyView;
@@ -204,17 +205,9 @@ public class DdlCommandHandler {
         );
 
         try {
-            addColumnInternal(fullName, cmd.columns());
-
-            return true;
+            return addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
-                throw ex;
-            } else {
-                return false;
-            }
-        } catch (ColumnAlreadyExistsException ex) {
-            if (!cmd.ifColumnNotExists()) {
                 throw ex;
             } else {
                 return false;
@@ -234,17 +227,9 @@ public class DdlCommandHandler {
         );
 
         try {
-            dropColumnInternal(fullName, cmd.columns());
-
-            return true;
+            return dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
-                throw ex;
-            } else {
-                return false;
-            }
-        } catch (ColumnNotFoundException ex) {
-            if (!cmd.ifColumnExists()) {
                 throw ex;
             } else {
                 return false;
@@ -303,8 +288,12 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colsDef  Columns defenitions.
+     * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
+     *
+     * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef) {
+    private boolean addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
+        AtomicBoolean ret = new AtomicBoolean(true);
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
@@ -312,12 +301,24 @@ public class DdlCommandHandler {
 
                     List<ColumnDefinition> colsDef0;
 
-                    colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
-                            .ifPresent(c -> {
-                                throw new ColumnAlreadyExistsException(c.name());
-                            });
+                    if (!colNotExist) {
+                        colsDef.stream().filter(k -> colNamesToOrders.containsKey(k.name())).findAny()
+                                .ifPresent(c -> {
+                                    throw new ColumnAlreadyExistsException(c.name());
+                                });
 
-                    colsDef0 = colsDef;
+                        colsDef0 = colsDef;
+                    } else {
+                        colsDef0 = colsDef.stream().filter(k -> {
+                            if (colNamesToOrders.containsKey(k.name())) {
+                                ret.set(false);
+
+                                return false;
+                            } else {
+                                return true;
+                            }
+                        }).collect(Collectors.toList());
+                    }
 
                     final IgniteTypeFactory typeFactory = Commons.typeFactory();
 
@@ -332,6 +333,8 @@ public class DdlCommandHandler {
                         cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }
                 }));
+
+        return ret.get();
     }
 
     /**
@@ -339,8 +342,12 @@ public class DdlCommandHandler {
      *
      * @param fullName Table with schema name.
      * @param colNames Columns definitions.
+     * @param colExist Flag indicates exceptionally behavior in case of already existing column.
+     * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private void dropColumnInternal(String fullName, Set<String> colNames) {
+    private boolean dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
+        AtomicBoolean ret = new AtomicBoolean(true);
+
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
@@ -352,14 +359,12 @@ public class DdlCommandHandler {
 
                     Set<String> primaryCols = Set.of(priKey.columns());
 
-                    ColumnNotFoundException ex = null;
-
                     for (String colName : colNames) {
                         if (!colNamesToOrders.containsKey(colName)) {
-                            if (ex != null) {
-                                ex.addSuppressed(new ColumnNotFoundException(colName, fullName));
-                            } else {
-                                ex = new ColumnNotFoundException(colName, fullName);
+                            ret.set(false);
+
+                            if (!colExist) {
+                                throw new ColumnNotFoundException(colName, fullName);
                             }
                         } else {
                             colNames0.add(colName);
@@ -372,11 +377,9 @@ public class DdlCommandHandler {
                     }
 
                     colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
-
-                    if (ex != null) {
-                        throw ex;
-                    }
                 }));
+
+        return ret.get();
     }
 
     /** Map column name to order. */

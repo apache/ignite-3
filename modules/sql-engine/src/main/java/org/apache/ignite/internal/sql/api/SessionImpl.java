@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryTimeout;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -143,7 +144,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        QueryContext ctx = QueryContext.of(transaction);
+        QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
 
         List<CompletableFuture<AsyncSqlCursor<List<Object>>>> futs = qryProc.queryAsync(ctx, schema, query, arguments);
 
