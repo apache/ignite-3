@@ -30,8 +30,6 @@ import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -41,8 +39,6 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     private static final int FREE_LIST_GROUP_ID = 0;
 
     private TableFreeList tableFreeList;
-    private VersionChainFreeList versionChainFreeList;
-    private RowVersionFreeList rowVersionFreeList;
 
     /**
      * Constructor.
@@ -68,60 +64,17 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         this.pageMemory = pageMemory;
 
         try {
-            this.tableFreeList = createTableFreeList(pageMemory, FREE_LIST_GROUP_ID);
+            this.tableFreeList = createTableFreeList(pageMemory);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a TableFreeList", e);
         }
-
-        try {
-            this.versionChainFreeList = createVersionChainFreeList(pageMemory, FREE_LIST_GROUP_ID);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a VersionChainFreeList", e);
-        }
-
-        try {
-            this.rowVersionFreeList = createRowVersionFreeList(pageMemory, FREE_LIST_GROUP_ID);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a RowVersionFreeList", e);
-        }
     }
 
-    private TableFreeList createTableFreeList(PageMemory pageMemory, int grpId) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(grpId, INDEX_PARTITION, FLAG_AUX);
+    private TableFreeList createTableFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
 
         return new TableFreeList(
-                grpId,
-                pageMemory,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                null,
-                PageEvictionTrackerNoOp.INSTANCE,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
-    }
-
-
-    private VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, int grpId) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(grpId, INDEX_PARTITION, FLAG_AUX);
-
-        return new VersionChainFreeList(
-                grpId,
-                pageMemory,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                null,
-                PageEvictionTrackerNoOp.INSTANCE,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
-    }
-
-    private RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, int grpId) throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(grpId, INDEX_PARTITION, FLAG_AUX);
-
-        return new RowVersionFreeList(
-                grpId,
+                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
                 pageMemory,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
@@ -149,13 +102,5 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      */
     public TableFreeList tableFreeList() {
         return tableFreeList;
-    }
-
-    public VersionChainFreeList versionChainFreeList() {
-        return versionChainFreeList;
-    }
-
-    public RowVersionFreeList rowVersionFreeList() {
-        return rowVersionFreeList;
     }
 }
