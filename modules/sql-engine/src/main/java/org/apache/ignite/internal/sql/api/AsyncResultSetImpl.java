@@ -39,7 +39,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Asynchronous result set provides methods for query results processing in asynchronous way.
+ * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl implements AsyncResultSet {
     private final AsyncSqlCursor<List<Object>> cur;
