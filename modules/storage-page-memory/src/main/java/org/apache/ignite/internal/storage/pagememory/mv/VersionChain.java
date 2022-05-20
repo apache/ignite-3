@@ -30,6 +30,9 @@ import org.jetbrains.annotations.Nullable;
 public class VersionChain extends VersionChainLink implements Storable {
     public static long NULL_UUID_COMPONENT = 0;
 
+    private static final int TRANSACTION_ID_STORE_SIZE_BYTES = 2 * Long.BYTES;
+    private static final int HEAD_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+
     private final int partitionId;
     @Nullable
     private final UUID transactionId;
@@ -79,15 +82,7 @@ public class VersionChain extends VersionChainLink implements Storable {
 
     @Override
     public int size() {
-        return transactioIdStoreSize() + headLinkStoreSize();
-    }
-
-    private int transactioIdStoreSize() {
-        return 2 * Long.BYTES;
-    }
-
-    private int headLinkStoreSize() {
-        return PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+        return TRANSACTION_ID_STORE_SIZE_BYTES + HEAD_LINK_STORE_SIZE_BYTES;
     }
 
     @Override
