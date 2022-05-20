@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -39,21 +42,36 @@ import org.jetbrains.annotations.Nullable;
 public class SessionImpl implements Session {
     public static final int DEFAULT_PAGE_SIZE = 1024;
 
+    public static final long DEFAULT_TIMEOUT = 0;
+
     private final QueryProcessor qryProc;
+
+    private final long timeout;
 
     private final String schema;
 
-    private final int pageSize = DEFAULT_PAGE_SIZE;
+    private final int pageSize;
+
+    private final Set<CompletableFuture<AsyncSqlCursor<List<Object>>>> futsToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+    private final Set<AsyncSqlCursor<List<Object>>> cursToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     /**
      * Constructor.
      *
      * @param qryProc Query processor.
-     * @param schema Query default schema.
+     * @param schema  Query default schema.
      */
-    public SessionImpl(QueryProcessor qryProc, String schema) {
+    SessionImpl(
+            QueryProcessor qryProc,
+            String schema,
+            long timeout,
+            int pageSize
+    ) {
         this.qryProc = qryProc;
         this.schema = schema;
+        this.timeout = timeout;
+        this.pageSize = pageSize;
     }
 
     /** {@inheritDoc} */
@@ -129,13 +147,26 @@ public class SessionImpl implements Session {
 
         List<CompletableFuture<AsyncSqlCursor<List<Object>>>> futs = qryProc.queryAsync(ctx, schema, query, arguments);
 
+        futsToClose.addAll(futs);
+
         if (futs.size() != 1) {
             throw new IgniteSqlException("Multiple statements aren't allowed.");
         }
 
-        return futs.get(0).thenCompose(cur ->
-                cur.requestNextAsync(pageSize)
-                        .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize))
+        return futs.get(0).thenCompose(cur -> {
+                    futsToClose.remove(futs.get(0));
+                    cursToClose.add(cur);
+
+                    return cur.requestNextAsync(pageSize)
+                            .thenApply(
+                                    batchRes -> new AsyncResultSetImpl(
+                                            cur,
+                                            batchRes,
+                                            pageSize,
+                                            () -> cursToClose.remove(cur)
+                                    )
+                            );
+                }
         );
     }
 
@@ -179,5 +210,80 @@ public class SessionImpl implements Session {
     @Override
     public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Session builder implementation.
+     */
+    public static class SessionBuilderImpl implements SessionBuilder {
+        private final QueryProcessor qryProc;
+
+        private long timeout = DEFAULT_TIMEOUT;
+
+        private String schema;
+
+        private int pageSize = DEFAULT_PAGE_SIZE;
+
+        SessionBuilderImpl(QueryProcessor qryProc) {
+            this.qryProc = qryProc;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public long defaultTimeout(TimeUnit timeUnit) {
+            return timeUnit.convert(timeout, TimeUnit.NANOSECONDS);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit) {
+            this.timeout = timeUnit.toNanos(timeout);
+
+            return this;
+        }
+
+        @Override
+        public String defaultSchema() {
+            return schema;
+        }
+
+        @Override
+        public SessionBuilder defaultSchema(String schema) {
+            this.schema = schema;
+
+            return this;
+        }
+
+        @Override
+        public int defaultPageSize() {
+            return pageSize;
+        }
+
+        @Override
+        public SessionBuilder defaultPageSize(int pageSize) {
+            this.pageSize = pageSize;
+
+            return this;
+        }
+
+        @Override
+        public @Nullable Object property(String name) {
+            return null;
+        }
+
+        @Override
+        public SessionBuilder property(String name, @Nullable Object value) {
+            return null;
+        }
+
+        @Override
+        public Session build() {
+            return new SessionImpl(
+                    qryProc,
+                    schema,
+                    timeout,
+                    pageSize
+            );
+        }
     }
 }

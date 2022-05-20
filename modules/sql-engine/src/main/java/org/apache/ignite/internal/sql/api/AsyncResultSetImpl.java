@@ -48,15 +48,18 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     private final int pageSize;
 
+    private final Runnable closeRun;
+
     /**
      * Constructor.
      *
      * @param cur Asynchronous query cursor.
      */
-    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize) {
+    public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
         this.cur = cur;
         this.page = page;
         this.pageSize = pageSize;
+        this.closeRun = closeRun;
     }
 
     /** {@inheritDoc} */
@@ -73,17 +76,17 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public int affectedRows() {
+    public long affectedRows() {
         if (hasRowSet() || cur.queryType() == SqlQueryType.DDL) {
             return -1;
         }
 
         assert page.items().size() == 1
                 && page.items().get(0).size() == 1
-                && page.items().get(0).get(0) instanceof Number
+                && page.items().get(0).get(0) instanceof Long
                 && !page.hasMore() : "Invalid DML result: " + page;
 
-        return (int) page.items().get(0).get(0);
+        return (long) page.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -115,7 +118,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
         return cur.requestNextAsync(pageSize)
-                .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize));
+                .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
     }
 
     /** {@inheritDoc} */
@@ -127,7 +130,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<Void> closeAsync() {
-        return null;
+        return cur.closeAsync().thenAccept((v) -> closeRun.run());
     }
 
     private class Page implements Iterable<SqlRow> {

@@ -42,13 +42,13 @@ public class IgniteSqlImpl implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Session createSession() {
-        return new SessionImpl(qryProc, null);
+        return sessionBuilder().build();
     }
 
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new SessionImpl.SessionBuilderImpl(qryProc);
     }
 
     /** {@inheritDoc} */
