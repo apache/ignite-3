@@ -92,7 +92,7 @@ public class FilePageStore implements PageStore {
     private volatile Boolean fileExists;
 
     /** {@link FileIo} for read/write operations with file. */
-    protected volatile FileIo fileIo;
+    private volatile FileIo fileIo;
 
     /** Initialized file page store. */
     private volatile boolean initialized;
@@ -351,7 +351,7 @@ public class FilePageStore implements PageStore {
 
             try {
                 if (fileExists == null) {
-                    fileExists = Files.exists(filePath) && filePath.toFile().length() > headerSize();
+                    fileExists = Files.exists(filePath) && filePath.toFile().length() >= headerSize();
                 }
             } finally {
                 readWriteLock.writeLock().unlock();
