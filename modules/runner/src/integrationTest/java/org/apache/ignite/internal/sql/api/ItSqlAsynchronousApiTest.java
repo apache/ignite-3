@@ -49,7 +49,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.platform.commons.util.ExceptionUtils;
 
 /**
- * Group of tests to verify aggregation functions.
+ * Tests for asynchronous SQL API.
  */
 @Disabled("https://issues.apache.org/jira/browse/IGNITE-15655")
 public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
