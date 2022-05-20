@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.basic;
+package org.apache.ignite.internal.fileio;
 
-import java.util.List;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
- * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
+ * For {@link FileIoDecorator} testing.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    /** Test partition storage instance. */
-    private final TestMvPartitionStorage storage = new TestMvPartitionStorage(List.of(), 0);
+public class FileIoDecoratorTest extends AbstractFileIoTest {
+    @BeforeEach
+    void setUp() {
+        fileIoFactory = (filePath, modes) -> new FileIoDecorator(new RandomAccessFileIo(filePath, modes));
+    }
 
     /** {@inheritDoc} */
     @Override
-    protected MvPartitionStorage partitionStorage() {
-        return storage;
+    protected Class<? extends FileIo> fileIoClass() {
+        return FileIoDecorator.class;
     }
 }
