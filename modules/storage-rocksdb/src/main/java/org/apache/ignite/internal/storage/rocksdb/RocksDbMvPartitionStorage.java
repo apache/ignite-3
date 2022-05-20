@@ -512,6 +512,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 if (lsb == 0L) {
                     long msb = 1 + buf.getLong(0);
 
+                    assert msb != 0 : "partitionId overflow, must never happen";
+
                     buf.putLong(0, msb);
                 }
             }
