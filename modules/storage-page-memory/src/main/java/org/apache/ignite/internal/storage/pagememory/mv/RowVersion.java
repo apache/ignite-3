@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.StorableBase;
+import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Represents row version inside row version chain.
  */
-public class RowVersion extends StorableBase {
+public class RowVersion implements Storable {
     /**
      * A 'timestamp' representing absense of a timestamp.
      */
@@ -37,6 +37,9 @@ public class RowVersion extends StorableBase {
      * Represents an absent partitionless link.
      */
     public static final long NULL_LINK = 0;
+
+    private final int partitionId;
+    private long link;
 
     @Nullable
     private final Timestamp timestamp;
@@ -55,7 +58,7 @@ public class RowVersion extends StorableBase {
      * Constructor.
      */
     public RowVersion(int partitionId, long link, @Nullable Timestamp timestamp, long nextLink, ByteBuffer value) {
-        super(partitionId);
+        this.partitionId = partitionId;
         link(link);
 
         assert !NULL_TIMESTAMP.equals(timestamp) : "Null timestamp provided";
@@ -106,6 +109,22 @@ public class RowVersion extends StorableBase {
 
     boolean isCommitted() {
         return timestamp != null;
+    }
+
+
+    @Override
+    public final void link(long link) {
+        this.link = link;
+    }
+
+    @Override
+    public final long link() {
+        return link;
+    }
+
+    @Override
+    public final int partition() {
+        return partitionId;
     }
 
     @Override
