@@ -88,7 +88,7 @@ public class VersionChain extends VersionChainLink implements Storable {
 
     @Override
     public int headerSize() {
-        return 0;
+        return size();
     }
 
     @Override

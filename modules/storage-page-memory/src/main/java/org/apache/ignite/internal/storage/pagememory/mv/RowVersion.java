@@ -42,6 +42,7 @@ public class RowVersion implements Storable {
 
     private static final int TIMESTAMP_STORE_SIZE_BYTES = 2 * Long.BYTES;
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
+    private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
 
     private final int partitionId;
     private long link;
@@ -134,16 +135,12 @@ public class RowVersion implements Storable {
 
     @Override
     public int size() {
-        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + valueStoreSize();
-    }
-
-    private int valueStoreSize() {
-        return Integer.BYTES + value.limit();
+        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + value.limit();
     }
 
     @Override
     public int headerSize() {
-        return 0;
+        return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES;
     }
 
     @Override
