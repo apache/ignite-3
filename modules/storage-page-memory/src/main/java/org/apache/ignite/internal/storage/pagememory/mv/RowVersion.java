@@ -44,6 +44,10 @@ public class RowVersion implements Storable {
     private static final int NEXT_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     private static final int VALUE_SIZE_STORE_SIZE_BYTES = Integer.BYTES;
 
+    public static final int NEXT_LINK_OFFSET = TIMESTAMP_STORE_SIZE_BYTES;
+    public static final int VALUE_SIZE_OFFSET = NEXT_LINK_OFFSET + NEXT_LINK_STORE_SIZE_BYTES;
+    public static final int VALUE_OFFSET = VALUE_SIZE_OFFSET + VALUE_SIZE_STORE_SIZE_BYTES;
+
     private final int partitionId;
     private long link;
 
@@ -107,7 +111,11 @@ public class RowVersion implements Storable {
     }
 
     boolean isTombstone() {
-        return valueSize() == 0;
+        return isTombstone(valueSize());
+    }
+
+    static boolean isTombstone(int valueSize) {
+        return valueSize == 0;
     }
 
     boolean isUncommitted() {

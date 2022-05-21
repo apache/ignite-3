@@ -127,4 +127,8 @@ public class PartitionlessLinks {
 
         return PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     }
+
+    private PartitionlessLinks() {
+        // prevent instantiation
+    }
 }

@@ -257,20 +257,17 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     @Nullable
     private ByteBufferRow findRowVersionByTimestamp(VersionChain versionChain, Timestamp timestamp) {
         long nextRowPartitionlessLink = versionChain.headLink();
+        long nextLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(nextRowPartitionlessLink, partitionId);
 
-        while (true) {
-            RowVersion rowVersion = findRowVersion(nextRowPartitionlessLink);
-            Timestamp rowVersionTs = rowVersion.timestamp();
-            if (rowVersionTs != null && rowVersionTs.beforeOrEquals(timestamp)) {
-                return rowVersionToBinaryRow(rowVersion);
-            }
+        ScanVersionChainByTimestamp scanByTimestamp = new ScanVersionChainByTimestamp(timestamp, partitionId);
 
-            if (!rowVersion.hasNextLink()) {
-                return null;
-            }
-
-            nextRowPartitionlessLink = rowVersion.nextLink();
+        try {
+            rowVersionDataPageReader.traverse(nextLink, scanByTimestamp);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot search for a row version", e);
         }
+
+        return scanByTimestamp.result();
     }
 
     @Override

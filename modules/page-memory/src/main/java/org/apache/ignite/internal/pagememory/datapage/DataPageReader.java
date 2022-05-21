@@ -126,6 +126,49 @@ public abstract class DataPageReader<T> {
     }
 
     /**
+     * Traverses page memory starting at the given link. At each step, reads the current data row and feeds it to the given
+     * {@link PageMemoryTraversal} object which updates itself (usually) and returns next link to continue traversal
+     * (or {@link PageMemoryTraversal#STOP_TRAVERSAL} to stop.
+     *
+     * @param link Row link
+     * @param traversal object consuming payloads and controlling the traversal
+     * @throws IgniteInternalCheckedException If failed
+     * @see org.apache.ignite.internal.pagememory.util.PageIdUtils#link(long, int)
+     * @see PageMemoryTraversal
+     */
+    public void traverse(final long link, PageMemoryTraversal traversal) throws IgniteInternalCheckedException {
+        assert link != 0;
+
+        int pageSize = pageMemory.realPageSize(groupId);
+
+        long currentLink = link;
+
+        do {
+            final long pageId = pageId(currentLink);
+            final long page = pageMemory.acquirePage(groupId, pageId, statisticsHolder);
+
+            try {
+                long pageAddr = pageMemory.readLock(groupId, pageId, page);
+                assert pageAddr != 0L : currentLink;
+
+                try {
+                    AbstractDataPageIo<?> dataIo = pageMemory.ioRegistry().resolve(pageAddr);
+
+                    int itemId = itemId(currentLink);
+
+                    DataPagePayload data = dataIo.readPayload(pageAddr, itemId, pageSize);
+
+                    currentLink = traversal.consumePagePayload(currentLink, pageAddr, data);
+                } finally {
+                    pageMemory.readUnlock(groupId, pageId, page);
+                }
+            } finally {
+                pageMemory.releasePage(groupId, pageId, page);
+            }
+        } while (currentLink != PageMemoryTraversal.STOP_TRAVERSAL);
+    }
+
+    /**
      * Reads row object from a contiguous region of memory represented with a buffer. The buffer contains exactly
      * the bytes representing the row, not more, not less.
      *
