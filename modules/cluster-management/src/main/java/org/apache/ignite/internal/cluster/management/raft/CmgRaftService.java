@@ -22,21 +22,20 @@ import static java.lang.Thread.sleep;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.cluster.management.IllegalInitArgumentException;
+import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCommand;
-import org.apache.ignite.internal.cluster.management.raft.responses.JoinDeniedResponse;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
-import org.apache.ignite.internal.cluster.management.raft.responses.NodeValidatedResponse;
+import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -45,7 +44,6 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupService;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
@@ -99,8 +97,20 @@ public class CmgRaftService {
      * @param clusterState Cluster state.
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> writeClusterState(ClusterState clusterState) {
-        return raftService.run(new WriteStateCommand(clusterState));
+    public CompletableFuture<ClusterState> initClusterState(ClusterState clusterState) {
+        ClusterNode localMember = clusterService.topologyService().localMember();
+
+        return raftService.run(new InitCmgStateCommand(localMember, clusterState))
+                .thenApply(response -> {
+                    if (response instanceof ValidationErrorResponse) {
+                        throw new IllegalInitArgumentException("Init CMG request denied, reason: "
+                                + ((ValidationErrorResponse) response).reason());
+                    } else if (response instanceof ClusterState) {
+                        return (ClusterState) response;
+                    } else {
+                        throw new IgniteInternalException("Unexpected response: " + response);
+                    }
+                });
     }
 
     /**
@@ -108,18 +118,16 @@ public class CmgRaftService {
      *
      * @return Future that either resolves into a join token in case of successful validation or into an {@link IgniteInternalException}
      *         otherwise.
-     * @see ValidationTokenManager
+     * @see ValidationManager
      */
-    public CompletableFuture<UUID> startJoinCluster(@Nullable ClusterTag clusterTag) {
+    public CompletableFuture<Void> startJoinCluster(ClusterTag clusterTag) {
         ClusterNode localMember = clusterService.topologyService().localMember();
 
         return raftService.run(new JoinRequestCommand(localMember, IgniteProductVersion.CURRENT_VERSION, clusterTag))
-                .thenApply(response -> {
-                    if (response instanceof JoinDeniedResponse) {
-                        throw new IgniteInternalException("Join request denied, reason: " + ((JoinDeniedResponse) response).reason());
-                    } else if (response instanceof NodeValidatedResponse) {
-                        return ((NodeValidatedResponse) response).validationToken();
-                    } else {
+                .thenAccept(response -> {
+                    if (response instanceof ValidationErrorResponse) {
+                        throw new IgniteInternalException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
+                    } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
                     }
                 });
@@ -128,16 +136,18 @@ public class CmgRaftService {
     /**
      * Sends a {@link JoinReadyCommand} thus adding the current node to the local topology.
      *
-     * @param validationToken Join token, obtained from {@link #startJoinCluster}.
      * @return Future that represents the state of the operation.
      */
-    public CompletableFuture<Void> completeJoinCluster(UUID validationToken) {
+    public CompletableFuture<Void> completeJoinCluster() {
+        log.info("Node is ready to join the logical topology");
+
         ClusterNode localMember = clusterService.topologyService().localMember();
 
-        return raftService.run(new JoinReadyCommand(localMember, validationToken))
+        return raftService.run(new JoinReadyCommand(localMember))
                 .thenAccept(response -> {
-                    if (response instanceof JoinDeniedResponse) {
-                        throw new IgniteInternalException("JoinReady request denied, reason: " + ((JoinDeniedResponse) response).reason());
+                    if (response instanceof ValidationErrorResponse) {
+                        throw new IgniteInternalException("JoinReady request denied, reason: "
+                                + ((ValidationErrorResponse) response).reason());
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
                     }

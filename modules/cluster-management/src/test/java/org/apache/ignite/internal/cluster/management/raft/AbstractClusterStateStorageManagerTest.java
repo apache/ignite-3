@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.nullValue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -193,32 +192,25 @@ public abstract class AbstractClusterStateStorageManagerTest {
     }
 
     /**
-     * Tests CRUD operations on validation tokens.
+     * Tests CRUD operations on validated nodes.
      */
     @Test
-    void testValidationToken() {
-        var node1 = new ClusterNode("foo", "bar", new NetworkAddress("localhost", 123));
+    void testValidatedNodes() {
+        storageManager.putValidatedNode("node1");
 
-        UUID token1 = UUID.randomUUID();
+        storageManager.putValidatedNode("node2");
 
-        storageManager.putValidationToken(node1, token1);
+        assertThat(storageManager.isNodeValidated("node1"), is(true));
+        assertThat(storageManager.isNodeValidated("node2"), is(true));
+        assertThat(storageManager.isNodeValidated("node3"), is(false));
 
-        var node2 = new ClusterNode("bar", "baz", new NetworkAddress("localhost", 123));
+        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node1", "node2"));
 
-        UUID token2 = UUID.randomUUID();
+        storageManager.removeValidatedNode("node1");
 
-        storageManager.putValidationToken(node2, token2);
+        assertThat(storageManager.isNodeValidated("node1"), is(false));
+        assertThat(storageManager.isNodeValidated("node2"), is(true));
 
-        assertThat(storageManager.getValidationToken(node1), is(equalTo(token1)));
-        assertThat(storageManager.getValidationToken(node2), is(equalTo(token2)));
-
-        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder(node1.id(), node2.id()));
-
-        storageManager.removeValidationToken(node1.id());
-
-        assertThat(storageManager.getValidationToken(node1), is(nullValue()));
-        assertThat(storageManager.getValidationToken(node2), is(equalTo(token2)));
-
-        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder(node2.id()));
+        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node2"));
     }
 }

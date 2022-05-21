@@ -83,9 +83,9 @@ public final class ClusterState implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterState that = (ClusterState) o;
-        return cmgNodes.equals(that.cmgNodes) && msNodes.equals(that.msNodes) && igniteVersion.equals(that.igniteVersion)
-                && clusterTag.equals(that.clusterTag);
+        ClusterState state = (ClusterState) o;
+        return cmgNodes.equals(state.cmgNodes) && msNodes.equals(state.msNodes) && igniteVersion.equals(state.igniteVersion)
+                && clusterTag.equals(state.clusterTag);
     }
 
     @Override

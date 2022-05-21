@@ -25,12 +25,13 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -50,11 +51,11 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final RaftStorageManager storage;
 
-    private final ValidationTokenManager validationTokenManager;
+    private final ValidationManager validationManager;
 
     public CmgRaftGroupListener(ClusterStateStorage storage) {
         this.storage = new RaftStorageManager(storage);
-        this.validationTokenManager = new ValidationTokenManager(this.storage);
+        this.validationManager = new ValidationManager(this.storage);
     }
 
     @Override
@@ -79,16 +80,16 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             WriteCommand command = clo.command();
 
-            if (command instanceof WriteStateCommand) {
-                storage.putClusterState(((WriteStateCommand) command).clusterState());
+            if (command instanceof InitCmgStateCommand) {
+                Serializable response = initCmgState((InitCmgStateCommand) command);
 
-                clo.result(null);
+                clo.result(response);
             } else if (command instanceof JoinRequestCommand) {
-                Serializable response = validationTokenManager.validateNode((JoinRequestCommand) command);
+                Serializable response = validateNode((JoinRequestCommand) command);
 
                 clo.result(response);
             } else if (command instanceof JoinReadyCommand) {
-                Serializable response = validationTokenManager.completeValidation((JoinReadyCommand) command);
+                Serializable response = validationManager.completeValidation(((JoinReadyCommand) command).node());
 
                 // Non-null response means that the node has not passed the validation step.
                 if (response == null) {
@@ -102,6 +103,31 @@ public class CmgRaftGroupListener implements RaftGroupListener {
                 clo.result(null);
             }
         }
+    }
+
+    @Nullable
+    private Serializable initCmgState(InitCmgStateCommand command) {
+        ClusterState state = storage.getClusterState();
+
+        if (state == null) {
+            storage.putClusterState(command.clusterState());
+
+            return command.clusterState();
+        } else {
+            Serializable validationResult = ValidationManager.validateState(state, command.node(), command.clusterState());
+
+            return validationResult == null ? state : validationResult;
+        }
+    }
+
+    @Nullable
+    private Serializable validateNode(JoinRequestCommand command) {
+        return validationManager.validateNode(
+                storage.getClusterState(),
+                command.node(),
+                command.igniteVersion(),
+                command.clusterTag()
+        );
     }
 
     private void addNodeToLogicalTopology(JoinReadyCommand command) {
@@ -142,7 +168,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         // Raft storage lifecycle is managed by outside components.
-        validationTokenManager.close();
+        validationManager.close();
     }
 
     @Override

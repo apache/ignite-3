@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import java.util.UUID;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
 
@@ -27,17 +26,13 @@ import org.apache.ignite.raft.client.WriteCommand;
 public class JoinReadyCommand implements WriteCommand {
     private final ClusterNode node;
 
-    private final UUID validationToken;
-
     /**
      * Creates a new command.
      *
      * @param node Node that wants to enter the logical topology.
-     * @param validationToken Validation token obtained as a response from a {@link JoinRequestCommand}.
      */
-    public JoinReadyCommand(ClusterNode node, UUID validationToken) {
+    public JoinReadyCommand(ClusterNode node) {
         this.node = node;
-        this.validationToken = validationToken;
     }
 
     /**
@@ -47,14 +42,5 @@ public class JoinReadyCommand implements WriteCommand {
      */
     public ClusterNode node() {
         return node;
-    }
-
-    /**
-     * Returns the validation token.
-     *
-     * @return Validation token.
-     */
-    public UUID validationToken() {
-        return validationToken;
     }
 }

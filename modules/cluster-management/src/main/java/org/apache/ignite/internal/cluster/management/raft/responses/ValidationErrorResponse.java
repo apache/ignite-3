@@ -18,24 +18,28 @@
 package org.apache.ignite.internal.cluster.management.raft.responses;
 
 import java.io.Serializable;
-import java.util.UUID;
 
 /**
- * Class indicating a successful validation response.
+ * Response that indicates that a join request has been rejected.
  */
-public class NodeValidatedResponse implements Serializable {
-    private final UUID validationToken;
+public class ValidationErrorResponse implements Serializable {
+    private final String reason;
 
-    public NodeValidatedResponse(UUID validationToken) {
-        this.validationToken = validationToken;
+    /**
+     * Creates a new response.
+     *
+     * @param reason Textual representation of the reason of join rejection.
+     */
+    public ValidationErrorResponse(String reason) {
+        this.reason = reason;
     }
 
     /**
-     * Returns the validation token.
+     * Returns the textual representation of the reason of join rejection.
      *
-     * @return Validation token.
+     * @return Textual representation of the reason of join rejection.
      */
-    public UUID validationToken() {
-        return validationToken;
+    public String reason() {
+        return reason;
     }
 }

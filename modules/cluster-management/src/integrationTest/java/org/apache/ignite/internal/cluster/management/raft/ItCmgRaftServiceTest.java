@@ -33,7 +33,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -163,15 +162,15 @@ public class ItCmgRaftServiceTest {
                 new ClusterTag("cluster")
         );
 
-        assertThat(node1.raftService.writeClusterState(clusterState), willCompleteSuccessfully());
+        assertThat(node1.raftService.initClusterState(clusterState), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), willBe(empty()));
 
-        assertThat(joinCluster(node1), willCompleteSuccessfully());
+        assertThat(joinCluster(node1, clusterState.clusterTag()), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(contains(clusterNode1)));
 
-        assertThat(joinCluster(node2), willCompleteSuccessfully());
+        assertThat(joinCluster(node2, clusterState.clusterTag()), willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
@@ -184,8 +183,9 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.raftService.logicalTopology(), willBe(empty()));
     }
 
-    private static CompletableFuture<Void> joinCluster(Node node) {
-        return node.raftService.startJoinCluster(null).thenCompose(node.raftService::completeJoinCluster);
+    private static CompletableFuture<Void> joinCluster(Node node, ClusterTag clusterTag) {
+        return node.raftService.startJoinCluster(clusterTag)
+                .thenCompose(v -> node.raftService.completeJoinCluster());
     }
 
     /**
@@ -206,18 +206,18 @@ public class ItCmgRaftServiceTest {
                 new ClusterTag("cluster")
         );
 
-        assertThat(node1.raftService.writeClusterState(clusterState), willCompleteSuccessfully());
+        assertThat(node1.raftService.initClusterState(clusterState), willCompleteSuccessfully());
 
-        CompletableFuture<Void> joinFuture1 = joinCluster(node1);
+        CompletableFuture<Void> joinFuture1 = joinCluster(node1, clusterState.clusterTag());
 
-        CompletableFuture<Void> joinFuture2 = joinCluster(node2);
+        CompletableFuture<Void> joinFuture2 = joinCluster(node2, clusterState.clusterTag());
 
         assertThat(joinFuture1, willCompleteSuccessfully());
         assertThat(joinFuture2, willCompleteSuccessfully());
 
         assertThat(node1.raftService.logicalTopology(), will(containsInAnyOrder(clusterNode1, clusterNode2)));
 
-        joinFuture1 = joinCluster(node1);
+        joinFuture1 = joinCluster(node1, clusterState.clusterTag());
 
         assertThat(joinFuture1, willCompleteSuccessfully());
 
@@ -277,19 +277,7 @@ public class ItCmgRaftServiceTest {
                 new ClusterTag("cluster")
         );
 
-        assertThat(node1.raftService.writeClusterState(state), willCompleteSuccessfully());
-
-        assertThat(node1.raftService.readClusterState(), willBe(state));
-        assertThat(node2.raftService.readClusterState(), willBe(state));
-
-        state = new ClusterState(
-                List.of("baz"),
-                List.of("quux"),
-                IgniteProductVersion.fromString("3.3.3"),
-                new ClusterTag("new cluster")
-        );
-
-        assertThat(node2.raftService.writeClusterState(state), willCompleteSuccessfully());
+        assertThat(node1.raftService.initClusterState(state), willCompleteSuccessfully());
 
         assertThat(node1.raftService.readClusterState(), willBe(state));
         assertThat(node2.raftService.readClusterState(), willBe(state));
@@ -310,13 +298,10 @@ public class ItCmgRaftServiceTest {
                 new ClusterTag("cluster")
         );
 
-        assertThat(node1.raftService.writeClusterState(state), willCompleteSuccessfully());
-
-        // empty tag
-        assertThat(node2.raftService.startJoinCluster(null), willCompleteSuccessfully());
+        assertThat(node1.raftService.initClusterState(state), willCompleteSuccessfully());
 
         // correct tag
-        assertThat(node2.raftService.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+        assertThat(node1.raftService.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
 
         // incorrect tag
         assertThrowsWithCause(
@@ -340,7 +325,7 @@ public class ItCmgRaftServiceTest {
                 new ClusterTag("cluster")
         );
 
-        assertThat(raftService.writeClusterState(state), willCompleteSuccessfully());
+        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
         assertThrowsWithCause(
                 () -> raftService.startJoinCluster(null).get(10, TimeUnit.SECONDS),
@@ -353,10 +338,10 @@ public class ItCmgRaftServiceTest {
     }
 
     /**
-     * Test validation token logic.
+     * Tests that join commands can only be executed in a sequential order: startJoinCluster -> completeJoinCluster.
      */
     @Test
-    void testValidationToken() {
+    void testValidationCommandOrder() {
         CmgRaftService raftService = cluster.get(0).raftService;
 
         ClusterState state = new ClusterState(
@@ -366,31 +351,118 @@ public class ItCmgRaftServiceTest {
                 new ClusterTag("cluster")
         );
 
-        assertThat(raftService.writeClusterState(state), willCompleteSuccessfully());
+        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
-        CompletableFuture<UUID> joinFuture = raftService.startJoinCluster(null);
-
-        assertThat(joinFuture, willCompleteSuccessfully());
-
-        // incorrect token
-        assertThrowsWithCause(
-                () -> raftService.completeJoinCluster(UUID.randomUUID()).get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                "JoinReady request denied, reason: Incorrect validation token"
+        // Node has not passed validation.
+        String errMsg = String.format(
+                "JoinReady request denied, reason: Node \"%s\" has not yet passed the validation step",
+                cluster.get(0).clusterService.topologyService().localMember().id()
         );
 
-        UUID token = joinFuture.join();
-
-        // correct token
-        assertThat(raftService.completeJoinCluster(token), willCompleteSuccessfully());
-
-        // token should be invalidated after a successful join
         assertThrowsWithCause(
-                () -> raftService.completeJoinCluster(token).get(10, TimeUnit.SECONDS),
+                () -> raftService.completeJoinCluster().get(10, TimeUnit.SECONDS),
+                IgniteInternalException.class,
+                errMsg
+        );
+
+        assertThat(raftService.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
+
+        // Everything is ok after the node has passed validation.
+        assertThat(raftService.completeJoinCluster(), willCompleteSuccessfully());
+
+        // Validation state is cleared after the first successful attempt.
+        assertThrowsWithCause(
+                () -> raftService.completeJoinCluster().get(10, TimeUnit.SECONDS),
+                IgniteInternalException.class,
+                errMsg
+        );
+    }
+
+    /**
+     * Tests cluster state validation.
+     */
+    @Test
+    void testClusterStateValidation() {
+        CmgRaftService raftService = cluster.get(0).raftService;
+
+        ClusterState state = new ClusterState(
+                List.of("foo"),
+                List.of("bar"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("cluster")
+        );
+
+        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
+
+        // Valid state
+        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
+
+        // Invalid CMG nodes
+        ClusterState invalidCmgState = new ClusterState(
+                List.of("baz"),
+                List.of("bar"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("cluster")
+        );
+
+        assertThrowsWithCause(
+                () -> raftService.initClusterState(invalidCmgState).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
-                        "JoinReady request denied, reason: Node \"%s\" has not yet passed the validation step",
-                        cluster.get(0).clusterService.topologyService().localMember().id()
+                        "Init CMG request denied, reason: CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
+                        invalidCmgState.cmgNodes(), state.cmgNodes()
+                )
+        );
+
+        // Invalid MetaStorage nodes
+        ClusterState invalidMsState = new ClusterState(
+                List.of("foo"),
+                List.of("baz"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("cluster")
+        );
+
+        assertThrowsWithCause(
+                () -> raftService.initClusterState(invalidMsState).get(10, TimeUnit.SECONDS),
+                IgniteInternalException.class,
+                String.format(
+                        "Init CMG request denied, reason: MetaStorage node names do not match. "
+                                + "MetaStorage nodes: %s, nodes stored in CMG: %s",
+                        invalidMsState.metaStorageNodes(), state.metaStorageNodes()
+                )
+        );
+
+        // Invalid version
+        ClusterState invalidVersionState = new ClusterState(
+                List.of("foo"),
+                List.of("bar"),
+                IgniteProductVersion.fromString("1.2.3"),
+                new ClusterTag("cluster")
+        );
+
+        assertThrowsWithCause(
+                () -> raftService.initClusterState(invalidVersionState).get(10, TimeUnit.SECONDS),
+                IgniteInternalException.class,
+                String.format(
+                        "Init CMG request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
+                        invalidVersionState.igniteVersion(), state.igniteVersion()
+                )
+        );
+
+        // Invalid tag
+        ClusterState invalidTagState = new ClusterState(
+                List.of("foo"),
+                List.of("bar"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("invalid")
+        );
+
+        assertThrowsWithCause(
+                () -> raftService.initClusterState(invalidTagState).get(10, TimeUnit.SECONDS),
+                IgniteInternalException.class,
+                String.format(
+                        "Init CMG request denied, reason: Cluster names do not match. Cluster name: %s, cluster name stored in CMG: %s",
+                        invalidTagState.clusterTag().clusterName(), state.clusterTag().clusterName()
                 )
         );
     }

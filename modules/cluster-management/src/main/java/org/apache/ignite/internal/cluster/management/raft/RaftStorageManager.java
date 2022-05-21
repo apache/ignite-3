@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -44,7 +43,9 @@ class RaftStorageManager {
     private static final byte[] LOGICAL_TOPOLOGY_PREFIX = "logical_".getBytes(UTF_8);
 
     /** Prefix for validation tokens. */
-    private static final byte[] VALIDATION_TOKEN_PREFIX = "validation_".getBytes(UTF_8);
+    private static final byte[] VALIDATED_NODE_PREFIX = "validation_".getBytes(UTF_8);
+
+    private static final byte[] EMPTY_VALUE = new byte[0];
 
     private final ClusterStateStorage storage;
 
@@ -118,27 +119,28 @@ class RaftStorageManager {
      *
      * @return Validation token or {@code null} if it does not exist.
      */
-    @Nullable
-    UUID getValidationToken(ClusterNode node) {
-        return get(validationTokenKey(node.id()), UUID.class);
+    boolean isNodeValidated(String nodeId) {
+        byte[] value = storage.get(validatedNodeKey(nodeId));
+
+        return value != null;
     }
 
     /**
      * Saves the validation token for a given node.
      */
-    void putValidationToken(ClusterNode node, UUID token) {
-        storage.put(validationTokenKey(node.id()), ByteUtils.toBytes(token));
+    void putValidatedNode(String nodeId) {
+        storage.put(validatedNodeKey(nodeId), EMPTY_VALUE);
     }
 
     /**
      * Removes the validation token for a given node.
      */
-    void removeValidationToken(String nodeId) {
-        storage.remove(validationTokenKey(nodeId));
+    void removeValidatedNode(String nodeId) {
+        storage.remove(validatedNodeKey(nodeId));
     }
 
-    private static byte[] validationTokenKey(String nodeId) {
-        return prefixedKey(VALIDATION_TOKEN_PREFIX, nodeId);
+    private static byte[] validatedNodeKey(String nodeId) {
+        return prefixedKey(VALIDATED_NODE_PREFIX, nodeId);
     }
 
     /**
@@ -146,8 +148,8 @@ class RaftStorageManager {
      */
     Collection<String> getValidatedNodeIds() {
         Cursor<String> cursor = storage.getWithPrefix(
-                VALIDATION_TOKEN_PREFIX,
-                (k, v) -> new String(k, VALIDATION_TOKEN_PREFIX.length, k.length - VALIDATION_TOKEN_PREFIX.length, UTF_8)
+                VALIDATED_NODE_PREFIX,
+                (k, v) -> new String(k, VALIDATED_NODE_PREFIX.length, k.length - VALIDATED_NODE_PREFIX.length, UTF_8)
         );
 
         try (cursor) {

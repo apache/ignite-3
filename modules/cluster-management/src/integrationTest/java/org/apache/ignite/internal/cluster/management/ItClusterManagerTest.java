@@ -66,7 +66,7 @@ public class ItClusterManagerTest {
         stopCluster();
     }
 
-    private void startCluster(int numNodes, TestInfo testInfo) throws IOException {
+    private void startCluster(int numNodes, TestInfo testInfo) throws IOException, InterruptedException {
         List<NetworkAddress> addrs = IntStream.range(0, numNodes)
                 .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
                 .collect(toList());
@@ -120,12 +120,10 @@ public class ItClusterManagerTest {
      * Tests that init fails in case some nodes cannot be found.
      */
     @Test
-    void testInitDeadNodes(TestInfo testInfo) throws IOException {
+    void testInitDeadNodes(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] allNodes = cluster.stream()
-                .map(node -> node.localMember().name())
-                .toArray(String[]::new);
+        String[] allNodes = clusterNodeNames();
 
         MockNode nodeToStop = cluster.remove(0);
 
@@ -142,9 +140,7 @@ public class ItClusterManagerTest {
     void testInitCancel(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] allNodes = cluster.stream()
-                .map(node -> node.localMember().name())
-                .toArray(String[]::new);
+        String[] allNodes = clusterNodeNames();
 
         // stop a CMG node to make the init fail
 
@@ -157,7 +153,7 @@ public class ItClusterManagerTest {
 
         // complete initialization with one node to check that it finishes correctly
 
-        String[] aliveNodes = { cluster.get(0).localMember().name() };
+        String[] aliveNodes = {cluster.get(0).localMember().name()};
 
         initCluster(aliveNodes, aliveNodes);
 
@@ -173,9 +169,9 @@ public class ItClusterManagerTest {
     void testNodeRestart(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] cmgNodes = { cluster.get(0).localMember().name() };
+        String[] cmgNodes = {cluster.get(0).localMember().name()};
 
-        String[] metaStorageNodes = { cluster.get(1).localMember().name() };
+        String[] metaStorageNodes = {cluster.get(1).localMember().name()};
 
         initCluster(metaStorageNodes, cmgNodes);
 
@@ -184,11 +180,11 @@ public class ItClusterManagerTest {
 
         cluster.get(0).restart();
 
+        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
+
         assertThat(cluster.get(0).clusterManager().metaStorageNodes(), will(containsInAnyOrder(metaStorageNodes)));
 
         ClusterNode[] expectedTopology = currentPhysicalTopology();
-
-        waitForLogicalTopology();
 
         assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
         assertThat(cluster.get(1).clusterManager().logicalTopology(), will(containsInAnyOrder(expectedTopology)));
@@ -201,14 +197,14 @@ public class ItClusterManagerTest {
     void testNodeJoin(TestInfo testInfo) throws Exception {
         startCluster(2, testInfo);
 
-        String[] cmgNodes = { cluster.get(0).localMember().name() };
+        String[] cmgNodes = clusterNodeNames();
 
         initCluster(cmgNodes, cmgNodes);
 
         // create and start a new node
         var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
 
-        var nodeFinder = new StaticNodeFinder(cluster.stream().map(node -> node.localMember().address()).collect(toList()));
+        var nodeFinder = new StaticNodeFinder(Arrays.asList(clusterNodeAddresses()));
 
         var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
 
@@ -216,7 +212,7 @@ public class ItClusterManagerTest {
 
         node.start();
 
-        waitForLogicalTopology();
+        assertThat(node.startFuture(), willCompleteSuccessfully());
 
         assertThat(node.clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
     }
@@ -282,8 +278,67 @@ public class ItClusterManagerTest {
         );
     }
 
+    /**
+     * Tests a scenario when a node, that participated in a cluster, tries to join a new one.
+     */
+    @Test
+    void testJoinLeaderChange(TestInfo testInfo) throws Exception {
+        // Start a cluster of 3 nodes so that the CMG leader node could be stopped later.
+        startCluster(3, testInfo);
+
+        String[] cmgNodes = clusterNodeNames();
+
+        initCluster(cmgNodes, cmgNodes);
+
+        // Start a new node, but do not send the JoinReadyCommand.
+        var addr = new NetworkAddress("localhost", PORT_BASE + cluster.size());
+
+        var nodeFinder = new StaticNodeFinder(Arrays.asList(clusterNodeAddresses()));
+
+        var node = new MockNode(testInfo, addr, nodeFinder, workDir.resolve("node" + cluster.size()));
+
+        node.startComponents();
+
+        assertThat(node.clusterManager().joinFuture(), willCompleteSuccessfully());
+
+        cluster.add(node);
+
+        // Find the CMG leader and stop it
+        MockNode leaderNode = cluster.stream()
+                .filter(n -> {
+                    CompletableFuture<Boolean> isLeader = n.clusterManager().isCmgLeader();
+
+                    assertThat(isLeader, willCompleteSuccessfully());
+
+                    return isLeader.join();
+                })
+                .findAny()
+                .orElseThrow();
+
+        leaderNode.stop();
+
+        // Issue the JoinReadCommand on the joining node. It is expected that validation tokens have been transferred to the new CMG leader.
+        assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
+    }
+
     private ClusterNode[] currentPhysicalTopology() {
-        return cluster.stream().map(MockNode::localMember).toArray(ClusterNode[]::new);
+        return cluster.stream()
+                .map(MockNode::localMember)
+                .toArray(ClusterNode[]::new);
+    }
+
+    private String[] clusterNodeNames() {
+        return cluster.stream()
+                .map(MockNode::localMember)
+                .map(ClusterNode::name)
+                .toArray(String[]::new);
+    }
+
+    private NetworkAddress[] clusterNodeAddresses() {
+        return cluster.stream()
+                .map(MockNode::localMember)
+                .map(ClusterNode::address)
+                .toArray(NetworkAddress[]::new);
     }
 
     private void waitForLogicalTopology() throws InterruptedException {
@@ -303,6 +358,8 @@ public class ItClusterManagerTest {
                 "cluster"
         );
 
-        waitForLogicalTopology();
+        for (MockNode node : cluster) {
+            assertThat(node.startFuture(), willCompleteSuccessfully());
+        }
     }
 }

@@ -21,7 +21,6 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Command sent by a node that intends to join a cluster. This command will trigger node validation.
@@ -31,7 +30,6 @@ public class JoinRequestCommand implements WriteCommand {
 
     private final IgniteProductVersion igniteVersion;
 
-    @Nullable
     private final ClusterTag clusterTag;
 
     /**
@@ -41,7 +39,7 @@ public class JoinRequestCommand implements WriteCommand {
      * @param igniteVersion Version of the Ignite node.
      * @param clusterTag Cluster tag.
      */
-    public JoinRequestCommand(ClusterNode node, IgniteProductVersion igniteVersion, @Nullable ClusterTag clusterTag) {
+    public JoinRequestCommand(ClusterNode node, IgniteProductVersion igniteVersion, ClusterTag clusterTag) {
         this.node = node;
         this.igniteVersion = igniteVersion;
         this.clusterTag = clusterTag;
@@ -70,7 +68,6 @@ public class JoinRequestCommand implements WriteCommand {
      *
      * @return Cluster tag.
      */
-    @Nullable
     public ClusterTag clusterTag() {
         return clusterTag;
     }

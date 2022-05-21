@@ -22,8 +22,8 @@ import org.apache.ignite.lang.IgniteInternalException;
 /**
  * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
  */
-class IllegalInitArgumentException extends IgniteInternalException {
-    IllegalInitArgumentException(String message) {
+public class IllegalInitArgumentException extends IgniteInternalException {
+    public IllegalInitArgumentException(String message) {
         super(message);
     }
 }

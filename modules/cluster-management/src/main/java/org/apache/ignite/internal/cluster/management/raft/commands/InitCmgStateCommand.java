@@ -18,27 +18,42 @@
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Command for saving a {@link ClusterState}.
+ * Command for initializing the CMG state. If the state has already been initialized, the sender node will be validated against the
+ * existing state.
  */
-public class WriteStateCommand implements WriteCommand {
+public class InitCmgStateCommand implements WriteCommand {
+    private final ClusterNode node;
+
     private final ClusterState clusterState;
 
     /**
      * Creates a new command.
      *
-     * @param clusterState State to save.
+     * @param node Node that wants to enter the logical topology.
+     * @param clusterState CMG state.
      */
-    public WriteStateCommand(ClusterState clusterState) {
+    public InitCmgStateCommand(ClusterNode node, ClusterState clusterState) {
+        this.node = node;
         this.clusterState = clusterState;
     }
 
     /**
-     * Returns the state that needs to be saved in the Raft storage.
+     * Returns the node that wants to join a cluster.
      *
-     * @return State to save.
+     * @return Node that wants to join a cluster.
+     */
+    public ClusterNode node() {
+        return node;
+    }
+
+    /**
+     * Returns the CMG state.
+     *
+     * @return CMG state.
      */
     public ClusterState clusterState() {
         return clusterState;
