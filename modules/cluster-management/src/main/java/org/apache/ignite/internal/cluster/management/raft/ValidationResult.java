@@ -19,6 +19,9 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Result of validating a node by the {@link ValidationManager}.
+ */
 class ValidationResult {
     @Nullable
     private final String errorDescription;
@@ -27,18 +30,30 @@ class ValidationResult {
         this.errorDescription = errorDescription;
     }
 
+    /**
+     * Creates a successful validation result.
+     */
     static ValidationResult successfulResult() {
         return new ValidationResult(null);
     }
 
+    /**
+     * Creates a failed validation result.
+     */
     static ValidationResult errorResult(String errorDescription) {
         return new ValidationResult(errorDescription);
     }
 
+    /**
+     * Returns {@code true} if the validation result is successful, {@code false} otherwise.
+     */
     boolean isValid() {
         return errorDescription == null;
     }
 
+    /**
+     * Returns the validation error description if this result is not successful.
+     */
     String errorDescription() {
         assert errorDescription != null;
 

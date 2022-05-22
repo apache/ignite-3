@@ -333,11 +333,11 @@ public class ItCmgRaftServiceTest {
         assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
 
         assertThrowsWithCause(
-                () -> raftService.startJoinCluster(null).get(10, TimeUnit.SECONDS),
+                () -> raftService.startJoinCluster(state.clusterTag()).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
                 String.format(
-                        "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: 1.2.3",
-                        IgniteProductVersion.CURRENT_VERSION
+                        "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
+                        IgniteProductVersion.CURRENT_VERSION, state.igniteVersion()
                 )
         );
     }

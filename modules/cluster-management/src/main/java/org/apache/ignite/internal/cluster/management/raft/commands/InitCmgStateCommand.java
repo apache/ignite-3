@@ -42,9 +42,9 @@ public class InitCmgStateCommand implements WriteCommand {
     }
 
     /**
-     * Returns the node that wants to join a cluster.
+     * Returns the node that wants to initialize the CMG state.
      *
-     * @return Node that wants to join a cluster.
+     * @return Node that wants to initialize the CMG state.
      */
     public ClusterNode node() {
         return node;

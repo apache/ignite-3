@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
-import org.apache.ignite.internal.cluster.management.IllegalInitArgumentException;
 import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
@@ -95,7 +94,7 @@ public class CmgRaftService {
      * Saves the given {@link ClusterState}.
      *
      * @param clusterState Cluster state.
-     * @return Future that represents the state of the operation.
+     * @return Future that resolves to the current CMG state.
      */
     public CompletableFuture<ClusterState> initClusterState(ClusterState clusterState) {
         ClusterNode localMember = clusterService.topologyService().localMember();
@@ -127,7 +126,7 @@ public class CmgRaftService {
         return raftService.run(new JoinRequestCommand(localMember, IgniteProductVersion.CURRENT_VERSION, clusterTag))
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
-                        throw new IgniteInternalException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
+                        throw new JoinDeniedException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
                     }
@@ -147,7 +146,7 @@ public class CmgRaftService {
         return raftService.run(new JoinReadyCommand(localMember))
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
-                        throw new IgniteInternalException("JoinReady request denied, reason: "
+                        throw new JoinDeniedException("JoinReady request denied, reason: "
                                 + ((ValidationErrorResponse) response).reason());
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);

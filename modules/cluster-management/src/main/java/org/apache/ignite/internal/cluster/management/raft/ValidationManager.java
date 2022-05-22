@@ -91,6 +91,8 @@ class ValidationManager implements AutoCloseable {
             ));
         }
 
+        // We only compare cluster names here, because multiple nodes will try to generate and set the cluster ID, so that they will never
+        // actually match.
         if (!state.clusterTag().clusterName().equals(nodeState.clusterTag().clusterName())) {
             return ValidationResult.errorResult(String.format(
                     "Cluster names do not match. Cluster name: %s, cluster name stored in CMG: %s",

@@ -66,7 +66,7 @@ public class ItClusterManagerTest {
         stopCluster();
     }
 
-    private void startCluster(int numNodes, TestInfo testInfo) throws IOException, InterruptedException {
+    private void startCluster(int numNodes, TestInfo testInfo) throws IOException {
         List<NetworkAddress> addrs = IntStream.range(0, numNodes)
                 .mapToObj(i -> new NetworkAddress("localhost", PORT_BASE + i))
                 .collect(toList());
@@ -191,6 +191,37 @@ public class ItClusterManagerTest {
     }
 
     /**
+     * Tests a scenario, when every node in a cluster gets restarted.
+     */
+    @Test
+    void testClusterRestart(TestInfo testInfo) throws Exception {
+        startCluster(3, testInfo);
+
+        String[] cmgNodes = {
+                cluster.get(0).localMember().name(),
+                cluster.get(1).localMember().name()
+        };
+
+        String[] metaStorageNodes = { cluster.get(2).localMember().name() };
+
+        initCluster(cmgNodes, metaStorageNodes);
+
+        for (MockNode node : cluster) {
+            assertThat(node.startFuture(), willCompleteSuccessfully());
+        }
+
+        for (MockNode node : cluster) {
+            node.restart();
+        }
+
+        for (MockNode node : cluster) {
+            assertThat(node.startFuture(), willCompleteSuccessfully());
+        }
+
+        assertThat(cluster.get(0).clusterManager().logicalTopology(), will(containsInAnyOrder(currentPhysicalTopology())));
+    }
+
+    /**
      * Tests a scenario when a new node joins a cluster.
      */
     @Test
@@ -279,7 +310,7 @@ public class ItClusterManagerTest {
     }
 
     /**
-     * Tests a scenario when a node, that participated in a cluster, tries to join a new one.
+     * Tests a scenario when a node starts joining a cluster having a CMG leader, but finishes the join after the CMG leader changed.
      */
     @Test
     void testJoinLeaderChange(TestInfo testInfo) throws Exception {
@@ -288,6 +319,7 @@ public class ItClusterManagerTest {
 
         String[] cmgNodes = clusterNodeNames();
 
+        // Start the CMG on all 3 nodes.
         initCluster(cmgNodes, cmgNodes);
 
         // Start a new node, but do not send the JoinReadyCommand.
@@ -317,7 +349,7 @@ public class ItClusterManagerTest {
 
         leaderNode.stop();
 
-        // Issue the JoinReadCommand on the joining node. It is expected that validation tokens have been transferred to the new CMG leader.
+        // Issue the JoinReadCommand on the joining node. It is expected that the joining node is still treated as validated.
         assertThat(node.clusterManager().onJoinReady(), willCompleteSuccessfully());
     }
 
@@ -351,7 +383,7 @@ public class ItClusterManagerTest {
         }, 10000));
     }
 
-    private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException, InterruptedException {
+    private void initCluster(String[] metaStorageNodes, String[] cmgNodes) throws NodeStoppingException {
         cluster.get(0).clusterManager().initCluster(
                 Arrays.asList(metaStorageNodes),
                 Arrays.asList(cmgNodes),

@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management;
+package org.apache.ignite.internal.cluster.management.raft;
 
 import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
+ * Exception thrown if a node was unable to pass the validation step.
  */
-public class IllegalInitArgumentException extends IgniteInternalException {
-    public IllegalInitArgumentException(String message) {
-        super(message);
+public class JoinDeniedException extends IgniteInternalException {
+    public JoinDeniedException(String msg) {
+        super(msg);
     }
 }

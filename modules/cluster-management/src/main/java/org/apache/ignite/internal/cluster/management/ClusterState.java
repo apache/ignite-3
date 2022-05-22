@@ -24,10 +24,12 @@ import java.util.Set;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * Represents a cluster state. It contains:
+ * Represents the state of the CMG. It contains:
  * <ol>
  *     <li>Names of the nodes that host the Meta Storage.</li>
  *     <li>Names of the nodes that host the CMG.</li>
+ *     <li>Ignite version of the nodes that comprise the cluster.</li>
+ *     <li>Cluster tag, unique for a particular Ignite cluster.</li>
  * </ol>
  */
 public final class ClusterState implements Serializable {
