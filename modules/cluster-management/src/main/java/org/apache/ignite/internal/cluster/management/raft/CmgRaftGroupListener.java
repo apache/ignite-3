@@ -33,6 +33,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCom
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
+import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
@@ -85,18 +86,19 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
                 clo.result(response);
             } else if (command instanceof JoinRequestCommand) {
-                Serializable response = validateNode((JoinRequestCommand) command);
+                ValidationResult response = validateNode((JoinRequestCommand) command);
 
-                clo.result(response);
+                clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
             } else if (command instanceof JoinReadyCommand) {
-                Serializable response = validationManager.completeValidation(((JoinReadyCommand) command).node());
+                ValidationResult response = validationManager.completeValidation(((JoinReadyCommand) command).node());
 
-                // Non-null response means that the node has not passed the validation step.
-                if (response == null) {
+                if (response.isValid()) {
                     addNodeToLogicalTopology((JoinReadyCommand) command);
-                }
 
-                clo.result(response);
+                    clo.result(null);
+                } else {
+                    clo.result(new ValidationErrorResponse(response.errorDescription()));
+                }
             } else if (command instanceof NodesLeaveCommand) {
                 removeNodesFromLogicalTopology((NodesLeaveCommand) command);
 
@@ -114,14 +116,13 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return command.clusterState();
         } else {
-            Serializable validationResult = ValidationManager.validateState(state, command.node(), command.clusterState());
+            ValidationResult validationResult = ValidationManager.validateState(state, command.node(), command.clusterState());
 
-            return validationResult == null ? state : validationResult;
+            return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
         }
     }
 
-    @Nullable
-    private Serializable validateNode(JoinRequestCommand command) {
+    private ValidationResult validateNode(JoinRequestCommand command) {
         return validationManager.validateNode(
                 storage.getClusterState(),
                 command.node(),

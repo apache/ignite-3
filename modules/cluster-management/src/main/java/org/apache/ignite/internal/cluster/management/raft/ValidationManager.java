@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
-import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -63,41 +62,40 @@ class ValidationManager implements AutoCloseable {
     /**
      * Validates a given {@code state} against the {@code nodeState} received from an {@link InitCmgStateCommand}.
      */
-    @Nullable
-    static Serializable validateState(@Nullable ClusterState state, ClusterNode node, ClusterState nodeState) {
+    static ValidationResult validateState(@Nullable ClusterState state, ClusterNode node, ClusterState nodeState) {
         if (state == null) {
-            return new ValidationErrorResponse("Cluster has not been initialized yet");
+            return ValidationResult.errorResult("Cluster has not been initialized yet");
         }
 
         if (!state.cmgNodes().equals(nodeState.cmgNodes())) {
-            return new ValidationErrorResponse(String.format(
+            return ValidationResult.errorResult(String.format(
                     "CMG node names do not match. CMG nodes: %s, nodes stored in CMG: %s",
                     nodeState.cmgNodes(), state.cmgNodes()
             ));
         }
 
         if (!state.metaStorageNodes().equals(nodeState.metaStorageNodes())) {
-            return new ValidationErrorResponse(String.format(
+            return ValidationResult.errorResult(String.format(
                     "MetaStorage node names do not match. MetaStorage nodes: %s, nodes stored in CMG: %s",
                     nodeState.metaStorageNodes(), state.metaStorageNodes()
             ));
         }
 
         if (!state.igniteVersion().equals(nodeState.igniteVersion())) {
-            return new ValidationErrorResponse(String.format(
+            return ValidationResult.errorResult(String.format(
                     "Ignite versions do not match. Version: %s, version stored in CMG: %s",
                     nodeState.igniteVersion(), state.igniteVersion()
             ));
         }
 
         if (!state.clusterTag().clusterName().equals(nodeState.clusterTag().clusterName())) {
-            return new ValidationErrorResponse(String.format(
+            return ValidationResult.errorResult(String.format(
                     "Cluster names do not match. Cluster name: %s, cluster name stored in CMG: %s",
                     nodeState.clusterTag().clusterName(), state.clusterTag().clusterName()
             ));
         }
 
-        return null;
+        return ValidationResult.successfulResult();
     }
 
     /**
@@ -105,30 +103,29 @@ class ValidationManager implements AutoCloseable {
      *
      * @return {@code null} in case of successful validation or a {@link ValidationErrorResponse} otherwise.
      */
-    @Nullable
-    Serializable validateNode(
+    ValidationResult validateNode(
             @Nullable ClusterState state,
             ClusterNode node,
             IgniteProductVersion version,
             ClusterTag clusterTag
     ) {
         if (storage.isNodeValidated(node.id())) {
-            return null;
+            return ValidationResult.successfulResult();
         }
 
         if (state == null) {
-            return new ValidationErrorResponse("Cluster has not been initialized yet");
+            return ValidationResult.errorResult("Cluster has not been initialized yet");
         }
 
         if (!state.igniteVersion().equals(version)) {
-            return new ValidationErrorResponse(String.format(
+            return ValidationResult.errorResult(String.format(
                     "Ignite versions do not match. Version: %s, version stored in CMG: %s",
                     version, state.igniteVersion()
             ));
         }
 
         if (!state.clusterTag().equals(clusterTag)) {
-            return new ValidationErrorResponse(String.format(
+            return ValidationResult.errorResult(String.format(
                     "Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                     clusterTag, state.clusterTag()
             ));
@@ -136,7 +133,7 @@ class ValidationManager implements AutoCloseable {
 
         putValidatedNode(node.id());
 
-        return null;
+        return ValidationResult.successfulResult();
     }
 
     /**
@@ -145,12 +142,11 @@ class ValidationManager implements AutoCloseable {
      * @param node Node that wishes to join the logical topology.
      * @return {@code null} if the tokens match or {@link ValidationErrorResponse} otherwise.
      */
-    @Nullable
-    Serializable completeValidation(ClusterNode node) {
+    ValidationResult completeValidation(ClusterNode node) {
         String nodeId = node.id();
 
         if (!storage.isNodeValidated(nodeId)) {
-            return new ValidationErrorResponse(String.format("Node \"%s\" has not yet passed the validation step", nodeId));
+            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", nodeId));
         }
 
         Future<?> cleanupFuture = cleanupFutures.remove(nodeId);
@@ -161,10 +157,10 @@ class ValidationManager implements AutoCloseable {
 
         storage.removeValidatedNode(nodeId);
 
-        return null;
+        return ValidationResult.successfulResult();
     }
 
-    void putValidatedNode(String nodeId) {
+    private void putValidatedNode(String nodeId) {
         storage.putValidatedNode(nodeId);
 
         scheduleValidatedNodeRemoval(nodeId);

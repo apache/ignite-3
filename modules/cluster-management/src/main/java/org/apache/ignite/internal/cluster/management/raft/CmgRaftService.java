@@ -116,6 +116,7 @@ public class CmgRaftService {
     /**
      * Sends a {@link JoinRequestCommand}, starting the validation procedure.
      *
+     * @param clusterTag Cluster tag of the joining node.
      * @return Future that either resolves into a join token in case of successful validation or into an {@link IgniteInternalException}
      *         otherwise.
      * @see ValidationManager
@@ -198,7 +199,7 @@ public class CmgRaftService {
     private ClusterNode resolvePeer(Peer peer) {
         NetworkAddress addr = peer.address();
 
-        for (int i = 0; i < MAX_RESOLVE_ATTEMPTS; ++i) {
+        for (int i = 0; i < MAX_RESOLVE_ATTEMPTS; i++) {
             ClusterNode node = clusterService.topologyService().getByAddress(addr);
 
             if (node != null) {

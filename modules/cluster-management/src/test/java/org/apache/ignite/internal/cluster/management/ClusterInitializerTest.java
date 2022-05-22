@@ -167,7 +167,7 @@ public class ClusterInitializerTest {
     }
 
     /**
-     * Tests a situation when the init command fails non critically, so that initialization is not cancelled.
+     * Tests a situation when the init command fails noncritically, so that initialization is not cancelled.
      */
     @Test
     void testInitNoCancel() {

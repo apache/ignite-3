@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Class representing an Ignite version.
@@ -54,14 +55,14 @@ public class IgniteProductVersion implements Serializable {
     }
 
     /**
-     * Parses Ignite version in the {@code "X.X.X-SNAPSHOT"} format.
+     * Parses Ignite version in either {@code "X.X.X-SNAPSHOT"} or {@code "X.X.X"} formats.
      *
      * @param versionStr String representation of an Ignite version.
      * @return Parsed Ignite version.
      * @throws IllegalArgumentException If the given string is empty or does not match the required format.
      */
     public static IgniteProductVersion fromString(String versionStr) {
-        if (versionStr.isBlank()) {
+        if (StringUtils.nullOrBlank(versionStr)) {
             throw new IllegalArgumentException("Ignite version is empty");
         }
 
