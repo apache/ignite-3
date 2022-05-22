@@ -115,7 +115,9 @@ public class VersionedValue<T> {
 
         this.defaultValRef = defaultValSupplier == null ? null : new AtomicReference<>();
 
-        observableRevisionUpdater.accept(this::completeOnRevision);
+        if (observableRevisionUpdater != null) {
+            observableRevisionUpdater.accept(this::completeOnRevision);
+        }
     }
 
     /**

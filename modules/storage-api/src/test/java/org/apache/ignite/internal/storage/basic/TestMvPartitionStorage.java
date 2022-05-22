@@ -29,7 +29,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.UuidRowId;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -42,8 +41,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
     private final List<TestSortedIndexMvStorage> indexes;
 
-    public TestMvPartitionStorage(List<TestSortedIndexMvStorage> indexes) {
+    private final int partitionId;
+
+    public TestMvPartitionStorage(List<TestSortedIndexMvStorage> indexes, int partitionId) {
         this.indexes = indexes;
+        this.partitionId = partitionId;
     }
 
     private static class VersionChain {
@@ -71,7 +73,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public RowId insert(BinaryRow row, UUID txId) throws StorageException {
-        RowId rowId = UuidRowId.randomRowId(0);
+        RowId rowId = new TestRowId(partitionId);
 
         addWrite(rowId, row, txId);
 
@@ -243,5 +245,20 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void close() throws Exception {
         // No-op.
+    }
+
+    static class TestRowId implements RowId {
+        final int partitionId;
+        final UUID uuid;
+
+        TestRowId(int partitionId) {
+            this.partitionId = partitionId;
+            uuid = UUID.randomUUID();
+        }
+
+        @Override
+        public int partitionId() {
+            return partitionId;
+        }
     }
 }

@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
@@ -121,5 +122,10 @@ public class RocksDbStorageEngine implements StorageEngine {
         }
 
         return new RocksDbTableStorage(tablePath, tableCfg, threadPool, dataRegion);
+    }
+
+    @Override
+    public MvTableStorage createMvTable(TableConfiguration tableCfg) throws StorageException {
+        return (MvTableStorage) createTable(tableCfg);
     }
 }

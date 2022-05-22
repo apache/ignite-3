@@ -60,6 +60,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
@@ -183,6 +184,9 @@ public class IgniteImpl implements Ignite {
     /** Data storage manager. */
     private final DataStorageManager dataStorageMgr;
 
+    /** Schema manager. */
+    private final SchemaManager schemaManager;
+
     /**
      * The Constructor.
      *
@@ -287,6 +291,11 @@ public class IgniteImpl implements Ignite {
                 )
         );
 
+        schemaManager = new SchemaManager(
+            registry,
+            clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+        );
+
         distributedTblMgr = new TableManager(
                 registry,
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
@@ -294,7 +303,8 @@ public class IgniteImpl implements Ignite {
                 baselineMgr,
                 clusterSvc.topologyService(),
                 txManager,
-                dataStorageMgr
+                dataStorageMgr,
+                schemaManager
         );
 
         qryEngine = new SqlQueryProcessor(
@@ -411,6 +421,7 @@ public class IgniteImpl implements Ignite {
                                     txManager,
                                     baselineMgr,
                                     dataStorageMgr,
+                                    schemaManager,
                                     distributedTblMgr,
                                     qryEngine,
                                     clientHandlerModule

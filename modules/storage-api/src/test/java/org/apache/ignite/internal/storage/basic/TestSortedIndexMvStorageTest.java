@@ -31,7 +31,7 @@ import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 public class TestSortedIndexMvStorageTest extends AbstractSortedIndexMvStorageTest {
     private List<TestSortedIndexMvStorage> indexes = new CopyOnWriteArrayList<>();
 
-    private TestMvPartitionStorage partitionStorage = new TestMvPartitionStorage(indexes);
+    private TestMvPartitionStorage partitionStorage = new TestMvPartitionStorage(indexes, 0);
 
     @Override
     protected MvPartitionStorage partitionStorage() {
