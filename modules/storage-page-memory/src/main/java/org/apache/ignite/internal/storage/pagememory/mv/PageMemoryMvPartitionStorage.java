@@ -56,6 +56,7 @@ import org.jetbrains.annotations.Nullable;
 public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
     private static final Predicate<BinaryRow> MATCH_ALL = row -> true;
+    private static final Predicate<Timestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
 
     private final int partitionId;
     private final int groupId;
@@ -64,7 +65,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private final VersionChainTree versionChainTree;
     private final VersionChainDataPageReader versionChainDataPageReader;
     private final RowVersionFreeList rowVersionFreeList;
-    private final DataPageReader<RowVersion> rowVersionDataPageReader;
+    private final DataPageReader rowVersionDataPageReader;
 
     /**
      * Constructor.
@@ -196,7 +197,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
     @Nullable
     private ByteBufferRow findLatestRowVersion(VersionChain versionChain, UUID txId, Predicate<BinaryRow> keyFilter) {
-        RowVersion rowVersion = findLatestRowVersion(versionChain);
+        RowVersion rowVersion = findLatestRowVersion(versionChain, ALWAYS_LOAD_VALUE);
         ByteBufferRow row = rowVersionToBinaryRow(rowVersion);
 
         if (!keyFilter.test(row)) {
@@ -208,18 +209,18 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         return row;
     }
 
-    private RowVersion findLatestRowVersion(VersionChain versionChain) {
-        return findRowVersion(versionChain.headLink());
-    }
+    private RowVersion findLatestRowVersion(VersionChain versionChain, Predicate<Timestamp> loadValue) {
+        long nextLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(versionChain.headLink(), partitionId);
 
-    private RowVersion findRowVersion(long nextRowPartitionlessLink) {
-        long nextLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(nextRowPartitionlessLink, partitionId);
+        ReadLatestRowVersion read = new ReadLatestRowVersion(loadValue);
 
         try {
-            return rowVersionDataPageReader.getRowByLink(nextLink);
+            rowVersionDataPageReader.traverse(nextLink, read);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Row version lookup failed");
         }
+
+        return read.result();
     }
 
     private void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
@@ -259,7 +260,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         long nextRowPartitionlessLink = versionChain.headLink();
         long nextLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(nextRowPartitionlessLink, partitionId);
 
-        ScanVersionChainByTimestamp scanByTimestamp = new ScanVersionChainByTimestamp(timestamp, partitionId);
+        ScanVersionChainByTimestamp scanByTimestamp = new ScanVersionChainByTimestamp(timestamp);
 
         try {
             rowVersionDataPageReader.traverse(nextLink, scanByTimestamp);
@@ -316,7 +317,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         throwIfChainBelongsToAnotherTx(currentChain, txId);
 
-        RowVersion currentVersion = findLatestRowVersion(currentChain);
+        RowVersion currentVersion = findLatestRowVersion(currentChain, RowVersion::isUncommitted);
         RowVersion newVersion = insertRowVersion(row, currentVersion.isUncommitted() ? currentVersion.nextLink() : currentChain.headLink());
 
         if (currentVersion.isUncommitted()) {
@@ -356,7 +357,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
             throw new NoUncommittedVersionException();
         }
 
-        RowVersion currentVersion = findLatestRowVersion(currentVersionChain);
+        RowVersion currentVersion = findLatestRowVersion(currentVersionChain, ALWAYS_LOAD_VALUE);
         assert currentVersion.isUncommitted();
 
         removeRowVersion(currentVersion);
@@ -390,7 +391,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         assert currentVersionChain.transactionId() != null;
 
-        RowVersion currentVersion = findLatestRowVersion(currentVersionChain);
+        RowVersion currentVersion = findLatestRowVersion(currentVersionChain, ALWAYS_LOAD_VALUE);
         assert currentVersion.isUncommitted();
 
         RowVersion versionReplacement = new RowVersion(

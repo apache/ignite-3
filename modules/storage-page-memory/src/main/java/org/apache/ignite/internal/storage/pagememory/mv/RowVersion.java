@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
@@ -56,6 +57,7 @@ public class RowVersion implements Storable {
     private final long nextLink;
     private final int valueSize;
     @IgniteToStringExclude
+    @Nullable
     private final ByteBuffer value;
 
     /**
@@ -68,7 +70,7 @@ public class RowVersion implements Storable {
     /**
      * Constructor.
      */
-    public RowVersion(int partitionId, long link, @Nullable Timestamp timestamp, long nextLink, ByteBuffer value) {
+    public RowVersion(int partitionId, long link, @Nullable Timestamp timestamp, long nextLink, @Nullable ByteBuffer value) {
         this.partitionId = partitionId;
         link(link);
 
@@ -76,7 +78,7 @@ public class RowVersion implements Storable {
 
         this.timestamp = timestamp;
         this.nextLink = nextLink;
-        this.valueSize = value.limit();
+        this.valueSize = value == null ? -1 : value.limit();
         this.value = value;
     }
 
@@ -103,7 +105,7 @@ public class RowVersion implements Storable {
     }
 
     public ByteBuffer value() {
-        return value;
+        return Objects.requireNonNull(value);
     }
 
     public boolean hasNextLink() {
@@ -119,6 +121,10 @@ public class RowVersion implements Storable {
     }
 
     boolean isUncommitted() {
+        return isUncommitted(timestamp);
+    }
+
+    static boolean isUncommitted(Timestamp timestamp) {
         return timestamp == null;
     }
 
@@ -143,6 +149,8 @@ public class RowVersion implements Storable {
 
     @Override
     public int size() {
+        assert value != null;
+
         return TIMESTAMP_STORE_SIZE_BYTES + NEXT_LINK_STORE_SIZE_BYTES + VALUE_SIZE_STORE_SIZE_BYTES + value.limit();
     }
 

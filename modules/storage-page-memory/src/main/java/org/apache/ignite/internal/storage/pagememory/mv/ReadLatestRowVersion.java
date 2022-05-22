@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import java.nio.ByteBuffer;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
@@ -26,26 +28,19 @@ import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Traversal that scans Version Chain until first version visible at the given timestamp is found; then the version
- * is converted to {@link ByteBufferRow} and finally made available via {@link #result()}.
- *
- * NB: this traversal first traverses starting data slots of the Version Chain one after another; when it finds the
- * version it needs, it switches to traversing the slots comprising the version (because it might be fragmented).
+ * Traversal for reading the latest row version. If the version is uncommitted, returns its value; otherwise, does NOT return it.
  */
-class ScanVersionChainByTimestamp implements PageMemoryTraversal {
-    private final Timestamp timestamp;
+class ReadLatestRowVersion implements PageMemoryTraversal {
+    private final Predicate<Timestamp> loadValue;
 
-    /**
-     * Contains the result when the traversal ends.
-     */
+    private RowVersion result;
+
+    private boolean readingFirstSlot = true;
+
+    private long firstFragmentLink;
     @Nullable
-    private ByteBufferRow result;
-
-    /**
-     * First it's {@code true} (this means that we traverse first slots of versions of the Version Chain using NextLink);
-     * then it's {@code false} (when we found the version we need and we read its value).
-     */
-    private boolean lookingForRow = true;
+    private Timestamp timestamp;
+    private long nextLink;
 
     /**
      * Used to collect all the bytes of the target version value.
@@ -56,42 +51,40 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
      */
     private int writtenBytes = 0;
 
-    ScanVersionChainByTimestamp(Timestamp timestamp) {
-        this.timestamp = timestamp;
+    ReadLatestRowVersion(Predicate<Timestamp> loadValue) {
+        this.loadValue = loadValue;
     }
 
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload) {
-        if (lookingForRow) {
-            Timestamp rowVersionTs = Timestamps.readTimestamp(pageAddr, payload.offset());
-
-            if (rowTimestampMatches(rowVersionTs)) {
-                return readFullyOrStartReadingFragmented(pageAddr, payload);
-            } else {
-                return advanceToNextVersion(pageAddr, payload, partitionIdFromLink(link));
-            }
+        if (readingFirstSlot) {
+            return readFullOrInitiateReadFragmented(link, pageAddr, payload);
         } else {
-            // we are continuing reading a fragmented row
             return readNextFragment(pageAddr, payload);
         }
     }
 
-    private int partitionIdFromLink(long link) {
-        return PageIdUtils.partitionId(PageIdUtils.pageId(link));
-    }
+    private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload) {
+        firstFragmentLink = link;
 
-    private boolean rowTimestampMatches(Timestamp rowVersionTs) {
-        return rowVersionTs != null && rowVersionTs.beforeOrEquals(timestamp);
-    }
+        timestamp = Timestamps.readTimestamp(pageAddr, payload.offset());
+        nextLink = PartitionlessLinks.readFromMemory(pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
-    private long readFullyOrStartReadingFragmented(long pageAddr, DataPagePayload payload) {
-        lookingForRow = false;
+        if (!loadValue.test(timestamp)) {
+            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, null);
+            return STOP_TRAVERSAL;
+        }
 
         int valueSizeInCurrentSlot = readValueSize(pageAddr, payload);
 
         if (!payload.hasMoreFragments()) {
-            return readFully(pageAddr, payload, valueSizeInCurrentSlot);
+            ByteBuffer value = ByteBuffer.wrap(PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, valueSizeInCurrentSlot))
+                    .order(ByteBufferRow.ORDER);
+            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, value);
+            return STOP_TRAVERSAL;
         } else {
+            readingFirstSlot = false;
+
             allValueBytes = new byte[valueSizeInCurrentSlot];
             writtenBytes = 0;
 
@@ -105,26 +98,9 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
         return PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
     }
 
-    private long readFully(long pageAddr, DataPagePayload payload, int valueSizeInCurrentSlot) {
-        if (RowVersion.isTombstone(valueSizeInCurrentSlot)) {
-            result = null;
-        } else {
-            result = new ByteBufferRow(PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, valueSizeInCurrentSlot));
-        }
-        return STOP_TRAVERSAL;
-    }
-
     private void readValueFragmentToArray(long pageAddr, DataPagePayload payload, int valueSizeInCurrentSlot) {
         PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, allValueBytes, writtenBytes, valueSizeInCurrentSlot);
         writtenBytes += valueSizeInCurrentSlot;
-    }
-
-    private long advanceToNextVersion(long pageAddr, DataPagePayload payload, int partitionId) {
-        long partitionlessNextLink = PartitionlessLinks.readFromMemory(pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
-        if (partitionlessNextLink == RowVersion.NULL_LINK) {
-            return STOP_TRAVERSAL;
-        }
-        return PartitionlessLinks.addPartitionIdToPartititionlessLink(partitionlessNextLink, partitionId);
     }
 
     private long readNextFragment(long pageAddr, DataPagePayload payload) {
@@ -140,15 +116,18 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
             if (allValueBytes.length == 0) {
                 result = null;
             } else {
-                result = new ByteBufferRow(allValueBytes);
+                result = new RowVersion(partitionIdFromLink(firstFragmentLink), firstFragmentLink, timestamp, nextLink, ByteBuffer.wrap(allValueBytes));
             }
 
             return STOP_TRAVERSAL;
         }
     }
 
-    @Nullable
-    ByteBufferRow result() {
+    private int partitionIdFromLink(long link) {
+        return PageIdUtils.partitionId(PageIdUtils.pageId(link));
+    }
+
+    RowVersion result() {
         return result;
     }
 }

@@ -17,22 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
-
-import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
-import org.apache.ignite.internal.tx.Timestamp;
-import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
  * {@link DataPageReader} for {@link RowVersion} instances.
  */
-class RowVersionDataPageReader extends DataPageReader<RowVersion> {
+class RowVersionDataPageReader extends DataPageReader {
     /**
      * Constructs a new instance.
      *
@@ -42,53 +34,5 @@ class RowVersionDataPageReader extends DataPageReader<RowVersion> {
      */
     public RowVersionDataPageReader(PageMemory pageMemory, int groupId, IoStatisticsHolder statisticsHolder) {
         super(pageMemory, groupId, statisticsHolder);
-    }
-
-    @Override
-    protected RowVersion readRowFromBuffer(long link, ByteBuffer wholePayloadBuf) {
-        long nodeId = wholePayloadBuf.getLong();
-        long localTimestamp = wholePayloadBuf.getLong();
-        Timestamp timestamp = new Timestamp(localTimestamp, nodeId);
-        if (timestamp.equals(RowVersion.NULL_TIMESTAMP)) {
-            timestamp = null;
-        }
-
-        long nextLink = PartitionlessLinks.readFromBuffer(wholePayloadBuf);
-
-        int valueSize = wholePayloadBuf.getInt();
-        ByteBuffer value = GridUnsafe.wrapPointer(GridUnsafe.bufferAddress(wholePayloadBuf) + wholePayloadBuf.position(), valueSize);
-
-        assert wholePayloadBuf.position() == wholePayloadBuf.limit();
-
-        return new RowVersion(partitionOfLink(link), link, timestamp, nextLink, value);
-    }
-
-    @Override
-    protected RowVersion readRowFromAddress(long link, long pageAddr) {
-        int offset = 0;
-
-        long nodeId = getLong(pageAddr, offset);
-        offset += Long.BYTES;
-
-        long localTimestamp = getLong(pageAddr, offset);
-        offset += Long.BYTES;
-
-        Timestamp timestamp = new Timestamp(localTimestamp, nodeId);
-        if (timestamp.equals(RowVersion.NULL_TIMESTAMP)) {
-            timestamp = null;
-        }
-
-        long nextLink = PartitionlessLinks.readFromMemory(pageAddr, offset);
-        offset += PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
-
-        int valueSize = getInt(pageAddr, offset);
-        offset += Integer.BYTES;
-        ByteBuffer value = GridUnsafe.wrapPointer(pageAddr + offset, valueSize);
-
-        return new RowVersion(partitionOfLink(link), link, timestamp, nextLink, value);
-    }
-
-    private int partitionOfLink(long link) {
-        return partitionId(pageId(link));
     }
 }
