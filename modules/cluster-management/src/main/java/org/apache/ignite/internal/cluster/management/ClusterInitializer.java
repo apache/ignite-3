@@ -90,9 +90,13 @@ public class ClusterInitializer {
                     : cmgNodeNames.stream().map(String::trim).collect(toUnmodifiableList());
 
             // check that provided Meta Storage nodes are present in the topology
-            resolveNodes(clusterService, metaStorageNodeNames);
+            List<ClusterNode> msNodes = resolveNodes(clusterService, metaStorageNodeNames);
+
+            log.info("Resolved MetaStorage nodes: {}", msNodes);
 
             List<ClusterNode> cmgNodes = resolveNodes(clusterService, cmgNodeNames);
+
+            log.info("Resolved CMG nodes: {}", cmgNodes);
 
             CmgInitMessage initMessage = msgFactory.cmgInitMessage()
                     .metaStorageNodes(metaStorageNodeNames)
@@ -101,16 +105,30 @@ public class ClusterInitializer {
                     .build();
 
             return invokeMessage(cmgNodes, initMessage)
-                    .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(e -> {
-                        if (e instanceof CompletionException) {
-                            e = e.getCause();
-                        }
+                    .handle((v, e) -> {
+                        if (e == null) {
+                            log.info(
+                                    "Init message sent successfully:\n\tCMG nodes: {}\n\tMetaStorage nodes: {}\n\tCluster name: {}",
+                                    initMessage.cmgNodes(),
+                                    initMessage.metaStorageNodes(),
+                                    initMessage.clusterName()
+                            );
 
-                        if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
-                            return failedFuture(e);
+                            return CompletableFuture.<Void>completedFuture(null);
                         } else {
-                            return cancelInit(cmgNodes, e);
+                            if (e instanceof CompletionException) {
+                                e = e.getCause();
+                            }
+
+                            log.error("Initialization failed: {}", e, e.getMessage());
+
+                            if (e instanceof InternalInitException && !((InternalInitException) e).shouldCancelInit()) {
+                                return CompletableFuture.<Void>failedFuture(e);
+                            } else {
+                                log.error("Critical error encountered, rolling back the init procedure");
+
+                                return cancelInit(cmgNodes, e);
+                            }
                         }
                     })
                     .thenCompose(Function.identity());
@@ -120,8 +138,6 @@ public class ClusterInitializer {
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
-        log.error("Initialization failed, rolling back", e);
-
         CancelInitMessage cancelMessage = msgFactory.cancelInitMessage()
                 .reason(e.getMessage())
                 .build();

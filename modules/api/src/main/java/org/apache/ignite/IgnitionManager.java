@@ -36,7 +36,7 @@ public class IgnitionManager {
     /**
      * Loaded Ignition instance.
      *
-     * <p>Concurrent access is guarded by {@code this}.
+     * <p>Concurrent access is guarded by the {@link Class} instance.
      */
     @Nullable
     private static Ignition ignition;

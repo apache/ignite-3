@@ -144,7 +144,7 @@ class RaftStorageManager {
     }
 
     /**
-     * Returns a collection of node IDs that passed the validation (i.e. node IDs which have a corresponding validation token).
+     * Returns a collection of node IDs that passed the validation but have not yet joined the logical topology.
      */
     Collection<String> getValidatedNodeIds() {
         Cursor<String> cursor = storage.getWithPrefix(

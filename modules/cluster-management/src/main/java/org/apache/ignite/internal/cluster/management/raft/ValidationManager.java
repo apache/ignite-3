@@ -31,6 +31,7 @@ import org.apache.ignite.internal.cluster.management.raft.responses.ValidationEr
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
  * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
 class ValidationManager implements AutoCloseable {
+    private static final IgniteLogger log = IgniteLogger.forClass(CmgRaftGroupListener.class);
+
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator"));
 
@@ -137,7 +140,7 @@ class ValidationManager implements AutoCloseable {
     }
 
     /**
-     * Checks and invalidates the given node's validation token thus completing the validation procedure.
+     * Checks and removes the node from the list of validated nodes thus completing the validation procedure.
      *
      * @param node Node that wishes to join the logical topology.
      * @return {@code null} if the tokens match or {@link ValidationErrorResponse} otherwise.
@@ -169,6 +172,8 @@ class ValidationManager implements AutoCloseable {
     private void scheduleValidatedNodeRemoval(String nodeId) {
         // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
         Future<?> future = executor.schedule(() -> {
+            log.info("Removing node {} from the list of validated nodes since no JoinReady requests have been received", nodeId);
+
             cleanupFutures.remove(nodeId);
 
             storage.removeValidatedNode(nodeId);

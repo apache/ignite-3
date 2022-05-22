@@ -304,10 +304,15 @@ public class ItCmgRaftServiceTest {
         assertThat(node1.raftService.startJoinCluster(state.clusterTag()), willCompleteSuccessfully());
 
         // incorrect tag
+        var incorrectTag = new ClusterTag("invalid");
+
         assertThrowsWithCause(
-                () -> node2.raftService.startJoinCluster(new ClusterTag("invalid")).get(10, TimeUnit.SECONDS),
+                () -> node2.raftService.startJoinCluster(incorrectTag).get(10, TimeUnit.SECONDS),
                 IgniteInternalException.class,
-                "Join request denied, reason: Cluster tags do not match"
+                String.format(
+                        "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
+                        incorrectTag, state.clusterTag()
+                )
         );
     }
 
