@@ -31,7 +31,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  */
 class FilePageStoreFactory {
     /** Latest page store version. */
-    public static final int LATEST_VERSION = 1;
+    public final int latestVersion = FilePageStore.VERSION;
 
     /** {@link FileIo} factory. */
     private final FileIoFactory fileIoFactory;
@@ -63,26 +63,26 @@ class FilePageStoreFactory {
      */
     public FilePageStore createPageStore(byte type, Path filePath) throws IgniteInternalCheckedException {
         if (!Files.exists(filePath)) {
-            return createPageStore(type, filePath, pageSize, LATEST_VERSION);
+            return createPageStore(type, filePath, pageSize, latestVersion);
         }
 
         try (FileIo fileIo = fileIoFactory.create(filePath)) {
-            int minHdr = FilePageStore.HEADER_SIZE;
+            int commonHeaderSize = FilePageStore.COMMON_HEADER_SIZE;
 
-            if (fileIo.size() < minHdr) {
-                return createPageStore(type, filePath, pageSize, LATEST_VERSION);
+            if (fileIo.size() < commonHeaderSize) {
+                return createPageStore(type, filePath, pageSize, latestVersion);
             }
 
-            ByteBuffer hdr = ByteBuffer.allocate(minHdr).order(ByteOrder.nativeOrder());
+            ByteBuffer commonHeader = ByteBuffer.allocate(commonHeaderSize).order(ByteOrder.nativeOrder());
 
-            fileIo.readFully(hdr);
+            fileIo.readFully(commonHeader);
 
-            hdr.rewind();
+            commonHeader.rewind();
 
             // Read signature.
-            hdr.getLong();
+            commonHeader.getLong();
 
-            int ver = hdr.getInt();
+            int ver = commonHeader.getInt();
 
             return createPageStore(type, filePath, pageSize, ver);
         } catch (IOException e) {

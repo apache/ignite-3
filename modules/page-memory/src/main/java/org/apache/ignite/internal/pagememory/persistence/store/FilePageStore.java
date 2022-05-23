@@ -51,8 +51,14 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
  * <p>Actual read and write operations are performed with {@link FileIo} abstract interface, list of its implementations is a good source
  * of information about functionality in Ignite Native Persistence.
  *
- * <p>On a physical level each instance of FilePageStore corresponds to a partition file assigned to the local node or to index file of a
- * particular cache if any secondary indexes were created.
+ * <p>On a physical level each instance of FilePageStore corresponds to a partition file assigned to the local node or to index file.
+ *
+ * <p>Consists of:
+ * <ul>
+ *     <li>Header - {@link #SIGNATURE signature} (8 byte) + {@link #version version} (4 byte) + {@link #type type} (1 byte) +
+ *     {@link #pageSize pageSize} (4 bytes) + version-specific information, total length {@link #headerSize}. </li>
+ *     <li>Body - data pages are multiples of {@link #pageSize pageSize}.</li>
+ * </ul>
  */
 public class FilePageStore implements PageStore {
     /** Page store file signature. */
@@ -61,8 +67,8 @@ public class FilePageStore implements PageStore {
     /** File version. */
     static final int VERSION = 1;
 
-    /** Allocated field offset. */
-    static final int HEADER_SIZE = 8/*SIGNATURE*/ + 4/*VERSION*/ + 1/*type*/ + 4/*page size*/;
+    /** Size of the common file page store header for all versions, in bytes. */
+    static final int COMMON_HEADER_SIZE = 8/*SIGNATURE*/ + 4/*VERSION*/ + 1/*type*/ + 4/*page size*/;
 
     /** Skip CRC calculation flag. */
     // TODO: IGNITE-17011 Move to config
