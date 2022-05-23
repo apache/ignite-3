@@ -198,7 +198,7 @@ public abstract class PageIo {
      * @param pageAddr Page address.
      * @param ver Version.
      */
-    protected static void setVersion(long pageAddr, int ver) {
+    public static void setVersion(long pageAddr, int ver) {
         PageUtils.putShort(pageAddr, VER_OFF, (short) ver);
 
         assert getVersion(pageAddr) == ver;
