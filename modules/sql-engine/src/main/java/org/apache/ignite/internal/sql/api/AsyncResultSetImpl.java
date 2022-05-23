@@ -48,7 +48,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     private final AsyncSqlCursor<List<Object>> cur;
 
-    private final BatchedResult<List<Object>> page;
+    private final BatchedResult<List<Object>> batchPage;
+
+    private final Page page;
 
     private final int pageSize;
 
@@ -65,9 +67,10 @@ public class AsyncResultSetImpl implements AsyncResultSet {
      */
     public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
         this.cur = cur;
-        this.page = page;
+        this.batchPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
+        this.page = new Page();
     }
 
     /** {@inheritDoc} */
@@ -89,12 +92,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return -1;
         }
 
-        assert page.items().size() == 1
-                && page.items().get(0).size() == 1
-                && page.items().get(0).get(0) instanceof Long
-                && !page.hasMore() : "Invalid DML result: " + page;
+        assert batchPage.items().size() == 1
+                && batchPage.items().get(0).size() == 1
+                && batchPage.items().get(0).get(0) instanceof Long
+                && !batchPage.hasMore() : "Invalid DML result: " + batchPage;
 
-        return (long) page.items().get(0).get(0);
+        return (long) batchPage.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -104,12 +107,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return false;
         }
 
-        assert page.items().size() == 1
-                && page.items().get(0).size() == 1
-                && page.items().get(0).get(0) instanceof Boolean
-                && !page.hasMore() : "Invalid DDL result: " + page;
+        assert batchPage.items().size() == 1
+                && batchPage.items().get(0).size() == 1
+                && batchPage.items().get(0).get(0) instanceof Boolean
+                && !batchPage.hasMore() : "Invalid DDL result: " + batchPage;
 
-        return (boolean) page.items().get(0).get(0);
+        return (boolean) batchPage.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -119,7 +122,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             throw new NoRowSetExpectedException("Query hasn't result set: [type=" + cur.queryType() + ']');
         }
 
-        return new Page();
+        return page;
     }
 
     /** {@inheritDoc} */
@@ -145,7 +148,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return page.hasMore();
+        return batchPage.hasMore();
     }
 
     /** {@inheritDoc} */
@@ -159,7 +162,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         @NotNull
         @Override
         public Iterator<SqlRow> iterator() {
-            return page.items().stream()
+            return batchPage.items().stream()
                     .map(RowTuple::new)
                     .map(SqlRow.class::cast)
                     .iterator();
