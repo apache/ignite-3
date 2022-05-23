@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema.SEQUENTIAL_WRITE_ORDER;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.SEQUENTIAL;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 
 import java.util.ArrayList;
@@ -43,7 +43,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -66,7 +65,7 @@ import org.jetbrains.annotations.Nullable;
 class CheckpointWorkflow implements IgniteComponent {
     /**
      * Starting from this number of dirty pages in checkpoint, array will be sorted with {@link Arrays#parallelSort(Comparable[])} in case
-     * of {@link PageMemoryCheckpointConfigurationSchema#SEQUENTIAL_WRITE_ORDER}.
+     * of {@link CheckpointWriteOrder#SEQUENTIAL}.
      */
     private final int parallelSortThreshold;
 
@@ -83,7 +82,7 @@ class CheckpointWorkflow implements IgniteComponent {
     private final Collection<PageMemoryDataRegion> dataRegions;
 
     /** Checkpoint write order configuration. */
-    private final String checkpointWriteOrder;
+    private final CheckpointWriteOrder checkpointWriteOrder;
 
     /** Collections of checkpoint listeners. */
     private final List<IgniteBiTuple<CheckpointListener, PageMemoryDataRegion>> listeners = new CopyOnWriteArrayList<>();
@@ -104,7 +103,7 @@ class CheckpointWorkflow implements IgniteComponent {
     ) {
         this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
-        this.checkpointWriteOrder = checkpointConfig.writeOrder().value();
+        this.checkpointWriteOrder = CheckpointWriteOrder.valueOf(checkpointConfig.writeOrder().value());
         this.parallelSortThreshold = checkpointConfig.parallelSortThreshold().value();
         this.dataRegions = dataRegions;
     }
@@ -340,7 +339,7 @@ class CheckpointWorkflow implements IgniteComponent {
             }
         }
 
-        if (checkpointWriteOrder.equals(SEQUENTIAL_WRITE_ORDER)) {
+        if (checkpointWriteOrder == SEQUENTIAL) {
             Comparator<FullPageId> cmp = Comparator.comparingInt(FullPageId::groupId).thenComparingLong(FullPageId::effectivePageId);
 
             ForkJoinPool pool = null;

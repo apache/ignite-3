@@ -20,8 +20,8 @@ package org.apache.ignite.configuration.schemas.clientconnector;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for thin client connector.
@@ -30,8 +30,7 @@ import org.apache.ignite.configuration.validation.Min;
 @ConfigurationRoot(rootName = "clientConnector", type = ConfigurationType.LOCAL)
 public class ClientConnectorConfigurationSchema {
     /** TCP port. */
-    @Min(1024)
-    @Max(0xFFFF)
+    @Range(min = 1024, max = 0xFFFF)
     @Value(hasDefault = true)
     public final int port = 10800;
 

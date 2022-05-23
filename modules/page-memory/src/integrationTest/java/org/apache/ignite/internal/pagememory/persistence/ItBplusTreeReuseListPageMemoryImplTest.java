@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.tree.ItBplusTreeReuseSelfTest;
 
@@ -33,9 +36,10 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg
-                .change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
-                .get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.convert(PersistentPageMemoryDataRegionChange.class)
+                .changeInitSize(MAX_MEMORY_SIZE)
+                .changeMaxSize(MAX_MEMORY_SIZE)
+        ).get(1, TimeUnit.SECONDS);
 
         long[] sizes = LongStream.range(0, CPUS + 1).map(i -> MAX_MEMORY_SIZE / CPUS).toArray();
 
@@ -47,7 +51,7 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                dataRegionCfg,
+                (PersistentPageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),

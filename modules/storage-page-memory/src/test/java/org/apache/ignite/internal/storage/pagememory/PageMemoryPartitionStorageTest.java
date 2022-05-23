@@ -33,6 +33,7 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
 import org.apache.ignite.internal.storage.DataRow;
@@ -63,7 +64,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration(
+            polymorphicExtensions = {
+                    VolatilePageMemoryDataRegionConfigurationSchema.class,
+                    UnsafeMemoryAllocatorConfigurationSchema.class
+            }
+    )
     PageMemoryStorageEngineConfiguration engineConfig;
 
     @InjectConfiguration(

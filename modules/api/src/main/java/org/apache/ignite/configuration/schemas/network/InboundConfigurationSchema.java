@@ -19,8 +19,8 @@ package org.apache.ignite.configuration.schemas.network;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Server socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
@@ -42,8 +42,7 @@ public class InboundConfigurationSchema {
     public final boolean soKeepAlive = true;
 
     /** Socket close linger value. */
-    @Min(0)
-    @Max(0xFFFF)
+    @Range(min = 0, max = 0xFFFF)
     @Value(hasDefault = true)
     public final int soLinger = 0;
 

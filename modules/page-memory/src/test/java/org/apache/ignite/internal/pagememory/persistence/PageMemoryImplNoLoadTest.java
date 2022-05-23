@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -30,15 +31,26 @@ import java.util.Set;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionChange;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests {@link PageMemoryImpl}.
  */
 public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
+    @BeforeEach
+    void setUp() throws Exception {
+        dataRegionCfg.change(c -> c.convert(PersistentPageMemoryDataRegionChange.class)
+                .changeInitSize(MAX_MEMORY_SIZE)
+                .changeMaxSize(MAX_MEMORY_SIZE)
+        ).get(1, SECONDS);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected PageMemory memory() {
@@ -52,7 +64,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                dataRegionCfg,
+                (PersistentPageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),

@@ -21,8 +21,8 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for network endpoint subtree.
@@ -30,8 +30,7 @@ import org.apache.ignite.configuration.validation.Min;
 @ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
     /** Network port. */
-    @Min(1024)
-    @Max(0xFFFF)
+    @Range(min = 1024, max = 0xFFFF)
     @Value(hasDefault = true)
     public final int port = 47500;
 

@@ -19,9 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -74,8 +74,8 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
@@ -146,7 +146,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PageMemoryDataRegionView dataRegionCfg;
+    private final PersistentPageMemoryDataRegionView dataRegionCfg;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -221,16 +221,17 @@ public class PageMemoryImpl implements PageMemoryEx {
      */
     public PageMemoryImpl(
             DirectMemoryProvider directMemoryProvider,
-            PageMemoryDataRegionConfiguration dataRegionCfg,
+            PersistentPageMemoryDataRegionConfiguration dataRegionCfg,
             PageIoRegistry ioRegistry,
             long[] sizes,
             PageReadWriteManager pmPageMgr,
             @Nullable PageChangeTracker changeTracker,
             PageStoreWriter flushDirtyPage,
+            // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.directMemoryProvider = directMemoryProvider;
-        this.dataRegionCfg = dataRegionCfg.value();
+        this.dataRegionCfg = (PersistentPageMemoryDataRegionView) dataRegionCfg.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
         this.pmPageMgr = pmPageMgr;
@@ -536,7 +537,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                     + "name=" + dataRegionCfg.name()
                     + ", initSize=" + readableSize(dataRegionCfg.initSize(), false)
                     + ", maxSize=" + readableSize(dataRegionCfg.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionCfg.persistent() + "] Try the following:" + lineSeparator()
+                    + ", persistenceEnabled=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
@@ -1557,7 +1558,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                     + "name=" + dataRegionCfg.name()
                     + ", initSize=" + readableSize(dataRegionCfg.initSize(), false)
                     + ", maxSize=" + readableSize(dataRegionCfg.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionCfg.persistent() + "] Try the following:" + lineSeparator()
+                    + ", persistenceEnabled=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );

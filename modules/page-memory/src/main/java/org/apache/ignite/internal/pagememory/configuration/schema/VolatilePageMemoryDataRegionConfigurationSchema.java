@@ -19,37 +19,30 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import static org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema.VOLATILE_DATA_REGION_TYPE;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.PolymorphicConfig;
-import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
 /**
- * Data region configuration for page memory.
+ * Volatile data region configuration for page memory.
  */
-@PolymorphicConfig
-public class PageMemoryDataRegionConfigurationSchema {
-    /** Default initial size. */
-    public static final long DFLT_DATA_REGION_INITIAL_SIZE = 256 * 1024 * 1024;
+@PolymorphicConfigInstance(VOLATILE_DATA_REGION_TYPE)
+public class VolatilePageMemoryDataRegionConfigurationSchema extends PageMemoryDataRegionConfigurationSchema {
+    public static final String VOLATILE_DATA_REGION_TYPE = "volatile";
 
-    /** Default max size. */
-    public static final long DFLT_DATA_REGION_MAX_SIZE = 256 * 1024 * 1024;
+    /** Eviction is disabled. */
+    public static final String DISABLED_EVICTION_MODE = "DISABLED";
 
-    /** Type of the data region. */
-    @PolymorphicId(hasDefault = true)
-    public String typeId = VOLATILE_DATA_REGION_TYPE;
+    /** Random-LRU algorithm. */
+    public static final String RANDOM_LRU_EVICTION_MODE = "RANDOM_LRU";
 
-    /** Name of the data region. */
-    @InjectedName
-    public String name;
+    /** Random-2-LRU algorithm: scan-resistant version of Random-LRU. */
+    public static final String RANDOM_2_LRU_EVICTION_MODE = "RANDOM_2_LRU";
+
+    @OneOf({DISABLED_EVICTION_MODE, RANDOM_LRU_EVICTION_MODE, RANDOM_2_LRU_EVICTION_MODE})
+    @Value(hasDefault = true)
+    public String evictionMode = DISABLED_EVICTION_MODE;
 
     @Value(hasDefault = true)
-    public long initSize = DFLT_DATA_REGION_INITIAL_SIZE;
-
-    @Value(hasDefault = true)
-    public long maxSize = DFLT_DATA_REGION_MAX_SIZE;
-
-    @ConfigValue
-    public MemoryAllocatorConfigurationSchema memoryAllocator;
+    public double evictionThreshold = 0.9;
 }

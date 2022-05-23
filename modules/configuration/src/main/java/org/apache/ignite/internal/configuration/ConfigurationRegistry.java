@@ -60,6 +60,8 @@ import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
+import org.apache.ignite.configuration.validation.PowerOfTwo;
+import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.notifications.ConfigurationStorageRevisionListener;
@@ -76,6 +78,8 @@ import org.apache.ignite.internal.configuration.validation.ImmutableValidator;
 import org.apache.ignite.internal.configuration.validation.MaxValidator;
 import org.apache.ignite.internal.configuration.validation.MinValidator;
 import org.apache.ignite.internal.configuration.validation.OneOfValidator;
+import org.apache.ignite.internal.configuration.validation.PowerOfTwoValidator;
+import org.apache.ignite.internal.configuration.validation.RangeValidator;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
@@ -139,6 +143,8 @@ public class ConfigurationRegistry implements IgniteComponent, ConfigurationStor
         addDefaultValidator(validators0, Immutable.class, new ImmutableValidator());
         addDefaultValidator(validators0, OneOf.class, new OneOfValidator());
         addDefaultValidator(validators0, ExceptKeys.class, new ExceptKeysValidator());
+        addDefaultValidator(validators0, PowerOfTwo.class, new PowerOfTwoValidator());
+        addDefaultValidator(validators0, Range.class, new RangeValidator());
 
         changer = new ConfigurationChanger(this::notificator, rootKeys, validators0, storage) {
             /** {@inheritDoc} */

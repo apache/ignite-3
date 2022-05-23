@@ -33,7 +33,9 @@ import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineView;
 import org.junit.jupiter.api.Test;
@@ -45,7 +47,13 @@ import org.mockito.ArgumentCaptor;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class PageMemoryDataRegionValidatorImplTest {
-    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    @InjectConfiguration(
+            polymorphicExtensions = {
+                    VolatilePageMemoryDataRegionConfigurationSchema.class,
+                    PersistentPageMemoryDataRegionConfigurationSchema.class,
+                    UnsafeMemoryAllocatorConfigurationSchema.class
+            }
+    )
     private PageMemoryStorageEngineConfiguration engineConfig;
 
     @Test

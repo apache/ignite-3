@@ -15,27 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.configuration.schemas.rest;
+package org.apache.ignite.configuration.validation;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
-import org.apache.ignite.configuration.validation.Range;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Configuration schema for REST endpoint subtree.
+ * Signifies that this value has lower limit (inclusive) and has upper limit (inclusive).
  */
-@SuppressWarnings("PMD.UnusedPrivateField")
-@ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
-public class RestConfigurationSchema {
-    /** TCP port. */
-    @Range(min = 1024, max = 0xFFFF)
-    @Value(hasDefault = true)
-    public final int port = 10300;
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Range {
+    /**
+     * Returns the lower bound for the value.
+     */
+    long min();
 
-    /** TCP port range. */
-    @Min(0)
-    @Value(hasDefault = true)
-    public final int portRange = 100;
+    /**
+     * Returns the upper bound for the value.
+     */
+    long max();
 }

@@ -27,8 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -127,7 +127,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Data region configuration view. */
-    private final PageMemoryDataRegionView dataRegionCfg;
+    private final VolatilePageMemoryDataRegionView dataRegionCfg;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -174,14 +174,15 @@ public class PageMemoryNoStoreImpl implements PageMemory {
      */
     public PageMemoryNoStoreImpl(
             DirectMemoryProvider directMemoryProvider,
-            PageMemoryDataRegionConfiguration dataRegionCfg,
+            VolatilePageMemoryDataRegionConfiguration dataRegionCfg,
             PageIoRegistry ioRegistry,
+            // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.directMemoryProvider = directMemoryProvider;
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        this.dataRegionCfg = dataRegionCfg.value();
+        this.dataRegionCfg = (VolatilePageMemoryDataRegionView) dataRegionCfg.value();
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
@@ -304,7 +305,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
                     + "name=" + dataRegionCfg.name()
                     + ", initSize=" + IgniteUtils.readableSize(dataRegionCfg.initSize(), false)
                     + ", maxSize=" + IgniteUtils.readableSize(dataRegionCfg.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionCfg.persistent() + "] Try the following:\n"
+                    + ", persistenceEnabled=false] Try the following:\n"
                     + "  ^-- Increase maximum off-heap memory size (DataRegionConfiguration.maxSize)\n"
                     + "  ^-- Enable Ignite persistence (DataRegionConfiguration.persistenceEnabled)\n"
                     + "  ^-- Enable eviction or expiration policies"

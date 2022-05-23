@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTIT
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -45,7 +46,12 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
      */
-    public VolatilePageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry, int pageSize) {
+    public VolatilePageMemoryDataRegion(
+            PageMemoryDataRegionConfiguration cfg,
+            PageIoRegistry ioRegistry,
+            // TODO: IGNITE-17017 Move to common config
+            int pageSize
+    ) {
         super(cfg, ioRegistry, pageSize);
     }
 
@@ -56,7 +62,12 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
 
         assert cfg.memoryAllocator() instanceof UnsafeMemoryAllocatorConfiguration : cfg.memoryAllocator();
 
-        PageMemory pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry, pageSize);
+        PageMemory pageMemory = new PageMemoryNoStoreImpl(
+                new UnsafeMemoryProvider(null),
+                (VolatilePageMemoryDataRegionConfiguration) cfg,
+                ioRegistry,
+                pageSize
+        );
 
         pageMemory.start();
 

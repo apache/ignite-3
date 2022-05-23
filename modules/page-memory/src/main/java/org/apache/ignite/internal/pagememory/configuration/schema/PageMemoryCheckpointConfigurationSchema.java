@@ -19,23 +19,20 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
 import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
+import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder;
 
 /**
  * Checkpoint configuration schema for persistent page memory.
  */
 @Config
 public class PageMemoryCheckpointConfigurationSchema {
-    /** Pages are written in order provided by checkpoint pages collection iterator (which is basically a hashtable). */
+    /** See description of {@link CheckpointWriteOrder#RANDOM}. */
     public static final String RANDOM_WRITE_ORDER = "RANDOM";
 
-    /**
-     * All checkpoint pages are collected into single list and sorted by page index.
-     *
-     * <p>Provides almost sequential disk writes, which can be much faster on some SSD models.
-     */
+    /** See description of {@link CheckpointWriteOrder#SEQUENTIAL}. */
     public static final String SEQUENTIAL_WRITE_ORDER = "SEQUENTIAL";
 
     /** Checkpoint frequency in milliseconds. */
@@ -44,8 +41,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     public long frequency = 180_000;
 
     /** Checkpoint frequency deviation. */
-    @Min(0)
-    @Max(100)
+    @Range(min = 0, max = 100)
     @Value(hasDefault = true)
     public int frequencyDeviation = 40;
 
