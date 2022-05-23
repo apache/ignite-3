@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * 3. The beginning of the header, including the 'value' size, is always stored in the first slot (i.e.
  * {@link Storable#headerSize()} is enough to include 'value' size
  */
-public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal {
+public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void> {
     /**
      * First it's {@code true} (this means that we traverse first slots of versions of the Version Chain using NextLink);
      * then it's {@code false} (when we found the version we need and we read its value).
@@ -49,8 +49,12 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal {
      */
     private int transferredBytes = 0;
 
+    {
+        reset();
+    }
+
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Void ignoredArg) {
         if (readingFirstSlot) {
             readingFirstSlot = false;
             return readFullyOrStartReadingFragmented(pageAddr, payload);
@@ -125,4 +129,13 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal {
      * @return offset into first slot at which the 'value' starts
      */
     protected abstract int valueOffsetInFirstSlot();
+
+    /**
+     * Resets the object to make it ready for use.
+     */
+    public void reset() {
+        readingFirstSlot = true;
+        allValueBytes = null;
+        transferredBytes = 0;
+    }
 }

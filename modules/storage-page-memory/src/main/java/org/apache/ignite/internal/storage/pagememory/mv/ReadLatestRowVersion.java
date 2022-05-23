@@ -29,9 +29,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Traversal for reading the latest row version. If the version is uncommitted, returns its value; otherwise, does NOT return it.
  */
-class ReadLatestRowVersion implements PageMemoryTraversal {
-    private final Predicate<Timestamp> loadValue;
-
+class ReadLatestRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> {
     private RowVersion result;
 
     private boolean readingFirstSlot = true;
@@ -43,21 +41,21 @@ class ReadLatestRowVersion implements PageMemoryTraversal {
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    ReadLatestRowVersion(Predicate<Timestamp> loadValue) {
-        this.loadValue = loadValue;
+    {
+        reset();
     }
 
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
         if (readingFirstSlot) {
             readingFirstSlot = false;
-            return readFullOrInitiateReadFragmented(link, pageAddr, payload);
+            return readFullOrInitiateReadFragmented(link, pageAddr, payload, loadValue);
         } else {
-            return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
+            return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
         }
     }
 
-    private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload) {
+    private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
         firstFragmentLink = link;
 
         timestamp = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
@@ -68,7 +66,7 @@ class ReadLatestRowVersion implements PageMemoryTraversal {
             return STOP_TRAVERSAL;
         }
 
-        return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
+        return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
     private int partitionIdFromLink(long link) {
@@ -91,5 +89,11 @@ class ReadLatestRowVersion implements PageMemoryTraversal {
 
     RowVersion result() {
         return result;
+    }
+
+    void reset() {
+        result = null;
+        readingFirstSlot = true;
+        readRowVersionValue.reset();
     }
 }

@@ -31,9 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>NB: this traversal first traverses starting data slots of the Version Chain one after another; when it finds the
  * version it needs, it switches to traversing the slots comprising the version (because it might be fragmented).
  */
-class ScanVersionChainByTimestamp implements PageMemoryTraversal {
-    private final Timestamp timestamp;
-
+class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
     /**
      * Contains the result when the traversal ends.
      */
@@ -48,16 +46,16 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    ScanVersionChainByTimestamp(Timestamp timestamp) {
-        this.timestamp = timestamp;
+    {
+        reset();
     }
 
     @Override
-    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload) {
+    public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Timestamp timestamp) {
         if (lookingForVersion) {
             Timestamp rowVersionTs = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
 
-            if (rowTimestampMatches(rowVersionTs)) {
+            if (rowTimestampMatches(rowVersionTs, timestamp)) {
                 return readFullyOrStartReadingFragmented(link, pageAddr, payload);
             } else {
                 return advanceToNextVersion(pageAddr, payload, partitionIdFromLink(link));
@@ -72,14 +70,14 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
         return PageIdUtils.partitionId(PageIdUtils.pageId(link));
     }
 
-    private boolean rowTimestampMatches(Timestamp rowVersionTs) {
+    private boolean rowTimestampMatches(Timestamp rowVersionTs, Timestamp timestamp) {
         return rowVersionTs != null && rowVersionTs.beforeOrEquals(timestamp);
     }
 
     private long readFullyOrStartReadingFragmented(long link, long pageAddr, DataPagePayload payload) {
         lookingForVersion = false;
 
-        return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
+        return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
     private long advanceToNextVersion(long pageAddr, DataPagePayload payload, int partitionId) {
@@ -91,7 +89,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
     }
 
     private long readNextFragment(long link, long pageAddr, DataPagePayload payload) {
-        return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
+        return readRowVersionValue.consumePagePayload(link, pageAddr, payload, null);
     }
 
     @Override
@@ -116,5 +114,11 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
     @Nullable
     ByteBufferRow result() {
         return result;
+    }
+
+    void reset() {
+        result = null;
+        lookingForVersion = true;
+        readRowVersionValue.reset();
     }
 }

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains logic for reading values from page memory data pages (this includes handling multy-page values).
@@ -54,11 +55,13 @@ public class DataPageReader {
      *
      * @param link Row link
      * @param traversal object consuming payloads and controlling the traversal
+     * @param argument argument that is passed to the traversal
      * @throws IgniteInternalCheckedException If failed
      * @see org.apache.ignite.internal.pagememory.util.PageIdUtils#link(long, int)
      * @see PageMemoryTraversal
      */
-    public void traverse(final long link, PageMemoryTraversal traversal) throws IgniteInternalCheckedException {
+    public <T> void traverse(final long link, PageMemoryTraversal<T> traversal, @Nullable T argument)
+            throws IgniteInternalCheckedException {
         assert link != 0;
 
         int pageSize = pageMemory.realPageSize(groupId);
@@ -80,7 +83,7 @@ public class DataPageReader {
 
                     DataPagePayload data = dataIo.readPayload(pageAddr, itemId, pageSize);
 
-                    currentLink = traversal.consumePagePayload(currentLink, pageAddr, data);
+                    currentLink = traversal.consumePagePayload(currentLink, pageAddr, data, argument);
                 } finally {
                     pageMemory.readUnlock(groupId, pageId, page);
                 }

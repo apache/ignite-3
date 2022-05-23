@@ -24,7 +24,7 @@ import org.apache.ignite.internal.pagememory.io.DataPagePayload;
  *
  * @see DataPageReader#traverse(long, PageMemoryTraversal)
  */
-public interface PageMemoryTraversal {
+public interface PageMemoryTraversal<T> {
     /**
      * Returned to signal that the traversal has to stop.
      */
@@ -36,9 +36,10 @@ public interface PageMemoryTraversal {
      * @param link     link to the current data row
      * @param pageAddr address of the current page
      * @param payload  represents the row content
+     * @param arg      argument passed to the traversal
      * @return next row link or {@link #STOP_TRAVERSAL} to stop the traversal
      */
-    long consumePagePayload(long link, long pageAddr, DataPagePayload payload);
+    long consumePagePayload(long link, long pageAddr, DataPagePayload payload, T arg);
 
     /**
      * Called when the traversal is finishced successfully.

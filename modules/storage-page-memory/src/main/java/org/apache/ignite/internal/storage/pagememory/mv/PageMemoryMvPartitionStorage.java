@@ -70,6 +70,11 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private final RowVersionFreeList rowVersionFreeList;
     private final DataPageReader rowVersionDataPageReader;
 
+    private ThreadLocal<ReadLatestRowVersion> readLatestRowVersionCache = ThreadLocal.withInitial(ReadLatestRowVersion::new);
+    private ThreadLocal<ScanVersionChainByTimestamp> scanVersionChainByTimestampCache = ThreadLocal.withInitial(
+            ScanVersionChainByTimestamp::new
+    );
+
     /**
      * Constructor.
      */
@@ -215,15 +220,21 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private RowVersion findLatestRowVersion(VersionChain versionChain, Predicate<Timestamp> loadValue) {
         long nextLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(versionChain.headLink(), partitionId);
 
-        ReadLatestRowVersion read = new ReadLatestRowVersion(loadValue);
+        ReadLatestRowVersion read = freshReadLatestRowVersion();
 
         try {
-            rowVersionDataPageReader.traverse(nextLink, read);
+            rowVersionDataPageReader.traverse(nextLink, read, loadValue);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Row version lookup failed");
         }
 
         return read.result();
+    }
+
+    private ReadLatestRowVersion freshReadLatestRowVersion() {
+        ReadLatestRowVersion traversal = readLatestRowVersionCache.get();
+        traversal.reset();
+        return traversal;
     }
 
     private void throwIfChainBelongsToAnotherTx(VersionChain versionChain, UUID txId) {
@@ -263,15 +274,21 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         long nextRowPartitionlessLink = versionChain.headLink();
         long nextLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(nextRowPartitionlessLink, partitionId);
 
-        ScanVersionChainByTimestamp scanByTimestamp = new ScanVersionChainByTimestamp(timestamp);
+        ScanVersionChainByTimestamp scanByTimestamp = freshScanByTimestamp();
 
         try {
-            rowVersionDataPageReader.traverse(nextLink, scanByTimestamp);
+            rowVersionDataPageReader.traverse(nextLink, scanByTimestamp, timestamp);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot search for a row version", e);
         }
 
         return scanByTimestamp.result();
+    }
+
+    private ScanVersionChainByTimestamp freshScanByTimestamp() {
+        ScanVersionChainByTimestamp traversal = scanVersionChainByTimestampCache.get();
+        traversal.reset();
+        return traversal;
     }
 
     @Override
