@@ -26,7 +26,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
  */
 public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
     /** Test partition storage instance. */
-    private final TestMvPartitionStorage storage = new TestMvPartitionStorage(List.of());
+    private final TestMvPartitionStorage storage = new TestMvPartitionStorage(List.of(), 0);
 
     /** {@inheritDoc} */
     @Override
