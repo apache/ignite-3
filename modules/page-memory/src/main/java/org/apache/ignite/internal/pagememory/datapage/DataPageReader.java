@@ -88,5 +88,7 @@ public abstract class DataPageReader {
                 pageMemory.releasePage(groupId, pageId, page);
             }
         } while (currentLink != PageMemoryTraversal.STOP_TRAVERSAL);
+
+        traversal.finish();
     }
 }

@@ -39,4 +39,11 @@ public interface PageMemoryTraversal {
      * @return next row link or {@link #STOP_TRAVERSAL} to stop the traversal
      */
     long consumePagePayload(long link, long pageAddr, DataPagePayload payload);
+
+    /**
+     * Called when the traversal is finishced successfully.
+     */
+    default void finish() {
+        // no-op
+    }
 }

@@ -22,7 +22,6 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
@@ -42,14 +41,7 @@ class ReadLatestRowVersion implements PageMemoryTraversal {
     private Timestamp timestamp;
     private long nextLink;
 
-    /**
-     * Used to collect all the bytes of the target version value.
-     */
-    private byte @Nullable [] allValueBytes;
-    /**
-     * Number of bytes written to {@link #allValueBytes}.
-     */
-    private int writtenBytes = 0;
+    private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
     ReadLatestRowVersion(Predicate<Timestamp> loadValue) {
         this.loadValue = loadValue;
@@ -58,16 +50,17 @@ class ReadLatestRowVersion implements PageMemoryTraversal {
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload) {
         if (readingFirstSlot) {
+            readingFirstSlot = false;
             return readFullOrInitiateReadFragmented(link, pageAddr, payload);
         } else {
-            return readNextFragment(pageAddr, payload);
+            return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
         }
     }
 
     private long readFullOrInitiateReadFragmented(long link, long pageAddr, DataPagePayload payload) {
         firstFragmentLink = link;
 
-        timestamp = Timestamps.readTimestamp(pageAddr, payload.offset());
+        timestamp = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
         nextLink = PartitionlessLinks.readFromMemory(pageAddr, payload.offset() + RowVersion.NEXT_LINK_OFFSET);
 
         if (!loadValue.test(timestamp)) {
@@ -75,56 +68,25 @@ class ReadLatestRowVersion implements PageMemoryTraversal {
             return STOP_TRAVERSAL;
         }
 
-        int valueSizeInCurrentSlot = readValueSize(pageAddr, payload);
-
-        if (!payload.hasMoreFragments()) {
-            ByteBuffer value = ByteBuffer.wrap(PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, valueSizeInCurrentSlot))
-                    .order(ByteBufferRow.ORDER);
-            result = new RowVersion(partitionIdFromLink(link), firstFragmentLink, timestamp, nextLink, value);
-            return STOP_TRAVERSAL;
-        } else {
-            readingFirstSlot = false;
-
-            allValueBytes = new byte[valueSizeInCurrentSlot];
-            writtenBytes = 0;
-
-            readValueFragmentToArray(pageAddr, payload, valueSizeInCurrentSlot);
-
-            return payload.nextLink();
-        }
-    }
-
-    private int readValueSize(long pageAddr, DataPagePayload payload) {
-        return PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
-    }
-
-    private void readValueFragmentToArray(long pageAddr, DataPagePayload payload, int valueSizeInCurrentSlot) {
-        PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, allValueBytes, writtenBytes, valueSizeInCurrentSlot);
-        writtenBytes += valueSizeInCurrentSlot;
-    }
-
-    private long readNextFragment(long pageAddr, DataPagePayload payload) {
-        assert allValueBytes != null;
-
-        int valueSizeInCurrentSlot = readValueSize(pageAddr, payload);
-
-        readValueFragmentToArray(pageAddr, payload, valueSizeInCurrentSlot);
-
-        if (payload.hasMoreFragments()) {
-            return payload.nextLink();
-        } else {
-            if (allValueBytes.length == 0) {
-                result = null;
-            } else {
-                result = new RowVersion(partitionIdFromLink(firstFragmentLink), firstFragmentLink, timestamp, nextLink, ByteBuffer.wrap(allValueBytes));
-            }
-
-            return STOP_TRAVERSAL;
-        }
+        return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
     }
 
     private int partitionIdFromLink(long link) {
         return PageIdUtils.partitionId(PageIdUtils.pageId(link));
+    }
+
+    @Override
+    public void finish() {
+        if (result != null) {
+            // we did not read the value itself, so we don't need to invoke readRowVersionValue.finish()
+            return;
+        }
+
+        readRowVersionValue.finish();
+
+        byte[] valueBytes = readRowVersionValue.result();
+        ByteBuffer value = ByteBuffer.wrap(valueBytes).order(ByteBufferRow.ORDER);
+        result = new RowVersion(partitionIdFromLink(firstFragmentLink), firstFragmentLink, timestamp, nextLink, value);
     }
 
     RowVersion result() {

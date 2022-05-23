@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import org.apache.ignite.internal.pagememory.datapage.PageMemoryTraversal;
 import org.apache.ignite.internal.pagememory.io.DataPagePayload;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
-import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
@@ -45,16 +44,9 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
      * First it's {@code true} (this means that we traverse first slots of versions of the Version Chain using NextLink);
      * then it's {@code false} (when we found the version we need and we read its value).
      */
-    private boolean lookingForRow = true;
+    private boolean lookingForVersion = true;
 
-    /**
-     * Used to collect all the bytes of the target version value.
-     */
-    private byte @Nullable [] allValueBytes;
-    /**
-     * Number of bytes written to {@link #allValueBytes}.
-     */
-    private int writtenBytes = 0;
+    private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
     ScanVersionChainByTimestamp(Timestamp timestamp) {
         this.timestamp = timestamp;
@@ -62,17 +54,17 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
 
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload) {
-        if (lookingForRow) {
-            Timestamp rowVersionTs = Timestamps.readTimestamp(pageAddr, payload.offset());
+        if (lookingForVersion) {
+            Timestamp rowVersionTs = Timestamps.readTimestamp(pageAddr, payload.offset() + RowVersion.TIMESTAMP_OFFSET);
 
             if (rowTimestampMatches(rowVersionTs)) {
-                return readFullyOrStartReadingFragmented(pageAddr, payload);
+                return readFullyOrStartReadingFragmented(link, pageAddr, payload);
             } else {
                 return advanceToNextVersion(pageAddr, payload, partitionIdFromLink(link));
             }
         } else {
             // we are continuing reading a fragmented row
-            return readNextFragment(pageAddr, payload);
+            return readNextFragment(link, pageAddr, payload);
         }
     }
 
@@ -84,39 +76,10 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
         return rowVersionTs != null && rowVersionTs.beforeOrEquals(timestamp);
     }
 
-    private long readFullyOrStartReadingFragmented(long pageAddr, DataPagePayload payload) {
-        lookingForRow = false;
+    private long readFullyOrStartReadingFragmented(long link, long pageAddr, DataPagePayload payload) {
+        lookingForVersion = false;
 
-        int valueSizeInCurrentSlot = readValueSize(pageAddr, payload);
-
-        if (!payload.hasMoreFragments()) {
-            return readFully(pageAddr, payload, valueSizeInCurrentSlot);
-        } else {
-            allValueBytes = new byte[valueSizeInCurrentSlot];
-            writtenBytes = 0;
-
-            readValueFragmentToArray(pageAddr, payload, valueSizeInCurrentSlot);
-
-            return payload.nextLink();
-        }
-    }
-
-    private int readValueSize(long pageAddr, DataPagePayload payload) {
-        return PageUtils.getInt(pageAddr, payload.offset() + RowVersion.VALUE_SIZE_OFFSET);
-    }
-
-    private long readFully(long pageAddr, DataPagePayload payload, int valueSizeInCurrentSlot) {
-        if (RowVersion.isTombstone(valueSizeInCurrentSlot)) {
-            result = null;
-        } else {
-            result = new ByteBufferRow(PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, valueSizeInCurrentSlot));
-        }
-        return STOP_TRAVERSAL;
-    }
-
-    private void readValueFragmentToArray(long pageAddr, DataPagePayload payload, int valueSizeInCurrentSlot) {
-        PageUtils.getBytes(pageAddr, payload.offset() + RowVersion.VALUE_OFFSET, allValueBytes, writtenBytes, valueSizeInCurrentSlot);
-        writtenBytes += valueSizeInCurrentSlot;
+        return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
     }
 
     private long advanceToNextVersion(long pageAddr, DataPagePayload payload, int partitionId) {
@@ -127,23 +90,26 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal {
         return PartitionlessLinks.addPartitionIdToPartititionlessLink(partitionlessNextLink, partitionId);
     }
 
-    private long readNextFragment(long pageAddr, DataPagePayload payload) {
-        assert allValueBytes != null;
+    private long readNextFragment(long link, long pageAddr, DataPagePayload payload) {
+        return readRowVersionValue.consumePagePayload(link, pageAddr, payload);
+    }
 
-        int valueSizeInCurrentSlot = readValueSize(pageAddr, payload);
+    @Override
+    public void finish() {
+        if (lookingForVersion) {
+            // we never found the version -> we hever tried to read its value AND the result is null
+            result = null;
+            return;
+        }
 
-        readValueFragmentToArray(pageAddr, payload, valueSizeInCurrentSlot);
+        readRowVersionValue.finish();
 
-        if (payload.hasMoreFragments()) {
-            return payload.nextLink();
+        byte[] valueBytes = readRowVersionValue.result();
+
+        if (RowVersion.isTombstone(valueBytes)) {
+            result = null;
         } else {
-            if (allValueBytes.length == 0) {
-                result = null;
-            } else {
-                result = new ByteBufferRow(allValueBytes);
-            }
-
-            return STOP_TRAVERSAL;
+            result = new ByteBufferRow(valueBytes);
         }
     }
 

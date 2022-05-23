@@ -55,8 +55,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private static final byte[] TOMBSTONE_PAYLOAD = new byte[0];
+
     private static final Predicate<BinaryRow> MATCH_ALL = row -> true;
+
     private static final Predicate<Timestamp> ALWAYS_LOAD_VALUE = timestamp -> true;
+    private static final Predicate<Timestamp> LOAD_VALUE_WHEN_UNCOMMITTED = RowVersion::isUncommitted;
 
     private final int partitionId;
     private final int groupId;
@@ -317,7 +320,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         throwIfChainBelongsToAnotherTx(currentChain, txId);
 
-        RowVersion currentVersion = findLatestRowVersion(currentChain, RowVersion::isUncommitted);
+        RowVersion currentVersion = findLatestRowVersion(currentChain, LOAD_VALUE_WHEN_UNCOMMITTED);
         RowVersion newVersion = insertRowVersion(row, currentVersion.isUncommitted() ? currentVersion.nextLink() : currentChain.headLink());
 
         if (currentVersion.isUncommitted()) {
