@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
@@ -46,7 +52,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.platform.commons.util.ExceptionUtils;
 
 /**
  * Tests for asynchronous SQL API.
@@ -168,9 +173,102 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
         TestPageProcessor pageProc = new TestPageProcessor(4);
-        ses.executeAsync(null, "SELECT * FROM TEST").thenCompose(pageProc).get();
+        ses.executeAsync(null, "SELECT ID FROM TEST").thenCompose(pageProc).get();
 
-        assertEquals(ROW_COUNT, pageProc.result().size());
+        Set<Integer> rs = pageProc.result().stream().map(r -> r.intValue(0)).collect(Collectors.toSet());
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            assertTrue(rs.remove(i), "Results invalid: " + pageProc.result());
+        }
+
+        assertTrue(rs.isEmpty());
+    }
+
+    @Test
+    public void pageSequence() throws ExecutionException, InterruptedException {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(1).build();
+
+        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
+        AsyncResultSet ars1 = ars0.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars2 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars3 = ars1.fetchNextPage().toCompletableFuture().get();
+        AsyncResultSet ars4 = ars0.fetchNextPage().toCompletableFuture().get();
+
+        assertSame(ars1, ars4);
+        assertSame(ars2, ars3);
+
+        List<SqlRow> res = Stream.of(ars0, ars1, ars2)
+                .map(AsyncResultSet::currentPage)
+                .flatMap(p -> StreamSupport.stream(p.spliterator(), false))
+                .collect(Collectors.toList());
+
+        TestPageProcessor pageProc = new TestPageProcessor(ROW_COUNT - res.size());
+        ars3.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
+
+        res.addAll(pageProc.result());
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            assertEquals(i, res.get(i).intValue(0));
+        }
+    }
+
+    @Test
+    public void fetchNextPageParallel() throws Exception {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        final List<SqlRow> res = new ArrayList<>();
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
+        StreamSupport.stream(ars0.currentPage().spliterator(), false).forEach(res::add);
+
+        AtomicInteger cnt = new AtomicInteger();
+        ConcurrentHashMap<Integer, AsyncResultSet> results = new ConcurrentHashMap<>();
+
+        IgniteTestUtils.runMultiThreaded(
+                () -> {
+                    AsyncResultSet ars = ars0.fetchNextPage().toCompletableFuture().get();
+
+                    results.put(cnt.getAndIncrement(), ars);
+
+                    assertFalse(ars.hasMorePages());
+
+                    return null;
+                },
+                10,
+                "test-fetch");
+
+        AsyncResultSet ars1 = CollectionUtils.first(results.values());
+        StreamSupport.stream(ars1.currentPage().spliterator(), false).forEach(res::add);
+
+        // Check that all next page are same.
+        results.values().forEach(ars -> assertSame(ars1, ars));
+
+        assertThrowsWithCause(
+                () -> ars1.fetchNextPage().toCompletableFuture().get(),
+                IgniteSqlException.class,
+                "There are no more pages"
+        );
+
+        // Check results
+        Set<Integer> rs = res.stream().map(r -> r.intValue(0)).collect(Collectors.toSet());
+
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            assertTrue(rs.remove(i), "Results invalid: " + res);
+        }
+
+        assertTrue(rs.isEmpty());
     }
 
     private void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
@@ -189,38 +287,14 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
-    private void checkError(Class<?> expectedException, String msg, Session ses, String sql, Object... args) throws InterruptedException {
+    private void checkError(Class<? extends Throwable> expectedException, String msg, Session ses, String sql, Object... args) {
         CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
                 null,
                 sql,
                 args
         );
 
-        try {
-            AsyncResultSet asyncRes = fut.get();
-
-            fail("Exception isn't thrown [expectedEx=" + expectedException
-                    + ", msg=" + msg + ']');
-        } catch (ExecutionException e) {
-            Throwable t = e;
-
-            while (t != null && expectedException != t.getClass()) {
-                t = t.getCause();
-            }
-
-            assertNotNull(t, "Not expected exception. [expectedEx=" + expectedException
-                    + ", msg=" + msg
-                    + ", catch=" + ExceptionUtils.readStackTrace(e)
-                    + ']');
-
-            assertThat("Not expected exception. [expectedEx=" + expectedException
-                    + ", msg=" + msg
-                    + ", catch=" + ExceptionUtils.readStackTrace(e)
-                    + ']',
-                    t.getMessage(),
-                    containsString(msg)
-            );
-        }
+        assertThrowsWithCause(fut::get, expectedException, msg);
     }
 
     private void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args)
@@ -258,7 +332,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             assertTrue(rs.hasRowSet());
             assertFalse(rs.wasApplied());
             assertEquals(-1L, rs.affectedRows());
-            assertEquals(expectedPages > 0, rs.hasMorePages());
+            assertEquals(expectedPages > 0, rs.hasMorePages(),
+                    "hasMorePages(): [expected=" + (expectedPages > 0) + ", actual=" + rs.hasMorePages() + ']');
 
             rs.currentPage().forEach(res::add);
 

@@ -25,6 +25,7 @@ import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
@@ -42,6 +43,9 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl implements AsyncResultSet {
+    private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
+            CompletableFuture.failedFuture(new IgniteSqlException("There are no more pages."));
+
     private final AsyncSqlCursor<List<Object>> cur;
 
     private final BatchedResult<List<Object>> page;
@@ -49,6 +53,10 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     private final int pageSize;
 
     private final Runnable closeRun;
+
+    private final Object mux = new Object();
+
+    private volatile CompletionStage<? extends AsyncResultSet> next;
 
     /**
      * Constructor.
@@ -117,8 +125,21 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
-        return cur.requestNextAsync(pageSize)
-                .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
+        if (next == null) {
+            synchronized (mux) {
+                if (next == null) {
+                    if (!hasMorePages()) {
+                        next = HAS_NO_MORE_PAGE_FUTURE;
+                    } else {
+                        next = cur.requestNextAsync(pageSize)
+                                .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
+                    }
+                }
+
+            }
+        }
+
+        return next;
     }
 
     /** {@inheritDoc} */
@@ -175,6 +196,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("unchecked")
         @Override
         public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
             T ret = (T) row.get(columnIndex(columnName));
@@ -189,12 +211,14 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("unchecked")
         @Override
         public <T> T value(@NotNull String columnName) throws IllegalArgumentException {
             return (T) row.get(columnIndex(columnName));
         }
 
         /** {@inheritDoc} */
+        @SuppressWarnings("unchecked")
         @Override
         public <T> T value(int columnIndex) {
             return (T) row.get(columnIndex);
