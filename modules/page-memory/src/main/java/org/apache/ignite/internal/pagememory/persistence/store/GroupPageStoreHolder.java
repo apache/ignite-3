@@ -21,13 +21,15 @@ import java.util.AbstractList;
 
 /**
  * Holder of the group page stores (index and partitions).
+ *
+ * @param <T> Type of {@link PageStore}.
  */
-class GroupPageStoreHolder extends AbstractList<PageStore> {
+class GroupPageStoreHolder<T extends PageStore> extends AbstractList<T> {
     /** Index page store. */
-    final PageStore idxStore;
+    final T idxStore;
 
     /** Partition page stores. */
-    final PageStore[] partStores;
+    final T[] partStores;
 
     /**
      * Constructor.
@@ -35,14 +37,14 @@ class GroupPageStoreHolder extends AbstractList<PageStore> {
      * @param idxStore Index page store.
      * @param partStores Partition page stores.
      */
-    public GroupPageStoreHolder(PageStore idxStore, PageStore[] partStores) {
+    public GroupPageStoreHolder(T idxStore, T[] partStores) {
         this.idxStore = idxStore;
         this.partStores = partStores;
     }
 
     /** {@inheritDoc} */
     @Override
-    public PageStore get(int index) {
+    public T get(int index) {
         return index == partStores.length ? idxStore : partStores[index];
     }
 

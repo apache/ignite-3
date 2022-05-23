@@ -27,8 +27,10 @@ import java.util.function.Function;
  * simultaneously with cleanup of file page storage.
  *
  * <p>Wrapping of data removing operations is not needed.
+ *
+ * @param <T> Type of {@link PageStore}.
  */
-class GroupPageStoreHolderMap extends ConcurrentHashMap<Integer, GroupPageStoreHolder> {
+class GroupPageStoreHolderMap<T extends PageStore> extends ConcurrentHashMap<Integer, GroupPageStoreHolder<T>> {
     /** Executor that wraps data adding and replacing operations. */
     private final LongOperationAsyncExecutor longOperationAsyncExecutor;
 
@@ -43,13 +45,13 @@ class GroupPageStoreHolderMap extends ConcurrentHashMap<Integer, GroupPageStoreH
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder put(Integer grpId, GroupPageStoreHolder val) {
+    public GroupPageStoreHolder<T> put(Integer grpId, GroupPageStoreHolder<T> val) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.put(grpId, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public void putAll(Map<? extends Integer, ? extends GroupPageStoreHolder> m) {
+    public void putAll(Map<? extends Integer, ? extends GroupPageStoreHolder<T>> m) {
         longOperationAsyncExecutor.afterAsyncCompletion(() -> {
             super.putAll(m);
 
@@ -59,55 +61,55 @@ class GroupPageStoreHolderMap extends ConcurrentHashMap<Integer, GroupPageStoreH
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder putIfAbsent(Integer grpId, GroupPageStoreHolder val) {
+    public GroupPageStoreHolder<T> putIfAbsent(Integer grpId, GroupPageStoreHolder<T> val) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.putIfAbsent(grpId, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean replace(Integer grpId, GroupPageStoreHolder oldVal, GroupPageStoreHolder newVal) {
+    public boolean replace(Integer grpId, GroupPageStoreHolder<T> oldVal, GroupPageStoreHolder<T> newVal) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.replace(grpId, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder replace(Integer grpId, GroupPageStoreHolder val) {
+    public GroupPageStoreHolder<T> replace(Integer grpId, GroupPageStoreHolder<T> val) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.replace(grpId, val));
     }
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder computeIfAbsent(
+    public GroupPageStoreHolder<T> computeIfAbsent(
             Integer grpId,
-            Function<? super Integer, ? extends GroupPageStoreHolder> mappingFunction
+            Function<? super Integer, ? extends GroupPageStoreHolder<T>> mappingFunction
     ) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.computeIfAbsent(grpId, mappingFunction));
     }
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder computeIfPresent(
+    public GroupPageStoreHolder<T> computeIfPresent(
             Integer grpId,
-            BiFunction<? super Integer, ? super GroupPageStoreHolder, ? extends GroupPageStoreHolder> remappingFunction
+            BiFunction<? super Integer, ? super GroupPageStoreHolder<T>, ? extends GroupPageStoreHolder<T>> remappingFunction
     ) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.computeIfPresent(grpId, remappingFunction));
     }
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder compute(
+    public GroupPageStoreHolder<T> compute(
             Integer grpId,
-            BiFunction<? super Integer, ? super GroupPageStoreHolder, ? extends GroupPageStoreHolder> remappingFunction
+            BiFunction<? super Integer, ? super GroupPageStoreHolder<T>, ? extends GroupPageStoreHolder<T>> remappingFunction
     ) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.compute(grpId, remappingFunction));
     }
 
     /** {@inheritDoc} */
     @Override
-    public GroupPageStoreHolder merge(
+    public GroupPageStoreHolder<T> merge(
             Integer grpId,
-            GroupPageStoreHolder val,
-            BiFunction<? super GroupPageStoreHolder, ? super GroupPageStoreHolder, ? extends GroupPageStoreHolder> remappingFunction
+            GroupPageStoreHolder<T> val,
+            BiFunction<? super GroupPageStoreHolder<T>, ? super GroupPageStoreHolder<T>, ? extends GroupPageStoreHolder<T>> remappingFunction
     ) {
         return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.merge(grpId, val, remappingFunction));
     }
