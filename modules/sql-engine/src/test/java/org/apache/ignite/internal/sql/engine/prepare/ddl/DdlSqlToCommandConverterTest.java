@@ -62,7 +62,7 @@ import org.junit.jupiter.api.Test;
  */
 public class DdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
     @AfterAll
-    public void resetStaticState() {
+    public static void resetStaticState() {
         IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
     }
 

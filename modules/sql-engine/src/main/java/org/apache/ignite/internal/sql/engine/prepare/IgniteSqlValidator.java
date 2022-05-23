@@ -169,8 +169,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override protected void addToSelectList(List<SqlNode> list, Set<String> aliases,
             List<Map.Entry<String, RelDataType>> fieldList, SqlNode exp, SelectScope scope, boolean includeSystemVars) {
-        if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemFieldName(deriveAlias(exp, 0)))
+        if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemFieldName(deriveAlias(exp, 0))) {
             super.addToSelectList(list, aliases, fieldList, exp, scope, includeSystemVars);
+        }
     }
 
     /** {@inheritDoc} */

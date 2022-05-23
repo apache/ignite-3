@@ -57,7 +57,7 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
     }
 
     @AfterAll
-    public void resetStaticState() {
+    public static void resetStaticState() {
         IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
     }
 
