@@ -18,11 +18,17 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.stream.Collectors;
 import org.apache.calcite.runtime.CalciteContextException;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -48,6 +54,11 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
         dropAllTables();
 
         super.tearDownBase(testInfo);
+    }
+
+    @AfterAll
+    public void resetStaticState() {
+        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
     }
 
     @Test
@@ -275,5 +286,25 @@ public class ItDmlTest extends AbstractBasicIntegrationTest {
                                 + "WHEN NOT MATCHED THEN INSERT (k, a, b) VALUES (0, a, b)"));
 
         assertTrue(ex.getCause().getMessage().contains("Failed to MERGE some keys due to keys conflict"));
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void implicitPk() {
+        IgniteTestUtils.setFieldValue(Commons.class, "implicitPkEnabled", null);
+
+        sql("CREATE TABLE T(VAL INT)");
+
+        sql("INSERT INTO t VALUES (1), (2), (3)");
+
+        assertQuery("select * from t")
+                .returns(1)
+                .returns(2)
+                .returns(3)
+                .check();
+
+        var pkVals = sql("select \"__p_key\" from t").stream().map(row -> row.get(0)).collect(Collectors.toSet());
+
+        assertEquals(3, pkVals.size());
     }
 }
