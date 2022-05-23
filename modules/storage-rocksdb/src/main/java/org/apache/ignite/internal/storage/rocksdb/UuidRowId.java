@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.storage.rocksdb;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.UUID;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
  * UUID-based ignite row id implementation.
  */
-public final class UuidRowId implements RowId {
+final class UuidRowId implements RowId {
     /*
      * The most significant 64 bits.
      */
@@ -52,16 +53,17 @@ public final class UuidRowId implements RowId {
         UUID randomUuid = UUID.randomUUID();
 
         long lsb = randomUuid.getLeastSignificantBits();
+        long msb = randomUuid.getMostSignificantBits();
 
-        lsb = (lsb & ~0xFFFFL) | partitionId;
+        msb = ((long) partitionId << 48) | (msb & (-1L >>> 16));
 
-        return new UuidRowId(randomUuid.getMostSignificantBits(), lsb);
+        return new UuidRowId(msb, lsb);
     }
 
     /** {@inheritDoc} */
     @Override
     public int partitionId() {
-        return (int) (leastSigBits & 0xFFFFL);
+        return (int) (mostSigBits >>> 48);
     }
 
     /**
