@@ -38,7 +38,7 @@ class LocalStateStorage {
         private final ClusterTag clusterTag;
 
         LocalState(Set<String> cmgNodeNames, ClusterTag clusterTag) {
-            this.cmgNodeNames = cmgNodeNames;
+            this.cmgNodeNames = Set.copyOf(cmgNodeNames);
             this.clusterTag = clusterTag;
         }
 
