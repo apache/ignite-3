@@ -36,6 +36,8 @@ public class VersionChain extends VersionChainLink implements Storable {
     private static final int TRANSACTION_ID_STORE_SIZE_BYTES = 2 * Long.BYTES;
     private static final int HEAD_LINK_STORE_SIZE_BYTES = PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
 
+    public static final int TRANSACTION_ID_OFFSET = 0;
+
     private final int partitionId;
     @Nullable
     private final UUID transactionId;

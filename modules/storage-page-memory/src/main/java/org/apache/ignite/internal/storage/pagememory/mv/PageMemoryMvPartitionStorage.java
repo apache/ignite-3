@@ -97,7 +97,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
         }
 
         versionChainDataPageReader = new VersionChainDataPageReader(dataRegion.pageMemory(), groupId, IoStatisticsHolderNoOp.INSTANCE);
-        rowVersionDataPageReader = new RowVersionDataPageReader(dataRegion.pageMemory(), groupId, IoStatisticsHolderNoOp.INSTANCE);
+        rowVersionDataPageReader = new DataPageReader(dataRegion.pageMemory(), groupId, IoStatisticsHolderNoOp.INSTANCE);
     }
 
     private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, int groupId, int partitionId)
@@ -391,37 +391,20 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException {
         VersionChain currentVersionChain = findVersionChainForModification(rowId);
+        long chainLink = PartitionlessLinks.addPartitionIdToPartititionlessLink(currentVersionChain.headLink(), partitionId);
 
         assert currentVersionChain.transactionId() != null;
 
-        RowVersion currentVersion = findLatestRowVersion(currentVersionChain, ALWAYS_LOAD_VALUE);
-        assert currentVersion.isUncommitted();
-
-        RowVersion versionReplacement = new RowVersion(
-                partitionId,
-                currentVersion.link(),
-                timestamp,
-                currentVersion.nextLink(),
-                currentVersion.value()
-        );
-        if (!tryUpdateRowVersionInPlace(versionReplacement)) {
-            insertRowVersion(versionReplacement);
-            removeRowVersion(currentVersion);
+        try {
+            rowVersionFreeList.updateTimestamp(chainLink, timestamp);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Cannot update timestamp", e);
         }
 
-        VersionChain versionChainReplacement = VersionChain.withoutTxId(
-                partitionId,
-                currentVersionChain.link(),
-                PartitionlessLinks.removePartitionIdFromLink(versionReplacement.link())
-        );
-        updateVersionChain(currentVersionChain, versionChainReplacement);
-    }
-
-    private boolean tryUpdateRowVersionInPlace(RowVersion versionReplacement) {
         try {
-            return rowVersionFreeList.updateDataRow(versionReplacement.link(), versionReplacement);
+            versionChainFreeList.updateTransactionId(currentVersionChain.link(), null);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot update row version", e);
+            throw new StorageException("Cannot update transaction ID", e);
         }
     }
 

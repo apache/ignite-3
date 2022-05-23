@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv.io;
 
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
@@ -25,8 +24,10 @@ import java.util.UUID;
 import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks;
+import org.apache.ignite.internal.storage.pagememory.mv.TransactionIds;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChain;
 import org.apache.ignite.lang.IgniteStringBuilder;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link AbstractDataPageIo} for {@link VersionChain} instances.
@@ -64,22 +65,7 @@ public class VersionChainDataIo extends AbstractDataPageIo<VersionChain> {
         putShort(addr, 0, (short) payloadSize);
         addr += Short.BYTES;
 
-        UUID txId = row.transactionId();
-        long txIdHigh;
-        long txIdLow;
-        if (txId != null) {
-            txIdHigh = txId.getMostSignificantBits();
-            txIdLow = txId.getLeastSignificantBits();
-        } else {
-            txIdHigh = VersionChain.NULL_UUID_COMPONENT;
-            txIdLow = VersionChain.NULL_UUID_COMPONENT;
-        }
-
-        putLong(addr, 0, txIdHigh);
-        addr += Long.BYTES;
-
-        putLong(addr, 0, txIdLow);
-        addr += Long.BYTES;
+        addr += TransactionIds.writeTransactionId(addr, 0, row.transactionId());
 
         addr += PartitionlessLinks.writeToMemory(addr, row.headLink());
     }
@@ -90,5 +76,20 @@ public class VersionChainDataIo extends AbstractDataPageIo<VersionChain> {
         assertPageType(buf);
 
         throw new UnsupportedOperationException("Splitting version chain rows to fragments is ridiculous!");
+    }
+
+    /**
+     * Writes transaction ID leaving everything else untouched.
+     *
+     * @param pageAddr page address
+     * @param itemId   number of the item representing the slot where the row of interest resides
+     * @param pageSize size of the page
+     * @param txId     transaction ID to write
+     */
+    public void updateTransactionId(long pageAddr, int itemId, int pageSize, @Nullable UUID txId) {
+        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
+        int payloadOffset = dataOff + Short.BYTES;
+
+        TransactionIds.writeTransactionId(pageAddr, payloadOffset + VersionChain.TRANSACTION_ID_OFFSET, txId);
     }
 }

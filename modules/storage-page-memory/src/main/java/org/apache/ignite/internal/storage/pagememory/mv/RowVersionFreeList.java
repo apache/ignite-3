@@ -24,9 +24,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
+import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
+import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +41,10 @@ import org.jetbrains.annotations.Nullable;
 public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(RowVersionFreeList.class);
 
+    private final PageEvictionTracker evictionTracker;
     private final IoStatisticsHolder statHolder;
+
+    private final UpdateTimestampHandler updateTimestampHandler = new UpdateTimestampHandler();
 
     /**
      * Constructor.
@@ -79,6 +86,7 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
                 evictionTracker
         );
 
+        this.evictionTracker = evictionTracker;
         this.statHolder = statHolder;
     }
 
@@ -101,15 +109,14 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
     }
 
     /**
-     * Updates a row by link.
+     * Updates row version's timestamp.
      *
-     * @param link Row link.
-     * @param row New row data.
-     * @return {@code True} if was able to update row.
-     * @throws IgniteInternalCheckedException If failed.
+     * @param link         link to the slot containing row version
+     * @param newTimestamp timestamp to set
+     * @throws IgniteInternalCheckedException if something fails
      */
-    public boolean updateDataRow(long link, RowVersion row) throws IgniteInternalCheckedException {
-        return super.updateDataRow(link, row, statHolder);
+    public void updateTimestamp(long link, Timestamp newTimestamp) throws IgniteInternalCheckedException {
+        updateDataRow(link, updateTimestampHandler, newTimestamp, statHolder);
     }
 
     /**
@@ -120,5 +127,27 @@ public class RowVersionFreeList extends AbstractFreeList<RowVersion> {
      */
     public void removeDataRowByLink(long link) throws IgniteInternalCheckedException {
         super.removeDataRowByLink(link, statHolder);
+    }
+
+    private class UpdateTimestampHandler implements PageHandler<Timestamp, Object> {
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                Timestamp arg,
+                int itemId,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            RowVersionDataIo dataIo = (RowVersionDataIo) io;
+
+            dataIo.updateTimestamp(pageAddr, itemId, pageSize(), arg);
+
+            evictionTracker.touchPage(pageId);
+
+            return true;
+        }
     }
 }

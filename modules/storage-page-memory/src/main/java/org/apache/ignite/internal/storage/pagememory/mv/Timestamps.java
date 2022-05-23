@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- *
+ * Code to work with {@link Timestamp}s.
  */
 public class Timestamps {
     /**
@@ -44,6 +45,23 @@ public class Timestamps {
         }
 
         return timestamp;
+    }
+
+    /**
+     * Writes a {@link Timestamp} to memory starting at the given address + offset.
+     *
+     * @param addr      memory address
+     * @param offset    offset added to the address
+     * @param timestamp the timestamp to write
+     * @return number of bytes written
+     */
+    public static int writeTimestamp(long addr, int offset, @Nullable Timestamp timestamp) {
+        Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
+
+        putLong(addr, offset, timestampForStorage.getNodeId());
+        putLong(addr, offset + Long.BYTES, timestampForStorage.getTimestamp());
+
+        return 2 * Long.BYTES;
     }
 
     private Timestamps() {

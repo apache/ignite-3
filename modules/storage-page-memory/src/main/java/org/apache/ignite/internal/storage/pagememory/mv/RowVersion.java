@@ -89,6 +89,10 @@ public class RowVersion implements Storable {
     }
 
     public Timestamp timestampForStorage() {
+        return timestampForStorage(timestamp);
+    }
+
+    static Timestamp timestampForStorage(Timestamp timestamp) {
         return timestamp == null ? NULL_TIMESTAMP : timestamp;
     }
 

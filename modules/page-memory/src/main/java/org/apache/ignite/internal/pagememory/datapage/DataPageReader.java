@@ -29,7 +29,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Contains logic for reading values from page memory data pages (this includes handling multy-page values).
  */
-public abstract class DataPageReader {
+public class DataPageReader {
     private final PageMemory pageMemory;
     private final int groupId;
     private final IoStatisticsHolder statisticsHolder;

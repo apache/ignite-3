@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.pagememory.mv.io;
 
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
-import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
 
 import java.nio.ByteBuffer;
@@ -27,8 +26,10 @@ import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.storage.pagememory.mv.PartitionlessLinks;
 import org.apache.ignite.internal.storage.pagememory.mv.RowVersion;
+import org.apache.ignite.internal.storage.pagememory.mv.Timestamps;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteStringBuilder;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data pages IO for {@link RowVersion}.
@@ -59,11 +60,7 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         putShort(addr, 0, (short) payloadSize);
         addr += 2;
 
-        Timestamp timestamp = row.timestampForStorage();
-        putLong(addr, 0, timestamp.getNodeId());
-        addr += Long.BYTES;
-        putLong(addr, 0, timestamp.getTimestamp());
-        addr += Long.BYTES;
+        addr += Timestamps.writeTimestamp(addr, 0, row.timestamp());
 
         addr += PartitionlessLinks.writeToMemory(addr, row.nextLink());
 
@@ -82,6 +79,21 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         // TODO: IGNITE-17009 - implement
 
         throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    /**
+     * Updates timestamp leaving the rest untouched.
+     *
+     * @param pageAddr  page address
+     * @param itemId    item ID of the slot where row version (or its first fragment) is stored in this page
+     * @param pageSize  size of the page
+     * @param timestamp timestamp to store
+     */
+    public void updateTimestamp(long pageAddr, int itemId, int pageSize, @Nullable Timestamp timestamp) {
+        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
+        int payloadOffset = dataOff + Short.BYTES;
+
+        Timestamps.writeTimestamp(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
     /** {@inheritDoc} */

@@ -20,12 +20,16 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
+import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
+import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainDataIo;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +40,10 @@ import org.jetbrains.annotations.Nullable;
 public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
     private static final IgniteLogger LOG = IgniteLogger.forClass(VersionChainFreeList.class);
 
+    private final PageEvictionTracker evictionTracker;
     private final IoStatisticsHolder statHolder;
+
+    private final UpdateTransactionIdHandler updateTransactionHandler = new UpdateTransactionIdHandler();
 
     /**
      * Constructor.
@@ -75,6 +82,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
                 evictionTracker
         );
 
+        this.evictionTracker = evictionTracker;
         this.statHolder = statHolder;
     }
 
@@ -109,6 +117,17 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
     }
 
     /**
+     * Updates version chain's transactionId.
+     *
+     * @param link         link to the slot containing row version
+     * @param transactionId transaction ID to set
+     * @throws IgniteInternalCheckedException if something fails
+     */
+    public void updateTransactionId(long link, @Nullable UUID transactionId) throws IgniteInternalCheckedException {
+        updateDataRow(link, updateTransactionHandler, transactionId, statHolder);
+    }
+
+    /**
      * Removes a row by link.
      *
      * @param link Row link.
@@ -116,5 +135,27 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
      */
     public void removeDataRowByLink(long link) throws IgniteInternalCheckedException {
         super.removeDataRowByLink(link, statHolder);
+    }
+
+    private class UpdateTransactionIdHandler implements PageHandler<UUID, Object> {
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                UUID arg,
+                int itemId,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            VersionChainDataIo dataIo = (VersionChainDataIo) io;
+
+            dataIo.updateTransactionId(pageAddr, itemId, pageSize(), arg);
+
+            evictionTracker.touchPage(pageId);
+
+            return true;
+        }
     }
 }

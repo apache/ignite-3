@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * Traversal that scans Version Chain until first version visible at the given timestamp is found; then the version
  * is converted to {@link ByteBufferRow} and finally made available via {@link #result()}.
  *
- * NB: this traversal first traverses starting data slots of the Version Chain one after another; when it finds the
+ * <p>NB: this traversal first traverses starting data slots of the Version Chain one after another; when it finds the
  * version it needs, it switches to traversing the slots comprising the version (because it might be fragmented).
  */
 class ScanVersionChainByTimestamp implements PageMemoryTraversal {
