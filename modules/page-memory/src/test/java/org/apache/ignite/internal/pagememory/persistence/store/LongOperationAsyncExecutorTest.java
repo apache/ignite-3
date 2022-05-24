@@ -54,7 +54,7 @@ public class LongOperationAsyncExecutorTest {
         Runnable task0 = () -> {
             assertNotSame(testMethodThread, Thread.currentThread());
 
-            assertThat(Thread.currentThread().getName(), startsWith("%test%async-op0-task-0"));
+            assertThat(Thread.currentThread().getName(), startsWith("%test%async-op0-task-"));
         };
 
         executor.async(createTask(task0, null, task0Future), "op0");
@@ -89,7 +89,7 @@ public class LongOperationAsyncExecutorTest {
             Runnable task1 = () -> {
                 assertNotSame(testMethodThread, Thread.currentThread());
 
-                assertThat(Thread.currentThread().getName(), startsWith("%test%async-op1-task-1"));
+                assertThat(Thread.currentThread().getName(), startsWith("%test%async-op1-task-"));
             };
 
             executor.async(createTask(task1, null, task1Future), "op1");

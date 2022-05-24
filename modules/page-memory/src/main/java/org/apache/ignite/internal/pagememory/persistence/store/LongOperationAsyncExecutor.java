@@ -44,7 +44,7 @@ class LongOperationAsyncExecutor {
 
     private final Set<IgniteWorker> workers = ConcurrentHashMap.newKeySet();
 
-    private static final AtomicLong workerCounter = new AtomicLong(0);
+    private static final AtomicLong WORKER_COUNTER = new AtomicLong(0);
 
     /**
      * Constructor.
@@ -67,7 +67,7 @@ class LongOperationAsyncExecutor {
      * @param name name of the operation, used as part of the thread name.
      */
     public void async(Runnable operation, String name) {
-        String workerName = "async-" + name + "-task-" + workerCounter.getAndIncrement();
+        String workerName = "async-" + name + "-task-" + WORKER_COUNTER.getAndIncrement();
 
         IgniteWorker worker = new IgniteWorker(log, igniteInstanceName, workerName, null) {
             /** {@inheritDoc} */
