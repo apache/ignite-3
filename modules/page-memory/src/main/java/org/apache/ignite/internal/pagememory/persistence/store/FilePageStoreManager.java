@@ -20,22 +20,18 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.Files.createDirectories;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
+import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
+import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -53,12 +49,6 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
     /** File suffix. */
     public static final String FILE_SUFFIX = ".bin";
 
-    /** Suffix for zip files. */
-    public static final String ZIP_SUFFIX = ".zip";
-
-    /** Suffix for tmp files. */
-    public static final String TMP_SUFFIX = ".tmp";
-
     /** Partition file prefix. */
     public static final String PART_FILE_PREFIX = "part-";
 
@@ -74,12 +64,6 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
     /** Group directory prefix. */
     public static final String GROUP_DIR_PREFIX = "group-";
 
-    /** Data directory predicate. */
-    public static final Predicate<File> GROUP_DIR_FILTER = dir -> dir.getName().startsWith(GROUP_DIR_PREFIX);
-
-    /** Matcher for searching of *.tmp files. */
-    public static final PathMatcher TMP_FILE_MATCHER = FileSystems.getDefault().getPathMatcher("glob:**" + TMP_SUFFIX);
-
     /** Logger. */
     private final IgniteLogger log;
 
@@ -89,8 +73,11 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
     /** {@link FileIo} factory for file page store. */
     private final FileIoFactory filePageStoreFileIoFactory;
 
+    /** Page size in bytes. */
+    private final int pageSize;
+
     /** Page read write manager. */
-    private final PageReadWriteManagerImpl pageReadWriteManager;
+    private final PageReadWriteManagerImpl pageReadWriteManager = new PageReadWriteManagerImpl(this);
 
     /**
      * Executor to disallow running code that modifies data in {@link #groupPageStoreHolders} concurrently with cleanup of file page store.
@@ -110,17 +97,21 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      * @param igniteInstanceName Name of the Ignite instance.
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
+     * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
     public FilePageStoreManager(
             IgniteLogger log,
             String igniteInstanceName,
             Path storagePath,
-            FileIoFactory filePageStoreFileIoFactory
+            FileIoFactory filePageStoreFileIoFactory,
+            // TODO: IGNITE-17017 Move to common config
+            int pageSize
     ) throws IgniteInternalCheckedException {
         this.log = log;
         this.filePageStoreFileIoFactory = filePageStoreFileIoFactory;
         this.dbDir = storagePath.resolve("db");
+        this.pageSize = pageSize;
 
         try {
             createDirectories(dbDir);
@@ -130,9 +121,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, log);
 
-        groupPageStoreHolders = new GroupPageStoreHolderMap(cleanupAsyncExecutor);
-
-        pageReadWriteManager = new PageReadWriteManagerImpl(this);
+        groupPageStoreHolders = new GroupPageStoreHolderMap<>(cleanupAsyncExecutor);
     }
 
     /** {@inheritDoc} */
@@ -142,9 +131,9 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
             String tmpDir = System.getProperty("java.io.tmpdir");
 
             if (tmpDir != null && this.dbDir.startsWith(tmpDir)) {
-                log.warn("Persistence store directory is in the temp directory and may be cleaned. " +
-                        "To avoid this change location of persistence directories. " +
-                        "Current persistence store directory is: [" + this.dbDir + "]");
+                log.warn("Persistence store directory is in the temp directory and may be cleaned. "
+                        + "To avoid this change location of persistence directories. "
+                        + "Current persistence store directory is:" + this.dbDir);
             }
         }
     }
@@ -184,178 +173,27 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      * @throws IgniteInternalCheckedException If failed.
      */
     public void initialize(String grpName, int grpId, int partitions) throws IgniteInternalCheckedException {
-        assert dbDir != null;
+        initGroupDirLock.lock(grpId);
 
-        if (!groupPageStoreHolders.containsKey(cacheId)) {
-            GroupPageStoreHolder holder = initDir(
-                    new File(dbDir, workingDir),
-                    cacheId,
-                    partitions,
-                    pageMetrics,
-                    cctx.cacheContext(cacheId) != null && cctx.cacheContext(cacheId).config().isEncryptionEnabled()
-            );
-
-            GroupPageStoreHolder old = groupPageStoreHolders.put(cacheId, holder);
-
-            assert old == null : "Non-null old store holder for cacheId: " + cacheId;
-        }
-    }
-
-    /**
-     * @param cacheWorkDir Work directory.
-     * @param grpId Group ID.
-     * @param partitions Number of partitions.
-     * @param pageMetrics Page metrics.
-     * @return Cache store holder.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    private GroupPageStoreHolder initDir(File cacheWorkDir,
-            int grpId,
-            int partitions
-    ) throws IgniteInternalCheckedException {
         try {
-            File idxFile = new File(cacheWorkDir, INDEX_FILE_NAME);
+            if (!groupPageStoreHolders.containsKey(grpId)) {
+                GroupPageStoreHolder<FilePageStore> holder = createGroupFilePageStoreHolder(grpName, partitions);
 
-            FilePageStoreFactory pageStoreFactory = getPageStoreFactory(grpId);
+                GroupPageStoreHolder<FilePageStore> old = groupPageStoreHolders.put(grpId, holder);
 
-            PageStore idxStore =
-                    pageStoreFactory.createPageStore(
-                            PageStore.TYPE_IDX,
-                            idxFile,
-                            pageMetrics.totalPages()::add);
-
-            PageStore[] partStores = new PageStore[partitions];
-
-            for (int partId = 0; partId < partStores.length; partId++) {
-                final int p = partId;
-
-                PageStore partStore = pageStoreFactory.createPageStore(
-                        PageStore.TYPE_DATA,
-                        () -> getPartitionFilePath(cacheWorkDir, p),
-                        pageMetrics.totalPages()::add
-                );
-
-                partStores[partId] = partStore;
+                assert old == null : grpName;
             }
-
-            return new GroupPageStoreHolder(idxStore, partStores);
         } catch (IgniteInternalCheckedException e) {
-            if (X.hasCause(e, StorageException.class, IOException.class)) {
-                cctx.kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR, e));
-            }
+            // TODO: IGNITE-16899 By analogy with 2.0, fail a node
 
             throw e;
-        }
-    }
-
-    /**
-     * @param cacheWorkDir Cache work directory.
-     * @param partId Partition id.
-     */
-    private Path getPartitionFilePath(File cacheWorkDir, int partId) {
-        return new File(cacheWorkDir, partitionFileName(partId)).toPath();
-    }
-
-    /**
-     * @param workDir Cache work directory.
-     * @param cacheDirName Cache directory name.
-     * @param partId Partition id.
-     * @return Partition file.
-     */
-    public static File getPartitionFile(File workDir, String cacheDirName, int partId) {
-        return new File(cacheWorkDir(workDir, cacheDirName), partitionFileName(partId));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean checkAndInitCacheWorkDir(CacheConfiguration cacheCfg) throws IgniteInternalCheckedException {
-        return checkAndInitCacheWorkDir(cacheWorkDir(cacheCfg));
-    }
-
-    /**
-     * @param cacheWorkDir Cache work directory.
-     */
-    private boolean checkAndInitCacheWorkDir(File cacheWorkDir) throws IgniteInternalCheckedException {
-        boolean dirExisted = false;
-
-        Lock lock = initGroupDirLock.getLock(cacheWorkDir.getName().hashCode());
-
-        lock.lock();
-
-        try {
-            if (!Files.exists(cacheWorkDir.toPath())) {
-                try {
-                    Files.createDirectory(cacheWorkDir.toPath());
-                } catch (IOException e) {
-                    throw new IgniteInternalCheckedException("Failed to initialize cache working directory " +
-                            "(failed to create, make sure the work folder has correct permissions): " +
-                            cacheWorkDir.getAbsolutePath(), e);
-                }
-            } else {
-                if (cacheWorkDir.isFile()) {
-                    throw new IgniteInternalCheckedException("Failed to initialize cache working directory " +
-                            "(a file with the same name already exists): " + cacheWorkDir.getAbsolutePath());
-                }
-
-                File lockF = new File(cacheWorkDir, IgniteCacheSnapshotManager.SNAPSHOT_RESTORE_STARTED_LOCK_FILENAME);
-
-                Path cacheWorkDirPath = cacheWorkDir.toPath();
-
-                Path tmp = cacheWorkDirPath.getParent().resolve(cacheWorkDir.getName() + TMP_SUFFIX);
-
-                if (Files.exists(tmp) && Files.isDirectory(tmp) &&
-                        Files.exists(tmp.resolve(IgniteCacheSnapshotManager.TEMP_FILES_COMPLETENESS_MARKER))) {
-
-                    U.warn(log, "Ignite node crashed during the snapshot restore process " +
-                            "(there is a snapshot restore lock file left for cache). But old version of cache was saved. " +
-                            "Trying to restore it. Cache - [" + cacheWorkDir.getAbsolutePath() + ']');
-
-                    U.delete(cacheWorkDir);
-
-                    try {
-                        Files.move(tmp, cacheWorkDirPath, StandardCopyOption.ATOMIC_MOVE);
-
-                        cacheWorkDirPath.resolve(IgniteCacheSnapshotManager.TEMP_FILES_COMPLETENESS_MARKER).toFile().delete();
-                    } catch (IOException e) {
-                        throw new IgniteInternalCheckedException(e);
-                    }
-                } else if (lockF.exists()) {
-                    U.warn(log, "Ignite node crashed during the snapshot restore process " +
-                            "(there is a snapshot restore lock file left for cache). Will remove both the lock file and " +
-                            "incomplete cache directory [cacheDir=" + cacheWorkDir.getAbsolutePath() + ']');
-
-                    boolean deleted = U.delete(cacheWorkDir);
-
-                    if (!deleted) {
-                        throw new IgniteInternalCheckedException("Failed to remove obsolete cache working directory " +
-                                "(remove the directory manually and make sure the work folder has correct permissions): " +
-                                cacheWorkDir.getAbsolutePath());
-                    }
-
-                    cacheWorkDir.mkdirs();
-                } else {
-                    dirExisted = true;
-                }
-
-                if (!cacheWorkDir.exists()) {
-                    throw new IgniteInternalCheckedException("Failed to initialize cache working directory " +
-                            "(failed to create, make sure the work folder has correct permissions): " +
-                            cacheWorkDir.getAbsolutePath());
-                }
-
-                if (Files.exists(tmp)) {
-                    U.delete(tmp);
-                }
-            }
         } finally {
-            lock.writeLock().unlock();
+            initGroupDirLock.unlock(grpId);
         }
-
-        return dirExisted;
     }
 
     /**
-     * Returns collection of related file page stores.
+     * Returns collection of related file page stores for group.
      *
      * @param grpId Group ID.
      */
@@ -368,7 +206,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      *
      * @param grpId Group ID.
      * @param partId Partition ID, either {@link PageIdAllocator#INDEX_PARTITION} or {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID}
-     * (inclusive).
+     *      (inclusive).
      * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
      */
     public FilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {
@@ -436,13 +274,6 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
         }
     }
 
-    /**
-     * Returns the directory where all file page stores of all groups are stored.
-     */
-    public Path workDir() {
-        return dbDir;
-    }
-
     private static void stopGroupFilePageStores(
             Collection<GroupPageStoreHolder<FilePageStore>> groupFilePageStoreHolders,
             boolean cleanFiles
@@ -456,31 +287,44 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
         }
     }
 
-    /**
-     * Returns partition ID from file name, either {@link PageIdAllocator#INDEX_PARTITION} or {@code 0} to {@link
-     * PageIdAllocator#MAX_PARTITION_ID} (inclusive)
-     *
-     * @param partitionFileName Partition file name.
-     */
-    private static int partId(String partitionFileName) {
-        if (partitionFileName.equals(INDEX_FILE_NAME)) {
-            return INDEX_PARTITION;
+    private Path ensureGroupWorkDir(String grpName) throws IgniteInternalCheckedException {
+        Path groupWorkDir = dbDir.resolve(GROUP_DIR_PREFIX + grpName);
+
+        try {
+            Files.createDirectories(groupWorkDir);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException("Failed to initialize group working directory "
+                    + "(failed to create, make sure the work folder has correct permissions): "
+                    + groupWorkDir, e);
         }
 
-        if (partitionFileName.startsWith(PART_FILE_PREFIX)) {
-            return Integer.parseInt(partitionFileName.substring(PART_FILE_PREFIX.length(), partitionFileName.indexOf('.')));
+        if (!Files.isDirectory(groupWorkDir)) {
+            throw new IgniteInternalCheckedException("Failed to initialize cache working directory "
+                    + "(a file with the same name already exists): " + groupWorkDir);
         }
 
-        throw new IllegalStateException("Illegal partition file name: " + partitionFileName);
+        return groupWorkDir;
     }
 
-    /**
-     * @param partId Partition id.
-     * @return File name.
-     */
-    private static String partitionFileName(int partId) {
-        assert partId >= 0 && (partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION) : partId;
+    private GroupPageStoreHolder<FilePageStore> createGroupFilePageStoreHolder(
+            String grpName,
+            int partitions
+    ) throws IgniteInternalCheckedException {
+        Path groupWorkDir = ensureGroupWorkDir(grpName);
 
-        return partId == INDEX_PARTITION ? INDEX_FILE_NAME : String.format(PART_FILE_TEMPLATE, partId);
+        FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
+
+        FilePageStore idxFilePageStore = filePageStoreFactory.createPageStore(TYPE_IDX, groupWorkDir.resolve(INDEX_FILE_NAME));
+
+        FilePageStore[] partitionFilePageStores = new FilePageStore[partitions];
+
+        for (int i = 0; i < partitions; i++) {
+            partitionFilePageStores[i] = filePageStoreFactory.createPageStore(
+                    TYPE_DATA,
+                    groupWorkDir.resolve(String.format(PART_FILE_TEMPLATE, i))
+            );
+        }
+
+        return new GroupPageStoreHolder<>(idxFilePageStore, partitionFilePageStores);
     }
 }

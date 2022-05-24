@@ -109,8 +109,8 @@ class GroupPageStoreHolderMap<T extends PageStore> extends ConcurrentHashMap<Int
     public GroupPageStoreHolder<T> merge(
             Integer grpId,
             GroupPageStoreHolder<T> val,
-            BiFunction<? super GroupPageStoreHolder<T>, ? super GroupPageStoreHolder<T>, ? extends GroupPageStoreHolder<T>> remappingFunction
+            BiFunction<? super GroupPageStoreHolder<T>, ? super GroupPageStoreHolder<T>, ? extends GroupPageStoreHolder<T>> remappingFun
     ) {
-        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.merge(grpId, val, remappingFunction));
+        return longOperationAsyncExecutor.afterAsyncCompletion(() -> super.merge(grpId, val, remappingFun));
     }
 }
