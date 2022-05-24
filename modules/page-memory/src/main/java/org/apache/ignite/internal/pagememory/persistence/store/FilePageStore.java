@@ -599,16 +599,8 @@ public class FilePageStore implements PageStore {
 
         checkHeader(headerBuffer);
 
-        long fileSize = filePath.toFile().length();
-
         // Every file has a special meta page.
-        if (fileSize == headerSize()) {
-            fileSize = 0;
-        } else {
-            fileSize -= headerSize();
-        }
-
-        return fileSize;
+        return filePath.toFile().length() - headerSize();
     }
 
     /**
@@ -626,7 +618,7 @@ public class FilePageStore implements PageStore {
      *
      * @param destBuf Destination buffer.
      * @param position Position.
-     * @return Number of read bytes.
+     * @return Number of read bytes, or {@code -1} if the given position is greater than or equal to the file's current size.
      */
     private int readWithFailover(ByteBuffer destBuf, long position) throws IOException {
         boolean interrupted = false;

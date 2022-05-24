@@ -19,11 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.ByteOrder.nativeOrder;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_DATA;
-import static org.apache.ignite.internal.pagememory.io.PageIo.MAX_IO_TYPE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
-import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.startsWith;
@@ -50,7 +48,9 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteStringBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -498,8 +498,7 @@ public class FilePageStoreTest {
     private static ByteBuffer createPageByteBuffer() {
         ByteBuffer buffer = ByteBuffer.allocateDirect(PAGE_SIZE).order(nativeOrder());
 
-        PageIo.setType(bufferAddress(buffer), MAX_IO_TYPE);
-        PageIo.setVersion(bufferAddress(buffer), 1);
+        new TestPageIo().initNewPage(GridUnsafe.bufferAddress(buffer), 0, PAGE_SIZE);
 
         return buffer;
     }
@@ -510,5 +509,30 @@ public class FilePageStoreTest {
 
     private static FilePageStore createFilePageStore(Path filePath) {
         return new FilePageStore(TYPE_DATA, filePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+    }
+
+    /**
+     * Simple test implementation.
+     */
+    private static class TestPageIo extends PageIo {
+        /**
+         * Constructor.
+         */
+        protected TestPageIo() {
+            super(MAX_IO_TYPE, 1, FLAG_DATA);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void initNewPage(long pageAddr, long pageId, int pageSize) {
+            setType(pageAddr, getType());
+            setVersion(pageAddr, getVersion());
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
+            throw new UnsupportedOperationException();
+        }
     }
 }

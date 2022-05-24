@@ -266,7 +266,7 @@ public class IgniteUtils {
         StringBuilder sb = new StringBuilder(len * 2);
 
         for (int i = 0; i < len; i++) {
-            // Can not use getLong because on little-endian it produces bs.
+            // Can not use getLong because on little-endian it produces wrong result.
             addByteAsHex(sb, GridUnsafe.getByte(addr + i));
         }
 
@@ -282,7 +282,7 @@ public class IgniteUtils {
         StringBuilder sb = new StringBuilder(buf.capacity() * 2);
 
         for (int i = 0; i < buf.capacity(); i++) {
-            // Can not use getLong because on little-endian it produces bs.
+            // Can not use getLong because on little-endian it produces wrong result.
             addByteAsHex(sb, buf.get(i));
         }
 
