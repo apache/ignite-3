@@ -443,24 +443,25 @@ public class NodeImpl implements Node, RaftServerService {
 
             Closure oldDoneClosure = done;
 
-            Closure newDone = (Status status) -> {
-                if (status.isOk()) {
-                    node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeers);
-                } else {
-                    node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, () -> {
-                        node.changePeersAsync(new Configuration(newPeers), node.getCurrentTerm(), null);
-                        return null;
-                    });
-                }
-                if (oldDoneClosure != null) {
+            if (this.done != null) {
+                Closure newDone = (Status status) -> {
+                    if (status.isOk()) {
+                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeers);
+                    } else {
+                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, () -> {
+                            // TODO: error handling for changePeersAsync https://ggsystems.atlassian.net/browse/IGN-19294
+                            node.changePeersAsync(new Configuration(newPeers), node.getCurrentTerm(), newStatus -> {});
+                            return null;
+                        });
+                    }
                     oldDoneClosure.run(status);
-                }
-            };
+                };
 
-            // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
-            Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st :
-                new Status(RaftError.EPERM, "Leader stepped down."));
-            this.done = null;
+                // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st :
+                        new Status(RaftError.EPERM, "Leader stepped down."));
+                this.done = null;
+            }
         }
 
         private void clearLearners() {
