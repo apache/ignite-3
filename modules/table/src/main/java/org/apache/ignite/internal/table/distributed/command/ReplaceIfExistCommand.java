@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -30,11 +31,11 @@ public class ReplaceIfExistCommand extends SingleKeyCommand implements WriteComm
      * Creates a new instance of ReplaceIfExistCommand with the given row to be replaced. The {@code row} should not be {@code null}.
      *
      * @param row       Binary row.
-     * @param timestamp The timestamp.
+     * @param id The timestamp.
      *
      * @see TransactionalCommand
      */
-    public ReplaceIfExistCommand(@NotNull BinaryRow row, @NotNull Timestamp timestamp) {
-        super(row, timestamp);
+    public ReplaceIfExistCommand(@NotNull BinaryRow row, @NotNull UUID id) {
+        super(row, id);
     }
 }

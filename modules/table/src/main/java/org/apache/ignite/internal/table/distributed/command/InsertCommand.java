@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -30,11 +31,11 @@ public class InsertCommand extends SingleKeyCommand implements WriteCommand {
      * Creates a new instance of InsertCommand with the given row to be inserted. The {@code row} should not be {@code null}.
      *
      * @param row       Binary row.
-     * @param timestamp The timestamp.
+     * @param id The timestamp.
      *
      * @see TransactionalCommand
      */
-    public InsertCommand(@NotNull BinaryRow row, @NotNull Timestamp timestamp) {
-        super(row, timestamp);
+    public InsertCommand(@NotNull BinaryRow row, @NotNull UUID id) {
+        super(row, id);
     }
 }

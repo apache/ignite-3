@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
+import java.util.Collection;
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.lang.IgniteUuid;
@@ -43,7 +46,7 @@ public interface TxManager extends IgniteComponent {
      * @param ts The timestamp.
      * @return The state or null if the state is unknown.
      */
-    @Nullable TxState state(Timestamp ts);
+    @Nullable TxState state(UUID id);
 
     /**
      * Atomically changes the state of a transaction.
@@ -53,14 +56,14 @@ public interface TxManager extends IgniteComponent {
      * @param after  After state.
      * @return {@code True} if a state was changed.
      */
-    boolean changeState(Timestamp ts, @Nullable TxState before, TxState after);
+    boolean changeState(UUID id, @Nullable TxState before, TxState after);
 
     /**
      * Forgets the transaction state. Intended for cleanup.
      *
      * @param ts The timestamp.
      */
-    void forget(Timestamp ts);
+    void forget(UUID id);
 
     /**
      * Commits a transaction.
@@ -68,7 +71,7 @@ public interface TxManager extends IgniteComponent {
      * @param ts The timestamp.
      * @return The future.
      */
-    CompletableFuture<Void> commitAsync(Timestamp ts);
+    CompletableFuture<Void> commitAsync(UUID id);
 
     /**
      * Aborts a transaction.
@@ -76,7 +79,7 @@ public interface TxManager extends IgniteComponent {
      * @param ts The timestamp.
      * @return The future.
      */
-    CompletableFuture<Void> rollbackAsync(Timestamp ts);
+    CompletableFuture<Void> rollbackAsync(UUID id);
 
     /**
      * Acqures a write lock.
@@ -87,7 +90,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID id);
 
     /**
      * Acqures a read lock.
@@ -98,7 +101,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID id);
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
@@ -107,7 +110,7 @@ public interface TxManager extends IgniteComponent {
      * @return @{code null} if a transaction was created, or a current state.
      */
     @Nullable
-    TxState getOrCreateTransaction(Timestamp ts);
+    TxState getOrCreateTransaction(UUID id);
 
     /**
      * Finishes a dependant remote transactions.
@@ -117,7 +120,7 @@ public interface TxManager extends IgniteComponent {
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit, Set<String> groups);
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, UUID id, boolean commit, Set<String> groups);
 
     /**
      * Checks if a passed address belongs to a local node.
@@ -126,6 +129,8 @@ public interface TxManager extends IgniteComponent {
      * @return {@code True} if a local node.
      */
     boolean isLocal(NetworkAddress addr);
+
+    List<ByteBuffer> lockedKeys(UUID id);
 
     /**
      * Returns a number of finished transactions.

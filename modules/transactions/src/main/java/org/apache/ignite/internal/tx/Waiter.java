@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.UUID;
+
 /**
  * The lock waiter.
  */
@@ -24,7 +26,7 @@ public interface Waiter {
     /**
      * Returns associated timestamp.
      */
-    Timestamp timestamp();
+    UUID id();
 
     /**
      * Returns lock state.

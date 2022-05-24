@@ -72,6 +72,17 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         this.nodeId = nodeId;
     }
 
+    /**
+     * The constructor.
+     *
+     * @param timestamp The timestamp.
+     * @param nodeId    Node id.
+     */
+    public Timestamp(UUID id) {
+        this.timestamp = id.getMostSignificantBits();
+        this.nodeId = id.getLeastSignificantBits();
+    }
+
     /** {@inheritDoc} */
     @Override
     public int compareTo(@NotNull Timestamp other) {
@@ -141,6 +152,10 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         return new Timestamp(newTime << 16 | cntr, localNodeId);
     }
 
+    public static synchronized UUID nextId() {
+        return nextVersion().toUUID();
+    }
+
     /**
      * Waits until a time will pass after a timestamp.
      *
@@ -155,6 +170,10 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         } while (timestamp <= lastTimestamp); // Wall clock can go backward.
 
         return timestamp;
+    }
+
+    public UUID toUUID() {
+        return new UUID(timestamp, nodeId);
     }
 
     /** {@inheritDoc} */
@@ -197,5 +216,11 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         } catch (Exception e) {
             throw new IgniteException("Failed to get local node id", e);
         }
+    }
+
+    public static void main(String[] args) {
+        long timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
+        System.out.println("qwer " + timestamp);
+//        new UUID(timestamp, nodeId).getMostSignificantBits();
     }
 }

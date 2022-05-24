@@ -52,9 +52,9 @@ public class MessagingServiceTestUtils {
                     TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
 
                     if (txFinishRequest.commit()) {
-                        txManager.commitAsync(txFinishRequest.timestamp()).get();
+                        txManager.commitAsync(txFinishRequest.id()).get();
                     } else {
-                        txManager.rollbackAsync(txFinishRequest.timestamp()).get();
+                        txManager.rollbackAsync(txFinishRequest.id()).get();
                     }
 
                     return CompletableFuture.completedFuture(mock(TxFinishResponse.class));

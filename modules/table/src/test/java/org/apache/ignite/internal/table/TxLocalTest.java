@@ -19,7 +19,10 @@ package org.apache.ignite.internal.table;
 
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.util.List;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -61,12 +64,12 @@ public class TxLocalTest extends TxAbstractTest {
 
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager),
+        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager);
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
-        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager),
+        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));

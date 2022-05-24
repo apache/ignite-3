@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -46,8 +47,8 @@ public class TransactionImpl implements InternalTransaction {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
 
-    /** The timestamp. */
-    private @NotNull final Timestamp timestamp;
+    /** The ID. */
+    private final UUID id;
 
     /** The transaction manager. */
     private final TxManager txManager;
@@ -62,20 +63,20 @@ public class TransactionImpl implements InternalTransaction {
      * The constructor.
      *
      * @param txManager The tx managert.
-     * @param timestamp The timestamp.
+     * @param id The id.
      * @param address   The local address.
      */
-    public TransactionImpl(TxManager txManager, @NotNull Timestamp timestamp, NetworkAddress address) {
+    public TransactionImpl(TxManager txManager, @NotNull UUID id, NetworkAddress address) {
         this.txManager = txManager;
-        this.timestamp = timestamp;
+        this.id = id;
         this.address = address;
     }
 
     /** {@inheritDoc} */
     @NotNull
     @Override
-    public Timestamp timestamp() {
-        return timestamp;
+    public UUID id() {
+        return id;
     }
 
     /** {@inheritDoc} */
@@ -88,7 +89,7 @@ public class TransactionImpl implements InternalTransaction {
     @Nullable
     @Override
     public TxState state() {
-        return txManager.state(timestamp);
+        return txManager.state(id);
     }
 
     /** {@inheritDoc} */
@@ -164,10 +165,10 @@ public class TransactionImpl implements InternalTransaction {
         for (Map.Entry<NetworkAddress, Set<String>> entry : tmp.entrySet()) {
             boolean local = address.equals(entry.getKey());
 
-            futs[i++] = txManager.finishRemote(entry.getKey(), timestamp, commit, entry.getValue());
+            futs[i++] = txManager.finishRemote(entry.getKey(), id, commit, entry.getValue());
 
             LOG.debug("finish [addr={}, commit={}, ts={}, local={}, groupIds={}",
-                    address, commit, timestamp, local, entry.getValue());
+                    address, commit, id, local, entry.getValue());
         }
 
         Set<NetworkAddress> allEnlistedNodes = new HashSet<>();
@@ -180,7 +181,7 @@ public class TransactionImpl implements InternalTransaction {
 
         // Handle coordinator's tx.
         futs[i] = allEnlistedNodes.contains(address) ? CompletableFuture.completedFuture(null) :
-                commit ? txManager.commitAsync(timestamp) : txManager.rollbackAsync(timestamp);
+                commit ? txManager.commitAsync(id) : txManager.rollbackAsync(id);
 
         return CompletableFuture.allOf(futs);
     }

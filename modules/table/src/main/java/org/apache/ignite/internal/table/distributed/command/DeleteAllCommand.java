@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -32,11 +33,11 @@ public class DeleteAllCommand extends MultiKeyCommand implements WriteCommand {
      * or empty.
      *
      * @param keyRows   Collection of binary row keys to be deleted.
-     * @param timestamp The timestamp.
+     * @param id The timestamp.
      *
      * @see TransactionalCommand
      */
-    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull Timestamp timestamp) {
-        super(keyRows, timestamp);
+    public DeleteAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID id) {
+        super(keyRows, id);
     }
 }

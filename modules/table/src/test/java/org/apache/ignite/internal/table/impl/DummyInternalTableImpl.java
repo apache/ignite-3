@@ -89,6 +89,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         @Override
                         public Void apply(Void ignored, Throwable err) {
                             if (err == null) {
+                                System.out.println("dummy read1");
                                 if (cmd instanceof GetCommand || cmd instanceof GetAllCommand) {
                                     CommandClosure<ReadCommand> clo = new CommandClosure<>() {
                                         @Override

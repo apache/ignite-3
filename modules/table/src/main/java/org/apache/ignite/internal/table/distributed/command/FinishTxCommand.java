@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /** State machine command to finish a transaction. */
 public class FinishTxCommand implements WriteCommand {
     /** The timestamp. */
-    private final Timestamp timestamp;
+    private final UUID id;
 
     /** Commit or rollback state. */
     private final boolean finish;
@@ -31,11 +32,11 @@ public class FinishTxCommand implements WriteCommand {
     /**
      * The constructor.
      *
-     * @param timestamp The timestamp.
+     * @param id The id.
      * @param finish    Commit or rollback state {@code True} to commit.
      */
-    public FinishTxCommand(Timestamp timestamp, boolean finish) {
-        this.timestamp = timestamp;
+    public FinishTxCommand(UUID id, boolean finish) {
+        this.id = id;
         this.finish = finish;
     }
 
@@ -44,8 +45,8 @@ public class FinishTxCommand implements WriteCommand {
      *
      * @return The timestamp.
      */
-    public Timestamp timestamp() {
-        return timestamp;
+    public UUID id() {
+        return id;
     }
 
     /**

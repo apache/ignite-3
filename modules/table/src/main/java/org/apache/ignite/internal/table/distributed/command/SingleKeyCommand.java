@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.command;
 
 import java.io.Serializable;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -31,7 +32,7 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     private transient BinaryRow keyRow;
 
     /** The timestamp. */
-    private @NotNull final Timestamp timestamp;
+    private @NotNull final UUID id;
 
     /*
      * Row bytes.
@@ -44,13 +45,13 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
      * The constructor.
      *
      * @param keyRow    The row.
-     * @param timestamp The timestamp.
+     * @param id The id.
      */
-    public SingleKeyCommand(@NotNull BinaryRow keyRow, @NotNull Timestamp timestamp) {
+    public SingleKeyCommand(@NotNull BinaryRow keyRow, @NotNull UUID id) {
         assert keyRow != null;
 
         this.keyRow = keyRow;
-        this.timestamp = timestamp;
+        this.id = id;
 
         keyRowBytes = CommandUtils.rowToBytes(keyRow);
     }
@@ -75,7 +76,7 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
      */
     @NotNull
     @Override
-    public Timestamp getTimestamp() {
-        return timestamp;
+    public UUID getId() {
+        return id;
     }
 }

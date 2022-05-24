@@ -22,13 +22,17 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
@@ -72,14 +76,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      *
      * <p>TODO IGNITE-15931 use Storage for states, implement max size, implement replication.
      */
-    private final ConcurrentHashMap<Timestamp, TxState> states = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, TxState> states = new ConcurrentHashMap<>();
 
     /**
      * The storage for locks acquired by transactions. Each key is mapped to lock type where true is for read.
      *
      * <p>TODO IGNITE-15932 use Storage for locks. Introduce limits, deny lock operation if the limit is exceeded.
      */
-    private final ConcurrentHashMap<Timestamp, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, Map<LockKey, Boolean>> locks = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -95,56 +99,59 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public InternalTransaction begin() {
-        Timestamp ts = Timestamp.nextVersion();
+        UUID id = Timestamp.nextVersion().toUUID();
 
-        states.put(ts, TxState.PENDING);
+        states.put(id, TxState.PENDING);
 
-        return new TransactionImpl(this, ts, clusterService.topologyService().localMember().address());
+        return new TransactionImpl(this, id, clusterService.topologyService().localMember().address());
     }
 
     /** {@inheritDoc} */
     @Override
-    public TxState state(Timestamp ts) {
-        return states.get(ts);
+    public TxState state(UUID id) {
+        return states.get(id);
     }
 
     /** {@inheritDoc} */
     @Override
-    public void forget(Timestamp ts) {
-        states.remove(ts);
+    public void forget(UUID id) {
+        states.remove(id);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> commitAsync(Timestamp ts) {
-        if (changeState(ts, TxState.PENDING, TxState.COMMITED) || state(ts) == TxState.COMMITED) {
-            unlockAll(ts);
+    public CompletableFuture<Void> commitAsync(UUID id) {
+        System.out.println("commitAsync");
+        boolean b = false;
+        if ((b = changeState(id, TxState.PENDING, TxState.COMMITED)) || state(id) == TxState.COMMITED) {
+            System.out.println("commitAsync " + id + " " + b);
+            unlockAll(id);
 
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException(format("Failed to commit a transaction [ts={}, state={}]", ts, state(ts))));
+        return failedFuture(new TransactionException(format("Failed to commit a transaction [ts={}, state={}]", id, state(id))));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> rollbackAsync(Timestamp ts) {
-        if (changeState(ts, TxState.PENDING, TxState.ABORTED) || state(ts) == TxState.ABORTED) {
-            unlockAll(ts);
+    public CompletableFuture<Void> rollbackAsync(UUID id) {
+        if (changeState(id, TxState.PENDING, TxState.ABORTED) || state(id) == TxState.ABORTED) {
+            unlockAll(id);
 
             return completedFuture(null);
         }
 
-        return failedFuture(new TransactionException(format("Failed to rollback a transaction [ts={}, state={}]", ts, state(ts))));
+        return failedFuture(new TransactionException(format("Failed to rollback a transaction [ts={}, state={}]", id, state(id))));
     }
 
     /**
      * Unlocks all locks for the timestamp.
      *
-     * @param ts The timestamp.
+     * @param id The timestamp.
      */
-    private void unlockAll(Timestamp ts) {
-        Map<LockKey, Boolean> locks = this.locks.remove(ts);
+    private void unlockAll(UUID id) {
+        Map<LockKey, Boolean> locks = this.locks.remove(id);
 
         if (locks == null) {
             return;
@@ -153,9 +160,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         for (Map.Entry<LockKey, Boolean> lock : locks.entrySet()) {
             try {
                 if (lock.getValue()) {
-                    lockManager.tryReleaseShared(lock.getKey(), ts);
+                    lockManager.tryReleaseShared(lock.getKey(), id);
                 } else {
-                    lockManager.tryRelease(lock.getKey(), ts);
+                    lockManager.tryRelease(lock.getKey(), id);
                 }
             } catch (LockException e) {
                 assert false; // This shouldn't happen during tx finish.
@@ -165,15 +172,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public boolean changeState(Timestamp ts, TxState before, TxState after) {
-        return states.replace(ts, before, after);
+    public boolean changeState(UUID id, TxState before, TxState after) {
+        return states.replace(id, before, after);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID id) {
         // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
-        TxState state = state(ts);
+        TxState state = state(id);
 
         if (state != null && state != TxState.PENDING) {
             return failedFuture(new TransactionException(
@@ -183,14 +190,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         // Should rollback tx on lock error.
         LockKey key = new LockKey(lockId, keyData);
 
-        return lockManager.tryAcquire(key, ts)
-                .thenAccept(ignored -> recordLock(key, ts, Boolean.FALSE));
+        return lockManager.tryAcquire(key, id)
+                .thenAccept(ignored -> recordLock(key, id, Boolean.FALSE));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, Timestamp ts) {
-        TxState state = state(ts);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID id) {
+        TxState state = state(id);
 
         if (state != null && state != TxState.PENDING) {
             return failedFuture(new TransactionException(
@@ -199,22 +206,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         LockKey key = new LockKey(lockId, keyData);
 
-        return lockManager.tryAcquireShared(key, ts)
-                .thenAccept(ignored -> recordLock(key, ts, Boolean.TRUE));
+        return lockManager.tryAcquireShared(key, id)
+                .thenAccept(ignored -> recordLock(key, id, Boolean.TRUE));
     }
 
     /**
      * Records the acquired lock for further unlocking.
      *
      * @param key The key.
-     * @param timestamp The tx timestamp.
+     * @param id The tx timestamp.
      * @param read Read lock.
      */
-    private void recordLock(LockKey key, Timestamp timestamp, Boolean read) {
-        locks.compute(timestamp,
-                new BiFunction<Timestamp, Map<LockKey, Boolean>, Map<LockKey, Boolean>>() {
+    private void recordLock(LockKey key, UUID id, Boolean read) {
+        locks.compute(id,
+                new BiFunction<UUID, Map<LockKey, Boolean>, Map<LockKey, Boolean>>() {
                     @Override
-                    public Map<LockKey, Boolean> apply(Timestamp timestamp,
+                    public Map<LockKey, Boolean> apply(UUID id,
                             Map<LockKey, Boolean> map) {
                         if (map == null) {
                             map = new HashMap<>();
@@ -235,21 +242,21 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public TxState getOrCreateTransaction(Timestamp ts) {
-        return states.putIfAbsent(ts, TxState.PENDING);
+    public TxState getOrCreateTransaction(UUID id) {
+        return states.putIfAbsent(id, TxState.PENDING);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> finishRemote(
             NetworkAddress addr,
-            Timestamp ts,
+            UUID id,
             boolean commit,
             Set<String> groups
     ) {
         assert groups != null && !groups.isEmpty();
 
-        TxFinishRequest req = FACTORY.txFinishRequest().timestamp(ts).groups(groups)
+        TxFinishRequest req = FACTORY.txFinishRequest().id(id).groups(groups)
                 .commit(commit).build();
 
         CompletableFuture<NetworkMessage> fut = clusterService.messagingService()
@@ -264,6 +271,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public boolean isLocal(NetworkAddress node) {
         return clusterService.topologyService().localMember().address().equals(node);
+    }
+
+    public List<ByteBuffer> lockedKeys(UUID id) {
+        return locks.get(id).entrySet().stream().filter(entry -> entry.getValue() == false).map(entry -> entry.getKey().key).collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -343,7 +354,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param commit {@code True} to commit, false to abort.
      * @return The future.
      */
-    protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
+    protected CompletableFuture<?> finish(String groupId, UUID id, boolean commit) {
         return CompletableFuture.completedFuture(null);
     }
 
@@ -363,12 +374,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             // Finish a tx for enlisted groups.
             for (String grp : groups) {
-                futs[i++] = finish(grp, req.timestamp(), req.commit());
+                futs[i++] = finish(grp, req.id(), req.commit());
             }
 
             CompletableFuture.allOf(futs).thenCompose(ignored -> req.commit()
-                    ? commitAsync(req.timestamp()) :
-                    rollbackAsync(req.timestamp()))
+                            ? commitAsync(req.id()) :
+                            rollbackAsync(req.id()))
                     .handle(new BiFunction<Void, Throwable, Void>() {
                         @Override
                         public Void apply(Void ignored, Throwable err) {

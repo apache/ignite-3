@@ -39,6 +39,7 @@ import org.apache.ignite.internal.schema.NativeTypeSpec;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -721,7 +722,7 @@ public class KeyValueViewOperationsSimpleSchemaTest {
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
-                new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager),
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));

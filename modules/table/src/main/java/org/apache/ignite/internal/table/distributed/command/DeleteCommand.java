@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -30,11 +31,11 @@ public class DeleteCommand extends SingleKeyCommand implements WriteCommand {
      * Creates a new instance of DeleteCommand with the given key to be deleted. The {@code keyRow} should not be {@code null}.
      *
      * @param keyRow    Binary key row.
-     * @param timestamp The timestamp.
+     * @param id The timestamp.
      *
      * @see TransactionalCommand
      */
-    public DeleteCommand(@NotNull BinaryRow keyRow, @NotNull Timestamp timestamp) {
-        super(keyRow, timestamp);
+    public DeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID id) {
+        super(keyRow, id);
     }
 }

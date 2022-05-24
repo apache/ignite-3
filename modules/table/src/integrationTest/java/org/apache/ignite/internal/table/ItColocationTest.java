@@ -112,7 +112,7 @@ public class ItColocationTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, new HeapLockManager()) {
             @Override
-            public CompletableFuture<Void> finishRemote(NetworkAddress addr, Timestamp ts, boolean commit, Set<String> groups) {
+            public CompletableFuture<Void> finishRemote(NetworkAddress addr, UUID id, boolean commit, Set<String> groups) {
                 return CompletableFuture.completedFuture(null);
             }
         };

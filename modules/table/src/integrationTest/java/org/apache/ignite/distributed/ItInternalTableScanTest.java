@@ -52,6 +52,7 @@ import org.apache.ignite.internal.raft.server.impl.RaftServerImpl;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.SimpleDataRow;
@@ -102,7 +103,7 @@ public class ItInternalTableScanTest {
 
     /** Mock partition storage. */
     @Mock
-    private PartitionStorage mockStorage;
+    private MvPartitionStorage mockStorage;
 
     private ClusterService network;
 
@@ -152,7 +153,7 @@ public class ItInternalTableScanTest {
 
         List<Peer> conf = List.of(new Peer(nodeNetworkAddress));
 
-        mockStorage = mock(PartitionStorage.class);
+        mockStorage = mock(MvPartitionStorage.class);
 
         txManager = new TxManagerImpl(network, new HeapLockManager());
 
@@ -162,12 +163,7 @@ public class ItInternalTableScanTest {
 
         raftSrv.startRaftGroup(
                 grpName,
-                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager) {
-                    @Override
-                    protected Pair<BinaryRow, BinaryRow> versionedRow(@Nullable DataRow row, Timestamp timestamp) {
-                        return new Pair<>(new ByteBufferRow(row.valueBytes()), null); // Return as is.
-                    }
-                }),
+                new PartitionListener(tblId, new VersionedRowStore(mockStorage, txManager)),
                 conf
         );
 
@@ -306,7 +302,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any())).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
@@ -364,7 +360,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any())).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(), any(UUID.class))).thenThrow(new StorageException("Some storage exception"));
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
@@ -519,7 +515,7 @@ public class ItInternalTableScanTest {
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockStorage.scan(any())).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
@@ -586,7 +582,7 @@ public class ItInternalTableScanTest {
         // and avoids the race between closing the cursor and stopping the node.
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(2);
 
-        when(mockStorage.scan(any())).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             doAnswer(

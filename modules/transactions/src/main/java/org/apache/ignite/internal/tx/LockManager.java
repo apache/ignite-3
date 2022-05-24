@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.TestOnly;
 
@@ -35,7 +36,7 @@ public interface LockManager {
      * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp);
+    public CompletableFuture<Void> tryAcquire(Object key, UUID id);
 
     /**
      * Attempts to release a lock for the specified {@code key} in exclusive mode.
@@ -44,7 +45,7 @@ public interface LockManager {
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryRelease(Object key, Timestamp timestamp) throws LockException;
+    public void tryRelease(Object key, UUID id) throws LockException;
 
     /**
      * Attempts to acquire a lock for the specified {@code key} in shared mode.
@@ -54,7 +55,7 @@ public interface LockManager {
      * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp);
+    public CompletableFuture<Void> tryAcquireShared(Object key, UUID id);
 
     /**
      * Attempts to release a lock for the specified {@code key} in shared mode.
@@ -63,7 +64,7 @@ public interface LockManager {
      * @param timestamp The timestamp.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException;
+    public void tryReleaseShared(Object key, UUID id) throws LockException;
 
     /**
      * Returns a collection of timestamps that is associated with the specified {@code key}.
@@ -72,7 +73,7 @@ public interface LockManager {
      * @return The waiters queue.
      */
     @TestOnly
-    public Collection<Timestamp> queue(Object key);
+    public Collection<UUID> queue(Object key);
 
     /**
      * Returns a waiter associated with the specified {@code key}.
@@ -82,7 +83,7 @@ public interface LockManager {
      * @return The waiter.
      */
     @TestOnly
-    public Waiter waiter(Object key, Timestamp timestamp);
+    public Waiter waiter(Object key, UUID id);
 
     /**
      * Returns {@code true} if no locks have been held.

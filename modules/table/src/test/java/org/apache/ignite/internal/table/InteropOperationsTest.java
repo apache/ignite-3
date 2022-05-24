@@ -44,6 +44,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -120,7 +121,7 @@ public class InteropOperationsTest {
         MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
         Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
 
-        INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestConcurrentHashMapPartitionStorage(0), txManager), txManager);
+        INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(),0), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
 
         TABLE = new TableImpl(INT_TABLE, schemaRegistry);

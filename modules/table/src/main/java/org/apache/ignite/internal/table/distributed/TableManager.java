@@ -71,6 +71,7 @@ import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.event.SchemaEventParameters;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
@@ -380,7 +381,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             newPartitionAssignment,
                             toAdd,
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId),
+                                    new VersionedRowStore(((MvTableStorage) (internalTable.storage())).partition(partId),
                                             txManager))
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTable)

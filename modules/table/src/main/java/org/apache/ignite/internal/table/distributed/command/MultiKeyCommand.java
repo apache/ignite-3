@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.NotNull;
@@ -32,7 +33,7 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     private transient Collection<BinaryRow> rows;
 
     /** The timestamp. */
-    private @NotNull Timestamp timestamp;
+    private @NotNull UUID id;
 
     /*
      * Row bytes.
@@ -47,10 +48,10 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      * @param rows Rows.
      * @param ts   The timestamp.
      */
-    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull Timestamp ts) {
+    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID id) {
         assert rows != null && !rows.isEmpty();
         this.rows = rows;
-        this.timestamp = ts;
+        this.id = id;
 
         rowsBytes = CommandUtils.rowsToBytes(rows);
     }
@@ -77,7 +78,7 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      */
     @NotNull
     @Override
-    public Timestamp getTimestamp() {
-        return timestamp;
+    public UUID getId() {
+        return id;
     }
 }

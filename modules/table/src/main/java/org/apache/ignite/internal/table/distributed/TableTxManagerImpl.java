@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.tx.LockManager;
@@ -48,8 +49,8 @@ public class TableTxManagerImpl extends TxManagerImpl {
 
     /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<?> finish(String groupId, Timestamp ts, boolean commit) {
-        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(ts, commit)).groupId(groupId).readOnlySafe(true).build();
+    protected CompletableFuture<?> finish(String groupId, UUID id, boolean commit) {
+        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(id, commit)).groupId(groupId).readOnlySafe(true).build();
 
         return clusterService.messagingService().invoke(clusterService.topologyService().localMember(), req, FINISH_TIMEOUT);
     }

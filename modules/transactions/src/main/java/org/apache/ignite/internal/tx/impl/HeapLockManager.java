@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -62,11 +63,11 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> tryAcquire(Object key, Timestamp timestamp) {
+    public CompletableFuture<Void> tryAcquire(Object key, UUID id) {
         while (true) {
             LockState state = lockState(key);
 
-            CompletableFuture<Void> future = state.tryAcquire(timestamp);
+            CompletableFuture<Void> future = state.tryAcquire(id);
 
             if (future == null) {
                 continue; // Obsolete state.
@@ -78,21 +79,21 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override
-    public void tryRelease(Object key, Timestamp timestamp) throws LockException {
+    public void tryRelease(Object key, UUID id) throws LockException {
         LockState state = lockState(key);
 
-        if (state.tryRelease(timestamp)) { // Probably we should clean up empty keys asynchronously.
+        if (state.tryRelease(id)) { // Probably we should clean up empty keys asynchronously.
             locks.remove(key, state);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> tryAcquireShared(Object key, Timestamp timestamp) {
+    public CompletableFuture<Void> tryAcquireShared(Object key, UUID id) {
         while (true) {
             LockState state = lockState(key);
 
-            CompletableFuture<Void> future = state.tryAcquireShared(timestamp);
+            CompletableFuture<Void> future = state.tryAcquireShared(id);
 
             if (future == null) {
                 continue; // Obsolete state.
@@ -104,10 +105,10 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override
-    public void tryReleaseShared(Object key, Timestamp timestamp) throws LockException {
+    public void tryReleaseShared(Object key, UUID id) throws LockException {
         LockState state = lockState(key);
 
-        if (state.tryReleaseShared(timestamp)) {
+        if (state.tryReleaseShared(id)) {
             assert state.markedForRemove;
 
             locks.remove(key, state);
@@ -125,14 +126,14 @@ public class HeapLockManager implements LockManager {
 
     /** {@inheritDoc} */
     @Override
-    public Collection<Timestamp> queue(Object key) {
+    public Collection<UUID> queue(Object key) {
         return lockState(key).queue();
     }
 
     /** {@inheritDoc} */
     @Override
-    public Waiter waiter(Object key, Timestamp timestamp) {
-        return lockState(key).waiter(timestamp);
+    public Waiter waiter(Object key, UUID id) {
+        return lockState(key).waiter(id);
     }
 
     /**
@@ -140,7 +141,7 @@ public class HeapLockManager implements LockManager {
      */
     private static class LockState {
         /** Waiters. */
-        private TreeMap<Timestamp, WaiterImpl> waiters = new TreeMap<>();
+        private TreeMap<UUID, WaiterImpl> waiters = new TreeMap<>();
 
         /** Marked for removal flag. */
         private boolean markedForRemove = false;
@@ -151,8 +152,8 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return The future or null if state is marked for removal.
          */
-        public @Nullable CompletableFuture<Void> tryAcquire(Timestamp timestamp) {
-            WaiterImpl waiter = new WaiterImpl(timestamp, false);
+        public @Nullable CompletableFuture<Void> tryAcquire(UUID id) {
+            WaiterImpl waiter = new WaiterImpl(id, false);
 
             boolean locked;
 
@@ -161,7 +162,7 @@ public class HeapLockManager implements LockManager {
                     return null;
                 }
 
-                WaiterImpl prev = waiters.putIfAbsent(timestamp, waiter);
+                WaiterImpl prev = waiters.putIfAbsent(id, waiter);
 
                 // Reenter
                 if (prev != null && prev.locked) {
@@ -170,26 +171,26 @@ public class HeapLockManager implements LockManager {
                     } else {
                         waiter.upgraded = true;
 
-                        waiters.put(timestamp, waiter); // Upgrade.
+                        waiters.put(id, waiter); // Upgrade.
                     }
                 }
 
                 // Check lock compatibility.
-                Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
+                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(id);
 
                 // If we have a younger waiter in a locked state, when refuse to wait for lock.
                 if (nextEntry != null && nextEntry.getValue().locked()) {
                     if (prev == null) {
-                        waiters.remove(timestamp);
+                        waiters.remove(id);
                     } else {
-                        waiters.put(timestamp, prev); // Restore old lock.
+                        waiters.put(id, prev); // Restore old lock.
                     }
 
                     return failedFuture(new LockException(nextEntry.getValue()));
                 }
 
                 // Lock if oldest.
-                locked = waiters.firstKey().equals(timestamp);
+                locked = waiters.firstKey().equals(id);
 
                 if (locked) {
                     waiter.lock();
@@ -210,17 +211,17 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return {@code True} if the queue is empty.
          */
-        public boolean tryRelease(Timestamp timestamp) throws LockException {
+        public boolean tryRelease(UUID id) throws LockException {
             Collection<WaiterImpl> locked = new ArrayList<>();
             Collection<WaiterImpl> toFail = new ArrayList<>();
 
-            Map.Entry<Timestamp, WaiterImpl> unlocked;
+            Map.Entry<UUID, WaiterImpl> unlocked;
 
             synchronized (waiters) {
-                Map.Entry<Timestamp, WaiterImpl> first = waiters.firstEntry();
+                Map.Entry<UUID, WaiterImpl> first = waiters.firstEntry();
 
-                if (first == null || !first.getKey().equals(timestamp) || !first.getValue().locked() || first.getValue().isForRead()) {
-                    throw new LockException("Not exclusively locked by " + timestamp);
+                if (first == null || !first.getKey().equals(id) || !first.getValue().locked() || first.getValue().isForRead()) {
+                    throw new LockException("Not exclusively locked by " + id);
                 }
 
                 unlocked = waiters.pollFirstEntry();
@@ -240,7 +241,7 @@ public class HeapLockManager implements LockManager {
                     locked.add(waiter);
                 } else {
                     // Grant lock to all adjacent readers.
-                    for (Map.Entry<Timestamp, WaiterImpl> entry : waiters.entrySet()) {
+                    for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                         WaiterImpl tmp = entry.getValue();
 
                         if (tmp.upgraded) {
@@ -282,8 +283,8 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return The future or null if a state is marked for removal from map.
          */
-        public @Nullable CompletableFuture<Void> tryAcquireShared(Timestamp timestamp) {
-            WaiterImpl waiter = new WaiterImpl(timestamp, true);
+        public @Nullable CompletableFuture<Void> tryAcquireShared(UUID id) {
+            WaiterImpl waiter = new WaiterImpl(id, true);
 
             boolean locked;
 
@@ -293,7 +294,7 @@ public class HeapLockManager implements LockManager {
                     return null;
                 }
 
-                WaiterImpl prev = waiters.putIfAbsent(timestamp, waiter);
+                WaiterImpl prev = waiters.putIfAbsent(id, waiter);
 
                 // Allow reenter. A write lock implies a read lock.
                 if (prev != null && prev.locked) {
@@ -301,19 +302,19 @@ public class HeapLockManager implements LockManager {
                 }
 
                 // Check lock compatibility.
-                Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
+                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(id);
 
                 if (nextEntry != null) {
                     WaiterImpl nextWaiter = nextEntry.getValue();
 
                     if (nextWaiter.locked() && !nextWaiter.isForRead()) {
-                        waiters.remove(timestamp);
+                        waiters.remove(id);
 
                         return failedFuture(new LockException(nextWaiter));
                     }
                 }
 
-                Map.Entry<Timestamp, WaiterImpl> prevEntry = waiters.lowerEntry(timestamp);
+                Map.Entry<UUID, WaiterImpl> prevEntry = waiters.lowerEntry(id);
 
                 // Grant read lock if previous entry is read-locked (by induction).
                 locked = prevEntry == null || (prevEntry.getValue().isForRead() && prevEntry
@@ -338,19 +339,19 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return {@code True} if the queue is empty.
          */
-        public boolean tryReleaseShared(Timestamp timestamp) throws LockException {
+        public boolean tryReleaseShared(UUID id) throws LockException {
             WaiterImpl locked = null;
 
             synchronized (waiters) {
-                WaiterImpl waiter = waiters.get(timestamp);
+                WaiterImpl waiter = waiters.get(id);
 
                 if (waiter == null || !waiter.locked() || !waiter.isForRead()) {
-                    throw new LockException("Not shared locked by " + timestamp);
+                    throw new LockException("Not shared locked by " + id);
                 }
 
-                Map.Entry<Timestamp, WaiterImpl> nextEntry = waiters.higherEntry(timestamp);
+                Map.Entry<UUID, WaiterImpl> nextEntry = waiters.higherEntry(id);
 
-                waiters.remove(timestamp);
+                waiters.remove(id);
 
                 if (nextEntry == null) {
                     return (markedForRemove = waiters.isEmpty());
@@ -359,7 +360,7 @@ public class HeapLockManager implements LockManager {
                 // Lock next exclusive waiter.
                 WaiterImpl nextWaiter = nextEntry.getValue();
 
-                if (!nextWaiter.isForRead() && nextWaiter.timestamp()
+                if (!nextWaiter.isForRead() && nextWaiter.id()
                         .equals(waiters.firstEntry().getKey())) {
                     nextWaiter.lock();
 
@@ -379,7 +380,7 @@ public class HeapLockManager implements LockManager {
          *
          * @return The waiters queue.
          */
-        public Collection<Timestamp> queue() {
+        public Collection<UUID> queue() {
             synchronized (waiters) {
                 return new ArrayList<>(waiters.keySet());
             }
@@ -391,9 +392,9 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @return The waiter.
          */
-        public Waiter waiter(Timestamp timestamp) {
+        public Waiter waiter(UUID id) {
             synchronized (waiters) {
-                return waiters.get(timestamp);
+                return waiters.get(id);
             }
         }
     }
@@ -407,7 +408,7 @@ public class HeapLockManager implements LockManager {
         private final CompletableFuture<Void> fut;
 
         /** Waiter timestamp. */
-        private final Timestamp timestamp;
+        private final UUID id;
 
         /** Upgraded lock. */
         private boolean upgraded;
@@ -424,16 +425,16 @@ public class HeapLockManager implements LockManager {
          * @param timestamp The timestamp.
          * @param forRead {@code True} to request a read lock.
          */
-        WaiterImpl(Timestamp timestamp, boolean forRead) {
+        WaiterImpl(UUID id, boolean forRead) {
             this.fut = new CompletableFuture<>();
-            this.timestamp = timestamp;
+            this.id = id;
             this.forRead = forRead;
         }
 
         /** {@inheritDoc} */
         @Override
         public int compareTo(@NotNull WaiterImpl o) {
-            return timestamp.compareTo(o.timestamp);
+            return id.compareTo(o.id);
         }
 
         /** Notifies a future listeners. */
@@ -464,8 +465,8 @@ public class HeapLockManager implements LockManager {
 
         /** {@inheritDoc} */
         @Override
-        public Timestamp timestamp() {
-            return timestamp;
+        public UUID id() {
+            return id;
         }
 
         /** Returns {@code true} if is locked for read. */
@@ -487,7 +488,7 @@ public class HeapLockManager implements LockManager {
         /** {@inheritDoc} */
         @Override
         public int hashCode() {
-            return timestamp.hashCode();
+            return id.hashCode();
         }
 
         /** {@inheritDoc} */
