@@ -41,10 +41,6 @@ import org.jetbrains.annotations.Nullable;
  * Embedded implementation of the SQL session.
  */
 public class SessionImpl implements Session {
-    public static final int DEFAULT_PAGE_SIZE = 1024;
-
-    public static final long DEFAULT_TIMEOUT = 0;
-
     private final QueryProcessor qryProc;
 
     private final long timeout;
@@ -211,80 +207,5 @@ public class SessionImpl implements Session {
     @Override
     public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /**
-     * Session builder implementation.
-     */
-    public static class SessionBuilderImpl implements SessionBuilder {
-        private final QueryProcessor qryProc;
-
-        private long timeout = DEFAULT_TIMEOUT;
-
-        private String schema;
-
-        private int pageSize = DEFAULT_PAGE_SIZE;
-
-        SessionBuilderImpl(QueryProcessor qryProc) {
-            this.qryProc = qryProc;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public long defaultTimeout(TimeUnit timeUnit) {
-            return timeUnit.convert(timeout, TimeUnit.NANOSECONDS);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit) {
-            this.timeout = timeUnit.toNanos(timeout);
-
-            return this;
-        }
-
-        @Override
-        public String defaultSchema() {
-            return schema;
-        }
-
-        @Override
-        public SessionBuilder defaultSchema(String schema) {
-            this.schema = schema;
-
-            return this;
-        }
-
-        @Override
-        public int defaultPageSize() {
-            return pageSize;
-        }
-
-        @Override
-        public SessionBuilder defaultPageSize(int pageSize) {
-            this.pageSize = pageSize;
-
-            return this;
-        }
-
-        @Override
-        public @Nullable Object property(String name) {
-            return null;
-        }
-
-        @Override
-        public SessionBuilder property(String name, @Nullable Object value) {
-            return null;
-        }
-
-        @Override
-        public Session build() {
-            return new SessionImpl(
-                    qryProc,
-                    schema,
-                    timeout,
-                    pageSize
-            );
-        }
     }
 }

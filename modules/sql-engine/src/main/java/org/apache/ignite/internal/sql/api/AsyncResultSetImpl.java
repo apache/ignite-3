@@ -162,17 +162,32 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         @NotNull
         @Override
         public Iterator<SqlRow> iterator() {
-            return batchPage.items().stream()
-                    .map(RowTuple::new)
-                    .map(SqlRow.class::cast)
-                    .iterator();
+            return new IteratorImpl(batchPage.items().iterator());
         }
     }
 
-    private class RowTuple implements SqlRow {
+    private class IteratorImpl implements Iterator<SqlRow> {
+        private final Iterator<List<Object>> it;
+
+        IteratorImpl(Iterator<List<Object>> it) {
+            this.it = it;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return it.hasNext();
+        }
+
+        @Override
+        public SqlRow next() {
+            return new SqlRowImpl(it.next());
+        }
+    }
+
+    private class SqlRowImpl implements SqlRow {
         private final List<Object> row;
 
-        RowTuple(List<Object> row) {
+        SqlRowImpl(List<Object> row) {
             this.row = row;
         }
 

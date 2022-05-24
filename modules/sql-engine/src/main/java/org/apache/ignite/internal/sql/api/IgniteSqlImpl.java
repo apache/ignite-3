@@ -48,7 +48,7 @@ public class IgniteSqlImpl implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionImpl.SessionBuilderImpl(qryProc);
+        return new SessionBuilderImpl(qryProc);
     }
 
     /** {@inheritDoc} */
