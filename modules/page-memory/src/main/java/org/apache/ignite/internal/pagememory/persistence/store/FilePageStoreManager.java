@@ -268,7 +268,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
         };
 
         if (cleanFiles) {
-            cleanupAsyncExecutor.async(stopPageStores);
+            cleanupAsyncExecutor.async(stopPageStores, "file-store-cleanup");
         } else {
             stopPageStores.run();
         }

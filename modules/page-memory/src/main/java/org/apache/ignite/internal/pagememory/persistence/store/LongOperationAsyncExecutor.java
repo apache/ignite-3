@@ -59,12 +59,15 @@ class LongOperationAsyncExecutor {
     }
 
     /**
-     * Executes long operation in dedicated thread. Uses write lock as such operations can't run simultaneously.
+     * Executes long operation in dedicated thread.
      *
-     * @param runnable long operation
+     * <p>Uses write lock as such operations can't run simultaneously.
+     *
+     * @param operation Long operation.
+     * @param name name of the operation, used as part of the thread name.
      */
-    public void async(Runnable runnable) {
-        String workerName = "async-file-store-cleanup-task-" + workerCounter.getAndIncrement();
+    public void async(Runnable operation, String name) {
+        String workerName = "async-" + name + "-task-" + workerCounter.getAndIncrement();
 
         IgniteWorker worker = new IgniteWorker(log, igniteInstanceName, workerName, null) {
             /** {@inheritDoc} */
@@ -73,7 +76,7 @@ class LongOperationAsyncExecutor {
                 readWriteLock.writeLock().lock();
 
                 try {
-                    runnable.run();
+                    operation.run();
                 } finally {
                     readWriteLock.writeLock().unlock();
 
