@@ -19,7 +19,6 @@ package org.apache.ignite.sql.async;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -31,35 +30,35 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface AsyncSession {
     /**
-     * Executes SQL query in an asynchronous way.
+     * Executes SQL query in an asynchronous way. The method don't throw an exception.
+     * All errors are passed into returned future.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
      * @param query SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return Operation future.
-     * @throws SqlException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query,
             @Nullable Object... arguments);
 
     /**
-     * Executes SQL statement in an asynchronous way.
+     * Executes SQL statement in an asynchronous way. The method don't throw an exception.
+     * All errors are passed into returned future.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
      * @return Operation future.
-     * @throws SqlException If failed.
      */
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement);
 
     /**
-     * Executes batched SQL query in an asynchronous way.
+     * Executes batched SQL query in an asynchronous way. The method don't throw an exception.
+     * All errors are passed into returned future.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param query SQL query template.
      * @param batch List of batch rows, where each row is a list of statement arguments.
      * @return Operation future.
-     * @throws SqlException If failed.
      */
     CompletableFuture<Integer> executeBatchAsync(
             @Nullable Transaction transaction,
@@ -68,13 +67,13 @@ public interface AsyncSession {
     );
 
     /**
-     * Executes batched SQL query in an asynchronous way.
+     * Executes batched SQL query in an asynchronous way. The method don't throw an exception.
+     * All errors are passed into returned future.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
      * @param batch List of batch rows, where each row is a list of statement arguments.
      * @return Operation future.
-     * @throws SqlException If failed.
      */
     CompletableFuture<Integer> executeBatchAsync(
             @Nullable Transaction transaction,

@@ -142,29 +142,33 @@ public class SessionImpl implements Session {
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
 
-        List<CompletableFuture<AsyncSqlCursor<List<Object>>>> futs = qryProc.queryAsync(ctx, schema, query, arguments);
+        try {
+            List<CompletableFuture<AsyncSqlCursor<List<Object>>>> futs = qryProc.queryAsync(ctx, schema, query, arguments);
 
-        futsToClose.addAll(futs);
+            futsToClose.addAll(futs);
 
-        if (futs.size() != 1) {
-            throw new IgniteSqlException("Multiple statements aren't allowed.");
+            if (futs.size() != 1) {
+                return CompletableFuture.failedFuture(new IgniteSqlException("Multiple statements aren't allowed."));
+            }
+
+            return futs.get(0).thenCompose(cur -> {
+                        futsToClose.remove(futs.get(0));
+                        cursToClose.add(cur);
+
+                        return cur.requestNextAsync(pageSize)
+                                .thenApply(
+                                        batchRes -> new AsyncResultSetImpl(
+                                                cur,
+                                                batchRes,
+                                                pageSize,
+                                                () -> cursToClose.remove(cur)
+                                        )
+                                );
+                    }
+            );
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
         }
-
-        return futs.get(0).thenCompose(cur -> {
-                    futsToClose.remove(futs.get(0));
-                    cursToClose.add(cur);
-
-                    return cur.requestNextAsync(pageSize)
-                            .thenApply(
-                                    batchRes -> new AsyncResultSetImpl(
-                                            cur,
-                                            batchRes,
-                                            pageSize,
-                                            () -> cursToClose.remove(cur)
-                                    )
-                            );
-                }
-        );
     }
 
     /** {@inheritDoc} */

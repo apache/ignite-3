@@ -40,6 +40,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
+import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -269,6 +271,36 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         assertTrue(rs.isEmpty());
+    }
+
+    @Test
+    public void errors() {
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        // Parse error.
+        {
+            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT ID FROM");
+            assertThrowsWithCause(() -> f.get(), IgniteInternalException.class, "Failed to parse query");
+        }
+
+        // Multiple statements error.
+        {
+            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1; SELECT 2");
+            assertThrowsWithCause(() -> f.get(), IgniteSqlException.class, "Multiple statements aren't allowed");
+        }
+
+        // Planning error.
+        {
+            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "CREATE TABLE TEST (VAL INT)");
+            assertThrowsWithCause(() -> f.get(), IgniteException.class, "Table without PRIMARY KEY is not supported");
+        }
+
+        // Execute error.
+        {
+            CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
+            assertThrowsWithCause(() -> f.get(), ArithmeticException.class, "/ by zero");
+        }
     }
 
     private void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {
