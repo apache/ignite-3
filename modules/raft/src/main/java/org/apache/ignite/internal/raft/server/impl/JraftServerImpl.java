@@ -413,6 +413,12 @@ public class JraftServerImpl implements RaftServer {
         return groups.keySet();
     }
 
+    /**
+     * Blocks messages for raft group node according to provided predicate.
+     *
+     * @param groupId Raft group id.
+     * @param predicate Predicate to block messages.
+     */
     @TestOnly
     public void blockMessages(String groupId, BiPredicate<Object, String> predicate) {
         IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
@@ -420,6 +426,11 @@ public class JraftServerImpl implements RaftServer {
         client.blockMessages(predicate);
     }
 
+    /**
+     * Stops blocking messages for raft group node.
+     *
+     * @param groupId Raft group id.
+     */
     @TestOnly
     public void stopBlockMessages(String groupId) {
         IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();

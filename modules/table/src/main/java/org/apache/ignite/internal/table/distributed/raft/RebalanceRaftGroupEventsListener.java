@@ -75,7 +75,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Busy lock of parent component for synchronous stop. */
     private final IgniteSpinBusyLock busyLock;
 
-    /** Executor for scheduling retries. */
+    /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Attempts to retry the current rebalance in case of errors. */
@@ -95,7 +95,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param tblConfiguration Table configuration.
      * @param partId Partition id.
      * @param partNum Partition number.
-     * @param rebalanceScheduler
+     * @param rebalanceScheduler Executor for scheduling rebalance retries.
      */
     public RebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
