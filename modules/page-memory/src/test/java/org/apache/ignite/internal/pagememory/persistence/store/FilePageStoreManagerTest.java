@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
 import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_IDX;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -113,6 +117,15 @@ public class FilePageStoreManagerTest {
 
             assertTrue(Files.isDirectory(testGroupDir));
             assertThat(Files.list(testGroupDir).collect(toList()), empty());
+
+            for (FilePageStore filePageStore : manager.getStores(0)) {
+                filePageStore.ensure();
+            }
+
+            assertThat(
+                    Files.list(testGroupDir).map(Path::getFileName).map(Path::toString).collect(toSet()),
+                    equalTo(Set.of("index.bin", "part-0.bin", "part-1.bin"))
+            );
         } finally {
             manager.stop();
         }
@@ -181,24 +194,55 @@ public class FilePageStoreManagerTest {
         }
     }
 
-    // TODO: IGNITE-17011 continue
-
     @Test
     void testStopAllGroupFilePageStores() throws Exception {
-        FilePageStoreManager manager = createManager();
+        // Checks without clean files.
+
+        FilePageStoreManager manager0 = createManager();
 
         try {
-            manager.initialize("test", 0, 1);
+            manager0.initialize("test0", 0, 1);
 
-            for (FilePageStore filePageStore : manager.getStores(0)) {
+            for (FilePageStore filePageStore : manager0.getStores(0)) {
                 filePageStore.ensure();
-
-                assertTrue(Files.isRegularFile(filePageStore.filePath()));
             }
 
-            manager.stopAllGroupFilePageStores(false);
+            manager0.stopAllGroupFilePageStores(false);
+
+            assertFalse(waitForCondition(
+                    () -> workDir.resolve("db/group-test0").toFile().listFiles().length == 0,
+                    10,
+                    100
+            ));
+
+            assertThat(
+                    Files.list(workDir.resolve("db/group-test0")).map(Path::getFileName).map(Path::toString).collect(toSet()),
+                    equalTo(Set.of("index.bin", "part-0.bin"))
+            );
         } finally {
-            manager.stop();
+            manager0.stop();
+        }
+
+        // Checks with clean files.
+
+        FilePageStoreManager manager1 = createManager();
+
+        try {
+            manager1.initialize("test1", 1, 1);
+
+            for (FilePageStore filePageStore : manager1.getStores(1)) {
+                filePageStore.ensure();
+            }
+
+            manager1.stopAllGroupFilePageStores(true);
+
+            assertTrue(waitForCondition(
+                    () -> workDir.resolve("db/group-test1").toFile().listFiles().length == 0,
+                    10,
+                    100
+            ));
+        } finally {
+            manager1.stop();
         }
     }
 

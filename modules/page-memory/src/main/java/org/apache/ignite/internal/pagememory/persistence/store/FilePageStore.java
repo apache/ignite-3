@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Waiting IGNITE-17014.
@@ -77,7 +80,12 @@ public class FilePageStore implements PageStore {
     }
 
     @Override
-    public void ensure() {
+    public void ensure() throws IgniteInternalCheckedException {
+        try {
+            Files.createFile(filePath);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException(e);
+        }
     }
 
     @Override
@@ -86,7 +94,14 @@ public class FilePageStore implements PageStore {
     }
 
     @Override
-    public void stop(boolean clean) {
+    public void stop(boolean clean) throws IgniteInternalCheckedException {
+        if (clean) {
+            try {
+                Files.delete(filePath);
+            } catch (IOException e) {
+                throw new IgniteInternalCheckedException(e);
+            }
+        }
     }
 
     @Override
