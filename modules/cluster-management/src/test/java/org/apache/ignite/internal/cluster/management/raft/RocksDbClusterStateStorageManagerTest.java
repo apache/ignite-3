@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.responses;
-
-import java.io.Serializable;
-import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
+package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Response returned for a {@link JoinRequestCommand}, indicating that a join request has been rejected.
+ * Tests for {@link RaftStorageManager} based on {@link RocksDbClusterStateStorage}.
  */
-public class JoinDeniedResponse implements Serializable {
-    private final String reason;
-
-    /**
-     * Creates a new response.
-     *
-     * @param reason Textual representation of the reason of join rejection.
-     */
-    public JoinDeniedResponse(String reason) {
-        this.reason = reason;
-    }
-
-    /**
-     * Returns the textual representation of the reason of join rejection.
-     *
-     * @return Textual representation of the reason of join rejection.
-     */
-    public String reason() {
-        return reason;
+public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
+    @Override
+    ClusterStateStorage clusterStateStorage() {
+        return new RocksDbClusterStateStorage(workDir);
     }
 }

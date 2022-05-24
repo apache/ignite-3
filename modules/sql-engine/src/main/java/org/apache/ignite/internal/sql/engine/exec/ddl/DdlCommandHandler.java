@@ -47,8 +47,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -108,7 +108,7 @@ public class DdlCommandHandler {
         if (cmd instanceof AbstractTableDdlCommand) {
             AbstractTableDdlCommand cmd0 = (AbstractTableDdlCommand) cmd;
 
-            if (IgniteUtils.nullOrEmpty(cmd0.tableName())) {
+            if (StringUtils.nullOrEmpty(cmd0.tableName())) {
                 throw new IllegalArgumentException("Table name is undefined.");
             }
         }

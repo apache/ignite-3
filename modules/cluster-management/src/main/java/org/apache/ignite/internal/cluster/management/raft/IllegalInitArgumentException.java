@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
+package org.apache.ignite.internal.cluster.management.raft;
 
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Message for delivering the cluster state information.
+ * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
  */
-@Transferable(CmgMessageGroup.CLUSTER_STATE)
-public interface ClusterStateMessage extends NetworkMessage {
-    @Marshallable
-    ClusterState clusterState();
+public class IllegalInitArgumentException extends IgniteInternalException {
+    public IllegalInitArgumentException(String message) {
+        super(message);
+    }
 }

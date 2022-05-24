@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import org.apache.ignite.internal.cluster.management.raft.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.raft.client.ReadCommand;
 
 /**

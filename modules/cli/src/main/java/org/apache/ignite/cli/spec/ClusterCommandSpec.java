@@ -60,7 +60,7 @@ public class ClusterCommandSpec extends CategorySpec {
                 "that will host the Meta Storage Raft group.",
                 "If the --cmg-node parameter is omitted, the same nodes will also host the Cluster Management Raft group."
         })
-        private List<String> metastorageNodes;
+        private List<String> metaStorageNodes;
 
         /**
          * List of names of the nodes (each represented by a separate command line argument) that will host
@@ -73,13 +73,18 @@ public class ClusterCommandSpec extends CategorySpec {
         })
         private List<String> cmgNodes = new ArrayList<>();
 
+        /** Name of the cluster. */
+        @Option(names = "--cluster-name", required = true, description = "Human-readable name of the cluster")
+        private String clusterName;
+
         /** {@inheritDoc} */
         @Override
         public void run() {
             clusterApiClient.init(
                     nodeEndpoint,
-                    metastorageNodes,
+                    metaStorageNodes,
                     cmgNodes,
+                    clusterName,
                     spec.commandLine().getOut()
             );
         }

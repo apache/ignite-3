@@ -180,7 +180,7 @@ abstract class AbstractSchemaChangeTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
 
         return futures.stream()
                 .map(CompletableFuture::join)

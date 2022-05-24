@@ -15,36 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft;
+package org.apache.ignite.internal.cluster.management;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Objects;
-import java.util.Set;
+import java.util.UUID;
 
 /**
- * Represents a cluster state. It contains:
- * <ol>
- *     <li>Names of the nodes that host the Meta Storage.</li>
- *     <li>Names of the nodes that host the CMG.</li>
- * </ol>
+ * Cluster tag that is used to uniquely identify a cluster.
+ *
+ * <p>It consists of two parts: human-readable part (cluster name) that is provided by the init command and an auto-generated part
+ * (cluster id).
  */
-public final class ClusterState implements Serializable {
-    private final Set<String> cmgNodes;
+public final class ClusterTag implements Serializable {
+    /** Auto-generated part. */
+    private final UUID clusterId = UUID.randomUUID();
 
-    private final Set<String> msNodes;
+    /** Human-readable part. */
+    private final String clusterName;
 
-    public ClusterState(Collection<String> cmgNodes, Collection<String> metaStorageNodes) {
-        this.cmgNodes = Set.copyOf(cmgNodes);
-        this.msNodes = Set.copyOf(metaStorageNodes);
+    public ClusterTag(String clusterName) {
+        this.clusterName = clusterName;
     }
 
-    public Set<String> cmgNodes() {
-        return cmgNodes;
+    public UUID clusterId() {
+        return clusterId;
     }
 
-    public Set<String> metaStorageNodes() {
-        return msNodes;
+    public String clusterName() {
+        return clusterName;
     }
 
     @Override
@@ -55,20 +54,20 @@ public final class ClusterState implements Serializable {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterState that = (ClusterState) o;
-        return cmgNodes.equals(that.cmgNodes) && msNodes.equals(that.msNodes);
+        ClusterTag that = (ClusterTag) o;
+        return clusterId.equals(that.clusterId) && clusterName.equals(that.clusterName);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(cmgNodes, msNodes);
+        return Objects.hash(clusterId, clusterName);
     }
 
     @Override
     public String toString() {
-        return "ClusterState{"
-                + "cmgNodes=" + cmgNodes
-                + ", msNodes=" + msNodes
+        return "ClusterTag{"
+                + "clusterId=" + clusterId
+                + ", clusterName='" + clusterName + '\''
                 + '}';
     }
 }

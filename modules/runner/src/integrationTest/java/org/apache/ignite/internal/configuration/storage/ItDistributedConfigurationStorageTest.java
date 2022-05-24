@@ -157,7 +157,7 @@ public class ItDistributedConfigurationStorageTest {
         try {
             node.start();
 
-            node.cmgManager.initCluster(List.of(node.name()), List.of());
+            node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
 
             assertThat(node.cfgStorage.write(data, 0), willBe(equalTo(true)));
 

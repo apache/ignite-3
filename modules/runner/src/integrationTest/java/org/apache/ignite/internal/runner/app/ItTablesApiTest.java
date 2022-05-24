@@ -111,7 +111,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         String metaStorageNodeName = testNodeName(testInfo, 0);
 
-        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName));
+        IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
