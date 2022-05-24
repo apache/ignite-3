@@ -198,7 +198,7 @@ class ItIgnitionTest {
         CompletableFuture<Ignite> future = starter.apply(nodeName);
 
         if (startedNodes.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName));
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
         }
 
         assertThat(future, willCompleteSuccessfully());

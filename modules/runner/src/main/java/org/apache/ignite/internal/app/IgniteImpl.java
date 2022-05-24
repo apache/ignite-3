@@ -411,7 +411,7 @@ public class IgniteImpl implements Ignite {
 
             return cmgMgr.joinFuture()
                     // using the default executor to avoid blocking the CMG Manager threads
-                    .thenAcceptAsync(v -> {
+                    .thenRunAsync(() -> {
                         // Start all other components after the join request has completed and the node has been validated.
                         try {
                             lifecycleManager.startComponents(
@@ -426,9 +426,6 @@ public class IgniteImpl implements Ignite {
                                     qryEngine,
                                     clientHandlerModule
                             );
-
-                            // Deploy all registered watches because all components are ready and have registered their listeners.
-                            metaStorageMgr.deployWatches();
                         } catch (NodeStoppingException e) {
                             throw new CompletionException(e);
                         }
@@ -440,11 +437,21 @@ public class IgniteImpl implements Ignite {
                                 fut -> new ConfigurationCatchUpListener(cfgStorage, fut, LOG)
                         );
 
-                        return CompletableFuture.allOf(notifyConfigurationListeners(), recoveryFuture);
+                        return notifyConfigurationListeners()
+                                .thenCompose(t -> {
+                                    // Deploy all registered watches because all components are ready and have registered their listeners.
+                                    try {
+                                        metaStorageMgr.deployWatches();
+                                    } catch (NodeStoppingException e) {
+                                        throw new CompletionException(e);
+                                    }
+
+                                    return recoveryFuture;
+                                });
                     })
                     // Signal that local recovery is complete and the node is ready to join the cluster.
                     .thenCompose(v -> cmgMgr.onJoinReady())
-                    .thenAccept(v -> {
+                    .thenRun(() -> {
                         try {
                             // Transfer the node to the STARTED state.
                             lifecycleManager.onStartComplete();
@@ -590,10 +597,15 @@ public class IgniteImpl implements Ignite {
      *
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames names of nodes that will host the CMG.
+     * @param clusterName Human-readable name of a cluster.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public void init(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
-        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames);
+    public void init(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) throws NodeStoppingException {
+        cmgMgr.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName);
     }
 
     /**

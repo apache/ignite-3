@@ -21,6 +21,6 @@ To run any other example, do the following:
    ```
 3. Initialize the node using the following command:
    ```
-   ignite cluster init --node-endpoint 'localhost:10300' --meta-storage-node 'my-first-node'
+   ignite cluster init --node-endpoint 'localhost:10300' --meta-storage-node 'my-first-node' --cluster-name 'ignite-cluster'
    ```
 4. Run the preferred example in the IDE.

@@ -661,14 +661,19 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
             var expSentContent = "{\"metaStorageNodes\":[\"node1ConsistentId\",\"node2ConsistentId\"],"
-                    + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"]}";
+                    + "\"cmgNodes\":[\"node2ConsistentId\",\"node3ConsistentId\"],"
+                    + "\"clusterName\":\"cluster\"}";
 
             CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
-                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
-                    );
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--node-endpoint", "127.0.0.1:8081",
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--meta-storage-node", "node2ConsistentId",
+                    "--cmg-node", "node2ConsistentId",
+                    "--cmg-node", "node3ConsistentId",
+                    "--cluster-name", "cluster"
+            );
 
             assertThatExitCodeMeansSuccess(exitCode);
 
@@ -677,7 +682,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThat(capturedRequest.uri().toString(), is("http://127.0.0.1:8081/management/v1/cluster/init/"));
             assertThat(capturedRequest.method(), is("POST"));
-            assertThat(requestBodyBytes(capturedRequest), is(expSentContent.getBytes(UTF_8)));
+            assertThat(new String(requestBodyBytes(capturedRequest), UTF_8), is(expSentContent));
             assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
 
             assertThat(out.toString(UTF_8), is(platformizeNewLines("Cluster was initialized successfully.\n")));
@@ -691,11 +696,15 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
             CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
-                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
-                    );
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--node-endpoint", "127.0.0.1:8081",
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--meta-storage-node", "node2ConsistentId",
+                    "--cmg-node", "node2ConsistentId",
+                    "--cmg-node", "node3ConsistentId",
+                    "--cluster-name", "cluster"
+            );
 
             assertThatExitCodeIs(1, exitCode);
 
@@ -718,11 +727,15 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
             CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
-                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
-                    );
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--node-endpoint=127.0.0.1:8081",
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--meta-storage-node", "node2ConsistentId",
+                    "--cmg-node", "node2ConsistentId",
+                    "--cmg-node", "node3ConsistentId",
+                    "--cluster-name", "cluster"
+            );
 
             assertThatExitCodeIs(1, exitCode);
 
@@ -738,11 +751,14 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 + "--cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void nodeEndpointIsMandatoryForInit() {
             CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("cluster", "init",
-                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId",
-                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
-                    );
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--meta-storage-node", "node2ConsistentId",
+                    "--cmg-node", "node2ConsistentId",
+                    "--cmg-node", "node3ConsistentId",
+                    "--cluster-name", "cluster"
+            );
 
             assertThatExitCodeIs(2, exitCode);
 
@@ -754,15 +770,18 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @DisplayName("init --node-endpoint=127.0.0.1:17300 --cmg-node node2ConsistentId --cmg-node node3ConsistentId")
         void metastorageNodesAreMandatoryForInit() {
             CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--cmg-node", "node2ConsistentId", "--cmg-node", "node3ConsistentId"
-                    );
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--node-endpoint", "127.0.0.1:8081",
+                    "--cmg-node", "node2ConsistentId",
+                    "--cmg-node", "node3ConsistentId",
+                    "--cluster-name", "cluster"
+            );
 
             assertThatExitCodeIs(2, exitCode);
 
             assertThatStdoutIsEmpty();
-            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--meta-storage-node=<metastorageNodes>'"));
+            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--meta-storage-node=<metaStorageNodes>'"));
         }
 
         @Test
@@ -772,15 +791,35 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             when(httpClient.<String>send(any(), any())).thenReturn(response);
 
             CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute("cluster", "init", "--node-endpoint=127.0.0.1:8081",
-                            "--meta-storage-node", "node1ConsistentId", "--meta-storage-node", "node2ConsistentId"
-                    );
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--node-endpoint", "127.0.0.1:8081",
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--meta-storage-node", "node2ConsistentId",
+                    "--cluster-name", "cluster"
+            );
 
             assertThatExitCodeMeansSuccess(exitCode);
 
             assertThat(out.toString(UTF_8), is(platformizeNewLines("Cluster was initialized successfully.\n")));
             assertThatStderrIsEmpty();
+        }
+
+        @Test
+        @DisplayName("init --node-endpoint 127.0.0.1:8081 --meta-storage-node node1ConsistentId --cmg-node node2ConsistentId")
+        void clusterNameIsMandatoryForInit() {
+            CommandLine cmd = cmd(ctx);
+            int exitCode = cmd.execute(
+                    "cluster", "init",
+                    "--node-endpoint", "127.0.0.1:8081",
+                    "--meta-storage-node", "node1ConsistentId",
+                    "--cmg-node", "node2ConsistentId"
+            );
+
+            assertThatExitCodeIs(2, exitCode);
+
+            assertThatStdoutIsEmpty();
+            assertThat(err.toString(UTF_8), startsWith("Missing required option: '--cluster-name=<clusterName>'"));
         }
     }
 

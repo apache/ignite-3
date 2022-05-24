@@ -15,15 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management;
+package org.apache.ignite.internal.cluster.management.raft.responses;
 
-import org.apache.ignite.lang.IgniteInternalException;
+import java.io.Serializable;
 
 /**
- * Internal exception used by the {@link ClusterManagementGroupManager} to respond to incorrect user commands.
+ * Response that indicates that a join request has been rejected.
  */
-class IllegalInitArgumentException extends IgniteInternalException {
-    IllegalInitArgumentException(String message) {
-        super(message);
+public class ValidationErrorResponse implements Serializable {
+    private final String reason;
+
+    /**
+     * Creates a new response.
+     *
+     * @param reason Textual representation of the reason of join rejection.
+     */
+    public ValidationErrorResponse(String reason) {
+        this.reason = reason;
+    }
+
+    /**
+     * Returns the textual representation of the reason of join rejection.
+     *
+     * @return Textual representation of the reason of join rejection.
+     */
+    public String reason() {
+        return reason;
     }
 }
