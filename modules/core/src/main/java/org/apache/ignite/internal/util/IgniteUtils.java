@@ -673,16 +673,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Tests if given string is {@code null} or empty.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or empty.
-     */
-    public static boolean nullOrEmpty(@Nullable String s) {
-        return s == null || s.isEmpty();
-    }
-
-    /**
      * Return {@code obj} if not null, otherwise {@code defaultObj}.
      *
      * @param obj Object.

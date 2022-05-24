@@ -15,35 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
+package org.apache.ignite.internal.util;
 
-import java.util.Set;
-import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Command that gets executed when a node needs to be removed from the logical topology.
+ * Class containing useful methods for working with strings.
  */
-public class NodesLeaveCommand implements WriteCommand {
-    private final Set<ClusterNode> nodes;
-
-    /**
-     * Creates a new command.
-     *
-     * @param nodes Nodes that need to be removed from the logical topology.
-     */
-    public NodesLeaveCommand(Set<ClusterNode> nodes) {
-        assert !nodes.isEmpty();
-
-        this.nodes = nodes;
+public final class StringUtils {
+    private StringUtils() {
     }
 
     /**
-     * Returns the nodes that need to be removed from the logical topology.
+     * Tests if given string is {@code null} or empty.
      *
-     * @return Nodes that need to be removed from the logical topology.
+     * @param s String to test.
+     * @return Whether or not the given string is {@code null} or empty.
      */
-    public Set<ClusterNode> nodes() {
-        return nodes;
+    public static boolean nullOrEmpty(@Nullable String s) {
+        return s == null || s.isEmpty();
+    }
+
+    /**
+     * Tests if given string is {@code null} or {@link String#isBlank}.
+     *
+     * @param s String to test.
+     * @return Whether or not the given string is {@code null} or blank.
+     */
+    public static boolean nullOrBlank(@Nullable String s) {
+        return s == null || s.isBlank();
     }
 }

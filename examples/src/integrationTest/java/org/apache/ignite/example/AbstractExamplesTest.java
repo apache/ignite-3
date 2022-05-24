@@ -17,6 +17,9 @@
 
 package org.apache.ignite.example;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -39,7 +42,7 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
      * Starts a node.
      */
     @BeforeEach
-    public void startNode() throws Exception {
+    public void startNode() {
         CompletableFuture<Ignite> ignite = IgnitionManager.start(
                 TEST_NODE_NAME,
                 Path.of("config", "ignite-config.json"),
@@ -47,9 +50,9 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
                 null
         );
 
-        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME));
+        IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME), "cluster");
 
-        ignite.join();
+        assertThat(ignite, willCompleteSuccessfully());
     }
 
     /**
