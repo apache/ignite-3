@@ -31,6 +31,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -41,16 +45,20 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.error.RaftError;
 
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
  * and start new rebalance after the current one finished.
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
+    /** Ignite logger. */
+    private static final IgniteLogger LOG = IgniteLogger.forClass(RebalanceRaftGroupEventsListener.class);
 
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
@@ -65,7 +73,20 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final int partNum;
 
     /** Busy lock of parent component for synchronous stop. */
-    private IgniteSpinBusyLock busyLock;
+    private final IgniteSpinBusyLock busyLock;
+
+    /** Executor for scheduling retries. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
+    /** Attempts to retry the current rebalance in case of errors. */
+    private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
+
+    /** Number of retrying of the current rebalance in case of errors. */
+    private static final int REBALANCE_RETRY_THRESHOLD = 10;
+
+    /** Delay between unsuccessful trial of a rebalance and a new trial, ms. */
+    public static final int REBALANCE_RETRY_DELAY_MS = 200;
+
 
     /**
      * Constructs new listener.
@@ -74,24 +95,36 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param tblConfiguration Table configuration.
      * @param partId Partition id.
      * @param partNum Partition number.
+     * @param rebalanceScheduler
      */
     public RebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
             TableConfiguration tblConfiguration,
             String partId,
             int partNum,
-            IgniteSpinBusyLock busyLock) {
+            IgniteSpinBusyLock busyLock,
+            ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
         this.busyLock = busyLock;
+        this.rebalanceScheduler = rebalanceScheduler;
     }
 
     /** {@inheritDoc} */
     @Override
     public void onLeaderElected() {
         // TODO: IGNITE-16800 implement this method
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            rebalanceAttempts.set(0);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
@@ -103,6 +136,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         try {
             doOnNewPeersConfigurationApplied(peers);
+
+            rebalanceAttempts.set(0);
         } finally {
             busyLock.leaveBusy();
         }
@@ -110,8 +145,66 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onReconfigurationError(Status status) {
-        // TODO: IGNITE-14873 implement this method
+    public void onReconfigurationError(Status status, Supplier<Void> rebalanceRunner) {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            if (status == null) {
+                // leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
+                LOG.info("Leader stepped down during the current rebalance for the partId = {}.");
+
+                return;
+            }
+
+            assert status.getRaftError() == RaftError.ECATCHUP : "According to the JRaft protocol, RaftError.ECATCHUP is expected.";
+
+            LOG.warn("Error occurred during the current rebalance for partId = {}.", partId);
+
+            if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
+                rebalanceScheduler.schedule(() -> {
+                    LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
+
+                    rebalanceRunner.get();
+                }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+            } else {
+                LOG.info("Failed to perform the current rebalance for the partId = {}, canceling.", partId);
+
+                cancelRebalance();
+
+                rebalanceAttempts.set(0);
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
+
+    }
+
+    /**
+     * This is a draft version of canceling a rebalance, this approach contains some serious flaws and must be revised.
+     */
+    private void cancelRebalance() {
+        Entry plannedEntry = metaStorageMgr.get(plannedPartAssignmentsKey(partId)).join();
+
+        if (plannedEntry.value() != null) {
+            if (!metaStorageMgr.invoke(If.iif(
+                    revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
+                    ops(
+                            put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
+                            remove(plannedPartAssignmentsKey(partId)))
+                            .yield(true),
+                    ops().yield(false))).join().getAsBoolean()) {
+                cancelRebalance();
+            }
+        } else {
+            if (!metaStorageMgr.invoke(If.iif(
+                    notExists(plannedPartAssignmentsKey(partId)),
+                    ops(remove(pendingPartAssignmentsKey(partId))).yield(true),
+                    ops().yield(false))).join().getAsBoolean()) {
+                cancelRebalance();
+            }
+        }
     }
 
     /**

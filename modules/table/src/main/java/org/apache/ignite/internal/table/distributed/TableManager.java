@@ -38,6 +38,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -88,6 +90,7 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteObjectName;
@@ -108,6 +111,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
+import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.NotNull;
@@ -171,6 +175,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     /** Prevents double stopping the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
+    /** Executor for scheduling retries of a rebalance. */
+    private final ScheduledExecutorService rebalanceScheduler;
+
+    /** Rebalance scheduler pool size. */
+    private static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Utils.cpus() * 3, 20);
+
     /**
      * Creates a new table manager.
      *
@@ -211,7 +221,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesVv = new VersionedValue<>(registry, HashMap::new);
         tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
-    }
+
+        rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
+                new NamedThreadFactory("rebalance-scheduler"));}
 
     /** {@inheritDoc} */
     @Override
@@ -498,7 +510,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     tablesCfg.tables().get(tablesById.get(tblId).name()),
                                     partitionRaftGroupName(tblId, partId),
                                     partId,
-                                    busyLock)
+                                    busyLock,
+                                    rebalanceScheduler)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
                                     .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
@@ -1429,7 +1442,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             tblCfg,
                             partId,
                             part,
-                            busyLock);
+                            busyLock,
+                            rebalanceScheduler);
 
                     // Stable assignments from the meta store, which revision is bounded by the current pending event.
                     byte[] stableAssignments = metaStorageMgr.get(stablePartAssignmentsKey(partId),
@@ -1505,10 +1519,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     var stableAssignments = (List<ClusterNode>) ByteUtils.fromBytes(stableAssignmentsWatchEvent.value());
 
-                    var pendingAssignments = (List<ClusterNode>) ByteUtils.fromBytes(
-                            metaStorageMgr.get(pendingPartAssignmentsKey(partId),
-                                    stableAssignmentsWatchEvent.revision()).join().value()
-                    );
+                    byte[] pendingFromMetastorage = metaStorageMgr.get(pendingPartAssignmentsKey(partId),
+                            stableAssignmentsWatchEvent.revision()).join().value();
+
+                    List<ClusterNode> pendingAssignments = pendingFromMetastorage == null
+                            ? Collections.emptyList()
+                            : (List<ClusterNode>) ByteUtils.fromBytes(pendingFromMetastorage);
 
                     List<ClusterNode> appliedPeers = Stream.concat(stableAssignments.stream(), pendingAssignments.stream())
                             .collect(Collectors.toList());
