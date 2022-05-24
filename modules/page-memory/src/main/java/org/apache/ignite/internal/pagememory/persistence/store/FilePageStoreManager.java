@@ -169,7 +169,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      *
      * @param grpName Group name.
      * @param grpId Group ID.
-     * @param partitions Partition number, must be greater than {@link 0} and less {@link PageIdAllocator#MAX_PARTITION_ID} + 1.
+     * @param partitions Partition number, must be greater than {@code 0} and less {@link PageIdAllocator#MAX_PARTITION_ID} + 1.
      * @throws IgniteInternalCheckedException If failed.
      */
     public void initialize(String grpName, int grpId, int partitions) throws IgniteInternalCheckedException {
@@ -208,7 +208,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      *
      * @param grpId Group ID.
      * @param partId Partition ID, either {@link PageIdAllocator#INDEX_PARTITION} or {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID}
-     * (inclusive).
+     *      (inclusive).
      * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
      */
     public FilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {

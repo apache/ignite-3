@@ -181,7 +181,26 @@ public class FilePageStoreManagerTest {
         }
     }
 
-    // TODO: IGNITE-17011 continue 
+    // TODO: IGNITE-17011 continue
+
+    @Test
+    void testStopAllGroupFilePageStores() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        try {
+            manager.initialize("test", 0, 1);
+
+            for (FilePageStore filePageStore : manager.getStores(0)) {
+                filePageStore.ensure();
+
+                assertTrue(Files.isRegularFile(filePageStore.filePath()));
+            }
+
+            manager.stopAllGroupFilePageStores(false);
+        } finally {
+            manager.stop();
+        }
+    }
 
     private FilePageStoreManager createManager() throws Exception {
         return new FilePageStoreManager(log, "test", workDir, new RandomAccessFileIoFactory(), 1024);
