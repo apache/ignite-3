@@ -80,7 +80,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     // TODO: timeout should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
     private static final int NETWORK_INVOKE_TIMEOUT = 500;
 
-    private static final IgniteLogger log = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
 
     /** CMG Raft group name. */
     private static final String CMG_RAFT_GROUP_NAME = "cmg_raft_group";
@@ -225,7 +225,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             return null;
         }
 
-        log.info("Local CMG state recovered, starting the CMG");
+        LOG.info("Local CMG state recovered, starting the CMG");
 
         return startCmgRaftService(localState.cmgNodeNames())
                 .thenCompose(service -> joinCluster(service, localState.clusterTag())
@@ -270,12 +270,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         synchronized (raftServiceLock) {
             if (raftService == null) {
                 // Raft service has not been started
-                log.info("Init command received, starting the CMG: {}", msg);
+                LOG.info("Init command received, starting the CMG: {}", msg);
 
                 raftService = startCmgRaftService(msg.cmgNodes());
             } else {
                 // Raft service has been started, which means that this node has already received an init command at least once.
-                log.info("Init command received, but the CMG has already been started");
+                LOG.info("Init command received, but the CMG has already been started");
             }
 
             // Every node, that receives the init command, tries to initialize the CMG state. Raft listener will correctly
@@ -312,7 +312,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     NetworkMessage response;
 
                     if (e == null) {
-                        log.info("CMG initialized successfully");
+                        LOG.info("CMG initialized successfully");
 
                         response = msgFactory.initCompleteMessage().build();
                     } else {
@@ -320,7 +320,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             e = e.getCause();
                         }
 
-                        log.error("Error when initializing the CMG: {}", e, e.getMessage());
+                        LOG.error("Error when initializing the CMG: {}", e, e.getMessage());
 
                         response = msgFactory.initErrorMessage()
                                 .cause(e.getMessage())
@@ -349,13 +349,13 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * </ol>
      */
     private CompletableFuture<CmgRaftService> onLeaderElected(CmgRaftService service, ClusterState state) {
-        log.info("CMG leader has been elected, executing onLeaderElected callback");
+        LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
         return updateLogicalTopology(service)
                 .thenApply(v -> service)
                 .whenComplete((s, e) -> {
                     if (e == null) {
-                        log.info("onLeaderElected callback executed successfully");
+                        LOG.info("onLeaderElected callback executed successfully");
 
                         // Register a listener to send ClusterState messages to new nodes.
                         TopologyService topologyService = clusterService.topologyService();
@@ -367,7 +367,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         // to being unable to send ClusterState messages should not fail the CMG service startup.
                         sendClusterState(state, clusterService.topologyService().allMembers());
                     } else {
-                        log.error("Error when executing onLeaderElected callback: {}", e, e.getMessage());
+                        LOG.error("Error when executing onLeaderElected callback: {}", e, e.getMessage());
                     }
                 });
     }
@@ -394,7 +394,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     private void handleCancelInit(CancelInitMessage msg) {
-        log.info("CMG initialization cancelled, reason: " + msg.reason());
+        LOG.info("CMG initialization cancelled, reason: " + msg.reason());
 
         destroyCmg();
     }
@@ -434,7 +434,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         synchronized (raftServiceLock) {
             if (raftService == null) {
-                log.info("ClusterStateMessage received, starting the CMG on {}", state.cmgNodes());
+                LOG.info("ClusterStateMessage received, starting the CMG on {}", state.cmgNodes());
 
                 raftService = initCmgRaftService(state);
             } else {
@@ -443,7 +443,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 raftService = raftService
                         .handle((service, e) -> {
                             if (service != null && service.nodeNames().equals(state.cmgNodes())) {
-                                log.debug("ClusterStateMessage received, but the CMG service is already started");
+                                LOG.debug("ClusterStateMessage received, but the CMG service is already started");
 
                                 return completedFuture(service);
                             }
@@ -461,10 +461,10 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                     return CompletableFuture.<CmgRaftService>failedFuture(e);
                                 }
 
-                                log.warn("CMG service could not be started on previous attempts: {}. "
+                                LOG.warn("CMG service could not be started on previous attempts: {}. "
                                         + "Re-creating the CMG Raft service", e, e.getMessage());
                             } else {
-                                log.warn("CMG has been started on {}, but the cluster state is different: {}. "
+                                LOG.warn("CMG has been started on {}, but the cluster state is different: {}. "
                                         + "Re-creating the CMG Raft service", service.nodeNames(), state.cmgNodes());
 
                                 destroyCmg();
@@ -481,7 +481,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         return service.startJoinCluster(clusterTag)
                 .whenComplete((v, e) -> {
                     if (e == null) {
-                        log.info("Successfully joined the cluster \"{}\"", clusterTag.clusterName());
+                        LOG.info("Successfully joined the cluster \"{}\"", clusterTag.clusterName());
 
                         joinFuture.complete(null);
                     } else {
@@ -534,11 +534,11 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                                 sendClusterState(state, member)
                                         .whenComplete((v, e) -> {
                                             if (e != null) {
-                                                log.warn("Error when sending ClusterState: {}", e, e.getMessage());
+                                                LOG.warn("Error when sending ClusterState: {}", e, e.getMessage());
                                             }
                                         });
                             } else {
-                                log.info("Cannot send the cluster state to a newly added node {} because cluster state is empty", member);
+                                LOG.info("Cannot send the cluster state to a newly added node {} because cluster state is empty", member);
                             }
                         });
             }
@@ -588,7 +588,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         return result.whenComplete((v, e) -> {
             if (e != null) {
-                log.warn("Unable to send message {} to {}", e, msg.getClass(), node);
+                LOG.warn("Unable to send message {} to {}", e, msg.getClass(), node);
             }
         });
     }
@@ -601,7 +601,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     } else if (attempts == 1) {
                         result.completeExceptionally(e);
                     } else {
-                        log.debug("Exception when sending message to {}, retrying", e, node.name());
+                        LOG.debug("Exception when sending message to {}, retrying", e, node.name());
 
                         scheduledExecutor.schedule(() -> sendWithRetry(node, msg, result, attempts - 1), 500, TimeUnit.MILLISECONDS);
                     }

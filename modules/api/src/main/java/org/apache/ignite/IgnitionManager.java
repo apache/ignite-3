@@ -138,6 +138,9 @@ public class IgnitionManager {
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
      * @param clusterName Human-readable name of the cluster.
      * @throws IgniteException If the given node has not been started or has been stopped.
+     * @throws NullPointerException If any of the parameters are null.
+     * @throws IllegalArgumentException If {@code metaStorageNodeNames} is empty or contains blank strings.
+     * @throws IllegalArgumentException If {@code clusterName} is blank.
      * @see Ignition#init(String, Collection, String)
      */
     public static synchronized void init(String nodeName, Collection<String> metaStorageNodeNames, String clusterName) {
@@ -160,6 +163,10 @@ public class IgnitionManager {
      * @param cmgNodeNames names of nodes that will host the CMG.
      * @param clusterName Human-readable name of the cluster.
      * @throws IgniteException If the given node has not been started or has been stopped.
+     * @throws NullPointerException If any of the parameters are null.
+     * @throws IllegalArgumentException If {@code metaStorageNodeNames} is empty or contains blank strings.
+     * @throws IllegalArgumentException If {@code cmgNodeNames} contains blank strings.
+     * @throws IllegalArgumentException If {@code clusterName} is blank.
      * @see Ignition#init(String, Collection, Collection, String)
      */
     public static synchronized void init(

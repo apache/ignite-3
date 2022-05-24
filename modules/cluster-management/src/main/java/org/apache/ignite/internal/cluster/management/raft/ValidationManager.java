@@ -43,7 +43,7 @@ import org.jetbrains.annotations.Nullable;
  * token. If the local token and the received token match, the node will be added to the logical topology and the token will be invalidated.
  */
 class ValidationManager implements AutoCloseable {
-    private static final IgniteLogger log = IgniteLogger.forClass(CmgRaftGroupListener.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(CmgRaftGroupListener.class);
 
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("node-validator"));
@@ -174,7 +174,7 @@ class ValidationManager implements AutoCloseable {
     private void scheduleValidatedNodeRemoval(String nodeId) {
         // TODO: delay should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
         Future<?> future = executor.schedule(() -> {
-            log.info("Removing node {} from the list of validated nodes since no JoinReady requests have been received", nodeId);
+            LOG.info("Removing node {} from the list of validated nodes since no JoinReady requests have been received", nodeId);
 
             cleanupFutures.remove(nodeId);
 

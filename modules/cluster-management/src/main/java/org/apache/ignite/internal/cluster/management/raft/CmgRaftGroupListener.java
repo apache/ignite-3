@@ -48,7 +48,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link RaftGroupListener} implementation for the CMG.
  */
 public class CmgRaftGroupListener implements RaftGroupListener {
-    private static final IgniteLogger log = IgniteLogger.forClass(CmgRaftGroupListener.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(CmgRaftGroupListener.class);
 
     private final RaftStorageManager storage;
 
@@ -134,7 +134,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     private void addNodeToLogicalTopology(JoinReadyCommand command) {
         storage.putLogicalTopologyNode(command.node());
 
-        log.info("Node {} has been added to the logical topology", command.node().name());
+        LOG.info("Node {} has been added to the logical topology", command.node().name());
     }
 
     private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
@@ -142,8 +142,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         storage.removeLogicalTopologyNodes(nodes);
 
-        if (log.isInfoEnabled()) {
-            log.info("Nodes {} have been removed from the logical topology", nodes.stream().map(ClusterNode::name).collect(toList()));
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Nodes {} have been removed from the logical topology", nodes.stream().map(ClusterNode::name).collect(toList()));
         }
     }
 
@@ -160,7 +160,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return true;
         } catch (IgniteInternalException e) {
-            log.error("Failed to restore snapshot at " + path, e);
+            LOG.error("Failed to restore snapshot at " + path, e);
 
             return false;
         }

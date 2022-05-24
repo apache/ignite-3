@@ -48,7 +48,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
  * A wrapper around a {@link RaftGroupService} providing helpful methods for working with the CMG.
  */
 public class CmgRaftService {
-    private static final IgniteLogger log = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
 
     /**
      * Number of attempts when trying to resolve a {@link Peer} into a {@link ClusterNode}.
@@ -139,7 +139,7 @@ public class CmgRaftService {
      * @return Future that represents the state of the operation.
      */
     public CompletableFuture<Void> completeJoinCluster() {
-        log.info("Node is ready to join the logical topology");
+        LOG.info("Node is ready to join the logical topology");
 
         ClusterNode localMember = clusterService.topologyService().localMember();
 
@@ -205,7 +205,7 @@ public class CmgRaftService {
                 return node;
             }
 
-            log.debug("Unable to resolve Raft peer, address {} is unavailable. Remaining attempts: {}", addr, MAX_RESOLVE_ATTEMPTS - i);
+            LOG.debug("Unable to resolve Raft peer, address {} is unavailable. Remaining attempts: {}", addr, MAX_RESOLVE_ATTEMPTS - i);
 
             try {
                 sleep(100);

@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.cluster.management.rest;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.internal.util.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST command for initializing a cluster.
@@ -42,10 +43,13 @@ public class InitCommand {
     @JsonCreator
     public InitCommand(
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
-            @JsonProperty("cmgNodes") Collection<String> cmgNodes,
+            @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
             @JsonProperty("clusterName") String clusterName
     ) {
-        if (nullOrEmpty(metaStorageNodes)) {
+        Objects.requireNonNull(metaStorageNodes);
+        Objects.requireNonNull(clusterName);
+
+        if (metaStorageNodes.isEmpty()) {
             throw new IllegalArgumentException("Meta Storage node names list must not be empty");
         }
 
@@ -57,7 +61,7 @@ public class InitCommand {
             throw new IllegalArgumentException("CMG node names must not contain blank strings: " + cmgNodes);
         }
 
-        if (nullOrBlank(clusterName)) {
+        if (clusterName.isBlank()) {
             throw new IllegalArgumentException("Cluster name must not be empty");
         }
 
