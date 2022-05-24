@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.stream.Collectors.toList;
+
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.raft.commands.InitCmgStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.NodesLeaveCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadLogicalTopologyCommand;
 import org.apache.ignite.internal.cluster.management.raft.commands.ReadStateCommand;
-import org.apache.ignite.internal.cluster.management.raft.commands.WriteStateCommand;
 import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopologyResponse;
+import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.Command;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.apache.ignite.raft.client.WriteCommand;
@@ -41,12 +48,15 @@ import org.jetbrains.annotations.Nullable;
  * {@link RaftGroupListener} implementation for the CMG.
  */
 public class CmgRaftGroupListener implements RaftGroupListener {
-    private static final IgniteLogger log = IgniteLogger.forClass(CmgRaftGroupListener.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(CmgRaftGroupListener.class);
 
     private final RaftStorageManager storage;
 
+    private final ValidationManager validationManager;
+
     public CmgRaftGroupListener(ClusterStateStorage storage) {
         this.storage = new RaftStorageManager(storage);
+        this.validationManager = new ValidationManager(this.storage);
     }
 
     @Override
@@ -71,17 +81,69 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             WriteCommand command = clo.command();
 
-            if (command instanceof WriteStateCommand) {
-                storage.putClusterState(((WriteStateCommand) command).clusterState());
-            } else if (command instanceof JoinRequestCommand) {
-                // TODO: perform validation https://issues.apache.org/jira/browse/IGNITE-16717
-            } else if (command instanceof JoinReadyCommand) {
-                storage.putLogicalTopologyNode(((JoinReadyCommand) command).node());
-            } else if (command instanceof NodesLeaveCommand) {
-                storage.removeLogicalTopologyNodes(((NodesLeaveCommand) command).nodes());
-            }
+            if (command instanceof InitCmgStateCommand) {
+                Serializable response = initCmgState((InitCmgStateCommand) command);
 
-            clo.result(null);
+                clo.result(response);
+            } else if (command instanceof JoinRequestCommand) {
+                ValidationResult response = validateNode((JoinRequestCommand) command);
+
+                clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+            } else if (command instanceof JoinReadyCommand) {
+                ValidationResult response = validationManager.completeValidation(((JoinReadyCommand) command).node());
+
+                if (response.isValid()) {
+                    addNodeToLogicalTopology((JoinReadyCommand) command);
+
+                    clo.result(null);
+                } else {
+                    clo.result(new ValidationErrorResponse(response.errorDescription()));
+                }
+            } else if (command instanceof NodesLeaveCommand) {
+                removeNodesFromLogicalTopology((NodesLeaveCommand) command);
+
+                clo.result(null);
+            }
+        }
+    }
+
+    @Nullable
+    private Serializable initCmgState(InitCmgStateCommand command) {
+        ClusterState state = storage.getClusterState();
+
+        if (state == null) {
+            storage.putClusterState(command.clusterState());
+
+            return command.clusterState();
+        } else {
+            ValidationResult validationResult = ValidationManager.validateState(state, command.node(), command.clusterState());
+
+            return validationResult.isValid() ? state : new ValidationErrorResponse(validationResult.errorDescription());
+        }
+    }
+
+    private ValidationResult validateNode(JoinRequestCommand command) {
+        return validationManager.validateNode(
+                storage.getClusterState(),
+                command.node(),
+                command.igniteVersion(),
+                command.clusterTag()
+        );
+    }
+
+    private void addNodeToLogicalTopology(JoinReadyCommand command) {
+        storage.putLogicalTopologyNode(command.node());
+
+        LOG.info("Node {} has been added to the logical topology", command.node().name());
+    }
+
+    private void removeNodesFromLogicalTopology(NodesLeaveCommand command) {
+        Set<ClusterNode> nodes = command.nodes();
+
+        storage.removeLogicalTopologyNodes(nodes);
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("Nodes {} have been removed from the logical topology", nodes.stream().map(ClusterNode::name).collect(toList()));
         }
     }
 
@@ -98,7 +160,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return true;
         } catch (IgniteInternalException e) {
-            log.error("Failed to restore snapshot at " + path, e);
+            LOG.error("Failed to restore snapshot at " + path, e);
 
             return false;
         }
@@ -106,7 +168,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        // no-op
+        // Raft storage lifecycle is managed by outside components.
+        validationManager.close();
     }
 
     @Override

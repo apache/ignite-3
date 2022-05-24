@@ -17,33 +17,45 @@
 
 package org.apache.ignite.internal.cluster.management.raft.commands;
 
-import java.util.Set;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /**
- * Command that gets executed when a node needs to be removed from the logical topology.
+ * Command for initializing the CMG state. If the state has already been initialized, the sender node will be validated against the
+ * existing state.
  */
-public class NodesLeaveCommand implements WriteCommand {
-    private final Set<ClusterNode> nodes;
+public class InitCmgStateCommand implements WriteCommand {
+    private final ClusterNode node;
+
+    private final ClusterState clusterState;
 
     /**
      * Creates a new command.
      *
-     * @param nodes Nodes that need to be removed from the logical topology.
+     * @param node Node that wants to enter the logical topology.
+     * @param clusterState CMG state.
      */
-    public NodesLeaveCommand(Set<ClusterNode> nodes) {
-        assert !nodes.isEmpty();
-
-        this.nodes = nodes;
+    public InitCmgStateCommand(ClusterNode node, ClusterState clusterState) {
+        this.node = node;
+        this.clusterState = clusterState;
     }
 
     /**
-     * Returns the nodes that need to be removed from the logical topology.
+     * Returns the node that wants to initialize the CMG state.
      *
-     * @return Nodes that need to be removed from the logical topology.
+     * @return Node that wants to initialize the CMG state.
      */
-    public Set<ClusterNode> nodes() {
-        return nodes;
+    public ClusterNode node() {
+        return node;
+    }
+
+    /**
+     * Returns the CMG state.
+     *
+     * @return CMG state.
+     */
+    public ClusterState clusterState() {
+        return clusterState;
     }
 }

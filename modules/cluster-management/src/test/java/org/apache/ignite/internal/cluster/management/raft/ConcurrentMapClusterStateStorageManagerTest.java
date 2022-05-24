@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.raft.commands;
-
-import org.apache.ignite.internal.cluster.management.raft.ClusterState;
-import org.apache.ignite.raft.client.WriteCommand;
+package org.apache.ignite.internal.cluster.management.raft;
 
 /**
- * Command for saving a {@link ClusterState}.
+ * Tests for {@link RaftStorageManager} based on {@link ConcurrentMapClusterStateStorage}.
  */
-public class WriteStateCommand implements WriteCommand {
-    private final ClusterState clusterState;
-
-    /**
-     * Creates a new command.
-     *
-     * @param clusterState State to save.
-     */
-    public WriteStateCommand(ClusterState clusterState) {
-        this.clusterState = clusterState;
-    }
-
-    /**
-     * Returns the state that needs to be saved in the Raft storage.
-     *
-     * @return State to save.
-     */
-    public ClusterState clusterState() {
-        return clusterState;
+public class ConcurrentMapClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
+    @Override
+    ClusterStateStorage clusterStateStorage() {
+        return new ConcurrentMapClusterStateStorage();
     }
 }

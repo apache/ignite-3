@@ -91,7 +91,11 @@ public class ClusterInitializerTest {
                 .thenReturn(initCompleteMessage());
 
         // check that leaders are different in case different node IDs are provided
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
+                List.of(metastorageNode.name()),
+                List.of(cmgNode.name()),
+                "cluster"
+        );
 
         verify(messagingService).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
@@ -114,7 +118,11 @@ public class ClusterInitializerTest {
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());
 
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of());
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
+                List.of(metastorageNode.name()),
+                List.of(),
+                "cluster"
+        );
 
         verify(messagingService).invoke(eq(metastorageNode), any(CmgInitMessage.class), anyLong());
         verify(messagingService, never()).invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong());
@@ -136,7 +144,7 @@ public class ClusterInitializerTest {
 
         when(messagingService.invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong()))
                 .thenAnswer(invocation -> {
-                    NetworkMessage response = msgFactory.initErrorMessage().cause("foobar").build();
+                    NetworkMessage response = msgFactory.initErrorMessage().cause("foobar").shouldCancel(true).build();
 
                     return CompletableFuture.completedFuture(response);
                 });
@@ -144,13 +152,50 @@ public class ClusterInitializerTest {
         when(messagingService.send(any(ClusterNode.class), any(CancelInitMessage.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(metastorageNode.name()), List.of(cmgNode.name()));
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
+                List.of(metastorageNode.name()),
+                List.of(cmgNode.name()),
+                "cluster"
+        );
 
         InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
 
         assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
 
         verify(messagingService).send(eq(cmgNode), any(CancelInitMessage.class));
+        verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
+    }
+
+    /**
+     * Tests a situation when the init command fails noncritically, so that initialization is not cancelled.
+     */
+    @Test
+    void testInitNoCancel() {
+        ClusterNode metastorageNode = new ClusterNode("metastore", "metastore", new NetworkAddress("foo", 123));
+        ClusterNode cmgNode = new ClusterNode("cmg", "cmg", new NetworkAddress("bar", 456));
+
+        when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
+        when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
+        when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
+
+        when(messagingService.invoke(eq(cmgNode), any(CmgInitMessage.class), anyLong()))
+                .thenAnswer(invocation -> {
+                    NetworkMessage response = msgFactory.initErrorMessage().cause("foobar").shouldCancel(false).build();
+
+                    return CompletableFuture.completedFuture(response);
+                });
+
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(
+                List.of(metastorageNode.name()),
+                List.of(cmgNode.name()),
+                "cluster"
+        );
+
+        InternalInitException e = assertFutureThrows(InternalInitException.class, initFuture);
+
+        assertThat(e.getMessage(), containsString(String.format("Got error response from node \"%s\": foobar", cmgNode.name())));
+
+        verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
         verify(messagingService, never()).send(eq(metastorageNode), any(CancelInitMessage.class));
     }
 
@@ -164,10 +209,14 @@ public class ClusterInitializerTest {
      * Tests that providing no nodes for the initialization throws an error.
      */
     @Test
-    void testEmptyInit() {
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of(), List.of());
+    void testInitIllegalArguments() {
+        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(), List.of(), "cluster"));
 
-        assertFutureThrows(IllegalArgumentException.class, initFuture);
+        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of(" "), List.of("bar"), "cluster"));
+
+        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of(" "), "cluster"));
+
+        assertThrows(IllegalArgumentException.class, () -> clusterInitializer.initCluster(List.of("foo"), List.of("bar"), " "));
     }
 
     /**
@@ -175,7 +224,7 @@ public class ClusterInitializerTest {
      */
     @Test
     void testUnresolvableNode() {
-        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of("foo"), List.of("bar"));
+        CompletableFuture<Void> initFuture = clusterInitializer.initCluster(List.of("foo"), List.of("bar"), "cluster");
 
         IllegalArgumentException e = assertFutureThrows(IllegalArgumentException.class, initFuture);
 

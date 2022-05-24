@@ -160,7 +160,8 @@ class ItClusterCommandTest extends AbstractCliIntegrationTest {
                 "cluster", "init",
                 "--node-endpoint", FIRST_NODE.restHostPort(),
                 "--meta-storage-node", SECOND_NODE.nodeName(testInfo),
-                "--cmg-node", THIRD_NODE.nodeName(testInfo)
+                "--cmg-node", THIRD_NODE.nodeName(testInfo),
+                "--cluster-name", "ignite-cluster"
         );
 
         assertThat(

@@ -65,7 +65,7 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, null, workDir);
 
-        IgnitionManager.init(nodeName, List.of(nodeName));
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
 
         assertThat(future, willCompleteSuccessfully());
 

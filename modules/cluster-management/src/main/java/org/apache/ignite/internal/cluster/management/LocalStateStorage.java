@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import java.util.Collection;
-import java.util.List;
+import java.io.Serializable;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -30,7 +30,26 @@ import org.apache.ignite.lang.ByteArray;
  * <p>This state has nothing to do with local Raft state and is only used on node startup, when Raft groups have not yet been started.
  */
 class LocalStateStorage {
-    private static final ByteArray CMG_NODES_VAULT_KEY = ByteArray.fromString("cmg_nodes");
+    private static final ByteArray CMG_STATE_VAULT_KEY = ByteArray.fromString("cmg_state");
+
+    static class LocalState implements Serializable {
+        private final Set<String> cmgNodeNames;
+
+        private final ClusterTag clusterTag;
+
+        LocalState(Set<String> cmgNodeNames, ClusterTag clusterTag) {
+            this.cmgNodeNames = Set.copyOf(cmgNodeNames);
+            this.clusterTag = clusterTag;
+        }
+
+        Set<String> cmgNodeNames() {
+            return cmgNodeNames;
+        }
+
+        ClusterTag clusterTag() {
+            return clusterTag;
+        }
+    }
 
     private final VaultManager vault;
 
@@ -39,23 +58,23 @@ class LocalStateStorage {
     }
 
     /**
-     * Retrieves the list of node names that host the CMG.
+     * Retrieves the local state.
      *
-     * @return List of node names that host the CMG.
+     * @return Local state.
      */
-    CompletableFuture<Collection<String>> cmgNodeNames() {
-        return vault.get(CMG_NODES_VAULT_KEY)
-                .thenApply(entry -> entry == null ? List.of() : (Collection<String>) ByteUtils.fromBytes(entry.value()));
+    CompletableFuture<LocalState> getLocalState() {
+        return vault.get(CMG_STATE_VAULT_KEY)
+                .thenApply(entry -> entry == null ? null : (LocalState) ByteUtils.fromBytes(entry.value()));
     }
 
     /**
-     * Saves the list of node names that host the CMG.
+     * Saves a given local state.
      *
-     * @param nodeNames Node names that host the CMG.
+     * @param state Local state to save.
      * @return Future that represents the state of the operation.
      */
-    CompletableFuture<Void> putCmgNodeNames(Collection<String> nodeNames) {
-        return vault.put(CMG_NODES_VAULT_KEY, ByteUtils.toBytes(nodeNames));
+    CompletableFuture<Void> saveLocalState(LocalState state) {
+        return vault.put(CMG_STATE_VAULT_KEY, ByteUtils.toBytes(state));
     }
 
     /**
@@ -64,6 +83,6 @@ class LocalStateStorage {
      * @return Future that represents the state of the operation.
      */
     CompletableFuture<Void> clear() {
-        return vault.remove(CMG_NODES_VAULT_KEY);
+        return vault.remove(CMG_STATE_VAULT_KEY);
     }
 }

@@ -1,6 +1,6 @@
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
+ * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
@@ -15,56 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.utils;
+package org.apache.ignite.internal.properties;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Utility class to read Ignite properties from properties file.
  */
 public class IgniteProperties {
+    /** Ignite product version. */
+    public static final String VERSION = "ignite.version";
+
     /** Properties file path. */
     private static final String FILE_PATH = "ignite.properties";
 
     /** Properties. */
-    private static final Properties PROPS;
-
-    static {
-        PROPS = new Properties();
-
-        readProperties(FILE_PATH, PROPS, true);
-    }
+    private static final Properties PROPS = readProperties(FILE_PATH);
 
     /**
      * Reads properties.
      *
      * @param path     Path.
-     * @param props    Properties.
-     * @param throwExc Flag indicating whether to throw an exception or not.
      */
-    public static void readProperties(String path, Properties props, boolean throwExc) {
-        try (InputStream is = IgniteProperties.class.getClassLoader().getResourceAsStream(path)) {
-            if (is == null) {
-                if (throwExc) {
-                    throw new RuntimeException("Failed to find properties file: " + path);
-                } else {
-                    return;
-                }
-            }
+    private static Properties readProperties(String path) {
+        Properties properties = new Properties();
 
-            props.load(is);
+        try (InputStream is = IgniteProperties.class.getClassLoader().getResourceAsStream(path)) {
+            properties.load(is);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read properties file: " + path, e);
+            throw new IgniteInternalException("Failed to read properties file: " + path, e);
         }
+
+        return properties;
     }
 
     /**
-     * Returns property value for a given key or {@code null} if nothing was found.
+     * Returns property value for a given key or an empty string if nothing was found.
      *
      * @param key Key.
-     * @return Value or {@code null}.
+     * @return Value or an empty string.
      */
     public static String get(String key) {
         return PROPS.getProperty(key, "");
