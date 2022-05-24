@@ -18,12 +18,24 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 
 /**
  * Waiting IGNITE-17014.
  */
 // TODO: IGNITE-17014 - надо дождаться
 public class FilePageStore implements PageStore {
+    /** Data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}. */
+    private final byte type;
+
+    /** File page store path. */
+    private final Path filePath;
+
+    public FilePageStore(byte type, Path filePath) {
+        this.type = type;
+        this.filePath = filePath;
+    }
+
     @Override
     public void addWriteListener(PageWriteListener listener) {
     }
@@ -93,5 +105,19 @@ public class FilePageStore implements PageStore {
 
     @Override
     public void close() {
+    }
+
+    /**
+     * Returns data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
+     */
+    byte type() {
+        return type;
+    }
+
+    /**
+     * Returns file page store path.
+     */
+    Path filePath() {
+        return filePath;
     }
 }

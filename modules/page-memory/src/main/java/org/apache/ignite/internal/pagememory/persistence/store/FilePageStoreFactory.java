@@ -29,6 +29,6 @@ public class FilePageStoreFactory {
     }
 
     public FilePageStore createPageStore(byte type, Path filePath) {
-        return new FilePageStore();
+        return new FilePageStore(type, filePath);
     }
 }

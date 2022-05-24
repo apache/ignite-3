@@ -169,10 +169,12 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      *
      * @param grpName Group name.
      * @param grpId Group ID.
-     * @param partitions Partition number.
+     * @param partitions Partition number, must be greater than {@link 0} and less {@link PageIdAllocator#MAX_PARTITION_ID} + 1.
      * @throws IgniteInternalCheckedException If failed.
      */
     public void initialize(String grpName, int grpId, int partitions) throws IgniteInternalCheckedException {
+        assert partitions > 0 && partitions < MAX_PARTITION_ID + 1 : partitions;
+
         initGroupDirLock.lock(grpId);
 
         try {
@@ -206,10 +208,12 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
      *
      * @param grpId Group ID.
      * @param partId Partition ID, either {@link PageIdAllocator#INDEX_PARTITION} or {@code 0} to {@link PageIdAllocator#MAX_PARTITION_ID}
-     *      (inclusive).
+     * (inclusive).
      * @throws IgniteInternalCheckedException If group or partition with the given ID was not created.
      */
     public FilePageStore getStore(int grpId, int partId) throws IgniteInternalCheckedException {
+        assert partId >= 0 && (partId == INDEX_PARTITION || partId <= MAX_PARTITION_ID) : partId;
+
         GroupPageStoreHolder<FilePageStore> holder = groupPageStoreHolders.get(grpId);
 
         if (holder == null) {
@@ -222,13 +226,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
             return holder.idxStore;
         }
 
-        if (partId > MAX_PARTITION_ID) {
-            throw new IgniteInternalCheckedException("Partition ID is reserved: " + partId);
-        }
-
-        FilePageStore store = holder.partStores[partId];
-
-        if (store == null) {
+        if (partId >= holder.partStores.length) {
             throw new IgniteInternalCheckedException(String.format(
                     "Failed to get file page store for the given partition ID (partition has not been created) [grpId=%s, partId=%s]",
                     grpId,
@@ -236,7 +234,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
             ));
         }
 
-        return store;
+        return holder.partStores[partId];
     }
 
     /**
@@ -268,7 +266,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
         };
 
         if (cleanFiles) {
-            cleanupAsyncExecutor.async(stopPageStores, "file-store-cleanup");
+            cleanupAsyncExecutor.async(stopPageStores, "file-page-stores-cleanup");
         } else {
             stopPageStores.run();
         }
@@ -296,11 +294,6 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
             throw new IgniteInternalCheckedException("Failed to initialize group working directory "
                     + "(failed to create, make sure the work folder has correct permissions): "
                     + groupWorkDir, e);
-        }
-
-        if (!Files.isDirectory(groupWorkDir)) {
-            throw new IgniteInternalCheckedException("Failed to initialize cache working directory "
-                    + "(a file with the same name already exists): " + groupWorkDir);
         }
 
         return groupWorkDir;
