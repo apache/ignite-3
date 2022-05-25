@@ -75,7 +75,13 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     /**
      * Constructor.
      */
-    public PageMemoryMvPartitionStorage(int partitionId, TableView tableConfig, PageMemoryDataRegion dataRegion, VersionChainFreeList versionChainFreeList, RowVersionFreeList rowVersionFreeList) {
+    public PageMemoryMvPartitionStorage(
+            int partitionId,
+            TableView tableConfig,
+            PageMemoryDataRegion dataRegion,
+            VersionChainFreeList versionChainFreeList,
+            RowVersionFreeList rowVersionFreeList
+    ) {
         this.partitionId = partitionId;
 
         this.versionChainFreeList = versionChainFreeList;
