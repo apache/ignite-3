@@ -41,10 +41,6 @@ class ReadLatestRowVersion implements PageMemoryTraversal<Predicate<Timestamp>> 
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    {
-        reset();
-    }
-
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Predicate<Timestamp> loadValue) {
         if (readingFirstSlot) {

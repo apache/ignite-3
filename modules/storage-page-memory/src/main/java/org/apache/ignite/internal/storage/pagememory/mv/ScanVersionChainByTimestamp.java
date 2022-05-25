@@ -46,10 +46,6 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
 
     private final ReadRowVersionValue readRowVersionValue = new ReadRowVersionValue();
 
-    {
-        reset();
-    }
-
     @Override
     public long consumePagePayload(long link, long pageAddr, DataPagePayload payload, Timestamp timestamp) {
         if (lookingForVersion) {
