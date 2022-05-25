@@ -19,11 +19,13 @@ package org.apache.ignite.internal.sql.api;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -53,22 +55,29 @@ public class SessionImpl implements Session {
 
     private final Set<AsyncSqlCursor<List<Object>>> cursToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    private final Map<String, Object> props;
+
     /**
      * Constructor.
      *
      * @param qryProc Query processor.
      * @param schema  Query default schema.
+     * @param timeout Query default timeout.
+     * @param pageSize Query fetch page size.
+     * @param props Session's properties.
      */
     SessionImpl(
             QueryProcessor qryProc,
             String schema,
             long timeout,
-            int pageSize
+            int pageSize,
+            Map<String, Object> props
     ) {
         this.qryProc = qryProc;
         this.schema = schema;
         this.timeout = timeout;
         this.pageSize = pageSize;
+        this.props = props;
     }
 
     /** {@inheritDoc} */
@@ -104,7 +113,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return timeUnit.convert(timeout, TimeUnit.NANOSECONDS);
     }
 
     /** {@inheritDoc} */
@@ -128,13 +137,18 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public void close() {
+        futsToClose.forEach(f -> f.cancel(true));
 
+        cursToClose.forEach(AsyncCursor::closeAsync);
     }
 
     /** {@inheritDoc} */
     @Override
     public SessionBuilder toBuilder() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new SessionBuilderImpl(qryProc, props)
+                .defaultPageSize(pageSize)
+                .defaultTimeout(timeout, TimeUnit.NANOSECONDS)
+                .defaultSchema(schema);
     }
 
     /** {@inheritDoc} */
