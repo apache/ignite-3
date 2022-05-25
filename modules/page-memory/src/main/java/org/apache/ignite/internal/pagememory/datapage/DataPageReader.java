@@ -38,7 +38,7 @@ public class DataPageReader {
     /**
      * Constructs a new instance.
      *
-     * @param pageMemory       page memory that will be used to lock and access memory
+     * @param pageMemory       Page memory that will be used to lock and access memory.
      * @param groupId          ID of the cache group with which the reader works (all pages must belong to this group)
      * @param statisticsHolder used to track statistics about operations
      */
@@ -54,8 +54,8 @@ public class DataPageReader {
      * (or {@link PageMemoryTraversal#STOP_TRAVERSAL} to stop.
      *
      * @param link Row link
-     * @param traversal object consuming payloads and controlling the traversal
-     * @param argument argument that is passed to the traversal
+     * @param traversal Object consuming payloads and controlling the traversal.
+     * @param argument Argument that is passed to the traversal.
      * @throws IgniteInternalCheckedException If failed
      * @see org.apache.ignite.internal.pagememory.util.PageIdUtils#link(long, int)
      * @see PageMemoryTraversal
