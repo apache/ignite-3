@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -235,12 +236,9 @@ public class SessionImpl implements Session {
                         v0 -> {
                             futsToClose.forEach(f -> f.cancel(true));
 
-                            CompletableFuture<Void> f = CompletableFuture.completedFuture(null);
-                            for (var cur : cursToClose) {
-                                f = f.thenCompose(v1 -> cur.closeAsync());
-                            }
-
-                            return f;
+                            return CompletableFuture.allOf(
+                                    cursToClose.stream().map(AsyncCursor::closeAsync).toArray(CompletableFuture[]::new)
+                            );
                         }
                 );
     }
