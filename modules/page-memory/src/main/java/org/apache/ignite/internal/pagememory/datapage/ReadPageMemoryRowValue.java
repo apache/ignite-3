@@ -73,7 +73,7 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
             allValueBytes = new byte[valueSize];
             transferredBytes = 0;
 
-            readValueFragmentToArray(pageAddr, payload);
+            readValueFragmentToArray(pageAddr, payload, valueOffsetInFirstSlot());
 
             return payload.nextLink();
         }
@@ -89,15 +89,15 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
         return STOP_TRAVERSAL;
     }
 
-    private void readValueFragmentToArray(long pageAddr, DataPagePayload payload) {
-        PageUtils.getBytes(pageAddr, payload.offset(), allValueBytes, transferredBytes, payload.payloadSize());
+    private void readValueFragmentToArray(long pageAddr, DataPagePayload payload, int offsetToValue) {
+        PageUtils.getBytes(pageAddr, payload.offset() + offsetToValue, allValueBytes, transferredBytes, payload.payloadSize());
         transferredBytes += payload.payloadSize();
     }
 
     private long readNextFragment(long pageAddr, DataPagePayload payload) {
         assert allValueBytes != null;
 
-        readValueFragmentToArray(pageAddr, payload);
+        readValueFragmentToArray(pageAddr, payload, 0);
 
         if (payload.hasMoreFragments()) {
             return payload.nextLink();
