@@ -431,7 +431,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXECUTE:
-                return null; // TODO
+                // TODO: Can we reuse JDBC? Probably not, but make sure - what's the difference?
+                // TODO: Separate PR for renaming to limit the scope.
+                return null;
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
