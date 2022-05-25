@@ -159,7 +159,7 @@ public abstract class PageIo {
      * @param pageAddr Page address.
      * @param type Type.
      */
-    public static void setType(long pageAddr, int type) {
+    protected static void setType(long pageAddr, int type) {
         PageUtils.putShort(pageAddr, TYPE_OFF, (short) type);
 
         assert getType(pageAddr) == type : getType(pageAddr);

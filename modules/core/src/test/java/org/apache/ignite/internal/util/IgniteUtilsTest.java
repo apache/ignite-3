@@ -22,15 +22,18 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -123,5 +126,29 @@ class IgniteUtilsTest {
                 throw new RuntimeException(e);
             }
         }).get(1, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void testToHexStringByteBuffer() {
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+
+        assertEquals("00000000ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).rewind()));
+        assertEquals("00000000aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).rewind()));
+
+        assertEquals("", toHexString(buffer.rewind().putLong(0xffffaaaaL)));
+        assertEquals("", toHexString(buffer.rewind().putLong(0xaaaabbbbL)));
+
+        assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4)));
+        assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4)));
+
+        assertEquals("00001111", toHexString(buffer.rewind().limit(8).putLong(0x1111ffffaaaaL).rewind().limit(4)));
+        assertEquals("00002222", toHexString(buffer.rewind().limit(8).putLong(0x2222aaaabbbbL).rewind().limit(4)));
+
+        buffer.rewind().limit(8);
+
+        // Checks slice.
+
+        assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4).slice()));
+        assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4).slice()));
     }
 }
