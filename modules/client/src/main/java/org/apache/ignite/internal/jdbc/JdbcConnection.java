@@ -55,7 +55,6 @@ import org.apache.ignite.client.proto.jdbc.JdbcQueryEventHandler;
 import org.apache.ignite.client.proto.jdbc.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.client.query.JdbcClientQueryEventHandler;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.jetbrains.annotations.Nullable;
 

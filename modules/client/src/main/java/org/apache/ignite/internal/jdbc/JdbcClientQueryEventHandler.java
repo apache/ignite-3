@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.query;
+package org.apache.ignite.internal.jdbc;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.proto.jdbc.JdbcQueryEventHandler;
