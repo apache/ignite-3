@@ -26,12 +26,9 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import org.apache.ignite.configuration.schemas.table.TableView;
-import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
-import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
-import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -70,30 +67,21 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
     private final RowVersionFreeList rowVersionFreeList;
     private final DataPageReader rowVersionDataPageReader;
 
-    private ThreadLocal<ReadLatestRowVersion> readLatestRowVersionCache = ThreadLocal.withInitial(ReadLatestRowVersion::new);
-    private ThreadLocal<ScanVersionChainByTimestamp> scanVersionChainByTimestampCache = ThreadLocal.withInitial(
+    private final ThreadLocal<ReadLatestRowVersion> readLatestRowVersionCache = ThreadLocal.withInitial(ReadLatestRowVersion::new);
+    private final ThreadLocal<ScanVersionChainByTimestamp> scanVersionChainByTimestampCache = ThreadLocal.withInitial(
             ScanVersionChainByTimestamp::new
     );
 
     /**
      * Constructor.
      */
-    public PageMemoryMvPartitionStorage(int partitionId, TableView tableConfig, PageMemoryDataRegion dataRegion) {
+    public PageMemoryMvPartitionStorage(int partitionId, TableView tableConfig, PageMemoryDataRegion dataRegion, VersionChainFreeList versionChainFreeList, RowVersionFreeList rowVersionFreeList) {
         this.partitionId = partitionId;
 
+        this.versionChainFreeList = versionChainFreeList;
+        this.rowVersionFreeList = rowVersionFreeList;
+
         groupId = StorageUtils.groupId(tableConfig);
-
-        try {
-            versionChainFreeList = createVersionChainFreeList(dataRegion.pageMemory(), groupId, partitionId);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a VersionChainFreeList", e);
-        }
-
-        try {
-            rowVersionFreeList = createRowVersionFreeList(dataRegion.pageMemory(), groupId, partitionId, versionChainFreeList);
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating a RowVersionFreeList", e);
-        }
 
         try {
             versionChainTree = createVersionChainTree(partitionId, tableConfig, dataRegion, versionChainFreeList);
@@ -103,39 +91,6 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
         versionChainDataPageReader = new VersionChainDataPageReader(dataRegion.pageMemory(), groupId, IoStatisticsHolderNoOp.INSTANCE);
         rowVersionDataPageReader = new DataPageReader(dataRegion.pageMemory(), groupId, IoStatisticsHolderNoOp.INSTANCE);
-    }
-
-    private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, int groupId, int partitionId)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(groupId, partitionId, FLAG_AUX);
-
-        return new VersionChainFreeList(
-                groupId,
-                pageMemory,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                null,
-                PageEvictionTrackerNoOp.INSTANCE,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
-    }
-
-    private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, int groupId, int partitionId, ReuseList reuseList)
-            throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(groupId, partitionId, FLAG_AUX);
-
-        return new RowVersionFreeList(
-                groupId,
-                pageMemory,
-                reuseList,
-                PageLockListenerNoOp.INSTANCE,
-                metaPageId,
-                true,
-                null,
-                PageEvictionTrackerNoOp.INSTANCE,
-                IoStatisticsHolderNoOp.INSTANCE
-        );
     }
 
     private VersionChainTree createVersionChainTree(

@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.AbstractFreeList;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainDataIo;
@@ -50,6 +51,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
      *
      * @param grpId              Group ID.
      * @param pageMem            Page memory.
+     * @param reuseList          Reuse list to use.
      * @param lockLsnr           Page lock listener.
      * @param metaPageId         Metadata page ID.
      * @param initNew            {@code True} if new metadata should be initialized.
@@ -61,6 +63,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
     public VersionChainFreeList(
             int grpId,
             PageMemory pageMem,
+            ReuseList reuseList,
             PageLockListener lockLsnr,
             long metaPageId,
             boolean initNew,
@@ -72,7 +75,7 @@ public class VersionChainFreeList extends AbstractFreeList<VersionChain> {
                 grpId,
                 "VersionChainFreeList_" + grpId,
                 pageMem,
-                null,
+                reuseList,
                 lockLsnr,
                 FLAG_AUX,
                 LOG,

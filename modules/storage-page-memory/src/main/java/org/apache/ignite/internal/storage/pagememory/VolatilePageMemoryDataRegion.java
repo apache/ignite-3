@@ -28,8 +28,11 @@ import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
+import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.mv.RowVersionFreeList;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChainFreeList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -39,6 +42,9 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     private static final int FREE_LIST_GROUP_ID = 0;
 
     private TableFreeList tableFreeList;
+
+    private VersionChainFreeList versionChainFreeList;
+    private RowVersionFreeList rowVersionFreeList;
 
     /**
      * Constructor.
@@ -68,6 +74,18 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating a TableFreeList", e);
         }
+
+        try {
+            versionChainFreeList = createVersionChainFreeList(pageMemory, null);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error creating a VersionChainFreeList", e);
+        }
+
+        try {
+            rowVersionFreeList = createRowVersionFreeList(pageMemory, tableFreeList);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error creating a RowVersionFreeList", e);
+        }
     }
 
     private TableFreeList createTableFreeList(PageMemory pageMemory) throws IgniteInternalCheckedException {
@@ -76,6 +94,40 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         return new TableFreeList(
                 VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
                 pageMemory,
+                PageLockListenerNoOp.INSTANCE,
+                metaPageId,
+                true,
+                null,
+                PageEvictionTrackerNoOp.INSTANCE,
+                IoStatisticsHolderNoOp.INSTANCE
+        );
+    }
+
+    private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, ReuseList reuseList)
+            throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION, FLAG_AUX);
+
+        return new VersionChainFreeList(
+                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                pageMemory,
+                reuseList,
+                PageLockListenerNoOp.INSTANCE,
+                metaPageId,
+                true,
+                null,
+                PageEvictionTrackerNoOp.INSTANCE,
+                IoStatisticsHolderNoOp.INSTANCE
+        );
+    }
+
+    private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, ReuseList reuseList)
+            throws IgniteInternalCheckedException {
+        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION, FLAG_AUX);
+
+        return new RowVersionFreeList(
+                VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
+                pageMemory,
+                reuseList,
                 PageLockListenerNoOp.INSTANCE,
                 metaPageId,
                 true,
@@ -96,11 +148,25 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     }
 
     /**
-     * Returns free list.
+     * Returns table free list.
      *
      * <p>NOTE: Free list must be one for the in-memory data region.
      */
     public TableFreeList tableFreeList() {
         return tableFreeList;
+    }
+
+    /**
+     * Returns version chain free list.
+     */
+    public VersionChainFreeList versionChainFreeList() {
+        return versionChainFreeList;
+    }
+
+    /**
+     * Returns version chain free list.
+     */
+    public RowVersionFreeList rowVersionFreeList() {
+        return rowVersionFreeList;
     }
 }

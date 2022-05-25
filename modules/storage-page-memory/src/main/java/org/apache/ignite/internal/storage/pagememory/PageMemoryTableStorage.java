@@ -184,6 +184,11 @@ public abstract class PageMemoryTableStorage implements TableStorage {
     // This API is not yet ready. But we need to test mv storages anyways.
     @TestOnly
     public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
-        return new PageMemoryMvPartitionStorage(partitionId, tableCfg.value(), dataRegion);
+        return new PageMemoryMvPartitionStorage(partitionId,
+                tableCfg.value(),
+                dataRegion,
+                ((VolatilePageMemoryDataRegion) dataRegion).versionChainFreeList(),
+                ((VolatilePageMemoryDataRegion) dataRegion).rowVersionFreeList()
+        );
     }
 }
