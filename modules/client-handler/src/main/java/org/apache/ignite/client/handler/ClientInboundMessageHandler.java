@@ -142,7 +142,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.compute = compute;
         this.clusterService = clusterService;
 
-        this.jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
+        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
 
     /** {@inheritDoc} */
@@ -429,11 +429,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);
-
-            case ClientOp.SQL_EXECUTE:
-                // TODO: Can we reuse JDBC? Probably not, but make sure - what's the difference?
-                // TODO: Separate PR for renaming to limit the scope.
-                return null;
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
