@@ -10,7 +10,7 @@ This pool is used to optimize queries and DML statements.
 
 The unit of work for this pool is a query that should be optimized. An optimization task is compute-heavy. Besides, the planning cycle is not optimized well enough, hence some tasks might require unreasonable amounts of time to complete, thus should be killed by a timeout.
 
-The size of this pool was chosen by a dice roll and hardcoded to 4, and should be moved to configuration in the future. The pool is named ‘sql-planning-pool’.
+The size of this pool was chosen by a dice roll and hardcoded to 4. The pool is named ‘sql-planning-pool’.
 
 ### Execution pool
 
@@ -20,7 +20,7 @@ It is very important that the threads of this pool stay alive and not block, bec
 
 Every task submitted to this pool is compute-heavy. The task should be limited to the reasonable size of computation to give a chance to others to make progress.
 
-The size of this pool was chosen by a dice roll and hardcoded to 4, and should be moved to configuration in the future. The pool is named ‘sql-execution-pool’.
+The size of this pool was chosen by a dice roll and hardcoded to 4. The pool is named ‘sql-execution-pool’.
 
 ## Query Execution Flow
 
