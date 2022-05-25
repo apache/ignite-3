@@ -28,7 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * Session builder implementation.
  */
 public class SessionBuilderImpl implements SessionBuilder {
-    public static final int DEFAULT_PAGE_SIZE = 1024;
 
     public static final long DEFAULT_TIMEOUT = 0;
 
@@ -36,9 +35,9 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private long timeout = DEFAULT_TIMEOUT;
 
-    private String schema;
+    private String schema = Session.DEFAULT_SCHEMA;
 
-    private int pageSize = DEFAULT_PAGE_SIZE;
+    private int pageSize = Session.DEFAULT_PAGE_SIZE;
 
     private final Map<String, Object> props;
 
