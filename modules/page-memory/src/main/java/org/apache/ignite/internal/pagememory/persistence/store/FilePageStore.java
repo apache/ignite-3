@@ -53,7 +53,7 @@ public class FilePageStore implements PageStore {
     }
 
     @Override
-    public long allocatePage() {
+    public long allocatePage() throws IgniteInternalCheckedException {
         return 0;
     }
 
@@ -63,7 +63,7 @@ public class FilePageStore implements PageStore {
     }
 
     @Override
-    public boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) {
+    public boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
         return false;
     }
 
@@ -72,7 +72,7 @@ public class FilePageStore implements PageStore {
     }
 
     @Override
-    public void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) {
+    public void write(long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
     }
 
     @Override

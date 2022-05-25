@@ -154,8 +154,14 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
 
     /** {@inheritDoc} */
     @Override
-    public void write(int grpId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
-        pageReadWriteManager.write(grpId, pageId, pageBuf, tag, calculateCrc);
+    public FilePageStore write(
+            int grpId,
+            long pageId,
+            ByteBuffer pageBuf,
+            int tag,
+            boolean calculateCrc
+    ) throws IgniteInternalCheckedException {
+        return pageReadWriteManager.write(grpId, pageId, pageBuf, tag, calculateCrc);
     }
 
     /** {@inheritDoc} */

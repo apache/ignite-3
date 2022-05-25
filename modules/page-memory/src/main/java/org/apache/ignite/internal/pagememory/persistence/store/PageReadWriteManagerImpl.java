@@ -49,7 +49,7 @@ class PageReadWriteManagerImpl implements PageReadWriteManager {
     /** {@inheritDoc} */
     @Override
     public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
-        PageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
+        FilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
             pageStore.read(pageId, pageBuf, keepCrc);
@@ -62,8 +62,14 @@ class PageReadWriteManagerImpl implements PageReadWriteManager {
 
     /** {@inheritDoc} */
     @Override
-    public void write(int grpId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException {
-        PageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
+    public FilePageStore write(
+            int grpId,
+            long pageId,
+            ByteBuffer pageBuf,
+            int tag,
+            boolean calculateCrc
+    ) throws IgniteInternalCheckedException {
+        FilePageStore pageStore = filePageStoreManager.getStore(grpId, partitionId(pageId));
 
         try {
             pageStore.write(pageId, pageBuf, tag, calculateCrc);
@@ -72,6 +78,8 @@ class PageReadWriteManagerImpl implements PageReadWriteManager {
 
             throw e;
         }
+
+        return pageStore;
     }
 
     /** {@inheritDoc} */
@@ -79,7 +87,7 @@ class PageReadWriteManagerImpl implements PageReadWriteManager {
     public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
         assert partId >= 0 && (partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION) : partId;
 
-        PageStore pageStore = filePageStoreManager.getStore(grpId, partId);
+        FilePageStore pageStore = filePageStoreManager.getStore(grpId, partId);
 
         try {
             long pageIdx = pageStore.allocatePage();

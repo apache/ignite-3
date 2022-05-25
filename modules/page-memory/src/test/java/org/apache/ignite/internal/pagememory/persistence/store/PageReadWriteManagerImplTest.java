@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,7 +51,7 @@ public class PageReadWriteManagerImplTest {
     }
 
     @Test
-    void testReadPage() throws Exception {
+    void testRead() throws Exception {
         long pageId = pageId(0, (byte) 0, 0);
 
         ByteBuffer pageBuffer = mock(ByteBuffer.class);
@@ -61,12 +62,12 @@ public class PageReadWriteManagerImplTest {
     }
 
     @Test
-    void testWritePage() throws Exception {
+    void testWrite() throws Exception {
         long pageId = pageId(0, (byte) 0, 0);
 
         ByteBuffer pageBuffer = mock(ByteBuffer.class);
 
-        pageReadWriteManager.write(0, pageId, pageBuffer, 0, true);
+        assertSame(filePageStore, pageReadWriteManager.write(0, pageId, pageBuffer, 0, true));
 
         verify(filePageStore, times(1)).write(pageId, pageBuffer, 0, true);
     }
