@@ -17,18 +17,103 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Waiting IGNITE-17014.
+ * Checks version in files if it's present on the disk, creates store with the latest version otherwise.
  */
-// TODO: IGNITE-17014 - надо дождаться
-public class FilePageStoreFactory {
-    public FilePageStoreFactory(FileIoFactory fileIoFactory, int pageSize) {
+class FilePageStoreFactory {
+    /** Latest page store version. */
+    public final int latestVersion = FilePageStore.VERSION;
+
+    /** {@link FileIo} factory. */
+    private final FileIoFactory fileIoFactory;
+
+    /** Page size in bytes. */
+    private final int pageSize;
+
+    /**
+     * Constructor.
+     *
+     * @param fileIoFactory File IO factory.
+     * @param pageSize Page size in bytes.
+     */
+    public FilePageStoreFactory(
+            FileIoFactory fileIoFactory,
+            int pageSize
+    ) {
+        this.fileIoFactory = fileIoFactory;
+        this.pageSize = pageSize;
     }
 
-    public FilePageStore createPageStore(byte type, Path filePath) {
-        return new FilePageStore(type, filePath);
+    /**
+     * Creates instance of {@link FilePageStore}.
+     *
+     * @param type Data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
+     * @param filePath File page store path.
+     * @return File page store.
+     * @throws IgniteInternalCheckedException if failed
+     */
+    public FilePageStore createPageStore(byte type, Path filePath) throws IgniteInternalCheckedException {
+        if (!Files.exists(filePath)) {
+            return createPageStore(type, filePath, pageSize, latestVersion);
+        }
+
+        try (FileIo fileIo = fileIoFactory.create(filePath)) {
+            int commonHeaderSize = FilePageStore.COMMON_HEADER_SIZE;
+
+            if (fileIo.size() < commonHeaderSize) {
+                return createPageStore(type, filePath, pageSize, latestVersion);
+            }
+
+            ByteBuffer commonHeader = ByteBuffer.allocate(commonHeaderSize).order(ByteOrder.nativeOrder());
+
+            fileIo.readFully(commonHeader);
+
+            commonHeader.rewind();
+
+            // Read signature.
+            commonHeader.getLong();
+
+            int ver = commonHeader.getInt();
+
+            return createPageStore(type, filePath, pageSize, ver);
+        } catch (IOException e) {
+            throw new IgniteInternalCheckedException("Error while creating file page store [file=" + filePath + "]:", e);
+        }
+    }
+
+    /**
+     * Instantiates specific version of {@link FilePageStore}.
+     *
+     * @param type Data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
+     * @param filePath File page store path.
+     * @param ver File page store version.
+     * @param pageSize Page size in bytes.
+     */
+    private FilePageStore createPageStore(
+            byte type,
+            Path filePath,
+            int pageSize,
+            int ver
+    ) throws IgniteInternalCheckedException {
+        switch (ver) {
+            case FilePageStore.VERSION:
+                return new FilePageStore(type, filePath, fileIoFactory, pageSize);
+
+            default:
+                throw new IgniteInternalCheckedException(String.format(
+                        "Unknown version of file page store [version=%s, file=%s]",
+                        ver,
+                        filePath
+                ));
+        }
     }
 }
