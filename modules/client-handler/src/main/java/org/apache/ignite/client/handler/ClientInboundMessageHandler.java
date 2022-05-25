@@ -61,7 +61,7 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
-import org.apache.ignite.client.proto.jdbc.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;

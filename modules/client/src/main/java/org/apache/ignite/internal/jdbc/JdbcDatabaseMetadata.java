@@ -36,19 +36,19 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import org.apache.ignite.client.proto.jdbc.IgniteQueryErrorCode;
-import org.apache.ignite.client.proto.jdbc.event.JdbcColumnMeta;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaColumnsRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaColumnsResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaPrimaryKeysRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaPrimaryKeysResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaSchemasRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaSchemasResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaTablesRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaTablesResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcPrimaryKeyMeta;
-import org.apache.ignite.client.proto.jdbc.event.JdbcTableMeta;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
 
 /**
  * JDBC database metadata implementation.

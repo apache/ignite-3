@@ -15,35 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.jdbc;
+package org.apache.ignite.internal.jdbc.proto;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
 
 /**
- * Client jdbc primary key metadata request handler.
+ * Interface that allows to implement custom serialization logic to client events.
  */
-public class ClientJdbcPrimaryKeyMetadataRequest {
+public interface ClientMessage {
     /**
-     * Processes remote {@code JdbcMetaPrimaryKeysRequest}.
+     * Writes fields to provided packer.
      *
-     * @param in      Client message unpacker.
-     * @param out     Client message packer.
-     * @param handler Query event handler.
-     * @return Operation future.
+     * @param packer Client message packer.
      */
-    public static CompletableFuture<Void> process(
-            ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandler handler
-    ) {
-        var req = new JdbcMetaPrimaryKeysRequest();
+    void writeBinary(ClientMessagePacker packer);
 
-        req.readBinary(in);
-
-        return handler.primaryKeysMetaAsync(req).thenAccept(res -> res.writeBinary(out));
-    }
+    /**
+     * Reads fields from provided reader.
+     *
+     * @param unpacker Client message unpacker.
+     */
+    void readBinary(ClientMessageUnpacker unpacker);
 }

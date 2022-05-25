@@ -15,35 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.jdbc;
+package org.apache.ignite.internal.jdbc.proto.event;
 
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
 
 /**
- * Client jdbc primary key metadata request handler.
+ * Client message utils class.
  */
-public class ClientJdbcPrimaryKeyMetadataRequest {
+public class ClientMessageUtils {
     /**
-     * Processes remote {@code JdbcMetaPrimaryKeysRequest}.
+     * Packs a string or null if string is null.
      *
-     * @param in      Client message unpacker.
-     * @param out     Client message packer.
-     * @param handler Query event handler.
-     * @return Operation future.
+     * @param packer Message packer.
+     * @param str    String to serialize.
      */
-    public static CompletableFuture<Void> process(
-            ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandler handler
-    ) {
-        var req = new JdbcMetaPrimaryKeysRequest();
+    public static void writeStringNullable(ClientMessagePacker packer, String str) {
+        if (str == null) {
+            packer.packNil();
+        } else {
+            packer.packString(str);
+        }
+    }
 
-        req.readBinary(in);
+    /**
+     * Unpack a string or null if no string is presented.
+     *
+     * @param unpacker Message unpacker.
+     * @return String or null.
+     */
+    public static String readStringNullable(ClientMessageUnpacker unpacker) {
+        if (!unpacker.tryUnpackNil()) {
+            return unpacker.unpackString();
+        }
 
-        return handler.primaryKeysMetaAsync(req).thenAccept(res -> res.writeBinary(out));
+        return null;
     }
 }

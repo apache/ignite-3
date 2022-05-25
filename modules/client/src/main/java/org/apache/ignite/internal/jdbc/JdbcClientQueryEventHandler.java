@@ -18,27 +18,27 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.proto.jdbc.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.jdbc.event.BatchExecuteRequest;
-import org.apache.ignite.client.proto.jdbc.event.BatchExecuteResult;
-import org.apache.ignite.client.proto.jdbc.event.BatchPreparedStmntRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaColumnsRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaColumnsResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaPrimaryKeysRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaPrimaryKeysResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaSchemasRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaSchemasResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaTablesRequest;
-import org.apache.ignite.client.proto.jdbc.event.JdbcMetaTablesResult;
-import org.apache.ignite.client.proto.jdbc.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.client.proto.jdbc.event.QueryCloseRequest;
-import org.apache.ignite.client.proto.jdbc.event.QueryCloseResult;
-import org.apache.ignite.client.proto.jdbc.event.QueryExecuteRequest;
-import org.apache.ignite.client.proto.jdbc.event.QueryExecuteResult;
-import org.apache.ignite.client.proto.jdbc.event.QueryFetchRequest;
-import org.apache.ignite.client.proto.jdbc.event.QueryFetchResult;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
+import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 
 /**
  * Jdbc query network event handler implementation.
