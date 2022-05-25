@@ -108,6 +108,27 @@ public final class CollectionUtils {
     }
 
     /**
+     * Gets first element from given iterable or returns {@code null} if list is empty.
+     *
+     * @param iterable Iterable to retrieve the first element.
+     * @param <T>  Type of the elements of the list.
+     * @return The first element of the given iterable or {@code null} in case the iterable is null or empty.
+     */
+    public static <T> T first(Iterable<? extends T> iterable) {
+        if (iterable == null) {
+            return null;
+        }
+
+        Iterator<? extends T> it = iterable.iterator();
+
+        if (!it.hasNext()) {
+            return null;
+        }
+
+        return it.next();
+    }
+
+    /**
      * Union set and items.
      *
      * @param set Set.

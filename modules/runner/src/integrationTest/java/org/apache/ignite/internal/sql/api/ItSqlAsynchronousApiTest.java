@@ -188,6 +188,30 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    public void sqlRow() throws ExecutionException, InterruptedException {
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().build();
+
+        AsyncResultSet ars = ses.executeAsync(null, "SELECT 1 as COL_A, 2 as COL_B").get();
+
+        SqlRow r = CollectionUtils.first(ars.currentPage());
+
+        assertEquals(2, r.columnCount());
+        assertEquals(0, r.columnIndex("COL_A"));
+        assertEquals(1, r.columnIndex("COL_B"));
+        assertEquals(-1, r.columnIndex("notExistColumn"));
+
+        assertEquals(1, r.intValue("COL_A"));
+        assertEquals(2, r.intValue("COL_B"));
+
+        assertThrowsWithCause(
+                () -> r.intValue("notExistColumn"),
+                IllegalArgumentException.class,
+                "Column doesn't exist [name=notExistColumn]"
+        );
+    }
+
+    @Test
     public void pageSequence() throws ExecutionException, InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         for (int i = 0; i < ROW_COUNT; ++i) {
