@@ -22,7 +22,6 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
@@ -96,6 +95,13 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             + "%s"
             + "pages=%d, "
             + "reason='%s']";
+
+    /**
+     * Any thread with a such prefix is managed by the checkpoint.
+     *
+     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because checkpoint is already held write lock).
+     */
+    static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     /** Pause detector. */
     @Nullable

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Checkpointer.CHECKPOINT_RUNNER_THREAD_PREFIX;
+
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.lang.IgniteInternalException;
 
@@ -25,13 +27,6 @@ import org.apache.ignite.lang.IgniteInternalException;
  */
 public class CheckpointReadWriteLock {
     private final ThreadLocal<Integer> checkpointReadLockHoldCount = ThreadLocal.withInitial(() -> 0);
-
-    /**
-     * Any thread with a such prefix is managed by the checkpoint. So some conditions can rely on it(ex. we don't need a checkpoint lock
-     * there because checkpoint is already held write lock).
-     */
-    // TODO: IGNITE-16984 I think it needs to be redone or relocated
-    static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     /** Checkpoint lock. */
     private final ReentrantReadWriteLockWithTracking checkpointLock;
