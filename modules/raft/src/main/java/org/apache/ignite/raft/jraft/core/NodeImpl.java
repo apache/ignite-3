@@ -450,7 +450,7 @@ public class NodeImpl implements Node, RaftServerService {
                     } else {
                         node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, () -> {
                             // TODO: error handling for changePeersAsync https://ggsystems.atlassian.net/browse/IGN-19294
-                            node.changePeersAsync(new Configuration(newPeers), node.getCurrentTerm(), newStatus -> {});
+                            node.changePeersAsync(new Configuration(resultPeers), node.getCurrentTerm(), newStatus -> {});
                             return null;
                         });
                     }

@@ -155,7 +155,11 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public Entry get(byte[] key, long rev) {
         synchronized (mux) {
-            return doGet(key, rev, true);
+            try {
+                return doGet(key, rev, true);
+            } catch (NullPointerException e) {
+                throw e;
+            }
         }
     }
 
@@ -547,9 +551,13 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return Entry.empty(key);
         }
 
+        System.out.println("1.1.1");
+
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
+
+            System.out.println("1.1.3");
             return Entry.tombstone(key, lastRev, lastVal.updateCounter());
         }
 

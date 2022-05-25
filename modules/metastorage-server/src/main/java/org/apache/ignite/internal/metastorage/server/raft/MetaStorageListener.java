@@ -109,54 +109,64 @@ public class MetaStorageListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iter) {
-        while (iter.hasNext()) {
-            CommandClosure<ReadCommand> clo = iter.next();
+        try {
+            while (iter.hasNext()) {
+                CommandClosure<ReadCommand> clo = iter.next();
 
-            ReadCommand command = clo.command();
+                ReadCommand command = clo.command();
 
-            if (command instanceof GetCommand) {
-                GetCommand getCmd = (GetCommand) command;
+                if (command instanceof GetCommand) {
+                    System.out.println("GetCommand");
+                    GetCommand getCmd = (GetCommand) command;
 
-                Entry e;
+                    Entry e;
 
-                if (getCmd.revision() != 0) {
-                    e = storage.get(getCmd.key(), getCmd.revision());
+                    if (getCmd.revision() != 0) {
+                        System.out.println("1");
+                        e = storage.get(getCmd.key(), getCmd.revision());
+                        System.out.println("1.1");
+                    } else {
+                        System.out.println("2");
+                        e = storage.get(getCmd.key());
+                        System.out.println("2.2");
+                    }
+
+                    SingleEntryResponse resp = new SingleEntryResponse(
+                            e.key(), e.value(), e.revision(), e.updateCounter()
+                    );
+
+                    clo.result(resp);
+                } else if (command instanceof GetAllCommand) {
+                    GetAllCommand getAllCmd = (GetAllCommand) command;
+
+                    Collection<Entry> entries;
+
+                    if (getAllCmd.revision() != 0) {
+                        entries = storage.getAll(getAllCmd.keys(), getAllCmd.revision());
+                    } else {
+                        entries = storage.getAll(getAllCmd.keys());
+                    }
+
+                    List<SingleEntryResponse> res = new ArrayList<>(entries.size());
+
+                    for (Entry e : entries) {
+                        res.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
+                    }
+
+                    clo.result(new MultipleEntryResponse(res));
+                } else if (command instanceof CursorHasNextCommand) {
+                    CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand) command;
+
+                    CursorMeta cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
+
+                    clo.result(!(cursorDesc == null) && cursorDesc.cursor().hasNext());
                 } else {
-                    e = storage.get(getCmd.key());
+                    assert false : "Command was not found [cmd=" + command + ']';
                 }
-
-                SingleEntryResponse resp = new SingleEntryResponse(
-                        e.key(), e.value(), e.revision(), e.updateCounter()
-                );
-
-                clo.result(resp);
-            } else if (command instanceof GetAllCommand) {
-                GetAllCommand getAllCmd = (GetAllCommand) command;
-
-                Collection<Entry> entries;
-
-                if (getAllCmd.revision() != 0) {
-                    entries = storage.getAll(getAllCmd.keys(), getAllCmd.revision());
-                } else {
-                    entries = storage.getAll(getAllCmd.keys());
-                }
-
-                List<SingleEntryResponse> res = new ArrayList<>(entries.size());
-
-                for (Entry e : entries) {
-                    res.add(new SingleEntryResponse(e.key(), e.value(), e.revision(), e.updateCounter()));
-                }
-
-                clo.result(new MultipleEntryResponse(res));
-            } else if (command instanceof CursorHasNextCommand) {
-                CursorHasNextCommand cursorHasNextCmd = (CursorHasNextCommand) command;
-
-                CursorMeta cursorDesc = cursors.get(cursorHasNextCmd.cursorId());
-
-                clo.result(!(cursorDesc == null) && cursorDesc.cursor().hasNext());
-            } else {
-                assert false : "Command was not found [cmd=" + command + ']';
             }
+        } catch (NullPointerException e) {
+            throw e;
+
         }
     }
 

@@ -431,7 +431,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGet(key, rev, true);
-        } finally {
+        } catch (NullPointerException e) {
+            throw e;
+        }
+        finally {
             rwLock.readLock().unlock();
         }
     }
