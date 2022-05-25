@@ -59,7 +59,9 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
-                }
+                },
+                // TODO: IGNITE-16984 Consider a real test
+                () -> true
         );
     }
 

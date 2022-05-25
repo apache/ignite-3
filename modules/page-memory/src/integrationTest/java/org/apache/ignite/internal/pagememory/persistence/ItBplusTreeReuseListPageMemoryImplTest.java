@@ -54,7 +54,8 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
                 (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
-                }
+                },
+                () -> true
         );
     }
 

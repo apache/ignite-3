@@ -55,7 +55,8 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
                 (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
-                }
+                },
+                () -> true
         );
     }
 

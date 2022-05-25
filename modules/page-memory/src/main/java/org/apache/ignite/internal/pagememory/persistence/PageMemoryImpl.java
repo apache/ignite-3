@@ -74,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
@@ -163,7 +164,7 @@ public class PageMemoryImpl implements PageMemory {
     private final PageIoRegistry ioRegistry;
 
     /** Page manager. */
-    private final PageReadWriteManager pmPageMgr;
+    private final PageReadWriteManager pageStoreManager;
 
     /** Page size. */
     private final int sysPageSize;
@@ -218,6 +219,9 @@ public class PageMemoryImpl implements PageMemory {
     /** Flush dirty page closure. */
     private final PageStoreWriter flushDirtyPage;
 
+    /** Supplier to check the holding of the checkpoint lock by the current thread. */
+    private final BooleanSupplier checkpointLockIsHeldByCurrentThreadSupplier;
+
     /**
      * Constructor.
      *
@@ -225,26 +229,29 @@ public class PageMemoryImpl implements PageMemory {
      * @param dataRegionCfg Data region configuration.
      * @param ioRegistry IO registry.
      * @param sizes Segments sizes, the last one being the checkpoint buffer size.
-     * @param pmPageMgr Page store manager.
+     * @param pageStoreManager Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
+     * @param checkpointLockIsHeldByCurrentThreadSupplier Supplier to check the holding of the checkpoint lock by the current thread.
      */
     public PageMemoryImpl(
             DirectMemoryProvider directMemoryProvider,
             PageMemoryDataRegionConfiguration dataRegionCfg,
             PageIoRegistry ioRegistry,
             long[] sizes,
-            PageReadWriteManager pmPageMgr,
+            PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPage
+            PageStoreWriter flushDirtyPage,
+            BooleanSupplier checkpointLockIsHeldByCurrentThreadSupplier
     ) {
         this.directMemoryProvider = directMemoryProvider;
         this.dataRegionCfg = dataRegionCfg.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
-        this.pmPageMgr = pmPageMgr;
+        this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
         this.flushDirtyPage = flushDirtyPage;
+        this.checkpointLockIsHeldByCurrentThreadSupplier = checkpointLockIsHeldByCurrentThreadSupplier;
 
         int pageSize = this.dataRegionCfg.pageSize();
 
@@ -507,8 +514,9 @@ public class PageMemoryImpl implements PageMemory {
         assert partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION && flags == FLAG_AUX : "flags = " + flags + ", partId = " + partId;
 
         assert started;
+        assert checkpointLockIsHeldByCurrentThreadSupplier.getAsBoolean();
 
-        long pageId = pmPageMgr.allocatePage(grpId, partId, flags);
+        long pageId = pageStoreManager.allocatePage(grpId, partId, flags);
 
         assert pageIndex(pageId) > 0; //it's crucial for tracking pages (zero page is super one)
 
@@ -812,7 +820,7 @@ public class PageMemoryImpl implements PageMemory {
                 long actualPageId = 0;
 
                 try {
-                    pmPageMgr.read(grpId, pageId, buf, false);
+                    pageStoreManager.read(grpId, pageId, buf, false);
 
                     statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
@@ -1239,7 +1247,7 @@ public class PageMemoryImpl implements PageMemory {
         boolean wasDirty = dirty(absPtr, dirty);
 
         if (dirty) {
-            // TODO: IGNITE-16984 Don't forget add assertion for checkpoint lock held by this thread
+            assert checkpointLockIsHeldByCurrentThreadSupplier.getAsBoolean();
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
@@ -1489,7 +1497,7 @@ public class PageMemoryImpl implements PageMemory {
                 // Can evict a dirty page only if should be written by a checkpoint.
                 // These pages does not have tmp buffer.
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
-                    assert pmPageMgr != null;
+                    assert pageStoreManager != null;
 
                     PageStoreWriter saveDirtyPage = delayedPageReplacementTracker != null
                             ? delayedPageReplacementTracker.delayedPageWrite() : flushDirtyPage;
