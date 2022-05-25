@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.util.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST command for initializing a cluster.
@@ -30,20 +35,39 @@ public class InitCommand {
 
     private final Collection<String> cmgNodes;
 
+    private final String clusterName;
+
     /**
      * Constructor.
      */
     @JsonCreator
     public InitCommand(
             @JsonProperty("metaStorageNodes") Collection<String> metaStorageNodes,
-            @JsonProperty("cmgNodes") Collection<String> cmgNodes
+            @JsonProperty("cmgNodes") @Nullable Collection<String> cmgNodes,
+            @JsonProperty("clusterName") String clusterName
     ) {
-        if (metaStorageNodes == null || metaStorageNodes.isEmpty()) {
-            throw new IllegalArgumentException("Meta Storage node names must not be empty");
+        Objects.requireNonNull(metaStorageNodes);
+        Objects.requireNonNull(clusterName);
+
+        if (metaStorageNodes.isEmpty()) {
+            throw new IllegalArgumentException("Meta Storage node names list must not be empty");
+        }
+
+        if (metaStorageNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
+            throw new IllegalArgumentException("Meta Storage node names must not contain blank strings: " + metaStorageNodes);
+        }
+
+        if (!nullOrEmpty(cmgNodes) && cmgNodes.stream().anyMatch(StringUtils::nullOrBlank)) {
+            throw new IllegalArgumentException("CMG node names must not contain blank strings: " + cmgNodes);
+        }
+
+        if (clusterName.isBlank()) {
+            throw new IllegalArgumentException("Cluster name must not be empty");
         }
 
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = cmgNodes == null ? List.of() : List.copyOf(cmgNodes);
+        this.clusterName = clusterName;
     }
 
     @JsonProperty
@@ -54,5 +78,19 @@ public class InitCommand {
     @JsonProperty
     public Collection<String> cmgNodes() {
         return cmgNodes;
+    }
+
+    @JsonProperty
+    public String clusterName() {
+        return clusterName;
+    }
+
+    @Override
+    public String toString() {
+        return "InitCommand{"
+                + "metaStorageNodes=" + metaStorageNodes
+                + ", cmgNodes=" + cmgNodes
+                + ", clusterName='" + clusterName + '\''
+                + '}';
     }
 }

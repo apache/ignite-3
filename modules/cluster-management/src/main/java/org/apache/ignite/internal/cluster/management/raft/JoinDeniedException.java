@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.network.messages;
+package org.apache.ignite.internal.cluster.management.raft;
 
-import org.apache.ignite.internal.cluster.management.ClusterState;
-import org.apache.ignite.network.NetworkMessage;
-import org.apache.ignite.network.annotations.Marshallable;
-import org.apache.ignite.network.annotations.Transferable;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Message for delivering the cluster state information.
+ * Exception thrown if a node was unable to pass the validation step.
  */
-@Transferable(CmgMessageGroup.CLUSTER_STATE)
-public interface ClusterStateMessage extends NetworkMessage {
-    @Marshallable
-    ClusterState clusterState();
+public class JoinDeniedException extends IgniteInternalException {
+    public JoinDeniedException(String msg) {
+        super(msg);
+    }
 }

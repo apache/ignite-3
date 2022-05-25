@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -336,13 +337,24 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
-        nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners();
-        clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners();
+        CompletableFuture<?> notificationFuture = CompletableFuture.allOf(
+                nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners()
+        );
 
-        // Deploy all registered watches because all components are ready and have registered their listeners.
-        metaStorageMgr.deployWatches();
+        CompletableFuture<?> startFuture = notificationFuture
+                .thenCompose(v -> {
+                    // Deploy all registered watches because all components are ready and have registered their listeners.
+                    try {
+                        metaStorageMgr.deployWatches();
+                    } catch (NodeStoppingException e) {
+                        throw new CompletionException(e);
+                    }
 
-        assertThat(configurationCatchUpFuture, willCompleteSuccessfully());
+                    return configurationCatchUpFuture;
+                });
+
+        assertThat(startFuture, willCompleteSuccessfully());
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)
@@ -460,7 +472,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, cfgString, workDir.resolve(nodeName));
 
         if (CLUSTER_NODES.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName));
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
         }
 
         assertThat(future, willCompleteSuccessfully());

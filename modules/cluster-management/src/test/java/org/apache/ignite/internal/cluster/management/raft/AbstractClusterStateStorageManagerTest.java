@@ -29,6 +29,9 @@ import static org.hamcrest.Matchers.nullValue;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
@@ -42,14 +45,23 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link RaftStorageManager}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-public class ClusterStateStorageManagerTest {
-    private final ClusterStateStorage storage = new ConcurrentMapClusterStateStorage();
+public abstract class AbstractClusterStateStorageManagerTest {
+    private RaftStorageManager storageManager;
 
-    private final RaftStorageManager storageManager = new RaftStorageManager(storage);
+    private ClusterStateStorage storage;
+
+    @WorkDirectory
+    Path workDir;
+
+    abstract ClusterStateStorage clusterStateStorage();
 
     @BeforeEach
     void setUp() {
+        storage = clusterStateStorage();
+
         storage.start();
+
+        storageManager = new RaftStorageManager(storage);
     }
 
     @AfterEach
@@ -62,7 +74,11 @@ public class ClusterStateStorageManagerTest {
      */
     @Test
     void testClusterState() {
-        var state = new ClusterState(List.of("foo", "bar"), List.of("foo", "baz"));
+        var state = new ClusterState(
+                List.of("foo", "bar"),
+                List.of("foo", "baz"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("cluster"));
 
         assertThat(storageManager.getClusterState(), is(nullValue()));
 
@@ -70,7 +86,12 @@ public class ClusterStateStorageManagerTest {
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
 
-        state = new ClusterState(List.of("foo"), List.of("foo"));
+        state = new ClusterState(
+                List.of("foo"),
+                List.of("foo"),
+                IgniteProductVersion.fromString("3.3.3"),
+                new ClusterTag("new_cluster")
+        );
 
         storageManager.putClusterState(state);
 
@@ -133,8 +154,13 @@ public class ClusterStateStorageManagerTest {
      * Tests the snapshot-related methods.
      */
     @Test
-    void testSnapshot(@WorkDirectory Path workDir) {
-        var state = new ClusterState(List.of("foo", "bar"), List.of("foo", "baz"));
+    void testSnapshot() {
+        var state = new ClusterState(
+                List.of("foo", "bar"),
+                List.of("foo", "baz"),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag("cluster")
+        );
 
         storageManager.putClusterState(state);
 
@@ -146,7 +172,12 @@ public class ClusterStateStorageManagerTest {
 
         assertThat(storageManager.snapshot(workDir), willCompleteSuccessfully());
 
-        var newState = new ClusterState(List.of("foo"), List.of("foo"));
+        var newState = new ClusterState(
+                List.of("foo"),
+                List.of("foo"),
+                IgniteProductVersion.fromString("3.3.3"),
+                new ClusterTag("new_cluster")
+        );
 
         storageManager.putClusterState(newState);
 
@@ -158,5 +189,28 @@ public class ClusterStateStorageManagerTest {
 
         assertThat(storageManager.getClusterState(), is(equalTo(state)));
         assertThat(storageManager.getLogicalTopology(), containsInAnyOrder(node1, node2));
+    }
+
+    /**
+     * Tests CRUD operations on validated nodes.
+     */
+    @Test
+    void testValidatedNodes() {
+        storageManager.putValidatedNode("node1");
+
+        storageManager.putValidatedNode("node2");
+
+        assertThat(storageManager.isNodeValidated("node1"), is(true));
+        assertThat(storageManager.isNodeValidated("node2"), is(true));
+        assertThat(storageManager.isNodeValidated("node3"), is(false));
+
+        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node1", "node2"));
+
+        storageManager.removeValidatedNode("node1");
+
+        assertThat(storageManager.isNodeValidated("node1"), is(false));
+        assertThat(storageManager.isNodeValidated("node2"), is(true));
+
+        assertThat(storageManager.getValidatedNodeIds(), containsInAnyOrder("node2"));
     }
 }
