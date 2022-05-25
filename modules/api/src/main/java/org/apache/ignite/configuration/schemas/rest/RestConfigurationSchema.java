@@ -20,7 +20,6 @@ package org.apache.ignite.configuration.schemas.rest;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -35,7 +34,7 @@ public class RestConfigurationSchema {
     public final int port = 10300;
 
     /** TCP port range. */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public final int portRange = 100;
 }

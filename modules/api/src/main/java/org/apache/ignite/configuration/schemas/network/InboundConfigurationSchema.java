@@ -19,7 +19,6 @@ package org.apache.ignite.configuration.schemas.network;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
@@ -29,7 +28,7 @@ import org.apache.ignite.configuration.validation.Range;
 @Config
 public class InboundConfigurationSchema {
     /** Backlog value. */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public final int soBacklog = 128;
 

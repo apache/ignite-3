@@ -19,7 +19,6 @@ package org.apache.ignite.internal.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder;
@@ -36,7 +35,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     public static final String SEQUENTIAL_WRITE_ORDER = "SEQUENTIAL";
 
     /** Checkpoint frequency in milliseconds. */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public long frequency = 180_000;
 
@@ -46,7 +45,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     public int frequencyDeviation = 40;
 
     /** Number of checkpoint threads. */
-    @Min(1)
+    @Range(min = 1)
     @Value(hasDefault = true)
     public int threads = 4;
 
@@ -62,7 +61,7 @@ public class PageMemoryCheckpointConfigurationSchema {
     public int parallelSortThreshold = 512 * 1024;
 
     /** Timeout for checkpoint read lock acquisition in milliseconds. */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public long readLockTimeout = 10_000;
 
