@@ -181,7 +181,9 @@ public abstract class PageMemoryTableStorage implements TableStorage {
      */
     protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
 
-    // This API is not yet ready. But we need to test mv storages anyways.
+    /**
+     * This API is not yet ready. But we need to test mv storages anyways.
+     */
     @TestOnly
     public PageMemoryMvPartitionStorage createMvPartitionStorage(int partitionId) {
         return new PageMemoryMvPartitionStorage(partitionId,

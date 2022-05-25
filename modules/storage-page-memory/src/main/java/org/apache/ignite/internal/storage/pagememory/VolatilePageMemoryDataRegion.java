@@ -105,7 +105,7 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
 
     private static VersionChainFreeList createVersionChainFreeList(PageMemory pageMemory, ReuseList reuseList)
             throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION, FLAG_AUX);
+        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
 
         return new VersionChainFreeList(
                 VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
@@ -122,7 +122,7 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
 
     private static RowVersionFreeList createRowVersionFreeList(PageMemory pageMemory, ReuseList reuseList)
             throws IgniteInternalCheckedException {
-        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION, FLAG_AUX);
+        long metaPageId = pageMemory.allocatePage(VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID, INDEX_PARTITION, FLAG_AUX);
 
         return new RowVersionFreeList(
                 VolatilePageMemoryDataRegion.FREE_LIST_GROUP_ID,
