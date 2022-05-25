@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -127,7 +127,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Data region configuration view. */
-    private final VolatilePageMemoryDataRegionView dataRegionConfigView;
+    private final PageMemoryDataRegionView dataRegionConfigView;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -182,7 +182,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         this.directMemoryProvider = directMemoryProvider;
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        this.dataRegionConfigView = (VolatilePageMemoryDataRegionView) dataRegionConfig.value();
+        this.dataRegionConfigView = dataRegionConfig.value();
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
@@ -305,7 +305,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
                     + "name=" + dataRegionConfigView.name()
                     + ", initSize=" + IgniteUtils.readableSize(dataRegionConfigView.initSize(), false)
                     + ", maxSize=" + IgniteUtils.readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=false] Try the following:\n"
+                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:\n"
                     + "  ^-- Increase maximum off-heap memory size (DataRegionConfiguration.maxSize)\n"
                     + "  ^-- Enable Ignite persistence (DataRegionConfiguration.persistenceEnabled)\n"
                     + "  ^-- Enable eviction or expiration policies"

@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTIT
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -64,7 +63,7 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
 
         PageMemory pageMemory = new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                (VolatilePageMemoryDataRegionConfiguration) cfg,
+                cfg,
                 ioRegistry,
                 pageSize
         );

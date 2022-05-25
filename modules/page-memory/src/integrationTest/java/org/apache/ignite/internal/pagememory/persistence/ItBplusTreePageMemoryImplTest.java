@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.ItBplusTreeSelfTest;
@@ -48,7 +46,7 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
 
         return new PageMemoryImpl(
                 new UnsafeMemoryProvider(null),
-                (PersistentPageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),

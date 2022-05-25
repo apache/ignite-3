@@ -74,8 +74,8 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.FullPageId;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
@@ -146,7 +146,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PersistentPageMemoryDataRegionView dataRegionConfigView;
+    private final PageMemoryDataRegionView dataRegionConfigView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -221,7 +221,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      */
     public PageMemoryImpl(
             DirectMemoryProvider directMemoryProvider,
-            PersistentPageMemoryDataRegionConfiguration dataRegionConfig,
+            PageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] sizes,
             PageReadWriteManager pmPageMgr,
@@ -231,7 +231,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             int pageSize
     ) {
         this.directMemoryProvider = directMemoryProvider;
-        this.dataRegionConfigView = (PersistentPageMemoryDataRegionView) dataRegionConfig.value();
+        this.dataRegionConfigView = dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
         this.pmPageMgr = pmPageMgr;
@@ -537,7 +537,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                     + "name=" + dataRegionConfigView.name()
                     + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
                     + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=true] Try the following:" + lineSeparator()
+                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
@@ -1558,7 +1558,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                     + "name=" + dataRegionConfigView.name()
                     + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
                     + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
-                    + ", persistenceEnabled=true] Try the following:" + lineSeparator()
+                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
