@@ -45,12 +45,12 @@ import java.nio.file.Path;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
+import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteStringBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -509,30 +509,5 @@ public class FilePageStoreTest {
 
     private static FilePageStore createFilePageStore(Path filePath) {
         return new FilePageStore(TYPE_DATA, filePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
-    }
-
-    /**
-     * Simple test implementation.
-     */
-    private static class TestPageIo extends PageIo {
-        /**
-         * Constructor.
-         */
-        protected TestPageIo() {
-            super(MAX_IO_TYPE, 1, FLAG_DATA);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public void initNewPage(long pageAddr, long pageId, int pageSize) {
-            setType(pageAddr, getType());
-            setVersion(pageAddr, getVersion());
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        protected void printPage(long addr, int pageSize, IgniteStringBuilder sb) {
-            throw new UnsupportedOperationException();
-        }
     }
 }

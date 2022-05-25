@@ -281,7 +281,7 @@ public class IgniteUtils {
     public static String toHexString(ByteBuffer buf) {
         StringBuilder sb = new StringBuilder(buf.capacity() * 2);
 
-        for (int i = 0; i < buf.capacity(); i++) {
+        for (int i = buf.position(); i < buf.limit(); i++) {
             // Can not use getLong because on little-endian it produces wrong result.
             addByteAsHex(sb, buf.get(i));
         }
