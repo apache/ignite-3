@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.tree;
 
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
@@ -36,11 +35,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
@@ -72,13 +67,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
     private static final int GROUP_ID = 100500;
 
-    @InjectConfiguration(
-            polymorphicExtensions = {
-                    VolatilePageMemoryDataRegionConfigurationSchema.class,
-                    PersistentPageMemoryDataRegionConfigurationSchema.class,
-                    UnsafeMemoryAllocatorConfigurationSchema.class
-            }
-    )
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     private PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @Nullable
@@ -99,10 +88,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.convert(VolatilePageMemoryDataRegionChange.class)
-                .changeInitSize(1024 * MiB)
-                .changeMaxSize(1024 * MiB)
-        ).get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(1024 * MiB).changeMaxSize(1024 * MiB)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
@@ -110,7 +96,7 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 new UnsafeMemoryProvider(null),
-                (VolatilePageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry,
                 512
         );

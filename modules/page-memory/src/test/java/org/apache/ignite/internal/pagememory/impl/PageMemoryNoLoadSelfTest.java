@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.impl;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -36,11 +35,7 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoModule.TestPageIo;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionChange;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -65,21 +60,12 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
     private static final PageIo PAGE_IO = new TestPageIo();
 
-    @InjectConfiguration(
-            polymorphicExtensions = {
-                    VolatilePageMemoryDataRegionConfigurationSchema.class,
-                    PersistentPageMemoryDataRegionConfigurationSchema.class,
-                    UnsafeMemoryAllocatorConfigurationSchema.class
-            }
-    )
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     protected PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> c.convert(VolatilePageMemoryDataRegionChange.class)
-                .changeInitSize(MAX_MEMORY_SIZE)
-                .changeMaxSize(MAX_MEMORY_SIZE)
-        ).get(1, SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @Test
@@ -330,7 +316,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
         return new PageMemoryNoStoreImpl(
                 provider,
-                (VolatilePageMemoryDataRegionConfiguration) fixConfiguration(dataRegionCfg),
+                dataRegionCfg,
                 ioRegistry,
                 PAGE_SIZE
         );

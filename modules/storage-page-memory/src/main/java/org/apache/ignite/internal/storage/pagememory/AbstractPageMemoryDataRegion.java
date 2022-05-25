@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.PERSISTENT_DATA_REGION_TYPE;
-
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
@@ -64,7 +62,7 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
      * Returns {@link true} if the date region is persistent.
      */
     public boolean persistent() {
-        return cfg.value().typeId().equals(PERSISTENT_DATA_REGION_TYPE);
+        return cfg.value().persistent();
     }
 
     /**

@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionChange;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -45,10 +44,7 @@ import org.junit.jupiter.api.Test;
 public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> c.convert(PersistentPageMemoryDataRegionChange.class)
-                .changeInitSize(MAX_MEMORY_SIZE)
-                .changeMaxSize(MAX_MEMORY_SIZE)
-        ).get(1, SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     /** {@inheritDoc} */
