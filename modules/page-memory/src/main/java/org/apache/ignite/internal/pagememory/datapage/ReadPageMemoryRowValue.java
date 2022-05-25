@@ -55,7 +55,7 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
             readingFirstSlot = false;
             return readFullyOrStartReadingFragmented(pageAddr, payload);
         } else {
-            // we are continuing reading a fragmented row
+            // We are continuing reading a fragmented row.
             return readNextFragment(pageAddr, payload);
         }
     }

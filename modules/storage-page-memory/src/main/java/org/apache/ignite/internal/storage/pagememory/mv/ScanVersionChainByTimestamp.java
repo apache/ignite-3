@@ -57,7 +57,7 @@ class ScanVersionChainByTimestamp implements PageMemoryTraversal<Timestamp> {
                 return advanceToNextVersion(pageAddr, payload, partitionIdFromLink(link));
             }
         } else {
-            // we are continuing reading a fragmented row
+            // We are continuing reading a fragmented row.
             return readNextFragment(link, pageAddr, payload);
         }
     }
