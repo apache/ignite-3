@@ -127,7 +127,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     private final DirectMemoryProvider directMemoryProvider;
 
     /** Data region configuration view. */
-    private final VolatilePageMemoryDataRegionView dataRegionCfg;
+    private final VolatilePageMemoryDataRegionView dataRegionConfigView;
 
     /** Head of the singly linked list of free pages. */
     private final AtomicLong freePageListHead = new AtomicLong(INVALID_REL_PTR);
@@ -168,13 +168,13 @@ public class PageMemoryNoStoreImpl implements PageMemory {
      * Constructor.
      *
      * @param directMemoryProvider Memory allocator to use.
-     * @param dataRegionCfg Data region configuration.
+     * @param dataRegionConfig Data region configuration.
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
      */
     public PageMemoryNoStoreImpl(
             DirectMemoryProvider directMemoryProvider,
-            PageMemoryDataRegionConfiguration dataRegionCfg,
+            PageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -182,13 +182,13 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         this.directMemoryProvider = directMemoryProvider;
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
-        this.dataRegionCfg = (VolatilePageMemoryDataRegionView) dataRegionCfg.value();
+        this.dataRegionConfigView = (VolatilePageMemoryDataRegionView) dataRegionConfig.value();
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
         assert sysPageSize % 8 == 0 : sysPageSize;
 
-        totalPages = (int) (this.dataRegionCfg.maxSize() / sysPageSize);
+        totalPages = (int) (this.dataRegionConfigView.maxSize() / sysPageSize);
 
         rwLock = new OffheapReadWriteLock(lockConcLvl);
     }
@@ -202,8 +202,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
 
             started = true;
 
-            long startSize = dataRegionCfg.initSize();
-            long maxSize = dataRegionCfg.maxSize();
+            long startSize = dataRegionConfigView.initSize();
+            long maxSize = dataRegionConfigView.maxSize();
 
             long[] chunks = new long[SEG_CNT];
 
@@ -302,9 +302,9 @@ public class PageMemoryNoStoreImpl implements PageMemory {
 
         if (relPtr == INVALID_REL_PTR) {
             IgniteOutOfMemoryException oom = new IgniteOutOfMemoryException("Out of memory in data region ["
-                    + "name=" + dataRegionCfg.name()
-                    + ", initSize=" + IgniteUtils.readableSize(dataRegionCfg.initSize(), false)
-                    + ", maxSize=" + IgniteUtils.readableSize(dataRegionCfg.maxSize(), false)
+                    + "name=" + dataRegionConfigView.name()
+                    + ", initSize=" + IgniteUtils.readableSize(dataRegionConfigView.initSize(), false)
+                    + ", maxSize=" + IgniteUtils.readableSize(dataRegionConfigView.maxSize(), false)
                     + ", persistenceEnabled=false] Try the following:\n"
                     + "  ^-- Increase maximum off-heap memory size (DataRegionConfiguration.maxSize)\n"
                     + "  ^-- Enable Ignite persistence (DataRegionConfiguration.persistenceEnabled)\n"
@@ -675,7 +675,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
 
             if (oldRef != null) {
                 if (LOG.isInfoEnabled()) {
-                    LOG.info("Allocated next memory segment [plcName=" + dataRegionCfg.name()
+                    LOG.info("Allocated next memory segment [plcName=" + dataRegionConfigView.name()
                             + ", chunkSize=" + IgniteUtils.readableSize(region.size(), true) + ']');
                 }
             }

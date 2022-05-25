@@ -146,7 +146,7 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PersistentPageMemoryDataRegionView dataRegionCfg;
+    private final PersistentPageMemoryDataRegionView dataRegionConfigView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -211,7 +211,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      * Constructor.
      *
      * @param directMemoryProvider Memory allocator to use.
-     * @param dataRegionCfg Data region configuration.
+     * @param dataRegionConfig Data region configuration.
      * @param ioRegistry IO registry.
      * @param sizes Segments sizes, the last one being the checkpoint buffer size.
      * @param pmPageMgr Page store manager.
@@ -221,7 +221,7 @@ public class PageMemoryImpl implements PageMemoryEx {
      */
     public PageMemoryImpl(
             DirectMemoryProvider directMemoryProvider,
-            PersistentPageMemoryDataRegionConfiguration dataRegionCfg,
+            PersistentPageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] sizes,
             PageReadWriteManager pmPageMgr,
@@ -231,7 +231,7 @@ public class PageMemoryImpl implements PageMemoryEx {
             int pageSize
     ) {
         this.directMemoryProvider = directMemoryProvider;
-        this.dataRegionCfg = (PersistentPageMemoryDataRegionView) dataRegionCfg.value();
+        this.dataRegionConfigView = (PersistentPageMemoryDataRegionView) dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
         this.pmPageMgr = pmPageMgr;
@@ -242,7 +242,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         rwLock = new OffheapReadWriteLock(128);
 
-        String replacementMode = this.dataRegionCfg.replacementMode();
+        String replacementMode = this.dataRegionConfigView.replacementMode();
 
         switch (replacementMode) {
             case RANDOM_LRU_REPLACEMENT_MODE:
@@ -261,7 +261,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = dataRegionCfg.delayedReplacedPageWrite().value()
+        delayedPageReplacementTracker = dataRegionConfig.delayedReplacedPageWrite().value()
                 ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
     }
 
@@ -534,9 +534,9 @@ public class PageMemoryImpl implements PageMemoryEx {
             seg.loadedPages.put(grpId, effectivePageId(pageId), relPtr, seg.partGeneration(grpId, partId));
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
-                    + "name=" + dataRegionCfg.name()
-                    + ", initSize=" + readableSize(dataRegionCfg.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionCfg.maxSize(), false)
+                    + "name=" + dataRegionConfigView.name()
+                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
+                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
                     + ", persistenceEnabled=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
@@ -1046,7 +1046,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 throw new IgniteInternalException(
                         "Failed to allocate temporary buffer for checkpoint (increase checkpointPageBufferSize configuration property): "
-                                + dataRegionCfg.name());
+                                + dataRegionConfigView.name());
             }
 
             // Pin the page until checkpoint is not finished.
@@ -1529,7 +1529,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 if (pageReplacementWarnedFieldUpdater.compareAndSet(PageMemoryImpl.this, 0, 1)) {
                     String msg = "Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
-                            + "data region): " + dataRegionCfg.name();
+                            + "data region): " + dataRegionConfigView.name();
 
                     LOG.warn(msg);
                 }
@@ -1555,9 +1555,9 @@ public class PageMemoryImpl implements PageMemoryEx {
                     + ", dirtyPages=" + dirtyPagesCntr
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
-                    + "name=" + dataRegionCfg.name()
-                    + ", initSize=" + readableSize(dataRegionCfg.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionCfg.maxSize(), false)
+                    + "name=" + dataRegionConfigView.name()
+                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
+                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
                     + ", persistenceEnabled=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
