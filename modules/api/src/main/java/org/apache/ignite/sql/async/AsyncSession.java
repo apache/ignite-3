@@ -80,4 +80,9 @@ public interface AsyncSession {
             Statement statement,
             BatchedArguments batch
     );
+
+    /**
+     * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
+     */
+    CompletableFuture<Void> closeAsync();
 }

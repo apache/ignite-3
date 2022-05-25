@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
+import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
@@ -301,6 +302,32 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
             CompletableFuture<AsyncResultSet> f = ses.executeAsync(null, "SELECT 1 / ?", 0);
             assertThrowsWithCause(() -> f.get(), ArithmeticException.class, "/ by zero");
         }
+    }
+
+    @Test
+    public void closeSession() throws ExecutionException, InterruptedException {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        for (int i = 0; i < ROW_COUNT; ++i) {
+            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
+        }
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
+
+        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
+
+        ses.closeAsync().get();
+
+        assertThrowsWithCause(
+                () -> ars0.fetchNextPage().toCompletableFuture().get(),
+                ClosedCursorException.class
+        );
+
+        assertThrowsWithCause(
+                () -> ses.executeAsync(null, "SELECT ID FROM TEST").get(),
+                IgniteSqlException.class,
+                "Session is closed"
+        );
     }
 
     private void checkDdl(boolean expectedApplied, Session ses, String sql) throws ExecutionException, InterruptedException {

@@ -25,11 +25,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -43,6 +43,9 @@ import org.jetbrains.annotations.Nullable;
  * Embedded implementation of the SQL session.
  */
 public class SessionImpl implements Session {
+    /** Busy lock for close synchronisation. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final QueryProcessor qryProc;
 
     private final long timeout;
@@ -137,23 +140,32 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        futsToClose.forEach(f -> f.cancel(true));
-
-        cursToClose.forEach(AsyncCursor::closeAsync);
     }
 
     /** {@inheritDoc} */
     @Override
     public SessionBuilder toBuilder() {
-        return new SessionBuilderImpl(qryProc, props)
-                .defaultPageSize(pageSize)
-                .defaultTimeout(timeout, TimeUnit.NANOSECONDS)
-                .defaultSchema(schema);
+        if (!busyLock.enterBusy()) {
+            throw new IgniteSqlException("Session is closed");
+        }
+
+        try {
+            return new SessionBuilderImpl(qryProc, props)
+                    .defaultPageSize(pageSize)
+                    .defaultTimeout(timeout, TimeUnit.NANOSECONDS)
+                    .defaultSchema(schema);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new IgniteSqlException("Session is closed."));
+        }
+
         QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
 
         try {
@@ -167,21 +179,33 @@ public class SessionImpl implements Session {
 
             return futs.get(0).thenCompose(cur -> {
                         futsToClose.remove(futs.get(0));
-                        cursToClose.add(cur);
 
-                        return cur.requestNextAsync(pageSize)
-                                .thenApply(
-                                        batchRes -> new AsyncResultSetImpl(
-                                                cur,
-                                                batchRes,
-                                                pageSize,
-                                                () -> cursToClose.remove(cur)
-                                        )
-                                );
+                        if (!busyLock.enterBusy()) {
+                            return cur.closeAsync()
+                                    .thenCompose((v) -> CompletableFuture.failedFuture(new IgniteSqlException("Session is closed")));
+                        }
+
+                        try {
+                            cursToClose.add(cur);
+
+                            return cur.requestNextAsync(pageSize)
+                                    .thenApply(
+                                            batchRes -> new AsyncResultSetImpl(
+                                                    cur,
+                                                    batchRes,
+                                                    pageSize,
+                                                    () -> cursToClose.remove(cur)
+                                            )
+                                    );
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     }
             );
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
@@ -201,6 +225,24 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<Integer> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    public CompletableFuture<Void> closeAsync() {
+        return CompletableFuture
+                .runAsync(busyLock::block)
+                .thenCompose(
+                        v0 -> {
+                            futsToClose.forEach(f -> f.cancel(true));
+
+                            CompletableFuture<Void> f = CompletableFuture.completedFuture(null);
+                            for (var cur : cursToClose) {
+                                f = f.thenCompose(v1 -> cur.closeAsync());
+                            }
+
+                            return f;
+                        }
+                );
     }
 
     /** {@inheritDoc} */
