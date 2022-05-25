@@ -61,7 +61,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<QueryExecuteResult> queryAsync(QueryExecuteRequest req) {
         QueryExecuteResult res = new QueryExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_EXEC, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_EXEC, req, res);
     }
 
     /** {@inheritDoc} */
@@ -69,7 +69,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
         QueryFetchResult res = new QueryFetchResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_NEXT, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_NEXT, req, res);
     }
 
     /** {@inheritDoc} */
@@ -77,7 +77,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         BatchExecuteResult res = new BatchExecuteResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_EXEC_BATCH, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_EXEC_BATCH, req, res);
     }
 
     /** {@inheritDoc} */
@@ -95,7 +95,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
         QueryCloseResult res = new QueryCloseResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_CURSOR_CLOSE, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_CURSOR_CLOSE, req, res);
     }
 
     /** {@inheritDoc} */
@@ -103,7 +103,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaTablesResult> tablesMetaAsync(JdbcMetaTablesRequest req) {
         JdbcMetaTablesResult res = new JdbcMetaTablesResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_TABLE_META, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_TABLE_META, req, res);
     }
 
     /** {@inheritDoc} */
@@ -111,7 +111,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaColumnsResult> columnsMetaAsync(JdbcMetaColumnsRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_COLUMN_META, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_COLUMN_META, req, res);
     }
 
     /** {@inheritDoc} */
@@ -119,7 +119,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaSchemasResult> schemasMetaAsync(JdbcMetaSchemasRequest req) {
         JdbcMetaSchemasResult res = new JdbcMetaSchemasResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_SCHEMAS_META, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_SCHEMAS_META, req, res);
     }
 
     /** {@inheritDoc} */
@@ -127,7 +127,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaPrimaryKeysResult> primaryKeysMetaAsync(JdbcMetaPrimaryKeysRequest req) {
         JdbcMetaPrimaryKeysResult res = new JdbcMetaPrimaryKeysResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_PK_META, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_PK_META, req, res);
     }
 
     /** {@inheritDoc} */
@@ -135,6 +135,6 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
     public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
         JdbcMetaColumnsResult res = new JdbcMetaColumnsResult();
 
-        return client.sendRequestAsync(ClientOp.SQL_QUERY_META, req, res);
+        return client.sendRequestAsync(ClientOp.JDBC_QUERY_META, req, res);
     }
 }
