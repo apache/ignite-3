@@ -56,16 +56,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
-import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.SqlStateCode;
-import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
-import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.QueryCloseResult;
-import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
-import org.apache.ignite.client.proto.query.event.QueryFetchResult;
+import org.apache.ignite.client.proto.jdbc.IgniteQueryErrorCode;
+import org.apache.ignite.client.proto.jdbc.JdbcQueryEventHandler;
+import org.apache.ignite.client.proto.jdbc.SqlStateCode;
+import org.apache.ignite.client.proto.jdbc.event.JdbcColumnMeta;
+import org.apache.ignite.client.proto.jdbc.event.JdbcMetaColumnsResult;
+import org.apache.ignite.client.proto.jdbc.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.client.proto.jdbc.event.QueryCloseRequest;
+import org.apache.ignite.client.proto.jdbc.event.QueryCloseResult;
+import org.apache.ignite.client.proto.jdbc.event.QueryFetchRequest;
+import org.apache.ignite.client.proto.jdbc.event.QueryFetchResult;
 
 /**
  * Jdbc result set implementation.

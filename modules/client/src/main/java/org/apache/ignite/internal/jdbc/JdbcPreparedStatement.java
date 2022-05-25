@@ -45,11 +45,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.client.proto.query.IgniteQueryErrorCode;
-import org.apache.ignite.client.proto.query.JdbcStatementType;
-import org.apache.ignite.client.proto.query.SqlStateCode;
-import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
+import org.apache.ignite.client.proto.jdbc.IgniteQueryErrorCode;
+import org.apache.ignite.client.proto.jdbc.JdbcStatementType;
+import org.apache.ignite.client.proto.jdbc.SqlStateCode;
+import org.apache.ignite.client.proto.jdbc.event.BatchExecuteResult;
+import org.apache.ignite.client.proto.jdbc.event.BatchPreparedStmntRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 
 /**

@@ -28,7 +28,7 @@ import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.proto.query.ClientMessage;
+import org.apache.ignite.client.proto.jdbc.ClientMessage;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;

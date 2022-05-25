@@ -24,7 +24,7 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
 import org.apache.ignite.client.IgniteClientConfiguration;
-import org.apache.ignite.client.proto.query.SqlStateCode;
+import org.apache.ignite.client.proto.jdbc.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
