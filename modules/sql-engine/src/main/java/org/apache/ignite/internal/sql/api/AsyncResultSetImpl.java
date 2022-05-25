@@ -138,7 +138,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
                                 .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
                     }
                 }
-
             }
         }
 
