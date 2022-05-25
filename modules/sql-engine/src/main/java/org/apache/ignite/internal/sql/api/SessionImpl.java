@@ -21,7 +21,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -74,7 +77,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new ResultSetImpl(await(executeAsync(transaction, query, arguments)));
     }
 
     /** {@inheritDoc} */
@@ -104,7 +107,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return timeUnit.convert(timeout, TimeUnit.NANOSECONDS);
     }
 
     /** {@inheritDoc} */
@@ -211,5 +214,42 @@ public class SessionImpl implements Session {
     @Override
     public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Throw an exception as if it were unchecked.
+     *
+     * <p>This method erases type of the exception in the thrown clause, so checked exception could be thrown without need to wrap it with
+     * unchecked one or adding a similar throws clause to the upstream methods.
+     */
+    @SuppressWarnings("unchecked")
+    public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
+        throw (E) e;
+    }
+
+    /**
+     * Awaits completion of the given stage and returns its result.
+     *
+     * @param stage The stage.
+     * @param <T> Type of the result returned by the stage.
+     * @return A result of the stage.
+     */
+    @SuppressWarnings("UnusedReturnValue")
+    public static <T> T await(CompletionStage<T> stage) {
+        try {
+            return stage.toCompletableFuture().get();
+        } catch (Throwable e) {
+            if (e instanceof ExecutionException) {
+                e = e.getCause();
+            } else if (e instanceof CompletionException) {
+                e = e.getCause();
+            }
+
+            sneakyThrow(e);
+        }
+
+        assert false;
+
+        return null;
     }
 }
