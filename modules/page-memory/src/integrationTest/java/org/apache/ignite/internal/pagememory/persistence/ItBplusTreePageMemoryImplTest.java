@@ -52,7 +52,7 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryEx) -> {
+                (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
                 }

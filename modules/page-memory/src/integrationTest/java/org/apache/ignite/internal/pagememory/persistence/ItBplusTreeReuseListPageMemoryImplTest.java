@@ -51,7 +51,7 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryEx) -> {
+                (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
                 }

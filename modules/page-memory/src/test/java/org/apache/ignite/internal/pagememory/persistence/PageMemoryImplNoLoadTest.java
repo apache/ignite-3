@@ -56,7 +56,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryEx) -> {
+                (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
                 }

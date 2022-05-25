@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
+import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
@@ -44,7 +45,7 @@ public interface PageReadWriteManager {
      * @param pageBuf Page buffer to write.
      * @throws IgniteInternalCheckedException If failed to write page.
      */
-    void write(int grpId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException;
+    PageStore write(int grpId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) throws IgniteInternalCheckedException;
 
     /**
      * Allocates a page for the given page space.

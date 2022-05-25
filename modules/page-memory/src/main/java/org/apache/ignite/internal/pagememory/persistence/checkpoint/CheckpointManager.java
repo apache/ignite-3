@@ -24,6 +24,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.worker.IgniteWorkerListener;
@@ -108,7 +109,7 @@ public class CheckpointManager implements IgniteComponent {
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
                 logger.apply(CheckpointPagesWriterFactory.class),
-                (fullPage, buf, tag) -> pageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
+                (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
                 pageSize
         );
 
@@ -132,8 +133,7 @@ public class CheckpointManager implements IgniteComponent {
                 checkpointReadWriteLock,
                 // TODO: IGNITE-16984 get from config
                 10_000,
-                // TODO: IGNITE-16984 get from dataRegions
-                () -> true,
+                () -> safeToUpdateAllPageMemoryImpl(dataRegions),
                 checkpointer
         );
     }
@@ -196,5 +196,21 @@ public class CheckpointManager implements IgniteComponent {
             @Nullable BiConsumer<Void, Throwable> finishListener
     ) {
         return checkpointer.scheduleCheckpoint(0, reason, finishListener);
+    }
+
+    /**
+     * Returns {@link true} if it is safe for all persistent data regions to update their {@link PageMemoryImpl}.
+     *
+     * @param dataRegions Data regions.
+     * @see PageMemoryImpl#safeToUpdate()
+     */
+    boolean safeToUpdateAllPageMemoryImpl(Collection<PageMemoryDataRegion> dataRegions) {
+        for (PageMemoryDataRegion dataRegion : dataRegions) {
+            if (dataRegion.persistent() && !((PageMemoryImpl) dataRegion.pageMemory()).safeToUpdate()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

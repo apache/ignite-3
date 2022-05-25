@@ -75,6 +75,7 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -100,7 +101,9 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Page header structure is described by the following diagram.
+ * Page memory with some persistence related additions.
+ *
+ * <p>Page header structure is described by the following diagram.
  *
  * <p>When page is not allocated (in a free list):
  * <pre>
@@ -124,7 +127,7 @@ import org.jetbrains.annotations.TestOnly;
  * in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
-public class PageMemoryImpl implements PageMemoryEx {
+public class PageMemoryImpl implements PageMemory {
     /**
      * When set to {@code true} (default), pages are written to page store without holding segment lock (with delay).
      * Because other thread may require exactly the same page to be loaded from store, reads are protected by locking.
@@ -386,8 +389,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         return readLock(page, pageId, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Acquires a read lock associated with the given page.
+     *
+     * @param absPtr Absolute pointer to read lock.
+     * @param pageId Page ID.
+     * @param force Force flag.
+     * @param touch Update page timestamp.
+     * @return Pointer to the page read buffer.
+     */
     public long readLock(long absPtr, long pageId, boolean force, boolean touch) {
         assert started;
 
@@ -428,8 +438,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         return writeLock(grpId, pageId, page, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Acquired a write lock on the page.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param restore Determines if the page is locked for restore memory (crash recovery).
+     * @return Pointer to the page read buffer.
+     */
     public long writeLock(int grpId, long pageId, long page, boolean restore) {
         assert started;
 
@@ -452,8 +469,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         writeUnlock(grpId, pageId, page, dirtyFlag, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Releases locked page.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param dirtyFlag Determines whether the page was modified since the last checkpoint.
+     * @param restore Determines if the page is locked for restore.
+     */
     public void writeUnlock(int grpId, long pageId, long page, boolean dirtyFlag, boolean restore) {
         assert started;
 
@@ -573,8 +597,13 @@ public class PageMemoryImpl implements PageMemoryEx {
         return false;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Gets partition metadata page ID for specified grpId and partId.
+     *
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     * @return Meta page for grpId and partId.
+     */
     public long partitionMetaPageId(int grpId, int partId) {
         assert started;
 
@@ -594,14 +623,30 @@ public class PageMemoryImpl implements PageMemoryEx {
         return acquirePage(grpId, pageId, statHolder, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns an absolute pointer to a page, associated with the given page ID.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param pageAllocated Flag is set if new page was allocated in offheap memory.
+     * @return Page.
+     * @throws IgniteInternalCheckedException If failed.
+     * @see #acquirePage(int, long) Sets additional flag indicating that page was not found in memory and had to be allocated.
+     */
     public long acquirePage(int grpId, long pageId, AtomicBoolean pageAllocated) throws IgniteInternalCheckedException {
         return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false, pageAllocated);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns an absolute pointer to a page, associated with the given page ID.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page id.
+     * @param restore Get page for restore
+     * @return Page.
+     * @throws IgniteInternalCheckedException If failed.
+     * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
+     */
     public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder, boolean restore) throws IgniteInternalCheckedException {
         return acquirePage(grpId, pageId, statHolder, restore, null);
     }
@@ -800,7 +845,6 @@ public class PageMemoryImpl implements PageMemoryEx {
     /**
      * Returns total pages can be placed in all segments.
      */
-    @Override
     public long totalPages() {
         if (segments == null) {
             return 0;
@@ -864,8 +908,13 @@ public class PageMemoryImpl implements PageMemoryEx {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Marks partition as invalid / outdated.
+     *
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     * @return New partition generation (growing 1-based partition file version).
+     */
     public int invalidate(int grpId, int partId) {
         synchronized (segmentsLock) {
             if (!started) {
@@ -894,8 +943,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Clears internal metadata of destroyed group.
+     *
+     * @param grpId Group ID.
+     */
     public void onCacheGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
             seg.writeLock().lock();
@@ -1723,9 +1775,9 @@ public class PageMemoryImpl implements PageMemoryEx {
          *
          * @param page – Page pointer.
          * @param fullPageId Full page ID.
-         * @param pageMemoryEx Page memory.
+         * @param pageMemoryImpl Page memory.
          */
-        void apply(long page, FullPageId fullPageId, PageMemoryEx pageMemoryEx);
+        void apply(long page, FullPageId fullPageId, PageMemoryImpl pageMemoryImpl);
     }
 
     /**

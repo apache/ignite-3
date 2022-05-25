@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.pagememory.persistence.store;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Waiting IGNITE-17011.
  */
-public class FilePageStoreManager implements IgniteComponent {
+// TODO: IGNITE-17011 ждем
+public class FilePageStoreManager implements PageReadWriteManager, IgniteComponent {
     public FilePageStoreManager(
             IgniteLogger log,
             String igniteInstanceName,
@@ -45,5 +48,26 @@ public class FilePageStoreManager implements IgniteComponent {
     @Override
     public void stop() throws Exception {
 
+    }
+
+    @Override
+    public void read(int grpId, long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException {
+
+    }
+
+    @Override
+    public PageStore write(
+            int grpId,
+            long pageId,
+            ByteBuffer pageBuf,
+            int tag,
+            boolean calculateCrc
+    ) throws IgniteInternalCheckedException {
+        return null;
+    }
+
+    @Override
+    public long allocatePage(int grpId, int partId, byte flags) throws IgniteInternalCheckedException {
+        return 0;
     }
 }
