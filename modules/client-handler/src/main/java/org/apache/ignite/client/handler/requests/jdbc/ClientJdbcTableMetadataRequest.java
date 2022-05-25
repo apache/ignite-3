@@ -24,7 +24,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
- * Client sql table metadata request handler.
+ * Client jdbc table metadata request handler.
  */
 public class ClientJdbcTableMetadataRequest {
     /**

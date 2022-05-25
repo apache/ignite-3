@@ -24,7 +24,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
- * Client sql close request handler.
+ * Client jdbc close request handler.
  */
 public class ClientJdbcCloseRequest {
     /**

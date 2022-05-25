@@ -24,7 +24,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 
 /**
- * Client prepared statement sql execute request handler.
+ * Client jdbc prepared statement sql execute request handler.
  */
 public class ClientJdbcPreparedStmntBatchRequest {
     /**

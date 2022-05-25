@@ -26,7 +26,7 @@ import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 
 /**
- * Sql query cursor with the ability to limit the maximum number of rows returned.
+ * Jdbc query cursor with the ability to limit the maximum number of rows returned.
  *
  * <p>The {@link JdbcQueryCursor#maxRows} parameter limits the amount of rows to be returned by the cursor.
  * Its value can either be a positive value or equal to zero, where zero means no limit.
