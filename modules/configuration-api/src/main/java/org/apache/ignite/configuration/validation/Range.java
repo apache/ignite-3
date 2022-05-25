@@ -33,10 +33,10 @@ public @interface Range {
     /**
      * Returns the lower bound for the value.
      */
-    long min();
+    long min() default Long.MIN_VALUE;
 
     /**
      * Returns the upper bound for the value.
      */
-    long max();
+    long max() default Long.MAX_VALUE;
 }

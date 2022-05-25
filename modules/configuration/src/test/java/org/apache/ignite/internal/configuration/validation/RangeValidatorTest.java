@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.apache.ignite.configuration.validation.Range;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -31,44 +32,58 @@ import org.junit.jupiter.api.Test;
 public class RangeValidatorTest {
     @Test
     void testValidationSuccess() {
-        Range range = createRange(0, 100);
+        Range range0 = createRange(0L, 100L);
 
         RangeValidator validator = new RangeValidator();
 
-        validate(validator, range, mockValidationContext(null, 0), null);
-        validate(validator, range, mockValidationContext(null, 50), null);
-        validate(validator, range, mockValidationContext(null, 100), null);
+        validate(validator, range0, mockValidationContext(null, 0), null);
+        validate(validator, range0, mockValidationContext(null, 50), null);
+        validate(validator, range0, mockValidationContext(null, 100), null);
+
+        Range range1 = createRange(0L, null);
+
+        validate(validator, range1, mockValidationContext(null, 0), null);
+        validate(validator, range1, mockValidationContext(null, 50), null);
+        validate(validator, range1, mockValidationContext(null, 100), null);
+        validate(validator, range1, mockValidationContext(null, Long.MAX_VALUE), null);
+
+        Range range2 = createRange(null, 100L);
+
+        validate(validator, range2, mockValidationContext(null, 0), null);
+        validate(validator, range2, mockValidationContext(null, 50), null);
+        validate(validator, range2, mockValidationContext(null, 100), null);
+        validate(validator, range2, mockValidationContext(null, Long.MIN_VALUE), null);
     }
 
     @Test
     void testValidationFail() {
-        Range range = createRange(0, 100);
-
         RangeValidator validator = new RangeValidator();
 
-        String errorMessagePrefix = "Configuration value 'null' must not be power of two";
+        String lessThanErrorPrefix = "Configuration value 'null' must not be less than";
+        String greaterThanErrorPrefix = "Configuration value 'null' must not be greater than";
 
-        validate(
-                validator,
-                range,
-                mockValidationContext(null, -1),
-                "Configuration value 'null' must not be less than"
-        );
+        Range range0 = createRange(0L, 100L);
 
-        validate(
-                validator,
-                range,
-                mockValidationContext(null, 101),
-                "Configuration value 'null' must not be greater than"
-        );
+        validate(validator, range0, mockValidationContext(null, -1), lessThanErrorPrefix);
+        validate(validator, range0, mockValidationContext(null, 101), greaterThanErrorPrefix);
+
+        Range range1 = createRange(0L, null);
+
+        validate(validator, range1, mockValidationContext(null, -1), lessThanErrorPrefix);
+        validate(validator, range1, mockValidationContext(null, Long.MIN_VALUE), lessThanErrorPrefix);
+
+        Range range2 = createRange(null, 100L);
+
+        validate(validator, range2, mockValidationContext(null, 101), greaterThanErrorPrefix);
+        validate(validator, range2, mockValidationContext(null, Long.MAX_VALUE), greaterThanErrorPrefix);
     }
 
-    private Range createRange(long min, long max) {
+    private Range createRange(@Nullable Long min, @Nullable Long max) {
         Range range = mock(Range.class);
 
-        when(range.min()).thenReturn(min);
+        when(range.min()).then(answer -> min == null ? answer.getMethod().getDefaultValue() : min);
 
-        when(range.max()).thenReturn(max);
+        when(range.max()).then(answer -> max == null ? answer.getMethod().getDefaultValue() : max);
 
         return range;
     }
