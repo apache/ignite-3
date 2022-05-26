@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -144,7 +145,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        await(closeAsync());
     }
 
     /** {@inheritDoc} */
@@ -277,7 +278,7 @@ public class SessionImpl implements Session {
      */
     @SuppressWarnings("unchecked")
     public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
-        throw (E) e;
+        throw new IgniteException(e);
     }
 
     /**

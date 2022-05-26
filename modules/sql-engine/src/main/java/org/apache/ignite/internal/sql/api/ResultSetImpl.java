@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -67,37 +67,58 @@ public class ResultSetImpl implements ResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public void close() throws Exception {
-        ars.closeAsync().toCompletableFuture().get();
+    public void close() {
+        SessionImpl.await(ars.closeAsync().toCompletableFuture());
     }
 
     /** {@inheritDoc} */
     @NotNull
     @Override
     public Iterator<SqlRow> iterator() {
-        return ars.currentPage().iterator();
+        return new IteratorImpl(ars);
     }
 
-    private class IteratorImpl implements Iterator<SqlRow> {
-        private AsyncResultSet cur;
-        private CompletableFuture<? extends AsyncResultSet> fut;
+    private static class IteratorImpl implements Iterator<SqlRow> {
+        private AsyncResultSet curRes;
+
+        private CompletionStage<? extends AsyncResultSet> nextPageStage;
+
+        private Iterator<SqlRow> curPage;
 
         IteratorImpl(AsyncResultSet ars) {
-            cur = ars;
+            curRes = ars;
 
-            if (ars.hasMorePages()) {
-                fut = cur.fetchNextPage().toCompletableFuture();
-            }
+            advance();
         }
 
         @Override
         public boolean hasNext() {
-            return false;
+            if (curPage.hasNext()) {
+                return true;
+            } else if (nextPageStage != null) {
+                curRes = SessionImpl.await(nextPageStage);
+
+                advance();
+
+                return curPage.hasNext();
+            } else {
+                return false;
+            }
+        }
+
+        private void advance() {
+            curPage = curRes.currentPage().iterator();
+
+            if (curRes.hasMorePages()) {
+                nextPageStage = curRes.fetchNextPage();
+            } else {
+                nextPageStage = null;
+            }
         }
 
         @Override
         public SqlRow next() {
-            return null;
+            return curPage.next();
         }
     }
 }

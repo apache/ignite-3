@@ -67,4 +67,10 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
     boolean wasApplied();
+
+    /**
+     * Invalidates result set &  cleanup remote resources.
+     */
+    @Override
+    void close();
 }
