@@ -227,7 +227,8 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
     private void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
         ResultSet res = ses.execute(
                 null,
-                sql
+                sql,
+                args
         );
 
         assertFalse(res.wasApplied());
