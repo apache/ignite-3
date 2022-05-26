@@ -219,7 +219,9 @@ class CheckpointWorkflow implements IgniteComponent {
             }
         }
 
-        checkpointMarkersStorage.onCheckpointEnd(chp.progress.id());
+        if (chp.hasDelta()) {
+            checkpointMarkersStorage.onCheckpointEnd(chp.progress.id());
+        }
 
         for (CheckpointListener listener : collectCheckpointListeners(dataRegions)) {
             listener.afterCheckpointEnd(chp.progress);

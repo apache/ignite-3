@@ -23,6 +23,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -133,7 +134,7 @@ public class CheckpointManager implements IgniteComponent {
                 checkpointReadWriteLock,
                 // TODO: IGNITE-16984 get from config
                 10_000,
-                () -> safeToUpdateAllPageMemoryImpl(dataRegions),
+                () -> safeToUpdateAllPageMemories(dataRegions),
                 checkpointer
         );
     }
@@ -199,12 +200,12 @@ public class CheckpointManager implements IgniteComponent {
     }
 
     /**
-     * Returns {@link true} if it is safe for all persistent data regions to update their {@link PageMemoryImpl}.
+     * Returns {@link true} if it is safe for all {@link PageMemoryDataRegion data regions} to update their {@link PageMemory}.
      *
      * @param dataRegions Data regions.
      * @see PageMemoryImpl#safeToUpdate()
      */
-    boolean safeToUpdateAllPageMemoryImpl(Collection<PageMemoryDataRegion> dataRegions) {
+    static boolean safeToUpdateAllPageMemories(Collection<PageMemoryDataRegion> dataRegions) {
         for (PageMemoryDataRegion dataRegion : dataRegions) {
             if (dataRegion.persistent() && !((PageMemoryImpl) dataRegion.pageMemory()).safeToUpdate()) {
                 return false;

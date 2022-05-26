@@ -20,8 +20,8 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
@@ -40,10 +40,10 @@ class CheckpointTestUtils {
     /**
      * Returns mocked instance of {@link PageMemoryDataRegion}.
      *
-     * @param persistent Persistent data region.
-     * @param pageMemory Persistent page memory.
+     * @param persistent Data region.
+     * @param pageMemory Page memory.
      */
-    static PageMemoryDataRegion newDataRegion(boolean persistent, PageMemoryImpl pageMemory) {
+    static PageMemoryDataRegion newDataRegion(boolean persistent, PageMemory pageMemory) {
         PageMemoryDataRegion mock = mock(PageMemoryDataRegion.class);
 
         when(mock.persistent()).thenReturn(persistent);
