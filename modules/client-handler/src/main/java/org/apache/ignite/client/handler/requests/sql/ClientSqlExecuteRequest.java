@@ -24,6 +24,8 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 
 /**
  * Executes and SQL query.
@@ -39,7 +41,8 @@ public class ClientSqlExecuteRequest {
      */
     public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientMessagePacker out, IgniteSql sql) {
         // TODO: read TX.
-        SessionBuilder builder = sql.sessionBuilder()
+        // TODO: "brief mode" which only includes query text and args? - separate ticket.
+        SessionBuilder sessionBuilder = sql.sessionBuilder()
                 .defaultPageSize(in.unpackInt())
                 .defaultSchema(in.unpackString())
                 .defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
@@ -47,14 +50,34 @@ public class ClientSqlExecuteRequest {
         var propCount = in.unpackInt();
 
         for (int i = 0; i < propCount; i++) {
-            builder.property(in.unpackString(), in.unpackObjectWithType());
+            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
         }
 
-        Session session = builder.build();
+        Session session = sessionBuilder.build();
 
-        // TODO
-        sql.statementBuilder().
+        // TODO: should we store prepared statements per connection? - separate ticket.
+        StatementBuilder statementBuilder = sql.statementBuilder()
+                .defaultSchema(in.unpackString())
+                .pageSize(in.unpackInt())
+                .query(in.unpackString())
+                .queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
 
-        return null;
+        propCount = in.unpackInt();
+
+        for (int i = 0; i < propCount; i++) {
+            statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
+        }
+
+        if (in.unpackBoolean()) {
+            statementBuilder.prepared(); // TODO: Prepared should take a boolean argument.
+        }
+
+        Statement statement = statementBuilder.build();
+
+        return session.executeAsync(null, statement).thenAccept(asyncResultSet -> {
+            // TODO: Put result set to resources and return id (or null when single page).
+            // TODO: Pack first page, close if ended.
+            out.packLong(0);
+        });
     }
 }
