@@ -17,21 +17,29 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
-import org.apache.ignite.configuration.validation.Max;
+import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * Validate that field value is not greater than some maximum value.
+ * Implementing a validator for {@link Range}.
  */
-public class MaxValidator implements Validator<Max, Number> {
+public class RangeValidator implements Validator<Range, Number> {
     /** {@inheritDoc} */
     @Override
-    public void validate(Max annotation, ValidationContext<Number> ctx) {
-        if (ctx.getNewValue().longValue() > annotation.value()) {
+    public void validate(Range annotation, ValidationContext<Number> ctx) {
+        long longValue = ctx.getNewValue().longValue();
+
+        if (longValue < annotation.min()) {
             ctx.addIssue(new ValidationIssue(
-                    "Configuration value '" + ctx.currentKey() + "' must not be greater than " + annotation.value()
+                    "Configuration value '" + ctx.currentKey() + "' must not be less than " + annotation.min()
+            ));
+        }
+
+        if (longValue > annotation.max()) {
+            ctx.addIssue(new ValidationIssue(
+                    "Configuration value '" + ctx.currentKey() + "' must not be greater than " + annotation.max()
             ));
         }
     }

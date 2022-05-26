@@ -55,22 +55,26 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
-import java.util.function.LongSupplier;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link Checkpointer} testing.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class CheckpointerTest {
     private final IgniteLogger log = IgniteLogger.forClass(CheckpointerTest.class);
+
+    @InjectConfiguration("mock : {threads=1, frequency=1000, frequencyDeviation=0}")
+    private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @Test
     void testStartAndStop() throws Exception {
@@ -81,9 +85,7 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
-                1,
-                () -> 1_000,
-                () -> 0
+                checkpointConfig
         );
 
         assertNull(checkpointer.runner());
@@ -114,9 +116,7 @@ public class CheckpointerTest {
                 null,
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
-                1,
-                () -> 1_000,
-                () -> 0
+                checkpointConfig
         ));
 
         assertNull(checkpointer.currentProgress());
@@ -232,6 +232,8 @@ public class CheckpointerTest {
 
     @Test
     void testWaitCheckpointEvent() throws Exception {
+        checkpointConfig.frequency().update(200L).get(100, MILLISECONDS);
+
         Checkpointer checkpointer = new Checkpointer(
                 log,
                 "test",
@@ -239,9 +241,7 @@ public class CheckpointerTest {
                 null,
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
-                1,
-                () -> 200,
-                () -> 0
+                checkpointConfig
         );
 
         CompletableFuture<?> waitCheckpointEventFuture = runAsync(checkpointer::waitCheckpointEvent);
@@ -259,11 +259,7 @@ public class CheckpointerTest {
 
     @Test
     void testCheckpointBody() throws Exception {
-        LongSupplier checkpointFrequencySupplier = mock(LongSupplier.class);
-
-        when(checkpointFrequencySupplier.getAsLong())
-                .thenReturn(100L)
-                .thenReturn(10_000L);
+        checkpointConfig.frequency().update(100L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 log,
@@ -272,19 +268,19 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(EMPTY),
                 createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
-                1,
-                checkpointFrequencySupplier,
-                () -> 0
+                checkpointConfig
         ));
 
         ((CheckpointProgressImpl) checkpointer.scheduledProgress())
                 .futureFor(FINISHED)
                 .whenComplete((unused, throwable) -> {
                     try {
+                        checkpointConfig.frequency().update(10_000L).get(100, MILLISECONDS);
+
                         verify(checkpointer, times(1)).doCheckpoint();
 
                         checkpointer.shutdownCheckpointer(false);
-                    } catch (IgniteInternalCheckedException e) {
+                    } catch (Exception e) {
                         fail(e);
                     }
                 });
@@ -345,9 +341,7 @@ public class CheckpointerTest {
                 null,
                 createCheckpointWorkflow(dirtyPages),
                 createCheckpointPagesWriterFactory(mock(CheckpointPageWriter.class)),
-                1,
-                () -> 1_000,
-                () -> 0
+                checkpointConfig
         ));
 
         assertDoesNotThrow(checkpointer::doCheckpoint);
@@ -360,10 +354,7 @@ public class CheckpointerTest {
     }
 
     @Test
-    void testNextCheckpointInterval() {
-        AtomicLong checkpointFrequency = new AtomicLong();
-        AtomicInteger checkpointFrequencyDeviation = new AtomicInteger();
-
+    void testNextCheckpointInterval() throws Exception {
         Checkpointer checkpointer = new Checkpointer(
                 log,
                 "test",
@@ -371,31 +362,29 @@ public class CheckpointerTest {
                 null,
                 mock(CheckpointWorkflow.class),
                 mock(CheckpointPagesWriterFactory.class),
-                1,
-                checkpointFrequency::get,
-                checkpointFrequencyDeviation::get
+                checkpointConfig
         );
 
         // Checks case 0 deviation.
 
-        checkpointFrequencyDeviation.set(0);
+        checkpointConfig.frequencyDeviation().update(0).get(100, MILLISECONDS);
 
-        checkpointFrequency.set(1_000);
+        checkpointConfig.frequency().update(1_000L).get(100, MILLISECONDS);
         assertEquals(1_000, checkpointer.nextCheckpointInterval());
 
-        checkpointFrequency.set(2_000);
+        checkpointConfig.frequency().update(2_000L).get(100, MILLISECONDS);
         assertEquals(2_000, checkpointer.nextCheckpointInterval());
 
         // Checks for non-zero deviation.
 
-        checkpointFrequencyDeviation.set(10);
+        checkpointConfig.frequencyDeviation().update(10).get(100, MILLISECONDS);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_900L), lessThanOrEqualTo(2_100L))
         );
 
-        checkpointFrequencyDeviation.set(20);
+        checkpointConfig.frequencyDeviation().update(20).get(100, MILLISECONDS);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),

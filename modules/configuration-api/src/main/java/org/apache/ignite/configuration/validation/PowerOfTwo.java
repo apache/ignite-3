@@ -17,24 +17,17 @@
 
 package org.apache.ignite.configuration.validation;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
 import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Signifies that this value has upper limit (inclusive).
+ * Signifies that this value must be a power of two.
  */
-@Target(FIELD)
-@Retention(RUNTIME)
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface Max {
-    /**
-     * Returns the upper bound for the value.
-     *
-     * @return upper bound for the value.
-     */
-    long value();
+public @interface PowerOfTwo {
 }

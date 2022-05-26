@@ -65,9 +65,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg
-                .change(cfg -> cfg.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
-                .get(1, SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @Test
@@ -317,9 +315,10 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-            provider,
-            dataRegionCfg,
-            ioRegistry
+                provider,
+                dataRegionCfg,
+                ioRegistry,
+                PAGE_SIZE
         );
     }
 
