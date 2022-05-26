@@ -18,9 +18,12 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.Session.SessionBuilder;
 
 /**
  * Executes and SQL query.
@@ -35,7 +38,23 @@ public class ClientSqlExecuteRequest {
      * @return Future.
      */
     public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientMessagePacker out, IgniteSql sql) {
-        // TODO:
+        // TODO: read TX.
+        SessionBuilder builder = sql.sessionBuilder()
+                .defaultPageSize(in.unpackInt())
+                .defaultSchema(in.unpackString())
+                .defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+
+        var propCount = in.unpackInt();
+
+        for (int i = 0; i < propCount; i++) {
+            builder.property(in.unpackString(), in.unpackObjectWithType());
+        }
+
+        Session session = builder.build();
+
+        // TODO
+        sql.statementBuilder().
+
         return null;
     }
 }
