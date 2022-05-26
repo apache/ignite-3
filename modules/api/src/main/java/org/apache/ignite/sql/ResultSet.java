@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql;
 
+import java.util.concurrent.CompletionStage;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -67,4 +68,27 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
     boolean wasApplied();
+
+    /**
+     * Returns the current page content if the query return rows.
+     *
+     * @return Iterable over rows.
+     * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     */
+    Iterable<SqlRow> currentPage();
+
+    /**
+     * Fetch the next page of results asynchronously.
+     *
+     * @return Operation future.
+     * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     */
+    CompletionStage<? extends ResultSet> fetchNextPage();
+
+    /**
+     * Returns whether there are more pages of results.
+     *
+     * @return {@code True} if there are more pages with results, {@code false} otherwise.
+     */
+    boolean hasMorePages();
 }
