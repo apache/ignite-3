@@ -95,6 +95,9 @@ public class RecoveryHandshakeTest {
 
         checkPipelineAfterHandshake(serverSideChannel);
         checkPipelineAfterHandshake(clientSideChannel);
+
+        assertFalse(serverSideChannel.finish());
+        assertFalse(clientSideChannel.finish());
     }
 
     @Test
@@ -145,6 +148,9 @@ public class RecoveryHandshakeTest {
 
         checkPipelineAfterHandshake(serverSideChannel);
         checkPipelineAfterHandshake(clientSideChannel);
+
+        assertFalse(serverSideChannel.finish());
+        assertFalse(clientSideChannel.finish());
     }
 
     @Test
@@ -195,6 +201,9 @@ public class RecoveryHandshakeTest {
 
         checkPipelineAfterHandshake(serverSideChannel);
         checkPipelineAfterHandshake(clientSideChannel);
+
+        assertFalse(serverSideChannel.finish());
+        assertFalse(clientSideChannel.finish());
     }
 
     @Test
@@ -222,8 +231,16 @@ public class RecoveryHandshakeTest {
         exchangeClientToServer(in1to2, out2to1);
         exchangeClientToServer(in2to1, out1to2);
 
+        exchangeServerToClient(in1to2, out2to1);
+        exchangeServerToClient(in2to1, out1to2);
+
         assertNotSame(chm1.recoveryDescriptor(), shm1.recoveryDescriptor());
         assertNotSame(chm2.recoveryDescriptor(), shm2.recoveryDescriptor());
+
+        assertFalse(out1to2.finish());
+        assertFalse(in1to2.finish());
+        assertFalse(out2to1.finish());
+        assertFalse(in2to1.finish());
     }
 
     @Test
@@ -300,6 +317,9 @@ public class RecoveryHandshakeTest {
 
         var listener2 = new MessageListener("2", receivedSecond);
 
+        clientSideChannel.finishAndReleaseAll();
+        serverSideChannel.finishAndReleaseAll();
+
         clientSideChannel = setupChannel(clientHandshakeManager, serverDidntReceiveAck ? listener2 : noMessageListener);
         serverSideChannel = setupChannel(serverHandshakeManager, serverDidntReceiveAck ? noMessageListener : listener2);
 
@@ -326,6 +346,9 @@ public class RecoveryHandshakeTest {
         assertNull(clientSideChannel.readOutbound());
 
         assertTrue(receivedSecond.get());
+
+        assertFalse(serverSideChannel.finish());
+        assertFalse(clientSideChannel.finish());
     }
 
     /** Message listener that accepts a specific message only once. */
