@@ -91,22 +91,21 @@ public class ClientSqlExecuteRequest {
         return session.executeAsync(tx, statement).thenAccept(asyncResultSet -> {
             if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
                 try {
-                    long resourceId = resources.put(new ClientResource(asyncResultSet, () -> {
-                        // TODO: Close AsyncResultSet - missing API
-                    }));
-
+                    long resourceId = resources.put(new ClientResource(asyncResultSet, asyncResultSet::close));
                     out.packLong(resourceId);
                 } catch (IgniteInternalCheckedException e) {
-                    // TODO: Close AsyncResultSet - missing API
+                    asyncResultSet.close();
                     throw new IgniteInternalException(e.getMessage(), e);
                 }
             } else {
                 out.packNil(); // resourceId
             }
 
-            // TODO: Put result set to resources and return id (or null when single page).
             // TODO: Pack first page, close if ended.
-            out.packLong(0);
+            // TODO: Pack metadata
+            out.packBoolean(asyncResultSet.hasRowSet());
+            out.packBoolean(asyncResultSet.hasMorePages());
+            out.packBoolean(asyncResultSet.wasApplied());
         });
     }
 }

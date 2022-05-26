@@ -95,4 +95,9 @@ public interface AsyncResultSet {
      * @return {@code True} if there are more pages with results, {@code false} otherwise.
      */
     boolean hasMorePages();
+
+    /**
+     * Closes the result set.
+     */
+    void close();
 }
