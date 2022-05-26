@@ -212,16 +212,19 @@ public class SessionImpl implements Session {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -272,6 +275,7 @@ public class SessionImpl implements Session {
                 );
     }
 
+    /** {@inheritDoc} */
     @Override
     public Publisher<Void> closeReactive() {
         throw new UnsupportedOperationException("Not implemented yet.");
