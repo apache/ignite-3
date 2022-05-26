@@ -29,7 +29,10 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -42,8 +45,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * For {@link CheckpointManager} testing.
  */
+@ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class CheckpointManagerTest {
+    @InjectConfiguration
+    private PageMemoryCheckpointConfiguration checkpointConfig;
+
     @WorkDirectory
     private Path workDir;
 
@@ -56,6 +63,7 @@ public class CheckpointManagerTest {
                 "test",
                 null,
                 null,
+                checkpointConfig,
                 mock(FilePageStoreManager.class),
                 List.of(dataRegion),
                 workDir,

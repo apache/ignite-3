@@ -25,6 +25,8 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -71,6 +73,7 @@ public class CheckpointManager implements IgniteComponent {
      *
      * @param logger Logger producer.
      * @param igniteInstanceName Ignite instance name.
+     * @param checkpointConfig Checkpoint configuration.
      * @param workerListener Listener for life-cycle checkpoint worker events.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param filePageStoreManager File page store manager.
@@ -84,27 +87,27 @@ public class CheckpointManager implements IgniteComponent {
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
+            PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
             Collection<PageMemoryDataRegion> dataRegions,
             Path storagePath,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
-        // TODO: IGNITE-16984 get from config
-        ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = new ReentrantReadWriteLockWithTracking(
-                logger.apply(CheckpointReadWriteLock.class),
-                5_000
-        );
+        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
+
+        ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = checkpointConfigView.logReadLockHolders()
+                ? new ReentrantReadWriteLockWithTracking(logger.apply(CheckpointReadWriteLock.class), 5_000)
+                : new ReentrantReadWriteLockWithTracking();
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
 
         checkpointMarkersStorage = new CheckpointMarkersStorage(storagePath);
 
         checkpointWorkflow = new CheckpointWorkflow(
+                checkpointConfig,
                 checkpointMarkersStorage,
                 checkpointReadWriteLock,
-                // TODO: IGNITE-16984 get from config
-                CheckpointWriteOrder.RANDOM,
                 dataRegions
         );
 
@@ -121,19 +124,13 @@ public class CheckpointManager implements IgniteComponent {
                 longJvmPauseDetector,
                 checkpointWorkflow,
                 checkpointPagesWriterFactory,
-                // TODO: IGNITE-16984 get from config
-                1,
-                // TODO: IGNITE-16984 get from config
-                () -> 180_000,
-                // TODO: IGNITE-16984 get from config
-                () -> 40
+                checkpointConfig
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
                 logger.apply(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
-                // TODO: IGNITE-16984 get from config
-                10_000,
+                checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),
                 checkpointer
         );

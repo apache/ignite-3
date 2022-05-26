@@ -511,10 +511,8 @@ public class PageMemoryImpl implements PageMemory {
 
         long pageId = pageStoreManager.allocatePage(grpId, partId, flags);
 
-        assert pageIndex(pageId) > 0; //it's crucial for tracking pages (zero page is super one)
-
         // We need to allocate page in memory for marking it dirty to save it in the next checkpoint.
-        // Otherwise it is possible that on file will be empty page which will be saved at snapshot and read with error
+        // Otherwise, it is possible that on file will be empty page which will be saved at snapshot and read with error
         // because there is no crc inside them.
         Segment seg = segment(grpId, pageId);
 
