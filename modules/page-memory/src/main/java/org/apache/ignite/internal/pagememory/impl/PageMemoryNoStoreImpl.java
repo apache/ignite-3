@@ -675,8 +675,8 @@ public class PageMemoryNoStoreImpl implements PageMemory {
 
             if (oldRef != null) {
                 if (LOG.isInfoEnabled()) {
-                    LOG.info("Allocated next memory segment [plcName=" + dataRegionConfigView.name()
-                            + ", chunkSize=" + IgniteUtils.readableSize(region.size(), true) + ']');
+                    LOG.info("Allocated next memory segment for region [name=" + dataRegionConfigView.name()
+                            + ", size=" + IgniteUtils.readableSize(region.size(), true) + ']');
                 }
             }
 

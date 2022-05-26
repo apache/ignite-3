@@ -88,7 +88,11 @@ public class PageMemoryDataRegionConfigurationSchema {
     @Value(hasDefault = true)
     public boolean lazyMemoryAllocation = true;
 
-    /** Write to the page store without holding the segment lock (with a delay). */
+    /**
+     * Write to the page store without holding the segment lock (with a delay).
+     *
+     * <p>Because other thread may require exactly the same page to be loaded from page store, reads are protected by locking.
+     */
     @Value(hasDefault = true)
     public boolean delayedReplacedPageWrite = true;
 }

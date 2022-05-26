@@ -242,7 +242,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
         rwLock = new OffheapReadWriteLock(128);
 
-        String replacementMode = this.dataRegionConfigView.replacementMode();
+        String replacementMode = dataRegionConfigView.replacementMode();
 
         switch (replacementMode) {
             case RANDOM_LRU_REPLACEMENT_MODE:
@@ -261,7 +261,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = dataRegionConfig.delayedReplacedPageWrite().value()
+        delayedPageReplacementTracker = dataRegionConfigView.delayedReplacedPageWrite()
                 ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
     }
 
