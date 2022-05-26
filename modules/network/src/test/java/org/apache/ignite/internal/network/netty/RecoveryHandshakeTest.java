@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.util.ResourceLeakDetector;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -52,7 +51,6 @@ import org.apache.ignite.network.TestMessage;
 import org.apache.ignite.network.TestMessageSerializationRegistryImpl;
 import org.apache.ignite.network.TestMessagesFactory;
 import org.apache.ignite.network.serialization.MessageSerializationRegistry;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -70,11 +68,6 @@ public class RecoveryHandshakeTest {
 
     /** Test message factory. */
     private static final TestMessagesFactory TEST_MESSAGES_FACTORY = new TestMessagesFactory();
-
-    @BeforeEach
-    void setUp() {
-        ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
-    }
 
     @Test
     public void testHandshake() throws Exception {
