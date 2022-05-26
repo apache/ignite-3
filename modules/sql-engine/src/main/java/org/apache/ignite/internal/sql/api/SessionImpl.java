@@ -22,10 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -271,17 +269,6 @@ public class SessionImpl implements Session {
     }
 
     /**
-     * Throw an exception as if it were unchecked.
-     *
-     * <p>This method erases type of the exception in the thrown clause, so checked exception could be thrown without need to wrap it with
-     * unchecked one or adding a similar throws clause to the upstream methods.
-     */
-    @SuppressWarnings("unchecked")
-    public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
-        throw new IgniteException(e);
-    }
-
-    /**
      * Awaits completion of the given stage and returns its result.
      *
      * @param stage The stage.
@@ -293,17 +280,7 @@ public class SessionImpl implements Session {
         try {
             return stage.toCompletableFuture().get();
         } catch (Throwable e) {
-            if (e instanceof ExecutionException) {
-                e = e.getCause();
-            } else if (e instanceof CompletionException) {
-                e = e.getCause();
-            }
-
-            sneakyThrow(e);
+            throw new IgniteException(e);
         }
-
-        assert false;
-
-        return null;
     }
 }
