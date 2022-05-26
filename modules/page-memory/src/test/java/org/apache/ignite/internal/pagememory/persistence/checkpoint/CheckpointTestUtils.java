@@ -20,14 +20,12 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Useful class for testing a checkpoint.
  */
-class CheckpointTestUtils {
+public class CheckpointTestUtils {
     /**
      * Returns new instance of {@link CheckpointReadWriteLock}.
      *
@@ -38,18 +36,15 @@ class CheckpointTestUtils {
     }
 
     /**
-     * Returns mocked instance of {@link PageMemoryDataRegion}.
+     * Returns mocked {@link CheckpointTimeoutLock}.
      *
-     * @param persistent Data region.
-     * @param pageMemory Page memory.
+     * @param checkpointHeldByCurrentThread Result of {@link CheckpointTimeoutLock#checkpointLockIsHeldByThread()}.
      */
-    static PageMemoryDataRegion newDataRegion(boolean persistent, PageMemory pageMemory) {
-        PageMemoryDataRegion mock = mock(PageMemoryDataRegion.class);
+    public static CheckpointTimeoutLock mockCheckpointTimeoutLock(boolean checkpointHeldByCurrentThread) {
+        CheckpointTimeoutLock checkpointTimeoutLock = mock(CheckpointTimeoutLock.class);
 
-        when(mock.persistent()).thenReturn(persistent);
+        when(checkpointTimeoutLock.checkpointLockIsHeldByThread()).thenReturn(checkpointHeldByCurrentThread);
 
-        when(mock.pageMemory()).thenReturn(pageMemory);
-
-        return mock;
+        return checkpointTimeoutLock;
     }
 }

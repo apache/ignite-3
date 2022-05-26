@@ -73,7 +73,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
@@ -86,6 +85,7 @@ import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicy;
@@ -211,8 +211,8 @@ public class PageMemoryImpl implements PageMemory {
     /** Flush dirty page closure. */
     private final PageStoreWriter flushDirtyPage;
 
-    /** Supplier to check the holding of the checkpoint lock by the current thread. */
-    private final BooleanSupplier checkpointLockIsHeldByCurrentThreadSupplier;
+    /** Checkpoint timeout lock. */
+    private final CheckpointTimeoutLock checkpointTimeoutLock;
 
     /**
      * Constructor.
@@ -224,7 +224,7 @@ public class PageMemoryImpl implements PageMemory {
      * @param pageStoreManager Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
-     * @param checkpointLockIsHeldByCurrentThreadSupplier Supplier to check the holding of the checkpoint lock by the current thread.
+     * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param pageSize Page size in bytes.
      */
     public PageMemoryImpl(
@@ -235,7 +235,7 @@ public class PageMemoryImpl implements PageMemory {
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
             PageStoreWriter flushDirtyPage,
-            BooleanSupplier checkpointLockIsHeldByCurrentThreadSupplier,
+            CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
@@ -246,7 +246,7 @@ public class PageMemoryImpl implements PageMemory {
         this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
         this.flushDirtyPage = flushDirtyPage;
-        this.checkpointLockIsHeldByCurrentThreadSupplier = checkpointLockIsHeldByCurrentThreadSupplier;
+        this.checkpointTimeoutLock = checkpointTimeoutLock;
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
@@ -507,7 +507,7 @@ public class PageMemoryImpl implements PageMemory {
         assert partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION && flags == FLAG_AUX : "flags = " + flags + ", partId = " + partId;
 
         assert started;
-        assert checkpointLockIsHeldByCurrentThreadSupplier.getAsBoolean();
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
         long pageId = pageStoreManager.allocatePage(grpId, partId, flags);
 
@@ -1238,7 +1238,7 @@ public class PageMemoryImpl implements PageMemory {
         boolean wasDirty = dirty(absPtr, dirty);
 
         if (dirty) {
-            assert checkpointLockIsHeldByCurrentThreadSupplier.getAsBoolean();
+            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());

@@ -17,28 +17,50 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Set;
 import java.util.stream.LongStream;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.PageMemoryTestUtils;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests {@link PageMemoryImpl}.
  */
+@ExtendWith(WorkDirectoryExtension.class)
 public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     @BeforeEach
     void setUp() throws Exception {
@@ -48,28 +70,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     /** {@inheritDoc} */
     @Override
     protected PageMemory memory() {
-        return memory(LongStream.range(0, 10).map(i -> 5 * MiB).toArray());
-    }
-
-    protected PageMemoryImpl memory(long[] sizes) {
-        PageIoRegistry ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-
-        return new PageMemoryImpl(
-                new UnsafeMemoryProvider(null),
-                dataRegionCfg,
-                ioRegistry,
-                sizes,
-                new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryImpl) -> {
-                },
-                (fullPageId, buf, tag) -> {
-                },
-                // TODO: IGNITE-16984 Consider a real test
-                () -> true,
-                PAGE_SIZE
-        );
+        return createPageMemoryImpl(defaultSegmentSizes(), null, null);
     }
 
     /** {@inheritDoc} */
@@ -80,19 +81,49 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     }
 
     @Test
-    void testDirtyPages() throws Exception {
-        PageMemoryImpl memory = (PageMemoryImpl) memory();
+    void testDirtyPages(
+            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
+            @WorkDirectory Path workDir
+    ) throws Exception {
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
 
-        memory.start();
+        Collection<PageMemoryDataRegion> dataRegions = new ArrayList<>();
+
+        CheckpointManager checkpointManager = createCheckpointManager(checkpointConfig, workDir, filePageStoreManager, dataRegions);
+
+        PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(defaultSegmentSizes(), filePageStoreManager, checkpointManager);
+
+        dataRegions.add(PageMemoryTestUtils.newDataRegion(true, pageMemoryImpl));
+
+        filePageStoreManager.start();
+
+        checkpointManager.start();
+
+        pageMemoryImpl.start();
 
         try {
-            Set<FullPageId> dirtyPages = Set.of(allocatePage(memory), allocatePage(memory));
+            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
-            assertThat(memory.dirtyPages(), equalTo(dirtyPages));
+            try {
+                Set<FullPageId> dirtyPages = Set.of(allocatePage(pageMemoryImpl), allocatePage(pageMemoryImpl));
 
-            // TODO: IGNITE-16984 After the checkpoint check that there are no dirty pages
+                assertThat(pageMemoryImpl.dirtyPages(), equalTo(dirtyPages));
+            } finally {
+                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
+            }
+
+            checkpointManager
+                    .forceCheckpoint("for_test_flash_dirty_pages", null)
+                    .futureFor(FINISHED)
+                    .get(100, MILLISECONDS);
+
+            assertThat(pageMemoryImpl.dirtyPages(), empty());
         } finally {
-            memory.stop(true);
+            closeAll(
+                    () -> pageMemoryImpl.stop(true),
+                    checkpointManager::stop,
+                    filePageStoreManager::stop
+            );
         }
     }
 
@@ -100,11 +131,9 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     void testSafeToUpdate() throws Exception {
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
-        dataRegionCfg
-                .change(c -> c.changeInitSize(128 * systemPageSize).changeMaxSize(128 * systemPageSize))
-                .get(1, SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(128 * systemPageSize).changeMaxSize(128 * systemPageSize)).get(1, SECONDS);
 
-        PageMemoryImpl memory = memory(new long[]{100 * systemPageSize, 28 * systemPageSize});
+        PageMemoryImpl memory = createPageMemoryImpl(new long[]{100 * systemPageSize, 28 * systemPageSize}, null, null);
 
         memory.start();
 
@@ -131,5 +160,54 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         } finally {
             memory.stop(true);
         }
+    }
+
+    protected PageMemoryImpl createPageMemoryImpl(
+            long[] sizes,
+            @Nullable FilePageStoreManager filePageStoreManager,
+            @Nullable CheckpointManager checkpointManager
+    ) {
+        PageIoRegistry ioRegistry = new PageIoRegistry();
+
+        ioRegistry.loadFromServiceLoader();
+
+        return new PageMemoryImpl(
+                new UnsafeMemoryProvider(null),
+                dataRegionCfg,
+                ioRegistry,
+                sizes,
+                filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
+                null,
+                (fullPageId, buf, tag) -> fail("Should not happen"),
+                checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
+                PAGE_SIZE
+        );
+    }
+
+    private static long[] defaultSegmentSizes() {
+        return LongStream.range(0, 10).map(i -> 5 * MiB).toArray();
+    }
+
+    private CheckpointManager createCheckpointManager(
+            PageMemoryCheckpointConfiguration checkpointConfig,
+            Path storagePath,
+            FilePageStoreManager filePageStoreManager,
+            Collection<PageMemoryDataRegion> dataRegions
+    ) throws Exception {
+        return new CheckpointManager(
+                IgniteLogger::forClass,
+                "test",
+                null,
+                null,
+                checkpointConfig,
+                filePageStoreManager,
+                dataRegions,
+                storagePath,
+                PAGE_SIZE
+        );
+    }
+
+    private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
+        return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
     }
 }

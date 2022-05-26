@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
@@ -54,7 +55,7 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
                 },
                 (fullPageId, buf, tag) -> {
                 },
-                () -> true,
+                mockCheckpointTimeoutLock(true),
                 PAGE_SIZE
         );
     }
