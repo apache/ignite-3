@@ -62,8 +62,8 @@ public class ClientSqlExecuteRequest {
             sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
         }
 
-        // TODO: Session must be somehow stored on the server, to be able to close it and clean up.
-        // So build call on the client must perform a network call.
+        // Session simply tracks active queries. We don't need to store it in resources.
+        // Instead, we track active queries in the ClientSession and close them there accordingly.
         Session session = sessionBuilder.build();
 
         // TODO: should we store prepared statements per connection? - separate ticket.
