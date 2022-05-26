@@ -21,8 +21,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for network endpoint subtree.
@@ -30,13 +29,12 @@ import org.apache.ignite.configuration.validation.Min;
 @ConfigurationRoot(rootName = "network", type = ConfigurationType.LOCAL)
 public class NetworkConfigurationSchema {
     /** Network port. */
-    @Min(1024)
-    @Max(0xFFFF)
+    @Range(min = 1024, max = 0xFFFF)
     @Value(hasDefault = true)
     public final int port = 47500;
 
     /** Network port range. */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public final int portRange = 0;
 
@@ -45,7 +43,7 @@ public class NetworkConfigurationSchema {
      * <i>'the quiet period'</i> before it shuts itself down. If a task is submitted during the quiet period,
      * it is guaranteed to be accepted and the quiet period will start over.
      */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public final long shutdownQuietPeriod = 0;
 
@@ -53,7 +51,7 @@ public class NetworkConfigurationSchema {
      * The maximum amount of time to wait until each Netty's EventExecutorGroup is shutdown regardless if a new network message was
      * submitted during the quiet period.
      */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public final long shutdownTimeout = 15_000;
 

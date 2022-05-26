@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
-import static org.apache.ignite.client.proto.query.SqlStateCode.CONNECTION_CLOSED;
-import static org.apache.ignite.client.proto.query.SqlStateCode.CONVERSION_FAILED;
-import static org.apache.ignite.client.proto.query.SqlStateCode.INVALID_CURSOR_STATE;
-import static org.apache.ignite.client.proto.query.SqlStateCode.NULL_VALUE;
-import static org.apache.ignite.client.proto.query.SqlStateCode.PARSING_EXCEPTION;
-import static org.apache.ignite.client.proto.query.SqlStateCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONVERSION_FAILED;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_CURSOR_STATE;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.NULL_VALUE;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.PARSING_EXCEPTION;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
