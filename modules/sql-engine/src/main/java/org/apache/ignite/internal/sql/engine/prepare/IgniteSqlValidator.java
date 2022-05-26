@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
@@ -48,6 +50,7 @@ import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.validate.SelectScope;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorNamespace;
@@ -57,6 +60,7 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.jetbrains.annotations.Nullable;
 
@@ -160,6 +164,14 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         return new SqlSelect(SqlParserPos.ZERO, null, selectList, sourceTable,
                 call.getCondition(), null, null, null, null, null, null, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void addToSelectList(List<SqlNode> list, Set<String> aliases,
+            List<Map.Entry<String, RelDataType>> fieldList, SqlNode exp, SelectScope scope, boolean includeSystemVars) {
+        if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemFieldName(deriveAlias(exp, 0))) {
+            super.addToSelectList(list, aliases, fieldList, exp, scope, includeSystemVars);
+        }
     }
 
     /** {@inheritDoc} */
@@ -430,5 +442,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     private IgniteTypeFactory typeFactory() {
         return (IgniteTypeFactory) typeFactory;
+    }
+
+    private boolean isSystemFieldName(String alias) {
+        return Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias);
     }
 }
