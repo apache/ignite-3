@@ -235,8 +235,7 @@ public class PageMemoryImpl implements PageMemory {
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
             PageStoreWriter flushDirtyPage,
-            BooleanSupplier checkpointLockIsHeldByCurrentThreadSupplier
-            PageStoreWriter flushDirtyPage,
+            BooleanSupplier checkpointLockIsHeldByCurrentThreadSupplier,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
