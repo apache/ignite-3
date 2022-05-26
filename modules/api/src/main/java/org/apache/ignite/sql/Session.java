@@ -17,8 +17,9 @@
 
 package org.apache.ignite.sql;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.sql.async.AsyncSession;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveSession;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -29,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries.
  * Session object is immutable and thread-safe.
  */
-public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
+public interface Session extends ReactiveSession, AutoCloseable {
     /** Default schema name. */
     String DEFAULT_SCHEMA = "PUBLIC";
 
@@ -48,6 +49,18 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
+     * Executes SQL query in an asynchronous way.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query,
+            @Nullable Object... arguments);
+
+    /**
      * Executes single SQL statement.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
@@ -58,6 +71,17 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
 
     /**
+     * Executes SQL statement in an asynchronous way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+
+    /**
      * Executes batched SQL query. Only DML queries are supported.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
@@ -66,6 +90,21 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @return Number of rows affected by each query in the batch.
      */
     int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
+
+    /**
+     * Executes batched SQL query in an asynchronous way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param query SQL query template.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<int[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            String query,
+            BatchedArguments batch
+    );
 
     /**
      * Executes batched SQL query. Only DML queries are supported.
@@ -82,6 +121,21 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
     );
 
     /**
+     * Executes batched SQL query in an asynchronous way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<int[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            Statement statement,
+            BatchedArguments batch
+    );
+
+    /**
      * Executes multi-statement SQL query.
      *
      * @param query SQL query template.
@@ -89,6 +143,16 @@ public interface Session extends AsyncSession, ReactiveSession, AutoCloseable {
      * @throws SqlException If failed.
      */
     void executeScript(String query, @Nullable Object... arguments);
+
+    /**
+     * Executes multi-statement SQL query.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments);
 
     /**
      * Return default query timeout.
