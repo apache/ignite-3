@@ -48,49 +48,6 @@ public interface Session extends ReactiveSession, AutoCloseable {
     ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
-     * Executes single SQL statement.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param statement SQL statement to execute.
-     * @param arguments Arguments for the statement.
-     * @return SQL query results set.
-     */
-    ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
-
-    /**
-     * Executes batched SQL query. Only DML queries are supported.
-     *
-     * @param transaction Transaction to execute the query within or {@code null}.
-     * @param dmlQuery DML query template.
-     * @param batch Batch of query arguments.
-     * @return Number of rows affected by each query in the batch.
-     */
-    int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
-
-    /**
-     * Executes batched SQL query. Only DML queries are supported.
-     *
-     * @param transaction Transaction to execute the statement within or {@code null}.
-     * @param dmlStatement DML statement to execute.
-     * @param batch Batch of query arguments.
-     * @return Number of rows affected by each query in the batch.
-     */
-    int[] executeBatch(
-            @Nullable Transaction transaction,
-            Statement dmlStatement,
-            BatchedArguments batch
-    );
-
-    /**
-     * Executes multi-statement SQL query.
-     *
-     * @param query SQL query template.
-     * @param arguments Arguments for the template (optional).
-     * @throws SqlException If failed.
-     */
-    void executeScript(String query, @Nullable Object... arguments);
-
-    /**
      * Executes SQL query in an asynchronous way.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
@@ -103,6 +60,16 @@ public interface Session extends ReactiveSession, AutoCloseable {
             @Nullable Object... arguments);
 
     /**
+     * Executes single SQL statement.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param arguments Arguments for the statement.
+     * @return SQL query results set.
+     */
+    ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+
+    /**
      * Executes SQL statement in an asynchronous way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
@@ -110,7 +77,17 @@ public interface Session extends ReactiveSession, AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<ResultSet> executeAsync(@Nullable Transaction transaction, Statement statement);
+    CompletableFuture<ResultSet> executeAsync(@Nullable Transaction transaction, Statement statement); // TODO: Arguments are missing
+
+    /**
+     * Executes batched SQL query. Only DML queries are supported.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param dmlQuery DML query template.
+     * @param batch Batch of query arguments.
+     * @return Number of rows affected by each query in the batch.
+     */
+    int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in an asynchronous way.
@@ -128,6 +105,20 @@ public interface Session extends ReactiveSession, AutoCloseable {
     );
 
     /**
+     * Executes batched SQL query. Only DML queries are supported.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param dmlStatement DML statement to execute.
+     * @param batch Batch of query arguments.
+     * @return Number of rows affected by each query in the batch.
+     */
+    int[] executeBatch(
+            @Nullable Transaction transaction,
+            Statement dmlStatement,
+            BatchedArguments batch
+    );
+
+    /**
      * Executes batched SQL query in an asynchronous way.
      *
      * @param transaction Transaction to execute the statement within or {@code null}.
@@ -141,6 +132,15 @@ public interface Session extends ReactiveSession, AutoCloseable {
             Statement statement,
             BatchedArguments batch
     );
+
+    /**
+     * Executes multi-statement SQL query.
+     *
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @throws SqlException If failed.
+     */
+    void executeScript(String query, @Nullable Object... arguments); // TODO: Async variant
 
     /**
      * Return default query timeout.
@@ -176,7 +176,7 @@ public interface Session extends ReactiveSession, AutoCloseable {
      * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
      */
     @Override
-    void close();
+    void close(); // TODO: async variant
 
     /**
      * Creates a new session builder from current session.
