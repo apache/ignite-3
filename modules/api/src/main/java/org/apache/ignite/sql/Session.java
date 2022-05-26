@@ -217,10 +217,17 @@ public interface Session extends AutoCloseable {
     @Nullable Object property(String name);
 
     /**
-     * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
+     * Invalidates session, cleans up remote session resources, and stops all queries that are running within the current session.
      */
     @Override
     void close();
+
+    /**
+     * Invalidates session, cleans up remote session resources, and stops all queries that are running within the current session.
+     *
+     * @return Operation future.
+     */
+    CompletableFuture<Void> closeAsync();
 
     /**
      * Creates a new session builder from current session.
