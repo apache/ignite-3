@@ -20,8 +20,7 @@ package org.apache.ignite.configuration.schemas.rest;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Max;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for REST endpoint subtree.
@@ -30,13 +29,12 @@ import org.apache.ignite.configuration.validation.Min;
 @ConfigurationRoot(rootName = "rest", type = ConfigurationType.LOCAL)
 public class RestConfigurationSchema {
     /** TCP port. */
-    @Min(1024)
-    @Max(0xFFFF)
+    @Range(min = 1024, max = 0xFFFF)
     @Value(hasDefault = true)
     public final int port = 10300;
 
     /** TCP port range. */
-    @Min(0)
+    @Range(min = 0)
     @Value(hasDefault = true)
     public final int portRange = 100;
 }
