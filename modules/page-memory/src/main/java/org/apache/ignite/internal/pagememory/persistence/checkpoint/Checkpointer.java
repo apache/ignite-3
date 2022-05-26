@@ -46,6 +46,7 @@ import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 import org.apache.ignite.internal.thread.IgniteThread;
@@ -718,9 +719,10 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      * <p>It helps when the cluster makes a checkpoint in the same time in every node.
      */
     long nextCheckpointInterval() {
-        long frequency = checkpointConfig.frequency().value();
+        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        int deviation = checkpointConfig.frequencyDeviation().value();
+        long frequency = checkpointConfigView.frequency();
+        int deviation = checkpointConfigView.frequencyDeviation();
 
         if (deviation == 0) {
             return frequency;
