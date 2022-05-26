@@ -152,6 +152,9 @@ public class NodeImpl implements Node, RaftServerService {
     private long electionRound;
     private int initialElectionTimeout;
 
+    // used in the handleRequestVoteRequest method
+    private long startTime;
+
     /**
      * Raft group and node options and identifier
      */
@@ -926,6 +929,9 @@ public class NodeImpl implements Node, RaftServerService {
 
         // Init timers.
         initTimers(opts);
+
+        // record time of init, used in the handleRequestVoteRequest method
+        startTime = System.currentTimeMillis();
 
         // Init pools.
         initPools(opts);
@@ -1860,7 +1866,20 @@ public class NodeImpl implements Node, RaftServerService {
         boolean doUnlock = true;
         this.writeLock.lock();
         try {
-            if (!this.state.isActive()) {
+
+            /*  Addressing bug IGNITE-16465:
+             *  Joining a node, that completely lost persistent state, to the cluster.
+             *
+             * The concern is that this node had previously voted for a candidate in an election,
+             * and if it comes online right away it may end up voting for a different machine within that election term
+             * (Since it lost the persistent data that it had already voted).
+             *
+             * To avoid that issue, every node should wait the election timeout before handling a vote request. This will
+             * prevent the node from voting more than once per term.
+
+             */
+
+            if (!this.state.isActive() || System.currentTimeMillis() - startTime < options.getElectionTimeoutMs()) {
                 LOG.warn("Node {} is not in active state, currTerm={}.", getNodeId(), this.currTerm);
                 return RaftRpcFactory.DEFAULT //
                     .newResponse(raftOptions.getRaftMessagesFactory(), RaftError.EINVAL,
