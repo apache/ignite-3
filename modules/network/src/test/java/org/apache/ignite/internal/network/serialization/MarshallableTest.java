@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.hamcrest.collection.IsEmptyCollection.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -100,9 +101,7 @@ public class MarshallableTest {
 
         MessageSerializer<NetworkMessage> serializer = registry.createSerializer(msg.groupType(), msg.messageType());
 
-        var catcher = new OutboundByteBufCatcher();
         var channel = new EmbeddedChannel(
-                catcher,
                 new ChunkedWriteHandler(),
                 new OutboundEncoder(serializers.perSessionSerializationService)
         );
@@ -114,7 +113,14 @@ public class MarshallableTest {
 
         channel.flushOutbound();
 
-        ByteBuffer nioBuffer = catcher.buf;
+        ByteBuffer nioBuffer = ByteBuffer.allocate(1000);
+
+        while (!channel.outboundMessages().isEmpty()) {
+            ByteBuf channelBuf = channel.readOutbound();
+            nioBuffer.put(channelBuf.nioBuffer());
+        }
+
+        assertFalse(channel.finish());
 
         return nioBuffer;
     }
@@ -170,6 +176,8 @@ public class MarshallableTest {
 
         received.unmarshal(serializers.userObjectSerializer, serializers.descriptorRegistry);
 
+        assertFalse(channel.finish());
+
         return received.marshallableMap();
     }
 
@@ -194,19 +202,6 @@ public class MarshallableTest {
 
             var serializationService = new SerializationService(registry, ser);
             this.perSessionSerializationService = new PerSessionSerializationService(serializationService);
-        }
-    }
-
-    private static class OutboundByteBufCatcher extends MessageToMessageEncoder<ByteBuf> {
-        /** ByteBuffer that records incoming data. */
-        private ByteBuffer buf = ByteBuffer.allocateDirect(1000);
-
-        /** {@inheritDoc} */
-        @Override
-        protected void encode(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list) throws Exception {
-            ByteBuffer nioBuffer = byteBuf.nioBuffer();
-            buf.put(nioBuffer);
-            list.add(1); // Just to make sure netty continues writing to the channel
         }
     }
 

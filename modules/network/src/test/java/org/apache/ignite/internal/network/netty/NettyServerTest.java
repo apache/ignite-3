@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -124,6 +125,8 @@ public class NettyServerTest {
         future.setSuccess(null);
 
         stop.get(3, TimeUnit.SECONDS);
+
+        assertFalse(channel.finish());
     }
 
     /**
