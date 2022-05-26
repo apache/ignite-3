@@ -153,7 +153,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         try {
             if (status == null) {
                 // leader stepped down, so we are expecting RebalanceRaftGroupEventsListener.onLeaderElected to be called on a new leader.
-                LOG.info("Leader stepped down during the current rebalance for the partId = {}.");
+                LOG.info("Leader stepped down during the current rebalance for the partId = {}.", partId);
 
                 return;
             }
@@ -169,7 +169,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     rebalanceRunner.get();
                 }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
             } else {
-                LOG.info("Failed to perform the current rebalance for the partId = {}, canceling.", partId);
+                LOG.error("Failed to perform the current rebalance for the partId = {}, canceling.", partId);
 
                 cancelRebalance();
 

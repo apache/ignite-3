@@ -155,11 +155,7 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
     @Override
     public Entry get(byte[] key, long rev) {
         synchronized (mux) {
-            try {
-                return doGet(key, rev, true);
-            } catch (NullPointerException e) {
-                throw e;
-            }
+            return doGet(key, rev, true);
         }
     }
 
