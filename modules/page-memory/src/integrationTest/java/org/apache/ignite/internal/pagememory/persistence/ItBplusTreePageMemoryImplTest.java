@@ -34,9 +34,7 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
     /** {@inheritDoc} */
     @Override
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg
-                .change(c -> c.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
-                .get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
 
         long[] sizes = LongStream.range(0, CPUS + 1).map(i -> MAX_MEMORY_SIZE / CPUS).toArray();
 
@@ -56,7 +54,8 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
                 },
                 (fullPageId, buf, tag) -> {
                 },
-                () -> true
+                () -> true,
+                PAGE_SIZE
         );
     }
 

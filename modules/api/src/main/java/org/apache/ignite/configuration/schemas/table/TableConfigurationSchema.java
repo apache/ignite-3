@@ -24,8 +24,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.store.KnownDataStorage;
-import org.apache.ignite.configuration.validation.Max;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Table configuration schema class.
@@ -37,13 +36,12 @@ public class TableConfigurationSchema {
     public String name;
 
     /** Table partitions. */
-    @Min(0)
-    @Max(65000)
+    @Range(min = 0, max = 65_000)
     @Value(hasDefault = true)
     public int partitions = 25;
 
     /** Count of table partition replicas. */
-    @Min(1)
+    @Range(min = 1)
     @Value(hasDefault = true)
     public int replicas = 1;
 

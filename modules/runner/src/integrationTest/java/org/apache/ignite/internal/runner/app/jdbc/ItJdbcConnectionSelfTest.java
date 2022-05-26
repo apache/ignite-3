@@ -28,7 +28,7 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static java.sql.Statement.NO_GENERATED_KEYS;
 import static java.sql.Statement.RETURN_GENERATED_KEYS;
-import static org.apache.ignite.client.proto.query.SqlStateCode.TRANSACTION_STATE_EXCEPTION;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.TRANSACTION_STATE_EXCEPTION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

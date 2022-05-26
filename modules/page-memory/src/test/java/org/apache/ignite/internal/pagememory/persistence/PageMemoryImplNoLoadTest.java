@@ -33,12 +33,18 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests {@link PageMemoryImpl}.
  */
 public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
+    @BeforeEach
+    void setUp() throws Exception {
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+    }
+
     /** {@inheritDoc} */
     @Override
     protected PageMemory memory() {
@@ -61,7 +67,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 (fullPageId, buf, tag) -> {
                 },
                 // TODO: IGNITE-16984 Consider a real test
-                () -> true
+                () -> true,
+                PAGE_SIZE
         );
     }
 

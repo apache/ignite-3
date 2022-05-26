@@ -19,7 +19,7 @@ package org.apache.ignite.internal.configuration.sample;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Test cache configuration schema.
@@ -28,6 +28,6 @@ import org.apache.ignite.configuration.validation.Min;
 public class CacheConfigurationSchema {
     /** Size. */
     @Value
-    @Min(1)
+    @Range(min = 1)
     public int size;
 }

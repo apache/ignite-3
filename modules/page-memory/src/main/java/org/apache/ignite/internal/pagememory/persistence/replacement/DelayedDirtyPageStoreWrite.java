@@ -65,6 +65,7 @@ public class DelayedDirtyPageStoreWrite implements PageStoreWriter {
     public DelayedDirtyPageStoreWrite(
             PageStoreWriter flushDirtyPage,
             ThreadLocal<ByteBuffer> byteBufThreadLoc,
+            // TODO: IGNITE-17017 Move to common config
             int pageSize,
             DelayedPageReplacementTracker tracker
     ) {

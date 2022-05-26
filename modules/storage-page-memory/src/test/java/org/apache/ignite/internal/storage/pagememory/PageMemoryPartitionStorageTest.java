@@ -141,7 +141,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
      */
     @Test
     void testFragments() {
-        int pageSize = engineConfig.defaultRegion().value().pageSize();
+        int pageSize = engineConfig.pageSize().value();
 
         DataRow dataRow = dataRow(createRandomString(pageSize), createRandomString(pageSize));
 

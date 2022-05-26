@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.schema.ModifyRow.Operation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.RewindabilityTrait;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.jetbrains.annotations.Nullable;
@@ -309,7 +310,15 @@ public class IgniteTableImpl extends AbstractTable implements InternalIgniteTabl
         RowAssembler rowAssembler = new RowAssembler(schemaDescriptor, nonNullVarlenKeyCols, nonNullVarlenValCols);
 
         for (ColumnDescriptor colDesc : columnsOrderedByPhysSchema) {
-            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), hnd.get(colDesc.logicalIndex(), row));
+            Object val;
+
+            if (colDesc.key() && Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(colDesc.name())) {
+                val = colDesc.defaultValue();
+            } else {
+                val = hnd.get(colDesc.logicalIndex(), row);
+            }
+
+            RowAssembler.writeValue(rowAssembler, colDesc.physicalType(), val);
         }
 
         return new ModifyRow(new Row(schemaDescriptor, rowAssembler.build()), Operation.INSERT_ROW);
