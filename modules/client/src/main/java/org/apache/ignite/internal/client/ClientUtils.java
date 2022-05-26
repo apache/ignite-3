@@ -135,31 +135,31 @@ public class ClientUtils {
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientOperationType.TUPLE_CONTAINS_KEY;
 
-            case ClientOp.SQL_EXEC:
+            case ClientOp.JDBC_EXEC:
                 return null;
 
-            case ClientOp.SQL_NEXT:
+            case ClientOp.JDBC_NEXT:
                 return null;
 
-            case ClientOp.SQL_EXEC_BATCH:
+            case ClientOp.JDBC_EXEC_BATCH:
                 return null;
 
-            case ClientOp.SQL_CURSOR_CLOSE:
+            case ClientOp.JDBC_CURSOR_CLOSE:
                 return null;
 
-            case ClientOp.SQL_TABLE_META:
+            case ClientOp.JDBC_TABLE_META:
                 return null;
 
-            case ClientOp.SQL_COLUMN_META:
+            case ClientOp.JDBC_COLUMN_META:
                 return null;
 
-            case ClientOp.SQL_SCHEMAS_META:
+            case ClientOp.JDBC_SCHEMAS_META:
                 return null;
 
-            case ClientOp.SQL_PK_META:
+            case ClientOp.JDBC_PK_META:
                 return null;
 
-            case ClientOp.SQL_QUERY_META:
+            case ClientOp.JDBC_QUERY_META:
                 return null;
 
             case ClientOp.TX_BEGIN:
