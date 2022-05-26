@@ -163,7 +163,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         mock(QueryProcessor.class),
                                         configuration,
                                         compute,
-                                        clusterService));
+                                        clusterService,
+                                        null));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

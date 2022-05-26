@@ -131,7 +131,8 @@ public class TestServer implements AutoCloseable {
                         cfg,
                         compute,
                         clusterService,
-                        bootstrapFactory
+                        bootstrapFactory,
+                        null
                 );
 
         module.start();
