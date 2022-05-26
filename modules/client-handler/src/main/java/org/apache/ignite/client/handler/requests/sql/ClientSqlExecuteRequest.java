@@ -21,9 +21,12 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -86,6 +89,21 @@ public class ClientSqlExecuteRequest {
         Statement statement = statementBuilder.build();
 
         return session.executeAsync(tx, statement).thenAccept(asyncResultSet -> {
+            if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
+                try {
+                    long resourceId = resources.put(new ClientResource(asyncResultSet, () -> {
+                        // TODO: Close AsyncResultSet - missing API
+                    }));
+
+                    out.packLong(resourceId);
+                } catch (IgniteInternalCheckedException e) {
+                    // TODO: Close AsyncResultSet - missing API
+                    throw new IgniteInternalException(e.getMessage(), e);
+                }
+            } else {
+                out.packNil(); // resourceId
+            }
+
             // TODO: Put result set to resources and return id (or null when single page).
             // TODO: Pack first page, close if ended.
             out.packLong(0);
