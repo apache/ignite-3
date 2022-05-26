@@ -20,7 +20,7 @@ package org.apache.ignite.configuration.schemas.table;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration for SQL table column type.
@@ -35,18 +35,18 @@ public class ColumnTypeConfigurationSchema {
     /** Length. */
     @Value(hasDefault = true)
     @Immutable
-    @Min(0)
+    @Range(min = 0)
     public int length = 0;
 
     /** Precision. */
     @Value(hasDefault = true)
     @Immutable
-    @Min(0)
+    @Range(min = 0)
     public int precision = 0;
 
     /** Scale. */
     @Value(hasDefault = true)
     @Immutable
-    @Min(0)
+    @Range(min = 0)
     public int scale = 0;
 }
