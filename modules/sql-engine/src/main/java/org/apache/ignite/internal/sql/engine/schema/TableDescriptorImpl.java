@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.schema;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -32,6 +34,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
@@ -59,19 +62,58 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
         ImmutableBitSet.Builder keyFieldsBuilder = ImmutableBitSet.builder();
 
         Map<String, ColumnDescriptor> descriptorsMap = new HashMap<>(columnDescriptors.size());
-        for (ColumnDescriptor descriptor : columnDescriptors) {
-            descriptorsMap.put(descriptor.name(), descriptor);
+        boolean implicitKeyFound = false;
 
+        ImmutableBitSet.Builder builder = ImmutableBitSet.builder();
+        for (ColumnDescriptor descriptor : columnDescriptors) {
             if (descriptor.key()) {
                 keyFieldsBuilder.set(descriptor.logicalIndex());
             }
+
+            if (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(descriptor.name())) {
+                assert !implicitKeyFound;
+
+                implicitKeyFound = true;
+                descriptor = injectDefault(descriptor);
+            } else {
+                builder.set(descriptor.logicalIndex());
+            }
+
+            descriptorsMap.put(descriptor.name(), descriptor);
+        }
+
+        if (implicitKeyFound) {
+            columnDescriptors = columnDescriptors.stream().map(desc -> descriptorsMap.get(desc.name())).collect(Collectors.toList());
         }
 
         this.descriptors = columnDescriptors.toArray(DUMMY);
         this.descriptorsMap = descriptorsMap;
 
-        insertFields = ImmutableBitSet.range(columnDescriptors.size());
+        insertFields = builder.build();
         keyFields = keyFieldsBuilder.build();
+    }
+
+    private ColumnDescriptor injectDefault(ColumnDescriptor desc) {
+        assert Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name()) : desc;
+
+        return new ColumnDescriptorImpl(
+                desc.name(),
+                desc.key(),
+                desc.logicalIndex(),
+                desc.physicalIndex(),
+                desc.physicalType(),
+                null
+        ) {
+            @Override
+            public boolean hasDefaultValue() {
+                return false;
+            }
+
+            @Override
+            public Object defaultValue() {
+                return UUID.randomUUID().toString();
+            }
+        };
     }
 
     /** {@inheritDoc} */

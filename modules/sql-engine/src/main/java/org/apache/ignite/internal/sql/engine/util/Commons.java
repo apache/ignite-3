@@ -111,6 +111,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.lang.IgniteSystemProperties;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -121,6 +122,8 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods.
  */
 public final class Commons {
+    public static final String IMPLICIT_PK_COL_NAME = "__p_key";
+
     public static final int IN_BUFFER_SIZE = 512;
 
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
@@ -173,6 +176,8 @@ public final class Commons {
                     CorrelationTraitDef.INSTANCE,
             })
             .build();
+
+    private static Boolean implicitPkEnabled;
 
     private Commons() {
     }
@@ -827,5 +832,20 @@ public final class Commons {
 
     public static RelOptCluster cluster() {
         return CLUSTER;
+    }
+
+    /**
+     * Checks whether an implicit PK mode enabled or not.
+     *
+     * <p>Note: this mode is for test purpose only.
+     *
+     * @return A {@code true} if implicit pk mode is enabled, {@code false} otherwise.
+     */
+    public static boolean implicitPkEnabled() {
+        if (implicitPkEnabled == null) {
+            implicitPkEnabled = IgniteSystemProperties.getBoolean("IMPLICIT_PK_ENABLED", false);
+        }
+
+        return implicitPkEnabled;
     }
 }
