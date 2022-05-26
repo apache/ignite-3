@@ -48,7 +48,6 @@ import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -275,7 +274,7 @@ public class IgniteSqlApiTest {
         KeyValueView<Tuple, Tuple> table = getTable();
 
         class AsyncPageProcessor implements
-                Function<AsyncResultSet, CompletionStage<AsyncResultSet>> {
+                Function<ResultSet, CompletionStage<ResultSet>> {
             private final Transaction tx0;
 
             public AsyncPageProcessor(Transaction tx0) {
@@ -283,7 +282,7 @@ public class IgniteSqlApiTest {
             }
 
             @Override
-            public CompletionStage<AsyncResultSet> apply(AsyncResultSet rs) {
+            public CompletionStage<ResultSet> apply(ResultSet rs) {
                 for (SqlRow row : rs.currentPage()) {
                     table.getAsync(tx0, Tuple.create().set("id", row.intValue(0)));
                 }
@@ -525,7 +524,7 @@ public class IgniteSqlApiTest {
                 Mockito.eq("SELECT id, val FROM tbl WHERE id > ?"),
                 Mockito.anyInt())
         ).thenAnswer(ans -> {
-            AsyncResultSet page2 = Mockito.mock(AsyncResultSet.class);
+            ResultSet page2 = Mockito.mock(ResultSet.class);
 
             Transaction txArg = ans.getArgument(0);
             Integer filterArg = ans.getArgument(2);
@@ -537,7 +536,7 @@ public class IgniteSqlApiTest {
             Mockito.when(page2.currentPage()).thenReturn(rows.subList(2, rows.size()));
             Mockito.when(page2.hasMorePages()).thenReturn(false);
 
-            AsyncResultSet page1 = Mockito.mock(AsyncResultSet.class);
+            ResultSet page1 = Mockito.mock(ResultSet.class);
             Mockito.when(page1.currentPage()).thenReturn(rows.subList(0, 2));
             Mockito.when(page1.hasMorePages()).thenReturn(true);
             Mockito.when(page1.fetchNextPage())
