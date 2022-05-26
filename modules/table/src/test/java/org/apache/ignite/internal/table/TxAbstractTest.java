@@ -522,24 +522,24 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             assertNull(accounts.recordView().get(tx, key));
         });
 
-//        assertNull(accounts.recordView().get(null, key));
-//        accounts.recordView().upsert(null, makeValue(1, 100.));
-//        assertNotNull(accounts.recordView().get(null, key));
-//
-//        Tuple key2 = makeKey(2);
-//
-//        accounts.recordView().upsert(null, makeValue(2, 100.));
-//
-//        assertThrows(RuntimeException.class, () -> igniteTransactions.runInTransaction((Consumer<Transaction>) tx -> {
-//            assertNotNull(accounts.recordView().get(tx, key2));
-//            assertTrue(accounts.recordView().delete(tx, key2));
-//            assertNull(accounts.recordView().get(tx, key2));
-//            throw new RuntimeException(); // Triggers rollback.
-//        }));
-//
-//        assertNotNull(accounts.recordView().get(null, key2));
-//        assertTrue(accounts.recordView().delete(null, key2));
-//        assertNull(accounts.recordView().get(null, key2));
+        assertNull(accounts.recordView().get(null, key));
+        accounts.recordView().upsert(null, makeValue(1, 100.));
+        assertNotNull(accounts.recordView().get(null, key));
+
+        Tuple key2 = makeKey(2);
+
+        accounts.recordView().upsert(null, makeValue(2, 100.));
+
+        assertThrows(RuntimeException.class, () -> igniteTransactions.runInTransaction((Consumer<Transaction>) tx -> {
+            assertNotNull(accounts.recordView().get(tx, key2));
+            assertTrue(accounts.recordView().delete(tx, key2));
+            assertNull(accounts.recordView().get(tx, key2));
+            throw new RuntimeException(); // Triggers rollback.
+        }));
+
+        assertNotNull(accounts.recordView().get(null, key2));
+        assertTrue(accounts.recordView().delete(null, key2));
+        assertNull(accounts.recordView().get(null, key2));
     }
 
     @Test
@@ -706,6 +706,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testDeleteAllExact() throws TransactionException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
+        System.out.println("start tx2");
+
         igniteTransactions.runInTransaction(
                 tx -> {
                     Collection<Tuple> res = accounts.recordView().deleteAllExact(
@@ -713,7 +715,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             List.of(makeValue(1, 200.), makeValue(2, 200.), makeValue(3, 300.))
                     );
 
-                    assertEquals(2, res.size());
+                    assertEquals(1, res.size());
                 });
 
         assertNotNull(accounts.recordView().get(null, makeKey(1)));
@@ -998,7 +1000,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertEquals("test", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
-
+//
         assertTrue(lockManager(accounts).isEmpty());
     }
 

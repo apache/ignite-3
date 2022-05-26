@@ -130,7 +130,7 @@ public interface TxManager extends IgniteComponent {
      */
     boolean isLocal(NetworkAddress addr);
 
-    List<ByteBuffer> lockedKeys(UUID id);
+    List<ByteBuffer> lockedKeys(UUID id, IgniteUuid lockId);
 
     /**
      * Returns a number of finished transactions.

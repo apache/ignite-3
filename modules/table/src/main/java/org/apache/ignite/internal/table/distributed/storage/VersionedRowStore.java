@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
@@ -35,6 +36,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.SearchRow;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.tx.Timestamp;
@@ -42,6 +45,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,6 +62,8 @@ public class VersionedRowStore {
     private TxManager txManager;
 
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
+
+    private ConcurrentHashMap<UUID, Map<ByteBuffer, Boolean>> txsKeys = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -100,8 +106,26 @@ public class VersionedRowStore {
 
         System.out.println("get2");
 
+        BinaryRow result = storage.read(rowId, id);
 
-        return storage.read(rowId, id);
+        System.out.println("get3");
+
+        return result;
+
+//        assert row != null;
+//
+//        System.out.println("get1");
+//
+//        try(Cursor<BinaryRow> rowCursor = storage.scan(row0 -> row0.keySlice().equals(row.keySlice()), id)) {
+//            if (rowCursor.hasNext()) {
+//                return rowCursor.next();
+//            }
+//            else {
+//                return null;
+//            }
+//        } catch (Exception e) {
+//            throw new IgniteException(e);
+//        }
     }
 
     /**
@@ -145,6 +169,18 @@ public class VersionedRowStore {
             System.out.println("upsert else");
             storage.addWrite(rowId, row,  id);
         }
+
+
+//        try(Cursor<BinaryRow> rowCursor = storage.scan(row0 -> row0.keySlice().equals(row.keySlice()), id)) {
+//            if (rowCursor.hasNext()) {
+//                return rowCursor.next();
+//            }
+//            else {
+//                return null;
+//            }
+//        } catch (Exception e) {
+//            throw new IgniteException(e);
+//        }
     }
 
     /**
@@ -406,9 +442,9 @@ public class VersionedRowStore {
 
         RowId rowId = primaryIndex.get(key);
 
-//        if (rowId == null) {
-//            return;
-//        }
+        if (rowId == null) {
+            return;
+        }
 
         System.out.println("VRS.commitWrite " + key + " " + rowId);
 
@@ -424,7 +460,11 @@ public class VersionedRowStore {
             return;
         }
 
+        System.out.println("VRS.abortWrite " + key + " " + rowId);
+
         storage.abortWrite(rowId);
+
+        System.out.println("VRS.abortWrite after");
     }
 
     /**

@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,7 +135,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync(UUID id) {
-        if (changeState(id, TxState.PENDING, TxState.ABORTED) || state(id) == TxState.ABORTED) {
+        System.out.println("rollbackAsync");
+        boolean b = false;
+        if ((b = changeState(id, TxState.PENDING, TxState.ABORTED)) || state(id) == TxState.ABORTED) {
+            System.out.println("rollbackAsync " + id + " " + b);
             unlockAll(id);
 
             return completedFuture(null);
@@ -273,8 +275,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return clusterService.topologyService().localMember().address().equals(node);
     }
 
-    public List<ByteBuffer> lockedKeys(UUID id) {
-        return locks.get(id).entrySet().stream().filter(entry -> entry.getValue() == false).map(entry -> entry.getKey().key).collect(Collectors.toList());
+    /** */
+    public List<ByteBuffer> lockedKeys(UUID id, IgniteUuid lockId) {
+        return locks.get(id).entrySet().stream()
+                .filter(entry -> entry.getKey().id().equals(lockId) && entry.getValue() == false)
+                .map(entry -> entry.getKey().key).collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */
@@ -314,6 +319,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         LockKey(IgniteUuid id, ByteBuffer key) {
             this.id = id;
             this.key = key;
+        }
+
+        /** */
+        public IgniteUuid id() {
+            return id;
         }
 
         /** {@inheritDoc} */

@@ -30,7 +30,6 @@ import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.Waiter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

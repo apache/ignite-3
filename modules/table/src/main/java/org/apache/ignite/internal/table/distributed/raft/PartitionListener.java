@@ -131,6 +131,8 @@ public class PartitionListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+        System.out.println("start PartitionListener.onWrite");
+
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
@@ -175,6 +177,7 @@ public class PartitionListener implements RaftGroupListener {
             } else if (command instanceof ScanCloseCommand) {
                 handleScanCloseCommand((CommandClosure<ScanCloseCommand>) clo, (ScanCloseCommand) command);
             } else if (command instanceof FinishTxCommand) {
+                System.out.println("start handleFinishTxCommand");
                 clo.result(handleFinishTxCommand((FinishTxCommand) command));
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
@@ -410,13 +413,16 @@ public class PartitionListener implements RaftGroupListener {
 
         boolean b = txManager.changeState(id, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED);
 
-        System.out.println("handleFinishTxCommand2");
+        System.out.println("handleFinishTxCommand2 " + b);
 
-        if (commit) {
-            txManager.lockedKeys(id).forEach(key -> storage.commitWrite(key, id));
-        } else {
-            txManager.lockedKeys(id).forEach(key -> storage.abortWrite(key));
-        }
+            if (/*(b && commit) || */txManager.state(id) == TxState.COMMITED) {
+                System.out.println("lockedKeys1: " + txManager.lockedKeys(id, lockId));
+                txManager.lockedKeys(id, lockId).forEach(key -> storage.commitWrite(key, id));
+            } else if (/*(b && !commit) || */txManager.state(id) == TxState.ABORTED) {
+                System.out.println("lockedKeys2: " + txManager.lockedKeys(id, lockId));
+                txManager.lockedKeys(id, lockId).forEach(key -> storage.abortWrite(key));
+//                storage.abortWrite(txManager.lockedKeys(id).get(0));
+            }
 
         System.out.println("handleFinishTxCommand3 " + id + " " + b + " " + commit);
         return b;

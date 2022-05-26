@@ -33,6 +33,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.Test;
@@ -73,31 +74,115 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      */
     @Test
     public void testAddWrite() throws Exception {
-        MvPartitionStorage pk = partitionStorage();
+                MvPartitionStorage pk = partitionStorage();
 
         TestKey key = new TestKey(10, "foo");
         TestValue value = new TestValue(20, "bar");
 
         BinaryRow binaryRow = binaryRow(key, value);
 
+        TestKey key1 = new TestKey(11, "foo1");
+        TestValue value1 = new TestValue(22, "bar1");
+
+        BinaryRow binaryRow1 = binaryRow(key1, value1);
+
         UUID txId = UUID.randomUUID();
 
         RowId rowId = pk.insert(binaryRow, txId);
+//        pk.addWrite(rowId, binaryRow1, txId);
 
-        // Attempt to write from another transaction.
-        assertThrows(TxIdMismatchException.class, () -> pk.addWrite(rowId, binaryRow, UUID.randomUUID()));
+        Timestamp ts = Timestamp.nextVersion();
 
-        // Write from the same transaction.
-        pk.addWrite(rowId, binaryRow, txId);
+        pk.abortWrite(rowId);
 
-        // Read without timestamp returns uncommited row.
-        assertEquals(value, value(pk.read(rowId, txId)));
 
-        // Read with wrong transaction id should throw exception.
-        assertThrows(TxIdMismatchException.class, () -> pk.read(rowId, UUID.randomUUID()));
+        UUID txId1 = UUID.randomUUID();
 
-        // Read with timestamp returns null.
-        assertNull(pk.read(rowId, Timestamp.nextVersion()));
+        Timestamp ts1 = Timestamp.nextVersion();
+
+//        pk.addWrite(rowId, binaryRow1, txId1);
+        RowId rowId1 = pk.insert(binaryRow, txId);
+        pk.commitWrite(rowId1, ts1);
+
+        System.out.println();
+
+
+        //-----------------
+//        MvPartitionStorage pk = partitionStorage();
+//
+//        TestKey key = new TestKey(10, "foo");
+//        TestValue value = new TestValue(20, "bar");
+//
+//        BinaryRow binaryRow = binaryRow(key, value);
+//
+//        TestKey key1 = new TestKey(11, "foo1");
+//        TestValue value1 = new TestValue(22, "bar1");
+//
+//        BinaryRow binaryRow1 = binaryRow(key1, value1);
+//
+//        UUID txId = UUID.randomUUID();
+//
+//        RowId rowId = pk.insert(binaryRow, txId);
+////        pk.addWrite(rowId, binaryRow1, txId);
+//
+//        Timestamp ts = Timestamp.nextVersion();
+//
+//        pk.commitWrite(rowId, ts);
+//
+//
+//        UUID txId1 = UUID.randomUUID();
+//
+//        Timestamp ts1 = Timestamp.nextVersion();
+//
+////        pk.addWrite(rowId, binaryRow1, txId1);
+//        pk.commitWrite(rowId, ts1);
+//
+//        System.out.println();
+
+
+//-----------
+//        MvPartitionStorage pk = partitionStorage();
+//
+//        TestKey key = new TestKey(10, "foo");
+//        TestValue value = new TestValue(20, "bar");
+//
+//        BinaryRow binaryRow = binaryRow(key, value);
+//
+//        TestKey key1 = new TestKey(11, "foo1");
+//        TestValue value1 = new TestValue(22, "bar1");
+//
+//        BinaryRow binaryRow1 = binaryRow(key, value);
+//
+//        UUID txId = UUID.randomUUID();
+//
+//        RowId rowId = pk.insert(binaryRow, txId);
+//        pk.addWrite(rowId, binaryRow1, txId);
+//
+//        Timestamp ts = Timestamp.nextVersion();
+//
+//        pk.commitWrite(rowId, ts);
+//
+//        System.out.println();
+        //-----------
+
+
+
+//        convert(pk.scan(row -> true, txId1))
+
+//        // Attempt to write from another transaction.
+//        assertThrows(TxIdMismatchException.class, () -> pk.addWrite(rowId, binaryRow, UUID.randomUUID()));
+//
+//        // Write from the same transaction.
+//        pk.addWrite(rowId, binaryRow, txId);
+//
+//        // Read without timestamp returns uncommited row.
+//        assertEquals(value, value(pk.read(rowId, txId)));
+//
+//        // Read with wrong transaction id should throw exception.
+//        assertThrows(TxIdMismatchException.class, () -> pk.read(rowId, UUID.randomUUID()));
+//
+//        // Read with timestamp returns null.
+//        assertNull(pk.read(rowId, Timestamp.nextVersion()));
     }
 
     /**
