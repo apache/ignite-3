@@ -256,16 +256,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
         }
 
-        SqlNodeList nodes = Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig());
-
-        if (nodes.size() > 1) {
-            return CompletableFuture.failedFuture(new IgniteSqlException("Multiple statements aren't allowed."));
-        }
-
-        CompletableFuture<Void> start = new CompletableFuture<>();
-
-        SqlNode sqlNode  = nodes.get(0);
-
         final BaseQueryContext ctx = BaseQueryContext.builder()
                 .cancel(new QueryCancel())
                 .frameworkConfig(
@@ -277,8 +267,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .parameters(params)
                 .build();
 
-        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start
-                .thenCompose(none -> prepareSvc.prepareAsync(sqlNode, ctx))
+        CompletableFuture<SqlNode> parseFut = CompletableFuture.supplyAsync(
+                        () -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig()),
+                        taskExecutor
+                )
+                .thenApply(nodes -> {
+                    if (nodes.size() > 1) {
+                        throw new IgniteSqlException("Multiple statements aren't allowed.");
+                    }
+
+                    return nodes.get(0);
+                });
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = parseFut
+                .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
                 .thenApply(plan -> {
                     context.maybeUnwrap(QueryValidator.class)
                             .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
@@ -295,8 +297,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ctx.cancel().cancel();
             }
         });
-
-        start.completeAsync(() -> null, taskExecutor);
 
         return stage;
     }
