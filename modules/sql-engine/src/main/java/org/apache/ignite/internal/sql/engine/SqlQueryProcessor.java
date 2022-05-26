@@ -133,7 +133,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         var msgSrvc = registerService(new MessageServiceImpl(
                 clusterSrvc.topologyService(),
                 clusterSrvc.messagingService(),
-                taskExecutor
+                taskExecutor,
+                busyLock
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
