@@ -73,6 +73,8 @@ class IgniteUtilsTest {
 
     @Test
     public void testIsPow2() {
+        // Checks int value.
+
         assertTrue(isPow2(1));
         assertTrue(isPow2(2));
         assertTrue(isPow2(4));
@@ -91,6 +93,27 @@ class IgniteUtilsTest {
         assertFalse(isPow2(6));
         assertFalse(isPow2(7));
         assertFalse(isPow2(9));
+
+        // Checks long value.
+
+        assertTrue(isPow2(1L));
+        assertTrue(isPow2(2L));
+        assertTrue(isPow2(4L));
+        assertTrue(isPow2(8L));
+        assertTrue(isPow2(16L));
+        assertTrue(isPow2(16L * 16L));
+        assertTrue(isPow2(32L * 32L));
+
+        assertFalse(isPow2(-4L));
+        assertFalse(isPow2(-3L));
+        assertFalse(isPow2(-2L));
+        assertFalse(isPow2(-1L));
+        assertFalse(isPow2(0L));
+        assertFalse(isPow2(3L));
+        assertFalse(isPow2(5L));
+        assertFalse(isPow2(6L));
+        assertFalse(isPow2(7L));
+        assertFalse(isPow2(9L));
     }
 
     @Test

@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.configuration.validation;
 
-import org.apache.ignite.configuration.validation.Min;
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+
+import org.apache.ignite.configuration.validation.PowerOfTwo;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
 /**
- * Validate that field value is not less than some minimal value.
+ * Implementing a validator for {@link PowerOfTwo}.
  */
-public class MinValidator implements Validator<Min, Number> {
+public class PowerOfTwoValidator implements Validator<PowerOfTwo, Number> {
     /** {@inheritDoc} */
     @Override
-    public void validate(Min annotation, ValidationContext<Number> ctx) {
-        if (ctx.getNewValue().longValue() < annotation.value()) {
+    public void validate(PowerOfTwo annotation, ValidationContext<Number> ctx) {
+        if (!isPow2(ctx.getNewValue().longValue())) {
             ctx.addIssue(new ValidationIssue(
-                    "Configuration value '" + ctx.currentKey() + "' must not be less than " + annotation.value()
+                    "Configuration value '" + ctx.currentKey() + "' must not be power of two"
             ));
         }
     }

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.configuration.sample;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Test auto adjust configuration schema.
@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.validation.Min;
 public class AutoAdjustConfigurationSchema {
     /** Timeout. */
     @Value(hasDefault = true)
-    @Min(0)
+    @Range(min = 0)
     public long timeout = 0L;
 
     /** Enabled. */

@@ -22,7 +22,7 @@ import static java.lang.Math.max;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Min;
+import org.apache.ignite.configuration.validation.Range;
 
 /**
  * Configuration schema for Compute functionality.
@@ -31,12 +31,12 @@ import org.apache.ignite.configuration.validation.Min;
 @ConfigurationRoot(rootName = "compute", type = ConfigurationType.LOCAL)
 public class ComputeConfigurationSchema {
     /** Job thread pool size. */
-    @Min(1)
+    @Range(min = 1)
     @Value(hasDefault = true)
     public final int threadPoolSize = max(Runtime.getRuntime().availableProcessors(), 8);
 
     /** Job thread pool stop timeout (milliseconds). */
-    @Min(1)
+    @Range(min = 1)
     @Value(hasDefault = true)
     public final long threadPoolStopTimeoutMillis = 10_000;
 }

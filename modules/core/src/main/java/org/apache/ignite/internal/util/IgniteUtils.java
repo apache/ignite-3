@@ -710,6 +710,15 @@ public class IgniteUtils {
     }
 
     /**
+     * Returns {@code true} If the given value is power of 2 (0 is not power of 2).
+     *
+     * @param i Value.
+     */
+    public static boolean isPow2(long i) {
+        return i > 0 && (i & (i - 1)) == 0;
+    }
+
+    /**
      * Waits if necessary for this future to complete, and then returns its result ignoring interrupts.
      *
      * @return Result value.

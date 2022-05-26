@@ -53,6 +53,7 @@ public class CheckpointPagesWriterFactory {
     CheckpointPagesWriterFactory(
             IgniteLogger log,
             CheckpointPageWriter checkpointPageWriter,
+            // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
         this.log = log;

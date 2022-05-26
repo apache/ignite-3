@@ -21,6 +21,7 @@ import static java.util.Comparator.comparing;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema.RANDOM_WRITE_ORDER;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
@@ -32,8 +33,6 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.Check
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.RANDOM;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.SEQUENTIAL;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -56,8 +55,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -66,13 +69,18 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 
 /**
  * For {@link CheckpointWorkflow} testing.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class CheckpointWorkflowTest {
     private final IgniteLogger log = IgniteLogger.forClass(CheckpointWorkflowTest.class);
+
+    @InjectConfiguration
+    private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @Nullable
     private CheckpointWorkflow workflow;
@@ -91,9 +99,9 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion2 = newDataRegion(true, mock(PageMemoryImpl.class));
 
         workflow = new CheckpointWorkflow(
+                checkpointConfig,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                RANDOM,
                 List.of(dataRegion0, dataRegion1)
         );
 
@@ -171,7 +179,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, List.of(dataRegion));
+        workflow = new CheckpointWorkflow(checkpointConfig, markersStorage, readWriteLock, List.of(dataRegion));
 
         workflow.start();
 
@@ -300,14 +308,16 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testMarkCheckpointBeginRandom() throws Exception {
+        checkpointConfig.writeOrder().update(RANDOM_WRITE_ORDER).get(100, TimeUnit.MILLISECONDS);
+
         List<FullPageId> dirtyPages = List.of(new FullPageId(1, 0), new FullPageId(0, 0), new FullPageId(2, 0));
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
         workflow = new CheckpointWorkflow(
+                checkpointConfig,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                RANDOM,
                 List.of(dataRegion)
         );
 
@@ -336,9 +346,9 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
         workflow = new CheckpointWorkflow(
+                checkpointConfig,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                SEQUENTIAL,
                 List.of(dataRegion)
         );
 
@@ -368,7 +378,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, pageMemory);
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, List.of(dataRegion));
+        workflow = new CheckpointWorkflow(checkpointConfig, markersStorage, readWriteLock, List.of(dataRegion));
 
         workflow.start();
 

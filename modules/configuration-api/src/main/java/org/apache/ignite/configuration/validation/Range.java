@@ -17,24 +17,26 @@
 
 package org.apache.ignite.configuration.validation;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
 import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Signifies that this value has lower limit (inclusive).
+ * Signifies that this value has lower limit (inclusive) and has upper limit (inclusive).
  */
-@Target(FIELD)
-@Retention(RUNTIME)
+@Target(ElementType.FIELD)
+@Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface Min {
+public @interface Range {
     /**
      * Returns the lower bound for the value.
-     *
-     * @return lower bound for the value.
      */
-    long value();
+    long min() default Long.MIN_VALUE;
+
+    /**
+     * Returns the upper bound for the value.
+     */
+    long max() default Long.MAX_VALUE;
 }

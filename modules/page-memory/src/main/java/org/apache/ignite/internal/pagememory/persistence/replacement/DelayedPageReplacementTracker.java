@@ -74,6 +74,7 @@ public class DelayedPageReplacementTracker {
      * @param segmentCnt Segments count.
      */
     public DelayedPageReplacementTracker(
+            // TODO: IGNITE-17017 Move to common config
             int pageSize,
             PageStoreWriter flushDirtyPage,
             IgniteLogger log,
