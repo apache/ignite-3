@@ -50,7 +50,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -146,37 +145,13 @@ public class ItRebalanceDistributedTest {
         assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
                 .tables().get("PUBLIC.TBL1").replicas().value());
 
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(1));
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(2));
 
-        waitPartitionAssignmentsSyncedToExpected(0, 1);
+        waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        //nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
-
-        JraftServerImpl raftServer = (JraftServerImpl) nodes.get(1).raftManager.server();
-
-        //waitPartitionAssignmentsSyncedToExpected(0, 3);
-
-        AtomicInteger counter = new AtomicInteger(0);
-
-        raftServer.blockMessages(raftServer.startedGroups().stream().filter(grp -> grp.contains("part")).findFirst().get(), (msg, node) -> {
-            if (msg instanceof RpcRequests.PingRequest) {
-                var ms = (RpcRequests.PingRequest) msg;
-
-                if (counter.incrementAndGet() > 5)
-                    return false;
-
-                return true;
-            }
-            return false;
-        });
-
-        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
-
-        waitPartitionAssignmentsSyncedToExpected(0, 3);
-
-        assertEquals(3, getAssignments(0, 0).size());
-        assertEquals(3, getAssignments(1, 0).size());
-        assertEquals(3, getAssignments(2, 0).size());
+        assertEquals(2, getAssignments(0, 0).size());
+        assertEquals(2, getAssignments(1, 0).size());
+        assertEquals(2, getAssignments(2, 0).size());
     }
 
     @Test
@@ -232,6 +207,55 @@ public class ItRebalanceDistributedTest {
         assertEquals(2, getAssignments(0, 0).size());
         assertEquals(2, getAssignments(1, 0).size());
         assertEquals(2, getAssignments(2, 0).size());
+    }
+
+    @Test
+    void testRebalanceRetryWhenCatchupFailed(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        nodes.get(0).tableManager.createTable(
+                "PUBLIC.tbl1",
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                        .changeReplicas(1)
+                        .changePartitions(1));
+
+        assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+                .tables().get("PUBLIC.TBL1").replicas().value());
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(1));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
+
+        JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
+                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.contains("_part_"))).findFirst()
+                .get().raftManager.server();
+
+        AtomicInteger counter = new AtomicInteger(0);
+
+        String partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.contains("_part_")).findFirst().get();
+
+        raftServer.blockMessages(partGrpId, (msg, node) -> {
+            if (msg instanceof RpcRequests.PingRequest) {
+                // We block ping request to prevent starting replicator, hence we fail catch up and fail rebalance.
+                assertEquals(1, getAssignments(0, 0).size());
+                assertEquals(1, getAssignments(1, 0).size());
+                assertEquals(1, getAssignments(2, 0).size());
+                return counter.incrementAndGet() <= 5;
+            }
+            return false;
+        });
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
+
+        assertEquals(3, getAssignments(0, 0).size());
+        assertEquals(3, getAssignments(1, 0).size());
+        assertEquals(3, getAssignments(2, 0).size());
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
@@ -333,7 +357,7 @@ public class ItRebalanceDistributedTest {
                     clusterService,
                     cmgManager,
                     raftManager,
-                    new RocksDbKeyValueStorage(dir.resolve("metastorage"))
+                    new SimpleInMemoryKeyValueStorage()
             );
 
             cfgStorage = new DistributedConfigurationStorage(metaStorageManager, vaultManager);

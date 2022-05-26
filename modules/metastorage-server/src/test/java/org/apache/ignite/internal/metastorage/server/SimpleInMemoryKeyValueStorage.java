@@ -551,13 +551,9 @@ public class SimpleInMemoryKeyValueStorage implements KeyValueStorage {
             return Entry.empty(key);
         }
 
-        System.out.println("1.1.1");
-
         Value lastVal = lastRevVals.get(key);
 
         if (lastVal.tombstone()) {
-
-            System.out.println("1.1.3");
             return Entry.tombstone(key, lastRev, lastVal.updateCounter());
         }
 
