@@ -18,9 +18,10 @@
 package org.apache.ignite.sql;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.sql.reactive.ReactiveSession;
+import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Session is a stateful object and holds setting that intended to be used as defaults for the new queries.
  * Session object is immutable and thread-safe.
  */
-public interface Session extends ReactiveSession, AutoCloseable {
+public interface Session extends AutoCloseable {
     /** Default schema name. */
     String DEFAULT_SCHEMA = "PUBLIC";
 
@@ -57,8 +58,18 @@ public interface Session extends ReactiveSession, AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query,
-            @Nullable Object... arguments);
+    CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
+
+    /**
+     * Executes SQL query in a reactive way.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Reactive result.
+     * @throws SqlException If failed.
+     */
+    ReactiveResultSet executeReactive(@Nullable Transaction transaction, String query, @Nullable Object... arguments);
 
     /**
      * Executes single SQL statement.
@@ -82,6 +93,17 @@ public interface Session extends ReactiveSession, AutoCloseable {
     CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
 
     /**
+     * Executes SQL query in a reactive way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement.
+     * @param arguments Arguments for the statement.
+     * @return Reactive result.
+     * @throws SqlException If failed.
+     */
+    ReactiveResultSet executeReactive(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments);
+
+    /**
      * Executes batched SQL query. Only DML queries are supported.
      *
      * @param transaction Transaction to execute the query within or {@code null}.
@@ -101,6 +123,21 @@ public interface Session extends ReactiveSession, AutoCloseable {
      * @throws SqlException If failed.
      */
     CompletableFuture<int[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            String query,
+            BatchedArguments batch
+    );
+
+    /**
+     * Executes batched SQL query in a reactive way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param query SQL query template.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Publisher for the number of rows affected by the query.
+     * @throws SqlException If failed.
+     */
+    Flow.Publisher<Integer> executeBatchReactive(
             @Nullable Transaction transaction,
             String query,
             BatchedArguments batch
@@ -130,6 +167,21 @@ public interface Session extends ReactiveSession, AutoCloseable {
      * @throws SqlException If failed.
      */
     CompletableFuture<int[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            Statement statement,
+            BatchedArguments batch
+    );
+
+    /**
+     * Executes batched SQL query in a reactive way.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Publisher for the number of rows affected by the query.
+     * @throws SqlException If failed.
+     */
+    Flow.Publisher<Integer> executeBatchReactive(
             @Nullable Transaction transaction,
             Statement statement,
             BatchedArguments batch
