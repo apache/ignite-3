@@ -209,6 +209,11 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
                 IllegalArgumentException.class,
                 "Column doesn't exist [name=notExistColumn]"
         );
+
+        assertEquals(1, r.intValue(0));
+        assertEquals(2, r.intValue(1));
+        assertThrowsWithCause(() -> r.intValue(-2), IndexOutOfBoundsException.class);
+        assertThrowsWithCause(() -> r.intValue(10), IndexOutOfBoundsException.class);
     }
 
     @Test
@@ -341,6 +346,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
 
         ses.closeAsync().get();
+
+        // Fetched page  is available after cancel.
+        ars0.currentPage();
 
         assertThrowsWithCause(
                 () -> ars0.fetchNextPage().toCompletableFuture().get(),

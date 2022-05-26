@@ -284,7 +284,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public long longValue(int columnIndex) {
-            return 0;
+            return (long) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */

@@ -135,12 +135,13 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return props.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -167,19 +168,16 @@ public class SessionImpl implements Session {
             return CompletableFuture.failedFuture(new IgniteSqlException("Session is closed."));
         }
 
-        QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
-
         try {
-            List<CompletableFuture<AsyncSqlCursor<List<Object>>>> futs = qryProc.queryAsync(ctx, schema, query, arguments);
+            QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
 
-            futsToClose.addAll(futs);
+            final CompletableFuture<AsyncSqlCursor<List<Object>>> f = qryProc.querySingleAsync(ctx, schema, query, arguments);
 
-            if (futs.size() != 1) {
-                return CompletableFuture.failedFuture(new IgniteSqlException("Multiple statements aren't allowed."));
-            }
+            futsToClose.add(f);
 
-            return futs.get(0).thenCompose(cur -> {
-                        futsToClose.remove(futs.get(0));
+            return f.thenCompose(
+                    cur -> {
+                        futsToClose.remove(f);
 
                         if (!busyLock.enterBusy()) {
                             return cur.closeAsync()
@@ -229,12 +227,13 @@ public class SessionImpl implements Session {
     }
 
     /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Void> closeAsync() {
         return CompletableFuture
                 .runAsync(busyLock::block)
                 .thenCompose(
                         v0 -> {
-                            futsToClose.forEach(f -> f.cancel(true));
+                            futsToClose.forEach(f -> f.cancel(false));
 
                             return CompletableFuture.allOf(
                                     cursToClose.stream().map(AsyncCursor::closeAsync).toArray(CompletableFuture[]::new)

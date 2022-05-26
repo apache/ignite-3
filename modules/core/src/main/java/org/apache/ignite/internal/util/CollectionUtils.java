@@ -81,10 +81,10 @@ public final class CollectionUtils {
      * Gets first element from given list or returns {@code null} if list is empty.
      *
      * @param list List to retrieve the first element.
-     * @param <T>  Type of the elements of the list.
+     * @param <T> Type of the elements of the list.
      * @return The first element of the given list or {@code null} in case the list is empty.
      */
-    public static <T> T first(List<? extends T> list) {
+    public static <T> @Nullable T first(List<? extends T> list) {
         if (nullOrEmpty(list)) {
             return null;
         }
@@ -96,10 +96,10 @@ public final class CollectionUtils {
      * Gets first element from given collection or returns {@code null} if collection is empty.
      *
      * @param col Collection to retrieve the first element.
-     * @param <T>  Type of the elements of the collection.
+     * @param <T> Type of the elements of the collection.
      * @return The first element of the given collection or {@code null} in case the collection is empty.
      */
-    public static <T> T first(Collection<? extends T> col) {
+    public static <T> @Nullable T first(Collection<? extends T> col) {
         if (nullOrEmpty(col)) {
             return null;
         }
@@ -108,13 +108,13 @@ public final class CollectionUtils {
     }
 
     /**
-     * Gets first element from given iterable or returns {@code null} if list is empty.
+     * Returns first element from the given iterable or returns {@code null} if the list is empty.
      *
      * @param iterable Iterable to retrieve the first element.
-     * @param <T>  Type of the elements of the list.
+     * @param <T> Type of the elements of the list.
      * @return The first element of the given iterable or {@code null} in case the iterable is null or empty.
      */
-    public static <T> T first(Iterable<? extends T> iterable) {
+    public static <T> @Nullable T first(Iterable<? extends T> iterable) {
         if (iterable == null) {
             return null;
         }
