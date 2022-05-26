@@ -98,6 +98,8 @@ public interface AsyncResultSet {
 
     /**
      * Invalidates query result, stops the query and cleanups query resources.
+     *
+     * @return Operation future.
      */
     CompletionStage<Void> closeAsync();
 }

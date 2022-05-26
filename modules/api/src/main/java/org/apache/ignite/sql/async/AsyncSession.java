@@ -83,6 +83,8 @@ public interface AsyncSession {
 
     /**
      * Invalidates session, cleanup remote session resources, and stops all queries that are running within the current session.
+     *
+     * @return Operation future.
      */
     CompletableFuture<Void> closeAsync();
 }
