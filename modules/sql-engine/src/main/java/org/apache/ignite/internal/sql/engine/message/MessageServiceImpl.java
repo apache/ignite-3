@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -48,6 +49,8 @@ public class MessageServiceImpl implements MessageService {
 
     private final QueryTaskExecutor taskExecutor;
 
+    private final IgniteSpinBusyLock busyLock;
+
     private volatile Map<Short, MessageListener> lsnrs;
 
     /**
@@ -57,11 +60,13 @@ public class MessageServiceImpl implements MessageService {
     public MessageServiceImpl(
             TopologyService topSrvc,
             MessagingService messagingSrvc,
-            QueryTaskExecutor taskExecutor
+            QueryTaskExecutor taskExecutor,
+            IgniteSpinBusyLock busyLock
     ) {
         this.topSrvc = topSrvc;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
+        this.busyLock = busyLock;
 
         locNodeId = topSrvc.localMember().id();
     }
@@ -75,23 +80,31 @@ public class MessageServiceImpl implements MessageService {
     /** {@inheritDoc} */
     @Override
     public void send(String nodeId, NetworkMessage msg) throws IgniteInternalCheckedException {
-        if (locNodeId.equals(nodeId)) {
-            onMessage(nodeId, msg);
-        } else {
-            ClusterNode node = topSrvc.allMembers().stream()
-                    .filter(cn -> nodeId.equals(cn.id()))
-                    .findFirst()
-                    .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
+        if (!busyLock.enterBusy()) {
+            return;
+        }
 
-            try {
-                messagingSrvc.send(node, msg).join();
-            } catch (Exception ex) {
-                if (ex instanceof IgniteInternalCheckedException) {
-                    throw (IgniteInternalCheckedException) ex;
+        try {
+            if (locNodeId.equals(nodeId)) {
+                onMessage(nodeId, msg);
+            } else {
+                ClusterNode node = topSrvc.allMembers().stream()
+                        .filter(cn -> nodeId.equals(cn.id()))
+                        .findFirst()
+                        .orElseThrow(() -> new IgniteInternalException("Failed to send message to node (has node left grid?): " + nodeId));
+
+                try {
+                    messagingSrvc.send(node, msg).join();
+                } catch (Exception ex) {
+                    if (ex instanceof IgniteInternalCheckedException) {
+                        throw (IgniteInternalCheckedException) ex;
+                    }
+
+                    throw new IgniteInternalCheckedException(ex);
                 }
-
-                throw new IgniteInternalCheckedException(ex);
             }
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
@@ -125,26 +138,42 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void onMessage(NetworkMessage msg, NetworkAddress addr, @Nullable Long correlationId) {
-        assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
-
-        ClusterNode node = topSrvc.getByAddress(addr);
-        if (node == null) {
-            LOG.warn("Received a message from a node that has not yet"
-                    + " joined the cluster: addr={}, msg={}", addr, msg);
-
+        if (!busyLock.enterBusy()) {
             return;
         }
 
-        onMessage(node.id(), msg);
+        try {
+            assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
+
+            ClusterNode node = topSrvc.getByAddress(addr);
+            if (node == null) {
+                LOG.warn("Received a message from a node that has not yet"
+                        + " joined the cluster: addr={}, msg={}", addr, msg);
+
+                return;
+            }
+
+            onMessage(node.id(), msg);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private void onMessageInternal(String nodeId, NetworkMessage msg) {
-        MessageListener lsnr = Objects.requireNonNull(
-                lsnrs.get(msg.messageType()),
-                "there is no listener for msgType=" + msg.messageType()
-        );
+        if (!busyLock.enterBusy()) {
+            return;
+        }
 
-        lsnr.onMessage(nodeId, msg);
+        try {
+            MessageListener lsnr = Objects.requireNonNull(
+                    lsnrs.get(msg.messageType()),
+                    "there is no listener for msgType=" + msg.messageType()
+            );
+
+            lsnr.onMessage(nodeId, msg);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */

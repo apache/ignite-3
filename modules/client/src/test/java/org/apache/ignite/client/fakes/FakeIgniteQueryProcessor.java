@@ -39,6 +39,12 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry,
+            Object... params) {
+        return CompletableFuture.completedFuture(new FakeCursor());
+    }
+
+    @Override
     public void start() {
 
     }

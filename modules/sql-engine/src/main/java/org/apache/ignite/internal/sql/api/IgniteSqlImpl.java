@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.util.HashMap;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
@@ -48,7 +49,7 @@ public class IgniteSqlImpl implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(qryProc);
+        return new SessionBuilderImpl(qryProc, new HashMap<>());
     }
 
     /** {@inheritDoc} */

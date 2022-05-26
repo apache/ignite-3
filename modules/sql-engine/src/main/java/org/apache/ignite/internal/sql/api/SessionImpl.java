@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -27,10 +28,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.sql.engine.AsyncCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -44,6 +47,9 @@ import org.jetbrains.annotations.Nullable;
  * Embedded implementation of the SQL session.
  */
 public class SessionImpl implements Session {
+    /** Busy lock for close synchronisation. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
     private final QueryProcessor qryProc;
 
     private final long timeout;
@@ -56,22 +62,29 @@ public class SessionImpl implements Session {
 
     private final Set<AsyncSqlCursor<List<Object>>> cursToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
+    private final Map<String, Object> props;
+
     /**
      * Constructor.
      *
      * @param qryProc Query processor.
      * @param schema  Query default schema.
+     * @param timeout Query default timeout.
+     * @param pageSize Query fetch page size.
+     * @param props Session's properties.
      */
     SessionImpl(
             QueryProcessor qryProc,
             String schema,
             long timeout,
-            int pageSize
+            int pageSize,
+            Map<String, Object> props
     ) {
         this.qryProc = qryProc;
         this.schema = schema;
         this.timeout = timeout;
         this.pageSize = pageSize;
+        this.props = props;
     }
 
     /** {@inheritDoc} */
@@ -125,52 +138,76 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return props.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() {
-
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public SessionBuilder toBuilder() {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
+    public SessionBuilder toBuilder() {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteSqlException("Session is closed");
+        }
 
         try {
-            List<CompletableFuture<AsyncSqlCursor<List<Object>>>> futs = qryProc.queryAsync(ctx, schema, query, arguments);
+            return new SessionBuilderImpl(qryProc, props)
+                    .defaultPageSize(pageSize)
+                    .defaultTimeout(timeout, TimeUnit.NANOSECONDS)
+                    .defaultSchema(schema);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
 
-            futsToClose.addAll(futs);
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new IgniteSqlException("Session is closed."));
+        }
 
-            if (futs.size() != 1) {
-                return CompletableFuture.failedFuture(new IgniteSqlException("Multiple statements aren't allowed."));
-            }
+        try {
+            QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
 
-            return futs.get(0).thenCompose(cur -> {
-                        futsToClose.remove(futs.get(0));
-                        cursToClose.add(cur);
+            final CompletableFuture<AsyncSqlCursor<List<Object>>> f = qryProc.querySingleAsync(ctx, schema, query, arguments);
 
-                        return cur.requestNextAsync(pageSize)
-                                .thenApply(
-                                        batchRes -> new AsyncResultSetImpl(
-                                                cur,
-                                                batchRes,
-                                                pageSize,
-                                                () -> cursToClose.remove(cur)
-                                        )
-                                );
+            futsToClose.add(f);
+
+            return f.thenCompose(
+                    cur -> {
+                        futsToClose.remove(f);
+
+                        if (!busyLock.enterBusy()) {
+                            return cur.closeAsync()
+                                    .thenCompose((v) -> CompletableFuture.failedFuture(new IgniteSqlException("Session is closed")));
+                        }
+
+                        try {
+                            cursToClose.add(cur);
+
+                            return cur.requestNextAsync(pageSize)
+                                    .thenApply(
+                                            batchRes -> new AsyncResultSetImpl(
+                                                    cur,
+                                                    batchRes,
+                                                    pageSize,
+                                                    () -> cursToClose.remove(cur)
+                                            )
+                                    );
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     }
             );
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 
@@ -190,6 +227,22 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<Integer> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> closeAsync() {
+        return CompletableFuture
+                .runAsync(busyLock::block)
+                .thenCompose(
+                        v0 -> {
+                            futsToClose.forEach(f -> f.cancel(false));
+
+                            return CompletableFuture.allOf(
+                                    cursToClose.stream().map(AsyncCursor::closeAsync).toArray(CompletableFuture[]::new)
+                            );
+                        }
+                );
     }
 
     /** {@inheritDoc} */

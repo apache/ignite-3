@@ -24,13 +24,17 @@ import java.time.LocalTime;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -50,8 +54,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     private final BatchedResult<List<Object>> batchPage;
 
-    private final Page page;
-
     private final int pageSize;
 
     private final Runnable closeRun;
@@ -70,7 +72,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         this.batchPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
-        this.page = new Page();
+
+        assert cur.queryType() == SqlQueryType.QUERY
+                || ((cur.queryType() == SqlQueryType.DML || cur.queryType() == SqlQueryType.DDL)
+                && batchPage.items().size() == 1
+                && batchPage.items().get(0).size() == 1
+                && !batchPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + batchPage + ']';
     }
 
     /** {@inheritDoc} */
@@ -88,14 +95,11 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public long affectedRows() {
-        if (hasRowSet() || cur.queryType() == SqlQueryType.DDL) {
+        if (cur.queryType() != SqlQueryType.DML) {
             return -1;
         }
 
-        assert batchPage.items().size() == 1
-                && batchPage.items().get(0).size() == 1
-                && batchPage.items().get(0).get(0) instanceof Long
-                && !batchPage.hasMore() : "Invalid DML result: " + batchPage;
+        assert batchPage.items().get(0).get(0) instanceof Long : "Invalid DML result: " + batchPage;
 
         return (long) batchPage.items().get(0).get(0);
     }
@@ -103,14 +107,11 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        if (hasRowSet() || cur.queryType() == SqlQueryType.DML) {
+        if (cur.queryType() != SqlQueryType.DDL) {
             return false;
         }
 
-        assert batchPage.items().size() == 1
-                && batchPage.items().get(0).size() == 1
-                && batchPage.items().get(0).get(0) instanceof Boolean
-                && !batchPage.hasMore() : "Invalid DDL result: " + batchPage;
+        assert batchPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + batchPage;
 
         return (boolean) batchPage.items().get(0).get(0);
     }
@@ -122,7 +123,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             throw new NoRowSetExpectedException("Query hasn't result set: [type=" + cur.queryType() + ']');
         }
 
-        return page;
+        return () -> new TransformingIterator<>(batchPage.items().iterator(), SqlRowImpl::new);
     }
 
     /** {@inheritDoc} */
@@ -138,7 +139,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
                                 .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
                     }
                 }
-
             }
         }
 
@@ -154,70 +154,55 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<Void> closeAsync() {
-        return cur.closeAsync().thenAccept((v) -> closeRun.run());
-    }
-
-    private class Page implements Iterable<SqlRow> {
-        /** {@inheritDoc} */
-        @NotNull
-        @Override
-        public Iterator<SqlRow> iterator() {
-            return new IteratorImpl(batchPage.items().iterator());
-        }
-    }
-
-    private class IteratorImpl implements Iterator<SqlRow> {
-        private final Iterator<List<Object>> it;
-
-        IteratorImpl(Iterator<List<Object>> it) {
-            this.it = it;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return it.hasNext();
-        }
-
-        @Override
-        public SqlRow next() {
-            return new SqlRowImpl(it.next());
-        }
+        return cur.closeAsync().thenRun(closeRun);
     }
 
     private class SqlRowImpl implements SqlRow {
         private final List<Object> row;
 
+        private final Map<String, Integer> fields;
+
+        org.apache.ignite.internal.sql.engine.ResultSetMetadata meta = cur.metadata();
+
         SqlRowImpl(List<Object> row) {
             this.row = row;
+            fields = meta.fields().stream()
+                    .collect(Collectors.toMap(ResultFieldMetadata::name, ResultFieldMetadata::order));
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return cur.metadata().fields().size();
+            return meta.fields().size();
         }
 
         /** {@inheritDoc} */
         @Override
         public String columnName(int columnIndex) {
-            return cur.metadata().fields().get(columnIndex).name();
+            return meta.fields().get(columnIndex).name();
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnIndex(@NotNull String columnName) {
-            return cur.metadata().fields().stream()
-                    .filter(fld -> fld.name().equals(columnName))
-                    .findFirst()
-                    .get()
-                    .order();
+            return fields.getOrDefault(columnName, -1);
+        }
+
+        private int columnIndexChecked(@NotNull String columnName) {
+            int idx = columnIndex(columnName);
+
+            if (idx == -1) {
+                throw new IllegalArgumentException("Column doesn't exist [name=" + columnName + ']');
+            }
+
+            return idx;
         }
 
         /** {@inheritDoc} */
         @SuppressWarnings("unchecked")
         @Override
         public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
-            T ret = (T) row.get(columnIndex(columnName));
+            T ret = (T) row.get(columnIndexChecked(columnName));
 
             return ret != null ? ret : defaultValue;
         }
@@ -232,7 +217,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         @SuppressWarnings("unchecked")
         @Override
         public <T> T value(@NotNull String columnName) throws IllegalArgumentException {
-            return (T) row.get(columnIndex(columnName));
+            return (T) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -245,7 +230,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public BinaryObject binaryObjectValue(@NotNull String columnName) {
-            return (BinaryObject) row.get(columnIndex(columnName));
+            return (BinaryObject) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -257,7 +242,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public byte byteValue(@NotNull String columnName) {
-            return (byte) row.get(columnIndex(columnName));
+            return (byte) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -269,7 +254,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public short shortValue(@NotNull String columnName) {
-            return (short) row.get(columnIndex(columnName));
+            return (short) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -281,7 +266,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public int intValue(@NotNull String columnName) {
-            return (int) row.get(columnIndex(columnName));
+            return (int) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -293,19 +278,19 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public long longValue(@NotNull String columnName) {
-            return (long) row.get(columnIndex(columnName));
+            return (long) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
         @Override
         public long longValue(int columnIndex) {
-            return 0;
+            return (long) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */
         @Override
         public float floatValue(@NotNull String columnName) {
-            return (float) row.get(columnIndex(columnName));
+            return (float) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -317,7 +302,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public double doubleValue(@NotNull String columnName) {
-            return (double) row.get(columnIndex(columnName));
+            return (double) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -329,7 +314,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public String stringValue(@NotNull String columnName) {
-            return (String) row.get(columnIndex(columnName));
+            return (String) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -341,7 +326,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public UUID uuidValue(@NotNull String columnName) {
-            return (UUID) row.get(columnIndex(columnName));
+            return (UUID) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -353,7 +338,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public BitSet bitmaskValue(@NotNull String columnName) {
-            return (BitSet) row.get(columnIndex(columnName));
+            return (BitSet) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -365,7 +350,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public LocalDate dateValue(String columnName) {
-            return (LocalDate) row.get(columnIndex(columnName));
+            return (LocalDate) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -377,7 +362,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public LocalTime timeValue(String columnName) {
-            return (LocalTime) row.get(columnIndex(columnName));
+            return (LocalTime) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -389,7 +374,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public LocalDateTime datetimeValue(String columnName) {
-            return (LocalDateTime) row.get(columnIndex(columnName));
+            return (LocalDateTime) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
@@ -401,7 +386,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         /** {@inheritDoc} */
         @Override
         public Instant timestampValue(String columnName) {
-            return (Instant) row.get(columnIndex(columnName));
+            return (Instant) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */

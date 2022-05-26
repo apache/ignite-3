@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.sql.Session;
@@ -27,7 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * Session builder implementation.
  */
 public class SessionBuilderImpl implements SessionBuilder {
-    public static final int DEFAULT_PAGE_SIZE = 1024;
 
     public static final long DEFAULT_TIMEOUT = 0;
 
@@ -35,12 +35,21 @@ public class SessionBuilderImpl implements SessionBuilder {
 
     private long timeout = DEFAULT_TIMEOUT;
 
-    private String schema;
+    private String schema = Session.DEFAULT_SCHEMA;
 
-    private int pageSize = DEFAULT_PAGE_SIZE;
+    private int pageSize = Session.DEFAULT_PAGE_SIZE;
 
-    SessionBuilderImpl(QueryProcessor qryProc) {
+    private final Map<String, Object> props;
+
+    /**
+     * Session builder constructor.
+     *
+     * @param qryProc SQL query processor.
+     * @param props Initial properties.
+     */
+    SessionBuilderImpl(QueryProcessor qryProc, Map<String, Object> props) {
         this.qryProc = qryProc;
+        this.props = props;
     }
 
     /** {@inheritDoc} */
@@ -57,11 +66,13 @@ public class SessionBuilderImpl implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
         return schema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder defaultSchema(String schema) {
         this.schema = schema;
@@ -69,11 +80,13 @@ public class SessionBuilderImpl implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int defaultPageSize() {
         return pageSize;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder defaultPageSize(int pageSize) {
         this.pageSize = pageSize;
@@ -81,23 +94,29 @@ public class SessionBuilderImpl implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        return null;
+        return props.get(name);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder property(String name, @Nullable Object value) {
-        return null;
+        props.put(name, value);
+
+        return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Session build() {
         return new SessionImpl(
                 qryProc,
                 schema,
                 timeout,
-                pageSize
+                pageSize,
+                props
         );
     }
 }
