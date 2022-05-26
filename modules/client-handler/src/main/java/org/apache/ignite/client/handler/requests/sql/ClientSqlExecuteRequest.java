@@ -17,8 +17,11 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.sql.IgniteSql;
@@ -39,8 +42,14 @@ public class ClientSqlExecuteRequest {
      * @param sql SQL API.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientMessagePacker out, IgniteSql sql) {
+    public static CompletableFuture<Void> process(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            IgniteSql sql,
+            ClientResourceRegistry resources) {
         // TODO: read TX.
+        var tx = readTx(in, resources);
+
         // TODO: "brief mode" which only includes query text and args? - separate ticket.
         SessionBuilder sessionBuilder = sql.sessionBuilder()
                 .defaultPageSize(in.unpackInt())
@@ -74,7 +83,7 @@ public class ClientSqlExecuteRequest {
 
         Statement statement = statementBuilder.build();
 
-        return session.executeAsync(null, statement).thenAccept(asyncResultSet -> {
+        return session.executeAsync(tx, statement).thenAccept(asyncResultSet -> {
             // TODO: Put result set to resources and return id (or null when single page).
             // TODO: Pack first page, close if ended.
             out.packLong(0);
