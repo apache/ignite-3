@@ -32,7 +32,9 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -601,6 +603,17 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Throw an exception as if it were unchecked.
+     *
+     * <p>This method erases type of the exception in the thrown clause, so checked exception could be thrown without need to wrap it with
+     * unchecked one or adding a similar throws clause to the upstream methods.
+     */
+    @SuppressWarnings("unchecked")
+    public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
+        throw (E) e;
+    }
+
+    /**
      * Awaits completion of the given stage and returns its result.
      *
      * @param stage The stage.
@@ -612,7 +625,17 @@ public final class IgniteTestUtils {
         try {
             return stage.toCompletableFuture().get(TIMEOUT_SEC, TimeUnit.SECONDS);
         } catch (Throwable e) {
-            throw new IgniteInternalException(e);
+            if (e instanceof ExecutionException) {
+                e = e.getCause();
+            } else if (e instanceof CompletionException) {
+                e = e.getCause();
+            }
+
+            sneakyThrow(e);
         }
+
+        assert false;
+
+        return null;
     }
 }
