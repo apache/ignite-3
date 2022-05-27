@@ -313,6 +313,7 @@ public interface Session extends AutoCloseable {
         /**
          * Creates an SQL session object that provides methods for executing SQL queries and holds settings with which queries will be
          * executed.
+         *
          * @return Session.
          */
         Session build();
