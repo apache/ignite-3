@@ -267,9 +267,10 @@ public class SqlQueryProcessor implements QueryProcessor {
                 .parameters(params)
                 .build();
 
-        CompletableFuture<SqlNode> parseFut = CompletableFuture.supplyAsync(
-                        () -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig()),
-                        taskExecutor
+        CompletableFuture<Void> start = new CompletableFuture<>();
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenApply(
+                        (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
                 )
                 .thenApply(nodes -> {
                     if (nodes.size() > 1) {
@@ -277,9 +278,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                     }
 
                     return nodes.get(0);
-                });
-
-        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = parseFut
+                })
                 .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
                 .thenApply(plan -> {
                     context.maybeUnwrap(QueryValidator.class)
@@ -297,6 +296,8 @@ public class SqlQueryProcessor implements QueryProcessor {
                 ctx.cancel().cancel();
             }
         });
+
+        start.completeAsync(() -> null, taskExecutor);
 
         return stage;
     }

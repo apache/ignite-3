@@ -171,10 +171,9 @@ public class SessionImpl implements Session {
 
             futsToClose.add(f);
 
-            return f.thenCompose(
-                    cur -> {
-                        futsToClose.remove(f);
-
+            return f.whenComplete(
+                    (cur, ex0) -> futsToClose.remove(f))
+                    .thenCompose(cur -> {
                         if (!busyLock.enterBusy()) {
                             return cur.closeAsync()
                                     .thenCompose((v) -> CompletableFuture.failedFuture(new IgniteSqlException("Session is closed")));
@@ -184,14 +183,26 @@ public class SessionImpl implements Session {
                             cursToClose.add(cur);
 
                             return cur.requestNextAsync(pageSize)
-                                    .thenApply(
+                                    .<AsyncResultSet>thenApply(
                                             batchRes -> new AsyncResultSetImpl(
                                                     cur,
                                                     batchRes,
                                                     pageSize,
                                                     () -> cursToClose.remove(cur)
                                             )
-                                    );
+                                    )
+                                    .whenComplete((ars, ex1) -> {
+                                        if (ex1 != null) {
+                                            cursToClose.remove(cur);
+
+                                            cur.closeAsync();
+                                        }
+                                    });
+                        } catch (Throwable e) {
+                            cursToClose.remove(cur);
+
+                            return cur.closeAsync()
+                                    .thenCompose((v) -> CompletableFuture.failedFuture(e));
                         } finally {
                             busyLock.leaveBusy();
                         }
@@ -220,6 +231,7 @@ public class SessionImpl implements Session {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
@@ -271,8 +283,9 @@ public class SessionImpl implements Session {
                             futsToClose.forEach(f -> f.cancel(false));
 
                             return CompletableFuture.allOf(
-                                    cursToClose.stream().map(AsyncCursor::closeAsync).toArray(CompletableFuture[]::new)
-                            );
+                                            cursToClose.stream().map(AsyncCursor::closeAsync).toArray(CompletableFuture[]::new)
+                                    )
+                                    .whenComplete((v, e) -> cursToClose.clear());
                         }
                 );
     }

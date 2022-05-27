@@ -165,6 +165,36 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Returns field value.
+     *
+     * @param obj target object from which to get field value ({@code null} for static methods)
+     * @param fieldName name of the field
+     * @return field value
+     */
+    public static Object getFieldValue(Object obj, String fieldName) {
+        Class<?> cls = obj.getClass();
+        Exception ex = null;
+
+        while (cls != Object.class) {
+            try {
+                return getFieldValue(obj, obj.getClass(), fieldName);
+            } catch (Exception ex0) {
+                cls = cls.getSuperclass();
+
+                if (ex == null) {
+                    ex = ex0;
+                } else {
+                    ex.addSuppressed(ex0);
+                }
+            }
+        }
+
+        assert ex != null;
+
+        throw new IgniteInternalException(ex);
+    }
+
+    /**
      * Checks whether runnable throws exception, which is itself of a specified class, or has a cause of the specified class.
      *
      * @param run Runnable to check.
