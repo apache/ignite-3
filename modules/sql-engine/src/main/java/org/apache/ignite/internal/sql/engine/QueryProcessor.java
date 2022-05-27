@@ -53,8 +53,8 @@ public interface QueryProcessor extends IgniteComponent {
 
     /**
      * Execute the single statement query with given schema name and parameters.
-     *
-     * <p>If the query string contains more than one statement the IgniteException will be thrown.
+
+     * If the query string contains more than one statement the IgniteException will be thrown.
      *
      * @param context User query context.
      * @param schemaName Schema name.
