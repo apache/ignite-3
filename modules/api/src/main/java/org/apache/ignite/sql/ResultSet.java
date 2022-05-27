@@ -69,7 +69,7 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     boolean wasApplied();
 
     /**
-     * Invalidates result set &  cleanup remote resources.
+     * Invalidates result set and cleanup remote resources.
      */
     @Override
     void close();
