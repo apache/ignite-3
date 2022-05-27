@@ -17,8 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 
 /** State machine command to finish a transaction. */
@@ -29,15 +34,18 @@ public class FinishTxCommand implements WriteCommand {
     /** Commit or rollback state. */
     private final boolean finish;
 
+    public Map<IgniteUuid, List<byte[]>> lockedKeys;
+
     /**
      * The constructor.
      *
      * @param id The id.
      * @param finish    Commit or rollback state {@code True} to commit.
      */
-    public FinishTxCommand(UUID id, boolean finish) {
+    public FinishTxCommand(UUID id, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
         this.id = id;
         this.finish = finish;
+        this.lockedKeys = lockedKeys;
     }
 
     /**

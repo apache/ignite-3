@@ -73,7 +73,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
      * Tests basic invariants of {@link MvPartitionStorage#addWrite(BinaryRow, UUID)}.
      */
     @Test
-    public void testAddWrite() throws Exception {
+    public void testAddWrite() throws Exception {//
                 MvPartitionStorage pk = partitionStorage();
 
         TestKey key = new TestKey(10, "foo");
@@ -81,17 +81,17 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        TestKey key1 = new TestKey(11, "foo1");
-        TestValue value1 = new TestValue(22, "bar1");
-
-        BinaryRow binaryRow1 = binaryRow(key1, value1);
+//        TestKey key1 = new TestKey(11, "foo1");
+//        TestValue value1 = new TestValue(22, "bar1");
+//
+//        BinaryRow binaryRow1 = binaryRow(key1, value1);
 
         UUID txId = UUID.randomUUID();
 
         RowId rowId = pk.insert(binaryRow, txId);
 //        pk.addWrite(rowId, binaryRow1, txId);
 
-        Timestamp ts = Timestamp.nextVersion();
+//        Timestamp ts = Timestamp.nextVersion();
 
         pk.abortWrite(rowId);
 

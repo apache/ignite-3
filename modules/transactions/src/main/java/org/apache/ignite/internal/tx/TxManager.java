@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.tx;
 
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -90,7 +91,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID id);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID id);
 
     /**
      * Acqures a read lock.
@@ -101,7 +102,7 @@ public interface TxManager extends IgniteComponent {
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID id);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID id);
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
@@ -131,6 +132,8 @@ public interface TxManager extends IgniteComponent {
     boolean isLocal(NetworkAddress addr);
 
     List<ByteBuffer> lockedKeys(UUID id, IgniteUuid lockId);
+
+    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID id);
 
     /**
      * Returns a number of finished transactions.

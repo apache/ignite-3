@@ -88,6 +88,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.begin == null) {
                 if (!txId.equals(versionChain.txId)) {
+                    System.out.println("addWrite TxIdMismatchException " + txId + " " + versionChain.txId);
                     throw new TxIdMismatchException();
                 }
 

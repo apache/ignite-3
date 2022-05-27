@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
@@ -180,7 +181,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, ByteBuffer keyData, UUID id) {
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID id) {
         // TODO IGNITE-15933 process tx messages in striped fasion to avoid races. But locks can be acquired from any thread !
         TxState state = state(id);
 
@@ -190,7 +191,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         // Should rollback tx on lock error.
-        LockKey key = new LockKey(lockId, keyData);
+        LockKey key = new LockKey(lockId, row, keyData);
 
         return lockManager.tryAcquire(key, id)
                 .thenAccept(ignored -> recordLock(key, id, Boolean.FALSE));
@@ -198,7 +199,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, ByteBuffer keyData, UUID id) {
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID id) {
         TxState state = state(id);
 
         if (state != null && state != TxState.PENDING) {
@@ -206,7 +207,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                     "The operation is attempted for completed transaction"));
         }
 
-        LockKey key = new LockKey(lockId, keyData);
+        LockKey key = new LockKey(lockId, row, keyData);
 
         return lockManager.tryAcquireShared(key, id)
                 .thenAccept(ignored -> recordLock(key, id, Boolean.TRUE));
@@ -282,6 +283,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 .map(entry -> entry.getKey().key).collect(Collectors.toList());
     }
 
+    /**  */
+    public Map<IgniteUuid, List<byte[]>> lockedKeys(UUID id) {
+        return locks.getOrDefault(id, new HashMap<>()).entrySet().stream()
+                .filter(entry -> entry.getValue() == false)
+//                .map(entry -> entry.getKey().key)
+                .collect(Collectors.groupingBy(entry -> entry.getKey().id(),
+                        Collectors.mapping(entry -> entry.getKey().row, Collectors.toList())));
+    }
+
     /** {@inheritDoc} */
     @Override
     public int finished() {
@@ -307,6 +317,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         /** The id. */
         private final IgniteUuid id;
 
+        byte[] row;
+
         /** The key. */
         private final ByteBuffer key;
 
@@ -316,8 +328,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
          * @param id The id.
          * @param key The key.
          */
-        LockKey(IgniteUuid id, ByteBuffer key) {
+        LockKey(IgniteUuid id, byte[] row, ByteBuffer key) {
             this.id = id;
+            this.row = row;
             this.key = key;
         }
 
