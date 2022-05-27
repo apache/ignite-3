@@ -67,4 +67,13 @@ public class InNetworkObject {
     public DescriptorRegistry registry() {
         return registry;
     }
+
+    @Override
+    public String toString() {
+        return "InNetworkObject{" +
+                "message=" + message +
+                ", consistentId='" + consistentId + '\'' +
+                ", registry=" + registry +
+                '}';
+    }
 }

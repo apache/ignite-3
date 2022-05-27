@@ -629,6 +629,7 @@ public class VersionedRowStore {
      * @return Snapshot future.
      */
     public CompletionStage<Void> snapshot(Path path) {
+        System.out.println("VersionedRowStore.snapshot");
 //        return storage.snapshot(path);
         return null;
     }
@@ -639,6 +640,7 @@ public class VersionedRowStore {
      * @param path The path.
      */
     public void restoreSnapshot(Path path) {
+        System.out.println("VersionedRowStore.restoreSnapshot");
 //        storage.restoreSnapshot(path);
     }
 

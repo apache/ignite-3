@@ -283,6 +283,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         tx2.commit();
 
+        System.out.println("start last commit");
+
         try {
             tx.commit();
 
@@ -290,6 +292,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         } catch (TransactionException e) {
             // Expected.
         }
+
+        System.out.println("start last commit after");
 
         assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
@@ -715,7 +719,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                             List.of(makeValue(1, 200.), makeValue(2, 200.), makeValue(3, 300.))
                     );
 
-                    assertEquals(1, res.size());
+                    assertEquals(2, res.size());
                 });
 
         assertNotNull(accounts.recordView().get(null, makeKey(1)));
@@ -1061,6 +1065,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         List<Tuple> rows = new ArrayList<>();
 
         CountDownLatch l = new CountDownLatch(1);
+
+        System.out.println("pub.subscribe");
 
         pub.subscribe(new Flow.Subscriber<BinaryRow>() {
             @Override

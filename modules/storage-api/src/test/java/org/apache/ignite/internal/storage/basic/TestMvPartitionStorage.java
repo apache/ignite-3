@@ -113,6 +113,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public @Nullable BinaryRow abortWrite(RowId rowId) {
+        VersionChain chain = map.get(rowId);
+
+        if (chain.begin != null && chain.txId == null) {
+            System.out.println("TestMvPartitionStorage abortWrite skip");
+            return null;
+        }
+
         BinaryRow[] res = {null};
 
         map.computeIfPresent(rowId, (ignored, versionChain) -> {
@@ -150,6 +157,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     /** {@inheritDoc} */
     @Override
     public void commitWrite(RowId rowId, Timestamp timestamp) {
+        VersionChain chain = map.get(rowId);
+
+        if (chain.begin != null && chain.txId == null) {
+            System.out.println("TestMvPartitionStorage commitWrite skip");
+            return;
+        }
+
         map.compute(rowId, (ignored, versionChain) -> {
             assert versionChain != null;
             assert versionChain.begin == null && versionChain.txId != null :

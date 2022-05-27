@@ -277,7 +277,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     /** */
     public List<ByteBuffer> lockedKeys(UUID id, IgniteUuid lockId) {
-        return locks.get(id).entrySet().stream()
+        return locks.getOrDefault(id, new HashMap<>()).entrySet().stream()
                 .filter(entry -> entry.getKey().id().equals(lockId) && entry.getValue() == false)
                 .map(entry -> entry.getKey().key).collect(Collectors.toList());
     }
