@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
 import static org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl.PAGE_OVERHEAD;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
-import org.apache.ignite.internal.pagememory.PageMemoryTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -93,7 +93,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
         PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(defaultSegmentSizes(), filePageStoreManager, checkpointManager);
 
-        dataRegions.add(PageMemoryTestUtils.newDataRegion(true, pageMemoryImpl));
+        dataRegions.add(newDataRegion(true, pageMemoryImpl));
 
         filePageStoreManager.start();
 
@@ -128,37 +128,71 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
     }
 
     @Test
-    void testSafeToUpdate() throws Exception {
+    void testSafeToUpdate(
+            @InjectConfiguration PageMemoryCheckpointConfiguration checkpointConfig,
+            @WorkDirectory Path workDir
+    ) throws Exception {
+        FilePageStoreManager filePageStoreManager = createFilePageStoreManager(workDir);
+
+        Collection<PageMemoryDataRegion> dataRegions = new ArrayList<>();
+
+        CheckpointManager checkpointManager = createCheckpointManager(checkpointConfig, workDir, filePageStoreManager, dataRegions);
+
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
         dataRegionCfg.change(c -> c.changeInitSize(128 * systemPageSize).changeMaxSize(128 * systemPageSize)).get(1, SECONDS);
 
-        PageMemoryImpl memory = createPageMemoryImpl(new long[]{100 * systemPageSize, 28 * systemPageSize}, null, null);
+        PageMemoryImpl pageMemoryImpl = createPageMemoryImpl(
+                new long[]{100 * systemPageSize, 28 * systemPageSize},
+                filePageStoreManager,
+                checkpointManager
+        );
 
-        memory.start();
+        dataRegions.add(newDataRegion(true, pageMemoryImpl));
+
+        filePageStoreManager.start();
+
+        checkpointManager.start();
+
+        pageMemoryImpl.start();
 
         try {
-            long maxPages = memory.totalPages();
+            long maxPages = pageMemoryImpl.totalPages();
 
             long maxDirtyPages = (maxPages * 3 / 4);
 
             assertThat(maxDirtyPages, greaterThanOrEqualTo(50L));
 
-            for (int i = 0; i < maxDirtyPages - 1; i++) {
-                allocatePage(memory);
+            checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
-                assertTrue(memory.safeToUpdate(), "i=" + i);
+            try {
+                for (int i = 0; i < maxDirtyPages - 1; i++) {
+                    allocatePage(pageMemoryImpl);
+
+                    assertTrue(pageMemoryImpl.safeToUpdate(), "i=" + i);
+                }
+
+                for (int i = (int) maxDirtyPages - 1; i < maxPages; i++) {
+                    allocatePage(pageMemoryImpl);
+
+                    assertFalse(pageMemoryImpl.safeToUpdate(), "i=" + i);
+                }
+            } finally {
+                checkpointManager.checkpointTimeoutLock().checkpointReadUnlock();
             }
 
-            for (int i = (int) maxDirtyPages - 1; i < maxPages; i++) {
-                allocatePage(memory);
+            checkpointManager
+                    .forceCheckpoint("for_test_sage_to_update", null)
+                    .futureFor(FINISHED)
+                    .get(100, MILLISECONDS);
 
-                assertFalse(memory.safeToUpdate(), "i=" + i);
-            }
-
-            // TODO: IGNITE-16984 After the checkpoint check assertTrue(memory.safeToUpdate())
+            assertTrue(pageMemoryImpl.safeToUpdate());
         } finally {
-            memory.stop(true);
+            closeAll(
+                    () -> pageMemoryImpl.stop(true),
+                    checkpointManager::stop,
+                    filePageStoreManager::stop
+            );
         }
     }
 
@@ -188,7 +222,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         return LongStream.range(0, 10).map(i -> 5 * MiB).toArray();
     }
 
-    private CheckpointManager createCheckpointManager(
+    private static CheckpointManager createCheckpointManager(
             PageMemoryCheckpointConfiguration checkpointConfig,
             Path storagePath,
             FilePageStoreManager filePageStoreManager,
