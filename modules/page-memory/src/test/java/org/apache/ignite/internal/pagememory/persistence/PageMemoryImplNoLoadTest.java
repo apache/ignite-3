@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -102,10 +103,12 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         pageMemoryImpl.start();
 
         try {
+            initGroupFilePageStores(filePageStoreManager);
+
             checkpointManager.checkpointTimeoutLock().checkpointReadLock();
 
             try {
-                Set<FullPageId> dirtyPages = Set.of(allocatePage(pageMemoryImpl), allocatePage(pageMemoryImpl));
+                Set<FullPageId> dirtyPages = Set.of(createDirtyPage(pageMemoryImpl), createDirtyPage(pageMemoryImpl));
 
                 assertThat(pageMemoryImpl.dirtyPages(), equalTo(dirtyPages));
             } finally {
@@ -157,6 +160,8 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         pageMemoryImpl.start();
 
         try {
+            initGroupFilePageStores(filePageStoreManager);
+
             long maxPages = pageMemoryImpl.totalPages();
 
             long maxDirtyPages = (maxPages * 3 / 4);
@@ -167,13 +172,13 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
             try {
                 for (int i = 0; i < maxDirtyPages - 1; i++) {
-                    allocatePage(pageMemoryImpl);
+                    createDirtyPage(pageMemoryImpl);
 
                     assertTrue(pageMemoryImpl.safeToUpdate(), "i=" + i);
                 }
 
                 for (int i = (int) maxDirtyPages - 1; i < maxPages; i++) {
-                    allocatePage(pageMemoryImpl);
+                    createDirtyPage(pageMemoryImpl);
 
                     assertFalse(pageMemoryImpl.safeToUpdate(), "i=" + i);
                 }
@@ -182,7 +187,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
             }
 
             checkpointManager
-                    .forceCheckpoint("for_test_sage_to_update", null)
+                    .forceCheckpoint("for_test_safe_to_update", null)
                     .futureFor(FINISHED)
                     .get(100, MILLISECONDS);
 
@@ -218,6 +223,20 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         );
     }
 
+    protected FullPageId createDirtyPage(PageMemoryImpl pageMemoryImpl) throws Exception {
+        FullPageId fullPageId = allocatePage(pageMemoryImpl);
+
+        long page = pageMemoryImpl.acquirePage(fullPageId.groupId(), fullPageId.pageId());
+
+        try {
+            writePage(pageMemoryImpl, fullPageId, page, 100);
+        } finally {
+            pageMemoryImpl.releasePage(fullPageId.groupId(), fullPageId.pageId(), page);
+        }
+
+        return fullPageId;
+    }
+
     private static long[] defaultSegmentSizes() {
         return LongStream.range(0, 10).map(i -> 5 * MiB).toArray();
     }
@@ -243,5 +262,13 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
         return new FilePageStoreManager(log, "test", storagePath, new RandomAccessFileIoFactory(), PAGE_SIZE);
+    }
+
+    private static void initGroupFilePageStores(FilePageStoreManager filePageStoreManager) throws Exception {
+        filePageStoreManager.initialize("Test", GRP_ID, PARTITION_ID + 1);
+
+        for (FilePageStore filePageStore : filePageStoreManager.getStores(GRP_ID)) {
+            filePageStore.ensure();
+        }
     }
 }
