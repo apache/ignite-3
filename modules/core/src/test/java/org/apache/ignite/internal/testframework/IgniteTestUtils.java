@@ -32,9 +32,7 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -162,6 +160,36 @@ public final class IgniteTestUtils {
         } catch (IllegalAccessException e) {
             throw new IgniteInternalException("Cannot get field value", e);
         }
+    }
+
+    /**
+     * Returns field value.
+     *
+     * @param obj target object from which to get field value ({@code null} for static methods)
+     * @param fieldName name of the field
+     * @return field value
+     */
+    public static Object getFieldValue(Object obj, String fieldName) {
+        Class<?> cls = obj.getClass();
+        Exception ex = null;
+
+        while (cls != Object.class) {
+            try {
+                return getFieldValue(obj, obj.getClass(), fieldName);
+            } catch (Exception ex0) {
+                cls = cls.getSuperclass();
+
+                if (ex == null) {
+                    ex = ex0;
+                } else {
+                    ex.addSuppressed(ex0);
+                }
+            }
+        }
+
+        assert ex != null;
+
+        throw new IgniteInternalException(ex);
     }
 
     /**
@@ -573,17 +601,6 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Throw an exception as if it were unchecked.
-     *
-     * <p>This method erases type of the exception in the thrown clause, so checked exception could be thrown without need to wrap it with
-     * unchecked one or adding a similar throws clause to the upstream methods.
-     */
-    @SuppressWarnings("unchecked")
-    public static <E extends Throwable> void sneakyThrow(Throwable e) throws E {
-        throw (E) e;
-    }
-
-    /**
      * Awaits completion of the given stage and returns its result.
      *
      * @param stage The stage.
@@ -595,17 +612,7 @@ public final class IgniteTestUtils {
         try {
             return stage.toCompletableFuture().get(TIMEOUT_SEC, TimeUnit.SECONDS);
         } catch (Throwable e) {
-            if (e instanceof ExecutionException) {
-                e = e.getCause();
-            } else if (e instanceof CompletionException) {
-                e = e.getCause();
-            }
-
-            sneakyThrow(e);
+            throw new IgniteInternalException(e);
         }
-
-        assert false;
-
-        return null;
     }
 }
