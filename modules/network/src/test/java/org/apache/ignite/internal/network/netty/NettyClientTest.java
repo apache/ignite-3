@@ -77,6 +77,8 @@ public class NettyClientTest {
 
         assertFalse(client.failedToConnect());
         assertFalse(client.isDisconnected());
+
+        assertFalse(channel.finish());
     }
 
     /**
@@ -102,6 +104,8 @@ public class NettyClientTest {
 
         assertTrue(client.failedToConnect());
         assertFalse(client.isDisconnected());
+
+        assertFalse(channel.finish());
     }
 
     /**
@@ -124,6 +128,8 @@ public class NettyClientTest {
 
         assertTrue(tuple.client.isDisconnected());
         assertFalse(tuple.client.failedToConnect());
+
+        assertFalse(channel.finish());
     }
 
     /**
@@ -149,6 +155,8 @@ public class NettyClientTest {
 
         assertTrue(client.isDisconnected());
         assertTrue(client.failedToConnect());
+
+        assertFalse(channel.finish());
     }
 
     /**
@@ -177,6 +185,8 @@ public class NettyClientTest {
         assertThrows(IgniteInternalException.class, () -> {
             client.start(bootstrap);
         });
+
+        assertFalse(channel.finish());
     }
 
     /**
