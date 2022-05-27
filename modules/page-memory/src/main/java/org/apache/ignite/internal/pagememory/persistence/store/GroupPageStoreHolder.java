@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import java.util.AbstractList;
+import java.util.RandomAccess;
 
 /**
  * Holder of the group page stores (index and partitions).
  *
  * @param <T> Type of {@link PageStore}.
  */
-class GroupPageStoreHolder<T extends PageStore> extends AbstractList<T> {
+class GroupPageStoreHolder<T extends PageStore> extends AbstractList<T> implements RandomAccess {
     /** Index page store. */
     final T idxStore;
 

@@ -752,12 +752,12 @@ public class IgniteUtils {
      * @param log Logger.
      */
     public static void awaitForWorkersStop(Collection<IgniteWorker> workers, boolean cancel, @Nullable IgniteLogger log) {
+        if (cancel) {
+            workers.forEach(IgniteWorker::cancel);
+        }
+
         for (IgniteWorker worker : workers) {
             try {
-                if (cancel) {
-                    worker.cancel();
-                }
-
                 worker.join();
             } catch (Exception e) {
                 if (log != null && log.isWarnEnabled()) {

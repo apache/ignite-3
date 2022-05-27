@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.nio.file.Files.createDirectories;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTITION;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.persistence.store.PageStore.TYPE_DATA;
@@ -77,7 +78,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
     private final int pageSize;
 
     /** Page read write manager. */
-    private final PageReadWriteManagerImpl pageReadWriteManager = new PageReadWriteManagerImpl(this);
+    private final PageReadWriteManager pageReadWriteManager = new PageReadWriteManagerImpl(this);
 
     /**
      * Executor to disallow running code that modifies data in {@link #groupPageStoreHolders} concurrently with cleanup of file page store.
@@ -154,7 +155,7 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
 
     /** {@inheritDoc} */
     @Override
-    public FilePageStore write(
+    public PageStore write(
             int grpId,
             long pageId,
             ByteBuffer pageBuf,
@@ -283,7 +284,12 @@ public class FilePageStoreManager implements IgniteComponent, PageReadWriteManag
             boolean cleanFiles
     ) throws IgniteInternalCheckedException {
         try {
-            closeAll(groupFilePageStoreHolders.stream().flatMap(Collection::stream).map(pageStore -> () -> pageStore.stop(cleanFiles)));
+            List<AutoCloseable> closePageStores = groupFilePageStoreHolders.stream()
+                    .flatMap(Collection::stream)
+                    .map(pageStore -> (AutoCloseable) () -> pageStore.stop(cleanFiles))
+                    .collect(toList());
+
+            closeAll(closePageStores);
         } catch (IgniteInternalCheckedException e) {
             throw e;
         } catch (Exception e) {

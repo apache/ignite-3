@@ -25,7 +25,7 @@ import org.apache.ignite.internal.util.worker.IgniteWorker;
  * This class adds some necessary plumbing on top of the {@link Thread} class. Specifically, it adds:
  * <ul>
  *      <li>Consistent naming of threads</li>;
- *      <li>Name of the ignite this thread belongs to</li>.
+ *      <li>Name of the ignite node this thread belongs to</li>.
  * </ul>
  * <b>Note</b>: this class is intended for internal use only.
  */

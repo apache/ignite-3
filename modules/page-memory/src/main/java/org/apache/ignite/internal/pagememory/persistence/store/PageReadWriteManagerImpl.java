@@ -23,15 +23,14 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * {@link PageReadWriteManager} implementation.
+ * {@link org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager} implementation.
  */
-class PageReadWriteManagerImpl implements PageReadWriteManager {
+class PageReadWriteManagerImpl implements org.apache.ignite.internal.pagememory.persistence.PageReadWriteManager {
     @IgniteToStringExclude
     protected final FilePageStoreManager filePageStoreManager;
 
@@ -62,7 +61,7 @@ class PageReadWriteManagerImpl implements PageReadWriteManager {
 
     /** {@inheritDoc} */
     @Override
-    public FilePageStore write(
+    public PageStore write(
             int grpId,
             long pageId,
             ByteBuffer pageBuf,
