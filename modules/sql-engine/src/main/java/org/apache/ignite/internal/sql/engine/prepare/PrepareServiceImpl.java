@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimi
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -41,8 +42,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
@@ -53,6 +52,8 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -274,23 +275,22 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 () -> {
                     RelDataType rowType = TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
 
-                    List<ResultFieldMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
+                    List<ColumnMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
 
                     for (int i = 0; i < rowType.getFieldCount(); ++i) {
                         RelDataTypeField fld = rowType.getFieldList().get(i);
 
-                        fieldsMeta.add(
-                                new ResultFieldMetadataImpl(
-                                        fld.getName(),
-                                        TypeUtils.nativeType(fld.getType()),
-                                        fld.getIndex(),
-                                        fld.getType().isNullable(),
-                                        origins == null ? List.of() : origins.get(i)
-                                )
+                        ResultFieldMetadataImpl fldMeta = new ResultFieldMetadataImpl(
+                            fld.getName(),
+                            TypeUtils.columnType(fld.getType()),
+                            fld.getType().isNullable(),
+                            origins == null ? List.of() : origins.get(i)
                         );
+
+                        fieldsMeta.add(fldMeta);
                     }
 
-                    return fieldsMeta;
+                    return new ResultSetMetadataImpl(fieldsMeta);
                 }
         );
     }

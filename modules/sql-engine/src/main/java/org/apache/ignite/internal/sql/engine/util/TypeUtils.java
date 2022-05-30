@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.util.Util.last;
-import static org.apache.ignite.internal.sql.engine.util.Commons.nativeTypeToClass;
+import static org.apache.ignite.internal.sql.engine.util.Commons.columnTypeToClass;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -52,13 +52,12 @@ import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -238,7 +237,7 @@ public class TypeUtils {
 
         assert fldDesc != null;
 
-        return nativeTypeToClass(fldDesc.physicalType());
+        return columnTypeToClass(fldDesc.physicalType());
     }
 
     /**
@@ -363,42 +362,40 @@ public class TypeUtils {
     /**
      * Convert calcite date type to Ignite native type.
      */
-    public static NativeType nativeType(RelDataType type) {
+    public static ColumnType columnType(RelDataType type) {
         switch (type.getSqlTypeName()) {
             case VARCHAR:
             case CHAR:
-                return type.getPrecision() > 0 ? NativeTypes.stringOf(type.getPrecision()) : NativeTypes.STRING;
+                return type.getPrecision() > 0 ? ColumnType.stringOf(type.getPrecision()) : ColumnType.string();
             case DATE:
-                return NativeTypes.DATE;
+                return ColumnType.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return type.getPrecision() > 0 ? NativeTypes.time(type.getPrecision()) : NativeTypes.time();
+                return type.getPrecision() > 0 ? ColumnType.time(type.getPrecision()) : ColumnType.time();
             case INTEGER:
-                return NativeTypes.INT32;
+                return ColumnType.INT32;
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return type.getPrecision() > 0 ? NativeTypes.timestamp(type.getPrecision()) : NativeTypes.timestamp();
+                return type.getPrecision() > 0 ? ColumnType.timestamp(type.getPrecision()) : ColumnType.timestamp();
             case BIGINT:
-                return NativeTypes.INT64;
+                return ColumnType.INT64;
             case SMALLINT:
-                return NativeTypes.INT16;
+                return ColumnType.INT16;
             case TINYINT:
-                return NativeTypes.INT8;
-            case DECIMAL:
-                return NativeTypes.decimalOf(type.getPrecision(), type.getScale());
             case BOOLEAN:
-                return NativeTypes.INT8;
+                return ColumnType.INT8;
+            case DECIMAL:
+                return ColumnType.decimalOf(type.getPrecision(), type.getScale());
             case DOUBLE:
-                return NativeTypes.DOUBLE;
+                return ColumnType.DOUBLE;
             case REAL:
             case FLOAT:
-                return NativeTypes.FLOAT;
+                return ColumnType.FLOAT;
             case BINARY:
             case VARBINARY:
-                return NativeTypes.blobOf(type.getPrecision());
             case ANY:
             case OTHER:
-                return NativeTypes.blobOf(type.getPrecision());
+                return ColumnType.blobOf(type.getPrecision());
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;

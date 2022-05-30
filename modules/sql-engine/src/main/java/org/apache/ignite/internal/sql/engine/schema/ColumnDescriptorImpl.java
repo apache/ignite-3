@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.nativeTypeToClass;
+import static org.apache.ignite.internal.sql.engine.util.Commons.columnTypeToClass;
 
 import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
@@ -101,7 +101,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     /** {@inheritDoc} */
     @Override
     public RelDataType logicalType(IgniteTypeFactory f) {
-        return f.createJavaType(nativeTypeToClass(storageType));
+        return f.createJavaType(columnTypeToClass(storageType));
     }
 
     /** {@inheritDoc} */

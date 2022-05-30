@@ -17,29 +17,43 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
- * Distributed query plan.
+ * Results set metadata holder.
  */
-public class MultiStepQueryPlan extends AbstractMultiStepPlan {
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param meta Fields metadata.
-     */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
-        super(queryTemplate, meta);
+public class ResultSetMetadataImpl implements ResultSetMetadata {
+    /** Column`s metadata ordered list. */
+    private final List<ColumnMetadata> columns;
+
+    /** Column`s metadata map. */
+    private final Map<String, Integer> columnsIndices;
+
+    public ResultSetMetadataImpl(List<ColumnMetadata> columns) {
+        this.columns = columns;
+
+        columnsIndices = new HashMap(columns.size());
+
+        for (int i = 0; i < columns.size(); i++) {
+            columnsIndices.put(columns.get(i).name(), i);
+        }
     }
 
     /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.QUERY;
+    @Override
+    public List<ColumnMetadata> columns() {
+        return columns;
     }
 
     /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
-        return new MultiStepQueryPlan(queryTemplate, meta);
+    @Override
+    public int indexOf(String columnName) {
+        Integer idx = columnsIndices.get(columnName);
+
+        return idx == null ? -1 : idx;
     }
 }

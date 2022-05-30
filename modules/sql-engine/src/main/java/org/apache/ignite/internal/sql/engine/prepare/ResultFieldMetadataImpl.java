@@ -18,21 +18,20 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.List;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.sql.ColumnMetadata;
 
 /**
  * Metadata of the field of a query result set.
  */
-public class ResultFieldMetadataImpl implements ResultFieldMetadata {
+public class ResultFieldMetadataImpl implements ColumnMetadata {
     /** Name of the result's field. */
     private final String name;
 
     /** Type of the result's field. */
-    private final NativeType type;
-
-    /** Order of the result's field. */
-    private final int order;
+    private final ColumnType type;
 
     /** Nullable flag of the result's field. */
     private final boolean nullable;
@@ -46,14 +45,12 @@ public class ResultFieldMetadataImpl implements ResultFieldMetadata {
      */
     public ResultFieldMetadataImpl(
             String name,
-            NativeType type,
-            int order,
+            ColumnType type,
             boolean nullable,
             List<String> origin
     ) {
         this.name = name;
         this.type = type;
-        this.order = order;
         this.nullable = nullable;
         this.origin = origin;
     }
@@ -66,19 +63,19 @@ public class ResultFieldMetadataImpl implements ResultFieldMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public int order() {
-        return order;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public NativeType type() {
+    public ColumnType type() {
         return type;
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean isNullable() {
+    public Class<?> valueClass() {
+        return Commons.columnTypeToClass(type);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean nullable() {
         return nullable;
     }
 
@@ -86,5 +83,9 @@ public class ResultFieldMetadataImpl implements ResultFieldMetadata {
     @Override
     public List<String> origin() {
         return origin;
+    }
+
+    @Override public String toString() {
+        return S.toString(ResultFieldMetadataImpl.class,  this);
     }
 }

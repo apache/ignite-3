@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.List;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * DdlPlan.
@@ -45,7 +45,7 @@ public class DdlPlan implements QueryPlan {
     /** {@inheritDoc} */
     @Override
     public ResultSetMetadata metadata() {
-        return List::of;
+        return new ResultSetMetadataImpl(List.of());
     }
 
     /** {@inheritDoc} */

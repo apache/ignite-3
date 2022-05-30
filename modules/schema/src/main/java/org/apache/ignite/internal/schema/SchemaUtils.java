@@ -27,6 +27,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter
 import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.lang.IgniteStringFormatter;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 
 /**
@@ -146,5 +147,70 @@ public class SchemaUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Convert calcite date type to Ignite native type.
+     */
+    public static ColumnType columnType(NativeType type) {
+        switch (type.spec()) {
+            case DATE:
+                return ColumnType.DATE;
+            case TIME: {
+                TemporalNativeType type0 = (TemporalNativeType)type;
+
+                return type0.precision() > 0 ? ColumnType.time(type0.precision()) : ColumnType.time();
+            }
+            case DATETIME: {
+                TemporalNativeType type0 = (TemporalNativeType)type;
+
+                return type0.precision() > 0 ? ColumnType.datetime(type0.precision()) : ColumnType.datetime();
+            }
+            case TIMESTAMP: {
+                TemporalNativeType type0 = (TemporalNativeType)type;
+
+                return type0.precision() > 0 ? ColumnType.timestamp(type0.precision()) : ColumnType.timestamp();
+            }
+            case INT64:
+                return ColumnType.INT64;
+            case INT32:
+                return ColumnType.INT32;
+            case INT16:
+                return ColumnType.INT16;
+            case INT8:
+                return ColumnType.INT8;
+            case DOUBLE:
+                return ColumnType.DOUBLE;
+            case FLOAT:
+                return ColumnType.FLOAT;
+            case NUMBER: {
+                NumberNativeType type0 = (NumberNativeType)type;
+
+                return type0.precision() > 0 ? ColumnType.numberOf(type0.precision()) : ColumnType.numberOf();
+            }
+            case DECIMAL: {
+                DecimalNativeType type0 = (DecimalNativeType)type;
+
+                return type0.precision() > 0 ? ColumnType.decimalOf(type0.precision(), type0.scale()) : ColumnType.decimalOf();
+            }
+            case BITMASK:
+                return ColumnType.bitmaskOf(((BitmaskNativeType)type).bits());
+            case UUID:
+                return ColumnType.UUID;
+            case STRING: {
+                VarlenNativeType type0 = (VarlenNativeType)type;
+
+                return type0.length() > 0 ? ColumnType.stringOf(type0.length()) : ColumnType.string();
+            }
+            case BYTES: {
+                VarlenNativeType type0 = (VarlenNativeType)type;
+
+                return type0.length() > 0 ? ColumnType.blobOf(type0.length()) : ColumnType.blobOf();
+            }
+
+            default:
+                assert false : "Unexpected type of column: " + type;
+                return null;
+        }
     }
 }

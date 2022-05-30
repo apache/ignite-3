@@ -80,13 +80,8 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
-import org.apache.ignite.internal.schema.BitmaskNativeType;
-import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NumberNativeType;
-import org.apache.ignite.internal.schema.TemporalNativeType;
-import org.apache.ignite.internal.schema.VarlenNativeType;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -112,6 +107,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteSystemProperties;
+import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -642,10 +639,17 @@ public final class Commons {
      * NativeTypeToClass.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Class<?> nativeTypeToClass(NativeType type) {
+    public static Class<?> columnTypeToClass(NativeType type) {
+        return columnTypeToClass(SchemaUtils.columnType(type));
+    }
+
+    /**
+     * Column type to Java class.
+     */
+    public static Class<?> columnTypeToClass(ColumnType type) {
         assert type != null;
 
-        switch (type.spec()) {
+        switch (type.typeSpec()) {
             case INT8:
                 return Byte.class;
 
@@ -676,7 +680,7 @@ public final class Commons {
             case STRING:
                 return String.class;
 
-            case BYTES:
+            case BLOB:
                 return byte[].class;
 
             case BITMASK:
@@ -695,7 +699,7 @@ public final class Commons {
                 return Instant.class;
 
             default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
+                throw new IllegalArgumentException("Unsupported type " + type.typeSpec());
         }
     }
 
@@ -703,10 +707,10 @@ public final class Commons {
      * NativeTypePrecision.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static int nativeTypePrecision(NativeType type) {
+    public static int columnTypePrecision(ColumnType type) {
         assert type != null;
 
-        switch (type.spec()) {
+        switch (type.typeSpec()) {
             case INT8:
                 return 3;
 
@@ -724,29 +728,27 @@ public final class Commons {
                 return 15;
 
             case NUMBER:
-                return ((NumberNativeType) type).precision();
+                return ((ColumnType.NumberColumnType) type).precision();
 
             case DECIMAL:
-                return ((DecimalNativeType) type).precision();
+                return ((ColumnType.DecimalColumnType) type).precision();
+
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                return ((ColumnType.TemporalColumnType) type).precision();
+
+            case BLOB:
+            case STRING:
+            case BITMASK:
+                return ((ColumnType.VarLenColumnType) type).length();
 
             case UUID:
             case DATE:
                 return -1;
 
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-                return ((TemporalNativeType) type).precision();
-
-            case BYTES:
-            case STRING:
-                return ((VarlenNativeType) type).length();
-
-            case BITMASK:
-                return ((BitmaskNativeType) type).bits();
-
             default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
+                throw new IllegalArgumentException("Unsupported type " + type.typeSpec());
         }
     }
 
@@ -754,8 +756,8 @@ public final class Commons {
      * NativeTypeScale.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static int nativeTypeScale(NativeType type) {
-        switch (type.spec()) {
+    public static int columnTypeScale(ColumnType type) {
+        switch (type.typeSpec()) {
             case INT8:
             case INT16:
             case INT32:
@@ -770,16 +772,16 @@ public final class Commons {
             case TIME:
             case DATETIME:
             case TIMESTAMP:
-            case BYTES:
+            case BLOB:
             case STRING:
             case BITMASK:
                 return Integer.MIN_VALUE;
 
             case DECIMAL:
-                return ((DecimalNativeType) type).scale();
+                return ((ColumnType.DecimalColumnType) type).scale();
 
             default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
+                throw new IllegalArgumentException("Unsupported type " + type.typeSpec());
         }
     }
 

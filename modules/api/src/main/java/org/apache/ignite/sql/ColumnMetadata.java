@@ -17,6 +17,9 @@
 
 package org.apache.ignite.sql;
 
+import java.util.List;
+import org.apache.ignite.schema.definition.ColumnType;
+
 /**
  * Interface that provides methods for accessing column metadata.
  */
@@ -40,11 +43,10 @@ public interface ColumnMetadata {
 
     /**
      * Returns SQL column type.
-     * TODO: replace return type regarding the SQL type system.
      *
      * @return Value type.
      */
-    Object type();
+    ColumnType type();
 
     /**
      * Returns row column nullability flag.
@@ -52,4 +54,14 @@ public interface ColumnMetadata {
      * @return {@code true} if column is nullable, {@code false} otherwise.
      */
     boolean nullable();
+
+    /**
+     * Example: SELECT SUM(price), category, subcategory FROM Goods WHERE [condition] GROUP_BY category, subcategory.
+     *
+     * <p>Field - Origin SUM(price) - null; category - {"PUBLIC", "Goods", "category"};
+     * subcategory - {"PUBLIC", "Goods", "subcategory"};
+     *
+     * @return field's origin (or where a field value comes from).
+     */
+    List<String> origin();
 }

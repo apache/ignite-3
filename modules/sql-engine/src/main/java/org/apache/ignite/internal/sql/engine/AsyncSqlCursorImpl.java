@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Sql query cursor.
