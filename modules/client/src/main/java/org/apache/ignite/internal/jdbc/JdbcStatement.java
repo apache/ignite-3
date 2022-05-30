@@ -32,6 +32,9 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -131,7 +134,14 @@ public class JdbcStatement implements Statement {
         QueryExecuteRequest req = new QueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql,
                 args == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : args.toArray());
 
-        QueryExecuteResult res = conn.handler().queryAsync(req).join();
+        QueryExecuteResult res;
+        try {
+            res = conn.handler().queryAsync(req).join();
+        } catch (CompletionException e) {
+            throw toSqlException(e);
+        } catch (CancellationException e) {
+            throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
+        }
 
         if (!res.hasResults()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
@@ -543,6 +553,10 @@ public class JdbcStatement implements Statement {
             }
 
             return res.updateCounts();
+        } catch (CompletionException e) {
+            throw toSqlException(e);
+        } catch (CancellationException e) {
+            throw new SQLException("Batch execution canceled.", SqlStateCode.QUERY_CANCELLED);
         } finally {
             batch = null;
         }
@@ -709,5 +723,19 @@ public class JdbcStatement implements Statement {
         }
 
         this.timeout = timeout;
+    }
+
+    public static SQLException toSqlException(CompletionException e) {
+        if (e.getCause() != null && e.getCause() instanceof IgniteClientException) {
+            IgniteClientException cause = (IgniteClientException) e.getCause();
+            String message = cause.getMessage();
+
+            if (message != null) {
+                if (message.contains("Failed to parse query")) {
+                    return new SQLException("Sql query execution failed.", SqlStateCode.PARSING_EXCEPTION, e);
+                }
+            }
+        }
+        return new SQLException("Internal server error.", SqlStateCode.INTERNAL_ERROR, e);
     }
 }
