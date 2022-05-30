@@ -17,28 +17,30 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.lang.IgniteInternalCheckedException;
+import java.util.List;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
- * Client SQL cursor close request.
+ * Common SQL request handling logic.
  */
-public class ClientSqlCursorCloseRequest {
-    /**
-     * Processes the request.
-     *
-     * @param in        Unpacker.
-     * @param resources Resources.
-     */
-    public static void process(ClientMessageUnpacker in, ClientResourceRegistry resources)
-            throws IgniteInternalCheckedException {
-        long resourceId = in.unpackLong();
+class ClientSqlCommon {
+    static void packCurrentPage(ClientMessagePacker out, AsyncResultSet asyncResultSet) {
+        List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
 
-        AsyncResultSet asyncResultSet = resources.remove(resourceId).get(AsyncResultSet.class);
+        out.packInt(asyncResultSet.currentPageSize());
 
-        // TODO: Potential blocking? Do we need closeAsync? Check implementation.
-        asyncResultSet.close();
+        for (SqlRow row : asyncResultSet.currentPage()) {
+            for (int i = 0; i < cols.size(); i++) {
+                // TODO: IGNITE-16962 pack only the value according to the known type.
+                out.packObjectWithType(row.value(i));
+            }
+        }
+
+        if (!asyncResultSet.hasMorePages()) {
+            asyncResultSet.close();
+        }
     }
 }

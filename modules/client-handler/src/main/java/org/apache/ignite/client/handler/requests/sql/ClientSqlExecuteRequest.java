@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.List;
@@ -32,12 +33,11 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
 /**
- * Executes and SQL query.
+ * Client SQL execute request.
  */
 public class ClientSqlExecuteRequest {
     /**
@@ -123,20 +123,7 @@ public class ClientSqlExecuteRequest {
 
             // Pack first page.
             if (asyncResultSet.hasRowSet()) {
-                List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
-
-                out.packInt(asyncResultSet.currentPageSize());
-
-                for (SqlRow row : asyncResultSet.currentPage()) {
-                    for (int i = 0; i < cols.size(); i++) {
-                        // TODO: IGNITE-16962 pack only the value according to the known type.
-                        out.packObjectWithType(row.value(i));
-                    }
-                }
-
-                if (!asyncResultSet.hasMorePages()) {
-                    asyncResultSet.close();
-                }
+                packCurrentPage(out, asyncResultSet);
             } else {
                 asyncResultSet.close();
             }

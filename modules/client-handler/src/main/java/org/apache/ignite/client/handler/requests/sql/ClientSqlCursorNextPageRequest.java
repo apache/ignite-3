@@ -17,27 +17,18 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.lang.IgniteInternalException;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
-import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
- * Executes and SQL query.
+ * Client SQL cursor next page request.
  */
 public class ClientSqlCursorNextPageRequest {
     /**
@@ -52,94 +43,17 @@ public class ClientSqlCursorNextPageRequest {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteSql sql,
-            ClientResourceRegistry resources) {
-        var tx = readTx(in, resources);
+            ClientResourceRegistry resources)
+            throws IgniteInternalCheckedException {
+        long resourceId = in.unpackLong();
 
-        SessionBuilder sessionBuilder = sql.sessionBuilder()
-                .defaultPageSize(in.unpackInt())
-                .defaultSchema(in.unpackString())
-                .defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+        AsyncResultSet asyncResultSet = resources.get(resourceId).get(AsyncResultSet.class);
 
-        var propCount = in.unpackInt();
-
-        for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
-        }
-
-        // Session simply tracks active queries. We don't need to store it in resources.
-        // Instead, we track active queries in the ClientSession and close them there accordingly.
-        Session session = sessionBuilder.build();
-
-        StatementBuilder statementBuilder = sql.statementBuilder()
-                .defaultSchema(in.unpackString())
-                .pageSize(in.unpackInt())
-                .query(in.unpackString())
-                .queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS)
-                .prepared(in.unpackBoolean());
-
-        propCount = in.unpackInt();
-
-        for (int i = 0; i < propCount; i++) {
-            statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
-        }
-
-        Statement statement = statementBuilder.build();
-
-        return session.executeAsync(tx, statement).thenAccept(asyncResultSet -> {
-            if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
-                try {
-                    long resourceId = resources.put(new ClientResource(asyncResultSet, asyncResultSet::close));
-                    out.packLong(resourceId);
-                } catch (IgniteInternalCheckedException e) {
-                    asyncResultSet.close();
-                    throw new IgniteInternalException(e.getMessage(), e);
-                }
-            } else {
-                out.packNil(); // resourceId
-            }
-
-            out.packBoolean(asyncResultSet.hasRowSet());
-            out.packBoolean(asyncResultSet.hasMorePages());
-            out.packBoolean(asyncResultSet.wasApplied());
-
-            // Pack metadata.
-            if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
-                out.packArrayHeader(0);
-            } else {
-                List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
-                out.packArrayHeader(cols.size());
-
-                for (int i = 0; i < cols.size(); i++) {
-                    ColumnMetadata col = cols.get(i);
-                    out.packString(col.name());
-                    out.packBoolean(col.nullable());
-
-                    // TODO: IGNITE-16962 SQL API: Implement query metadata.
-                    // Ideally we only need the type code here.
-                    out.packString(col.valueClass().getName());
-                    out.packObjectWithType(col.type());
-                }
-            }
-
-            // Pack first page.
-            if (asyncResultSet.hasRowSet()) {
-                List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
-
-                out.packInt(asyncResultSet.currentPageSize());
-
-                for (SqlRow row : asyncResultSet.currentPage()) {
-                    for (int i = 0; i < cols.size(); i++) {
-                        // TODO: IGNITE-16962 pack only the value according to the known type.
-                        out.packObjectWithType(row.value(i));
-                    }
-                }
-
-                if (!asyncResultSet.hasMorePages()) {
-                    asyncResultSet.close();
-                }
-            } else {
-                asyncResultSet.close();
-            }
-        });
+        return asyncResultSet.fetchNextPage()
+                .thenAccept(r -> {
+                    packCurrentPage(out, r);
+                    out.packBoolean(r.hasMorePages());
+                })
+                .toCompletableFuture();
     }
 }
