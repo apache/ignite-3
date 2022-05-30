@@ -170,24 +170,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.warn("Error occurred during the current rebalance for partId = {}.", partId);
 
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
-                rebalanceScheduler.schedule(() -> {
-                    LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
-
-                    try {
-                        raftGroupServiceSupplier.get().refreshLeader().get();
-
-                        raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        // TODO: IGNITE-17013 errors during this call should be handled by retry logic
-                        LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
-                    }
-                }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+                scheduleChangePeers(peers, term);
             } else {
-                LOG.error("Failed to perform the current rebalance for the partId = {}, canceling.", partId);
+                LOG.error("The number of retries of the rebalance for the partId = {} exceeded the threshold = ", partId,
+                        REBALANCE_RETRY_THRESHOLD);
 
-                cancelRebalance();
-
-                rebalanceAttempts.set(0);
+                // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
+                // TODO: but rebalance cancel mechanism should be implemented. https://issues.apache.org/jira/browse/IGNITE-17056
+                scheduleChangePeers(peers, term);
             }
         } finally {
             busyLock.leaveBusy();
@@ -196,29 +186,24 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
-     * This is a draft version of canceling a rebalance, this approach contains some serious flaws and must be revised.
+     * Schedules changing peers according to the current rebalance.
+     *
+     * @param peers Peers to change configuration for a raft group.
+     * @param term Current known leader term.
      */
-    private void cancelRebalance() {
-        Entry plannedEntry = metaStorageMgr.get(plannedPartAssignmentsKey(partId)).join();
+    private void scheduleChangePeers(List<PeerId> peers, long term) {
+        rebalanceScheduler.schedule(() -> {
+            LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
-        if (plannedEntry.value() != null) {
-            if (!metaStorageMgr.invoke(If.iif(
-                    revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
-                    ops(
-                            put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
-                            remove(plannedPartAssignmentsKey(partId)))
-                            .yield(true),
-                    ops().yield(false))).join().getAsBoolean()) {
-                cancelRebalance();
+            try {
+                raftGroupServiceSupplier.get().refreshLeader().get();
+
+                raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
+            } catch (InterruptedException | ExecutionException e) {
+                // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+                LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
             }
-        } else {
-            if (!metaStorageMgr.invoke(If.iif(
-                    notExists(plannedPartAssignmentsKey(partId)),
-                    ops(remove(pendingPartAssignmentsKey(partId))).yield(true),
-                    ops().yield(false))).join().getAsBoolean()) {
-                cancelRebalance();
-            }
-        }
+        }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -294,6 +279,12 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         return resolvedNodes;
     }
 
+    /**
+     * Transforms list of peerIds to list of peers.
+     *
+     * @param peerIds List of peerIds to transform.
+     * @return List of transformed peers.
+     */
     private static List<Peer> peerIdsToPeers(List<PeerId> peerIds) {
         List<Peer> peers = new ArrayList<>(peerIds.size());
 
