@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -1373,9 +1374,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
         this.confCtx.flush(this.conf.getConf(), this.conf.getOldConf());
 
-        if (options.getRaftGrpEvtsLsnr() != null)
-            options.getRaftGrpEvtsLsnr().onLeaderElected();
-
         resetElectionTimeoutToInitial();
         this.stepDownTimer.start();
     }
@@ -2469,6 +2467,9 @@ public class NodeImpl implements Node, RaftServerService {
             if (status.isOk()) {
                 onConfigurationChangeDone(this.term);
                 if (this.leaderStart) {
+                    if (getOptions().getRaftGrpEvtsLsnr() != null) {
+                        options.getRaftGrpEvtsLsnr().onLeaderElected(term);
+                    }
                     getOptions().getFsm().onLeaderStart(this.term);
                 }
             }

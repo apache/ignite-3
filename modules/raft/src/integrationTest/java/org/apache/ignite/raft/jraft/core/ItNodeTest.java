@@ -3163,19 +3163,19 @@ public class ItNodeTest {
 
         cluster.waitLeader();
 
-        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected();
+        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
 
         cluster.stop(cluster.getLeader().getLeaderId().getEndpoint());
 
         cluster.waitLeader();
 
-        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected();
+        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
 
         cluster.stop(cluster.getLeader().getLeaderId().getEndpoint());
 
         cluster.waitLeader();
 
-        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected();
+        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
     }
 
     @Test

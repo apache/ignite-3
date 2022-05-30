@@ -28,10 +28,13 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
@@ -59,6 +62,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -74,6 +78,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -149,9 +154,9 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        assertEquals(2, getAssignments(0, 0).size());
-        assertEquals(2, getAssignments(1, 0).size());
-        assertEquals(2, getAssignments(2, 0).size());
+        assertEquals(2, getPartitionClusterNodes(0, 0).size());
+        assertEquals(2, getPartitionClusterNodes(1, 0).size());
+        assertEquals(2, getPartitionClusterNodes(2, 0).size());
     }
 
     @Test
@@ -176,9 +181,9 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
-        assertEquals(3, getAssignments(0, 0).size());
-        assertEquals(3, getAssignments(1, 0).size());
-        assertEquals(3, getAssignments(2, 0).size());
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
     @Test
@@ -204,9 +209,65 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        assertEquals(2, getAssignments(0, 0).size());
-        assertEquals(2, getAssignments(1, 0).size());
-        assertEquals(2, getAssignments(2, 0).size());
+        assertEquals(2, getPartitionClusterNodes(0, 0).size());
+        assertEquals(2, getPartitionClusterNodes(1, 0).size());
+        assertEquals(2, getPartitionClusterNodes(2, 0).size());
+    }
+
+    @Test
+    void testOnLeaderElectedRebalanceRestart(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        var table = (TableImpl) nodes.get(1).tableManager.createTable(
+                "PUBLIC.tbl1",
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                        .changeReplicas(2)
+                        .changePartitions(1));
+
+        Set<NetworkAddress> partitionNodesAddresses = getPartitionClusterNodes(0, 0)
+                .stream().map(ClusterNode::address).collect(Collectors.toSet());
+
+        Node newNode = nodes.stream().filter(n -> !partitionNodesAddresses.contains(n.address())).findFirst().get();
+
+        Node leaderNode = findNodeByAddress(table.leaderAssignment(0).address());
+
+        NetworkAddress nonLeaderNodeAddress = partitionNodesAddresses
+                .stream().filter(n -> !n.equals(leaderNode.address())).findFirst().get();
+
+        TableImpl nonLeaderTable = (TableImpl) findNodeByAddress(nonLeaderNodeAddress).tableManager.table("PUBLIC.TBL1");
+
+        var countDownLatch = new CountDownLatch(1);
+
+        String raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
+                .stream().filter(grp -> grp.contains("part")).findFirst().get();
+
+        ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
+                raftGroupNodeName, (msg, node) -> {
+                    if (node.equals(String.valueOf(newNode.address().toString())) && msg instanceof RpcRequests.PingRequest) {
+                        countDownLatch.countDown();
+
+                        return true;
+                    }
+                    return false;
+                });
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+
+        countDownLatch.await();
+
+        nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeAddress)).get();
+
+        ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(raftGroupNodeName);
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
+
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
     @Test
@@ -241,9 +302,9 @@ public class ItRebalanceDistributedTest {
         raftServer.blockMessages(partGrpId, (msg, node) -> {
             if (msg instanceof RpcRequests.PingRequest) {
                 // We block ping request to prevent starting replicator, hence we fail catch up and fail rebalance.
-                assertEquals(1, getAssignments(0, 0).size());
-                assertEquals(1, getAssignments(1, 0).size());
-                assertEquals(1, getAssignments(2, 0).size());
+                assertEquals(1, getPartitionClusterNodes(0, 0).size());
+                assertEquals(1, getPartitionClusterNodes(1, 0).size());
+                assertEquals(1, getPartitionClusterNodes(2, 0).size());
                 return counter.incrementAndGet() <= 5;
             }
             return false;
@@ -253,18 +314,22 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
-        assertEquals(3, getAssignments(0, 0).size());
-        assertEquals(3, getAssignments(1, 0).size());
-        assertEquals(3, getAssignments(2, 0).size());
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
-        while (!IntStream.range(0, 3).allMatch(n -> getAssignments(n, partNum).size() == replicasNum)) {
-            LockSupport.parkNanos(10_000_000);
+        while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
+            LockSupport.parkNanos(100_000_000);
         }
     }
 
-    private List<ClusterNode> getAssignments(int nodeNum, int partNum) {
+    private Node findNodeByAddress(NetworkAddress addr) {
+        return nodes.stream().filter(n -> n.address().equals(addr)).findFirst().get();
+    }
+
+    private List<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
                 .getConfiguration(TablesConfiguration.KEY).tables().get("PUBLIC.TBL1"));
 
@@ -442,6 +507,10 @@ public class ItRebalanceDistributedTest {
             for (IgniteComponent component : components) {
                 component.stop();
             }
+        }
+
+        NetworkAddress address() {
+            return clusterService.topologyService().localMember().address();
         }
     }
 

@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -121,14 +122,31 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onLeaderElected() {
-        // TODO: IGNITE-16800 implement this method
+    public void onLeaderElected(long term) {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
             rebalanceAttempts.set(0);
+
+            metaStorageMgr.get(pendingPartAssignmentsKey(partId))
+                    .thenCompose(pendingEntry -> {
+                        if (!pendingEntry.empty()) {
+                            List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
+
+                            // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+                            return raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term);
+                        } else {
+                            return CompletableFuture.completedFuture(null);
+                        }
+                    })
+                    .whenCompleteAsync((v, th) -> {
+                        if (th != null) {
+                            LOG.error("Can't start rebalance for partition {} of table {} on new elected leader for term {}",
+                                    th, partNum, tblConfiguration.name().value(), term);
+                        }
+                    }, rebalanceScheduler);
         } finally {
             busyLock.leaveBusy();
         }
@@ -196,8 +214,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
             try {
-                raftGroupServiceSupplier.get().refreshLeader().get();
-
                 raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
             } catch (InterruptedException | ExecutionException e) {
                 // TODO: IGNITE-17013 errors during this call should be handled by retry logic
@@ -277,6 +293,38 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         return resolvedNodes;
+    }
+
+    /**
+     * Transforms list of cluster nodes to the list of peers.
+     *
+     * @param nodes List of cluster nodes to transform.
+     * @return List of transformed peers.
+     */
+    private static List<Peer> clusterNodesToPeers(List<ClusterNode> nodes) {
+        List<Peer> peers = new ArrayList<>(nodes.size());
+
+        for (ClusterNode node : nodes) {
+            peers.add(new Peer(node.address()));
+        }
+
+        return peers;
+    }
+
+    /**
+     * Transforms list of cluster nodes to the list of peerIds.
+     *
+     * @param nodes List of cluster nodes to transform.
+     * @return List of transformed peerIds.
+     */
+    private static List<PeerId> clusterNodesToPeerIds(List<ClusterNode> nodes) {
+        List<PeerId> peers = new ArrayList<>(nodes.size());
+
+        for (ClusterNode node : nodes) {
+            peers.add(new PeerId(node.address()));
+        }
+
+        return peers;
     }
 
     /**
