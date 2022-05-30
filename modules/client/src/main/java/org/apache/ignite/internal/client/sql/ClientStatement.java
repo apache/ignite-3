@@ -17,45 +17,96 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 class ClientStatement implements Statement {
+    /** */
+    private final String query;
+
+    /** */
+    private final String defaultSchema;
+
+    /** */
+    private final boolean prepared;
+
+    /** */
+    private final long queryTimeoutMs;
+
+    /** */
+    private final int pageSize;
+
+    /** */
+    private final Map<String, Object> properties;
+
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+    public ClientStatement(
+            String query,
+            String defaultSchema,
+            boolean prepared,
+            long queryTimeoutMs,
+            int pageSize,
+            Map<String, Object> properties) {
+        this.query = query;
+        this.defaultSchema = defaultSchema;
+        this.prepared = prepared;
+        this.queryTimeoutMs = queryTimeoutMs;
+        this.pageSize = pageSize;
+        this.properties = properties;
+    }
+
     @Override
     public @NotNull String query() {
-        return null;
+        return query;
     }
 
     @Override
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
-        return 0;
+        Objects.requireNonNull(timeUnit);
+
+        return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override
     public String defaultSchema() {
-        return null;
+        return defaultSchema;
     }
 
     @Override
     public int pageSize() {
-        return 0;
+        return pageSize;
     }
 
     @Override
     public boolean prepared() {
-        return false;
+        return prepared;
     }
 
     @Override
     public @Nullable Object property(@NotNull String name) {
-        return null;
+        return properties.get(name);
     }
 
     @Override
     public StatementBuilder toBuilder() {
-        return null;
+        var builder = new ClientStatementBuilder()
+                .query(query)
+                .defaultSchema(defaultSchema)
+                .prepared(prepared)
+                .queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS)
+                .pageSize(pageSize);
+
+        if (properties != null) {
+            for (var entry : properties.entrySet()) {
+                builder.property(entry.getKey(), entry.getValue());
+            }
+        }
+
+        return builder;
     }
 
     @Override

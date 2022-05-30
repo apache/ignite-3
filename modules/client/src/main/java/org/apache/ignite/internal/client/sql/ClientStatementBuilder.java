@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
@@ -60,11 +61,15 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
 
     @Override
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
         return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override
     public StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit) {
+        Objects.requireNonNull(timeUnit);
+
         queryTimeoutMs = TimeUnit.MILLISECONDS.convert(timeout, timeUnit);
 
         return this;
