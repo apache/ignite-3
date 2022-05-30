@@ -27,10 +27,10 @@ import org.jetbrains.annotations.Nullable;
  * Statement builder.
  */
 class StatementBuilderImpl implements StatementBuilder {
-    /** */
+    /** Query. */
     private String query;
 
-    /** */
+    /** Prepared flag. */
     private boolean prepared;
 
     /** {@inheritDoc} */

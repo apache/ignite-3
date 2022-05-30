@@ -26,23 +26,26 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Client SQL statement builder.
+ */
 public class ClientStatementBuilder implements Statement.StatementBuilder {
-    /** */
+    /** Properties. */
     private final Map<String, Object> properties = new HashMap<>();
 
-    /** */
+    /** Query. */
     private String query;
 
-    /** */
+    /** Default schema. */
     private String defaultSchema;
 
-    /** */
+    /** Prepared flag. */
     private boolean prepared;
 
-    /** */
+    /** Query timeout. */
     private Long queryTimeoutMs;
 
-    /** */
+    /** Page size. */
     private Integer pageSize;
 
     /** {@inheritDoc} */

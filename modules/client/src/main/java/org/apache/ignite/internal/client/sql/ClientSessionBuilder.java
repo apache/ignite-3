@@ -33,16 +33,16 @@ public class ClientSessionBuilder implements SessionBuilder {
     /** Channel. */
     private final ReliableChannel ch;
 
-    /** */
+    /** Properties. */
     private final Map<String, Object> properties = new HashMap<>();
 
-    /** */
+    /** Default schema. */
     private String defaultSchema;
 
-    /** */
+    /** Default timeout. */
     private Long defaultTimeoutMs;
 
-    /** */
+    /** Page size. */
     private Integer pageSize;
 
     /**

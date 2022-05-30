@@ -28,22 +28,22 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL statement.
  */
 class ClientStatement implements Statement {
-    /** */
+    /** Query. */
     private final String query;
 
-    /** */
+    /** Default schema. */
     private final String defaultSchema;
 
-    /** */
+    /** Prepared flag. */
     private final boolean prepared;
 
-    /** */
+    /** Query timeout. */
     private final Long queryTimeoutMs;
 
-    /** */
+    /** Page size. */
     private final Integer pageSize;
 
-    /** */
+    /** Properties. */
     private final Map<String, Object> properties;
 
     /**

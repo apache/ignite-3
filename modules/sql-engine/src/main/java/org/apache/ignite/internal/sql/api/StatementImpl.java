@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  * Statement.
  */
 class StatementImpl implements Statement {
-    /** */
+    /** Query. */
     private final String query;
 
     /**

@@ -67,7 +67,9 @@ public class ClientSqlExecuteRequest {
                 } catch (IgniteInternalCheckedException e) {
                     return asyncResultSet
                             .closeAsync()
-                            .thenRun(() -> { throw new IgniteInternalException(e.getMessage(), e); });
+                            .thenRun(() -> {
+                                throw new IgniteInternalException(e.getMessage(), e);
+                            });
                 }
             } else {
                 out.packNil(); // resourceId

@@ -24,7 +24,7 @@ import org.apache.ignite.sql.ColumnMetadata;
  * Column metadata.
  */
 class ColumnMetadataImpl implements ColumnMetadata {
-    /** */
+    /** Field meta. */
     private final ResultFieldMetadata fieldMetadata;
 
     /**

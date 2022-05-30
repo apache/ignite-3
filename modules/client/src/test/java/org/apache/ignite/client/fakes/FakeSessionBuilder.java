@@ -29,18 +29,15 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL session builder.
  */
 public class FakeSessionBuilder implements SessionBuilder {
-    /** */
     private final Map<String, Object> properties = new HashMap<>();
 
-    /** */
     private String defaultSchema;
 
-    /** */
     private Long defaultTimeoutMs;
 
-    /** */
     private Integer pageSize;
 
+    /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
@@ -48,6 +45,7 @@ public class FakeSessionBuilder implements SessionBuilder {
         return timeUnit.convert(defaultTimeoutMs == null ? 0 : defaultTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
@@ -57,11 +55,13 @@ public class FakeSessionBuilder implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
         return defaultSchema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder defaultSchema(String schema) {
         defaultSchema = schema;
@@ -69,11 +69,13 @@ public class FakeSessionBuilder implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int defaultPageSize() {
         return pageSize == null ? 0 : pageSize;
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder defaultPageSize(int pageSize) {
         this.pageSize = pageSize;
@@ -81,11 +83,13 @@ public class FakeSessionBuilder implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
         return properties.get(name);
     }
 
+    /** {@inheritDoc} */
     @Override
     public SessionBuilder property(String name, @Nullable Object value) {
         properties.put(name, value);
@@ -93,6 +97,7 @@ public class FakeSessionBuilder implements SessionBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Session build() {
         return new FakeSession(pageSize, defaultSchema, defaultTimeoutMs, new HashMap<>(properties));

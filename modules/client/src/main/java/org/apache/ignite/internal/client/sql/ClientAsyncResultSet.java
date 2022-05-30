@@ -32,25 +32,25 @@ import org.jetbrains.annotations.Nullable;
  * Client async result set.
  */
 class ClientAsyncResultSet implements AsyncResultSet {
-    /** */
+    /** Resource id. */
     private final Long resourceId;
 
-    /** */
+    /** Row set flag. */
     private final boolean hasRowSet;
 
-    /** */
+    /** Applied flag. */
     private final boolean wasApplied;
 
-    /** */
+    /** Affected rows. */
     private final long affectedRows;
 
-    /** */
+    /** Metadata. */
     private final ResultSetMetadata metadata;
 
-    /** */
+    /** Rows. */
     private List<SqlRow> rows;
 
-    /** */
+    /** More pages flag. */
     private final boolean hasMorePages;
 
     /**
