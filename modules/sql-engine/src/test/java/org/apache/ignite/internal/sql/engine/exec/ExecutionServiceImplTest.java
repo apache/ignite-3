@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -78,6 +77,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.IgniteTestUtils.RunnableX;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
@@ -216,7 +216,7 @@ public class ExecutionServiceImplTest {
                             .build()
                     );
                 } catch (IgniteInternalCheckedException e) {
-                    sneakyThrow(e);
+                    throw new IgniteInternalException(e);
                 }
             } else {
                 original.onMessage(nodeId, msg);
@@ -528,7 +528,7 @@ public class ExecutionServiceImplTest {
                                         try {
                                             task.run();
                                         } catch (Throwable ex) {
-                                            sneakyThrow(ex);
+                                            throw new IgniteInternalException(ex);
                                         }
                                     }
                                 }

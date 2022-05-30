@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -36,6 +37,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
+import org.apache.ignite.internal.sql.api.IgniteSqlException;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -228,6 +230,78 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry,
+            Object... params) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(new NodeStoppingException());
+        }
+
+        try {
+            return querySingle0(context, schemaName, qry, params);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
+            QueryContext context,
+            String schemaName,
+            String sql,
+            Object... params) {
+        SchemaPlus schema = schemaManager.schema(schemaName);
+
+        if (schema == null) {
+            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
+        }
+
+        final BaseQueryContext ctx = BaseQueryContext.builder()
+                .cancel(new QueryCancel())
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(schema)
+                                .build()
+                )
+                .logger(LOG)
+                .parameters(params)
+                .build();
+
+        CompletableFuture<Void> start = new CompletableFuture<>();
+
+        CompletableFuture<AsyncSqlCursor<List<Object>>> stage = start.thenApply(
+                        (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
+                )
+                .thenApply(nodes -> {
+                    if (nodes.size() > 1) {
+                        throw new IgniteSqlException("Multiple statements aren't allowed.");
+                    }
+
+                    return nodes.get(0);
+                })
+                .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
+                .thenApply(plan -> {
+                    context.maybeUnwrap(QueryValidator.class)
+                            .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
+
+                    return new AsyncSqlCursorImpl<>(
+                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                            plan.metadata(),
+                            executionSrvc.executePlan(plan, ctx)
+                    );
+                });
+
+        stage.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                ctx.cancel().cancel();
+            }
+        });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return stage;
+    }
+
     private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(
             QueryContext context,
             String schemaName,
@@ -247,7 +321,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<Void> start = new CompletableFuture<>();
 
         for (SqlNode sqlNode : nodes) {
-            BaseQueryContext ctx = BaseQueryContext.builder()
+            final BaseQueryContext ctx = BaseQueryContext.builder()
                     .cancel(new QueryCancel())
                     .frameworkConfig(
                             Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
@@ -269,6 +343,12 @@ public class SqlQueryProcessor implements QueryProcessor {
                                 executionSrvc.executePlan(plan, ctx)
                         );
                     });
+
+            stage.whenComplete((cur, ex) -> {
+                if (ex instanceof CancellationException) {
+                    ctx.cancel().cancel();
+                }
+            });
 
             res.add(stage);
         }

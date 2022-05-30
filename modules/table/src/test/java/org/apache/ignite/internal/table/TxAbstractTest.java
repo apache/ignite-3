@@ -1047,6 +1047,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16700")
     public void testLockedTooLong() {
         // TODO asch IGNITE-15936 if lock can't be acquired until timeout tx should be rolled back.
     }
