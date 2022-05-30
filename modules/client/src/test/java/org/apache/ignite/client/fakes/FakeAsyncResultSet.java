@@ -76,7 +76,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         rows.add(row);
 
         columns = new ArrayList<>();
-        columns.add(mock(ColumnMetadata.class));
+        columns.add(new FakeColumnMetadata("col1"));
     }
 
     /** {@inheritDoc} */
