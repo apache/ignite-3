@@ -145,23 +145,7 @@ public class ClientSession implements Session {
 
             // TODO: Pack statement properties.
             w.out().packMapHeader(0);
-        }, r -> {
-            Long resourceId = r.in().tryUnpackNil() ? null : r.in().unpackLong();
-            boolean hasRowSet = r.in().unpackBoolean();
-            boolean hasMorePages = r.in().unpackBoolean();
-            boolean wasApplied = r.in().unpackBoolean();
-            long affectedRows = r.in().unpackLong();
-
-            r.in().unpackArrayHeader(); // TODO: Metadata IGNITE-17052.
-
-            List<SqlRow> rows = null;
-
-            if (hasRowSet) {
-                // TODO: Unpack rows.
-            }
-
-            return new ClientAsyncResultSet(resourceId, hasRowSet, hasMorePages, wasApplied, affectedRows, rows);
-        });
+        }, r -> new ClientAsyncResultSet(r.in()));
     }
 
     /** {@inheritDoc} */

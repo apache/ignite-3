@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -50,26 +52,24 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /**
      * Constructor.
      *
-     * @param resourceId Resource id.
-     * @param hasRowSet Row set flag.
-     * @param hasMorePages More pages flag.
-     * @param wasApplied Applied flag.
-     * @param rows Rows.
+     * @param in Unpacker.
      */
-    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
-    public ClientAsyncResultSet(
-            Long resourceId,
-            boolean hasRowSet,
-            boolean hasMorePages,
-            boolean wasApplied,
-            long affectedRows,
-            @Nullable List<SqlRow> rows) {
-        this.resourceId = resourceId;
-        this.hasRowSet = hasRowSet;
-        this.hasMorePages = hasMorePages;
-        this.wasApplied = wasApplied;
-        this.affectedRows = affectedRows;
-        this.rows = rows;
+    public ClientAsyncResultSet(ClientMessageUnpacker in) {
+
+        resourceId = in.tryUnpackNil() ? null : in.unpackLong();
+        hasRowSet = in.unpackBoolean();
+        hasMorePages = in.unpackBoolean();
+        wasApplied = in.unpackBoolean();
+        affectedRows = in.unpackLong();
+
+        in.unpackArrayHeader(); // TODO: Metadata IGNITE-17052.
+
+        if (hasRowSet) {
+            // TODO: Unpack rows.
+            rows = new ArrayList<>();
+        } else {
+            rows = null;
+        }
     }
 
     /** {@inheritDoc} */
