@@ -228,8 +228,8 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      */
     CompletableFuture<Void> closeAsync();
-    
-     /**
+
+    /**
      * Invalidates session, cleans up remote session resources, and stops all queries that are running within the current session.
      *
      * @return Publisher.
