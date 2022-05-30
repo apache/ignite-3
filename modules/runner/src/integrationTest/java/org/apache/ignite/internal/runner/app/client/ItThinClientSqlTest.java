@@ -19,10 +19,13 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.NoRowSetExpectedException;
+import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.junit.jupiter.api.Test;
@@ -32,7 +35,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
-    void testExecuteAsyncSimple() {
+    void testExecuteAsyncSimpleSelect() {
         AsyncResultSet resultSet = client().sql()
                 .createSession()
                 .executeAsync(null, "select 1 as num, 'hello' as str")
@@ -40,6 +43,8 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
+        assertFalse(resultSet.hasMorePages());
+        assertEquals(0, resultSet.affectedRows());
         assertEquals(1, resultSet.currentPageSize());
 
         SqlRow row = resultSet.currentPage().iterator().next();
@@ -50,5 +55,29 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, columns.size());
         assertEquals("NUM", columns.get(0).name());
         assertEquals("STR", columns.get(1).name());
+    }
+
+    @Test
+    void testExecuteAsyncDdlDml() {
+        Session session = client().sql().createSession();
+
+        AsyncResultSet createRes = session.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)").join();
+
+        assertFalse(createRes.hasRowSet());
+        assertTrue(createRes.wasApplied());
+        assertEquals(-1, createRes.affectedRows());
+        assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
+
+        AsyncResultSet insertRes = session.executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", 1, "hello").join();
+
+        assertFalse(insertRes.hasRowSet());
+        assertTrue(insertRes.wasApplied());
+        assertEquals(1, insertRes.affectedRows());
+        assertThrows(NoRowSetExpectedException.class, createRes::currentPage);
+    }
+
+    @Test
+    void testFetchNextPage() {
+        // TODO
     }
 }
