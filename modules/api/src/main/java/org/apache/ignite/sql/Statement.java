@@ -94,7 +94,7 @@ public interface Statement extends AutoCloseable {
         /**
          * Marks current statement as prepared.
          */
-        StatementBuilder prepared();
+        StatementBuilder prepared(boolean prepared);
 
         /**
          * Returns query timeout.

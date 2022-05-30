@@ -32,6 +32,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
@@ -73,16 +74,13 @@ public class ClientSqlExecuteRequest {
                 .defaultSchema(in.unpackString())
                 .pageSize(in.unpackInt())
                 .query(in.unpackString())
-                .queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+                .queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS)
+                .prepared(in.unpackBoolean());
 
         propCount = in.unpackInt();
 
         for (int i = 0; i < propCount; i++) {
             statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
-        }
-
-        if (in.unpackBoolean()) {
-            statementBuilder.prepared(); // TODO: Prepared should take a boolean argument.
         }
 
         Statement statement = statementBuilder.build();
@@ -100,8 +98,6 @@ public class ClientSqlExecuteRequest {
                 out.packNil(); // resourceId
             }
 
-            // TODO: Pack first page, close if ended.
-            // TODO: Pack metadata
             out.packBoolean(asyncResultSet.hasRowSet());
             out.packBoolean(asyncResultSet.hasMorePages());
             out.packBoolean(asyncResultSet.wasApplied());
@@ -117,6 +113,9 @@ public class ClientSqlExecuteRequest {
                     ColumnMetadata col = cols.get(i);
                     out.packString(col.name());
                     out.packBoolean(col.nullable());
+
+                    // TODO: IGNITE-16962 SQL API: Implement query metadata.
+                    // Ideally we only need the type code here.
                     out.packString(col.valueClass().getName());
                     out.packObjectWithType(col.type());
                 }
@@ -124,6 +123,22 @@ public class ClientSqlExecuteRequest {
 
             // Pack first page.
             if (asyncResultSet.hasRowSet()) {
+                List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
+
+                out.packInt(asyncResultSet.currentPageSize());
+
+                for (SqlRow row : asyncResultSet.currentPage()) {
+                    for (int i = 0; i < cols.size(); i++) {
+                        // TODO: IGNITE-16962 pack only the value according to the known type.
+                        out.packObjectWithType(row.value(i));
+                    }
+                }
+
+                if (!asyncResultSet.hasMorePages()) {
+                    asyncResultSet.close();
+                }
+            } else {
+                asyncResultSet.close();
             }
         });
     }
