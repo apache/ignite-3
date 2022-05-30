@@ -61,6 +61,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testExecuteAsyncDdlDml() {
         Session session = client().sql().createSession();
 
+        // Create table.
         AsyncResultSet createRes = session.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)").join();
 
         assertFalse(createRes.hasRowSet());
@@ -68,12 +69,23 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(-1, createRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPageSize);
 
-        AsyncResultSet insertRes = session.executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", 1, "hello").join();
+        // Insert data.
+        for (int i = 0; i < 10; i++) {
+            AsyncResultSet insertRes = session.executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", 1, "hello").join();
 
-        assertFalse(insertRes.hasRowSet());
-        assertFalse(insertRes.wasApplied());
-        assertEquals(1, insertRes.affectedRows());
-        assertThrows(NoRowSetExpectedException.class, createRes::currentPage);
+            assertFalse(insertRes.hasRowSet());
+            assertFalse(insertRes.wasApplied());
+            assertEquals(1, insertRes.affectedRows());
+            assertThrows(NoRowSetExpectedException.class, createRes::currentPage);
+        }
+
+        // Query data.
+
+        // Update data.
+
+        // Delete data.
+
+        // Delete table.
     }
 
     @Test
