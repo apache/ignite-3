@@ -101,16 +101,18 @@ public class ClientSession implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement,
+    public CompletableFuture<AsyncResultSet> executeAsync(
+            @Nullable Transaction transaction,
+            Statement statement,
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
         return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
             writeTx(transaction, w);
 
-            w.out().packInt(defaultPageSize);
-            w.out().packString(defaultSchema);
-            w.out().packLong(defaultTimeout);
+            w.out().packObject(defaultPageSize);
+            w.out().packObject(defaultSchema);
+            w.out().packObject(defaultTimeout);
 
             if (properties != null) {
                 w.out().packMapHeader(0);
@@ -123,10 +125,10 @@ public class ClientSession implements Session {
                 }
             }
 
-            w.out().packString(statement.defaultSchema());
-            w.out().packInt(statement.pageSize());
-            w.out().packString(statement.query());
-            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
+            w.out().packObject(statement.defaultSchema());
+            w.out().packObject(statement.pageSize());
+            w.out().packObject(statement.query());
+            w.out().packObject(statement.queryTimeout(TimeUnit.MILLISECONDS));
             w.out().packBoolean(statement.prepared());
 
             // TODO: Pack statement properties.
