@@ -54,7 +54,7 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      *
      * @return Number of rows affected by the query, or {@code 0} if statement return nothing, or {@code -1} if inapplicable.
      */
-    int affectedRows();
+    long affectedRows();
 
     /**
      * Returns whether the query that produce this result was a conditional query, or not. E.g. for the query "Create table if not exists"
