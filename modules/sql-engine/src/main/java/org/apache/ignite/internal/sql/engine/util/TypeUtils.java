@@ -385,7 +385,7 @@ public class TypeUtils {
             case BOOLEAN:
                 return ColumnType.INT8;
             case DECIMAL:
-                return ColumnType.decimalOf(type.getPrecision(), type.getScale());
+                return type.getPrecision() > 0 ? ColumnType.decimalOf(type.getPrecision(), type.getScale()) : ColumnType.decimalOf();
             case DOUBLE:
                 return ColumnType.DOUBLE;
             case REAL:
