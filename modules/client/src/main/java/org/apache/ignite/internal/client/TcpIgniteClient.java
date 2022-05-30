@@ -131,7 +131,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new ClientSql(ch);
     }
 
     /** {@inheritDoc} */

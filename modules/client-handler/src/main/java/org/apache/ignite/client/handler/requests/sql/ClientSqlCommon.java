@@ -40,7 +40,7 @@ class ClientSqlCommon {
         }
 
         if (!asyncResultSet.hasMorePages()) {
-            asyncResultSet.close();
+            asyncResultSet.closeAsync();
         }
     }
 }
