@@ -44,12 +44,14 @@ public class ClientSession implements Session {
     /** Channel. */
     private final ReliableChannel ch;
 
-    private final int defaultPageSize;
+    @Nullable
+    private final Integer defaultPageSize;
 
     @Nullable
     private final String defaultSchema;
 
-    private final long defaultTimeout;
+    @Nullable
+    private final Long defaultTimeout;
 
     @Nullable
     private final Map<String, Object> properties;
@@ -66,9 +68,9 @@ public class ClientSession implements Session {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ClientSession(
             ReliableChannel ch,
-            int defaultPageSize,
+            @Nullable Integer defaultPageSize,
             @Nullable String defaultSchema,
-            long defaultTimeout,
+            @Nullable Long defaultTimeout,
             @Nullable Map<String, Object> properties) {
         this.ch = ch;
         this.defaultPageSize = defaultPageSize;
@@ -135,6 +137,13 @@ public class ClientSession implements Session {
             boolean hasMorePages = r.in().unpackBoolean();
             boolean wasApplied = r.in().unpackBoolean();
 
+            r.in().unpackArrayHeader(); // TODO: Metadata IGNITE-17052.
+
+            if (hasRowSet) {
+                // TODO: Unpack rows.
+            }
+
+            return new ClientAsyncResultSet();
         });
     }
 
