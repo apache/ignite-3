@@ -128,6 +128,16 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
+    public int currentPageSize() {
+        if (!hasRowSet()) {
+            throw new NoRowSetExpectedException("Query hasn't result set: [type=" + cur.queryType() + ']');
+        }
+
+        return batchPage.items().size();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
         if (next == null) {
             synchronized (mux) {
