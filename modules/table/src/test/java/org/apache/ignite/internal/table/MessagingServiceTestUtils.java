@@ -23,7 +23,10 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.message.TxFinishRequest;
 import org.apache.ignite.internal.tx.message.TxFinishResponse;
@@ -43,13 +46,20 @@ public class MessagingServiceTestUtils {
      * @return Messaging service mock.
      */
     public static MessagingService mockMessagingService(TxManager txManager) {
-        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+        return Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);
+    }
 
+    public static MessagingService mockMessagingService(TxManager txManager, MessagingService messagingService, List<PartitionListener> partitionListeners) {
         doAnswer(
                 invocationClose -> {
+                    System.out.println("mockMessagingService");
                     assert invocationClose.getArgument(1) instanceof TxFinishRequest;
 
                     TxFinishRequest txFinishRequest = invocationClose.getArgument(1);
+
+                    FinishTxCommand finishTxCommand = new FinishTxCommand(txFinishRequest.id(), txFinishRequest.commit(), txManager.lockedKeys(txFinishRequest.id()));
+
+                    partitionListeners.forEach(partitionListener -> partitionListener.handleFinishTxCommand(finishTxCommand));
 
                     if (txFinishRequest.commit()) {
                         txManager.commitAsync(txFinishRequest.id()).get();

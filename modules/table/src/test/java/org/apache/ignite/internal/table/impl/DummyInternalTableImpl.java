@@ -109,6 +109,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                         res.completeExceptionally(new TransactionException(e));
                                     }
                                 } else {
+//                                    if (cmd instanceof FinishTxCommand) {
+//                                        System.out.println("Dummy FinishTxCommand");
+//                                        partitionListener.handleFinishTxCommand((FinishTxCommand) cmd);
+//                                    }
                                     CommandClosure<WriteCommand> clo = new CommandClosure<>() {
                                         @Override
                                         public WriteCommand command() {
@@ -140,6 +144,71 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         ).when(svc).run(any());
 
         partitionListener = new PartitionListener(UUID.randomUUID(), store);
+//Mockito.spy(txManager);
+//        Mockito..when(txManager.finishRemote())
+
+
+
+//        TxManager when0 = doAnswer(
+//                invocationClose -> {
+//                    Command cmd = invocationClose.getArgument(0);
+//                    String groupId = invocationClose.getArgument(0);
+//                    UUID id = invocationClose.getArgument(0);
+//                    boolean commit = invocationClose.getArgument(0);
+//
+//                    System.out.println("txManager doAnswer");
+//                    if (cmd instanceof FinishTxCommand) {
+//                        FinishTxCommand finishTxCommand = new FinishTxCommand(id, true, txManager.lockedKeys(id));
+//
+//                        partitionListener.handleFinishTxCommand(finishTxCommand);
+//                    }
+//
+//                    return CompletableFuture.completedFuture(null);
+//                }
+//        ).when(txManager);
+//                when0.commitAsync(any());
+
+
+
+//        TxManager when0 = doAnswer(
+//                invocationClose -> {
+//                    Command cmd = invocationClose.getArgument(0);
+//                    String groupId = invocationClose.getArgument(0);
+//                    UUID id = invocationClose.getArgument(0);
+//                    boolean commit = invocationClose.getArgument(0);
+//
+//                    System.out.println("txManager doAnswer");
+//                    if (cmd instanceof FinishTxCommand) {
+////                        FinishTxCommand finishTxCommand = new FinishTxCommand(id, commit, txManager.lockedKeys(id));
+//
+//                        partitionListener.handleFinishTxCommand((FinishTxCommand) cmd);
+//                    }
+//
+//                    return CompletableFuture.completedFuture(null);
+//                }
+//        ).when(txManager);
+//                when0.finish(anyString(), any(), anyBoolean());
+
+
+//        when(txManager.finish(any(), any(), any())).thenAnswer(invocationClose -> {
+//            Command cmd = invocationClose.getArgument(0);
+//            String groupId = invocationClose.getArgument(0);
+//            UUID id = invocationClose.getArgument(0);
+//            boolean commit = invocationClose.getArgument(0);
+//
+//            if (cmd instanceof FinishTxCommand) {
+////                        FinishTxCommand finishTxCommand = new FinishTxCommand(id, commit, txManager.lockedKeys(id));
+//
+//                partitionListener.handleFinishTxCommand((FinishTxCommand) cmd);
+//            }
+//
+//            return CompletableFuture.completedFuture(null);
+//        });
+    }
+
+    /** */
+    public PartitionListener getPartitionListener() {
+        return partitionListener;
     }
 
     /** {@inheritDoc} */

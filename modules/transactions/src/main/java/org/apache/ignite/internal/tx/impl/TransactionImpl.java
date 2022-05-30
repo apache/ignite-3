@@ -148,6 +148,7 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
+        System.out.println("TransactionImpl.finish");
         Map<NetworkAddress, Set<String>> tmp = new HashMap<>();
 
         // Group by common leader addresses.

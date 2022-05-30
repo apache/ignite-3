@@ -256,6 +256,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             boolean commit,
             Set<String> groups
     ) {
+        System.out.println("finishRemote");
         assert groups != null && !groups.isEmpty();
 
         TxFinishRequest req = FACTORY.txFinishRequest().id(id).groups(groups)
@@ -396,6 +397,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             // Finish a tx for enlisted groups.
             for (String grp : groups) {
+                System.out.println("onReceived finish");
                 futs[i++] = finish(grp, req.id(), req.commit());
             }
 

@@ -125,6 +125,22 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
+    public void testMixedPutGet() throws TransactionException {
+        accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
+
+        igniteTransactions.runInTransaction(
+                tx -> {
+                    var txAcc = accounts.recordView();
+
+                    txAcc.getAsync(tx, makeKey(1)).thenCompose(r ->
+                            txAcc.upsertAsync(tx, makeValue(1, r.doubleValue("balance") + DELTA))).join();
+                }
+        );
+
+        assertEquals(BALANCE_1 + DELTA, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+    }
+
+    @Test
     public void testLockOrdering() throws InterruptedException {
         accounts.recordView().upsert(null, makeValue(1, 50.));
 
@@ -222,12 +238,12 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 .thenCompose(tx -> accounts.recordView().getAsync(tx, makeKey(1))
                         .thenCombine(accounts.recordView().getAsync(tx, makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                         .thenCompose(pair -> allOf(
-                                        accounts.recordView().upsertAsync(
-                                                tx, makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
-                                        accounts.recordView().upsertAsync(
-                                                tx, makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
+                                accounts.recordView().upsertAsync(
+                                        tx, makeValue(1, pair.getFirst().doubleValue("balance") - DELTA)),
+                                accounts.recordView().upsertAsync(
+                                        tx, makeValue(2, pair.getSecond().doubleValue("balance") + DELTA))
                                 )
-                                        .thenApply(ignored -> tx)
+                                .thenApply(ignored -> tx)
                         )
                 ).thenCompose(Transaction::commitAsync).join();
 
@@ -242,19 +258,18 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     @Test
     public void testTxAsyncKeyValueView() {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
-
         accounts.recordView().upsert(null, makeValue(2, BALANCE_2));
 
         igniteTransactions.beginAsync()
                 .thenCompose(tx -> accounts.keyValueView().getAsync(tx, makeKey(1))
                         .thenCombine(accounts.recordView().getAsync(tx, makeKey(2)), (v1, v2) -> new Pair<>(v1, v2))
                         .thenCompose(pair -> allOf(
-                                        accounts.keyValueView().putAsync(
-                                                tx, makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),
-                                        accounts.keyValueView().putAsync(
-                                                tx, makeKey(2), makeValue(pair.getSecond().doubleValue("balance") + DELTA))
+                                accounts.keyValueView().putAsync(
+                                        tx, makeKey(1), makeValue(pair.getFirst().doubleValue("balance") - DELTA)),
+                                accounts.keyValueView().putAsync(
+                                        tx, makeKey(2), makeValue(pair.getSecond().doubleValue("balance") + DELTA))
                                 )
-                                        .thenApply(ignored -> tx)
+                                .thenApply(ignored -> tx)
                         )
                 ).thenCompose(Transaction::commitAsync).join();
 
@@ -263,7 +278,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testSimpleConflict() throws Exception {// с тремя нодами падает
+    public void testSimpleConflict() throws Exception {
         System.out.println("start first upsert");
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
@@ -520,12 +535,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         Tuple key = makeKey(1);
 
         assertFalse(accounts.recordView().delete(null, key));
-//        try {
-//            Thread.sleep(5000);
-//        } catch (InterruptedException e) {
-//            throw new RuntimeException(e);
-//        }
-//        System.out.println("testDelete1");
         assertNull(accounts.recordView().get(null, key));
 
         accounts.recordView().upsert(null, makeValue(1, 100.));
@@ -1014,7 +1023,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertEquals("test", customers.recordView().get(null, makeKey(1)).stringValue("name"));
         assertEquals(100., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
-//
+
         assertTrue(lockManager(accounts).isEmpty());
     }
 
@@ -1067,7 +1076,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     }
 
     @Test
-    public void testScan() throws InterruptedException {//
+    public void testScan() throws InterruptedException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
         Flow.Publisher<BinaryRow> pub = ((TableImpl) accounts).internalTable().scan(0, null);

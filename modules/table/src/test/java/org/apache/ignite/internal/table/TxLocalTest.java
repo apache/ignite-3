@@ -21,6 +21,7 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -71,6 +72,11 @@ public class TxLocalTest extends TxAbstractTest {
                 txManager);
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
+
+        List<PartitionListener> partitionListeners = List.of(((DummyInternalTableImpl) table).getPartitionListener(), ((DummyInternalTableImpl) table2).getPartitionListener());
+
+        MessagingServiceTestUtils.mockMessagingService(txManager, messagingService, partitionListeners);
+
     }
 
     @Disabled
