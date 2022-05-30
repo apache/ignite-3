@@ -24,6 +24,9 @@ import org.apache.ignite.sql.Statement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Client SQL statement.
+ */
 class ClientStatement implements Statement {
     /** */
     private final String query;
@@ -43,6 +46,16 @@ class ClientStatement implements Statement {
     /** */
     private final Map<String, Object> properties;
 
+    /**
+     * Constructor.
+     *
+     * @param query Query.
+     * @param defaultSchema Default schema.
+     * @param prepared Prepared.
+     * @param queryTimeoutMs Timeout
+     * @param pageSize Page size.
+     * @param properties Properties.
+     */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ClientStatement(
             String query,
@@ -59,11 +72,13 @@ class ClientStatement implements Statement {
         this.properties = properties;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull String query() {
         return query;
     }
 
+    /** {@inheritDoc} */
     @Override
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
@@ -71,26 +86,31 @@ class ClientStatement implements Statement {
         return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
+    /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
         return defaultSchema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int pageSize() {
         return pageSize;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean prepared() {
         return prepared;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable Object property(@NotNull String name) {
         return properties.get(name);
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder toBuilder() {
         var builder = new ClientStatementBuilder()
@@ -109,8 +129,9 @@ class ClientStatement implements Statement {
         return builder;
     }
 
+    /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-
+        // No-op.
     }
 }

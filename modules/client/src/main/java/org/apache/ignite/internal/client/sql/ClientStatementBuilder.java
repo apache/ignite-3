@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
@@ -25,21 +27,31 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 class ClientStatementBuilder implements Statement.StatementBuilder {
+    /** */
+    private final Map<String, Object> properties = new HashMap<>();
+
+    /** */
     private String query;
 
+    /** */
     private String defaultSchema;
 
+    /** */
     private boolean prepared;
 
+    /** */
     private long queryTimeoutMs;
 
+    /** */
     private int pageSize;
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull String query() {
         return query;
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder query(String sql) {
         query = sql;
@@ -47,11 +59,13 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean prepared() {
         return prepared;
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder prepared(boolean prepared) {
         this.prepared = prepared;
@@ -59,6 +73,7 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
@@ -66,6 +81,7 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
         return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
@@ -75,11 +91,13 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
         return defaultSchema;
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder defaultSchema(@NotNull String schema) {
         defaultSchema = schema;
@@ -87,11 +105,13 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int pageSize() {
         return pageSize;
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder pageSize(int pageSize) {
         this.pageSize = pageSize;
@@ -99,18 +119,29 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public @Nullable Object property(@NotNull String name) {
-        return null;
+        return properties.get(name);
     }
 
+    /** {@inheritDoc} */
     @Override
     public StatementBuilder property(@NotNull String name, @Nullable Object value) {
-        return null;
+        properties.put(name, value);
+
+        return this;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Statement build() {
-        return null;
+        return new ClientStatement(
+                query,
+                defaultSchema,
+                prepared,
+                queryTimeoutMs,
+                pageSize,
+                new HashMap<>(properties));
     }
 }
