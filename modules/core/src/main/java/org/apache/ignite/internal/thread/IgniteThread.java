@@ -19,24 +19,34 @@ package org.apache.ignite.internal.thread;
 
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
 
 /**
  * This class adds some necessary plumbing on top of the {@link Thread} class. Specifically, it adds:
  * <ul>
  *      <li>Consistent naming of threads</li>;
- *      <li>Name of the grid this thread belongs to</li>.
+ *      <li>Name of the ignite node this thread belongs to</li>.
  * </ul>
  * <b>Note</b>: this class is intended for internal use only.
  */
 public class IgniteThread extends Thread {
-    /** Number of all grid threads in the system. */
-    private static final AtomicLong cntr = new AtomicLong();
+    /** Number of all ignite threads in the system. */
+    private static final AtomicLong THREAD_COUNTER = new AtomicLong();
 
     /** The name of the Ignite instance this thread belongs to. */
     protected final String igniteInstanceName;
 
     /**
-     * Creates grid thread with given name for a given Ignite instance.
+     * Creates thread with given worker.
+     *
+     * @param worker Worker to create thread with.
+     */
+    public IgniteThread(IgniteWorker worker) {
+        this(worker.igniteInstanceName(), worker.name(), worker);
+    }
+
+    /**
+     * Creates ignite thread with given name for a given Ignite instance.
      *
      * @param nodeName   Name of the Ignite instance this thread is created for.
      * @param threadName Name of thread.
@@ -46,14 +56,14 @@ public class IgniteThread extends Thread {
     }
 
     /**
-     * Creates grid thread with given name for a given Ignite instance.
+     * Creates ignite thread with given name for a given Ignite instance.
      *
      * @param nodeName   Name of the Ignite instance this thread is created for.
      * @param threadName Name of thread.
      * @param r          Runnable to execute.
      */
     public IgniteThread(String nodeName, String threadName, Runnable r) {
-        super(r, createName(cntr.incrementAndGet(), threadName, nodeName));
+        super(r, createName(THREAD_COUNTER.incrementAndGet(), threadName, nodeName));
 
         this.igniteInstanceName = nodeName;
     }

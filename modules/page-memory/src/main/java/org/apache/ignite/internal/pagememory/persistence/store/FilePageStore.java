@@ -766,4 +766,18 @@ public class FilePageStore implements PageStore {
                     + ", filePageSize=" + pageSize + "]");
         }
     }
+
+    /**
+     * Returns data type, can be {@link PageStore#TYPE_IDX} or {@link PageStore#TYPE_DATA}.
+     */
+    byte type() {
+        return type;
+    }
+
+    /**
+     * Returns file page store path.
+     */
+    Path filePath() {
+        return filePath;
+    }
 }
