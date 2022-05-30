@@ -72,21 +72,19 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        // TODO: Wrap AsyncResultSet.
-        // return sync(executeAsync(transaction, query, arguments));
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -103,61 +101,61 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public ReactiveResultSet executeReactive(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public ReactiveResultSet executeReactive(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return new int[0];
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public int[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        return new int[0];
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
-
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
@@ -193,15 +191,13 @@ public class FakeSession implements Session {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> closeAsync() {
-        // TODO: Cancel/close all active futures.
-        return null;
+        return CompletableFuture.completedFuture(null);
     }
 
     /** {@inheritDoc} */
     @Override
     public Publisher<Void> closeReactive() {
-        // TODO: Future to Publisher.
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
