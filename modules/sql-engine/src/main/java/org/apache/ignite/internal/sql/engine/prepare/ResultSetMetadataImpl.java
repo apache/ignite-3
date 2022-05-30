@@ -33,7 +33,10 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
     /** Column`s metadata map. */
     private final Map<String, Integer> columnsIndices;
 
-    public ResultSetMetadataImpl(List<ColumnMetadata> columns) {
+    /**
+     * @param columns Columns metadata.
+     */
+    ResultSetMetadataImpl(List<ColumnMetadata> columns) {
         this.columns = columns;
 
         columnsIndices = new HashMap(columns.size());
