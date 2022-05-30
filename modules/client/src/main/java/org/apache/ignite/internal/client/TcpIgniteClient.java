@@ -32,6 +32,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
@@ -59,6 +60,9 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** Compute. */
     private final ClientCompute compute;
+
+    /** Compute. */
+    private final ClientSql sql;
 
     /**
      * Constructor.
@@ -88,6 +92,7 @@ public class TcpIgniteClient implements IgniteClient {
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
+        sql = new ClientSql(ch);
     }
 
     /**
