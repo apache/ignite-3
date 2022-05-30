@@ -75,8 +75,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        // TODO: IGNITE-17052
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return metadata;
     }
 
     /** {@inheritDoc} */

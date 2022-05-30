@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.junit.jupiter.api.Test;
@@ -31,7 +33,10 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteAsyncSimple() {
-        AsyncResultSet resultSet = client().sql().createSession().executeAsync(null, "select 1").join();
+        AsyncResultSet resultSet = client().sql()
+                .createSession()
+                .executeAsync(null, "select 1 as num, 'hello' as str")
+                .join();
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -39,5 +44,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         SqlRow row = resultSet.currentPage().iterator().next();
         assertEquals(1, row.intValue(0));
+        assertEquals("hello", row.stringValue(1));
+
+        List<ColumnMetadata> columns = resultSet.metadata().columns();
+        assertEquals(2, columns.size());
+        assertEquals("NUM", columns.get(0).name());
+        assertEquals("STR", columns.get(1).name());
     }
 }
