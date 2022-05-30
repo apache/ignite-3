@@ -20,19 +20,18 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
@@ -126,16 +125,7 @@ public class ClientSession implements Session {
             w.out().packObject(defaultSchema);
             w.out().packObject(defaultTimeout);
 
-            if (properties == null) {
-                w.out().packMapHeader(0);
-            } else {
-                w.out().packMapHeader(properties.size());
-
-                for (Entry<String, Object> entry : properties.entrySet()) {
-                    w.out().packString(entry.getKey());
-                    w.out().packObjectWithType(entry.getValue());
-                }
-            }
+            packProperties(w, properties);
 
             w.out().packObject(clientStatement.defaultSchema());
             w.out().packObject(clientStatement.pageSizeNullable());
@@ -143,8 +133,17 @@ public class ClientSession implements Session {
             w.out().packObject(clientStatement.queryTimeoutNullable());
             w.out().packBoolean(clientStatement.prepared());
 
-            // TODO: Pack statement properties.
-            w.out().packMapHeader(0);
+            packProperties(w, clientStatement.properties());
+
+            if (arguments == null) {
+                w.out().packArrayHeader(0);
+            } else {
+                w.out().packArrayHeader(arguments.length);
+
+                for (int i = 0; i < arguments.length; i++) {
+                    w.out().packObjectWithType(arguments[i]);
+                }
+            }
         }, r -> new ClientAsyncResultSet(r.in()));
     }
 
@@ -256,5 +255,18 @@ public class ClientSession implements Session {
     @Override
     public SessionBuilder toBuilder() {
         return null;
+    }
+
+    private static void packProperties(PayloadOutputChannel w, Map<String, Object> props) {
+        if (props == null) {
+            w.out().packMapHeader(0);
+        } else {
+            w.out().packMapHeader(props.size());
+
+            for (Entry<String, Object> entry : props.entrySet()) {
+                w.out().packString(entry.getKey());
+                w.out().packObjectWithType(entry.getValue());
+            }
+        }
     }
 }

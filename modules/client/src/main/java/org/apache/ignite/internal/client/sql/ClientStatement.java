@@ -88,6 +88,11 @@ class ClientStatement implements Statement {
         return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Gets the query timeout as nullable.
+     *
+     * @return Query timeout.
+     */
     public Long queryTimeoutNullable() {
         return queryTimeoutMs;
     }
@@ -104,6 +109,11 @@ class ClientStatement implements Statement {
         return pageSize;
     }
 
+    /**
+     * Gets the page size as nullable.
+     *
+     * @return Page size.
+     */
     public Integer pageSizeNullable() {
         return pageSize;
     }
@@ -118,6 +128,16 @@ class ClientStatement implements Statement {
     @Override
     public @Nullable Object property(@NotNull String name) {
         return properties.get(name);
+    }
+
+    /**
+     * Gets the properties map.
+     *
+     * @return Properties.
+     */
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+    public Map<String, Object> properties() {
+        return properties;
     }
 
     /** {@inheritDoc} */
