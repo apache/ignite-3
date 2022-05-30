@@ -438,7 +438,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, sql);
+                return ClientSqlExecuteRequest.process(in, out, sql, resources);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
