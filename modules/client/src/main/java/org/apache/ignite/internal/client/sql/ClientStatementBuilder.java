@@ -40,10 +40,10 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
     private boolean prepared;
 
     /** */
-    private long queryTimeoutMs;
+    private Long queryTimeoutMs;
 
     /** */
-    private int pageSize;
+    private Integer pageSize;
 
     /** {@inheritDoc} */
     @Override
@@ -78,7 +78,7 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
+        return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -108,7 +108,7 @@ class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
-        return pageSize;
+        return pageSize == null ? 0: pageSize;
     }
 
     /** {@inheritDoc} */

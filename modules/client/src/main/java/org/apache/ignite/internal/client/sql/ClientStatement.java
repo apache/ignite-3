@@ -38,10 +38,10 @@ class ClientStatement implements Statement {
     private final boolean prepared;
 
     /** */
-    private final long queryTimeoutMs;
+    private final Long queryTimeoutMs;
 
     /** */
-    private final int pageSize;
+    private final Integer pageSize;
 
     /** */
     private final Map<String, Object> properties;
@@ -61,8 +61,8 @@ class ClientStatement implements Statement {
             String query,
             String defaultSchema,
             boolean prepared,
-            long queryTimeoutMs,
-            int pageSize,
+            Long queryTimeoutMs,
+            Integer pageSize,
             Map<String, Object> properties) {
         this.query = query;
         this.defaultSchema = defaultSchema;
@@ -86,6 +86,10 @@ class ClientStatement implements Statement {
         return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
+    public Long queryTimeoutNullable() {
+        return queryTimeoutMs;
+    }
+
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
@@ -95,6 +99,10 @@ class ClientStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
+        return pageSize;
+    }
+
+    public Integer pageSizeNullable() {
         return pageSize;
     }
 
@@ -116,9 +124,15 @@ class ClientStatement implements Statement {
         var builder = new ClientStatementBuilder()
                 .query(query)
                 .defaultSchema(defaultSchema)
-                .prepared(prepared)
-                .queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS)
-                .pageSize(pageSize);
+                .prepared(prepared);
+
+        if (pageSize != null) {
+            builder.pageSize(pageSize);
+        }
+
+        if (queryTimeoutMs != null) {
+            builder.queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS);
+        }
 
         if (properties != null) {
             for (var entry : properties.entrySet()) {
