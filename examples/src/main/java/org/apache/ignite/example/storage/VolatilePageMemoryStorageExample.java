@@ -17,8 +17,6 @@
 
 package org.apache.ignite.example.storage;
 
-import org.apache.ignite.table.RecordView;
-
 /**
  * This example demonstrates a usage of the PageMemory storage engine configured with an in-memory data region.
  *
@@ -26,10 +24,28 @@ import org.apache.ignite.table.RecordView;
  * <ol>
  *     <li>Import the examples project into you IDE.</li>
  *     <li>
+ *         Download and prepare artifacts for run Ignite node using the CLI tool (if not done yet):<br>
+ *         {@code ignite init}
+ *     </li>
+ *     <li>
+ *         todo: add module
+ *     </li>
+ *     <li>
  *         Start a server node using the CLI tool:<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node}
  *     </li>
+ *     <li>
+ *         Cluster initialization using the CLI tool (if not done yet):<br>
+ *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
+ *     </li>
  *     <li>Run the example in the IDE.</li>
+ *     <li>
+ *         Stop a server node using the CLI tool:<br>
+ *         {@code ignite node stop my-first-node}
+ *     </li>
+ *     <li>
+ *         todo: remove module
+ *     </li>
  * </ol>
  */
 public class VolatilePageMemoryStorageExample {
