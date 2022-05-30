@@ -155,7 +155,7 @@ public class ClientSession implements Session {
                 // TODO: Unpack rows.
             }
 
-            return new ClientAsyncResultSet();
+            return new ClientAsyncResultSet(resourceId, hasRowSet, hasMorePages, wasApplied);
         });
     }
 
