@@ -35,7 +35,7 @@ public class FakeIgniteSql implements IgniteSql {
 
     @Override
     public SessionBuilder sessionBuilder() {
-        return null;
+        return new FakeSessionBuilder();
     }
 
     @Override
