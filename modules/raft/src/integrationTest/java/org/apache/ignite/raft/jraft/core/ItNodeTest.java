@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -3093,7 +3094,7 @@ public class ItNodeTest {
         assertEquals(done.await(), Status.OK());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
-                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any());
+                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), anyLong());
     }
 
     @Test

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 

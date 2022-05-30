@@ -177,9 +177,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                         raftGroupServiceSupplier.get().refreshLeader().get();
 
                         raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
-                    } catch (InterruptedException|ExecutionException e) {
+                    } catch (InterruptedException | ExecutionException e) {
                         // TODO: IGNITE-17013 errors during this call should be handled by retry logic
-                        LOG.error("Error during the rebalance retry for the partId = {}", e , partId);
+                        LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
                     }
                 }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
             } else {
