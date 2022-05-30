@@ -28,9 +28,9 @@ public class ClientColumnMetadata implements ColumnMetadata {
     public ClientColumnMetadata(ClientMessageUnpacker unpacker) {
         try {
             name = unpacker.unpackString();
+            nullable = unpacker.unpackBoolean();
             valueClass = Class.forName(unpacker.unpackString());
             type = unpacker.unpackObjectWithType();
-            nullable = unpacker.unpackBoolean();
         } catch (ClassNotFoundException e) {
             throw new IgniteClientException(e.getMessage(), e);
         }

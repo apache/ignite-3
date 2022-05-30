@@ -70,7 +70,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.arguments = arguments;
 
         var row = mock(SqlRow.class);
-        Mockito.when(row.value(Mockito.anyInt())).thenReturn("1");
+        Mockito.when(row.value(Mockito.anyInt())).thenReturn(1);
 
         rows = new ArrayList<>();
         rows.add(row);
