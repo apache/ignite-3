@@ -18,11 +18,16 @@
 package org.apache.ignite.internal.client.sql;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -39,13 +44,37 @@ public class ClientSession implements Session {
     /** Channel. */
     private final ReliableChannel ch;
 
+    private final int defaultPageSize;
+
+    @Nullable
+    private final String defaultSchema;
+
+    private final long defaultTimeout;
+
+    @Nullable
+    private final Map<String, Object> properties;
+
     /**
      * Constructor.
      *
      * @param ch Channel.
+     * @param defaultPageSize Default page size.
+     * @param defaultSchema Default schema.
+     * @param defaultTimeout Default timeout.
+     * @param properties Properties.
      */
-    public ClientSession(ReliableChannel ch) {
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+    public ClientSession(
+            ReliableChannel ch,
+            int defaultPageSize,
+            @Nullable String defaultSchema,
+            long defaultTimeout,
+            @Nullable Map<String, Object> properties) {
         this.ch = ch;
+        this.defaultPageSize = defaultPageSize;
+        this.defaultSchema = defaultSchema;
+        this.defaultTimeout = defaultTimeout;
+        this.properties = properties;
     }
 
     /** {@inheritDoc} */
@@ -72,7 +101,37 @@ public class ClientSession implements Session {
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, Statement statement,
             @Nullable Object... arguments) {
-        return null;
+        Objects.requireNonNull(statement);
+
+        return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
+            writeTx(transaction, w);
+
+            w.out().packInt(defaultPageSize);
+            w.out().packString(defaultSchema);
+            w.out().packLong(defaultTimeout);
+
+            if (properties != null) {
+                w.out().packMapHeader(0);
+            } else {
+                w.out().packMapHeader(properties.size());
+
+                for (Entry<String, Object> entry : properties.entrySet()) {
+                    w.out().packString(entry.getKey());
+                    w.out().packObjectWithType(entry.getValue());
+                }
+            }
+
+            w.out().packString(statement.defaultSchema());
+            w.out().packInt(statement.pageSize());
+            w.out().packString(statement.query());
+            w.out().packLong(statement.queryTimeout(TimeUnit.MILLISECONDS));
+            w.out().packBoolean(statement.prepared());
+
+            // TODO: Pack statement properties.
+            w.out().packMapHeader(0);
+        }, r -> {
+
+        });
     }
 
     /** {@inheritDoc} */

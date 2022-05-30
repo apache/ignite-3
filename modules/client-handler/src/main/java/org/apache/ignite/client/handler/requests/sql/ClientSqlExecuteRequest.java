@@ -60,7 +60,7 @@ public class ClientSqlExecuteRequest {
                 .defaultSchema(in.unpackString())
                 .defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
 
-        var propCount = in.unpackInt();
+        var propCount = in.unpackMapHeader();
 
         for (int i = 0; i < propCount; i++) {
             sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
