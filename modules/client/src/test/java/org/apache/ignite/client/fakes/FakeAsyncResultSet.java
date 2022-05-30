@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
@@ -31,6 +32,7 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
+@SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class FakeAsyncResultSet implements AsyncResultSet {
     /** */
     private final Session session;
@@ -46,6 +48,9 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     /** */
     private final List<SqlRow> rows;
+
+    /** */
+    private final List<ColumnMetadata> columns;
 
     /**
      * Constructor.
@@ -69,12 +74,25 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
         rows = new ArrayList<>();
         rows.add(row);
+
+        columns = new ArrayList<>();
+        columns.add(mock(ColumnMetadata.class));
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        return null;
+        return new ResultSetMetadata() {
+            @Override
+            public List<ColumnMetadata> columns() {
+                return columns;
+            }
+
+            @Override
+            public int indexOf(String columnName) {
+                return 0;
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -98,7 +116,6 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public Iterable<SqlRow> currentPage() {
-        //noinspection AssignmentOrReturnOfFieldWithMutableType
         return rows;
     }
 
