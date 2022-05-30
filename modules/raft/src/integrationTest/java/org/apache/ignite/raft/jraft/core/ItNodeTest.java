@@ -3093,7 +3093,7 @@ public class ItNodeTest {
         assertEquals(done.await(), Status.OK());
 
         verify(raftGrpEvtsLsnr, timeout(10_000))
-                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any());
+                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), any());
     }
 
     @Test
