@@ -25,6 +25,9 @@ import org.jetbrains.annotations.Nullable;
  * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
  * ResultSet must be closed after usage to free resources.
  *
+ * <p>The class and his methods are not thread-safe. If more than one thread use the result set object
+ * please use external synchronization on iterator methods.
+ *
  * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #wasApplied()} returns
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  */
