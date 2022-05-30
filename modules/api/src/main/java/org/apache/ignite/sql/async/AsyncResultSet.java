@@ -58,7 +58,7 @@ public interface AsyncResultSet {
      * @return Number of rows affected by the query, or {@code 0} if statement return nothing, or {@code -1} if inapplicable.
      * @see ResultSet#affectedRows()
      */
-    int affectedRows();
+    long affectedRows();
 
     /**
      * Returns whether the query that produce this result was a conditional query, or not. E.g. for the query "Create table if not exists"
@@ -66,7 +66,7 @@ public interface AsyncResultSet {
      * table was already existed.
      *
      * <p>Note: when returns {@code false}, then either {@link #affectedRows()} return number of affected rows or {@link #hasRowSet()}
-     * returns {@code true}.
+     * returns {@code true} or conditional DDL query is not applied.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      * @see ResultSet#wasApplied()
@@ -105,7 +105,9 @@ public interface AsyncResultSet {
     boolean hasMorePages();
 
     /**
-     * Closes the result set.
+     * Invalidates query result, stops the query and cleanups query resources.
+     *
+     * @return Operation future.
      */
-    void close();
+    CompletionStage<Void> closeAsync();
 }
