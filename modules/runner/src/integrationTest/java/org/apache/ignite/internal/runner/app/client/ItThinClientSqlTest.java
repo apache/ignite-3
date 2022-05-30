@@ -86,6 +86,11 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         // Delete data.
 
         // Delete table.
+
+        // TODO:
+        // * Paging
+        // * Close
+        // * File tickets for everything else (remaining API methods, test coverage)
     }
 
     @Test

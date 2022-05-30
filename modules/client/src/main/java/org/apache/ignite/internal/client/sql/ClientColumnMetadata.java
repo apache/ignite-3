@@ -14,7 +14,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
     /** Value class. */
     private final Class<?> valueClass;
 
-    /** Type */
+    /** Type. */
     private final Object type;
 
     /** Nullable flag. */
