@@ -58,7 +58,7 @@ public interface ReactiveResultSet extends Flow.Publisher<SqlRow> {
      * @return Publisher for number of rows.
      * @see ResultSet#affectedRows()
      */
-    Flow.Publisher<Integer> affectedRows();
+    Flow.Publisher<Long> affectedRows();
 
     /**
      * Returns publisher for a flag which determines whether the query that produce this result was a conditional query, or not.
