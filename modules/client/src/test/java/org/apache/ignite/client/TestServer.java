@@ -132,7 +132,7 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        null
+                        ignite.sql()
                 );
 
         module.start();

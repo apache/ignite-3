@@ -143,6 +143,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         assert configuration != null;
         assert compute != null;
         assert clusterService != null;
+        assert sql != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;

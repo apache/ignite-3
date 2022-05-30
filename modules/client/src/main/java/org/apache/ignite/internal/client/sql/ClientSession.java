@@ -111,6 +111,12 @@ public class ClientSession implements Session {
             @Nullable Object... arguments) {
         Objects.requireNonNull(statement);
 
+        if (!(statement instanceof ClientStatement)) {
+            throw new IllegalArgumentException("Unsupported statement type: " + statement.getClass());
+        }
+
+        ClientStatement clientStatement = (ClientStatement) statement;
+
         return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
             writeTx(transaction, w);
 
@@ -118,7 +124,7 @@ public class ClientSession implements Session {
             w.out().packObject(defaultSchema);
             w.out().packObject(defaultTimeout);
 
-            if (properties != null) {
+            if (properties == null) {
                 w.out().packMapHeader(0);
             } else {
                 w.out().packMapHeader(properties.size());
@@ -129,11 +135,11 @@ public class ClientSession implements Session {
                 }
             }
 
-            w.out().packObject(statement.defaultSchema());
-            w.out().packObject(statement.pageSize());
-            w.out().packObject(statement.query());
-            w.out().packObject(statement.queryTimeout(TimeUnit.MILLISECONDS));
-            w.out().packBoolean(statement.prepared());
+            w.out().packObject(clientStatement.defaultSchema());
+            w.out().packObject(clientStatement.pageSizeNullable());
+            w.out().packObject(clientStatement.query());
+            w.out().packObject(clientStatement.queryTimeoutNullable());
+            w.out().packBoolean(clientStatement.prepared());
 
             // TODO: Pack statement properties.
             w.out().packMapHeader(0);
