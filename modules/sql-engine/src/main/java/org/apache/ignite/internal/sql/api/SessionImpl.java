@@ -247,6 +247,7 @@ public class SessionImpl implements Session {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
     @Override
     public ReactiveResultSet executeReactive(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
         throw new UnsupportedOperationException("Not implemented yet.");
