@@ -32,24 +32,21 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
+/**
+ * Fake result set.
+ */
 @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
 public class FakeAsyncResultSet implements AsyncResultSet {
-    /** */
     private final Session session;
 
-    /** */
     private final Transaction transaction;
 
-    /** */
     private final Statement statement;
 
-    /** */
     private final Object[] arguments;
 
-    /** */
     private final List<SqlRow> rows;
 
-    /** */
     private final List<ColumnMetadata> columns;
 
     /**
