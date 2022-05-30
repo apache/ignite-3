@@ -52,55 +52,8 @@ public class ClientSqlExecuteRequest {
             IgniteSql sql,
             ClientResourceRegistry resources) {
         var tx = readTx(in, resources);
-
-        SessionBuilder sessionBuilder = sql.sessionBuilder();
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultPageSize(in.unpackInt());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultSchema(in.unpackString());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        var propCount = in.unpackMapHeader();
-
-        for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
-        }
-
-        // Session simply tracks active queries. We don't need to store it in resources.
-        // Instead, we track active queries in the ClientSession and close them there accordingly.
-        Session session = sessionBuilder.build();
-
-        StatementBuilder statementBuilder = sql.statementBuilder();
-
-        if (!in.tryUnpackNil()) {
-            statementBuilder.defaultSchema(in.unpackString());
-        }
-        if (!in.tryUnpackNil()) {
-            statementBuilder.pageSize(in.unpackInt());
-        }
-
-        statementBuilder.query(in.unpackString());
-
-        if (!in.tryUnpackNil()) {
-            statementBuilder.queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        statementBuilder.prepared(in.unpackBoolean());
-
-        propCount = in.unpackMapHeader();
-
-        for (int i = 0; i < propCount; i++) {
-            statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
-        }
-
-        Statement statement = statementBuilder.build();
+        Session session = readSession(in, sql);
+        Statement statement = readStatement(in, sql);
 
         return session.executeAsync(tx, statement).thenCompose(asyncResultSet -> {
             if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
@@ -151,5 +104,58 @@ public class ClientSqlExecuteRequest {
 
             return CompletableFuture.completedFuture(null);
         });
+    }
+
+    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql) {
+        SessionBuilder sessionBuilder = sql.sessionBuilder();
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultPageSize(in.unpackInt());
+        }
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultSchema(in.unpackString());
+        }
+
+        if (!in.tryUnpackNil()) {
+            sessionBuilder.defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+        }
+
+        var propCount = in.unpackMapHeader();
+
+        for (int i = 0; i < propCount; i++) {
+            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
+        }
+
+        // NOTE: Session simply tracks active queries. We don't need to store it in resources.
+        // Instead, we track active queries in the ClientSession and close them there accordingly.
+        return sessionBuilder.build();
+    }
+
+    private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
+        StatementBuilder statementBuilder = sql.statementBuilder();
+
+        if (!in.tryUnpackNil()) {
+            statementBuilder.defaultSchema(in.unpackString());
+        }
+        if (!in.tryUnpackNil()) {
+            statementBuilder.pageSize(in.unpackInt());
+        }
+
+        statementBuilder.query(in.unpackString());
+
+        if (!in.tryUnpackNil()) {
+            statementBuilder.queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
+        }
+
+        statementBuilder.prepared(in.unpackBoolean());
+
+        var propCount = in.unpackMapHeader();
+
+        for (int i = 0; i < propCount; i++) {
+            statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
+        }
+
+        return statementBuilder.build();
     }
 }
