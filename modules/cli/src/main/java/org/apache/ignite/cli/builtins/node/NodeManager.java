@@ -19,6 +19,8 @@ package org.apache.ignite.cli.builtins.node;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -32,8 +34,6 @@ import java.util.Optional;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.builtins.module.ModuleRegistry;
 import org.apache.ignite.cli.ui.Spinner;

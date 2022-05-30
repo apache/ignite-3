@@ -17,13 +17,13 @@
 
 package org.apache.ignite.cli.spec;
 
+import jakarta.inject.Inject;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.Table;
 import org.apache.ignite.cli.builtins.module.MavenCoordinates;

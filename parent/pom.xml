@@ -61,10 +61,8 @@
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <jmh.framework.version>1.35</jmh.framework.version>
         <junit.version>5.8.1</junit.version>
-        <micronaut.version>2.1.2</micronaut.version>
-        <micronaut3.version>3.4.1</micronaut3.version>
-        <micronaut.test.junit5.version>2.3.1</micronaut.test.junit5.version>
-        <micronaut3.test.junit5.version>3.0.5</micronaut3.test.junit5.version>
+        <micronaut.version>3.4.1</micronaut.version>
+        <micronaut.test.junit5.version>3.0.5</micronaut.test.junit5.version>
         <mockito.version>4.3.1</mockito.version>
         <picocli.version>4.5.2</picocli.version>
         <slf4j.version>1.7.32</slf4j.version>

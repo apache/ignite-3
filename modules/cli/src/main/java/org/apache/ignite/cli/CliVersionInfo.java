@@ -17,10 +17,10 @@
 
 package org.apache.ignite.cli;
 
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
-import javax.inject.Singleton;
 
 /**
  * Provider of current Ignite CLI version info from the builtin properties file.

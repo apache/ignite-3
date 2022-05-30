@@ -22,6 +22,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
@@ -29,8 +31,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCliException;
 import org.jetbrains.annotations.Nullable;
 import picocli.CommandLine.Help.ColorScheme;
@@ -81,7 +81,7 @@ public class ConfigurationClient {
     ) {
         var req = HttpRequest
                 .newBuilder()
-                .header("Content-Type", "application/json");
+                .header("Content-Type", "text/plain");
 
         if (rawHoconPath == null) {
             req.uri(URI.create("http://" + host + ":" + port + GET_URL + type + "/"));
@@ -120,7 +120,7 @@ public class ConfigurationClient {
         var req = HttpRequest
                 .newBuilder()
                 .method("PATCH", HttpRequest.BodyPublishers.ofString(renderJsonFromHocon(rawHoconData)))
-                .header("Content-Type", "application/json")
+                .header("Content-Type", "text/plain")
                 .uri(URI.create("http://" + host + ":" + port + PATCH_URL + type + "/"))
                 .build();
 

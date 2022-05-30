@@ -60,14 +60,14 @@
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http</artifactId>
-            <version>${micronaut3.version}</version>
+            <version>${micronaut.version}</version>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server</artifactId>
-            <version>${micronaut3.version}</version>
+            <version>${micronaut.version}</version>
             <scope>compile</scope>
         </dependency>
 
@@ -126,21 +126,21 @@
         <dependency>
             <groupId>io.micronaut.test</groupId>
             <artifactId>micronaut-test-junit5</artifactId>
-            <version>${micronaut3.test.junit5.version}</version>
+            <version>${micronaut.test.junit5.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-client</artifactId>
-            <version>${micronaut3.version}</version>
+            <version>${micronaut.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server-netty</artifactId>
-            <version>${micronaut3.version}</version>
+            <version>${micronaut.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -167,7 +167,7 @@
                         <path>
                             <groupId>io.micronaut</groupId>
                             <artifactId>micronaut-inject-java</artifactId>
-                            <version>${micronaut3.version}</version>
+                            <version>${micronaut.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

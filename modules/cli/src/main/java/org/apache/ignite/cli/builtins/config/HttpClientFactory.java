@@ -18,8 +18,8 @@
 package org.apache.ignite.cli.builtins.config;
 
 import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
 import java.net.http.HttpClient;
-import javax.inject.Singleton;
 
 /**
  * Factory for producing simple HTTP clients.

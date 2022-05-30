@@ -58,14 +58,14 @@
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-inject</artifactId>
-            <version>${micronaut3.version}</version>
+            <version>${micronaut.version}</version>
             <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server-netty</artifactId>
-            <version>${micronaut3.version}</version>
+            <version>${micronaut.version}</version>
         </dependency>
 
         <dependency>
@@ -136,7 +136,7 @@
                         <path>
                             <groupId>io.micronaut</groupId>
                             <artifactId>micronaut-inject-java</artifactId>
-                            <version>${micronaut3.version}</version>
+                            <version>${micronaut.version}</version>
                         </path>
                         <path>
                             <groupId>io.micronaut.openapi</groupId>

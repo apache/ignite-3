@@ -17,7 +17,7 @@
 
 package org.apache.ignite.cli;
 
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 import org.apache.ignite.cli.spec.CategorySpec;
 import org.apache.ignite.lang.IgniteLogger;
 import picocli.CommandLine;

@@ -17,11 +17,11 @@
 
 package org.apache.ignite.cli.spec;
 
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.List;
-import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.IgnitePaths;

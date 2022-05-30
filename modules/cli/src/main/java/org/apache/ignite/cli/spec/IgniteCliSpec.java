@@ -18,6 +18,7 @@
 package org.apache.ignite.cli.spec;
 
 import io.micronaut.context.ApplicationContext;
+import jakarta.inject.Inject;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -25,7 +26,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.CommandFactory;
 import org.apache.ignite.cli.ErrorHandler;
