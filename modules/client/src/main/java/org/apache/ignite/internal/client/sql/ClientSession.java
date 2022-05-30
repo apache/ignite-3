@@ -130,6 +130,10 @@ public class ClientSession implements Session {
             // TODO: Pack statement properties.
             w.out().packMapHeader(0);
         }, r -> {
+            Long resourceId = r.in().tryUnpackNil() ? null : r.in().unpackLong();
+            boolean hasRowSet = r.in().unpackBoolean();
+            boolean hasMorePages = r.in().unpackBoolean();
+            boolean wasApplied = r.in().unpackBoolean();
 
         });
     }

@@ -77,7 +77,7 @@ public class ClientSqlExecuteRequest {
                 .queryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS)
                 .prepared(in.unpackBoolean());
 
-        propCount = in.unpackInt();
+        propCount = in.unpackMapHeader();
 
         for (int i = 0; i < propCount; i++) {
             statementBuilder.property(in.unpackString(), in.unpackObjectWithType());
