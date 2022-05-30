@@ -23,7 +23,6 @@ import org.apache.ignite.sql.ColumnMetadata;
  * Fake column meta.
  */
 class FakeColumnMetadata implements ColumnMetadata {
-    /** */
     private final String name;
 
     /**

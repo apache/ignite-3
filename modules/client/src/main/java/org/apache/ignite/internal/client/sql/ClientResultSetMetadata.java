@@ -30,10 +30,10 @@ import org.apache.ignite.sql.ResultSetMetadata;
  * Result set metadata.
  */
 class ClientResultSetMetadata implements ResultSetMetadata {
-    /** */
+    /** Columns. */
     private final List<ColumnMetadata> columns;
 
-    /** */
+    /** Column name to index map. */
     private final Map<String, Integer> columnIndices;
 
     /**

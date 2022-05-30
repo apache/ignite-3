@@ -8,16 +8,16 @@ import org.apache.ignite.sql.ColumnMetadata;
  * Client column metadata.
  */
 public class ClientColumnMetadata implements ColumnMetadata {
-    /** */
+    /** Name. */
     private final String name;
 
-    /** */
+    /** Value class. */
     private final Class<?> valueClass;
 
-    /** */
+    /** Type */
     private final Object type;
 
-    /** */
+    /** Nullable flag. */
     private final boolean nullable;
 
     /**

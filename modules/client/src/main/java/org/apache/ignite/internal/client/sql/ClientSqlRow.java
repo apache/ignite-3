@@ -35,7 +35,7 @@ import org.jetbrains.annotations.NotNull;
  * Client SQL row.
  */
 public class ClientSqlRow implements SqlRow {
-    /** */
+    /** Row. */
     private final List<Object> row;
 
     /**

@@ -111,7 +111,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
-        return pageSize == null ? 0: pageSize;
+        return pageSize == null ? 0 : pageSize;
     }
 
     /** {@inheritDoc} */
