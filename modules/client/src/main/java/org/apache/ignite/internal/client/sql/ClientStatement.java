@@ -64,6 +64,8 @@ class ClientStatement implements Statement {
             Long queryTimeoutMs,
             Integer pageSize,
             Map<String, Object> properties) {
+        Objects.requireNonNull(query);
+
         this.query = query;
         this.defaultSchema = defaultSchema;
         this.prepared = prepared;

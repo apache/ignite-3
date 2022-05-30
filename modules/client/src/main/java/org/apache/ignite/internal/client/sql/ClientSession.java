@@ -96,7 +96,11 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return null;
+        Objects.requireNonNull(query);
+
+        ClientStatement statement = new ClientStatement(query, null, false, null, null, null);
+
+        return executeAsync(transaction, statement, arguments);
     }
 
     /** {@inheritDoc} */
