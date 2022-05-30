@@ -19,18 +19,19 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,7 @@ public class LongOperationAsyncExecutorTest {
                     try {
                         waitSupplierFuture.get(1, TimeUnit.SECONDS);
                     } catch (Throwable e) {
-                        fail(e);
+                        throw new IgniteInternalException("from_run_async", e);
                     }
 
                     return null;
@@ -133,7 +134,7 @@ public class LongOperationAsyncExecutorTest {
                 try {
                     waitTaskFuture.get(1, TimeUnit.SECONDS);
                 } catch (Throwable e) {
-                    fail(e);
+                    throw new IgniteInternalException("from_task", e);
                 }
             };
 
@@ -171,7 +172,7 @@ public class LongOperationAsyncExecutorTest {
             try {
                 waitTask0Future.get(1, TimeUnit.SECONDS);
             } catch (Throwable e) {
-                fail(e);
+                throw new IgniteInternalException("from_task_0", e);
             }
         };
 
@@ -205,7 +206,7 @@ public class LongOperationAsyncExecutorTest {
             try {
                 waitTask1Future.get(1, TimeUnit.SECONDS);
             } catch (Throwable e) {
-                fail(e);
+                throw new IgniteInternalException("from_task_1", e);
             }
         };
 
@@ -222,6 +223,10 @@ public class LongOperationAsyncExecutorTest {
                     ExecutionException.class,
                     () -> finishTask1Future.get(100, TimeUnit.MILLISECONDS)
             );
+
+            // Checks that the exception will be from task1.
+            assertThat(exception.getCause(), instanceOf(IgniteInternalException.class));
+            assertThat(exception.getCause().getMessage(), equalTo("from_task_1"));
 
             assertThat(exception.getCause().getCause(), instanceOf(InterruptedException.class));
         } finally {
