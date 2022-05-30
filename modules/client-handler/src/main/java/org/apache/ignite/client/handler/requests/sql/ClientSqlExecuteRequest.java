@@ -85,14 +85,15 @@ public class ClientSqlExecuteRequest {
 
         Statement statement = statementBuilder.build();
 
-        return session.executeAsync(tx, statement).thenAccept(asyncResultSet -> {
+        return session.executeAsync(tx, statement).thenCompose(asyncResultSet -> {
             if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
                 try {
-                    long resourceId = resources.put(new ClientResource(asyncResultSet, asyncResultSet::close));
+                    long resourceId = resources.put(new ClientResource(asyncResultSet, asyncResultSet::closeAsync));
                     out.packLong(resourceId);
                 } catch (IgniteInternalCheckedException e) {
-                    asyncResultSet.close();
-                    throw new IgniteInternalException(e.getMessage(), e);
+                    return asyncResultSet
+                            .closeAsync()
+                            .thenRun(() -> { throw new IgniteInternalException(e.getMessage(), e); });
                 }
             } else {
                 out.packNil(); // resourceId
@@ -125,8 +126,10 @@ public class ClientSqlExecuteRequest {
             if (asyncResultSet.hasRowSet()) {
                 packCurrentPage(out, asyncResultSet);
             } else {
-                asyncResultSet.close();
+                return asyncResultSet.closeAsync();
             }
+
+            return CompletableFuture.completedFuture(null);
         });
     }
 }
