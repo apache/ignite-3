@@ -331,7 +331,7 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                null // TODO
+                sql
         );
 
         new ConfigurationHttpHandlers(nodeCfgMgr, clusterCfgMgr).registerHandlers(restComponent);

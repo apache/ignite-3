@@ -105,6 +105,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
+        assert sql != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
