@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.sql;
+package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -25,40 +25,24 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
 /**
- * Client SQL.
+ * Fake SQL implementation.
  */
-public class ClientSql implements IgniteSql {
-    /** Channel. */
-    private final ReliableChannel ch;
-
-    /**
-     * Constructor.
-     *
-     * @param ch Channel.
-     */
-    public ClientSql(ReliableChannel ch) {
-        this.ch = ch;
-    }
-
-    /** {@inheritDoc} */
+public class FakeIgniteSql implements IgniteSql {
     @Override
     public Session createSession() {
-        return new ClientSession(ch, null, null, null, null);
+        return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new ClientSessionBuilder(ch);
+        return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new ClientStatement(query, null, false, null, null, null);
+        return null;
     }
 
-    /** {@inheritDoc} */
     @Override
     public StatementBuilder statementBuilder() {
         return new ClientStatementBuilder();

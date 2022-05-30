@@ -26,7 +26,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-class ClientStatementBuilder implements Statement.StatementBuilder {
+public class ClientStatementBuilder implements Statement.StatementBuilder {
     /** */
     private final Map<String, Object> properties = new HashMap<>();
 

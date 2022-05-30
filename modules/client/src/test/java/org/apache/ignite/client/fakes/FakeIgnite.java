@@ -97,7 +97,7 @@ public class FakeIgnite implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new FakeIgniteSql();
     }
 
     /** {@inheritDoc} */

@@ -220,7 +220,8 @@ public class SessionImpl implements Session {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        // TODO: IGNITE-16962 use all statement prperties.
+        return executeAsync(transaction, statement.query(), arguments);
     }
 
     /** {@inheritDoc} */
