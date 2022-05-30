@@ -99,6 +99,13 @@ public interface Statement extends AutoCloseable {
         StatementBuilder query(String sql);
 
         /**
+         * Returns prepared flag.
+         *
+         * @return Prepared flag.
+         */
+        boolean prepared();
+
+        /**
          * Marks current statement as prepared.
          */
         StatementBuilder prepared(boolean prepared);
