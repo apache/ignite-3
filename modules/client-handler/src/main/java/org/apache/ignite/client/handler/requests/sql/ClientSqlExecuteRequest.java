@@ -27,6 +27,7 @@ import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -56,8 +57,9 @@ public class ClientSqlExecuteRequest {
         var tx = readTx(in, resources);
         Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
+        Object[] arguments = readArguments(in);
 
-        return session.executeAsync(tx, statement).thenCompose(asyncResultSet -> {
+        return session.executeAsync(tx, statement, arguments).thenCompose(asyncResultSet -> {
             if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
                 try {
                     long resourceId = resources.put(new ClientResource(asyncResultSet, asyncResultSet::closeAsync));
@@ -157,5 +159,21 @@ public class ClientSqlExecuteRequest {
         }
 
         return statementBuilder.build();
+    }
+
+    private static Object[] readArguments(ClientMessageUnpacker in) {
+        int size = in.unpackInt();
+
+        if (size == 0) {
+            return ArrayUtils.OBJECT_EMPTY_ARRAY;
+        }
+
+        var res = new Object[size];
+
+        for (int i = 0; i < size; i++) {
+            res[i] = in.unpackObjectWithType();
+        }
+
+        return res;
     }
 }
