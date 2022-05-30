@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.sql;
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientResource;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -75,10 +77,7 @@ public class ClientSqlExecuteRequest {
             out.packLong(asyncResultSet.affectedRows());
 
             // Pack metadata.
-            // TODO: IGNITE-17052
-            out.packArrayHeader(0);
-
-            /** if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
+            if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
                 out.packArrayHeader(0);
             } else {
                 List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
@@ -89,12 +88,12 @@ public class ClientSqlExecuteRequest {
                     out.packString(col.name());
                     out.packBoolean(col.nullable());
 
-                    // TODO: IGNITE-16962 SQL API: Implement query metadata.
+                    // TODO: IGNITE-17052 Implement query metadata.
                     // Ideally we only need the type code here.
                     out.packString(col.valueClass().getName());
                     out.packObjectWithType(col.type());
                 }
-            }*/
+            }
 
             // Pack first page.
             if (asyncResultSet.hasRowSet()) {
