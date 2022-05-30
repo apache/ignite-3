@@ -30,11 +30,11 @@ class ClientSqlCommon {
     static void packCurrentPage(ClientMessagePacker out, AsyncResultSet asyncResultSet) {
         List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
 
-        out.packInt(asyncResultSet.currentPageSize());
+        out.packArrayHeader(asyncResultSet.currentPageSize());
 
         for (SqlRow row : asyncResultSet.currentPage()) {
             for (int i = 0; i < cols.size(); i++) {
-                // TODO: IGNITE-16962 pack only the value according to the known type.
+                // TODO: IGNITE-17052 pack only the value according to the known type.
                 out.packObjectWithType(row.value(i));
             }
         }

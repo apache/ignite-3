@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -38,16 +39,19 @@ class ClientAsyncResultSet implements AsyncResultSet {
     private final boolean hasRowSet;
 
     /** */
-    private final boolean hasMorePages;
-
-    /** */
     private final boolean wasApplied;
 
     /** */
     private final long affectedRows;
 
     /** */
-    private final List<SqlRow> rows;
+    private final ResultSetMetadata metadata;
+
+    /** */
+    private List<SqlRow> rows;
+
+    /** */
+    private final boolean hasMorePages;
 
     /**
      * Constructor.
@@ -55,20 +59,16 @@ class ClientAsyncResultSet implements AsyncResultSet {
      * @param in Unpacker.
      */
     public ClientAsyncResultSet(ClientMessageUnpacker in) {
-
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
         hasRowSet = in.unpackBoolean();
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
 
-        in.unpackArrayHeader(); // TODO: Metadata IGNITE-17052.
+        metadata = new ClientResultSetMetadata(in);
 
         if (hasRowSet) {
-            // TODO: Unpack rows.
-            rows = new ArrayList<>();
-        } else {
-            rows = null;
+            readRows(in);
         }
     }
 
@@ -140,5 +140,25 @@ class ClientAsyncResultSet implements AsyncResultSet {
         if (!hasRowSet()) {
             throw new NoRowSetExpectedException("Query has no result set");
         }
+    }
+
+    private void readRows(ClientMessageUnpacker in) {
+        int size = in.unpackArrayHeader();
+        int rowSize = metadata.columns().size();
+
+        var res = new ArrayList<SqlRow>(size);
+
+        for (int i = 0; i < size; i++) {
+            var row = new ArrayList<>(rowSize);
+
+            for (int j = 0; j < rowSize; j++) {
+                // TODO: IGNITE-17052 Unpack according to metadata type.
+                row.add(in.unpackObjectWithType());
+            }
+
+            res.add(new ClientSqlRow(row));
+        }
+
+        rows = Collections.unmodifiableList(res);
     }
 }
