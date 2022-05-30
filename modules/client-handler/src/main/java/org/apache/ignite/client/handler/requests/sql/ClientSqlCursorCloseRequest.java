@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -32,13 +33,12 @@ public class ClientSqlCursorCloseRequest {
      * @param in        Unpacker.
      * @param resources Resources.
      */
-    public static void process(ClientMessageUnpacker in, ClientResourceRegistry resources)
+    public static CompletableFuture<Void> process(ClientMessageUnpacker in, ClientResourceRegistry resources)
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
         AsyncResultSet asyncResultSet = resources.remove(resourceId).get(AsyncResultSet.class);
 
-        // TODO: Potential blocking? Do we need closeAsync? Check implementation.
-        asyncResultSet.close();
+        return asyncResultSet.closeAsync().toCompletableFuture();
     }
 }

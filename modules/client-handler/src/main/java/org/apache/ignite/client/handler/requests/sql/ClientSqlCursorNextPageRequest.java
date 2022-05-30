@@ -24,7 +24,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
@@ -36,13 +35,11 @@ public class ClientSqlCursorNextPageRequest {
      *
      * @param in  Unpacker.
      * @param out Packer.
-     * @param sql SQL API.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteSql sql,
             ClientResourceRegistry resources)
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();

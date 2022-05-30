@@ -38,6 +38,8 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataReq
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
 import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
@@ -439,6 +441,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(in, out, sql, resources);
+
+            case ClientOp.SQL_CURSOR_NEXT_PAGE:
+                return ClientSqlCursorNextPageRequest.process(in, out, resources);
+
+            case ClientOp.SQL_CURSOR_CLOSE:
+                return ClientSqlCursorCloseRequest.process(in, resources);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
