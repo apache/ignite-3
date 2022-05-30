@@ -104,7 +104,10 @@ public class ClientSqlExecuteRequest {
             out.packBoolean(asyncResultSet.wasApplied());
 
             // Pack metadata.
-            if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
+            // TODO: IGNITE-17052
+            out.packArrayHeader(0);
+
+            /** if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
                 out.packArrayHeader(0);
             } else {
                 List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
@@ -120,7 +123,7 @@ public class ClientSqlExecuteRequest {
                     out.packString(col.valueClass().getName());
                     out.packObjectWithType(col.type());
                 }
-            }
+            }*/
 
             // Pack first page.
             if (asyncResultSet.hasRowSet()) {
