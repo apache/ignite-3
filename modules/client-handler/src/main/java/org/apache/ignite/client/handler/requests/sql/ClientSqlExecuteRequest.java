@@ -162,7 +162,7 @@ public class ClientSqlExecuteRequest {
     }
 
     private static Object[] readArguments(ClientMessageUnpacker in) {
-        int size = in.unpackInt();
+        int size = in.unpackArrayHeader();
 
         if (size == 0) {
             return ArrayUtils.OBJECT_EMPTY_ARRAY;

@@ -71,7 +71,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         AsyncResultSet insertRes = session.executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", 1, "hello").join();
 
         assertFalse(insertRes.hasRowSet());
-        assertTrue(insertRes.wasApplied());
+        assertFalse(insertRes.wasApplied());
         assertEquals(1, insertRes.affectedRows());
         assertThrows(NoRowSetExpectedException.class, createRes::currentPage);
     }
