@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.List;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -27,49 +29,116 @@ import org.jetbrains.annotations.Nullable;
  * Client async result set.
  */
 class ClientAsyncResultSet implements AsyncResultSet {
+    /** */
+    private final Long resourceId;
+
+    /** */
+    private final boolean hasRowSet;
+
+    /** */
+    private final boolean hasMorePages;
+
+    /** */
+    private final boolean wasApplied;
+
+    /** */
+    private final long affectedRows;
+
+    /** */
+    private final List<SqlRow> rows;
+
+    /**
+     * Constructor.
+     *
+     * @param resourceId Resource id.
+     * @param hasRowSet Row set flag.
+     * @param hasMorePages More pages flag.
+     * @param wasApplied Applied flag.
+     * @param rows Rows.
+     */
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
+    public ClientAsyncResultSet(
+            Long resourceId,
+            boolean hasRowSet,
+            boolean hasMorePages,
+            boolean wasApplied,
+            long affectedRows,
+            @Nullable List<SqlRow> rows) {
+        this.resourceId = resourceId;
+        this.hasRowSet = hasRowSet;
+        this.hasMorePages = hasMorePages;
+        this.wasApplied = wasApplied;
+        this.affectedRows = affectedRows;
+        this.rows = rows;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
         // TODO: IGNITE-17052
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return false;
+        return hasRowSet;
     }
 
+    /** {@inheritDoc} */
     @Override
     public long affectedRows() {
-        return 0;
+        return affectedRows;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        return false;
+        return wasApplied;
     }
 
+    /** {@inheritDoc} */
+    @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     @Override
     public Iterable<SqlRow> currentPage() {
-        return null;
+        requireResultSet();
+
+        return rows;
     }
 
+    /** {@inheritDoc} */
     @Override
     public int currentPageSize() {
-        return 0;
+        requireResultSet();
+
+        return rows.size();
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
+        requireResultSet();
+
+        // TODO
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return false;
+        return hasMorePages;
     }
 
+    /** {@inheritDoc} */
     @Override
     public CompletionStage<Void> closeAsync() {
+        // TODO
         return null;
+    }
+
+    private void requireResultSet() {
+        if (!hasRowSet()) {
+            throw new NoRowSetExpectedException("Query has no result set");
+        }
     }
 }

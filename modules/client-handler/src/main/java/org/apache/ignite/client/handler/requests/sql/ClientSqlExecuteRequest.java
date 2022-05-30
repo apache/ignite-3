@@ -72,6 +72,7 @@ public class ClientSqlExecuteRequest {
             out.packBoolean(asyncResultSet.hasRowSet());
             out.packBoolean(asyncResultSet.hasMorePages());
             out.packBoolean(asyncResultSet.wasApplied());
+            out.packLong(asyncResultSet.affectedRows());
 
             // Pack metadata.
             // TODO: IGNITE-17052

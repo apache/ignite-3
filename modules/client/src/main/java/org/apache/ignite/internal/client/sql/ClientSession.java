@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
@@ -148,14 +150,17 @@ public class ClientSession implements Session {
             boolean hasRowSet = r.in().unpackBoolean();
             boolean hasMorePages = r.in().unpackBoolean();
             boolean wasApplied = r.in().unpackBoolean();
+            long affectedRows = r.in().unpackLong();
 
             r.in().unpackArrayHeader(); // TODO: Metadata IGNITE-17052.
+
+            List<SqlRow> rows = null;
 
             if (hasRowSet) {
                 // TODO: Unpack rows.
             }
 
-            return new ClientAsyncResultSet(resourceId, hasRowSet, hasMorePages, wasApplied);
+            return new ClientAsyncResultSet(resourceId, hasRowSet, hasMorePages, wasApplied, affectedRows, rows);
         });
     }
 
