@@ -55,12 +55,12 @@ public class IgniteSqlImpl implements IgniteSql {
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new StatementImpl(query);
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder statementBuilder() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new StatementBuilderImpl();
     }
 }
