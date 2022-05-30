@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimi
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -281,10 +280,10 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                         RelDataTypeField fld = rowType.getFieldList().get(i);
 
                         ResultFieldMetadataImpl fldMeta = new ResultFieldMetadataImpl(
-                            fld.getName(),
-                            TypeUtils.columnType(fld.getType()),
-                            fld.getType().isNullable(),
-                            origins == null ? List.of() : origins.get(i)
+                                fld.getName(),
+                                TypeUtils.columnType(fld.getType()),
+                                fld.getType().isNullable(),
+                                origins == null ? List.of() : origins.get(i)
                         );
 
                         fieldsMeta.add(fldMeta);

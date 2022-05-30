@@ -38,7 +38,7 @@ public class SchemaUtils {
      * Creates schema descriptor for the table with specified configuration.
      *
      * @param schemaVer Schema version.
-     * @param tblCfg    Table configuration.
+     * @param tblCfg Table configuration.
      * @return Schema descriptor.
      */
     public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tblCfg) {
@@ -157,17 +157,17 @@ public class SchemaUtils {
             case DATE:
                 return ColumnType.DATE;
             case TIME: {
-                TemporalNativeType type0 = (TemporalNativeType)type;
+                TemporalNativeType type0 = (TemporalNativeType) type;
 
                 return type0.precision() > 0 ? ColumnType.time(type0.precision()) : ColumnType.time();
             }
             case DATETIME: {
-                TemporalNativeType type0 = (TemporalNativeType)type;
+                TemporalNativeType type0 = (TemporalNativeType) type;
 
                 return type0.precision() > 0 ? ColumnType.datetime(type0.precision()) : ColumnType.datetime();
             }
             case TIMESTAMP: {
-                TemporalNativeType type0 = (TemporalNativeType)type;
+                TemporalNativeType type0 = (TemporalNativeType) type;
 
                 return type0.precision() > 0 ? ColumnType.timestamp(type0.precision()) : ColumnType.timestamp();
             }
@@ -184,26 +184,26 @@ public class SchemaUtils {
             case FLOAT:
                 return ColumnType.FLOAT;
             case NUMBER: {
-                NumberNativeType type0 = (NumberNativeType)type;
+                NumberNativeType type0 = (NumberNativeType) type;
 
                 return type0.precision() > 0 ? ColumnType.numberOf(type0.precision()) : ColumnType.numberOf();
             }
             case DECIMAL: {
-                DecimalNativeType type0 = (DecimalNativeType)type;
+                DecimalNativeType type0 = (DecimalNativeType) type;
 
                 return type0.precision() > 0 ? ColumnType.decimalOf(type0.precision(), type0.scale()) : ColumnType.decimalOf();
             }
             case BITMASK:
-                return ColumnType.bitmaskOf(((BitmaskNativeType)type).bits());
+                return ColumnType.bitmaskOf(((BitmaskNativeType) type).bits());
             case UUID:
                 return ColumnType.UUID;
             case STRING: {
-                VarlenNativeType type0 = (VarlenNativeType)type;
+                VarlenNativeType type0 = (VarlenNativeType) type;
 
                 return type0.length() > 0 ? ColumnType.stringOf(type0.length()) : ColumnType.string();
             }
             case BYTES: {
-                VarlenNativeType type0 = (VarlenNativeType)type;
+                VarlenNativeType type0 = (VarlenNativeType) type;
 
                 return type0.length() > 0 ? ColumnType.blobOf(type0.length()) : ColumnType.blobOf();
             }
