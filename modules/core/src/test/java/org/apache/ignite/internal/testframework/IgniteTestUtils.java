@@ -24,6 +24,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -165,33 +166,85 @@ public final class IgniteTestUtils {
     }
 
     /**
-     * Returns field value.
+     * Get object field value via reflection.
      *
-     * @param obj target object from which to get field value ({@code null} for static methods)
-     * @param fieldName name of the field
-     * @return field value
+     * @param obj Object or class to get field value from.
+     * @param fieldNames Field names to get value for: obj->field1->field2->...->fieldN.
+     * @param <T> Expected field class.
+     * @return Field value.
+     * @throws IgniteInternalException In case of error.
      */
-    public static Object getFieldValue(Object obj, String fieldName) {
-        Class<?> cls = obj.getClass();
-        Exception ex = null;
+    public static <T> T getFieldValue(Object obj, String... fieldNames) {
+        assert obj != null;
+        assert fieldNames != null;
+        assert fieldNames.length >= 1;
 
-        while (cls != Object.class) {
-            try {
-                return getFieldValue(obj, obj.getClass(), fieldName);
-            } catch (Exception ex0) {
-                cls = cls.getSuperclass();
+        try {
+            for (String fieldName : fieldNames) {
+                Class<?> cls = obj instanceof Class ? (Class) obj : obj.getClass();
 
-                if (ex == null) {
-                    ex = ex0;
-                } else {
-                    ex.addSuppressed(ex0);
+                try {
+                    obj = findField(cls, obj, fieldName);
+                } catch (NoSuchFieldException e) {
+                    // Resolve inner class, if not an inner field.
+                    Class<?> innerCls = getInnerClass(cls, fieldName);
+
+                    if (innerCls == null) {
+                        throw new IgniteInternalException("Failed to get object field [obj=" + obj
+                                + ", fieldNames=" + Arrays.toString(fieldNames) + ']', e);
+                    }
+
+                    obj = innerCls;
                 }
+            }
+
+            return (T) obj;
+        } catch (IllegalAccessException e) {
+            throw new IgniteInternalException("Failed to get object field [obj=" + obj
+                    + ", fieldNames=" + Arrays.toString(fieldNames) + ']', e);
+        }
+    }
+
+    /**
+     * Get object field value via reflection.
+     *
+     * @param cls Class for searching.
+     * @param obj Target object.
+     * @param fieldName Field name for search.
+     * @return Field from object if it was found.
+     */
+    private static Object findField(
+            Class<?> cls,
+            Object obj,
+            String fieldName
+    ) throws NoSuchFieldException, IllegalAccessException {
+        // Resolve inner field.
+        Field field = cls.getDeclaredField(fieldName);
+
+        boolean accessible = field.isAccessible();
+
+        if (!accessible) {
+            field.setAccessible(true);
+        }
+
+        return field.get(obj);
+    }
+
+    /**
+     * Get inner class by its name from the enclosing class.
+     *
+     * @param parentCls Parent class to resolve inner class for.
+     * @param innerClsName Name of the inner class.
+     * @return Inner class.
+     */
+    @Nullable public static <T> Class<T> getInnerClass(Class<?> parentCls, String innerClsName) {
+        for (Class<?> cls : parentCls.getDeclaredClasses()) {
+            if (innerClsName.equals(cls.getSimpleName())) {
+                return (Class<T>) cls;
             }
         }
 
-        assert ex != null;
-
-        throw new IgniteInternalException(ex);
+        return null;
     }
 
     /**
