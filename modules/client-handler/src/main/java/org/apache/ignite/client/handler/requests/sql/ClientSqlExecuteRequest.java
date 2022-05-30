@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientResource;
@@ -27,6 +28,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -50,10 +52,8 @@ public class ClientSqlExecuteRequest {
             ClientMessagePacker out,
             IgniteSql sql,
             ClientResourceRegistry resources) {
-        // TODO: read TX.
         var tx = readTx(in, resources);
 
-        // TODO: "brief mode" which only includes query text and args? - separate ticket.
         SessionBuilder sessionBuilder = sql.sessionBuilder()
                 .defaultPageSize(in.unpackInt())
                 .defaultSchema(in.unpackString())
@@ -69,7 +69,6 @@ public class ClientSqlExecuteRequest {
         // Instead, we track active queries in the ClientSession and close them there accordingly.
         Session session = sessionBuilder.build();
 
-        // TODO: should we store prepared statements per connection? - separate ticket.
         StatementBuilder statementBuilder = sql.statementBuilder()
                 .defaultSchema(in.unpackString())
                 .pageSize(in.unpackInt())
@@ -106,6 +105,26 @@ public class ClientSqlExecuteRequest {
             out.packBoolean(asyncResultSet.hasRowSet());
             out.packBoolean(asyncResultSet.hasMorePages());
             out.packBoolean(asyncResultSet.wasApplied());
+
+            // Pack metadata.
+            if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
+                out.packArrayHeader(0);
+            } else {
+                List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
+                out.packArrayHeader(cols.size());
+
+                for (int i = 0; i < cols.size(); i++) {
+                    ColumnMetadata col = cols.get(i);
+                    out.packString(col.name());
+                    out.packBoolean(col.nullable());
+                    out.packString(col.valueClass().getName());
+                    out.packObjectWithType(col.type());
+                }
+            }
+
+            // Pack first page.
+            if (asyncResultSet.hasRowSet()) {
+            }
         });
     }
 }
