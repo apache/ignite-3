@@ -119,9 +119,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public Iterable<SqlRow> currentPage() {
-        if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query hasn't result set: [type=" + cur.queryType() + ']');
-        }
+        requireResultSet();
 
         return () -> new TransformingIterator<>(batchPage.items().iterator(), SqlRowImpl::new);
     }
@@ -129,9 +127,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public int currentPageSize() {
-        if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query hasn't result set: [type=" + cur.queryType() + ']');
-        }
+        requireResultSet();
 
         return batchPage.items().size();
     }
@@ -165,6 +161,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     @Override
     public CompletionStage<Void> closeAsync() {
         return cur.closeAsync().thenRun(closeRun);
+    }
+
+    private void requireResultSet() {
+        if (!hasRowSet()) {
+            throw new NoRowSetExpectedException("Query has no result set: [type=" + cur.queryType() + ']');
+        }
     }
 
     private class SqlRowImpl implements SqlRow {
@@ -209,7 +211,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("unchecked")
         @Override
         public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
             T ret = (T) row.get(columnIndexChecked(columnName));
@@ -224,14 +225,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("unchecked")
         @Override
         public <T> T value(@NotNull String columnName) throws IllegalArgumentException {
             return (T) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("unchecked")
         @Override
         public <T> T value(int columnIndex) {
             return (T) row.get(columnIndex);
