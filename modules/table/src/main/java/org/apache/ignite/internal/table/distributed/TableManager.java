@@ -512,6 +512,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionRaftGroupName(tblId, partId),
                                     partId,
                                     busyLock,
+                                    () -> internalTbl.partitionRaftGroupService(partId),
                                     rebalanceScheduler)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
@@ -1444,6 +1445,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             partId,
                             part,
                             busyLock,
+                            () -> tbl.internalTable().partitionRaftGroupService(part),
                             rebalanceScheduler);
 
                     // Stable assignments from the meta store, which revision is bounded by the current pending event.

@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,6 +49,8 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -78,6 +81,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
+    /** Supplier of client for raft group of rebalance listener. */
+    private final Supplier<RaftGroupService> raftGroupServiceSupplier;
+
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
@@ -86,7 +92,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** Delay between unsuccessful trial of a rebalance and a new trial, ms. */
     public static final int REBALANCE_RETRY_DELAY_MS = 200;
-
 
     /**
      * Constructs new listener.
@@ -103,12 +108,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             String partId,
             int partNum,
             IgniteSpinBusyLock busyLock,
+            Supplier<RaftGroupService> raftGroupServiceSupplier,
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
         this.busyLock = busyLock;
+        this.raftGroupServiceSupplier = raftGroupServiceSupplier;
         this.rebalanceScheduler = rebalanceScheduler;
     }
 
@@ -145,7 +152,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onReconfigurationError(Status status, Supplier<Void> rebalanceRunner) {
+    public void onReconfigurationError(Status status, List<PeerId> peers, long term) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -166,7 +173,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 rebalanceScheduler.schedule(() -> {
                     LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
-                    rebalanceRunner.get();
+                    try {
+                        raftGroupServiceSupplier.get().refreshLeader().get();
+
+                        raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+                        LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
+                    }
                 }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
             } else {
                 LOG.error("Failed to perform the current rebalance for the partId = {}, canceling.", partId);
@@ -278,5 +292,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         return resolvedNodes;
+    }
+
+    private static List<Peer> peerIdsToPeers(List<PeerId> peerIds) {
+        List<Peer> peers = new ArrayList<>(peerIds.size());
+
+        for (PeerId peerId : peerIds) {
+            peers.add(new Peer(NetworkAddress.from(peerId.getEndpoint().toString())));
+        }
+
+        return peers;
     }
 }

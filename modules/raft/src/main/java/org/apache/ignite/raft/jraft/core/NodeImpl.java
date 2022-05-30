@@ -432,7 +432,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // must be copied before clearing
-            final List<PeerId> resultPeers = new ArrayList<>(this.newPeers);
+            final List<PeerId> resultPeerIds = new ArrayList<>(this.newPeers);
 
             clearPeers();
             clearLearners();
@@ -446,13 +446,9 @@ public class NodeImpl implements Node, RaftServerService {
             if (this.done != null) {
                 Closure newDone = (Status status) -> {
                     if (status.isOk()) {
-                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeers);
+                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds);
                     } else {
-                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, () -> {
-                            // TODO: error handling for changePeersAsync https://ggsystems.atlassian.net/browse/IGN-19294
-                            node.changePeersAsync(new Configuration(resultPeers), node.getCurrentTerm(), newStatus -> {});
-                            return null;
-                        });
+                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, node.getCurrentTerm());
                     }
                     oldDoneClosure.run(status);
                 };

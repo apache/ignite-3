@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.raft.server;
 
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 
@@ -43,7 +42,7 @@ public interface RaftGroupEventsListener {
      *
      * @param status with description of failure.
      */
-    void onReconfigurationError(Status status, Supplier<Void> rebalanceRunner);
+    void onReconfigurationError(Status status, List<PeerId> peers, long term);
 
     /**
      * No-op raft group events listener.
@@ -59,7 +58,7 @@ public interface RaftGroupEventsListener {
 
         /** {@inheritDoc} */
         @Override
-        public void onReconfigurationError(Status status, Supplier<Void>  rebalanceRunner) { }
+        public void onReconfigurationError(Status status, List<PeerId> peers, long term) {}
     };
 
 }
