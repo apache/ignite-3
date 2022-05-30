@@ -172,7 +172,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             if (rebalanceAttempts.incrementAndGet() < REBALANCE_RETRY_THRESHOLD) {
                 scheduleChangePeers(peers, term);
             } else {
-                LOG.error("The number of retries of the rebalance for the partId = {} exceeded the threshold = ", partId,
+                LOG.error("The number of retries of the rebalance for the partId = {} exceeded the threshold = {}.", partId,
                         REBALANCE_RETRY_THRESHOLD);
 
                 // TODO: currently we just retry intent to change peers according to the rebalance infinitely, until new leader is elected,
