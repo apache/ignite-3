@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.command;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.raft.client.ReadCommand;
 import org.jetbrains.annotations.NotNull;
 

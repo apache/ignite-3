@@ -23,7 +23,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,8 +35,6 @@ import java.util.function.Consumer;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
@@ -66,7 +63,6 @@ import org.apache.ignite.internal.table.distributed.command.scan.ScanCloseComman
 import org.apache.ignite.internal.table.distributed.command.scan.ScanInitCommand;
 import org.apache.ignite.internal.table.distributed.command.scan.ScanRetrieveBatchCommand;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -85,7 +81,6 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener {
-    static int i;
     /** Lock id. */
     private final IgniteUuid lockId;
 
@@ -417,24 +412,18 @@ public class PartitionListener implements RaftGroupListener {
 
         boolean b = txManager.changeState(id, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED);
 
-//        i++;
         System.out.println("handleFinishTxCommand2 " + b + " " + txManager.state(id));
 
-            if (/*(b && commit) || */txManager.state(id) == TxState.COMMITED) {
-//                System.out.println("lockedKeys1: " + txManager.lockedKeys(id, lockId));
-//                txManager.lockedKeys(id, lockId).forEach(key -> storage.commitWrite(key, id));
+            if (txManager.state(id) == TxState.COMMITED) {
                 cmd.lockedKeys.getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
                     System.out.println("lockedKeys1: " + Arrays.toString(new ByteBufferRow(row).bytes()));
                     storage.commitWrite(new ByteBufferRow(row).keySlice(), id);
                 });
-            } else if (/*(b && !commit) || */txManager.state(id) == TxState.ABORTED) {
-//                System.out.println("lockedKeys2: " + txManager.lockedKeys(id, lockId));
+            } else if (txManager.state(id) == TxState.ABORTED) {
                 cmd.lockedKeys.getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
                     System.out.println("lockedKeys2: " + Arrays.toString(new ByteBufferRow(row).bytes()));
                     storage.abortWrite(new ByteBufferRow(row).keySlice());
                 });
-//                txManager.lockedKeys(id, lockId).forEach(key -> storage.abortWrite(key));
-//                storage.abortWrite(txManager.lockedKeys(id).get(0));
             }
 
         System.out.println("handleFinishTxCommand3 " + id + " " + b + " " + commit);

@@ -33,19 +33,14 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.SearchRow;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.basic.BinarySearchRow;
 import org.apache.ignite.internal.storage.basic.DelegatingDataRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -595,7 +590,6 @@ public class VersionedRowStore {
      * @param val        The value.
      * @param id  The timestamp
      * @return New and old rows pair.
-     * @see #versionedRow
      */
     private Pair<BinaryRow, BinaryRow> resolve(Value val, UUID id) {
         if (val.id == null) { // New or after reset.
@@ -650,47 +644,45 @@ public class VersionedRowStore {
      * @param pred The predicate.
      * @return The cursor.
      */
-    public Cursor<BinaryRow> scan(Predicate<SearchRow> pred) {
-//        Cursor<DataRow> delegate = storage.scan(pred);
-//
-//        // TODO asch add tx support IGNITE-15087.
-//        return new Cursor<BinaryRow>() {
-//            private @Nullable BinaryRow cur = null;
-//
-//            @Override
-//            public void close() throws Exception {
-//                delegate.close();
-//            }
-//
-//            @Override
-//            public boolean hasNext() {
-//                if (cur != null) {
-//                    return true;
-//                }
-//
-//                if (delegate.hasNext()) {
-//                    DataRow row = delegate.next();
-//
-//                    cur = versionedRow(row, null).getFirst();
-//
-//                    return cur != null ? true : hasNext(); // Skip tombstones.
-//                }
-//
-//                return false;
-//            }
-//
-//            @Override
-//            public BinaryRow next() {
-//                BinaryRow next = cur;
-//
-//                cur = null;
-//
-//                assert next != null;
-//
-//                return next;
-//            }
-//        };
-        return null;
+    public Cursor<BinaryRow> scan(Predicate<BinaryRow> pred) {
+        Cursor<BinaryRow> delegate = storage.scan(pred, Timestamp.nextVersion());
+
+        // TODO asch add tx support IGNITE-15087.
+        return new Cursor<BinaryRow>() {
+            private @Nullable BinaryRow cur = null;
+
+            @Override
+            public void close() throws Exception {
+                delegate.close();
+            }
+
+            @Override
+            public boolean hasNext() {
+                if (cur != null) {
+                    return true;
+                }
+
+                if (delegate.hasNext()) {
+                    cur = delegate.next();
+                    System.out.println("hasNext " + cur.keySlice());
+
+                    return cur != null ? true : hasNext(); // Skip tombstones.
+                }
+
+                return false;
+            }
+
+            @Override
+            public BinaryRow next() {
+                BinaryRow next = cur;
+
+                cur = null;
+
+                assert next != null;
+
+                return next;
+            }
+        };
 
     }
 

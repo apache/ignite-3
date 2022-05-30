@@ -243,19 +243,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testTxAsyncKeyValueView() {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
 
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
         accounts.recordView().upsert(null, makeValue(2, BALANCE_2));
-
-        try {
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
 
         igniteTransactions.beginAsync()
                 .thenCompose(tx -> accounts.keyValueView().getAsync(tx, makeKey(1))
@@ -303,21 +291,21 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         table2.upsert(tx2, makeValue(1, val + 1));
 
-//        tx2.commit();
+        tx2.commit();
 
-//        System.out.println("start last commit");
-//
-//        try {
-//            tx.commit();
-//
-//            fail();
-//        } catch (TransactionException e) {
-//            // Expected.
-//        }
-//
-//        System.out.println("start last commit after");
-//
-//        assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
+        System.out.println("start last commit");
+
+        try {
+            tx.commit();
+
+            fail();
+        } catch (TransactionException e) {
+            // Expected.
+        }
+
+        System.out.println("start last commit after");
+
+        assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
 
     @Test
@@ -1116,14 +1104,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         assertTrue(l.await(5_000, TimeUnit.MILLISECONDS));
 
-//        Map<Long, Tuple> map = new HashMap<>();
-//
-//        for (Tuple row : rows) {
-//            map.put(row.longValue("accountNumber"), row);
-//        }
-//
-//        assertEquals(100., map.get(1L).doubleValue("balance"));
-//        assertEquals(200., map.get(2L).doubleValue("balance"));
+        Map<Long, Tuple> map = new HashMap<>();
+
+        for (Tuple row : rows) {
+            map.put(row.longValue("accountNumber"), row);
+        }
+
+        assertEquals(100., map.get(1L).doubleValue("balance"));
+        assertEquals(200., map.get(2L).doubleValue("balance"));
     }
 
     @Test

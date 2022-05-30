@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -46,7 +45,7 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      * The constructor.
      *
      * @param rows Rows.
-     * @param ts   The timestamp.
+     * @param id   The timestamp.
      */
     public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID id) {
         assert rows != null && !rows.isEmpty();

@@ -17,12 +17,9 @@
 
 package org.apache.ignite.internal.table.distributed.command;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.raft.client.WriteCommand;
 
@@ -34,6 +31,7 @@ public class FinishTxCommand implements WriteCommand {
     /** Commit or rollback state. */
     private final boolean finish;
 
+    /** */
     public Map<IgniteUuid, List<byte[]>> lockedKeys;
 
     /**

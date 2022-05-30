@@ -21,8 +21,6 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
-import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;

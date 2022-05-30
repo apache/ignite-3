@@ -152,6 +152,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         return new Timestamp(newTime << 16 | cntr, localNodeId);
     }
 
+    /** */
     public static synchronized UUID nextId() {
         return nextVersion().toUUID();
     }
@@ -172,6 +173,7 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         return timestamp;
     }
 
+    /** */
     public UUID toUUID() {
         return new UUID(timestamp, nodeId);
     }

@@ -21,7 +21,6 @@ import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.NotNull;
 
 /**

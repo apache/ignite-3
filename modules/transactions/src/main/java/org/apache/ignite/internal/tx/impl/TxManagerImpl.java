@@ -32,7 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
@@ -373,7 +372,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * Finishes a transaction for a group.
      *
      * @param groupId Group id.
-     * @param ts The timestamp.
+     * @param id The timestamp.
      * @param commit {@code True} to commit, false to abort.
      * @return The future.
      */

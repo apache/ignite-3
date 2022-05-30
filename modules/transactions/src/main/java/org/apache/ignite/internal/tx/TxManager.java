@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -44,7 +43,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Returns a transaction state.
      *
-     * @param ts The timestamp.
+     * @param id The timestamp.
      * @return The state or null if the state is unknown.
      */
     @Nullable TxState state(UUID id);
@@ -52,7 +51,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Atomically changes the state of a transaction.
      *
-     * @param ts     The timestamp.
+     * @param id     The timestamp.
      * @param before Before state.
      * @param after  After state.
      * @return {@code True} if a state was changed.
@@ -62,14 +61,14 @@ public interface TxManager extends IgniteComponent {
     /**
      * Forgets the transaction state. Intended for cleanup.
      *
-     * @param ts The timestamp.
+     * @param id The timestamp.
      */
     void forget(UUID id);
 
     /**
      * Commits a transaction.
      *
-     * @param ts The timestamp.
+     * @param id The timestamp.
      * @return The future.
      */
     CompletableFuture<Void> commitAsync(UUID id);
@@ -77,7 +76,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Aborts a transaction.
      *
-     * @param ts The timestamp.
+     * @param id The timestamp.
      * @return The future.
      */
     CompletableFuture<Void> rollbackAsync(UUID id);
@@ -87,7 +86,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @param lockId  Table ID.
      * @param keyData The key data.
-     * @param ts      The timestamp.
+     * @param id      The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
@@ -98,7 +97,7 @@ public interface TxManager extends IgniteComponent {
      *
      * @param lockId  Lock id.
      * @param keyData The key data.
-     * @param ts      The timestamp.
+     * @param id      The timestamp.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
@@ -107,7 +106,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Returns a transaction state or starts a new in the PENDING state.
      *
-     * @param ts The timestamp.
+     * @param id The timestamp.
      * @return @{code null} if a transaction was created, or a current state.
      */
     @Nullable
@@ -116,7 +115,7 @@ public interface TxManager extends IgniteComponent {
     /**
      * Finishes a dependant remote transactions.
      *
-     * @param ts     The timestamp.
+     * @param id     The timestamp.
      * @param addr   The address.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.

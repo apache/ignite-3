@@ -70,10 +70,10 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
     }
 
     /**
-     * Tests basic invariants of {@link MvPartitionStorage#addWrite(BinaryRow, UUID)}.
+     * Tests basic invariants of {@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID)}.
      */
     @Test
-    public void testAddWrite() throws Exception {//
+    public void testAddWrite() throws Exception {
                 MvPartitionStorage pk = partitionStorage();
 
         TestKey key = new TestKey(10, "foo");
