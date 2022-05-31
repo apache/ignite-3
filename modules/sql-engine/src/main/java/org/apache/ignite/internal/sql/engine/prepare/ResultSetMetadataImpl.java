@@ -34,6 +34,8 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
     private final Map<String, Integer> columnsIndices;
 
     /**
+     * Constructor.
+     *
      * @param columns Columns metadata.
      */
     ResultSetMetadataImpl(List<ColumnMetadata> columns) {
