@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -34,6 +35,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.sql.async.AsyncResultSet;
 
 /**
  * Client SQL execute request.
@@ -56,58 +58,65 @@ public class ClientSqlExecuteRequest {
         Statement statement = readStatement(in, sql);
         Object[] arguments = readArguments(in);
 
-        return sql.createSession().executeAsync(tx, statement, arguments).thenCompose(asyncResultSet -> {
-            if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
-                try {
-                    ClientResource resource = new ClientResource(
-                            asyncResultSet,
-                            () -> asyncResultSet.closeAsync().toCompletableFuture().join());
+        return sql.createSession()
+                .executeAsync(tx, statement, arguments)
+                .thenCompose(asyncResultSet -> writeResultSetAsync(out, resources, asyncResultSet));
+    }
 
-                    out.packLong(resources.put(resource));
-                } catch (IgniteInternalCheckedException e) {
-                    return asyncResultSet
-                            .closeAsync()
-                            .thenRun(() -> {
-                                throw new IgniteInternalException(e.getMessage(), e);
-                            });
-                }
-            } else {
-                out.packNil(); // resourceId
+    private static CompletionStage<Void> writeResultSetAsync(
+            ClientMessagePacker out,
+            ClientResourceRegistry resources,
+            AsyncResultSet asyncResultSet) {
+        if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
+            try {
+                ClientResource resource = new ClientResource(
+                        asyncResultSet,
+                        () -> asyncResultSet.closeAsync().toCompletableFuture().join());
+
+                out.packLong(resources.put(resource));
+            } catch (IgniteInternalCheckedException e) {
+                return asyncResultSet
+                        .closeAsync()
+                        .thenRun(() -> {
+                            throw new IgniteInternalException(e.getMessage(), e);
+                        });
             }
+        } else {
+            out.packNil(); // resourceId
+        }
 
-            out.packBoolean(asyncResultSet.hasRowSet());
-            out.packBoolean(asyncResultSet.hasMorePages());
-            out.packBoolean(asyncResultSet.wasApplied());
-            out.packLong(asyncResultSet.affectedRows());
+        out.packBoolean(asyncResultSet.hasRowSet());
+        out.packBoolean(asyncResultSet.hasMorePages());
+        out.packBoolean(asyncResultSet.wasApplied());
+        out.packLong(asyncResultSet.affectedRows());
 
-            // Pack metadata.
-            if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
-                out.packArrayHeader(0);
-            } else {
-                List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
-                out.packArrayHeader(cols.size());
+        // Pack metadata.
+        if (asyncResultSet.metadata() == null || asyncResultSet.metadata().columns() == null) {
+            out.packArrayHeader(0);
+        } else {
+            List<ColumnMetadata> cols = asyncResultSet.metadata().columns();
+            out.packArrayHeader(cols.size());
 
-                for (int i = 0; i < cols.size(); i++) {
-                    ColumnMetadata col = cols.get(i);
-                    out.packString(col.name());
-                    out.packBoolean(col.nullable());
+            for (int i = 0; i < cols.size(); i++) {
+                ColumnMetadata col = cols.get(i);
+                out.packString(col.name());
+                out.packBoolean(col.nullable());
 
-                    // TODO: IGNITE-17052 Implement query metadata.
-                    // Ideally we only need the type code here.
-                    out.packString(col.valueClass().getName());
-                    out.packObjectWithType(col.type());
-                }
+                // TODO: IGNITE-17052 Implement query metadata.
+                // Ideally we only need the type code here.
+                out.packString(col.valueClass().getName());
+                out.packObjectWithType(col.type());
             }
+        }
 
-            // Pack first page.
-            if (asyncResultSet.hasRowSet()) {
-                packCurrentPage(out, asyncResultSet);
-            } else {
-                return asyncResultSet.closeAsync();
-            }
+        // Pack first page.
+        if (asyncResultSet.hasRowSet()) {
+            packCurrentPage(out, asyncResultSet);
+        } else {
+            return asyncResultSet.closeAsync();
+        }
 
-            return CompletableFuture.completedFuture(null);
-        });
+        return CompletableFuture.completedFuture(null);
     }
 
     private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
