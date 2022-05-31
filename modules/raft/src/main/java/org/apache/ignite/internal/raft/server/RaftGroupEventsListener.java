@@ -42,7 +42,7 @@ public interface RaftGroupEventsListener {
      *
      * @param status with description of failure.
      */
-    void onReconfigurationError(Status status);
+    void onReconfigurationError(Status status, List<PeerId> peers, long term);
 
     /**
      * No-op raft group events listener.
@@ -58,7 +58,7 @@ public interface RaftGroupEventsListener {
 
         /** {@inheritDoc} */
         @Override
-        public void onReconfigurationError(Status status) { }
+        public void onReconfigurationError(Status status, List<PeerId> peers, long term) {}
     };
 
 }

@@ -21,12 +21,15 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -65,10 +69,12 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -106,9 +112,7 @@ public class ItRebalanceDistributedTest {
         finder = new StaticNodeFinder(nodeAddresses);
 
         for (NetworkAddress addr : nodeAddresses) {
-            Files.createDirectory(workDir.resolve("" + addr));
-
-            var node = new Node(testInfo, workDir.resolve(addr.toString()), addr);
+            var node = new Node(testInfo, workDir, addr);
 
             nodes.add(node);
 
@@ -205,6 +209,55 @@ public class ItRebalanceDistributedTest {
         assertEquals(2, getAssignments(2, 0).size());
     }
 
+    @Test
+    void testRebalanceRetryWhenCatchupFailed(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        nodes.get(0).tableManager.createTable(
+                "PUBLIC.tbl1",
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                        .changeReplicas(1)
+                        .changePartitions(1));
+
+        assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+                .tables().get("PUBLIC.TBL1").replicas().value());
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(1));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
+
+        JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
+                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.contains("_part_"))).findFirst()
+                .get().raftManager.server();
+
+        AtomicInteger counter = new AtomicInteger(0);
+
+        String partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.contains("_part_")).findFirst().get();
+
+        raftServer.blockMessages(partGrpId, (msg, node) -> {
+            if (msg instanceof RpcRequests.PingRequest) {
+                // We block ping request to prevent starting replicator, hence we fail catch up and fail rebalance.
+                assertEquals(1, getAssignments(0, 0).size());
+                assertEquals(1, getAssignments(1, 0).size());
+                assertEquals(1, getAssignments(2, 0).size());
+                return counter.incrementAndGet() <= 5;
+            }
+            return false;
+        });
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
+
+        assertEquals(3, getAssignments(0, 0).size());
+        assertEquals(3, getAssignments(1, 0).size());
+        assertEquals(3, getAssignments(2, 0).size());
+    }
+
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
         while (!IntStream.range(0, 3).allMatch(n -> getAssignments(n, partNum).size() == replicasNum)) {
             LockSupport.parkNanos(10_000_000);
@@ -262,7 +315,9 @@ public class ItRebalanceDistributedTest {
 
             name = testNodeName(testInfo, addr.port());
 
-            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
+            Path dir = workDir.resolve(name);
+
+            vaultManager = createVault(dir);
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
@@ -282,7 +337,7 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, workDir);
+            raftManager = new Loza(clusterService, dir);
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
 
@@ -332,7 +387,7 @@ public class ItRebalanceDistributedTest {
 
             dataStorageMgr = new DataStorageManager(
                     tablesCfg,
-                    dataStorageModules.createStorageEngines(clusterCfgMgr.configurationRegistry(), workDir.resolve("storage")));
+                    dataStorageModules.createStorageEngines(clusterCfgMgr.configurationRegistry(), dir.resolve("storage")));
 
             baselineMgr = new BaselineManager(
                     clusterCfgMgr,
@@ -390,4 +445,18 @@ public class ItRebalanceDistributedTest {
         }
     }
 
+    /**
+     * Starts the Vault component.
+     */
+    private static VaultManager createVault(Path workDir) {
+        Path vaultPath = workDir.resolve(Paths.get("vault"));
+
+        try {
+            Files.createDirectories(vaultPath);
+        } catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        return new VaultManager(new PersistentVaultService(vaultPath));
+    }
 }
