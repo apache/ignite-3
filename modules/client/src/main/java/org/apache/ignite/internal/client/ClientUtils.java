@@ -54,7 +54,11 @@ public class ClientUtils {
      * @return Public exception.
      */
     public static IgniteException convertException(Throwable e) {
-        // TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
+        if (e instanceof IgniteException) {
+            return (IgniteException) e;
+        }
+
+        //TODO: IGNITE-14500 Replace with public exception with an error code (or unwrap?).
         return new IgniteClientException(e.getMessage(), e);
     }
 
