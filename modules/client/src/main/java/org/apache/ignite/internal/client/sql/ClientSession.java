@@ -144,7 +144,7 @@ public class ClientSession implements Session {
                     w.out().packObjectWithType(arguments[i]);
                 }
             }
-        }, r -> new ClientAsyncResultSet(r.in()));
+        }, r -> new ClientAsyncResultSet(r.clientChannel(), r.in()));
     }
 
     /** {@inheritDoc} */

@@ -131,7 +131,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        return new ClientSql(ch);
+        return sql;
     }
 
     /** {@inheritDoc} */

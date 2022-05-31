@@ -20,8 +20,11 @@ package org.apache.ignite.internal.client.sql;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -32,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
  * Client async result set.
  */
 class ClientAsyncResultSet implements AsyncResultSet {
+    /** Channel. */
+    private final ClientChannel ch;
+
     /** Resource id. */
     private final Long resourceId;
 
@@ -48,17 +54,23 @@ class ClientAsyncResultSet implements AsyncResultSet {
     private final ResultSetMetadata metadata;
 
     /** Rows. */
-    private List<SqlRow> rows;
+    private volatile List<SqlRow> rows;
 
     /** More pages flag. */
-    private final boolean hasMorePages;
+    private volatile boolean hasMorePages;
+
+    /** Closed flag. */
+    private volatile boolean closed;
 
     /**
      * Constructor.
      *
+     * @param ch Channel.
      * @param in Unpacker.
      */
-    public ClientAsyncResultSet(ClientMessageUnpacker in) {
+    public ClientAsyncResultSet(ClientChannel ch, ClientMessageUnpacker in) {
+        this.ch = ch;
+
         resourceId = in.tryUnpackNil() ? null : in.unpackLong();
         hasRowSet = in.unpackBoolean();
         hasMorePages = in.unpackBoolean();
@@ -131,8 +143,12 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public CompletionStage<Void> closeAsync() {
-        // TODO
-        return null;
+        if (resourceId == null || closed) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null)
+                .thenRun(() -> closed = true);
     }
 
     private void requireResultSet() {
