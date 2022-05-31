@@ -59,7 +59,7 @@ public class ClusterManagementController {
     @Post
     @Operation(operationId = "init")
     @ApiResponse(responseCode = "200", description = "Cluster initialized")
-    @ApiResponse(responseCode = "409", description = "Cluster already initialized with another nodes")
+    @ApiResponse(responseCode = "409", description = "Cluster already initialized")
     @Consumes(MediaType.APPLICATION_JSON)
     public void init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
         if (log.isInfoEnabled()) {

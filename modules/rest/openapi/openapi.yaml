@@ -24,7 +24,7 @@ paths:
         "200":
           description: Cluster initialized
         "409":
-          description: Cluster already initialized with another nodes
+          description: Cluster already initialized
   /management/v1/configuration/cluster:
     get:
       tags:

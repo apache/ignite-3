@@ -91,7 +91,6 @@ public class ClusterManagementControllerTest {
         }
 
         clusterService = cluster.get(0).clusterService();
-
     }
 
     @AfterAll
