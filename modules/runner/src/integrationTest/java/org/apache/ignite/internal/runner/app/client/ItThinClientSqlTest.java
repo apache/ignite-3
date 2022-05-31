@@ -132,6 +132,14 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void testFetchNextPageThrowsWhenCursorIsClosed() {
+        // TODO:
+        // * Paging
+        // * Close
+        // * File tickets for everything else (remaining API methods, test coverage) - add to the epic
+    }
+
+    @Test
     void testInvalidSqlThrowsException() {
         CompletionException ex = assertThrows(
                 CompletionException.class,

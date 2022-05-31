@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -130,6 +131,14 @@ class ClientAsyncResultSet implements AsyncResultSet {
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
         requireResultSet();
 
+        if (closed) {
+            return CompletableFuture.failedFuture(new IgniteClientException("Cursor is closed."));
+        }
+
+        if (!hasMorePages) {
+            return CompletableFuture.failedFuture(new IgniteClientException("No more pages."));
+        }
+
         // TODO
         return null;
     }
@@ -147,8 +156,9 @@ class ClientAsyncResultSet implements AsyncResultSet {
             return CompletableFuture.completedFuture(null);
         }
 
-        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null)
-                .thenRun(() -> closed = true);
+        closed = true;
+
+        return ch.serviceAsync(ClientOp.SQL_CURSOR_CLOSE, w -> w.out().packLong(resourceId), null);
     }
 
     private void requireResultSet() {
