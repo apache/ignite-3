@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
@@ -71,7 +72,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Insert data.
         for (int i = 0; i < 10; i++) {
-            AsyncResultSet insertRes = session.executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", 1, "hello").join();
+            AsyncResultSet insertRes = session
+                    .executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "hello " + i)
+                    .join();
 
             assertFalse(insertRes.hasRowSet());
             assertFalse(insertRes.wasApplied());
@@ -80,6 +83,20 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // Query data.
+        AsyncResultSet selectRes = session.executeAsync(null, "SELECT VAL, ID, ID + 1 FROM TEST ORDER BY ID").join();
+
+        assertTrue(selectRes.hasRowSet());
+        assertFalse(selectRes.wasApplied());
+        assertEquals(-1, selectRes.affectedRows());
+        assertEquals(10, selectRes.currentPageSize());
+
+        var rows = new ArrayList<SqlRow>();
+        selectRes.currentPage().forEach(rows::add);
+
+        assertEquals(10, rows.size());
+        assertEquals("hello 1", rows.get(1).stringValue(0));
+        assertEquals(1, rows.get(1).intValue(1));
+        assertEquals(2, rows.get(1).intValue(2));
 
         // Update data.
 
@@ -87,14 +104,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
         // Delete table.
 
-        // TODO:
-        // * Paging
-        // * Close
-        // * File tickets for everything else (remaining API methods, test coverage)
     }
 
     @Test
     void testFetchNextPage() {
-        // TODO
+        // TODO:
+        // * Paging
+        // * Close
+        // * File tickets for everything else (remaining API methods, test coverage) - add to the epic
     }
 }
