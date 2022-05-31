@@ -31,6 +31,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
@@ -125,18 +126,38 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     void testFetchNextPage() {
-        // TODO:
-        // * Paging
-        // * Close
-        // * File tickets for everything else (remaining API methods, test coverage) - add to the epic
+        Session session = client().sql().createSession();
+
+        session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY)").join();
+
+        for (int i = 0; i < 10; i++) {
+            session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (1)").join();
+        }
+
+        Statement statement = client().sql().statementBuilder().pageSize(4).query("SELECT ID FROM testFetchNextPage ORDER BY ID").build();
+
+        AsyncResultSet asyncResultSet = session.executeAsync(null, statement).join();
+
+        assertEquals(4, asyncResultSet.currentPageSize());
+        assertTrue(asyncResultSet.hasMorePages());
+        assertEquals(1, asyncResultSet.currentPage().iterator().next().intValue(0));
+
+        asyncResultSet.fetchNextPage().toCompletableFuture().join();
+
+        assertEquals(4, asyncResultSet.currentPageSize());
+        assertTrue(asyncResultSet.hasMorePages());
+        assertEquals(5, asyncResultSet.currentPage().iterator().next().intValue(0));
+
+        asyncResultSet.fetchNextPage().toCompletableFuture().join();
+
+        assertEquals(2, asyncResultSet.currentPageSize());
+        assertFalse(asyncResultSet.hasMorePages());
+        assertEquals(9, asyncResultSet.currentPage().iterator().next().intValue(0));
     }
 
     @Test
     void testFetchNextPageThrowsWhenCursorIsClosed() {
         // TODO:
-        // * Paging
-        // * Close
-        // * File tickets for everything else (remaining API methods, test coverage) - add to the epic
     }
 
     @Test
