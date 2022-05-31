@@ -27,7 +27,7 @@ import org.apache.ignite.internal.configuration.rest.presentation.hocon.HoconPre
 import org.apache.ignite.internal.rest.api.RestFactory;
 
 /**
- * Factory that defines beans that needed for rest module.
+ * Factory that defines beans required for the rest module.
  */
 @Factory
 public class PresentationsFactory implements RestFactory {
