@@ -529,7 +529,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThat(capturedRequest.uri().toString(), is("http://localhost:8081/management/v1/configuration/node/"));
             assertThat(capturedRequest.method(), is("GET"));
-            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
+            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("text/plain")));
 
             assertOutputEqual("{\n"
                     + "  \"baseline\" : {\n"
@@ -560,7 +560,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThat(capturedRequest.uri().toString(), is("http://localhost:8081/management/v1/configuration/node/local.baseline"));
             assertThat(capturedRequest.method(), is("GET"));
-            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
+            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("text/plain")));
 
             assertOutputEqual("{\n"
                     + "  \"autoAdjust\" : {\n"
@@ -593,7 +593,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThat(capturedRequest.uri().toString(), is("http://localhost:8081/management/v1/configuration/node/"));
             assertThat(capturedRequest.method(), is("PATCH"));
             assertThat(requestBodyBytes(capturedRequest), is(expSentContent.getBytes(UTF_8)));
-            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
+            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("text/plain")));
 
             assertOutputEqual("Configuration was updated successfully.\n\n"
                     + "Use the " + cmd.getColorScheme().commandText("ignite config get")
@@ -627,7 +627,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
             assertThat(capturedRequest.uri().toString(), is("http://localhost:8081/management/v1/configuration/node/"));
             assertThat(capturedRequest.method(), is("PATCH"));
             assertThat(requestBodyBytes(capturedRequest), is(expSentContent.getBytes(UTF_8)));
-            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("application/json")));
+            assertThat(capturedRequest.headers().firstValue("Content-Type"), isPresentAnd(is("text/plain")));
 
             assertOutputEqual("Configuration was updated successfully.\n\n"
                     + "Use the " + cmd.getColorScheme().commandText("ignite config get")
