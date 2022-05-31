@@ -17,19 +17,18 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 import org.apache.ignite.internal.rest.configuration.exception.ConfigPathUnrecognizedException;
 import org.apache.ignite.internal.rest.configuration.exception.InvalidConfigFormatException;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Base configuration controller.
  */
 public class AbstractConfigurationController {
-    /** CompletableFuture waiting timeout. */
-    private static final int TIMEOUT_MINUTES = 1;
-
     /** Presentation of the configuration. */
     private final ConfigurationPresentation<String> cfgPresentation;
 
@@ -65,17 +64,18 @@ public class AbstractConfigurationController {
      *
      * @param updatedConfiguration the configuration to update.
      */
-    public void updateConfiguration(String updatedConfiguration) throws Throwable {
-        try {
-            cfgPresentation.update(updatedConfiguration).get(TIMEOUT_MINUTES, TimeUnit.MINUTES);
-        } catch (IllegalArgumentException | InterruptedException ex) {
-            throw new InvalidConfigFormatException(ex);
-        } catch (ExecutionException ex) {
-            Throwable cause = ex.getCause();
-            if (cause instanceof IllegalArgumentException) {
-                throw new InvalidConfigFormatException(cause);
-            }
-            throw cause;
-        }
+    public CompletableFuture<Void> updateConfiguration(String updatedConfiguration) throws Throwable {
+        return cfgPresentation.update(updatedConfiguration)
+                .exceptionally(ex -> {
+                    if (ex instanceof CompletionException) {
+                        var cause = ex.getCause();
+                        if (cause instanceof IllegalArgumentException) {
+                            throw new InvalidConfigFormatException(ex);
+                        } else if (cause instanceof ConfigurationValidationException) {
+                            throw (ConfigurationValidationException) cause;
+                        }
+                    }
+                    throw new IgniteException(ex);
+                });
     }
 }

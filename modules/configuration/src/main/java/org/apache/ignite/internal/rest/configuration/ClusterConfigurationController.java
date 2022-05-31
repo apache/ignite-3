@@ -31,6 +31,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Named;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.rest.presentation.ConfigurationPresentation;
 
 /**
@@ -88,7 +89,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     @ApiResponse(responseCode = "200", description = "Configuration updated")
     @Consumes(MediaType.TEXT_PLAIN)
     @Patch
-    public void updateConfiguration(@Body String updatedConfiguration) throws Throwable {
-        super.updateConfiguration(updatedConfiguration);
+    public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) throws Throwable {
+        return super.updateConfiguration(updatedConfiguration);
     }
 }

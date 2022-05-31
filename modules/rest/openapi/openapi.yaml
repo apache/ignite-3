@@ -52,6 +52,10 @@ paths:
       responses:
         "200":
           description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
   /management/v1/configuration/cluster/{path}:
     get:
       tags:
@@ -97,6 +101,10 @@ paths:
       responses:
         "200":
           description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Void'
   /management/v1/configuration/node/{path}:
     get:
       tags:
@@ -133,3 +141,5 @@ components:
             type: string
         clusterName:
           type: string
+    Void:
+      type: object
