@@ -30,7 +30,7 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 public class FakeIgniteSql implements IgniteSql {
     @Override
     public Session createSession() {
-        return null;
+        return sessionBuilder().build();
     }
 
     @Override
@@ -40,7 +40,7 @@ public class FakeIgniteSql implements IgniteSql {
 
     @Override
     public Statement createStatement(String query) {
-        return null;
+        return statementBuilder().build();
     }
 
     @Override
