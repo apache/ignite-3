@@ -16,7 +16,7 @@
  */
 
 /**
- * This package contains classes that implement the number of ExceptionHandlers. They wrap plain exceptions into human-readable rest
+ * This package contains classes that implement a number of ExceptionHandlers. They wrap plain exceptions into human-readable rest
  * responses.
  */
 
