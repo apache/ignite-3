@@ -66,7 +66,8 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
         VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(
                 engineConfig.defaultRegion(),
-                ioRegistry, pageSize
+                ioRegistry,
+                pageSize
         );
 
         defaultRegion.start();

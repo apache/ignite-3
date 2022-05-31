@@ -23,8 +23,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
+import org.apache.ignite.configuration.schemas.table.TablesConfiguration;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,12 +42,15 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
     /** Empty argument to invoke an example. */
     protected static final String[] EMPTY_ARGS = new String[0];
 
+    /** Started ignite instance. */
+    protected IgniteImpl ignite;
+
     /**
      * Starts a node.
      */
     @BeforeEach
-    public void startNode() {
-        CompletableFuture<Ignite> ignite = IgnitionManager.start(
+    public void startNode() throws Exception {
+        CompletableFuture<Ignite> igniteFuture = IgnitionManager.start(
                 TEST_NODE_NAME,
                 Path.of("config", "ignite-config.json"),
                 workDir,
@@ -52,7 +59,16 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
 
         IgnitionManager.init(TEST_NODE_NAME, List.of(TEST_NODE_NAME), "cluster");
 
-        assertThat(ignite, willCompleteSuccessfully());
+        assertThat(igniteFuture, willCompleteSuccessfully());
+
+        ignite = (IgniteImpl) igniteFuture.get(1, TimeUnit.MILLISECONDS);
+
+        ignite
+                .clusterConfiguration()
+                .getConfiguration(TablesConfiguration.KEY)
+                .defaultDataStorage()
+                .update(RocksDbStorageEngine.ENGINE_NAME)
+                .get(1, TimeUnit.SECONDS);
     }
 
     /**

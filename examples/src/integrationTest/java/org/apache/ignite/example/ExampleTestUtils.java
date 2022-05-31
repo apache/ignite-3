@@ -81,11 +81,14 @@ public class ExampleTestUtils {
      * Assert that console output of the example equals expected.
      *
      * @param consumer Method which output should be captured. Ordinary main of the example.
-     * @param args     Arguments.
+     * @param args Arguments.
      * @param expected Expected console output.
      */
-    public static void assertConsoleOutputContains(ExampleConsumer consumer, String[] args,
-            String... expected) throws Exception {
+    public static void assertConsoleOutputContains(
+            ExampleConsumer consumer,
+            String[] args,
+            String... expected
+    ) throws Exception {
         String captured = ExampleTestUtils.captureConsole(consumer, args);
 
         captured = captured.replaceAll("\r", "");
