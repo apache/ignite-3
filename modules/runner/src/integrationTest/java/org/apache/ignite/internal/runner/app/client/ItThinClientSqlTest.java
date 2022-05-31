@@ -45,7 +45,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
         assertFalse(resultSet.hasMorePages());
-        assertEquals(0, resultSet.affectedRows());
+        assertEquals(-1, resultSet.affectedRows());
         assertEquals(1, resultSet.currentPageSize());
 
         SqlRow row = resultSet.currentPage().iterator().next();
@@ -63,7 +63,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         Session session = client().sql().createSession();
 
         // Create table.
-        AsyncResultSet createRes = session.executeAsync(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)").join();
+        AsyncResultSet createRes = session
+                .executeAsync(null, "CREATE TABLE testExecuteAsyncDdlDml(ID INT PRIMARY KEY, VAL VARCHAR)")
+                .join();
 
         assertFalse(createRes.hasRowSet());
         assertTrue(createRes.wasApplied());
@@ -73,7 +75,7 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         // Insert data.
         for (int i = 0; i < 10; i++) {
             AsyncResultSet insertRes = session
-                    .executeAsync(null, "INSERT INTO TEST VALUES (?, ?)", i, "hello " + i)
+                    .executeAsync(null, "INSERT INTO testExecuteAsyncDdlDml VALUES (?, ?)", i, "hello " + i)
                     .join();
 
             assertFalse(insertRes.hasRowSet());
@@ -83,7 +85,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         }
 
         // Query data.
-        AsyncResultSet selectRes = session.executeAsync(null, "SELECT VAL, ID, ID + 1 FROM TEST ORDER BY ID").join();
+        AsyncResultSet selectRes = session
+                .executeAsync(null, "SELECT VAL, ID, ID + 1 FROM testExecuteAsyncDdlDml ORDER BY ID")
+                .join();
 
         assertTrue(selectRes.hasRowSet());
         assertFalse(selectRes.wasApplied());
@@ -99,14 +103,15 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, rows.get(1).intValue(2));
 
         // Update data.
-        AsyncResultSet updateRes = session.executeAsync(null, "UPDATE TEST SET VAL='upd' WHERE ID < 5").join();
+        AsyncResultSet updateRes = session
+                .executeAsync(null, "UPDATE testExecuteAsyncDdlDml SET VAL='upd' WHERE ID < 5").join();
 
         assertFalse(updateRes.wasApplied());
         assertFalse(updateRes.hasRowSet());
         assertEquals(5, updateRes.affectedRows());
 
         // Delete table.
-        AsyncResultSet deleteRes = session.executeAsync(null, "DROP TABLE TEST").join();
+        AsyncResultSet deleteRes = session.executeAsync(null, "DROP TABLE testExecuteAsyncDdlDml").join();
 
         assertFalse(deleteRes.hasRowSet());
         assertTrue(deleteRes.wasApplied());
