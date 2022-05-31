@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
@@ -47,9 +48,21 @@ public class ClientSqlCursorNextPageRequest {
         AsyncResultSet asyncResultSet = resources.get(resourceId).get(AsyncResultSet.class);
 
         return asyncResultSet.fetchNextPage()
-                .thenAccept(r -> {
+                .thenCompose(r -> {
                     packCurrentPage(out, r);
                     out.packBoolean(r.hasMorePages());
+
+                    if (!r.hasMorePages()) {
+                        try {
+                            resources.remove(resourceId);
+                        } catch (IgniteInternalCheckedException e) {
+                            throw new IgniteException(e);
+                        }
+
+                        return r.closeAsync();
+                    } else {
+                        return CompletableFuture.completedFuture(null);
+                    }
                 })
                 .toCompletableFuture();
     }

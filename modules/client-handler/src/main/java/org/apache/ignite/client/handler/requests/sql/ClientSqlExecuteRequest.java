@@ -62,8 +62,11 @@ public class ClientSqlExecuteRequest {
         return session.executeAsync(tx, statement, arguments).thenCompose(asyncResultSet -> {
             if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
                 try {
-                    long resourceId = resources.put(new ClientResource(asyncResultSet, asyncResultSet::closeAsync));
-                    out.packLong(resourceId);
+                    ClientResource resource = new ClientResource(
+                            asyncResultSet,
+                            () -> asyncResultSet.closeAsync().toCompletableFuture().join());
+
+                    out.packLong(resources.put(resource));
                 } catch (IgniteInternalCheckedException e) {
                     return asyncResultSet
                             .closeAsync()
