@@ -125,13 +125,14 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    @Disabled("IGNITE-16952")
     void testFetchNextPage() {
         Session session = client().sql().createSession();
 
-        session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY)").join();
+        session.executeAsync(null, "CREATE TABLE testFetchNextPage(ID INT PRIMARY KEY, VAL INT)").join();
 
         for (int i = 0; i < 10; i++) {
-            session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (1)").join();
+            session.executeAsync(null, "INSERT INTO testFetchNextPage VALUES (?, ?)", i, i).join();
         }
 
         Statement statement = client().sql().statementBuilder().pageSize(4).query("SELECT ID FROM testFetchNextPage ORDER BY ID").build();
@@ -153,11 +154,6 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, asyncResultSet.currentPageSize());
         assertFalse(asyncResultSet.hasMorePages());
         assertEquals(9, asyncResultSet.currentPage().iterator().next().intValue(0));
-    }
-
-    @Test
-    void testFetchNextPageThrowsWhenCursorIsClosed() {
-        // TODO:
     }
 
     @Test
