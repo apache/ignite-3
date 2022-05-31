@@ -135,7 +135,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
             return CompletableFuture.failedFuture(new IgniteClientException("Cursor is closed."));
         }
 
-        if (!hasMorePages || resourceId == null) {
+        if (!hasMorePages()) {
             return CompletableFuture.failedFuture(new IgniteClientException("No more pages."));
         }
 
@@ -153,7 +153,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return hasMorePages;
+        return resourceId != null && hasMorePages;
     }
 
     /** {@inheritDoc} */
