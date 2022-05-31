@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import org.apache.ignite.lang.IgniteLogger;
 
@@ -38,13 +37,24 @@ public class CheckpointTestUtils {
     /**
      * Returns mocked {@link CheckpointTimeoutLock}.
      *
+     * @param log Logger.
      * @param checkpointHeldByCurrentThread Result of {@link CheckpointTimeoutLock#checkpointLockIsHeldByThread()}.
      */
-    public static CheckpointTimeoutLock mockCheckpointTimeoutLock(boolean checkpointHeldByCurrentThread) {
-        CheckpointTimeoutLock checkpointTimeoutLock = mock(CheckpointTimeoutLock.class);
-
-        when(checkpointTimeoutLock.checkpointLockIsHeldByThread()).thenReturn(checkpointHeldByCurrentThread);
-
-        return checkpointTimeoutLock;
+    public static CheckpointTimeoutLock mockCheckpointTimeoutLock(IgniteLogger log, boolean checkpointHeldByCurrentThread) {
+        // Do not use "mock(CheckpointTimeoutLock.class)" because calling the CheckpointTimeoutLock.checkpointLockIsHeldByThread
+        // greatly degrades in time, which is critical for ItBPlus*Test (it increases from 2 minutes to 5 minutes).
+        return new CheckpointTimeoutLock(
+                log,
+                mock(CheckpointReadWriteLock.class),
+                Long.MAX_VALUE,
+                () -> true,
+                mock(Checkpointer.class)
+        ) {
+            /** {@inheritDoc} */
+            @Override
+            public boolean checkpointLockIsHeldByThread() {
+                return checkpointHeldByCurrentThread;
+            }
+        };
     }
 }

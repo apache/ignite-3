@@ -55,7 +55,7 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
                 },
                 (fullPageId, buf, tag) -> {
                 },
-                mockCheckpointTimeoutLock(true),
+                mockCheckpointTimeoutLock(log, true),
                 PAGE_SIZE
         );
     }

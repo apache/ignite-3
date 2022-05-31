@@ -218,7 +218,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
                 filePageStoreManager == null ? new TestPageReadWriteManager() : filePageStoreManager,
                 null,
                 (fullPageId, buf, tag) -> fail("Should not happen"),
-                checkpointManager == null ? mockCheckpointTimeoutLock(true) : checkpointManager.checkpointTimeoutLock(),
+                checkpointManager == null ? mockCheckpointTimeoutLock(log, true) : checkpointManager.checkpointTimeoutLock(),
                 PAGE_SIZE
         );
     }

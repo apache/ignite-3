@@ -105,6 +105,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -155,7 +156,9 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     private volatile CompletableFuture<?> asyncRunFut;
 
     @BeforeEach
-    protected void beforeEach() throws Exception {
+    protected void beforeEach(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, null);
+
         stop.set(false);
 
         long seed = System.nanoTime();
@@ -172,7 +175,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    protected void afterTest() throws Exception {
+    protected void afterTest(TestInfo testInfo) throws Exception {
         rnd = null;
 
         try {
@@ -211,6 +214,8 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
             RMV_INC = -1;
             CNT = 10;
         }
+
+        tearDownBase(testInfo);
     }
 
     /**
