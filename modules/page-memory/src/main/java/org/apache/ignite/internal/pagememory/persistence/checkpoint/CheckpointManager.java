@@ -92,8 +92,10 @@ public class CheckpointManager implements IgniteComponent {
     ) throws IgniteInternalCheckedException {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = checkpointConfigView.logReadLockHolders()
-                ? new ReentrantReadWriteLockWithTracking(IgniteLogger.forClass(CheckpointReadWriteLock.class), 5_000)
+        long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeout();
+
+        ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = logReadLockThresholdTimeout > 0
+                ? new ReentrantReadWriteLockWithTracking(IgniteLogger.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
                 : new ReentrantReadWriteLockWithTracking();
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
