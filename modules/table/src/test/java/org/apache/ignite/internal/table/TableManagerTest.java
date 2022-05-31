@@ -70,6 +70,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -231,20 +232,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
-        TableManager tableManager = new TableManager(
-                revisionUpdater,
-                tblsCfg,
-                rm,
-                bm,
-                ts,
-                tm,
-                dsm = createDataStorageManager(configRegistry, workDir, pageMemoryEngineConfig),
-                sm = new SchemaManager(revisionUpdater, tblsCfg)
-        );
-
-        sm.start();
-
-        tableManager.start();
+        TableManager tableManager = createTableManager(tblManagerFut);
 
         tblManagerFut.complete(tableManager);
 
@@ -612,6 +600,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         );
 
         sm.start();
+
+        //TODO: Get rid of it after IGNITE-17062.
+        sm.listen(SchemaEvent.COMPLETE, (parameters, exception) -> {
+            tableManager.onSqlSchemaReady(parameters.causalityToken());
+
+            return false;
+        });
 
         tableManager.start();
 

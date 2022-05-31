@@ -281,6 +281,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 schemaManager
         );
 
+        //TODO: Get rid of it after IGNITE-17062.
         SqlQueryProcessor queryProcessor = new SqlQueryProcessor(registry, clusterSvc, tableManager, dataStorageManager, Map::of);
 
         // Preparing the result map.
