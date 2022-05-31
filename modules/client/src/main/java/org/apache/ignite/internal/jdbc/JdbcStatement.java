@@ -725,8 +725,14 @@ public class JdbcStatement implements Statement {
         this.timeout = timeout;
     }
 
+    /**
+     * Transform {@link CompletionException} to {@link SQLException}.
+     *
+     * @param e completion exception.
+     * @return {@link SQLException} instance.
+     */
     public static SQLException toSqlException(CompletionException e) {
-        if (e.getCause() != null && e.getCause() instanceof IgniteClientException) {
+        if (e.getCause() instanceof IgniteClientException) {
             IgniteClientException cause = (IgniteClientException) e.getCause();
             String message = cause.getMessage();
 
