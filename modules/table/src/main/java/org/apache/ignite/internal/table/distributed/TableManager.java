@@ -376,6 +376,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                 try {
+                    internalTable.storage().getOrCreatePartition(partId);
+
                     futures[partId] = raftMgr.updateRaftGroup(
                             raftGroupName(tblId, partId),
                             newPartitionAssignment,
