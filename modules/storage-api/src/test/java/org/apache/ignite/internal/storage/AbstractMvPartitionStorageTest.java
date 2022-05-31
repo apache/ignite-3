@@ -148,7 +148,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvStoragesTest 
 
         // Row is valid at the time during and after writing.
         assertEquals(value, value(pk.read(rowId, txId)));
-//        assertEquals(value, value(pk.read(rowId, tsExact)));
+        assertEquals(value, value(pk.read(rowId, tsExact)));
         assertEquals(value, value(pk.read(rowId, tsAfter)));
 
         TestValue newValue = new TestValue(30, "duh");

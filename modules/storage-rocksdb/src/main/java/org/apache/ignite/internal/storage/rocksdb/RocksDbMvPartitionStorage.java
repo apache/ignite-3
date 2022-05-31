@@ -213,6 +213,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         try {
             byte[] previousValue = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
 
+            if (previousValue == null) {
+                return null;
+            }
+
             // Perform unconditional remove for the key without associated timestamp.
             db.delete(cf, writeOpts, keyBuf.array(), 0, ROW_PREFIX_SIZE);
 
@@ -233,7 +237,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // Read a value associated with pending write.
             byte[] valueBytes = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
 
-            assert valueBytes != null : "Failed to commit row " + rowId + ", value is missing";
+            if (valueBytes == null) {
+                return;
+            }
 
             // Delete pending write.
             db.delete(cf, writeOpts, keyBuf.array(), 0, ROW_PREFIX_SIZE);
