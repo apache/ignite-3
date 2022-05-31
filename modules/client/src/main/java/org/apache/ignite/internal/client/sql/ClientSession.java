@@ -157,24 +157,28 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
+        // TODO IGNITE-17059.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public int[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
+        // TODO IGNITE-17059.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        // TODO IGNITE-17059.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+        // TODO IGNITE-17059.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -195,12 +199,14 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
+        // TODO IGNITE-17060.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
+        // TODO IGNITE-17060.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
