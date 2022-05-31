@@ -83,16 +83,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
             tableManager.onSqlTableReady(token);
         });
-
-        schemasVv.whenComplete((r, v, e) -> {
-                    try {
-                        Thread.sleep(100);
-                    }
-                    catch (InterruptedException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                }
-        );
     }
 
     /** {@inheritDoc} */
