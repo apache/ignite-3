@@ -63,7 +63,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
 
         assertEquals("SCHEMA1", props.get("schema"));
-        assertEquals(123000, props.get("timeout"));
+        assertEquals(123000L, props.get("timeout"));
         assertEquals(234, props.get("pageSize"));
         assertEquals(1, props.get("prop1"));
         assertEquals(2, props.get("prop2"));

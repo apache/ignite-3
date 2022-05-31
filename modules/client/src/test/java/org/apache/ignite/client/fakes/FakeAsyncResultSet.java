@@ -22,6 +22,8 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.sql.ClientStatement;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
@@ -29,6 +31,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
@@ -66,14 +69,30 @@ public class FakeAsyncResultSet implements AsyncResultSet {
         this.statement = statement;
         this.arguments = arguments;
 
-        var row = mock(SqlRow.class);
-        Mockito.when(row.value(Mockito.anyInt())).thenReturn(1);
+        if ("SELECT PROPS".equals(statement.query())) {
+            rows = new ArrayList<>();
 
-        rows = new ArrayList<>();
-        rows.add(row);
+            rows.add(getRow("schema", statement.defaultSchema()));
+            rows.add(getRow("timeout", statement.queryTimeout(TimeUnit.MILLISECONDS)));
+            rows.add(getRow("pageSize", statement.pageSize()));
 
-        columns = new ArrayList<>();
-        columns.add(new FakeColumnMetadata("col1"));
+            var props = ((ClientStatement) statement).properties();
+
+            for (var e : props.entrySet()) {
+                rows.add(getRow(e.getKey(), e.getValue()));
+            }
+
+            columns = new ArrayList<>();
+
+            columns.add(new FakeColumnMetadata("name"));
+            columns.add(new FakeColumnMetadata("val"));
+        } else {
+            rows = new ArrayList<>();
+            rows.add(getRow(1));
+
+            columns = new ArrayList<>();
+            columns.add(new FakeColumnMetadata("col1"));
+        }
     }
 
     /** {@inheritDoc} */
@@ -138,5 +157,16 @@ public class FakeAsyncResultSet implements AsyncResultSet {
     @Override
     public CompletionStage<Void> closeAsync() {
         return null;
+    }
+
+    @NotNull
+    private SqlRow getRow(Object... vals) {
+        var row = mock(SqlRow.class);
+
+        for (int i = 0; i < vals.length; i++) {
+            Mockito.when(row.value(i)).thenReturn(vals[i]);
+        }
+
+        return row;
     }
 }

@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client SQL statement.
  */
-class ClientStatement implements Statement {
+public class ClientStatement implements Statement {
     /** Query. */
     private final String query;
 
