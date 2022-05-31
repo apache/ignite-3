@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
@@ -377,14 +378,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableCreated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
             );
 
-            return false;
+            return completedFuture(false);
         }
     }
 
@@ -397,14 +398,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableUpdated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
             );
 
-            return false;
+            return completedFuture(false);
         }
     }
 
@@ -417,14 +418,14 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         /** {@inheritDoc} */
         @Override
-        public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
+        public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
             schemaHolder.onTableDropped(
                     "PUBLIC",
                     parameters.tableName(),
                     parameters.causalityToken()
             );
 
-            return false;
+            return completedFuture(false);
         }
     }
 }

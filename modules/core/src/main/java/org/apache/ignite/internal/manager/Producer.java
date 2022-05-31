@@ -17,18 +17,25 @@
 
 package org.apache.ignite.internal.manager;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
+
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Interface which can produce its events.
  */
 public abstract class Producer<T extends Event, P extends EventParameters> {
     /** All listeners. */
-    private ConcurrentHashMap<T, ConcurrentLinkedQueue<EventListener<P>>> listeners = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<T, List<EventListener<P>>> listeners = new ConcurrentHashMap<>();
 
     /**
      * Registers an event listener. When the event predicate returns true it would never invoke after, otherwise this predicate would
@@ -38,7 +45,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param closure Closure.
      */
     public void listen(T evt, EventListener<P> closure) {
-        listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>()).offer(closure);
+        listeners.computeIfAbsent(evt, evtKey -> new CopyOnWriteArrayList<>()).add(closure);
     }
 
     /**
@@ -59,7 +66,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param cause   The exception that was a cause which a listener is removed.
      */
     public void removeListener(T evt, EventListener<P> closure, @Nullable IgniteInternalCheckedException cause) {
-        if (listeners.computeIfAbsent(evt, evtKey -> new ConcurrentLinkedQueue<>()).remove(closure)) {
+        if (listeners.computeIfAbsent(evt, evtKey -> new CopyOnWriteArrayList<>()).remove(closure)) {
             closure.remove(cause == null ? new ListenerRemovedException() : cause.getCause() == null ? cause : cause.getCause());
         }
     }
@@ -71,23 +78,30 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param params Event parameters.
      * @param err    Exception when it was happened, or {@code null} otherwise.
      */
-    protected void fireEvent(T evt, P params, Throwable err) {
-        ConcurrentLinkedQueue<EventListener<P>> queue = listeners.get(evt);
+    protected CompletableFuture<?> fireEvent(T evt, P params, Throwable err) {
+        List<EventListener<P>> eventListeners = listeners.get(evt);
 
-        if (queue == null) {
-            return;
+        if (eventListeners == null) {
+            return completedFuture(null);
         }
 
-        EventListener<P> closure;
+        Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
-        Iterator<EventListener<P>> iter = queue.iterator();
+        Iterator<EventListener<P>> iter = eventListeners.iterator();
 
         while (iter.hasNext()) {
-            closure = iter.next();
+            EventListener<P> closure = iter.next();
 
-            if (closure.notify(params, err)) {
-                iter.remove();
-            }
+            CompletableFuture<?> future = closure.notify(params, err)
+                    .thenAccept(b -> {
+                        if (b) {
+                            removeListener(evt, closure);
+                        }
+                    });
+
+            futures.add(future);
         }
+
+        return allOf(futures.toArray(new CompletableFuture[0]));
     }
 }

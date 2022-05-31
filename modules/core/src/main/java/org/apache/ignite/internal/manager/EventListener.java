@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.manager;
 
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,7 @@ public interface EventListener<P extends EventParameters> {
      * @param exception  Exception which is happened during the event produced or {@code null}.
      * @return {@code True} means that the event is handled and a listener will be removed, {@code false} is the listener will stay listen.
      */
-    boolean notify(@NotNull P parameters, @Nullable Throwable exception);
+    CompletableFuture<Boolean> notify(@NotNull P parameters, @Nullable Throwable exception);
 
     /**
      * Removes an listener from the event producer. When the listener was removed it never receive a notification any more.

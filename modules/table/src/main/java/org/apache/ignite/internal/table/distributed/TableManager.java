@@ -196,7 +196,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         this.schemaManager.listen(SchemaEvent.COMPLETE, (parameters, e) -> {
             tablesByIdVv.complete(parameters.causalityToken());
 
-            return false;
+            return completedFuture(false);
         });
     }
 
@@ -228,7 +228,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
             /** {@inheritDoc} */
-            @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
+            @Override public CompletableFuture<Boolean> notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
                 tablesByIdVv.get(parameters.causalityToken()).thenAccept(tablesById -> {
                     fireEvent(
                             TableEvent.ALTER,
@@ -236,7 +236,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     );
                 });
 
-                return false;
+                return completedFuture(false);
             }
         });
     }
@@ -1040,9 +1040,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         EventListener<TableEventParameters> clo = new EventListener<>() {
             @Override
-            public boolean notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
+            public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable e) {
                 if (!id.equals(parameters.tableId())) {
-                    return false;
+                    return completedFuture(false);
                 }
 
                 if (e == null) {
@@ -1051,7 +1051,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                     getTblFut.completeExceptionally(e);
                 }
 
-                return true;
+                return completedFuture(true);
             }
 
             @Override
