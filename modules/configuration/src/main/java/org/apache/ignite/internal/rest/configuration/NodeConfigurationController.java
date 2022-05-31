@@ -47,7 +47,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
     }
 
     /**
-     * Returns node configuration in HOCON format.
+     * Returns node configuration in HOCON format. This is represented as a plain text.
      *
      * @return the whole node configuration in HOCON format.
      */
@@ -63,7 +63,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
     }
 
     /**
-     * Returns configuration in HOCON format represented by path.
+     * Returns configuration in HOCON format represented by path. This is represented as a plain text.
      *
      * @param path to represent a node configuration.
      * @return system configuration in HOCON format represented by given path.
@@ -82,7 +82,7 @@ public class NodeConfigurationController extends AbstractConfigurationController
     /**
      * Updates node configuration in HOCON format.
      *
-     * @param updatedConfiguration the node configuration to update.
+     * @param updatedConfiguration the node configuration to update. This is represented as a plain text.
      */
     @Operation(operationId = "updateNodeConfiguration")
     @ApiResponse(responseCode = "200", description = "Configuration updated")

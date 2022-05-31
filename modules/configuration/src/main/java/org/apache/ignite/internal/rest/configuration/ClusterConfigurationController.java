@@ -47,7 +47,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     }
 
     /**
-     * Returns cluster configuration in HOCON format.
+     * Returns cluster configuration in HOCON format. This is represented as a plain text.
      *
      * @return the whole cluster configuration in HOCON format.
      */
@@ -63,7 +63,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     }
 
     /**
-     * Returns configuration in HOCON format represented by path.
+     * Returns configuration in HOCON format represented by path. This is represented as a plain text.
      *
      * @param path to represent a cluster configuration.
      * @return system configuration in HOCON format represented by given path.
@@ -80,7 +80,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     }
 
     /**
-     * Updates cluster configuration in HOCON format.
+     * Updates cluster configuration in HOCON format. This is represented as a plain text.
      *
      * @param updatedConfiguration the cluster configuration to update.
      */
