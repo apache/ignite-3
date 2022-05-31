@@ -19,8 +19,8 @@ package org.apache.ignite.internal.rest.configuration;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.HttpRequest;
@@ -95,51 +95,49 @@ public abstract class ConfigurationControllerBaseTest {
 
     @Test
     void testUnrecognizedConfigPath() {
-        try {
-            client().toBlocking().exchange("/no-such-root.some-value");
-            fail("Expected exception to be thrown");
-        } catch (HttpClientResponseException exception) {
-            exception.printStackTrace();
-            assertEquals(HttpStatus.BAD_REQUEST, exception.getResponse().status());
+        var thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client().toBlocking().exchange("/no-such-root.some-value")
+        );
 
-            var errorResult = getErrorResult(exception);
-            assertEquals("CONFIG_PATH_UNRECOGNIZED", errorResult.type());
-            assertTrue(errorResult.message().contains("no-such-root"));
-        }
+        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+
+        var errorResult = getErrorResult(thrown);
+        assertEquals("CONFIG_PATH_UNRECOGNIZED", errorResult.type());
+        assertTrue(errorResult.message().contains("no-such-root"));
     }
 
     @Test
     void testUnrecognizedConfigPathForUpdate() {
         String givenBrokenConfig = "{root:{foo:foo,subCfg:{no-such-bar:bar}}}";
-        try {
-            client().toBlocking().exchange(
-                    HttpRequest.PATCH("", givenBrokenConfig).contentType(MediaType.TEXT_PLAIN)
-            );
-            fail("Expected exception to be thrown");
-        } catch (HttpClientResponseException exception) {
-            assertEquals(HttpStatus.BAD_REQUEST, exception.getResponse().status());
 
-            var errorResult = getErrorResult(exception);
-            assertEquals("INVALID_CONFIG_FORMAT", errorResult.type());
-            assertTrue(errorResult.message().contains("no-such-bar"));
-        }
+        var thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client().toBlocking().exchange(HttpRequest.PATCH("", givenBrokenConfig).contentType(MediaType.TEXT_PLAIN))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+
+        var errorResult = getErrorResult(thrown);
+        assertEquals("INVALID_CONFIG_FORMAT", errorResult.type());
+        assertTrue(errorResult.message().contains("no-such-bar"));
+
     }
 
     @Test
     void testValidationForUpdate() {
         String givenConfigWithError = "{root:{foo:error,subCfg:{bar:bar}}}";
-        try {
-            client().toBlocking().exchange(
-                    HttpRequest.PATCH("", givenConfigWithError).contentType(MediaType.TEXT_PLAIN)
-            );
-            fail("Expected exception to be thrown");
-        } catch (HttpClientResponseException exception) {
-            assertEquals(HttpStatus.BAD_REQUEST, exception.getResponse().status());
 
-            var errorResult = getErrorResult(exception);
-            assertEquals("VALIDATION_EXCEPTION", errorResult.type());
-            assertTrue(errorResult.message().contains("Error word"));
-        }
+        var thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client().toBlocking().exchange(HttpRequest.PATCH("", givenConfigWithError).contentType(MediaType.TEXT_PLAIN))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, thrown.getResponse().status());
+
+        var errorResult = getErrorResult(thrown);
+        assertEquals("VALIDATION_EXCEPTION", errorResult.type());
+        assertTrue(errorResult.message().contains("Error word"));
     }
 
     @NotNull

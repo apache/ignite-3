@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
@@ -114,16 +115,17 @@ public class ClusterManagementControllerTest {
         // Given body with nodename that does not exist
         String givenInvalidBody = "{\"metaStorageNodes\": [\"nodename\"], \"cmgNodes\": [], \"clusterName\": \"cluster\"}";
 
-        try {
-            // When
-            client.toBlocking().exchange(HttpRequest.POST("", givenInvalidBody));
-        } catch (HttpClientResponseException e) {
-            // Then
-            assertThat(e.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
-            // And
-            var errorResult = getErrorResult(e);
-            assertEquals("INVALID_NODES", errorResult.type());
-        }
+        // When
+        var thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(HttpRequest.POST("", givenInvalidBody))
+        );
+
+        // Then
+        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
+        // And
+        var errorResult = getErrorResult(thrown);
+        assertEquals("INVALID_NODES", errorResult.type());
     }
 
     @Test
@@ -132,26 +134,30 @@ public class ClusterManagementControllerTest {
         String givenFirstRequestBody =
                 "{\"metaStorageNodes\": [\"" + cluster.get(0).clusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
                         + "\"clusterName\": \"cluster\"}";
+
         // When
         HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("", givenFirstRequestBody));
+
         // Then
         assertThat(response.getStatus(), is(equalTo((HttpStatus.OK))));
 
-        // And second request with different node name
+        // Given second request with different node name
         String givenSecondRequestBody =
                 "{\"metaStorageNodes\": [\"" + cluster.get(1).clusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
                         + "\"clusterName\": \"cluster\" }";
 
-        try {
-            // When
-            client.toBlocking().exchange(HttpRequest.POST("", givenSecondRequestBody));
-        } catch (HttpClientResponseException e) {
-            // Then
-            assertThat(e.getResponse().getStatus(), is(equalTo((HttpStatus.CONFLICT))));
-            // And
-            var errorResult = getErrorResult(e);
-            assertEquals("ALREADY_INITIALIZED", errorResult.type());
-        }
+        // When
+        var thrown = assertThrows(
+                HttpClientResponseException.class,
+                () -> client.toBlocking().exchange(HttpRequest.POST("", givenSecondRequestBody))
+        );
+
+        // Then
+        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.CONFLICT))));
+        // And
+        var errorResult = getErrorResult(thrown);
+        assertEquals("ALREADY_INITIALIZED", errorResult.type());
+
     }
 
     @Factory
