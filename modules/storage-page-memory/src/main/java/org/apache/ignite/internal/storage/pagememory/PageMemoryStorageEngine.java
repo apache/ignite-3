@@ -17,13 +17,19 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -64,27 +70,18 @@ public class PageMemoryStorageEngine implements StorageEngine {
     public void start() {
         int pageSize = engineConfig.pageSize().value();
 
-        VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(
-                engineConfig.defaultRegion(),
-                ioRegistry,
-                pageSize
-        );
+        addDataRegion(DEFAULT_DATA_REGION_NAME, engineConfig.defaultRegion(), pageSize);
 
-        defaultRegion.start();
+        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
+        engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
+            /** {@inheritDoc} */
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PageMemoryDataRegionView> ctx) {
+                addDataRegion(ctx.newValue().name(), ctx.config(PageMemoryDataRegionConfiguration.class), pageSize);
 
-        regions.put(DEFAULT_DATA_REGION_NAME, defaultRegion);
-
-        for (String regionName : engineConfig.regions().value().namedListKeys()) {
-            VolatilePageMemoryDataRegion region = new VolatilePageMemoryDataRegion(
-                    engineConfig.regions().get(regionName),
-                    ioRegistry,
-                    pageSize
-            );
-
-            region.start();
-
-            regions.put(regionName, region);
-        }
+                return completedFuture(null);
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -109,5 +106,19 @@ public class PageMemoryStorageEngine implements StorageEngine {
         VolatilePageMemoryDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
         return new VolatilePageMemoryTableStorage(tableCfg, dataRegion);
+    }
+
+    /**
+     * Creates, starts and adds a new date region to the engine.
+     *
+     * @param name Data region name.
+     * @param dataRegionConfig Data region configuration.
+     */
+    private void addDataRegion(String name, PageMemoryDataRegionConfiguration dataRegionConfig, int pageSize) {
+        VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
+
+        dataRegion.start();
+
+        regions.put(name, dataRegion);
     }
 }

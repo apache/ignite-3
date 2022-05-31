@@ -18,8 +18,9 @@
 package org.apache.ignite.example;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -94,7 +95,7 @@ public class ExampleTestUtils {
         captured = captured.replaceAll("\r", "");
 
         for (String single : expected) {
-            assertTrue(captured.contains(single));
+            assertThat(captured, containsString(single));
         }
     }
 }

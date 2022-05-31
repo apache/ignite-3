@@ -108,30 +108,30 @@ public class VolatilePageMemoryStorageExample {
             System.out.println("\nPopulating 'ACCOUNTS' table...");
 
             try (PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO ACCOUNTS (ACCOUNT_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?, ?)"
+                    "INSERT INTO ACCOUNTS (ACCOUNT_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?)"
             )) {
                 stmt.setInt(1, 1);
-                stmt.setString(3, "John");
-                stmt.setString(4, "Doe");
-                stmt.setDouble(5, 1000.0d);
+                stmt.setString(2, "John");
+                stmt.setString(3, "Doe");
+                stmt.setDouble(4, 1000.0d);
                 stmt.executeUpdate();
 
                 stmt.setInt(1, 2);
-                stmt.setString(3, "Jane");
-                stmt.setString(4, "Roe");
-                stmt.setDouble(5, 2000.0d);
+                stmt.setString(2, "Jane");
+                stmt.setString(3, "Roe");
+                stmt.setDouble(4, 2000.0d);
                 stmt.executeUpdate();
 
                 stmt.setInt(1, 3);
-                stmt.setString(3, "Mary");
-                stmt.setString(4, "Major");
-                stmt.setDouble(5, 1500.0d);
+                stmt.setString(2, "Mary");
+                stmt.setString(3, "Major");
+                stmt.setDouble(4, 1500.0d);
                 stmt.executeUpdate();
 
                 stmt.setInt(1, 4);
-                stmt.setString(3, "Richard");
-                stmt.setString(4, "Miles");
-                stmt.setDouble(5, 1450.0d);
+                stmt.setString(2, "Richard");
+                stmt.setString(3, "Miles");
+                stmt.setDouble(4, 1450.0d);
                 stmt.executeUpdate();
             }
 
@@ -144,11 +144,15 @@ public class VolatilePageMemoryStorageExample {
             System.out.println("\nAll accounts:");
 
             try (Statement stmt = conn.createStatement()) {
-                try (ResultSet rs = stmt.executeQuery("SELECT FIRST_NAME, LAST_NAME FROM ACCOUNTS")) {
+                try (ResultSet rs = stmt.executeQuery(
+                        "SELECT ACCOUNT_ID, FIRST_NAME, LAST_NAME, BALANCE FROM ACCOUNTS ORDER BY ACCOUNT_ID"
+                )) {
                     while (rs.next()) {
                         System.out.println("    "
                                 + rs.getString(1) + ", "
-                                + rs.getString(2));
+                                + rs.getString(2) + ", "
+                                + rs.getString(3) + ", "
+                                + rs.getString(4));
                     }
                 }
             }

@@ -39,10 +39,10 @@ public class ItVolatilePageMemoryStorageExampleTest extends AbstractExamplesTest
 
         assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
-                        + "    John, Doe, Forest Hill\n"
-                        + "    Jane, Roe, Forest Hill\n"
-                        + "    Mary, Major, Denver\n"
-                        + "    Richard, Miles, St. Petersburg\n"
+                        + "    1, John, Doe, 1000.0\n"
+                        + "    2, Jane, Roe, 2000.0\n"
+                        + "    3, Mary, Major, 1500.0\n"
+                        + "    4, Richard, Miles, 1450.0\n"
         );
     }
 }
