@@ -135,12 +135,19 @@ class ClientAsyncResultSet implements AsyncResultSet {
             return CompletableFuture.failedFuture(new IgniteClientException("Cursor is closed."));
         }
 
-        if (!hasMorePages) {
+        if (!hasMorePages || resourceId == null) {
             return CompletableFuture.failedFuture(new IgniteClientException("No more pages."));
         }
 
-        // TODO
-        return null;
+        return ch.serviceAsync(
+                ClientOp.SQL_CURSOR_NEXT_PAGE,
+                w -> w.out().packLong(resourceId),
+                r -> {
+                    readRows(r.in());
+                    hasMorePages = r.in().unpackBoolean();
+
+                    return this;
+                });
     }
 
     /** {@inheritDoc} */
