@@ -81,7 +81,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         calciteSchemaVv.whenComplete((token, schema, e) -> {
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
 
-            tableManager.onSqlTableReady(token);
+            tableManager.onSqlSchemaReady(token);
         });
     }
 
@@ -245,7 +245,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table,
             long causalityToken
     ) {
-        onTableUpdated(schemaName, table, causalityToken);
+        onTableCreated(schemaName, table, causalityToken);
     }
 
     /**

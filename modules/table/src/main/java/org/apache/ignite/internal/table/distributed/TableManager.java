@@ -237,11 +237,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
     /**
      * Completes all table futures.
-     * TODO: Got rid of it after IGNITE-**.
+     * TODO: Get rid of it after IGNITE-17062.
      *
      * @param causalityToken Causality token.
      */
-    public void onSqlTableReady(long causalityToken) {
+    public void onSqlSchemaReady(long causalityToken) {
         tablesByIdVv.complete(causalityToken);
     }
 
