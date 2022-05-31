@@ -99,11 +99,17 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(2, rows.get(1).intValue(2));
 
         // Update data.
+        AsyncResultSet updateRes = session.executeAsync(null, "UPDATE TEST SET VAL='upd' WHERE ID < 5").join();
 
-        // Delete data.
+        assertFalse(updateRes.wasApplied());
+        assertFalse(updateRes.hasRowSet());
+        assertEquals(5, updateRes.affectedRows());
 
         // Delete table.
+        AsyncResultSet deleteRes = session.executeAsync(null, "DROP TABLE TEST").join();
 
+        assertFalse(deleteRes.hasRowSet());
+        assertTrue(deleteRes.wasApplied());
     }
 
     @Test
@@ -112,5 +118,10 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         // * Paging
         // * Close
         // * File tickets for everything else (remaining API methods, test coverage) - add to the epic
+    }
+
+    @Test
+    void testInvalidSqlThrowsException() {
+        // TODO:
     }
 }
