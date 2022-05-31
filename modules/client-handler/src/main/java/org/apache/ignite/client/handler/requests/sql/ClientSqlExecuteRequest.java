@@ -32,8 +32,6 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
@@ -55,11 +53,10 @@ public class ClientSqlExecuteRequest {
             IgniteSql sql,
             ClientResourceRegistry resources) {
         var tx = readTx(in, resources);
-        Session session = readSession(in, sql);
         Statement statement = readStatement(in, sql);
         Object[] arguments = readArguments(in);
 
-        return session.executeAsync(tx, statement, arguments).thenCompose(asyncResultSet -> {
+        return sql.createSession().executeAsync(tx, statement, arguments).thenCompose(asyncResultSet -> {
             if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
                 try {
                     ClientResource resource = new ClientResource(
@@ -111,32 +108,6 @@ public class ClientSqlExecuteRequest {
 
             return CompletableFuture.completedFuture(null);
         });
-    }
-
-    private static Session readSession(ClientMessageUnpacker in, IgniteSql sql) {
-        SessionBuilder sessionBuilder = sql.sessionBuilder();
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultPageSize(in.unpackInt());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultSchema(in.unpackString());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        var propCount = in.unpackMapHeader();
-
-        for (int i = 0; i < propCount; i++) {
-            sessionBuilder.property(in.unpackString(), in.unpackObjectWithType());
-        }
-
-        // NOTE: Session simply tracks active queries. We don't need to store it in resources.
-        // Instead, we track active queries in the ClientSession and close them there accordingly.
-        return sessionBuilder.build();
     }
 
     private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
