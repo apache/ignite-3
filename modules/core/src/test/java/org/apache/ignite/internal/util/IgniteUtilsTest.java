@@ -20,6 +20,7 @@ package org.apache.ignite.internal.util;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
@@ -27,10 +28,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -39,12 +45,16 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
+import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite for {@link IgniteUtils}.
  */
 class IgniteUtilsTest {
+    private final IgniteLogger log = IgniteLogger.forClass(IgniteUtilsTest.class);
+
     /**
      * Tests that all resources are closed by the {@link IgniteUtils#closeAll} even if {@link AutoCloseable#close} throws an exception.
      */
@@ -173,5 +183,29 @@ class IgniteUtilsTest {
 
         assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4).slice()));
         assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4).slice()));
+    }
+
+    @Test
+    void testAwaitForWorkersStop() throws Exception {
+        IgniteWorker worker0 = mock(IgniteWorker.class);
+        IgniteWorker worker1 = mock(IgniteWorker.class);
+
+        doThrow(InterruptedException.class).when(worker1).join();
+
+        assertDoesNotThrow(() -> awaitForWorkersStop(List.of(worker0, worker1), false, log));
+
+        verify(worker0, times(0)).cancel();
+        verify(worker1, times(0)).cancel();
+
+        verify(worker0, times(1)).join();
+        verify(worker1, times(1)).join();
+
+        assertDoesNotThrow(() -> awaitForWorkersStop(List.of(worker0, worker1), true, log));
+
+        verify(worker0, times(1)).cancel();
+        verify(worker1, times(1)).cancel();
+
+        verify(worker0, times(2)).join();
+        verify(worker1, times(2)).join();
     }
 }

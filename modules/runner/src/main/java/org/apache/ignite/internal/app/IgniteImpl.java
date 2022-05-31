@@ -61,6 +61,7 @@ import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesSerializationRegistryInitializer;
@@ -134,6 +135,9 @@ public class IgniteImpl implements Ignite {
 
     /** Sql query engine. */
     private final SqlQueryProcessor qryEngine;
+
+    /** Sql API facade. */
+    private final IgniteSql sql;
 
     /** Configuration manager that handles node (local) configuration. */
     private final ConfigurationManager nodeCfgMgr;
@@ -315,6 +319,8 @@ public class IgniteImpl implements Ignite {
                 () -> dataStorageModules.collectSchemasFields(modules.distributed().polymorphicSchemaExtensions())
         );
 
+        sql = new IgniteSqlImpl(qryEngine);
+
         compute = new IgniteComputeImpl(clusterSvc.topologyService(), distributedTblMgr, computeComponent);
 
         clientHandlerModule = new ClientHandlerModule(
@@ -324,7 +330,8 @@ public class IgniteImpl implements Ignite {
                 nodeCfgMgr.configurationRegistry(),
                 compute,
                 clusterSvc,
-                nettyBootstrapFactory
+                nettyBootstrapFactory,
+                sql
         );
 
         new ConfigurationHttpHandlers(nodeCfgMgr, clusterCfgMgr).registerHandlers(restComponent);
@@ -507,7 +514,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return sql;
     }
 
     /** {@inheritDoc} */

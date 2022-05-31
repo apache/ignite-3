@@ -58,7 +58,7 @@ public interface AsyncResultSet {
      * @return Number of rows affected by the query, or {@code 0} if statement return nothing, or {@code -1} if inapplicable.
      * @see ResultSet#affectedRows()
      */
-    int affectedRows();
+    long affectedRows();
 
     /**
      * Returns whether the query that produce this result was a conditional query, or not. E.g. for the query "Create table if not exists"
@@ -66,7 +66,7 @@ public interface AsyncResultSet {
      * table was already existed.
      *
      * <p>Note: when returns {@code false}, then either {@link #affectedRows()} return number of affected rows or {@link #hasRowSet()}
-     * returns {@code true}.
+     * returns {@code true} or conditional DDL query is not applied.
      *
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      * @see ResultSet#wasApplied()
@@ -82,6 +82,14 @@ public interface AsyncResultSet {
     Iterable<SqlRow> currentPage();
 
     /**
+     * Returns the current page size if the query return rows.
+     *
+     * @return The size of {@link #currentPage()}.
+     * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     */
+    int currentPageSize();
+
+    /**
      * Fetch the next page of results asynchronously.
      *
      * @return Operation future.
@@ -95,4 +103,11 @@ public interface AsyncResultSet {
      * @return {@code True} if there are more pages with results, {@code false} otherwise.
      */
     boolean hasMorePages();
+
+    /**
+     * Invalidates query result, stops the query and cleanups query resources.
+     *
+     * @return Operation future.
+     */
+    CompletionStage<Void> closeAsync();
 }
