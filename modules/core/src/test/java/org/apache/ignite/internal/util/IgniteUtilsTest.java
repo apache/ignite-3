@@ -17,21 +17,44 @@
 
 package org.apache.ignite.internal.util;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.apache.ignite.internal.util.IgniteUtils.getUninterruptibly;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
+import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
+import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test suite for {@link IgniteUtils}.
  */
 class IgniteUtilsTest {
+    private final IgniteLogger log = IgniteLogger.forClass(IgniteUtilsTest.class);
+
     /**
      * Tests that all resources are closed by the {@link IgniteUtils#closeAll} even if {@link AutoCloseable#close} throws an exception.
      */
@@ -60,6 +83,8 @@ class IgniteUtilsTest {
 
     @Test
     public void testIsPow2() {
+        // Checks int value.
+
         assertTrue(isPow2(1));
         assertTrue(isPow2(2));
         assertTrue(isPow2(4));
@@ -78,5 +103,109 @@ class IgniteUtilsTest {
         assertFalse(isPow2(6));
         assertFalse(isPow2(7));
         assertFalse(isPow2(9));
+
+        // Checks long value.
+
+        assertTrue(isPow2(1L));
+        assertTrue(isPow2(2L));
+        assertTrue(isPow2(4L));
+        assertTrue(isPow2(8L));
+        assertTrue(isPow2(16L));
+        assertTrue(isPow2(16L * 16L));
+        assertTrue(isPow2(32L * 32L));
+
+        assertFalse(isPow2(-4L));
+        assertFalse(isPow2(-3L));
+        assertFalse(isPow2(-2L));
+        assertFalse(isPow2(-1L));
+        assertFalse(isPow2(0L));
+        assertFalse(isPow2(3L));
+        assertFalse(isPow2(5L));
+        assertFalse(isPow2(6L));
+        assertFalse(isPow2(7L));
+        assertFalse(isPow2(9L));
+    }
+
+    @Test
+    void testGetUninterruptibly() throws Exception {
+        assertThat(getUninterruptibly(completedFuture(true)), equalTo(true));
+        assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
+
+        ExecutionException exception0 = assertThrows(
+                ExecutionException.class,
+                () -> getUninterruptibly(failedFuture(new Exception("test")))
+        );
+
+        assertThat(exception0.getCause(), instanceOf(Exception.class));
+        assertThat(exception0.getCause().getMessage(), equalTo("test"));
+        assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
+
+        CompletableFuture<?> canceledFuture = new CompletableFuture<>();
+        canceledFuture.cancel(false);
+
+        assertThrows(CancellationException.class, () -> getUninterruptibly(canceledFuture));
+        assertThat(Thread.currentThread().isInterrupted(), equalTo(false));
+
+        // Checks interrupt.
+
+        runAsync(() -> {
+            try {
+                Thread.currentThread().interrupt();
+
+                getUninterruptibly(completedFuture(null));
+
+                assertThat(Thread.currentThread().isInterrupted(), equalTo(true));
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }).get(1, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void testToHexStringByteBuffer() {
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+
+        assertEquals("00000000ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).rewind()));
+        assertEquals("00000000aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).rewind()));
+
+        assertEquals("", toHexString(buffer.rewind().putLong(0xffffaaaaL)));
+        assertEquals("", toHexString(buffer.rewind().putLong(0xaaaabbbbL)));
+
+        assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4)));
+        assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4)));
+
+        assertEquals("00001111", toHexString(buffer.rewind().limit(8).putLong(0x1111ffffaaaaL).rewind().limit(4)));
+        assertEquals("00002222", toHexString(buffer.rewind().limit(8).putLong(0x2222aaaabbbbL).rewind().limit(4)));
+
+        buffer.rewind().limit(8);
+
+        // Checks slice.
+
+        assertEquals("ffffaaaa", toHexString(buffer.rewind().putLong(0xffffaaaaL).position(4).slice()));
+        assertEquals("aaaabbbb", toHexString(buffer.rewind().putLong(0xaaaabbbbL).position(4).slice()));
+    }
+
+    @Test
+    void testAwaitForWorkersStop() throws Exception {
+        IgniteWorker worker0 = mock(IgniteWorker.class);
+        IgniteWorker worker1 = mock(IgniteWorker.class);
+
+        doThrow(InterruptedException.class).when(worker1).join();
+
+        assertDoesNotThrow(() -> awaitForWorkersStop(List.of(worker0, worker1), false, log));
+
+        verify(worker0, times(0)).cancel();
+        verify(worker1, times(0)).cancel();
+
+        verify(worker0, times(1)).join();
+        verify(worker1, times(1)).join();
+
+        assertDoesNotThrow(() -> awaitForWorkersStop(List.of(worker0, worker1), true, log));
+
+        verify(worker0, times(1)).cancel();
+        verify(worker1, times(1)).cancel();
+
+        verify(worker0, times(2)).join();
+        verify(worker1, times(2)).join();
     }
 }

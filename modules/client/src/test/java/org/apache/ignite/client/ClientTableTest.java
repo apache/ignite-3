@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,7 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.client.fakes.FakeSchemaRegistry;
+import org.apache.ignite.internal.client.proto.ClientErrorCode;
 import org.apache.ignite.table.RecordView;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -379,5 +383,18 @@ public class ClientTableTest extends AbstractClientTableTest {
         var ex = assertThrows(IgniteClientException.class, () -> defaultTable().recordView().upsert(null, tuple));
 
         assertTrue(ex.getMessage().contains("Incorrect value type for column 'ID': Expected Integer, but got String"), ex.getMessage());
+    }
+
+    @Test
+    public void testGetFromDroppedTableThrowsException() {
+        server.tables().createTable("drop-me", null);
+        Table clientTable = client.tables().table("drop-me");
+        server.tables().dropTable("drop-me");
+
+        Tuple tuple = Tuple.create().set("id", 1);
+        var ex = assertThrows(IgniteClientException.class, () -> clientTable.recordView().get(null, tuple));
+
+        assertThat(ex.getMessage(), startsWith("Table does not exist: "));
+        assertEquals(ClientErrorCode.TABLE_ID_DOES_NOT_EXIST, ex.errorCode());
     }
 }

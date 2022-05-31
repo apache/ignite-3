@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.schema;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,8 +31,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
@@ -88,8 +91,7 @@ public class SqlSchemaManagerTest {
 
         schemaManager = new SqlSchemaManagerImpl(
                 tableManager,
-                testRevisionRegister,
-                () -> {}
+                testRevisionRegister
         );
 
         testRevisionRegister.moveForward();
@@ -228,18 +230,17 @@ public class SqlSchemaManagerTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
+    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
         AtomicLong token = new AtomicLong(-1);
 
-
         /** Revision consumer. */
-        private Consumer<Long> moveRevision;
+        private Function<Long, CompletableFuture<?>> moveRevision;
 
         /**
          * Moves forward token.
          */
         void moveForward() {
-            moveRevision.accept(token.incrementAndGet());
+            moveRevision.apply(token.incrementAndGet()).join();
         }
 
         /**
@@ -253,11 +254,16 @@ public class SqlSchemaManagerTest {
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Consumer<Long> consumer) {
+        public void accept(Function<Long, CompletableFuture<?>> function) {
             if (moveRevision == null) {
-                moveRevision = consumer;
+                moveRevision = function;
             } else {
-                moveRevision = moveRevision.andThen(consumer);
+                Function<Long, CompletableFuture<?>> old = moveRevision;
+
+                moveRevision = rev -> allOf(
+                    old.apply(rev),
+                    function.apply(rev)
+                );
             }
         }
     }

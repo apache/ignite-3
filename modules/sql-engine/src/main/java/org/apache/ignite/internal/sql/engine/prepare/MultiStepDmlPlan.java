@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+
 /**
  * Distributed dml plan.
  */
@@ -25,7 +27,7 @@ public class MultiStepDmlPlan extends AbstractMultiStepPlan {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public MultiStepDmlPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
+    public MultiStepDmlPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
         super(queryTemplate, meta);
     }
 

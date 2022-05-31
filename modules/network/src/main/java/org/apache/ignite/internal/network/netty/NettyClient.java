@@ -21,7 +21,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.stream.ChunkedWriteHandler;
 import java.net.SocketAddress;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -110,15 +109,7 @@ public class NettyClient {
                 public void initChannel(SocketChannel ch) {
                     var sessionSerializationService = new PerSessionSerializationService(serializationService);
 
-                    ch.pipeline().addLast(
-                            new InboundDecoder(sessionSerializationService),
-                            new HandshakeHandler(handshakeManager,
-                                    (consistentId) -> new MessageHandler(messageListener, consistentId, sessionSerializationService)
-                            ),
-                            new ChunkedWriteHandler(),
-                            new OutboundEncoder(sessionSerializationService),
-                            new IoExceptionSuppressingHandler()
-                    );
+                    PipelineUtils.setup(ch.pipeline(), sessionSerializationService, handshakeManager, messageListener);
                 }
             });
 

@@ -25,20 +25,22 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlCloseRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlColumnMetadataRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteBatchRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlFetchRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlPreparedStmntBatchRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlPrimaryKeyMetadataRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlSchemasMetadataRequest;
-import org.apache.ignite.client.handler.requests.sql.ClientSqlTableMetadataRequest;
-import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCloseRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcColumnMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteBatchRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcExecuteRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcFetchRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPreparedStmntBatchRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcPrimaryKeyMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
+import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableIdDoesNotExistException;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleDeleteAllExactRequest;
@@ -59,7 +61,6 @@ import org.apache.ignite.client.handler.requests.table.ClientTupleUpsertRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
-import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.schemas.clientconnector.ClientConnectorView;
 import org.apache.ignite.internal.client.proto.ClientErrorCode;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ServerMessageType;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -140,7 +142,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
         this.compute = compute;
         this.clusterService = clusterService;
 
-        this.jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
+        jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
 
     /** {@inheritDoc} */
@@ -248,7 +250,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             packer.packInt(ServerMessageType.RESPONSE);
             packer.packLong(requestId);
-            packer.packInt(ClientErrorCode.FAILED);
+
+            var errorCode = err instanceof ClientTableIdDoesNotExistException
+                    ? ClientErrorCode.TABLE_ID_DOES_NOT_EXIST
+                    : ClientErrorCode.FAILED;
+
+            packer.packInt(errorCode);
 
             String msg = err.getMessage();
 
@@ -375,35 +382,35 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
 
-            case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.execute(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_EXEC:
+                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_EXEC_BATCH:
+                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_PS_BATCH:
-                return ClientSqlPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_NEXT:
-                return ClientSqlFetchRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_NEXT:
+                return ClientJdbcFetchRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_CURSOR_CLOSE:
-                return ClientSqlCloseRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_CURSOR_CLOSE:
+                return ClientJdbcCloseRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_TABLE_META:
-                return ClientSqlTableMetadataRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_TABLE_META:
+                return ClientJdbcTableMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_COLUMN_META:
-                return ClientSqlColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_COLUMN_META:
+                return ClientJdbcColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_SCHEMAS_META:
-                return ClientSqlSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_SCHEMAS_META:
+                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_PK_META:
-                return ClientSqlPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_PK_META:
+                return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
-            case ClientOp.SQL_QUERY_META:
-                return ClientSqlQueryMetadataRequest.process(in, out, jdbcQueryEventHandler);
+            case ClientOp.JDBC_QUERY_META:
+                return ClientJdbcQueryMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(out, igniteTransactions, resources);
@@ -416,6 +423,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService);
+
+            case ClientOp.COMPUTE_EXECUTE_COLOCATED:
+                return ClientComputeExecuteColocatedRequest.process(in, out, compute, igniteTables);
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);

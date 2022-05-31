@@ -123,6 +123,7 @@
             --add-opens java.base/java.lang.reflect=ALL-UNNAMED
             --add-opens java.base/java.io=ALL-UNNAMED
             --add-opens java.base/java.nio=ALL-UNNAMED
+            --add-opens java.base/java.math=ALL-UNNAMED
             --add-opens java.base/java.util=ALL-UNNAMED
             --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
             -Dio.netty.tryReflectionSetAccessible=true
@@ -364,6 +365,18 @@
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-marshaller-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-extended-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-file-io</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1319,6 +1332,7 @@
                         <exclude>docs/_plugins/asciidoctor-extensions.rb</exclude> <!-- MIT license -->
                         <exclude>docs/_sass/rouge-base16-solarized.scss</exclude> <!-- MIT license. -->
                         <exclude>**/*.json</exclude> <!-- Files in JSON format -->
+                        <exclude>**/*.drawio</exclude> <!-- Draw.IO diagrams -->
                         <exclude>modules/cli/src/**/resources//builtin_modules.conf</exclude> <!-- CLI configuration files -->
                         <exclude>**/*.iml</exclude> <!-- IntelliJ IDEA project files -->
                         <exclude>modules/bytecode/src/main/java/com/facebook/presto/bytecode/ClassInfo.java</exclude> <!-- MIT license. -->

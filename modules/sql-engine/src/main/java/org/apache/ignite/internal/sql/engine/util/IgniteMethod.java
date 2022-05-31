@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import java.lang.reflect.Method;
+import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
+import org.apache.calcite.sql.SqlIntervalQualifier;
+import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.BiScalar;
@@ -58,7 +61,19 @@ public enum IgniteMethod {
     SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
 
     /** See {@link FragmentMappingMetadata#fragmentMapping(MappingQueryContext)}. */
-    FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class);
+    FRAGMENT_MAPPING(FragmentMappingMetadata.class, "fragmentMapping", MappingQueryContext.class),
+
+    /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
+    PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
+
+    /** See {@link SqlParserUtil#intervalToMillis(String, SqlIntervalQualifier)}. */
+    PARSE_INTERVAL_DAY_TIME(SqlParserUtil.class, "intervalToMillis", String.class, SqlIntervalQualifier.class),
+
+    /** See {@link IgniteSqlFunctions#toString(ByteString)}. */
+    BYTESTRING_TO_STRING(IgniteSqlFunctions.class, "toString", ByteString.class),
+
+    /** See {@link IgniteSqlFunctions#toByteString(String)}. */
+    STRING_TO_BYTESTRING(IgniteSqlFunctions.class, "toByteString", String.class);
 
     private final Method method;
 

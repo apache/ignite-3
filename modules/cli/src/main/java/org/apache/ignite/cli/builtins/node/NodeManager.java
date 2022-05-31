@@ -119,6 +119,7 @@ public class NodeManager {
             addAddOpens(cmdArgs, "java.base/java.lang.reflect=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/java.io=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/java.nio=ALL-UNNAMED");
+            addAddOpens(cmdArgs, "java.base/java.math=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/java.util=ALL-UNNAMED");
             addAddOpens(cmdArgs, "java.base/jdk.internal.misc=ALL-UNNAMED");
 

@@ -49,7 +49,8 @@ public class ExplainPlan implements QueryPlan {
         return this;
     }
 
-    public ResultSetMetadata metadata() {
+    /** {@inheritDoc} */
+    @Override public ResultSetMetadata metadata() {
         return meta;
     }
 

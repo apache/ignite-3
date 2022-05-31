@@ -29,4 +29,7 @@ public class ClientErrorCode {
 
     /** Authentication or authorization failure. */
     public static final int AUTH_FAILED = 2;
+
+    /** Table id does not exist. */
+    public static final int TABLE_ID_DOES_NOT_EXIST = 3;
 }

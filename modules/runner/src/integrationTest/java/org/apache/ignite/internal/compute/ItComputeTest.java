@@ -52,6 +52,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for Compute functionality.
  */
+@SuppressWarnings("resource")
 class ItComputeTest extends AbstractClusterIntegrationTest {
     @Test
     void executesJobLocally() throws Exception {
@@ -278,9 +279,9 @@ class ItComputeTest extends AbstractClusterIntegrationTest {
         assertThat(actualNodeName, in(allNodeNames()));
     }
 
-    private List<List<?>> executeSql(String sql, Object... args) {
+    private List<List<Object>> executeSql(String sql, Object... args) {
         return getAllFromCursor(
-                node(0).queryEngine().query("PUBLIC", sql, args).get(0)
+                node(0).queryEngine().queryAsync("PUBLIC", sql, args).get(0).join()
         );
     }
 

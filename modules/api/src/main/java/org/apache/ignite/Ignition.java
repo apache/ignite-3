@@ -32,19 +32,25 @@ public interface Ignition {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
-     * @param name Name of the node. Must not be {@code null}.
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
      * @param configPath Path to the node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String name, @Nullable Path configPath, Path workDir);
+    CompletableFuture<Ignite> start(String nodeName, @Nullable Path configPath, Path workDir);
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file, with an optional class loader for further usage by
      * {@link java.util.ServiceLoader}.
      *
-     * @param name Name of the node. Must not be {@code null}.
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
      * @param configPath Path to the node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or {@code
@@ -52,23 +58,34 @@ public interface Ignition {
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String name, @Nullable Path configPath, Path workDir, @Nullable ClassLoader serviceLoaderClassLoader);
+    CompletableFuture<Ignite> start(
+            String nodeName,
+            @Nullable Path configPath,
+            Path workDir,
+            @Nullable ClassLoader serviceLoaderClassLoader
+    );
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a URL linking to HOCON configs.
      *
-     * @param name Name of the node. Must not be {@code null}.
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
      * @param cfgUrl URL linking to the node configuration in the HOCON format. Can be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String name, @Nullable URL cfgUrl, Path workDir);
+    CompletableFuture<Ignite> start(String nodeName, @Nullable URL cfgUrl, Path workDir);
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
-     * @param name Name of the node. Must not be {@code null}.
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
      * @param config Optional node configuration based on
      *      {@link org.apache.ignite.configuration.schemas.network.NetworkConfigurationSchema}.
      *      Following rules are used for applying the configuration properties:
@@ -89,26 +106,28 @@ public interface Ignition {
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String name, @Nullable InputStream config, Path workDir);
+    CompletableFuture<Ignite> start(String nodeName, @Nullable InputStream config, Path workDir);
 
     /**
      * Starts an Ignite node with the default configuration.
      *
-     * @param name Name of the node. Must not be {@code null}.
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
      *         complete.
      */
-    CompletableFuture<Ignite> start(String name, Path workDir);
+    CompletableFuture<Ignite> start(String nodeName, Path workDir);
 
     /**
      * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
      * effect if node with specified name doesn't exist.
      *
-     * @param name Node name to stop.
-     * @throws IllegalArgumentException if null is specified instead of node name.
+     * @param nodeName Node name to stop.
      */
-    void stop(String name);
+    void stop(String nodeName);
 
     /**
      * Initializes the cluster that the given node is present in.
@@ -123,12 +142,13 @@ public interface Ignition {
      * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
      * validating incoming nodes and maintaining the logical topology.
      *
-     * @param name name of the node that the initialization request will be sent to.
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage <b>and</b> the CMG.
+     * @param nodeName Name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage <b>and</b> the CMG.
+     * @param clusterName Human-readable name of the cluster.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(String name, Collection<String> metaStorageNodeNames);
+    void init(String nodeName, Collection<String> metaStorageNodeNames, String clusterName);
 
     /**
      * Initializes the cluster that the given node is present in.
@@ -143,11 +163,12 @@ public interface Ignition {
      * <p>Cluster Management Group (a.k.a. CMG) is a Raft group responsible for managing parts of the cluster lifecycle, such as
      * validating incoming nodes and maintaining the logical topology.
      *
-     * @param name name of the node that the initialization request will be sent to.
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames names of nodes that will host the CMG.
+     * @param nodeName Name of the node that the initialization request will be sent to.
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the CMG.
+     * @param clusterName Human-readable name of the cluster.
      * @throws IgniteException If the given node has not been started or has been stopped.
      * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-77%3A+Node+Join+Protocol+and+Initialization+for+Ignite+3">IEP-77</a>
      */
-    void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames);
+    void init(String nodeName, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames, String clusterName);
 }

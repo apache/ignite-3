@@ -45,6 +45,7 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -61,6 +62,11 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     protected PageMemoryDataRegionConfiguration dataRegionCfg;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+    }
 
     @Test
     public void testPageTearingInner() throws Exception {
@@ -302,12 +308,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     protected PageMemory memory() throws Exception {
-        dataRegionCfg.change(cfg ->
-                cfg.changePageSize(PAGE_SIZE)
-                        .changeInitSize(MAX_MEMORY_SIZE)
-                        .changeMaxSize(MAX_MEMORY_SIZE)
-        ).get(1, SECONDS);
-
         DirectMemoryProvider provider = new UnsafeMemoryProvider(null);
 
         PageIoRegistry ioRegistry = new PageIoRegistry();
@@ -315,9 +315,10 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-            provider,
-            dataRegionCfg,
-            ioRegistry
+                provider,
+                dataRegionCfg,
+                ioRegistry,
+                PAGE_SIZE
         );
     }
 

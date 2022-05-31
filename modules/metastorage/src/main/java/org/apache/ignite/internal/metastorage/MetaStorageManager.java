@@ -92,8 +92,10 @@ public class MetaStorageManager implements IgniteComponent {
     /** Raft manager that is used for metastorage raft group handling. */
     private final Loza raftMgr;
 
+    private final ClusterManagementGroupManager cmgMgr;
+
     /** Meta storage service. */
-    private final CompletableFuture<MetaStorageService> metaStorageSvcFut;
+    private volatile CompletableFuture<MetaStorageService> metaStorageSvcFut;
 
     /**
      * Aggregator of multiple watches to deploy them as one batch.
@@ -144,30 +146,15 @@ public class MetaStorageManager implements IgniteComponent {
     public MetaStorageManager(
             VaultManager vaultMgr,
             ClusterService clusterService,
-            ClusterManagementGroupManager cmgManager,
+            ClusterManagementGroupManager cmgMgr,
             Loza raftMgr,
             KeyValueStorage storage
     ) {
         this.vaultMgr = vaultMgr;
         this.clusterService = clusterService;
         this.raftMgr = raftMgr;
+        this.cmgMgr = cmgMgr;
         this.storage = storage;
-
-        this.metaStorageSvcFut = cmgManager.metaStorageNodes()
-                // use default executor to avoid blocking CMG manager threads
-                .thenComposeAsync(metaStorageNodes -> {
-                    if (!busyLock.enterBusy()) {
-                        return CompletableFuture.failedFuture(new NodeStoppingException());
-                    }
-
-                    try {
-                        isInitialized = true;
-
-                        return initializeMetaStorage(metaStorageNodes);
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
     }
 
     private CompletableFuture<MetaStorageService> initializeMetaStorage(Collection<String> metaStorageNodes) {
@@ -202,7 +189,21 @@ public class MetaStorageManager implements IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        // NO-OP
+        this.metaStorageSvcFut = cmgMgr.metaStorageNodes()
+                // use default executor to avoid blocking CMG manager threads
+                .thenComposeAsync(metaStorageNodes -> {
+                    if (!busyLock.enterBusy()) {
+                        return CompletableFuture.failedFuture(new NodeStoppingException());
+                    }
+
+                    try {
+                        isInitialized = true;
+
+                        return initializeMetaStorage(metaStorageNodes);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                });
     }
 
     /** {@inheritDoc} */

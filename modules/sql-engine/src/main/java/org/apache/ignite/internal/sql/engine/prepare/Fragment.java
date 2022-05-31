@@ -161,7 +161,7 @@ public class Fragment {
 
     @NotNull
     private Supplier<List<String>> nodesSource(MappingService mappingSrvc, MappingQueryContext ctx) {
-        return () -> mappingSrvc.executionNodes(ctx.topologyVersion(), single(), null);
+        return () -> mappingSrvc.executionNodes(single(), null);
     }
 
     private boolean single() {

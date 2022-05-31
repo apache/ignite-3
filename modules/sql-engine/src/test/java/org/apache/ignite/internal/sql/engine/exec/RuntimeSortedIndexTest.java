@@ -113,7 +113,6 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         UUID.randomUUID(),
                         "fake-test-node",
                         "fake-test-node",
-                        0,
                         null,
                         ArrayRowHandler.INSTANCE,
                         Map.of()

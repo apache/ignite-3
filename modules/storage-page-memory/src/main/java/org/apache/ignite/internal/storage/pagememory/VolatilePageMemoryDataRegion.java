@@ -33,9 +33,9 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Implementation of {@link PageMemoryDataRegion} for in-memory case.
+ * Implementation of {@link AbstractPageMemoryDataRegion} for in-memory case.
  */
-class VolatilePageMemoryDataRegion extends PageMemoryDataRegion {
+class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     private TableFreeList freeList;
 
     /**
@@ -43,9 +43,15 @@ class VolatilePageMemoryDataRegion extends PageMemoryDataRegion {
      *
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
+     * @param pageSize Page size in bytes.
      */
-    public VolatilePageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry) {
-        super(cfg, ioRegistry);
+    public VolatilePageMemoryDataRegion(
+            PageMemoryDataRegionConfiguration cfg,
+            PageIoRegistry ioRegistry,
+            // TODO: IGNITE-17017 Move to common config
+            int pageSize
+    ) {
+        super(cfg, ioRegistry, pageSize);
     }
 
     /** {@inheritDoc} */
@@ -55,7 +61,12 @@ class VolatilePageMemoryDataRegion extends PageMemoryDataRegion {
 
         assert cfg.memoryAllocator() instanceof UnsafeMemoryAllocatorConfiguration : cfg.memoryAllocator();
 
-        PageMemory pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry);
+        PageMemory pageMemory = new PageMemoryNoStoreImpl(
+                new UnsafeMemoryProvider(null),
+                cfg,
+                ioRegistry,
+                pageSize
+        );
 
         pageMemory.start();
 

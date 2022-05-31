@@ -81,10 +81,10 @@ public final class CollectionUtils {
      * Gets first element from given list or returns {@code null} if list is empty.
      *
      * @param list List to retrieve the first element.
-     * @param <T>  Type of the elements of the list.
+     * @param <T> Type of the elements of the list.
      * @return The first element of the given list or {@code null} in case the list is empty.
      */
-    public static <T> T first(List<? extends T> list) {
+    public static <T> @Nullable T first(List<? extends T> list) {
         if (nullOrEmpty(list)) {
             return null;
         }
@@ -96,15 +96,36 @@ public final class CollectionUtils {
      * Gets first element from given collection or returns {@code null} if collection is empty.
      *
      * @param col Collection to retrieve the first element.
-     * @param <T>  Type of the elements of the collection.
+     * @param <T> Type of the elements of the collection.
      * @return The first element of the given collection or {@code null} in case the collection is empty.
      */
-    public static <T> T first(Collection<? extends T> col) {
+    public static <T> @Nullable T first(Collection<? extends T> col) {
         if (nullOrEmpty(col)) {
             return null;
         }
 
         return col.iterator().next();
+    }
+
+    /**
+     * Returns first element from the given iterable or returns {@code null} if the list is empty.
+     *
+     * @param iterable Iterable to retrieve the first element.
+     * @param <T> Type of the elements of the list.
+     * @return The first element of the given iterable or {@code null} in case the iterable is null or empty.
+     */
+    public static <T> @Nullable T first(Iterable<? extends T> iterable) {
+        if (iterable == null) {
+            return null;
+        }
+
+        Iterator<? extends T> it = iterable.iterator();
+
+        if (!it.hasNext()) {
+            return null;
+        }
+
+        return it.next();
     }
 
     /**
@@ -146,9 +167,6 @@ public final class CollectionUtils {
         }
 
         return new AbstractCollection<>() {
-            /** Total size of the collections. */
-            int size = -1;
-
             /** {@inheritDoc} */
             @Override
             public Iterator<T> iterator() {
@@ -158,17 +176,26 @@ public final class CollectionUtils {
             /** {@inheritDoc} */
             @Override
             public int size() {
-                if (size == -1) {
-                    int s = 0;
+                int size = 0;
 
-                    for (Collection<T> collection : collections) {
-                        s += collection.size();
-                    }
+                for (int i = 0; i < collections.length; i++) {
+                    size += collections[i].size();
 
-                    size = s;
                 }
 
                 return size;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public boolean contains(Object o) {
+                for (int i = 0; i < collections.length; i++) {
+                    if (collections[i].contains(o)) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         };
     }

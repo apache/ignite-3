@@ -17,63 +17,65 @@
 
 package org.apache.ignite.client.handler;
 
-import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNKNOWN;
-import static org.apache.ignite.client.proto.query.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNKNOWN;
+import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.apache.ignite.client.handler.requests.sql.JdbcMetadataCatalog;
-import org.apache.ignite.client.handler.requests.sql.JdbcQueryCursor;
-import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.JdbcStatementType;
-import org.apache.ignite.client.proto.query.event.BatchExecuteRequest;
-import org.apache.ignite.client.proto.query.event.BatchExecuteResult;
-import org.apache.ignite.client.proto.query.event.BatchPreparedStmntRequest;
-import org.apache.ignite.client.proto.query.event.JdbcColumnMeta;
-import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsRequest;
-import org.apache.ignite.client.proto.query.event.JdbcMetaColumnsResult;
-import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysRequest;
-import org.apache.ignite.client.proto.query.event.JdbcMetaPrimaryKeysResult;
-import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasRequest;
-import org.apache.ignite.client.proto.query.event.JdbcMetaSchemasResult;
-import org.apache.ignite.client.proto.query.event.JdbcMetaTablesRequest;
-import org.apache.ignite.client.proto.query.event.JdbcMetaTablesResult;
-import org.apache.ignite.client.proto.query.event.JdbcQueryMetadataRequest;
-import org.apache.ignite.client.proto.query.event.QueryCloseRequest;
-import org.apache.ignite.client.proto.query.event.QueryCloseResult;
-import org.apache.ignite.client.proto.query.event.QueryExecuteRequest;
-import org.apache.ignite.client.proto.query.event.QueryExecuteResult;
-import org.apache.ignite.client.proto.query.event.QueryFetchRequest;
-import org.apache.ignite.client.proto.query.event.QueryFetchResult;
-import org.apache.ignite.client.proto.query.event.QuerySingleResult;
-import org.apache.ignite.client.proto.query.event.Response;
+import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
+import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.BatchExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.BatchPreparedStmntRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaColumnsResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaPrimaryKeysResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryMetadataRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryCloseRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryCloseResult;
+import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryExecuteResult;
+import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
+import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
+import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.schema.NativeTypes;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryValidator;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** Current JDBC cursors. */
-    private final ConcurrentHashMap<Long, SqlCursor<List<?>>> openCursors = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, AsyncSqlCursor<List<Object>>> openCursors = new ConcurrentHashMap<>();
 
     /** Cursor Id generator. */
     private final AtomicLong cursorIdGenerator = new AtomicLong();
@@ -103,43 +105,38 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
         }
 
-        List<SqlCursor<List<?>>> cursors;
-        try {
-            QueryContext context = createQueryContext(req.getStmtType());
+        QueryContext context = createQueryContext(req.getStmtType());
 
-            List<SqlCursor<List<?>>> queryCursors = processor.query(context, req.schemaName(), req.sqlQuery(),
-                    req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments());
-
-            cursors = queryCursors.stream()
-                    .map(cursor -> new JdbcQueryCursor<>(req.maxRows(), cursor))
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            StringWriter sw = getWriterWithStackTrace(e);
-
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Exception while executing query " + req.sqlQuery() + ". Error message: " + sw));
+        var results = new ArrayList<CompletableFuture<QuerySingleResult>>();
+        for (var cursorFut : processor.queryAsync(context, req.schemaName(), req.sqlQuery(),
+                req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments())) {
+            results.add(
+                    cursorFut.thenApply(cursor -> new JdbcQueryCursor<>(req.maxRows(), cursor))
+                            .thenCompose(cursor -> createJdbcResult(cursor, req))
+            );
         }
 
-        if (cursors.isEmpty()) {
+        if (results.isEmpty()) {
             return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
                     "At least one cursor is expected for query " + req.sqlQuery()));
         }
 
-        List<QuerySingleResult> results = new ArrayList<>();
+        return CompletableFuture.allOf(results.toArray(new CompletableFuture[0])).thenApply(none -> {
+            var actualResults = results.stream().map(CompletableFuture::join).collect(Collectors.toList());
 
-        try {
-            for (SqlCursor<List<?>> cur : cursors) {
-                QuerySingleResult res = createJdbcResult(cur, req);
-                results.add(res);
-            }
-        } catch (Exception ex) {
-            StringWriter sw = getWriterWithStackTrace(ex);
+            return new QueryExecuteResult(actualResults);
+        }).exceptionally(t -> {
+            results.stream()
+                    .filter(fut -> !fut.isCompletedExceptionally())
+                    .map(CompletableFuture::join)
+                    .map(res -> openCursors.get(res.cursorId()))
+                    .forEach(AsyncSqlCursor::closeAsync);
 
-            return CompletableFuture.completedFuture(new QueryExecuteResult(Response.STATUS_FAILED,
-                    "Failed to fetch results for query " + req.sqlQuery() + ". Error message: " + sw));
-        }
+            StringWriter sw = getWriterWithStackTrace(t);
 
-        return CompletableFuture.completedFuture(new QueryExecuteResult(results));
+            return new QueryExecuteResult(Response.STATUS_FAILED,
+                    "Exception while executing query " + req.sqlQuery() + ". Error message: " + sw);
+        });
     }
 
     private QueryContext createQueryContext(JdbcStatementType stmtType) {
@@ -166,7 +163,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryFetchResult> fetchAsync(QueryFetchRequest req) {
-        Cursor<List<?>> cur = openCursors.get(req.cursorId());
+        var cur = openCursors.get(req.cursorId());
 
         if (cur == null) {
             return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
@@ -178,20 +175,16 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Invalid fetch size : [fetchSize=" + req.pageSize() + ']'));
         }
 
-        List<List<Object>> fetch;
-        boolean hasNext;
+        return cur.requestNextAsync(req.pageSize()).handle((batch, t) -> {
+            if (t != null) {
+                StringWriter sw = getWriterWithStackTrace(t);
 
-        try {
-            fetch = fetchNext(req.pageSize(), cur);
-            hasNext = cur.hasNext();
-        } catch (Exception ex) {
-            StringWriter sw = getWriterWithStackTrace(ex);
+                return new QueryFetchResult(Response.STATUS_FAILED,
+                        "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + sw);
+            }
 
-            return CompletableFuture.completedFuture(new QueryFetchResult(Response.STATUS_FAILED,
-                    "Failed to fetch results for cursor id " + req.cursorId() + ". Error message: " + sw));
-        }
-
-        return CompletableFuture.completedFuture(new QueryFetchResult(fetch, hasNext));
+            return new QueryFetchResult(batch.items(), batch.hasMore());
+        }).toCompletableFuture();
     }
 
     /** {@inheritDoc} */
@@ -199,48 +192,66 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     public CompletableFuture<BatchExecuteResult> batchAsync(BatchExecuteRequest req) {
         List<String> queries = req.queries();
 
-        IntList res = new IntArrayList(queries.size());
-
-        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+        var counters = new IntArrayList(req.queries().size());
+        var tail = CompletableFuture.completedFuture(counters);
 
         for (String query : queries) {
-            try {
-                executeAndCollectUpdateCount(context, req.schemaName(), query, OBJECT_EMPTY_ARRAY, res);
-            } catch (Exception e) {
-                return handleBatchException(e, query, res);
-            }
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(req.schemaName(), query, OBJECT_EMPTY_ARRAY)
+                    .thenApply(cnt -> {
+                        list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+
+                        return list;
+                    }));
         }
 
-        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+        return tail.handle((ignored, t) -> {
+            if (t != null) {
+                return handleBatchException(t, queries.get(counters.size()), counters.toIntArray());
+            }
+
+            return new BatchExecuteResult(counters.toIntArray());
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchExecuteResult> batchPrepStatementAsync(BatchPreparedStmntRequest req) {
-        IntList res = new IntArrayList(req.getArgs().size());
+        var argList = req.getArgs();
 
-        QueryContext context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+        var counters = new IntArrayList(req.getArgs().size());
+        var tail = CompletableFuture.completedFuture(counters);
 
-        try {
-            for (Object[] arg : req.getArgs()) {
-                executeAndCollectUpdateCount(context, req.schemaName(), req.getQuery(), arg, res);
+        for (Object[] args : argList) {
+            tail = tail.thenCompose(list -> executeAndCollectUpdateCount(req.schemaName(), req.getQuery(), args)
+                    .thenApply(cnt -> {
+                        list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+
+                        return list;
+                    }));
+        }
+
+        return tail.handle((ignored, t) -> {
+            if (t != null) {
+                return handleBatchException(t, req.getQuery(), counters.toIntArray());
             }
-        } catch (Exception e) {
-            return handleBatchException(e, req.getQuery(), res);
-        }
 
-        return CompletableFuture.completedFuture(new BatchExecuteResult(res.toIntArray()));
+            return new BatchExecuteResult(counters.toIntArray());
+        });
     }
 
-    private void executeAndCollectUpdateCount(QueryContext context, String schema, String sql, Object[] arg, IntList res) {
-        List<SqlCursor<List<?>>> cursors = processor.query(context, schema, sql, arg);
-        for (SqlCursor<List<?>> cursor : cursors) {
-            long updatedRows = (long) cursor.next().get(0);
-            res.add((int) updatedRows);
+    private CompletableFuture<Long> executeAndCollectUpdateCount(String schema, String sql, Object[] arg) {
+        var context = createQueryContext(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+
+        var cursors = processor.queryAsync(context, schema, sql, arg);
+
+        if (cursors.size() != 1) {
+            return CompletableFuture.failedFuture(new IgniteInternalException("Multi statement queries are not supported in batching"));
         }
+
+        return cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1).thenApply(batch -> (Long) batch.items().get(0).get(0)));
     }
 
-    private CompletableFuture<BatchExecuteResult> handleBatchException(Exception e, String query, IntList res) {
+    private BatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
         StringWriter sw = getWriterWithStackTrace(e);
 
         String error;
@@ -251,37 +262,35 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             error = sw.toString();
         }
 
-        return CompletableFuture.completedFuture(
-                new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, res.toIntArray())
-        );
+        return new BatchExecuteResult(Response.STATUS_FAILED, UNKNOWN, error, counters);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<QueryCloseResult> closeAsync(QueryCloseRequest req) {
-        Cursor<List<?>> cur = openCursors.remove(req.cursorId());
+        var cur = openCursors.remove(req.cursorId());
 
         if (cur == null) {
             return CompletableFuture.completedFuture(new QueryCloseResult(Response.STATUS_FAILED,
                     "Failed to find query cursor with ID: " + req.cursorId()));
         }
 
-        try {
-            cur.close();
-        } catch (Exception ex) {
-            StringWriter sw = getWriterWithStackTrace(ex);
+        return cur.closeAsync().handle((none, t) -> {
+            if (t != null) {
+                StringWriter sw = getWriterWithStackTrace(t);
 
-            return CompletableFuture.completedFuture(new QueryCloseResult(Response.STATUS_FAILED,
-                    "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw));
-        }
+                return new QueryCloseResult(Response.STATUS_FAILED,
+                        "Failed to close SQL query [curId=" + req.cursorId() + "]. Error message: " + sw);
+            }
 
-        return CompletableFuture.completedFuture(new QueryCloseResult());
+            return new QueryCloseResult();
+        });
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<JdbcMetaColumnsResult> queryMetadataAsync(JdbcQueryMetadataRequest req) {
-        SqlCursor<List<?>> cur = openCursors.get(req.cursorId());
+        AsyncSqlCursor<?> cur = openCursors.get(req.cursorId());
 
         if (cur == null) {
             return CompletableFuture.completedFuture(new JdbcMetaColumnsResult(Response.STATUS_FAILED,
@@ -354,14 +363,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     /**
      * Serializes the stack trace of given exception for further sending to the client.
      *
-     * @param ex Exception.
+     * @param t Throwable.
      * @return StringWriter filled with exception.
      */
-    private StringWriter getWriterWithStackTrace(Exception ex) {
+    private StringWriter getWriterWithStackTrace(Throwable t) {
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
 
-        ex.printStackTrace(pw);
+        t.printStackTrace(pw);
         return sw;
     }
 
@@ -372,70 +381,50 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param req Execution request.
      * @return JdbcQuerySingleResult filled with first batch of data.
      */
-    private QuerySingleResult createJdbcResult(SqlCursor<List<?>> cur, QueryExecuteRequest req) {
+    private CompletionStage<QuerySingleResult> createJdbcResult(AsyncSqlCursor<List<Object>> cur, QueryExecuteRequest req) {
         long cursorId = cursorIdGenerator.getAndIncrement();
 
         openCursors.put(cursorId, cur);
 
-        List<List<Object>> fetch = fetchNext(req.pageSize(), cur);
-        boolean hasNext = cur.hasNext();
+        return cur.requestNextAsync(req.pageSize()).thenApply(batch -> {
+            boolean hasNext = batch.hasMore();
 
-        switch (cur.queryType()) {
-            case EXPLAIN:
-            case QUERY:
-                return new QuerySingleResult(cursorId, fetch, !hasNext);
-            case DML:
-                if (!validateDmlResult(fetch, hasNext)) {
-                    return new QuerySingleResult(Response.STATUS_FAILED,
-                            "Unexpected result for DML query [" + req.sqlQuery() + "].");
-                }
+            switch (cur.queryType()) {
+                case EXPLAIN:
+                case QUERY:
+                    return new QuerySingleResult(cursorId, batch.items(), !hasNext);
+                case DML:
+                    if (!validateDmlResult(cur.metadata(), hasNext)) {
+                        return new QuerySingleResult(Response.STATUS_FAILED,
+                                "Unexpected result for DML query [" + req.sqlQuery() + "].");
+                    }
 
-                return new QuerySingleResult(cursorId, (Long) fetch.get(0).get(0));
-            case DDL:
-                return new QuerySingleResult(cursorId, 0);
-            default:
-                return new QuerySingleResult(UNSUPPORTED_OPERATION,
-                        "Query type [" + cur.queryType() + "] is not supported yet.");
-        }
+                    return new QuerySingleResult(cursorId, (Long) batch.items().get(0).get(0));
+                case DDL:
+                    return new QuerySingleResult(cursorId, 0);
+                default:
+                    return new QuerySingleResult(UNSUPPORTED_OPERATION,
+                            "Query type [" + cur.queryType() + "] is not supported yet.");
+            }
+        });
     }
 
     /**
      * Validate dml result. Check if it stores only one value of Long type.
      *
-     * @param fetch Fetched data from cursor.
+     * @param meta Fetched data from cursor.
      * @param next  HasNext flag.
      * @return Boolean value indicates if data is valid or not.
      */
-    private boolean validateDmlResult(List<List<Object>> fetch, boolean next) {
+    private boolean validateDmlResult(ResultSetMetadata meta, boolean next) {
         if (next) {
             return false;
         }
 
-        if (fetch.size() != 1) {
+        if (meta.fields().size() != 1) {
             return false;
         }
 
-        if (fetch.get(0).size() != 1) {
-            return false;
-        }
-
-        return fetch.get(0).get(0) instanceof Long;
-    }
-
-    /**
-     * Fetch next batch of data.
-     *
-     * @param size   Batch size.
-     * @param cursor Sql cursor.
-     * @return Array of given size with data.
-     */
-    private List<List<Object>> fetchNext(int size, Cursor<List<?>> cursor) {
-        List<List<Object>> fetch = new ArrayList<>(size);
-        for (int i = 0; i < size; i++) {
-            if (cursor.hasNext()) {
-                fetch.add((List<Object>) cursor.next());
-            }
-        }
-        return fetch;
+        return meta.fields().get(0).type() == NativeTypes.INT64;
     }
 }

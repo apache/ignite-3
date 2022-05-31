@@ -19,6 +19,7 @@ package org.apache.ignite.internal.cluster.management;
 
 import static io.netty.handler.codec.http.HttpHeaderValues.APPLICATION_JSON;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.network.util.ClusterServiceUtils.resolveNodes;
@@ -27,25 +28,32 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalState;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandlerFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.ClusterStateMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessageGroup;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
-import org.apache.ignite.internal.cluster.management.raft.ClusterState;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftGroupListener;
 import org.apache.ignite.internal.cluster.management.raft.CmgRaftService;
+import org.apache.ignite.internal.cluster.management.raft.IllegalInitArgumentException;
+import org.apache.ignite.internal.cluster.management.raft.JoinDeniedException;
+import org.apache.ignite.internal.cluster.management.raft.commands.JoinReadyCommand;
 import org.apache.ignite.internal.cluster.management.rest.InitCommandHandler;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.rest.RestComponent;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -57,7 +65,9 @@ import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NetworkMessage;
 import org.apache.ignite.network.TopologyEventHandler;
+import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Ignite component responsible for cluster initialization and managing the Cluster Management Raft Group.
@@ -70,7 +80,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     // TODO: timeout should be configurable, see https://issues.apache.org/jira/browse/IGNITE-16785
     private static final int NETWORK_INVOKE_TIMEOUT = 500;
 
-    private static final IgniteLogger log = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
 
     /** CMG Raft group name. */
     private static final String CMG_RAFT_GROUP_NAME = "cmg_raft_group";
@@ -91,14 +101,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /** Lock for the {@code raftService} field. */
     private final Object raftServiceLock = new Object();
 
-    /** Future that resolves into a list of node names that host the Meta Storage. */
-    private final CompletableFuture<Collection<String>> metaStorageNodes = new CompletableFuture<>();
+    /**
+     * Future that resolves after the node has been validated on the CMG leader.
+     */
+    private final CompletableFuture<Void> joinFuture = new CompletableFuture<>();
 
     /** Message factory. */
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
 
     /** Delayed executor. */
-    private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService scheduledExecutor =
+            Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("cmg-manager"));
 
     private final ClusterService clusterService;
 
@@ -133,22 +146,27 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
-     * @param cmgNodeNames names of nodes that will host the Cluster Management Group.
+     * @param metaStorageNodeNames Names of nodes that will host the Meta Storage.
+     * @param cmgNodeNames Names of nodes that will host the Cluster Management Group.
+     * @param clusterName Human-readable name of the cluster.
      */
-    public void initCluster(Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) throws NodeStoppingException {
+    public void initCluster(
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames).get();
+            clusterInitializer.initCluster(metaStorageNodeNames, cmgNodeNames, clusterName).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
             throw new InitException("Interrupted while initializing the cluster", e);
         } catch (ExecutionException e) {
-            throw new InitException("Unable to initialize the cluster", e.getCause());
+            throw new InitException("Unable to initialize the cluster: " + e.getCause().getMessage(), e.getCause());
         } finally {
             busyLock.leaveBusy();
         }
@@ -156,9 +174,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
     @Override
     public void start() {
+        synchronized (raftServiceLock) {
+            raftService = recoverLocalState();
+        }
+
         var messageHandlerFactory = new CmgMessageHandlerFactory(busyLock, msgFactory, clusterService);
 
-        // register the ClusterState handler first, because local state recovery might send such messages
         clusterService.messagingService().addMessageHandler(
                 CmgMessageGroup.class,
                 messageHandlerFactory.wrapHandler((message, senderAddr, correlationId) -> {
@@ -166,19 +187,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                         assert correlationId != null;
 
                         handleClusterState((ClusterStateMessage) message, senderAddr, correlationId);
-                    }
-                })
-        );
-
-        synchronized (raftServiceLock) {
-            raftService = recoverLocalState();
-        }
-
-        // register the Init handler second in order to handle the command differently, depending on the local state
-        clusterService.messagingService().addMessageHandler(
-                CmgMessageGroup.class,
-                messageHandlerFactory.wrapHandler((message, senderAddr, correlationId) -> {
-                    if (message instanceof CancelInitMessage) {
+                    } else if (message instanceof CancelInitMessage) {
                         handleCancelInit((CancelInitMessage) message);
                     } else if (message instanceof CmgInitMessage) {
                         assert correlationId != null;
@@ -196,14 +205,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     /**
      * Extracts the local state (if any) and starts the CMG.
      *
-     * @return Future that resolves into the CMG Raft service or {@code null} if the local state is empty.
+     * @return Future, that resolves into the CMG Raft service, or {@code null} if the local state is empty.
      */
     @Nullable
     private CompletableFuture<CmgRaftService> recoverLocalState() {
-        Collection<String> cmgNodes;
+        LocalState localState;
 
         try {
-            cmgNodes = localStateStorage.cmgNodeNames().get();
+            localState = localStateStorage.getLocalState().get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
 
@@ -212,25 +221,33 @@ public class ClusterManagementGroupManager implements IgniteComponent {
             throw new IgniteInternalException("Error while retrieving local CMG state", e);
         }
 
-        if (cmgNodes.isEmpty()) {
+        if (localState == null) {
             return null;
         }
 
-        log.info("Local CMG state recovered, starting the CMG");
+        LOG.info("Local CMG state recovered, starting the CMG");
 
-        return startCmgRaftService(cmgNodes)
-                .thenCompose(service -> service.isCurrentNodeLeader()
+        return startCmgRaftService(localState.cmgNodeNames())
+                .thenCompose(service -> joinCluster(service, localState.clusterTag())
+                        .thenCompose(v -> service.isCurrentNodeLeader())
                         .thenCompose(isLeader -> {
-                            if (isLeader) {
-                                return service.readClusterState()
-                                        // Raft state might not have been initialized in case of leader failure during cluster init
-                                        // TODO: properly handle this case, see https://issues.apache.org/jira/browse/IGNITE-16819
-                                        .thenCompose(state -> state == null ? completedFuture(null) : onLeaderElected(service, state));
-                            } else {
-                                return completedFuture(null);
+                            if (!isLeader) {
+                                return completedFuture(service);
                             }
+
+                            return service.readClusterState()
+                                    .thenCompose(state -> {
+                                        if (state == null) {
+                                            // Raft state might not have been initialized in case of leader failure during cluster init
+                                            // TODO: properly handle this case, see https://issues.apache.org/jira/browse/IGNITE-16819
+
+                                            return failedFuture(new IllegalStateException("Cluster state is empty"));
+                                        } else {
+                                            return onLeaderElected(service, state);
+                                        }
+                                    });
                         })
-                        .thenApply(v -> service));
+                );
     }
 
     /**
@@ -250,90 +267,78 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * </ol>
      */
     private void handleInit(CmgInitMessage msg, NetworkAddress addr, long correlationId) {
-        var newState = new ClusterState(msg.cmgNodes(), msg.metaStorageNodes());
-
-        // This future is needed to add a completion listener at the end of the method
-        CompletableFuture<?> resultHook;
-
         synchronized (raftServiceLock) {
             if (raftService == null) {
                 // Raft service has not been started
-                log.info("Init command received, starting the CMG: " + newState);
+                LOG.info("Init command received, starting the CMG: {}", msg);
 
-                raftService = initCmgRaftService(newState);
-
-                resultHook = raftService;
+                raftService = startCmgRaftService(msg.cmgNodes());
             } else {
-                // Raft service has been started, which means that this node has already received an init command at least once, but
-                // we still need to check that the initialization has completed successfully.
-                log.info("Init command received, but the CMG has already been started");
-
-                resultHook = raftService.thenCompose(service ->
-                        service.readClusterState()
-                                .thenCompose(state -> {
-                                    if (state == null) {
-                                        // Raft state is empty, perform re-initialization
-                                        log.info("CMG state is missing, completing initialization");
-
-                                        if (service.nodeNames().equals(newState.cmgNodes())) {
-                                            return service.isCurrentNodeLeader()
-                                                    .thenCompose(isCurrentNodeLeader ->
-                                                            isCurrentNodeLeader ? initCmgState(service, newState) : completedFuture(null));
-                                        } else {
-                                            throw new IllegalInitArgumentException(String.format(
-                                                    "CMG has already been initialized with %s, but the new state is different: %s",
-                                                    service.nodeNames(), newState.cmgNodes()
-                                            ));
-                                        }
-                                    } else {
-                                        // Node is fully initialized, just check some invariants
-                                        log.info("Node has already been initialized");
-
-                                        if (state.equals(newState)) {
-                                            return completedFuture(null);
-                                        } else {
-                                            throw new IllegalInitArgumentException(String.format(
-                                                    "CMG has already been initialized with %s, but the new state is different: %s",
-                                                    state, newState
-                                            ));
-                                        }
-                                    }
-                                }));
+                // Raft service has been started, which means that this node has already received an init command at least once.
+                LOG.info("Init command received, but the CMG has already been started");
             }
+
+            // Every node, that receives the init command, tries to initialize the CMG state. Raft listener will correctly
+            // handle this case by applying only the first attempt and returning the actual cluster state for all other
+            // attempts.
+            raftService = raftService.thenCompose(service -> doInit(service, msg, addr, correlationId)
+                    .handle((state, e) -> {
+                        if (e != null) {
+                            // Init failed, error response has been delivered to the user.
+                            return completedFuture(service);
+                        }
+
+                        var localState = new LocalState(state.cmgNodes(), state.clusterTag());
+
+                        return localStateStorage.saveLocalState(localState)
+                                .thenCompose(v -> joinCluster(service, state.clusterTag()))
+                                .thenCompose(v -> service.isCurrentNodeLeader()
+                                        .thenCompose(isLeader -> {
+                                            if (isLeader) {
+                                                return onLeaderElected(service, state);
+                                            } else {
+                                                return completedFuture(service);
+                                            }
+                                        }));
+                    })
+                    .thenCompose(Function.identity())
+            );
         }
-
-        resultHook.whenComplete((v, e) -> {
-            NetworkMessage response;
-
-            if (e == null) {
-                response = msgFactory.initCompleteMessage().build();
-            } else {
-                response = msgFactory.initErrorMessage()
-                        .cause(e.getMessage())
-                        .shouldCancel(!(e instanceof IllegalInitArgumentException))
-                        .build();
-            }
-
-            clusterService.messagingService().respond(addr, response, correlationId);
-        });
     }
 
-    /**
-     * Starts the CMG Raft service and writes the given {@code state} to the storage.
-     */
-    private CompletableFuture<CmgRaftService> initCmgRaftService(ClusterState state) {
-        return localStateStorage.putCmgNodeNames(state.cmgNodes())
-                .thenCompose(v -> startCmgRaftService(state.cmgNodes()))
-                .thenCompose(service -> service.isCurrentNodeLeader()
-                        .thenCompose(isLeader -> isLeader ? initCmgState(service, state) : completedFuture(null))
-                        .thenApply(v -> service));
+    private CompletableFuture<ClusterState> doInit(CmgRaftService service, CmgInitMessage msg, NetworkAddress addr, long correlationId) {
+        return service.initClusterState(clusterState(msg))
+                .whenComplete((state, e) -> {
+                    NetworkMessage response;
+
+                    if (e == null) {
+                        LOG.info("CMG initialized successfully");
+
+                        response = msgFactory.initCompleteMessage().build();
+                    } else {
+                        if (e instanceof CompletionException) {
+                            e = e.getCause();
+                        }
+
+                        LOG.error("Error when initializing the CMG: {}", e, e.getMessage());
+
+                        response = msgFactory.initErrorMessage()
+                                .cause(e.getMessage())
+                                .shouldCancel(!(e instanceof IllegalInitArgumentException))
+                                .build();
+                    }
+
+                    clusterService.messagingService().respond(addr, response, correlationId);
+                });
     }
 
-    /**
-     * Writes the given state to the CMG's STM and executes some necessary on-leader logic.
-     */
-    private CompletableFuture<Void> initCmgState(CmgRaftService service, ClusterState state) {
-        return service.writeClusterState(state).thenCompose(v -> onLeaderElected(service, state));
+    private static ClusterState clusterState(CmgInitMessage msg) {
+        return new ClusterState(
+                msg.cmgNodes(),
+                msg.metaStorageNodes(),
+                IgniteProductVersion.CURRENT_VERSION,
+                new ClusterTag(msg.clusterName())
+        );
     }
 
     /**
@@ -343,13 +348,27 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      *     <li>Broadcasts the current CMG state to all nodes in the physical topology.</li>
      * </ol>
      */
-    private CompletableFuture<Void> onLeaderElected(CmgRaftService service, ClusterState state) {
-        return updateLogicalTopology(service)
-                .thenRun(() -> {
-                    // TODO: remove listeners if leadership is lost, see https://issues.apache.org/jira/browse/IGNITE-16842
-                    clusterService.topologyService().addEventHandler(cmgLeaderTopologyEventHandler(service));
+    private CompletableFuture<CmgRaftService> onLeaderElected(CmgRaftService service, ClusterState state) {
+        LOG.info("CMG leader has been elected, executing onLeaderElected callback");
 
-                    sendClusterState(state, clusterService.topologyService().allMembers());
+        return updateLogicalTopology(service)
+                .thenApply(v -> service)
+                .whenComplete((s, e) -> {
+                    if (e == null) {
+                        LOG.info("onLeaderElected callback executed successfully");
+
+                        // Register a listener to send ClusterState messages to new nodes.
+                        TopologyService topologyService = clusterService.topologyService();
+
+                        // TODO: remove listeners if leadership is lost, see https://issues.apache.org/jira/browse/IGNITE-16842
+                        topologyService.addEventHandler(cmgLeaderTopologyEventHandler(s));
+
+                        // Send the ClusterStateMessage to all members of the physical topology. We do not wait for the send operation
+                        // to being unable to send ClusterState messages should not fail the CMG service startup.
+                        sendClusterState(state, clusterService.topologyService().allMembers());
+                    } else {
+                        LOG.error("Error when executing onLeaderElected callback: {}", e, e.getMessage());
+                    }
                 });
     }
 
@@ -360,8 +379,8 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      */
     private CompletableFuture<Void> updateLogicalTopology(CmgRaftService service) {
         return service.logicalTopology()
-                .thenAccept(logicalTopology -> {
-                    Collection<String> physicalTopologyIds = clusterService.topologyService().allMembers()
+                .thenCompose(logicalTopology -> {
+                    Set<String> physicalTopologyIds = clusterService.topologyService().allMembers()
                             .stream()
                             .map(ClusterNode::id)
                             .collect(toSet());
@@ -370,12 +389,12 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                             .filter(node -> !physicalTopologyIds.contains(node.id()))
                             .collect(toUnmodifiableSet());
 
-                    service.removeFromCluster(nodesToRemove);
+                    return nodesToRemove.isEmpty() ? completedFuture(null) : service.removeFromCluster(nodesToRemove);
                 });
     }
 
     private void handleCancelInit(CancelInitMessage msg) {
-        log.info("CMG initialization cancelled, reason: " + msg.reason());
+        LOG.info("CMG initialization cancelled, reason: " + msg.reason());
 
         destroyCmg();
     }
@@ -411,34 +430,64 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     private void handleClusterState(ClusterStateMessage msg, NetworkAddress addr, long correlationId) {
         clusterService.messagingService().respond(addr, msgFactory.successResponseMessage().build(), correlationId);
 
-        var state = new ClusterState(msg.cmgNodes(), msg.metaStorageNodes());
+        ClusterState state = msg.clusterState();
 
         synchronized (raftServiceLock) {
             if (raftService == null) {
+                LOG.info("ClusterStateMessage received, starting the CMG on {}", state.cmgNodes());
+
                 raftService = initCmgRaftService(state);
             } else {
                 // Raft service might have been started on wrong CMG nodes, because CMG state can change while a node is offline. In this
                 // case we need to re-create the service.
-                raftService = raftService.thenCompose(service -> {
-                    if (service.nodeNames().equals(state.cmgNodes())) {
-                        return completedFuture(service);
+                raftService = raftService
+                        .handle((service, e) -> {
+                            if (service != null && service.nodeNames().equals(state.cmgNodes())) {
+                                LOG.debug("ClusterStateMessage received, but the CMG service is already started");
+
+                                return completedFuture(service);
+                            }
+
+                            if (service == null) {
+                                // Service could not be started for some reason, which might be due to starting on incorrect CMG nodes
+                                assert e != null;
+
+                                if (e instanceof CompletionException) {
+                                    e = e.getCause();
+                                }
+
+                                // Nothing can be done if the node has not passed validation.
+                                if (e instanceof JoinDeniedException) {
+                                    return CompletableFuture.<CmgRaftService>failedFuture(e);
+                                }
+
+                                LOG.warn("CMG service could not be started on previous attempts: {}. "
+                                        + "Re-creating the CMG Raft service", e, e.getMessage());
+                            } else {
+                                LOG.warn("CMG has been started on {}, but the cluster state is different: {}. "
+                                        + "Re-creating the CMG Raft service", service.nodeNames(), state.cmgNodes());
+
+                                destroyCmg();
+                            }
+
+                            return initCmgRaftService(state);
+                        })
+                        .thenCompose(Function.identity());
+            }
+        }
+    }
+
+    private CompletableFuture<Void> joinCluster(CmgRaftService service, ClusterTag clusterTag) {
+        return service.startJoinCluster(clusterTag)
+                .whenComplete((v, e) -> {
+                    if (e == null) {
+                        LOG.info("Successfully joined the cluster \"{}\"", clusterTag.clusterName());
+
+                        joinFuture.complete(null);
                     } else {
-                        if (log.isInfoEnabled()) {
-                            log.info("CMG has been started on {}, but the cluster state is different: {}. "
-                                    + "Re-creating the CMG Raft service", service.nodeNames(), state.cmgNodes());
-                        }
-
-                        destroyCmg();
-
-                        return initCmgRaftService(state);
+                        joinFuture.completeExceptionally(e);
                     }
                 });
-            }
-
-            raftService
-                    .thenCompose(CmgRaftService::joinCluster)
-                    .thenRun(() -> metaStorageNodes.complete(state.metaStorageNodes()));
-        }
     }
 
     /**
@@ -457,8 +506,22 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                     })
                     .thenApply(service -> new CmgRaftService(service, clusterService));
         } catch (NodeStoppingException e) {
-            return CompletableFuture.failedFuture(e);
+            return failedFuture(e);
         }
+    }
+
+    /**
+     * Starts the CMG Raft service using the given {@code state} and persists it to the local storage.
+     */
+    private CompletableFuture<CmgRaftService> initCmgRaftService(ClusterState state) {
+        return startCmgRaftService(state.cmgNodes())
+                .thenCompose(service -> {
+                    var localState = new LocalState(state.cmgNodes(), state.clusterTag());
+
+                    return localStateStorage.saveLocalState(localState)
+                            .thenCompose(v -> joinCluster(service, state.clusterTag()))
+                            .thenApply(v -> service);
+                });
     }
 
     private TopologyEventHandler cmgLeaderTopologyEventHandler(CmgRaftService raftService) {
@@ -468,9 +531,14 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 raftService.readClusterState()
                         .thenAccept(state -> {
                             if (state != null) {
-                                sendClusterState(state, List.of(member));
-                            } else if (log.isWarnEnabled()) {
-                                log.warn("Cannot send the cluster state to a newly added node {} because cluster state is empty", member);
+                                sendClusterState(state, member)
+                                        .whenComplete((v, e) -> {
+                                            if (e != null) {
+                                                LOG.warn("Error when sending ClusterState: {}", e, e.getMessage());
+                                            }
+                                        });
+                            } else {
+                                LOG.info("Cannot send the cluster state to a newly added node {} because cluster state is empty", member);
                             }
                         });
             }
@@ -493,35 +561,47 @@ public class ClusterManagementGroupManager implements IgniteComponent {
         }, 0, TimeUnit.MILLISECONDS);
     }
 
-    private void sendClusterState(ClusterState clusterState, Collection<ClusterNode> nodes) {
-        // TODO: add validation information, see https://issues.apache.org/jira/browse/IGNITE-16717
+    private CompletableFuture<Void> sendClusterState(ClusterState clusterState, ClusterNode node) {
         NetworkMessage msg = msgFactory.clusterStateMessage()
-                .cmgNodes(clusterState.cmgNodes())
-                .metaStorageNodes(clusterState.metaStorageNodes())
+                .clusterState(clusterState)
                 .build();
 
-        for (ClusterNode node : nodes) {
-            sendWithRetry(node, msg);
-        }
+        return sendWithRetry(node, msg);
     }
 
-    private CompletableFuture<NetworkMessage> sendWithRetry(ClusterNode node, NetworkMessage msg) {
-        var result = new CompletableFuture<NetworkMessage>();
+    private CompletableFuture<Void> sendClusterState(ClusterState clusterState, Collection<ClusterNode> nodes) {
+        NetworkMessage msg = msgFactory.clusterStateMessage()
+                .clusterState(clusterState)
+                .build();
+
+        CompletableFuture<?>[] futures = nodes.stream()
+                .map(node -> sendWithRetry(node, msg))
+                .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(futures);
+    }
+
+    private CompletableFuture<Void> sendWithRetry(ClusterNode node, NetworkMessage msg) {
+        var result = new CompletableFuture<Void>();
 
         sendWithRetry(node, msg, result, 5);
 
-        return result;
+        return result.whenComplete((v, e) -> {
+            if (e != null) {
+                LOG.warn("Unable to send message {} to {}", e, msg.getClass(), node);
+            }
+        });
     }
 
-    private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<NetworkMessage> result, int attempts) {
+    private void sendWithRetry(ClusterNode node, NetworkMessage msg, CompletableFuture<Void> result, int attempts) {
         clusterService.messagingService().invoke(node, msg, NETWORK_INVOKE_TIMEOUT)
                 .whenComplete((response, e) -> {
                     if (e == null) {
-                        result.complete(response);
+                        result.complete(null);
                     } else if (attempts == 1) {
                         result.completeExceptionally(e);
                     } else {
-                        log.info("Exception when sending message to " + node.name() + ", retrying", e);
+                        LOG.debug("Exception when sending message to {}, retrying", e, node.name());
 
                         scheduledExecutor.schedule(() -> sendWithRetry(node, msg, result, attempts - 1), 500, TimeUnit.MILLISECONDS);
                     }
@@ -542,6 +622,26 @@ public class ClusterManagementGroupManager implements IgniteComponent {
                 () -> raftManager.stopRaftGroup(CMG_RAFT_GROUP_NAME),
                 clusterStateStorage
         );
+
+        // Fail the future to unblock dependent operations
+        joinFuture.completeExceptionally(new NodeStoppingException());
+    }
+
+    /**
+     * Returns a future that resolves after the join request finishes either successfully or with an error.
+     *
+     * @return Future that represents the state of the join.
+     */
+    public CompletableFuture<Void> joinFuture() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return joinFuture;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -550,7 +650,17 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @return Future that, when complete, resolves into a list of node names that host the Meta Storage.
      */
     public CompletableFuture<Collection<String>> metaStorageNodes() {
-        return metaStorageNodes;
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin()
+                    .thenCompose(CmgRaftService::readClusterState)
+                    .thenApply(ClusterState::metaStorageNodes);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /**
@@ -559,8 +669,61 @@ public class ClusterManagementGroupManager implements IgniteComponent {
      * @return Future that, when complete, resolves into a list of nodes that comprise the logical topology.
      */
     public CompletableFuture<Collection<ClusterNode>> logicalTopology() {
-        synchronized (raftServiceLock) {
-            return raftService.thenCompose(CmgRaftService::logicalTopology);
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
         }
+
+        try {
+            return raftServiceAfterJoin().thenCompose(CmgRaftService::logicalTopology);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Issues the {@link JoinReadyCommand} thus completing the join procedure. If this method succeeds, the node will be added to the
+     * logical topology.
+     *
+     * @return Future that represents the state of the operation.
+     */
+    public CompletableFuture<Void> onJoinReady() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin().thenCompose(CmgRaftService::completeJoinCluster);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Returns a future that resolves to {@code true} if the current node is the CMG leader.
+     */
+    @TestOnly
+    public CompletableFuture<Boolean> isCmgLeader() {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return raftServiceAfterJoin().thenCompose(CmgRaftService::isCurrentNodeLeader);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<CmgRaftService> raftServiceAfterJoin() {
+        // There exists a guarantee, that if "joinFuture" completes successfully, then
+        // the CMG Raft service must have already been started (reference to "raftService" is not null).
+        return joinFuture
+                .thenCompose(v -> {
+                    synchronized (raftServiceLock) {
+                        assert raftService != null;
+
+                        return raftService;
+                    }
+                });
     }
 }

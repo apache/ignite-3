@@ -30,7 +30,7 @@ public class FieldDescriptor implements DeclaredType {
 
     /**
      * Type of the field (represented by a local class). Local means 'on this machine', but the descriptor could
-     * be created on a remote machine where a class with same name could represent a different class..
+     * be created on a remote machine where a class with same name could represent a different class.
      */
     private final Class<?> localClass;
 
@@ -56,7 +56,15 @@ public class FieldDescriptor implements DeclaredType {
      * Creates a {@link FieldDescriptor} from a local {@link Field}.
      */
     public static FieldDescriptor local(Field field, int typeDescriptorId) {
-        return new FieldDescriptor(field, typeDescriptorId);
+        return new FieldDescriptor(
+                        field.getName(),
+                        field.getType(),
+                        typeDescriptorId,
+                        false,
+                        field.getType().isPrimitive(),
+                        Classes.isRuntimeTypeKnownUpfront(field.getType()),
+                        FieldAccessor.forField(field)
+                );
     }
 
     /**
@@ -80,7 +88,7 @@ public class FieldDescriptor implements DeclaredType {
     }
 
     /**
-     * Creates a {@link FieldDescriptor} for a remote field.
+     * Creates a {@link FieldDescriptor} for a remote field when the defining class is present locally.
      */
     public static FieldDescriptor remote(
             String fieldName,
@@ -102,17 +110,26 @@ public class FieldDescriptor implements DeclaredType {
     }
 
     /**
-     * Constructor.
+     * Creates a {@link FieldDescriptor} for a remote field when the defining class is not present locally.
+     * The resulting FieldDescriptor cannot be used for accessing the field using {@link #accessor()} (because the
+     * returned {@link FieldAccessor} will throw on any access attempt).
      */
-    private FieldDescriptor(Field field, int typeDescriptorId) {
-        this(
-                field.getName(),
-                field.getType(),
+    public static FieldDescriptor remote(
+            String fieldName,
+            Class<?> fieldClazz,
+            int typeDescriptorId,
+            boolean unshared,
+            boolean isPrimitive,
+            boolean isRuntimeTypeKnownUpfront,
+            String declaringClassName) {
+        return new FieldDescriptor(
+                fieldName,
+                fieldClazz,
                 typeDescriptorId,
-                false,
-                field.getType().isPrimitive(),
-                Classes.isRuntimeTypeKnownUpfront(field.getType()),
-                FieldAccessor.forField(field)
+                unshared,
+                isPrimitive,
+                isRuntimeTypeKnownUpfront,
+                new BrokenFieldAccessor(fieldName, declaringClassName)
         );
     }
 

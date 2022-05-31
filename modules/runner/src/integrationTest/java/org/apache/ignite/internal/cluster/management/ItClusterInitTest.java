@@ -18,7 +18,11 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,13 +60,25 @@ public class ItClusterInitTest extends IgniteAbstractTest {
 
         String nodeName = nodeNames.get(0);
 
-        IgnitionManager.init(nodeName, List.of(nodeName));
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
 
         // init is idempotent
-        IgnitionManager.init(nodeName, List.of(nodeName));
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
 
-        // init should fail if the list of nodes is different
-        assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, nodeNames));
+        // TODO: remove 'waitForCondition' after https://issues.apache.org/jira/browse/IGNITE-16811 is fixed
+        assertTrue(
+                waitForCondition(() -> {
+                    // init should fail if the list of nodes is different
+                    Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, nodeNames, "cluster"));
+
+                    return e.getMessage().contains("Init CMG request denied, reason: CMG node names do not match.");
+                }, 10_000)
+        );
+
+        // init should fail if cluster names are different
+        Exception e = assertThrows(InitException.class, () -> IgnitionManager.init(nodeName, List.of(nodeName), "new name"));
+
+        assertThat(e.getMessage(), containsString("Init CMG request denied, reason: Cluster names do not match."));
     }
 
     private void createCluster(TestInfo testInfo, int numNodes) {

@@ -17,24 +17,31 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 
 /**
  * Fake {@link QueryProcessor}.
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
-    public List<SqlCursor<List<?>>> query(String schemaName, String qry, Object... params) {
-        return Collections.singletonList(new FakeCursor());
+    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(String schemaName, String qry, Object... params) {
+        return List.of(CompletableFuture.completedFuture(new FakeCursor()));
     }
 
     @Override
-    public List<SqlCursor<List<?>>> query(QueryContext context, String schemaName, String qry, Object... params) {
-        return Collections.singletonList(new FakeCursor());
+    public List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName,
+            String qry, Object... params) {
+        return List.of(CompletableFuture.completedFuture(new FakeCursor()));
+    }
+
+    @Override
+    public CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry,
+            Object... params) {
+        return CompletableFuture.completedFuture(new FakeCursor());
     }
 
     @Override

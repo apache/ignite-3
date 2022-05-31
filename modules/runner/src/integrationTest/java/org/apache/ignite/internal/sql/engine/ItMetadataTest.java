@@ -89,6 +89,7 @@ public class ItMetadataTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-16679")
     public void columnOrder() {
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "COLUMN_ORDER").columns(
                 SchemaBuilders.column("DOUBLE_C", ColumnType.DOUBLE).asNullable(true).build(),

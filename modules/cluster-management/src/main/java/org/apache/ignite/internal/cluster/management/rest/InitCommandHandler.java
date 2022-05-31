@@ -38,7 +38,7 @@ import org.apache.ignite.lang.IgniteLogger;
  * REST handler for the {@link InitCommand}.
  */
 public class InitCommandHandler implements RequestHandler {
-    private static final IgniteLogger log = IgniteLogger.forClass(InitCommandHandler.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(InitCommandHandler.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -53,15 +53,11 @@ public class InitCommandHandler implements RequestHandler {
         try {
             InitCommand command = readContent(request);
 
-            if (log.isInfoEnabled()) {
-                log.info(
-                        "Received init command:\n\tMeta Storage nodes: {}\n\tCMG nodes: {}",
-                        command.metaStorageNodes(),
-                        command.cmgNodes()
-                );
+            if (LOG.isInfoEnabled()) {
+                LOG.info("Received init command:\n\t{}}", command);
             }
 
-            return clusterInitializer.initCluster(command.metaStorageNodes(), command.cmgNodes())
+            return clusterInitializer.initCluster(command.metaStorageNodes(), command.cmgNodes(), command.clusterName())
                     .thenApply(v -> successResponse(response))
                     .exceptionally(e -> errorResponse(response, e));
         } catch (Exception e) {
@@ -78,7 +74,7 @@ public class InitCommandHandler implements RequestHandler {
     }
 
     private static RestApiHttpResponse successResponse(RestApiHttpResponse response) {
-        log.info("Init command executed successfully");
+        LOG.info("Init command executed successfully");
 
         return response;
     }
@@ -88,7 +84,7 @@ public class InitCommandHandler implements RequestHandler {
             e = e.getCause();
         }
 
-        log.error("Init command failure", e);
+        LOG.error("Init command failure", e);
 
         response.status(INTERNAL_SERVER_ERROR);
         response.json(Map.of("error", new ErrorResult("APPLICATION_EXCEPTION", e.getMessage())));

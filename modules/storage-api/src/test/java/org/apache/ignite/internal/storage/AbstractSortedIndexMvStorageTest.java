@@ -111,8 +111,9 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         SortedIndexMvStorage index1 = createIndexStorage(INDEX1, tableCfg.value());
         SortedIndexMvStorage index2 = createIndexStorage(INDEX2, tableCfg.value());
 
-        assertEquals(List.of(), convert(index1.scan(null, null, (byte) 0, null, null)));
-        assertEquals(List.of(), convert(index2.scan(null, null, (byte) 0, null, null)));
+        assertEquals(List.of(), convert(index1.scan(null, null, (byte) 0, Timestamp.nextVersion(), null)));
+
+        assertEquals(List.of(), convert(index2.scan(null, null, (byte) 0, UUID.randomUUID(), null)));
     }
 
     @Test
@@ -130,89 +131,91 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         insert(new TestKey(3, "3"), val9020, null);
         insert(new TestKey(4, "4"), val8020, null);
 
+        Timestamp ts = Timestamp.nextVersion();
+
         // Test without bounds.
         assertEquals(List.of(val8010, val9010, val8020, val9020), convert(index1.scan(
-                null, null, FORWARD, null, null
+                null, null, FORWARD, ts, null
         )));
 
         assertEquals(List.of(val9020, val8020, val9010, val8010), convert(index1.scan(
-                null, null, BACKWARDS, null, null
+                null, null, BACKWARDS, ts, null
         )));
 
         assertEquals(List.of(val9010, val8010, val9020, val8020), convert(index2.scan(
-                null, null, FORWARD, null, null
+                null, null, FORWARD, ts, null
         )));
 
         assertEquals(List.of(val8020, val9020, val8010, val9010), convert(index2.scan(
-                null, null, BACKWARDS, null, null
+                null, null, BACKWARDS, ts, null
         )));
 
         // Lower bound exclusive.
         assertEquals(List.of(val8020, val9020), convert(index1.scan(
-                prefix("10"), null, GREATER | FORWARD, null, null
+                prefix("10"), null, GREATER | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val9020, val8020), convert(index1.scan(
-                prefix("10"), null, GREATER | BACKWARDS, null, null
+                prefix("10"), null, GREATER | BACKWARDS, ts, null
         )));
 
         assertEquals(List.of(val9020, val8020), convert(index2.scan(
-                prefix("10"), null, GREATER | FORWARD, null, null
+                prefix("10"), null, GREATER | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val8020, val9020), convert(index2.scan(
-                prefix("10"), null, GREATER | BACKWARDS, null, null
+                prefix("10"), null, GREATER | BACKWARDS, ts, null
         )));
 
         // Lower bound inclusive.
         assertEquals(List.of(val8010, val9010, val8020, val9020), convert(index1.scan(
-                prefix("10"), null, GREATER_OR_EQUAL | FORWARD, null, null
+                prefix("10"), null, GREATER_OR_EQUAL | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val9020, val8020, val9010, val8010), convert(index1.scan(
-                prefix("10"), null, GREATER_OR_EQUAL | BACKWARDS, null, null
+                prefix("10"), null, GREATER_OR_EQUAL | BACKWARDS, ts, null
         )));
 
         assertEquals(List.of(val9010, val8010, val9020, val8020), convert(index2.scan(
-                prefix("10"), null, GREATER_OR_EQUAL | FORWARD, null, null
+                prefix("10"), null, GREATER_OR_EQUAL | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val8020, val9020, val8010, val9010), convert(index2.scan(
-                prefix("10"), null, GREATER_OR_EQUAL | BACKWARDS, null, null
+                prefix("10"), null, GREATER_OR_EQUAL | BACKWARDS, ts, null
         )));
 
         // Upper bound exclusive.
         assertEquals(List.of(val8010, val9010), convert(index1.scan(
-                null, prefix("20"), LESS | FORWARD, null, null
+                null, prefix("20"), LESS | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val9010, val8010), convert(index1.scan(
-                null, prefix("20"), LESS | BACKWARDS, null, null
+                null, prefix("20"), LESS | BACKWARDS, ts, null
         )));
 
         assertEquals(List.of(val9010, val8010), convert(index2.scan(
-                null, prefix("20"), LESS | FORWARD, null, null
+                null, prefix("20"), LESS | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val8010, val9010), convert(index2.scan(
-                null, prefix("20"), LESS | BACKWARDS, null, null
+                null, prefix("20"), LESS | BACKWARDS, ts, null
         )));
 
         // Upper bound inclusive.
         assertEquals(List.of(val8010, val9010, val8020, val9020), convert(index1.scan(
-                null, prefix("20"), LESS_OR_EQUAL | FORWARD, null, null
+                null, prefix("20"), LESS_OR_EQUAL | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val9020, val8020, val9010, val8010), convert(index1.scan(
-                null, prefix("20"), LESS_OR_EQUAL | BACKWARDS, null, null
+                null, prefix("20"), LESS_OR_EQUAL | BACKWARDS, ts, null
         )));
 
         assertEquals(List.of(val9010, val8010, val9020, val8020), convert(index2.scan(
-                null, prefix("20"), LESS_OR_EQUAL | FORWARD, null, null
+                null, prefix("20"), LESS_OR_EQUAL | FORWARD, ts, null
         )));
 
         assertEquals(List.of(val8020, val9020, val8010, val9010), convert(index2.scan(
-                null, prefix("20"), LESS_OR_EQUAL | BACKWARDS, null, null
+                null, prefix("20"), LESS_OR_EQUAL | BACKWARDS, ts, null
         )));
     }
 
@@ -225,21 +228,23 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
 
-        pk.addWrite(binaryRow(key, val), UUID.randomUUID());
+        UUID txId = UUID.randomUUID();
 
-        // Timestamp is null.
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+        RowId rowId = pk.insert(binaryRow(key, val), txId);
 
-        // Timestamp is not null.
+        // Using transaction id.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
+
+        // Using timestamp.
         assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Abort write.
-        pk.abortWrite(binaryKey(key));
+        pk.abortWrite(rowId);
 
-        // Timestamp is null.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+        // Using transaction id.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, txId, null)));
 
-        // Timestamp is not null.
+        // Using timestamp.
         assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
@@ -253,25 +258,30 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestValue val = new TestValue(10, "10");
 
         Timestamp insertTs = Timestamp.nextVersion();
-        insert(key, val, insertTs);
+
+        RowId rowId = pk.insert(binaryRow(key, val), UUID.randomUUID());
+
+        pk.commitWrite(rowId, insertTs);
 
         // Remove.
-        pk.addWrite(binaryKey(key), UUID.randomUUID());
+        UUID txId = UUID.randomUUID();
 
-        // Timestamp is null.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+        pk.addWrite(rowId, null, txId);
 
-        // Timestamp is not null.
+        // Using transaction id.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, txId, null)));
+
+        // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
         assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Abort remove.
-        pk.abortWrite(binaryKey(key));
+        pk.abortWrite(rowId);
 
-        // Timestamp is null.
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+        // Using transaction id.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
 
-        // Timestamp is not null.
+        // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
         assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
@@ -285,22 +295,24 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestKey key = new TestKey(1, "1");
         TestValue val = new TestValue(10, "10");
 
-        pk.addWrite(binaryRow(key, val), UUID.randomUUID());
+        UUID txId = UUID.randomUUID();
 
-        // Timestamp is null.
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+        RowId rowId = pk.insert(binaryRow(key, val), txId);
 
-        // Timestamp is not null.
+        // Using transaction id.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
+
+        // Using timestamp.
         assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Commit write.
         Timestamp commitTs = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key), commitTs);
+        pk.commitWrite(rowId, commitTs);
 
-        // Timestamp is null.
-        assertEquals(List.of(val), convert(index.scan(null, null, 0, null, null)));
+        // Using transaction id.
+        assertEquals(List.of(val), convert(index.scan(null, null, 0, txId, null)));
 
-        // Timestamp is not null.
+        // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, commitTs, null)));
         assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
@@ -315,40 +327,83 @@ public abstract class AbstractSortedIndexMvStorageTest extends BaseMvStoragesTes
         TestValue val = new TestValue(10, "10");
 
         Timestamp insertTs = Timestamp.nextVersion();
-        insert(key, val, insertTs);
+
+        RowId rowId = pk.insert(binaryRow(key, val), UUID.randomUUID());
+
+        pk.commitWrite(rowId, insertTs);
 
         // Remove.
-        pk.addWrite(binaryKey(key), UUID.randomUUID());
+        UUID txId = UUID.randomUUID();
 
-        // Timestamp is null.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+        pk.addWrite(rowId, null, txId);
 
-        // Timestamp is not null.
+        // Using transaction id.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, txId, null)));
+
+        // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
         assertEquals(List.of(val), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
 
         // Commit remove.
         Timestamp removeTs = Timestamp.nextVersion();
-        pk.commitWrite(binaryKey(key), removeTs);
+        pk.commitWrite(rowId, removeTs);
 
-        // Timestamp is null.
-        assertEquals(List.of(), convert(index.scan(null, null, 0, null, null)));
+        // Using transaction id.
+        assertEquals(List.of(), convert(index.scan(null, null, 0, txId, null)));
 
-        // Timestamp is not null.
+        // Using timestamp.
         assertEquals(List.of(val), convert(index.scan(null, null, 0, insertTs, null)));
 
         assertEquals(List.of(), convert(index.scan(null, null, 0, removeTs, null)));
         assertEquals(List.of(), convert(index.scan(null, null, 0, Timestamp.nextVersion(), null)));
     }
 
-    protected void insert(TestKey key, TestValue value, Timestamp ts) {
+    @Test
+    public void textScanFiltersMismatchedRows() throws Exception {
+        MvPartitionStorage pk = partitionStorage();
+
+        SortedIndexMvStorage index = createIndexStorage(INDEX1, tableCfg.value());
+
+        // Do everything with a single key with multiple versions.
+        TestKey key = new TestKey(1, "1");
+
+        // Insert a row that goes into ["10", "11") interval in index. Scan over it will be used in the final assertion.
+        RowId rowId = insert(key, new TestValue(10, "10"), Timestamp.nextVersion());
+
+        // Change indexed columns to move row outside of the interval. Commit.
+        pk.addWrite(rowId, binaryRow(key, new TestValue(20, "20")), UUID.randomUUID());
+        pk.commitWrite(rowId, Timestamp.nextVersion());
+
+        // In this scenario, scan over the range of ["10", "11") should return empty cursor.
+        assertEquals(
+                List.of(),
+                convert(index.scan(prefix("10"), prefix("11"), GREATER_OR_EQUAL | LESS, UUID.randomUUID(), null))
+        );
+
+        // Change indexed columns once again, but don't commit.
+        // This way there are 3 versoins for the row:
+        // - (30, "30"), uncommitted with random tx id
+        // - (20, "20") is the latest committed value, outside of the locking range.
+        // - (10, "10") is the oldest value and there's a ("10", 10, rowId) record in the index.
+        pk.addWrite(rowId, binaryRow(key, new TestValue(30, "30")), UUID.randomUUID());
+
+        // Still ampty result.
+        assertEquals(
+                List.of(),
+                convert(index.scan(prefix("10"), prefix("11"), GREATER_OR_EQUAL | LESS, UUID.randomUUID(), null))
+        );
+    }
+
+    protected RowId insert(TestKey key, TestValue value, Timestamp ts) {
         MvPartitionStorage pk = partitionStorage();
 
         BinaryRow binaryRow = binaryRow(key, value);
 
-        pk.addWrite(binaryRow, UUID.randomUUID());
+        RowId rowId = pk.insert(binaryRow, UUID.randomUUID());
 
-        pk.commitWrite(binaryRow, ts == null ? Timestamp.nextVersion() : ts);
+        pk.commitWrite(rowId, ts == null ? Timestamp.nextVersion() : ts);
+
+        return rowId;
     }
 
     protected IndexRowPrefix prefix(String val) {

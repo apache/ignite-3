@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.IgniteException;
@@ -32,12 +33,19 @@ import org.jetbrains.annotations.Nullable;
  * Service loader based implementation of an entry point for handling grid lifecycle.
  */
 public class IgnitionManager {
-    /** Loaded Ignition instance. */
+    /**
+     * Loaded Ignition instance.
+     *
+     * <p>Concurrent access is guarded by the {@link Class} instance.
+     */
     @Nullable
     private static Ignition ignition;
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
+     *
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
      *
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param configStr Optional node configuration based on
@@ -79,6 +87,9 @@ public class IgnitionManager {
     /**
      * Starts an Ignite node with an optional bootstrap configuration from a HOCON file.
      *
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param cfgPath  Path to the node configuration in the HOCON format. Can be {@code null}.
      * @param workDir  Work directory for the started node. Must not be {@code null}.
@@ -95,64 +106,85 @@ public class IgnitionManager {
     }
 
     /**
-     * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
-     * effect if node with specified name doesn't exist.
+     * Stops the node with given {@code nodeName}. It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
      *
-     * @param name Node name to stop.
-     * @throws IllegalArgumentException if null is specified instead of node name.
+     * @param nodeName Node name to stop.
      */
-    public static void stop(String name) {
+    public static void stop(String nodeName) {
         Ignition ignition = loadIgnitionService(Thread.currentThread().getContextClassLoader());
 
-        ignition.stop(name);
+        ignition.stop(nodeName);
     }
 
     /**
-     * Stops the node with given {@code name}. It's possible to stop both already started node or node that is currently starting. Has no
-     * effect if node with specified name doesn't exist.
+     * Stops the node with given {@code nodeName}. It's possible to stop both already started node or node that is currently starting.
+     * Has no effect if node with specified name doesn't exist.
      *
-     * @param name   Node name to stop.
+     * @param nodeName Node name to stop.
      * @param clsLdr The class loader to be used to load provider-configuration files and provider classes, or {@code null} if the system
      *               class loader (or, failing that, the bootstrap class loader) is to be used
-     * @throws IllegalArgumentException if null is specified instead of node name.
      */
-    public static void stop(String name, @Nullable ClassLoader clsLdr) {
+    public static void stop(String nodeName, @Nullable ClassLoader clsLdr) {
         Ignition ignition = loadIgnitionService(clsLdr);
 
-        ignition.stop(name);
+        ignition.stop(nodeName);
     }
 
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param name name of the node that the initialization request will be sent to.
+     * @param nodeName Name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage and the CMG.
+     * @param clusterName Human-readable name of the cluster.
      * @throws IgniteException If the given node has not been started or has been stopped.
-     * @see Ignition#init(String, Collection)
+     * @throws NullPointerException If any of the parameters are null.
+     * @throws IllegalArgumentException If {@code metaStorageNodeNames} is empty or contains blank strings.
+     * @throws IllegalArgumentException If {@code clusterName} is blank.
+     * @see Ignition#init(String, Collection, String)
      */
-    public static synchronized void init(String name, Collection<String> metaStorageNodeNames) {
+    public static synchronized void init(String nodeName, Collection<String> metaStorageNodeNames, String clusterName) {
+        Objects.requireNonNull(nodeName);
+        Objects.requireNonNull(metaStorageNodeNames);
+        Objects.requireNonNull(clusterName);
+
         if (ignition == null) {
             throw new IgniteException("Ignition service has not been started");
         }
 
-        ignition.init(name, metaStorageNodeNames);
+        ignition.init(nodeName, metaStorageNodeNames, clusterName);
     }
 
     /**
      * Initializes the cluster that this node is present in.
      *
-     * @param name name of the node that the initialization request will be sent to.
+     * @param nodeName Name of the node that the initialization request will be sent to.
      * @param metaStorageNodeNames names of nodes that will host the Meta Storage.
      * @param cmgNodeNames names of nodes that will host the CMG.
+     * @param clusterName Human-readable name of the cluster.
      * @throws IgniteException If the given node has not been started or has been stopped.
-     * @see Ignition#init(String, Collection, Collection)
+     * @throws NullPointerException If any of the parameters are null.
+     * @throws IllegalArgumentException If {@code metaStorageNodeNames} is empty or contains blank strings.
+     * @throws IllegalArgumentException If {@code cmgNodeNames} contains blank strings.
+     * @throws IllegalArgumentException If {@code clusterName} is blank.
+     * @see Ignition#init(String, Collection, Collection, String)
      */
-    public static synchronized void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
+    public static synchronized void init(
+            String nodeName,
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) {
+        Objects.requireNonNull(nodeName);
+        Objects.requireNonNull(metaStorageNodeNames);
+        Objects.requireNonNull(cmgNodeNames);
+        Objects.requireNonNull(clusterName);
+
         if (ignition == null) {
             throw new IgniteException("Ignition service has not been started");
         }
 
-        ignition.init(name, metaStorageNodeNames, cmgNodeNames);
+        ignition.init(nodeName, metaStorageNodeNames, cmgNodeNames, clusterName);
     }
 
     private static synchronized Ignition loadIgnitionService(@Nullable ClassLoader clsLdr) {

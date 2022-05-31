@@ -1,0 +1,13 @@
+{
+  "network": {
+    "port": <NETWORK_PORT>,
+    "portRange": 0,
+    "nodeFinder": {
+      "netClusterNodes": <NET_CLUSTER_NODES>
+    }
+  },
+  "rest": {
+    "port": <REST_PORT>,
+    "portRange": 0
+  }
+}

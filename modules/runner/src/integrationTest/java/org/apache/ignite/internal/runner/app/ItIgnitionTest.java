@@ -167,7 +167,7 @@ class ItIgnitionTest {
         } catch (Throwable t) {
             assertTrue(IgniteTestUtils.hasCause(t,
                     IgniteException.class,
-                    "Unable to parse user-specific configuration."
+                    "Unable to parse user-specific configuration"
             ));
         }
     }
@@ -198,7 +198,7 @@ class ItIgnitionTest {
         CompletableFuture<Ignite> future = starter.apply(nodeName);
 
         if (startedNodes.isEmpty()) {
-            IgnitionManager.init(nodeName, List.of(nodeName));
+            IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
         }
 
         assertThat(future, willCompleteSuccessfully());

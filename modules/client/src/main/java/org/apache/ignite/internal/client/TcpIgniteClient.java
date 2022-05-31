@@ -27,13 +27,13 @@ import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientException;
-import org.apache.ignite.client.proto.query.ClientMessage;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
+import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -86,7 +86,7 @@ public class TcpIgniteClient implements IgniteClient {
         ch = new ReliableChannel(chFactory, cfg);
         tables = new ClientTables(ch);
         transactions = new ClientTransactions(ch);
-        compute = new ClientCompute(ch);
+        compute = new ClientCompute(ch, tables);
     }
 
     /**

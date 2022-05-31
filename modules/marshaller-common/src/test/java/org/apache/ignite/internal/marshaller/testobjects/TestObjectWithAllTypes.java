@@ -58,7 +58,7 @@ public class TestObjectWithAllTypes {
         obj.uuidCol = new UUID(rnd.nextLong(), rnd.nextLong());
         obj.bitmaskCol = IgniteTestUtils.randomBitSet(rnd, 42);
 
-        obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), rnd.nextInt(360));
+        obj.dateCol = LocalDate.ofYearDay(1990 + rnd.nextInt(50), 1 + rnd.nextInt(360));
         obj.timeCol = LocalTime.of(rnd.nextInt(24), rnd.nextInt(60));
         obj.dateTimeCol = LocalDateTime.of(obj.dateCol, obj.timeCol);
         obj.timestampCol = Instant.now().plusSeconds(rnd.nextInt(1000));

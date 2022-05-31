@@ -30,7 +30,7 @@ import org.apache.ignite.network.NetworkMessageHandler;
  * Class for creating {@link NetworkMessageHandler} instances that share some common logic.
  */
 public class CmgMessageHandlerFactory {
-    private static final IgniteLogger log = IgniteLogger.forClass(ClusterManagementGroupManager.class);
+    private static final IgniteLogger LOG = IgniteLogger.forClass(ClusterManagementGroupManager.class);
 
     private final IgniteSpinBusyLock busyLock;
 
@@ -70,7 +70,7 @@ public class CmgMessageHandlerFactory {
             try {
                 handler.onReceived(message, senderAddr, correlationId);
             } catch (Exception e) {
-                log.error("CMG message handling failed", e);
+                LOG.error("CMG message handling failed", e);
 
                 if (correlationId != null) {
                     clusterService.messagingService().respond(senderAddr, initFailed(e), correlationId);

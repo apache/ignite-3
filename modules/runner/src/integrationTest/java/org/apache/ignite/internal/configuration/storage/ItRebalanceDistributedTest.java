@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.rest.RestComponent;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -255,6 +257,8 @@ public class ItRebalanceDistributedTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
+        private final SchemaManager schemaManager;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -318,12 +322,9 @@ public class ItRebalanceDistributedTest {
                             HashIndexConfigurationSchema.class)
             );
 
-            Consumer<Consumer<Long>> registry = (c) -> {
-                clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                    c.accept(newStorageRevision);
-
-                    return CompletableFuture.completedFuture(null);
-                });
+            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) -> {
+                clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(
+                        newStorageRevision -> function.apply(newStorageRevision));
             };
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
@@ -339,6 +340,8 @@ public class ItRebalanceDistributedTest {
                     metaStorageManager,
                     clusterService);
 
+            schemaManager = new SchemaManager(registry, tablesCfg);
+
             tableManager = new TableManager(
                     registry,
                     tablesCfg,
@@ -347,7 +350,8 @@ public class ItRebalanceDistributedTest {
                     clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
-                    metaStorageManager);
+                    metaStorageManager,
+                    schemaManager);
         }
 
         /**
@@ -359,9 +363,9 @@ public class ItRebalanceDistributedTest {
             nodeCfgMgr.start();
 
             Stream.of(clusterService, clusterCfgMgr, dataStorageMgr, raftManager, txManager, cmgManager,
-                    metaStorageManager, baselineMgr, tableManager).forEach(IgniteComponent::start);
+                    metaStorageManager, baselineMgr, schemaManager, tableManager).forEach(IgniteComponent::start);
 
-            cmgManager.initCluster(List.of(nodes.get(0).name), List.of());
+            cmgManager.initCluster(List.of(nodes.get(0).name), List.of(), "testCluster");
 
             CompletableFuture.allOf(
                     nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -377,7 +381,7 @@ public class ItRebalanceDistributedTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(tableManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, raftManager,
+                    List.of(tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, raftManager,
                             txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {

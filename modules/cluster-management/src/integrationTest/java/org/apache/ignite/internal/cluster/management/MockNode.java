@@ -17,26 +17,26 @@
 
 package org.apache.ignite.internal.cluster.management;
 
-import static org.apache.ignite.utils.ClusterServiceTestUtils.clusterService;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.rest.RestComponent;
+import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeFinder;
+import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -55,6 +55,8 @@ class MockNode {
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
+    private CompletableFuture<Void> startFuture;
+
     MockNode(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder, Path workDir) throws IOException {
         this.testInfo = testInfo;
         this.nodeFinder = nodeFinder;
@@ -68,7 +70,7 @@ class MockNode {
 
         var vaultManager = new VaultManager(new PersistentVaultService(Files.createDirectories(vaultDir)));
 
-        this.clusterService = clusterService(testInfo, port, nodeFinder);
+        this.clusterService = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
         Loza raftManager = new Loza(clusterService, workDir);
 
@@ -86,8 +88,14 @@ class MockNode {
         components.add(clusterManager);
     }
 
-    void start() {
+    void startComponents() {
         components.forEach(IgniteComponent::start);
+    }
+
+    void start() {
+        startComponents();
+
+        startFuture = clusterManager.onJoinReady();
     }
 
     void beforeNodeStop() {
@@ -129,21 +137,7 @@ class MockNode {
         return clusterManager;
     }
 
-    private static class ReverseIterator<T> implements Iterator<T> {
-        private final ListIterator<T> it;
-
-        ReverseIterator(List<T> list) {
-            this.it = list.listIterator(list.size());
-        }
-
-        @Override
-        public boolean hasNext() {
-            return it.hasPrevious();
-        }
-
-        @Override
-        public T next() {
-            return it.previous();
-        }
+    CompletableFuture<Void> startFuture() {
+        return startFuture;
     }
 }

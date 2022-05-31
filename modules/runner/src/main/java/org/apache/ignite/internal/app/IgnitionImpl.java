@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.app;
 
+import static java.lang.System.lineSeparator;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -30,11 +32,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.Ignition;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteLogger;
-import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.utils.IgniteProperties;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,8 +61,6 @@ public class IgnitionImpl implements Ignition {
             "     ####  ##         /___/ \\__, //_/ /_//_/ \\__/ \\___/   /____/",
             "       ##                  /____/\n"
     };
-
-    private static final String VER_KEY = "version";
 
     /**
      * Node name to node instance mapping. Please pay attention, that nodes in given map might be in any state: STARTING, STARTED, STOPPED.
@@ -101,12 +100,12 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Ignite> start(String name, @Nullable URL cfgUrl, Path workDir) {
+    public CompletableFuture<Ignite> start(String nodeName, @Nullable URL cfgUrl, Path workDir) {
         if (cfgUrl == null) {
-            return doStart(name, null, workDir, defaultServiceClassLoader());
+            return start(nodeName, workDir);
         } else {
             try (InputStream cfgStream = cfgUrl.openStream()) {
-                return doStart(name, new String(cfgStream.readAllBytes(), StandardCharsets.UTF_8), workDir, defaultServiceClassLoader());
+                return start(nodeName, cfgStream, workDir);
             } catch (IOException e) {
                 throw new IgniteException("Unable to read user specific configuration.", e);
             }
@@ -115,10 +114,10 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Ignite> start(String name, @Nullable InputStream cfg, Path workDir) {
+    public CompletableFuture<Ignite> start(String nodeName, @Nullable InputStream cfg, Path workDir) {
         try {
             return doStart(
-                    name,
+                    nodeName,
                     cfg == null ? null : new String(cfg.readAllBytes(), StandardCharsets.UTF_8),
                     workDir,
                     defaultServiceClassLoader()
@@ -130,16 +129,16 @@ public class IgnitionImpl implements Ignition {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Ignite> start(String name, Path workDir) {
-        return doStart(name, null, workDir, defaultServiceClassLoader());
+    public CompletableFuture<Ignite> start(String nodeName, Path workDir) {
+        return doStart(nodeName, null, workDir, defaultServiceClassLoader());
     }
 
     /** {@inheritDoc} */
     @Override
-    public void stop(String name) {
-        readyForInitNodes.remove(name);
+    public void stop(String nodeName) {
+        readyForInitNodes.remove(nodeName);
 
-        nodes.computeIfPresent(name, (nodeName, node) -> {
+        nodes.computeIfPresent(nodeName, (name, node) -> {
             node.stop();
 
             return null;
@@ -147,20 +146,25 @@ public class IgnitionImpl implements Ignition {
     }
 
     @Override
-    public void init(String name, Collection<String> metaStorageNodeNames) {
-        init(name, metaStorageNodeNames, List.of());
+    public void init(String nodeName, Collection<String> metaStorageNodenodeNames, String clusterName) {
+        init(nodeName, metaStorageNodenodeNames, List.of(), clusterName);
     }
 
     @Override
-    public void init(String name, Collection<String> metaStorageNodeNames, Collection<String> cmgNodeNames) {
-        IgniteImpl node = readyForInitNodes.get(name);
+    public void init(
+            String nodeName,
+            Collection<String> metaStorageNodeNames,
+            Collection<String> cmgNodeNames,
+            String clusterName
+    ) {
+        IgniteImpl node = readyForInitNodes.get(nodeName);
 
         if (node == null) {
-            throw new IgniteException("Node \"" + name + "\" has not been started");
+            throw new IgniteException("Node \"" + nodeName + "\" has not been started");
         }
 
         try {
-            node.init(metaStorageNodeNames, cmgNodeNames);
+            node.init(metaStorageNodeNames, cmgNodeNames, clusterName);
         } catch (NodeStoppingException e) {
             throw new IgniteException("Node stop detected during init", e);
         }
@@ -239,10 +243,12 @@ public class IgnitionImpl implements Ignition {
     }
 
     private static void ackBanner() {
-        String ver = IgniteProperties.get(VER_KEY);
+        String banner = String.join(lineSeparator(), BANNER);
 
-        String banner = String.join("\n", BANNER);
+        String padding = " ".repeat(22);
 
-        LOG.info(() -> IgniteStringFormatter.format("{}\n" + " ".repeat(22) + "Apache Ignite ver. {}\n", banner, ver), null);
+        String version = "Apache Ignite ver. " + IgniteProductVersion.CURRENT_VERSION;
+
+        LOG.info("{}" + lineSeparator() + "{}{}" + lineSeparator(), banner, padding, version);
     }
 }
