@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,11 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -127,7 +131,13 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     void testInvalidSqlThrowsException() {
-        // TODO:
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> client().sql().createSession().executeAsync(null, "select x from bad").join());
+
+        IgniteClientException clientEx = (IgniteClientException) ex.getCause();
+
+        assertThat(clientEx.getMessage(), Matchers.containsString("Object 'BAD' not found"));
     }
 
     @Test
