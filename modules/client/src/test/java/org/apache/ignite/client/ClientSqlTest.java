@@ -21,6 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -41,5 +45,32 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
         SqlRow row = resultSet.currentPage().iterator().next();
         assertEquals(1, row.intValue(0));
+    }
+
+    @Test
+    public void testSessionPropertiesPropagation() {
+        Session session = client.sql().sessionBuilder()
+                .defaultSchema("SCHEMA1")
+                .defaultTimeout(123, TimeUnit.SECONDS)
+                .defaultPageSize(234)
+                .property("prop1", 1)
+                .property("prop2", 2)
+                .build();
+
+        AsyncResultSet resultSet = session.executeAsync(null, "SELECT PROPS").join();
+
+        Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
+                .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
+
+        assertEquals("SCHEMA1", props.get("schema"));
+        assertEquals(123000, props.get("timeout"));
+        assertEquals(234, props.get("pageSize"));
+        assertEquals(1, props.get("prop1"));
+        assertEquals(2, props.get("prop2"));
+    }
+
+    @Test
+    public void testStatementPropertiesOverrideSessionProperties() {
+
     }
 }
