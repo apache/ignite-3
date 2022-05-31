@@ -57,15 +57,11 @@
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http</artifactId>
-            <version>${micronaut.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server</artifactId>
-            <version>${micronaut.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -109,21 +105,18 @@
         <dependency>
             <groupId>io.micronaut.test</groupId>
             <artifactId>micronaut-test-junit5</artifactId>
-            <version>${micronaut.test.junit5.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-client</artifactId>
-            <version>${micronaut.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server-netty</artifactId>
-            <version>${micronaut.version}</version>
             <scope>test</scope>
         </dependency>
 

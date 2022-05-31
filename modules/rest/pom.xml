@@ -54,24 +54,19 @@
         </dependency>
 
         <!-- 3rd party dependencies -->
-        <!-- micronaut dependencies, use dependencyManagement when ignite-cli is migrated to micronaut 3 -->
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-inject</artifactId>
-            <version>${micronaut.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-http-server-netty</artifactId>
-            <version>${micronaut.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut.openapi</groupId>
             <artifactId>micronaut-openapi</artifactId>
-            <version>${maven.micronaut.openapi.plugin.version}</version>
         </dependency>
 
         <dependency>
