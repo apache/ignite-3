@@ -664,7 +664,7 @@ public class VersionedRowStore {
 
                 if (delegate.hasNext()) {
                     cur = delegate.next();
-                    System.out.println("hasNext " + cur.keySlice());
+//                    System.out.println("hasNext " + cur.keySlice());
 
                     return cur != null ? true : hasNext(); // Skip tombstones.
                 }

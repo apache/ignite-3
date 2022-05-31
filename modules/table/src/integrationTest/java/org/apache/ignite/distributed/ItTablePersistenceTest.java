@@ -54,10 +54,12 @@ import org.apache.ignite.raft.client.service.ItAbstractListenerSnapshotTest;
 import org.apache.ignite.raft.client.service.RaftGroupListener;
 import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 
 /**
  * Persistent partitions raft group snapshots tests.
  */
+@Disabled
 public class ItTablePersistenceTest extends ItAbstractListenerSnapshotTest<PartitionListener> {
     private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,

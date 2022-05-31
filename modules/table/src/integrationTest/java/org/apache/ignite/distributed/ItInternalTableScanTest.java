@@ -53,9 +53,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.basic.SimpleDataRow;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -69,7 +67,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
@@ -80,7 +77,6 @@ import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.utils.ClusterServiceTestUtils;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -231,8 +227,8 @@ public class ItInternalTableScanTest {
     public void testOneRowScan() throws Exception {
         requestNtest(
                 List.of(
-                        prepareDataRow("key1", "val1"),
-                        prepareDataRow("key2", "val2")
+                        prepareRow("key1", "val1"),
+                        prepareRow("key2", "val2")
                 ),
                 1);
     }
@@ -244,11 +240,11 @@ public class ItInternalTableScanTest {
     public void testMultipleRowScan() throws Exception {
         requestNtest(
                 List.of(
-                        prepareDataRow("key1", "val1"),
-                        prepareDataRow("key2", "val2"),
-                        prepareDataRow("key3", "val3"),
-                        prepareDataRow("key4", "val4"),
-                        prepareDataRow("key5", "val5")
+                        prepareRow("key1", "val1"),
+                        prepareRow("key2", "val2"),
+                        prepareRow("key3", "val3"),
+                        prepareRow("key4", "val4"),
+                        prepareRow("key5", "val5")
                 ),
                 2);
     }
@@ -260,11 +256,11 @@ public class ItInternalTableScanTest {
     public void testLongMaxValueRowScan() throws Exception {
         requestNtest(
                 List.of(
-                        prepareDataRow("key1", "val1"),
-                        prepareDataRow("key2", "val2"),
-                        prepareDataRow("key3", "val3"),
-                        prepareDataRow("key4", "val4"),
-                        prepareDataRow("key5", "val5")
+                        prepareRow("key1", "val1"),
+                        prepareRow("key2", "val2"),
+                        prepareRow("key3", "val3"),
+                        prepareRow("key4", "val4"),
+                        prepareRow("key5", "val5")
                 ),
                 Long.MAX_VALUE);
     }
@@ -302,7 +298,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> true);
@@ -360,7 +356,7 @@ public class ItInternalTableScanTest {
 
         AtomicReference<Throwable> gotException = new AtomicReference<>();
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenThrow(new StorageException("Some storage exception"));
+        when(mockStorage.scan(any(), any(Timestamp.class))).thenThrow(new StorageException("Some storage exception"));
 
         internalTbl.scan(0, null).subscribe(new Subscriber<>() {
 
@@ -491,7 +487,7 @@ public class ItInternalTableScanTest {
      * @return {@link DataRow} based on given key and value.
      * @throws java.io.IOException If failed to close output stream that was used to convertation.
      */
-    private static @NotNull DataRow prepareDataRow(@NotNull String entryKey,
+    private static @NotNull BinaryRow prepareRow(@NotNull String entryKey,
             @NotNull String entryVal) throws IOException {
         byte[] keyBytes = ByteUtils.toBytes(entryKey);
 
@@ -499,7 +495,7 @@ public class ItInternalTableScanTest {
             outputStream.write(keyBytes);
             outputStream.write(ByteUtils.toBytes(entryVal));
 
-            return new SimpleDataRow(keyBytes, outputStream.toByteArray());
+            return new ByteBufferRow(keyBytes);
         }
     }
 
@@ -510,12 +506,12 @@ public class ItInternalTableScanTest {
      * @param reqAmount      Amount of rows to request at a time.
      * @throws Exception If Any.
      */
-    private void requestNtest(List<DataRow> submittedItems, long reqAmount) throws Exception {
+    private void requestNtest(List<BinaryRow> submittedItems, long reqAmount) throws Exception {
         AtomicInteger cursorTouchCnt = new AtomicInteger(0);
 
         List<BinaryRow> retrievedItems = Collections.synchronizedList(new ArrayList<>());
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             when(cursor.hasNext()).thenAnswer(hnInvocation -> cursorTouchCnt.get() < submittedItems.size());
@@ -562,7 +558,7 @@ public class ItInternalTableScanTest {
 
         assertEquals(submittedItems.size(), retrievedItems.size());
 
-        List<byte[]> expItems = submittedItems.stream().map(DataRow::valueBytes).collect(Collectors.toList());
+        List<byte[]> expItems = submittedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
         List<byte[]> gotItems = retrievedItems.stream().map(BinaryRow::bytes).collect(Collectors.toList());
 
         for (int i = 0; i < expItems.size(); i++) {
@@ -582,7 +578,7 @@ public class ItInternalTableScanTest {
         // and avoids the race between closing the cursor and stopping the node.
         CountDownLatch subscriberFinishedLatch = new CountDownLatch(2);
 
-        when(mockStorage.scan(any(), any(UUID.class))).thenAnswer(invocation -> {
+        when(mockStorage.scan(any(), any(Timestamp.class))).thenAnswer(invocation -> {
             var cursor = mock(Cursor.class);
 
             doAnswer(
