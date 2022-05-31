@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.rest;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
@@ -60,7 +61,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @MicronautTest
 @ExtendWith(WorkDirectoryExtension.class)
-public class ClusterManagementControllerTest {
+public class ItClusterManagementControllerTest {
 
     private static final int PORT_BASE = 10000;
 
@@ -139,6 +140,8 @@ public class ClusterManagementControllerTest {
 
         // Then
         assertThat(response.getStatus(), is(equalTo((HttpStatus.OK))));
+        // And
+        assertThat(cluster.get(0).startFuture(), willCompleteSuccessfully());
 
         // Given second request with different node name
         String givenSecondRequestBody =

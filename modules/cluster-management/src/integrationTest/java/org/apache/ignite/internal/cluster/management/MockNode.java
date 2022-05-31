@@ -152,7 +152,7 @@ public class MockNode {
         return clusterManager;
     }
 
-    CompletableFuture<Void> startFuture() {
+    public CompletableFuture<Void> startFuture() {
         return startFuture;
     }
 

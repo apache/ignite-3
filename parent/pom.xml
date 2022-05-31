@@ -115,7 +115,6 @@
         <maven.shade.plugin.version>3.2.4</maven.shade.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
-        <maven.openapi.plugin.version>5.4.0</maven.openapi.plugin.version>
         <maven.micronaut.openapi.plugin.version>3.2.0</maven.micronaut.openapi.plugin.version>
         <!-- We leave it empty so that, when jacoco does not run, the unreplaced @{argLine} does not impede the build. -->
         <additional.test.argLine/>
