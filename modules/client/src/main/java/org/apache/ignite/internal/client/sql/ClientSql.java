@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.client.sql;
 
-import java.util.HashMap;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -26,41 +25,42 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
 /**
- * Embedded implementation of the Ignite SQL query facade.
+ * Client SQL.
  */
-public class IgniteSqlImpl implements IgniteSql {
-    private final QueryProcessor qryProc;
+public class ClientSql implements IgniteSql {
+    /** Channel. */
+    private final ReliableChannel ch;
 
     /**
      * Constructor.
      *
-     * @param qryProc Query processor.
+     * @param ch Channel.
      */
-    public IgniteSqlImpl(QueryProcessor qryProc) {
-        this.qryProc = qryProc;
+    public ClientSql(ReliableChannel ch) {
+        this.ch = ch;
     }
 
     /** {@inheritDoc} */
     @Override
     public Session createSession() {
-        return sessionBuilder().build();
+        return new ClientSession(ch, null, null, null, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>());
+        return new ClientSessionBuilder(ch);
     }
 
     /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new StatementImpl(query);
+        return new ClientStatement(query, null, false, null, null, null);
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder statementBuilder() {
-        return new StatementBuilderImpl();
+        return new ClientStatementBuilder();
     }
 }

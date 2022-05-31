@@ -82,6 +82,14 @@ public interface AsyncResultSet {
     Iterable<SqlRow> currentPage();
 
     /**
+     * Returns the current page size if the query return rows.
+     *
+     * @return The size of {@link #currentPage()}.
+     * @throws NoRowSetExpectedException if no row set is expected as a query result.
+     */
+    int currentPageSize();
+
+    /**
      * Fetch the next page of results asynchronously.
      *
      * @return Operation future.

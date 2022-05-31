@@ -17,50 +17,48 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import java.util.HashMap;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
+import org.apache.ignite.sql.ColumnMetadata;
 
 /**
- * Embedded implementation of the Ignite SQL query facade.
+ * Column metadata.
  */
-public class IgniteSqlImpl implements IgniteSql {
-    private final QueryProcessor qryProc;
+class ColumnMetadataImpl implements ColumnMetadata {
+    /** Field meta. */
+    private final ResultFieldMetadata fieldMetadata;
 
     /**
      * Constructor.
      *
-     * @param qryProc Query processor.
+     * @param fieldMetadata Field metadata.
      */
-    public IgniteSqlImpl(QueryProcessor qryProc) {
-        this.qryProc = qryProc;
+    public ColumnMetadataImpl(ResultFieldMetadata fieldMetadata) {
+        this.fieldMetadata = fieldMetadata;
     }
 
     /** {@inheritDoc} */
     @Override
-    public Session createSession() {
-        return sessionBuilder().build();
+    public String name() {
+        return fieldMetadata.name();
     }
 
     /** {@inheritDoc} */
     @Override
-    public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>());
+    public Class<?> valueClass() {
+        // TODO: IGNITE-16962
+        return Object.class;
     }
 
     /** {@inheritDoc} */
     @Override
-    public Statement createStatement(String query) {
-        return new StatementImpl(query);
+    public Object type() {
+        // TODO: IGNITE-16962
+        return null;
     }
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder statementBuilder() {
-        return new StatementBuilderImpl();
+    public boolean nullable() {
+        return fieldMetadata.isNullable();
     }
 }

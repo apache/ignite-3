@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.client.fakes;
 
-import java.util.HashMap;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Session.SessionBuilder;
@@ -26,41 +25,26 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 
 /**
- * Embedded implementation of the Ignite SQL query facade.
+ * Fake SQL implementation.
  */
-public class IgniteSqlImpl implements IgniteSql {
-    private final QueryProcessor qryProc;
-
-    /**
-     * Constructor.
-     *
-     * @param qryProc Query processor.
-     */
-    public IgniteSqlImpl(QueryProcessor qryProc) {
-        this.qryProc = qryProc;
-    }
-
-    /** {@inheritDoc} */
+public class FakeIgniteSql implements IgniteSql {
     @Override
     public Session createSession() {
         return sessionBuilder().build();
     }
 
-    /** {@inheritDoc} */
     @Override
     public SessionBuilder sessionBuilder() {
-        return new SessionBuilderImpl(qryProc, new HashMap<>());
+        return new FakeSessionBuilder();
     }
 
-    /** {@inheritDoc} */
     @Override
     public Statement createStatement(String query) {
-        return new StatementImpl(query);
+        return statementBuilder().build();
     }
 
-    /** {@inheritDoc} */
     @Override
     public StatementBuilder statementBuilder() {
-        return new StatementBuilderImpl();
+        return new ClientStatementBuilder();
     }
 }

@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -83,7 +85,25 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        // TODO: IGNITE-16962
+        return new ResultSetMetadata() {
+            @Override
+            public List<ColumnMetadata> columns() {
+                var res = new ArrayList<ColumnMetadata>(cur.metadata().fields().size());
+
+                for (var f : cur.metadata().fields()) {
+                    res.add(new ColumnMetadataImpl(f));
+                }
+
+                return res;
+            }
+
+            @Override
+            public int indexOf(String columnName) {
+                // TODO: IGNITE-16962
+                return 0;
+            }
+        };
     }
 
     /** {@inheritDoc} */
@@ -119,11 +139,17 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public Iterable<SqlRow> currentPage() {
-        if (!hasRowSet()) {
-            throw new NoRowSetExpectedException("Query hasn't result set: [type=" + cur.queryType() + ']');
-        }
+        requireResultSet();
 
         return () -> new TransformingIterator<>(batchPage.items().iterator(), SqlRowImpl::new);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int currentPageSize() {
+        requireResultSet();
+
+        return batchPage.items().size();
     }
 
     /** {@inheritDoc} */
@@ -155,6 +181,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     @Override
     public CompletionStage<Void> closeAsync() {
         return cur.closeAsync().thenRun(closeRun);
+    }
+
+    private void requireResultSet() {
+        if (!hasRowSet()) {
+            throw new NoRowSetExpectedException("Query has no result set: [type=" + cur.queryType() + ']');
+        }
     }
 
     private class SqlRowImpl implements SqlRow {
@@ -199,7 +231,6 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("unchecked")
         @Override
         public <T> T valueOrDefault(@NotNull String columnName, T defaultValue) {
             T ret = (T) row.get(columnIndexChecked(columnName));
@@ -214,14 +245,12 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("unchecked")
         @Override
         public <T> T value(@NotNull String columnName) throws IllegalArgumentException {
             return (T) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("unchecked")
         @Override
         public <T> T value(int columnIndex) {
             return (T) row.get(columnIndex);
