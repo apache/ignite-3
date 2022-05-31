@@ -38,7 +38,6 @@ import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.lang.IgniteLogger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -59,7 +58,6 @@ public class CheckpointManagerTest {
         PageMemoryDataRegion dataRegion = newDataRegion(true, mock(PageMemoryImpl.class));
 
         CheckpointManager checkpointManager = new CheckpointManager(
-                IgniteLogger::forClass,
                 "test",
                 null,
                 null,
@@ -80,9 +78,8 @@ public class CheckpointManagerTest {
         assertDoesNotThrow(() -> checkpointManager.addCheckpointListener(checkpointListener, dataRegion));
         assertDoesNotThrow(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
-        assertNotNull(checkpointManager.forceCheckpoint("test", null));
-        assertNotNull(checkpointManager.forceCheckpoint("test", (unused, throwable) -> {
-        }));
+        assertNotNull(checkpointManager.forceCheckpoint("test"));
+        assertNotNull(checkpointManager.forceCheckpoint("test"));
 
         assertDoesNotThrow(checkpointManager::stop);
     }

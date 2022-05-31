@@ -52,7 +52,6 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -116,7 +115,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
             }
 
             checkpointManager
-                    .forceCheckpoint("for_test_flash_dirty_pages", null)
+                    .forceCheckpoint("for_test_flash_dirty_pages")
                     .futureFor(FINISHED)
                     .get(100, MILLISECONDS);
 
@@ -187,7 +186,7 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
             }
 
             checkpointManager
-                    .forceCheckpoint("for_test_safe_to_update", null)
+                    .forceCheckpoint("for_test_safe_to_update")
                     .futureFor(FINISHED)
                     .get(100, MILLISECONDS);
 
@@ -248,7 +247,6 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
             Collection<PageMemoryDataRegion> dataRegions
     ) throws Exception {
         return new CheckpointManager(
-                IgniteLogger::forClass,
                 "test",
                 null,
                 null,

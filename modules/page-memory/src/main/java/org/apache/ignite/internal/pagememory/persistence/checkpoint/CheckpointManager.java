@@ -19,8 +19,6 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -38,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Main class to abstract checkpoint-related processes and actions and hide them from higher-level components.
  *
- * <p>Implements default checkpointing algorithm which is sharp checkpoint but can be replaced by other implementations if needed.
+ * <p>Implements sharp checkpointing algorithm.
  *
  * <p>Represents only an intermediate step in refactoring of checkpointing component and may change in the future.
  *
@@ -71,7 +69,6 @@ public class CheckpointManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param logger Logger producer.
      * @param igniteInstanceName Ignite instance name.
      * @param checkpointConfig Checkpoint configuration.
      * @param workerListener Listener for life-cycle checkpoint worker events.
@@ -83,7 +80,6 @@ public class CheckpointManager implements IgniteComponent {
      * @throws IgniteInternalCheckedException If failed.
      */
     public CheckpointManager(
-            Function<Class<?>, IgniteLogger> logger,
             String igniteInstanceName,
             @Nullable IgniteWorkerListener workerListener,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -97,7 +93,7 @@ public class CheckpointManager implements IgniteComponent {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
         ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = checkpointConfigView.logReadLockHolders()
-                ? new ReentrantReadWriteLockWithTracking(logger.apply(CheckpointReadWriteLock.class), 5_000)
+                ? new ReentrantReadWriteLockWithTracking(IgniteLogger.forClass(CheckpointReadWriteLock.class), 5_000)
                 : new ReentrantReadWriteLockWithTracking();
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
@@ -112,13 +108,13 @@ public class CheckpointManager implements IgniteComponent {
         );
 
         checkpointPagesWriterFactory = new CheckpointPagesWriterFactory(
-                logger.apply(CheckpointPagesWriterFactory.class),
+                IgniteLogger.forClass(CheckpointPagesWriterFactory.class),
                 (fullPage, buf, tag) -> filePageStoreManager.write(fullPage.groupId(), fullPage.pageId(), buf, tag, true),
                 pageSize
         );
 
         checkpointer = new Checkpointer(
-                logger.apply(Checkpoint.class),
+                IgniteLogger.forClass(Checkpoint.class),
                 igniteInstanceName,
                 workerListener,
                 longJvmPauseDetector,
@@ -128,7 +124,7 @@ public class CheckpointManager implements IgniteComponent {
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
-                logger.apply(CheckpointTimeoutLock.class),
+                IgniteLogger.forClass(CheckpointTimeoutLock.class),
                 checkpointReadWriteLock,
                 checkpointConfigView.readLockTimeout(),
                 () -> safeToUpdateAllPageMemories(dataRegions),
@@ -186,14 +182,10 @@ public class CheckpointManager implements IgniteComponent {
      * Start the new checkpoint immediately.
      *
      * @param reason Checkpoint reason.
-     * @param finishListener Listener which will be called on finish checkpoint.
      * @return Triggered checkpoint progress.
      */
-    public CheckpointProgress forceCheckpoint(
-            String reason,
-            @Nullable BiConsumer<Void, Throwable> finishListener
-    ) {
-        return checkpointer.scheduleCheckpoint(0, reason, finishListener);
+    public CheckpointProgress forceCheckpoint(String reason) {
+        return checkpointer.scheduleCheckpoint(0, reason);
     }
 
     /**
