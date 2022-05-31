@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
