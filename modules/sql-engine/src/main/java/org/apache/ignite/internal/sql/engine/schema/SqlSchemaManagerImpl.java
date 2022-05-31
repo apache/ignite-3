@@ -78,7 +78,21 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             return newCalciteSchema;
         });
 
-        calciteSchemaVv.whenComplete((token, schema, e) -> listeners.forEach(SchemaUpdateListener::onSchemaUpdated));
+        calciteSchemaVv.whenComplete((token, schema, e) -> {
+            listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
+
+            tableManager.onSqlTableReady(token);
+        });
+
+        schemasVv.whenComplete((r, v, e) -> {
+                    try {
+                        Thread.sleep(100);
+                    }
+                    catch (InterruptedException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+        );
     }
 
     /** {@inheritDoc} */
@@ -241,7 +255,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
             TableImpl table,
             long causalityToken
     ) {
-        onTableCreated(schemaName, table, causalityToken);
+        onTableUpdated(schemaName, table, causalityToken);
     }
 
     /**
