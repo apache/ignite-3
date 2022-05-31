@@ -173,6 +173,15 @@ public class ClientUtils {
             case ClientOp.CLUSTER_GET_NODES:
                 return null;
 
+            case ClientOp.SQL_EXEC:
+                return ClientOperationType.SQL_EXECUTE;
+
+            case ClientOp.SQL_CURSOR_NEXT_PAGE:
+                return ClientOperationType.SQL_CURSOR_NEXT_PAGE;
+
+            case ClientOp.SQL_CURSOR_CLOSE:
+                return null;
+
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);
