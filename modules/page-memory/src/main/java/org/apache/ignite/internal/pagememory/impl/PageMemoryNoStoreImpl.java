@@ -34,6 +34,8 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
+import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryAllocator;
+import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
@@ -167,22 +169,25 @@ public class PageMemoryNoStoreImpl implements PageMemory {
     /**
      * Constructor.
      *
-     * @param directMemoryProvider Memory allocator to use.
      * @param dataRegionConfig Data region configuration.
      * @param ioRegistry IO registry.
      * @param pageSize Page size in bytes.
      */
     public PageMemoryNoStoreImpl(
-            DirectMemoryProvider directMemoryProvider,
             PageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        this.directMemoryProvider = directMemoryProvider;
         this.ioRegistry = ioRegistry;
         this.trackAcquiredPages = false;
         this.dataRegionConfigView = dataRegionConfig.value();
+
+        if (dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocator) {
+            throw new IgniteInternalException("Unexpected memory allocator: " + dataRegionConfigView.memoryAllocator());
+        }
+
+        directMemoryProvider = new UnsafeMemoryProvider(null);
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 

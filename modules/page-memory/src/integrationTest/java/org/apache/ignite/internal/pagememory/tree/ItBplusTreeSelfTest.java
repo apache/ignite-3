@@ -83,7 +83,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -2745,7 +2744,6 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-                new UnsafeMemoryProvider(null),
                 dataRegionCfg,
                 ioRegistry,
                 PAGE_SIZE

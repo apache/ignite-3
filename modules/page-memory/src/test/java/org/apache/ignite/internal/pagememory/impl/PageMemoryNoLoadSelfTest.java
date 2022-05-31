@@ -38,9 +38,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryData
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -311,14 +309,11 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      * @return Page memory implementation.
      */
     protected PageMemory memory() {
-        DirectMemoryProvider provider = new UnsafeMemoryProvider(null);
-
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-                provider,
                 dataRegionCfg,
                 ioRegistry,
                 PAGE_SIZE

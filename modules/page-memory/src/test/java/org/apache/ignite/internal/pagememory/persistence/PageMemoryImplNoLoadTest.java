@@ -46,7 +46,6 @@ import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoLoadSelfTest;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
@@ -210,7 +209,6 @@ public class PageMemoryImplNoLoadTest extends PageMemoryNoLoadSelfTest {
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryImpl(
-                new UnsafeMemoryProvider(null),
                 dataRegionCfg,
                 ioRegistry,
                 sizes,

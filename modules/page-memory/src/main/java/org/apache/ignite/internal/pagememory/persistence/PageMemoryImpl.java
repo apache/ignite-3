@@ -81,6 +81,8 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
+import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryAllocator;
+import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
@@ -217,7 +219,6 @@ public class PageMemoryImpl implements PageMemory {
     /**
      * Constructor.
      *
-     * @param directMemoryProvider Memory allocator to use.
      * @param dataRegionConfig Data region configuration.
      * @param ioRegistry IO registry.
      * @param sizes Segments sizes, the last one being the checkpoint buffer size.
@@ -228,7 +229,6 @@ public class PageMemoryImpl implements PageMemory {
      * @param pageSize Page size in bytes.
      */
     public PageMemoryImpl(
-            DirectMemoryProvider directMemoryProvider,
             PageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] sizes,
@@ -239,7 +239,6 @@ public class PageMemoryImpl implements PageMemory {
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        this.directMemoryProvider = directMemoryProvider;
         this.dataRegionConfigView = dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
@@ -247,6 +246,12 @@ public class PageMemoryImpl implements PageMemory {
         this.changeTracker = changeTracker;
         this.flushDirtyPage = flushDirtyPage;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
+
+        if (dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocator) {
+            throw new IgniteInternalException("Unexpected memory allocator: " + dataRegionConfigView.memoryAllocator());
+        }
+
+        directMemoryProvider = new UnsafeMemoryProvider(null);
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
