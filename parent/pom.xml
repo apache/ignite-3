@@ -373,12 +373,6 @@
 
             <dependency>
                 <groupId>org.apache.ignite</groupId>
-                <artifactId>ignite-rest-client</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-extended-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1019,7 +1013,6 @@
                             <ignorePackages>
                                 <package>org.apache.ignite.internal.sql.engine</package>
                                 <package>org.apache.ignite.internal.generated</package>
-                                <package>org.apache.ignite.rest.client</package>
                             </ignorePackages>
                         </configuration>
                         <executions>
