@@ -89,7 +89,7 @@ public class ClusterManagementControllerTest {
             node.start();
         }
 
-        clusterService = cluster.get(0).getClusterService();
+        clusterService = cluster.get(0).clusterService();
 
     }
 
@@ -130,7 +130,7 @@ public class ClusterManagementControllerTest {
     void testInitAlreadyInitializedWithAnotherNodes() {
         // Given cluster initialized
         String givenFirstRequestBody =
-                "{\"metaStorageNodes\": [\"" + cluster.get(0).getClusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
+                "{\"metaStorageNodes\": [\"" + cluster.get(0).clusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
                         + "\"clusterName\": \"cluster\"}";
         // When
         HttpResponse<Object> response = client.toBlocking().exchange(HttpRequest.POST("", givenFirstRequestBody));
@@ -139,7 +139,7 @@ public class ClusterManagementControllerTest {
 
         // And second request with different node name
         String givenSecondRequestBody =
-                "{\"metaStorageNodes\": [\"" + cluster.get(1).getClusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
+                "{\"metaStorageNodes\": [\"" + cluster.get(1).clusterService().localConfiguration().getName() + "\"], \"cmgNodes\": [], "
                         + "\"clusterName\": \"cluster\" }";
 
         try {

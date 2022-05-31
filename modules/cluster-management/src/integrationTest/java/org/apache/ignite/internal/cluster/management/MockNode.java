@@ -148,7 +148,7 @@ public class MockNode {
         return clusterService.topologyService().localMember();
     }
 
-    public ClusterManagementGroupManager getClusterManager() {
+    public ClusterManagementGroupManager clusterManager() {
         return clusterManager;
     }
 
@@ -156,7 +156,7 @@ public class MockNode {
         return startFuture;
     }
 
-    public ClusterService getClusterService() {
+    public ClusterService clusterService() {
         return clusterService;
     }
 }
