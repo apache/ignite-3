@@ -148,6 +148,10 @@ public class MockNode {
         return clusterService.topologyService().localMember();
     }
 
+    public String name() {
+        return localMember().name();
+    }
+
     public ClusterManagementGroupManager clusterManager() {
         return clusterManager;
     }
