@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.sql;
 import static org.apache.ignite.internal.client.ClientUtils.sync;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -42,7 +43,6 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL session.
  */
 public class ClientSession implements Session {
-    /** Channel. */
     private final ReliableChannel ch;
 
     @Nullable
@@ -121,16 +121,10 @@ public class ClientSession implements Session {
         return ch.serviceAsync(ClientOp.SQL_EXEC, w -> {
             writeTx(transaction, w);
 
-            w.out().packObject(defaultPageSize);
-            w.out().packObject(defaultSchema);
-            w.out().packObject(defaultTimeout);
-
-            packProperties(w, properties);
-
-            w.out().packObject(clientStatement.defaultSchema());
-            w.out().packObject(clientStatement.pageSizeNullable());
+            w.out().packObject(oneOf(clientStatement.defaultSchema(), defaultSchema));
+            w.out().packObject(oneOf(clientStatement.pageSizeNullable(), defaultPageSize));
             w.out().packObject(clientStatement.query());
-            w.out().packObject(clientStatement.queryTimeoutNullable());
+            w.out().packObject(oneOf(clientStatement.queryTimeoutNullable(), defaultTimeout));
             w.out().packBoolean(clientStatement.prepared());
 
             packProperties(w, clientStatement.properties());
@@ -257,16 +251,46 @@ public class ClientSession implements Session {
         return null;
     }
 
-    private static void packProperties(PayloadOutputChannel w, Map<String, Object> props) {
-        if (props == null) {
-            w.out().packMapHeader(0);
-        } else {
-            w.out().packMapHeader(props.size());
+    private void packProperties(PayloadOutputChannel w, Map<String, Object> props) {
+        int size = 0;
 
+        if (props != null) {
+            size += props.size();
+        }
+
+        // Statement properties override session properties.
+        if (properties != null) {
+            if (props != null) {
+                for (String k : properties.keySet()) {
+                    if (!props.containsKey(k)) {
+                        size++;
+                    }
+                }
+            } else {
+                size += properties.size();
+            }
+        }
+
+        w.out().packMapHeader(size);
+
+        if (props != null) {
             for (Entry<String, Object> entry : props.entrySet()) {
                 w.out().packString(entry.getKey());
                 w.out().packObjectWithType(entry.getValue());
             }
         }
+
+        if (properties != null) {
+            for (Entry<String, Object> entry : properties.entrySet()) {
+                if (props == null || !props.containsKey(entry.getKey())) {
+                    w.out().packString(entry.getKey());
+                    w.out().packObjectWithType(entry.getValue());
+                }
+            }
+        }
+    }
+
+    private static <T> T oneOf(T a, T b) {
+        return a != null ? a : b;
     }
 }
