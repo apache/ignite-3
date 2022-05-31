@@ -85,7 +85,7 @@ class ClientStatement implements Statement {
     public long queryTimeout(@NotNull TimeUnit timeUnit) {
         Objects.requireNonNull(timeUnit);
 
-        return timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
+        return queryTimeoutMs == null ? 0 : timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -106,7 +106,7 @@ class ClientStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
-        return pageSize;
+        return pageSize == null ? 0 : pageSize;
     }
 
     /**
@@ -127,7 +127,7 @@ class ClientStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(@NotNull String name) {
-        return properties.get(name);
+        return properties == null ? null : properties.get(name);
     }
 
     /**

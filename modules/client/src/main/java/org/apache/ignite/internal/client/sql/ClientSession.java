@@ -82,15 +82,15 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        // TODO: Wrap AsyncResultSet.
-        // return sync(executeAsync(transaction, query, arguments));
-        return null;
+        // TODO IGNITE-17057.
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        return null;
+        // TODO IGNITE-17057.
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
@@ -203,25 +203,27 @@ public class ClientSession implements Session {
     /** {@inheritDoc} */
     @Override
     public long defaultTimeout(TimeUnit timeUnit) {
-        return 0;
+        Objects.requireNonNull(timeUnit);
+
+        return defaultTimeout == null ? 0 : timeUnit.convert(defaultTimeout, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
-        return null;
+        return defaultSchema;
     }
 
     /** {@inheritDoc} */
     @Override
     public int defaultPageSize() {
-        return 0;
+        return defaultPageSize == null ? 0 : defaultPageSize;
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable Object property(String name) {
-        return null;
+        return properties == null ? null : properties.get(name);
     }
 
     /** {@inheritDoc} */
