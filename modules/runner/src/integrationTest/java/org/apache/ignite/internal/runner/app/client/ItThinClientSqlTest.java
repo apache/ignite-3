@@ -129,4 +129,9 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
     void testInvalidSqlThrowsException() {
         // TODO:
     }
+
+    @Test
+    void testTransactionRollbackRevertsSqlUpdate() {
+        // TODO:
+    }
 }
