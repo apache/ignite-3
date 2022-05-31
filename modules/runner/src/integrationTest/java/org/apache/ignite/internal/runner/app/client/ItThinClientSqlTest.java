@@ -32,6 +32,7 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -142,6 +143,16 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
 
     @Test
     void testTransactionRollbackRevertsSqlUpdate() {
-        // TODO:
+        Session session = client().sql().createSession();
+
+        session.executeAsync(null, "CREATE TABLE testTx(ID INT PRIMARY KEY, VAL INT)").join();
+        session.executeAsync(null, "INSERT INTO testTx VALUES (1, 1)").join();
+
+        Transaction tx = client().transactions().begin();
+        session.executeAsync(tx, "UPDATE testTx SET VAL=2").join();
+        tx.rollback();
+
+        var res = session.executeAsync(null, "SELECT VAL FROM testTx").join();
+        assertEquals(1, res.currentPage().iterator().next().intValue(0));
     }
 }
