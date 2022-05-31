@@ -198,7 +198,7 @@ public class RetryPolicyTest {
             }
         }
 
-        long expectedNullCount = 16;
+        long expectedNullCount = 17;
 
         String msg = nullOpFields.size()
                 + " operation codes do not have public equivalent. When adding new codes, update ClientOperationType too. Missing ops: "

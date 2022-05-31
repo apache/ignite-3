@@ -128,4 +128,13 @@ public class ClientOp {
 
     /** Execute compute job. */
     public static final int COMPUTE_EXECUTE_COLOCATED = 49;
+
+    /** Execute SQL query. */
+    public static final int SQL_EXEC = 50;
+
+    /** Get next page. */
+    public static final int SQL_CURSOR_NEXT_PAGE = 51;
+
+    /** Close cursor. */
+    public static final int SQL_CURSOR_CLOSE = 52;
 }

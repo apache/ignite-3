@@ -38,6 +38,9 @@ import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcQueryMetadataReq
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcSchemasMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcTableMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorCloseRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlCursorNextPageRequest;
+import org.apache.ignite.client.handler.requests.sql.ClientSqlExecuteRequest;
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableIdDoesNotExistException;
@@ -77,6 +80,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -109,6 +113,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
     /** Cluster. */
     private final ClusterService clusterService;
 
+    /** SQL. */
+    private final IgniteSql sql;
+
     /** Context. */
     private ClientContext clientContext;
 
@@ -128,19 +135,22 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
             QueryProcessor processor,
             ClientConnectorView configuration,
             IgniteCompute compute,
-            ClusterService clusterService) {
+            ClusterService clusterService,
+            IgniteSql sql) {
         assert igniteTables != null;
         assert igniteTransactions != null;
         assert processor != null;
         assert configuration != null;
         assert compute != null;
         assert clusterService != null;
+        assert sql != null;
 
         this.igniteTables = igniteTables;
         this.igniteTransactions = igniteTransactions;
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
+        this.sql = sql;
 
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(processor, new JdbcMetadataCatalog(igniteTables));
     }
@@ -429,6 +439,15 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter {
 
             case ClientOp.CLUSTER_GET_NODES:
                 return ClientClusterGetNodesRequest.process(out, clusterService);
+
+            case ClientOp.SQL_EXEC:
+                return ClientSqlExecuteRequest.process(in, out, sql, resources);
+
+            case ClientOp.SQL_CURSOR_NEXT_PAGE:
+                return ClientSqlCursorNextPageRequest.process(in, out, resources);
+
+            case ClientOp.SQL_CURSOR_CLOSE:
+                return ClientSqlCursorCloseRequest.process(in, resources);
 
             default:
                 throw new IgniteException("Unexpected operation code: " + opCode);
