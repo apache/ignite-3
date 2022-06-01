@@ -29,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Usage example:
  * <pre><code>
- *      private CompletionStage&ltVoid&gt fetchAllRowsInto(
+ *      private CompletionStage&lt;Void&gt; fetchAllRowsInto(
  *          AsyncResultSet resultSet,
  *          List&lt;SqlRow&gt; target
  *      ) {

@@ -258,6 +258,7 @@ public interface Session extends AutoCloseable {
          *
          * @param timeout Query timeout value.
          * @param timeUnit Timeunit.
+         * @return {@code this} for chaining.
          */
         SessionBuilder defaultTimeout(long timeout, TimeUnit timeUnit);
 
@@ -275,6 +276,7 @@ public interface Session extends AutoCloseable {
          * text, to their canonical names.
          *
          * @param schema Default schema.
+         * @return {@code this} for chaining.
          */
         SessionBuilder defaultSchema(String schema);
 
