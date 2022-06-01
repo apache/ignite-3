@@ -161,9 +161,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            doOnNewPeersConfigurationApplied(peers);
-
-            rebalanceAttempts.set(0);
+            rebalanceScheduler.schedule(() -> doOnNewPeersConfigurationApplied(peers), 0, TimeUnit.MILLISECONDS);
         } finally {
             busyLock.leaveBusy();
         }
@@ -268,6 +266,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     doOnNewPeersConfigurationApplied(peers);
                 }
             }
+
+            rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-17013 errors during this call should be handled by retry logic
             LOG.error("Could't commit new partition configuration to metastore for table = {}, partition = {}",
