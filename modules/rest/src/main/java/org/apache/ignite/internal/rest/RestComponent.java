@@ -51,16 +51,20 @@ public class RestComponent implements IgniteComponent {
     /** Default port. */
     public static final int DFLT_PORT = 10300;
 
+    /** Server host. */
+    private static final String LOCALHOST = "localhost";
+
     /** Ignite logger. */
     private final IgniteLogger log = IgniteLogger.forClass(RestComponent.class);
 
     /** Factories that produce beans needed for REST controllers. */
     private final List<RestFactory> restFactories;
+
     private final RestConfiguration restConfiguration;
-    /** Server host. */
-    private final String host = "localhost";
+
     /** Micronaut application context. */
-    private ApplicationContext context;
+    private volatile ApplicationContext context;
+
     /** Server port. */
     private int port;
 
@@ -85,20 +89,30 @@ public class RestComponent implements IgniteComponent {
                 context = buildMicronautContext(portCandidate).start();
                 port = portCandidate;
                 log.info("REST protocol started successfully");
-                break;
+                return;
             } catch (ApplicationStartupException e) {
-                log.error("Got exception " + e.getCause() + " during node start on port " + portCandidate + " , trying again");
+                if (isBindExceptionInside(e)) {
+                    log.error("Got exception " + e.getCause().getCause().getCause() + " during node start on port "
+                            + portCandidate + " , trying again");
+                    continue;
+                }
+                break;
             }
         }
 
-        if (context == null) {
-            String msg = "Cannot start REST endpoint. " + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange)
-                    + "] are in use.";
+        String msg = "Cannot start REST endpoint. " + "All ports in range [" + desiredPort + ", " + (desiredPort + portRange)
+                + "] are in use.";
+        log.error(msg);
+        throw new RuntimeException(msg);
+    }
 
-            log.error(msg);
-
-            throw new RuntimeException(msg);
+    private boolean isBindExceptionInside(ApplicationStartupException e) {
+        if (e.getCause() instanceof ApplicationStartupException) {
+            if (e.getCause().getCause() instanceof ServerStartupException) {
+                return e.getCause().getCause().getCause() instanceof BindException;
+            }
         }
+        return false;
     }
 
     private Micronaut buildMicronautContext(int portCandidate) {
@@ -158,6 +172,6 @@ public class RestComponent implements IgniteComponent {
             throw new IgniteInternalException("RestComponent has not been started");
         }
 
-        return host;
+        return LOCALHOST;
     }
 }

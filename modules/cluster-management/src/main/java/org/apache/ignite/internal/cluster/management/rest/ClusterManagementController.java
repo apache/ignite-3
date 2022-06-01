@@ -58,7 +58,7 @@ public class ClusterManagementController {
     /**
      * Initializes cluster.
      *
-     * @return
+     * @return Completable future that will be completed whet cluster is initialized.
      */
     @Post
     @Operation(operationId = "init")

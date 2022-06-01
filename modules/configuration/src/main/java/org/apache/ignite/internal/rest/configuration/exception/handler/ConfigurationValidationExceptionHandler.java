@@ -24,7 +24,9 @@ import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
+import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.internal.rest.api.ErrorResult;
 
 /**
@@ -38,7 +40,11 @@ public class ConfigurationValidationExceptionHandler implements
 
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, ConfigurationValidationException exception) {
-        final ErrorResult errorResult = new ErrorResult("VALIDATION_EXCEPTION", exception.getMessage());
+        String joinedMessage = exception.getIssues()
+                .stream()
+                .map(ValidationIssue::message)
+                .collect(Collectors.joining(","));
+        final ErrorResult errorResult = new ErrorResult("VALIDATION_EXCEPTION", joinedMessage);
         return HttpResponse.badRequest().body(errorResult);
     }
 }

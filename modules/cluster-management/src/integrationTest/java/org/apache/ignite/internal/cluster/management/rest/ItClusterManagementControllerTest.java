@@ -41,7 +41,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.MockNode;
 import org.apache.ignite.internal.rest.api.ErrorResult;
 import org.apache.ignite.internal.testframework.WorkDirectory;

@@ -139,7 +139,6 @@
                             <version>${maven.micronaut.openapi.plugin.version}</version>
                         </path>
                     </annotationProcessorPaths>
-                    <fork>true</fork>
                     <compilerArgs>
                         <arg>-J-Dmicronaut.openapi.target.file=openapi/openapi.yaml</arg>
                     </compilerArgs>

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.rest.configuration;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.http.HttpRequest;
@@ -104,7 +103,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var errorResult = getErrorResult(thrown);
         assertEquals("CONFIG_PATH_UNRECOGNIZED", errorResult.type());
-        assertTrue(errorResult.message().contains("no-such-root"));
+        assertEquals("Configuration value 'no-such-root' has not been found", errorResult.message());
     }
 
     @Test
@@ -120,8 +119,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var errorResult = getErrorResult(thrown);
         assertEquals("INVALID_CONFIG_FORMAT", errorResult.type());
-        assertTrue(errorResult.message().contains("no-such-bar"));
-
+        assertEquals("'root.subCfg' configuration doesn't have the 'no-such-bar' sub-configuration", errorResult.message());
     }
 
     @Test
@@ -137,7 +135,7 @@ public abstract class ConfigurationControllerBaseTest {
 
         var errorResult = getErrorResult(thrown);
         assertEquals("VALIDATION_EXCEPTION", errorResult.type());
-        assertTrue(errorResult.message().contains("Error word"));
+        assertEquals("Error word", errorResult.message());
     }
 
     @NotNull
