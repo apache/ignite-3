@@ -155,10 +155,11 @@ public class IgniteSqlApiTest {
         assertFalse(rs.wasApplied());
         assertEquals(-1L, rs.affectedRows());
 
-        assertTrue(rs.iterator().hasNext());
-        for (SqlRow r : rs) {
-            assertEquals("str" + r.intValue("id"), r.stringValue("val"));
-        }
+        assertTrue(rs.hasNext());
+
+        Streams.stream(rs).forEach(r ->
+                assertEquals("str" + r.intValue("id"), r.stringValue("val"))
+        );
 
         // Execute DML.
         rs = sess.execute(null, "DELETE FROM tbl");
@@ -190,15 +191,16 @@ public class IgniteSqlApiTest {
             // Execute query in TX.
             rs = sess.execute(tx, "SELECT id, val FROM tbl WHERE id > ?", 0);
 
-            assertTrue(rs.iterator().hasNext());
-            for (SqlRow r : rs) {
-                assertEquals("str" + r.intValue("id"), r.stringValue("val"));
-            }
+            assertTrue(rs.hasNext());
+
+            Streams.stream(rs).forEach(r ->
+                    assertEquals("str" + r.intValue("id"), r.stringValue("val"))
+            );
 
             // Execute query outside TX in the same session.
             rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
 
-            assertFalse(rs.iterator().hasNext()); // No data found before TX is commited.
+            assertFalse(rs.hasNext()); // No data found before TX is commited.
 
             tx.commit();
 
@@ -227,14 +229,14 @@ public class IgniteSqlApiTest {
         }).join();
 
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 1);
-        assertTrue(rs.iterator().hasNext());
+        assertTrue(rs.hasNext());
 
         igniteTx.beginAsync().thenAccept(tx -> {
             // Execute in TX.
             tbl.putAsync(tx, Tuple.create().set("id", 3), Tuple.create().set("val", "NewValue"))
                     .thenApply(f -> {
                         ResultSet rs0 = sess.execute(tx, "SELECT id, val FROM tbl WHERE id > ?", 2);
-                        assertTrue(rs0.iterator().hasNext());
+                        assertTrue(rs0.hasNext());
 
                         return f;
                     })
@@ -244,7 +246,7 @@ public class IgniteSqlApiTest {
         }).join();
 
         rs = sess.execute(null, "SELECT id, val FROM tbl WHERE id > ?", 2);
-        assertFalse(rs.iterator().hasNext());
+        assertFalse(rs.hasNext());
     }
 
     @Test
@@ -260,7 +262,12 @@ public class IgniteSqlApiTest {
 
         ResultSet rs = sess.execute(null, "SELECT id, val FROM tbl2");
 
-        assertEquals(2, Streams.stream(rs.iterator()).count());
+        int cnt = 0;
+        for (; rs.hasNext(); rs.next()) {
+            cnt++;
+        }
+
+        assertEquals(2, cnt);
     }
 
     @Test
@@ -344,7 +351,7 @@ public class IgniteSqlApiTest {
         ResultSet rs = igniteSql.createSession()
                 .execute(null, "SELECT id, val FROM tbl");
 
-        SqlRow row = rs.iterator().next();
+        SqlRow row = rs.next();
 
         ResultSetMetadata meta = rs.metadata();
 
@@ -448,7 +455,7 @@ public class IgniteSqlApiTest {
                     state(ans.getArgument(0)).put(ans.getArgument(2), ans.getArgument(3));
 
                     ResultSet res = Mockito.mock(ResultSet.class);
-                    Mockito.when(res.iterator()).thenThrow(AssertionError.class);
+                    Mockito.when(res).thenThrow(AssertionError.class);
                     Mockito.when(res.wasApplied()).thenReturn(false);
                     Mockito.when(res.hasRowSet()).thenReturn(false);
                     Mockito.when(res.affectedRows()).thenReturn(1L);
@@ -479,7 +486,10 @@ public class IgniteSqlApiTest {
                     Transaction txArg = ans.getArgument(0);
                     Integer filterArg = ans.getArgument(2);
 
-                    Mockito.when(res.iterator()).thenReturn(stateAsRowSet(txArg, filterArg).iterator());
+                    final var it = stateAsRowSet(txArg, filterArg).iterator();
+
+                    Mockito.when(res.hasNext()).thenAnswer(ans0 -> it.hasNext());
+                    Mockito.when(res.next()).thenAnswer(ans0 -> it.next());
                     return res;
                 });
 
@@ -498,21 +508,27 @@ public class IgniteSqlApiTest {
         Mockito.when(session.execute(Mockito.isNull(), Mockito.eq("SELECT id, val FROM tbl2")))
                 .thenAnswer(ans -> {
                     ResultSet res = Mockito.mock(ResultSet.class);
+
+                    var tbl2iter = List.of(
+                            createRow(2, "str2").build(),
+                            createRow(3, "str3").build()
+                    ).iterator();
+
                     Mockito.when(res.wasApplied()).thenReturn(false);
                     Mockito.when(res.hasRowSet()).thenReturn(true);
                     Mockito.when(res.affectedRows()).thenReturn(-1L);
-                    Mockito.when(res.iterator())
-                            .thenReturn(List.of(
-                                    createRow(2, "str2").build(),
-                                    createRow(3, "str3").build()
-                            ).iterator());
+                    Mockito.when(res.hasNext()).thenAnswer(ans0 -> {
+                        System.out.println();
+                        return tbl2iter.hasNext();
+                    });
+                    Mockito.when(res.next()).thenAnswer(ans1 -> tbl2iter.next());
                     return res;
                 });
 
         Mockito.when(session.execute(Mockito.isNull(), Mockito.eq("CREATE TABLE IF NOT EXITS tbl (id INT PRIMARY KEY, val VARCHAR)")))
                 .thenAnswer(ans -> {
                     ResultSet res = Mockito.mock(ResultSet.class);
-                    Mockito.when(res.iterator()).thenThrow(AssertionError.class);
+                    Mockito.when(res.hasNext()).thenThrow(AssertionError.class);
                     Mockito.when(res.wasApplied()).thenReturn(true);
                     Mockito.when(res.hasRowSet()).thenReturn(false);
                     Mockito.when(res.affectedRows()).thenReturn(-1L);
