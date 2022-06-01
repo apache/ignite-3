@@ -22,10 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.common.collect.Streams;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -164,7 +164,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
 
         ResultSet rs = ses.execute(null, "SELECT ID FROM TEST");
 
-        Set<Integer> set = StreamSupport.stream(rs.spliterator(), false).map(r -> r.intValue(0)).collect(Collectors.toSet());
+        Set<Integer> set = Streams.stream(rs).map(r -> r.intValue(0)).collect(Collectors.toSet());
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertTrue(set.remove(i), "Results invalid: " + rs);
