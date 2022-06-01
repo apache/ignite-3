@@ -45,16 +45,16 @@ import org.junit.jupiter.api.Test;
 @MicronautTest
 public abstract class ConfigurationControllerBaseTest {
     @Inject
-    EmbeddedServer server;
+    private EmbeddedServer server;
 
     @Inject
-    ConfigurationPresentation<String> cfgPresentation;
+    private ConfigurationPresentation<String> cfgPresentation;
 
     @Inject
-    ConfigurationRegistry configurationRegistry;
+    private ConfigurationRegistry configurationRegistry;
 
     @Inject
-    ApplicationContext context;
+    private ApplicationContext context;
 
     abstract HttpClient client();
 
