@@ -50,19 +50,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AsyncResultSetImpl implements AsyncResultSet {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new IgniteSqlException("There are no more pages."));
+            CompletableFuture.failedFuture(new IgniteSqlException("No more pages."));
 
     private final AsyncSqlCursor<List<Object>> cur;
 
-    private final BatchedResult<List<Object>> batchPage;
+    private volatile BatchedResult<List<Object>> curPage;
 
     private final int pageSize;
 
     private final Runnable closeRun;
-
-    private final Object mux = new Object();
-
-    private volatile CompletionStage<? extends AsyncResultSet> next;
 
     /**
      * Constructor.
@@ -71,15 +67,15 @@ public class AsyncResultSetImpl implements AsyncResultSet {
      */
     public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
         this.cur = cur;
-        this.batchPage = page;
+        this.curPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
 
         assert cur.queryType() == SqlQueryType.QUERY
                 || ((cur.queryType() == SqlQueryType.DML || cur.queryType() == SqlQueryType.DDL)
-                && batchPage.items().size() == 1
-                && batchPage.items().get(0).size() == 1
-                && !batchPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + batchPage + ']';
+                && curPage.items().size() == 1
+                && curPage.items().get(0).size() == 1
+                && !curPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + curPage + ']';
     }
 
     /** {@inheritDoc} */
@@ -119,9 +115,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return -1;
         }
 
-        assert batchPage.items().get(0).get(0) instanceof Long : "Invalid DML result: " + batchPage;
+        assert curPage.items().get(0).get(0) instanceof Long : "Invalid DML result: " + curPage;
 
-        return (long) batchPage.items().get(0).get(0);
+        return (long) curPage.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -131,9 +127,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return false;
         }
 
-        assert batchPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + batchPage;
+        assert curPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + curPage;
 
-        return (boolean) batchPage.items().get(0).get(0);
+        return (boolean) curPage.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -141,7 +137,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     public Iterable<SqlRow> currentPage() {
         requireResultSet();
 
-        return () -> new TransformingIterator<>(batchPage.items().iterator(), SqlRowImpl::new);
+        final Iterator<List<Object>> it0 = curPage.items().iterator();
+
+        return () -> new TransformingIterator<>(it0, SqlRowImpl::new);
     }
 
     /** {@inheritDoc} */
@@ -149,32 +147,28 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     public int currentPageSize() {
         requireResultSet();
 
-        return batchPage.items().size();
+        return curPage.items().size();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
-        if (next == null) {
-            synchronized (mux) {
-                if (next == null) {
-                    if (!hasMorePages()) {
-                        next = HAS_NO_MORE_PAGE_FUTURE;
-                    } else {
-                        next = cur.requestNextAsync(pageSize)
-                                .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
-                    }
-                }
-            }
-        }
+        if (!hasMorePages()) {
+            return HAS_NO_MORE_PAGE_FUTURE;
+        } else {
+            return cur.requestNextAsync(pageSize)
+                    .thenApply(page -> {
+                        curPage = page;
 
-        return next;
+                        return AsyncResultSetImpl.this;
+                    });
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return batchPage.hasMore();
+        return curPage.hasMore();
     }
 
     /** {@inheritDoc} */
