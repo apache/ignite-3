@@ -66,14 +66,19 @@ public class ItClusterManagementControllerTest {
     private static final int PORT_BASE = 10000;
 
     private static final List<MockNode> cluster = new ArrayList<>();
+
     static ClusterService clusterService;
+
     @WorkDirectory
     private static Path workDir;
+
     @Inject
     EmbeddedServer server;
+
     @Inject
     @Client("/management/v1/cluster/init/")
     HttpClient client;
+
     @Inject
     ClusterInitializer clusterInitializer;
 

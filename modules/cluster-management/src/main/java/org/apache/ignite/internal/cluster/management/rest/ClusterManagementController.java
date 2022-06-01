@@ -25,6 +25,8 @@ import io.micronaut.http.annotation.Post;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.rest.exception.InvalidNodesInitClusterException;
@@ -55,33 +57,38 @@ public class ClusterManagementController {
 
     /**
      * Initializes cluster.
+     *
+     * @return
      */
     @Post
     @Operation(operationId = "init")
     @ApiResponse(responseCode = "200", description = "Cluster initialized")
     @ApiResponse(responseCode = "409", description = "Cluster already initialized")
     @Consumes(MediaType.APPLICATION_JSON)
-    public void init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
+    public CompletableFuture<Void> init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
         if (log.isInfoEnabled()) {
             log.info("Received init command:\n\tMeta Storage nodes: {}\n\tCMG nodes: {}", initCommand.metaStorageNodes(),
                     initCommand.cmgNodes());
         }
 
-        try {
-            clusterInitializer.initCluster(initCommand.metaStorageNodes(), initCommand.cmgNodes(), initCommand.clusterName()).get();
-        } catch (ExecutionException ex) {
-            Throwable cause = ex.getCause();
-            handleThrowable(cause);
-        }
+        return clusterInitializer.initCluster(initCommand.metaStorageNodes(), initCommand.cmgNodes(), initCommand.clusterName())
+                .exceptionally(ex -> {
+                    throw mapException(ex);
+                });
     }
 
-    private void handleThrowable(Throwable cause) {
-        if (cause instanceof IgniteInternalException) {
-            throw (IgniteInternalException) cause;
-        } else if (cause instanceof IllegalArgumentException) {
-            throw new InvalidNodesInitClusterException(cause);
-        } else {
-            throw new IgniteException(cause);
+    private RuntimeException mapException(Throwable ex) {
+        if (ex instanceof CompletionException) {
+            var cause = ex.getCause();
+            if (cause instanceof IgniteInternalException) {
+                return (IgniteInternalException) cause;
+            }
         }
+
+        if (ex instanceof IllegalArgumentException) {
+            return new InvalidNodesInitClusterException(ex);
+        }
+
+        return new IgniteException(ex);
     }
 }
