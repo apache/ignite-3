@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql;
 
+import java.util.Iterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #wasApplied()} returns
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  */
-public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
+public interface ResultSet extends Iterator<SqlRow>, AutoCloseable {
     /**
      * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
      *
@@ -42,7 +43,8 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     /**
      * Returns whether the result of the query execution is a collection of rows, or not.
      *
-     * <p>Note: when returns {@code false}, then calling {@link #iterator()} will failed, and either {@link #affectedRows()} return number
+     * <p>Note: when returns {@code false}, then calling {@link #hasNext()}, {@link #next()} will fail,
+     * and either {@link #affectedRows()} return number
      * of affected rows or {@link #wasApplied()} returns {@code true}.
      *
      * @return {@code True} if the query returns rows, {@code false} otherwise.

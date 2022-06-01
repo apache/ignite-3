@@ -24,7 +24,6 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,13 +32,18 @@ import org.jetbrains.annotations.Nullable;
 public class ResultSetImpl implements ResultSet {
     private final AsyncResultSet ars;
 
+    private final IteratorImpl it;
+
     /**
      * Constructor.
      *
      * @param ars Asynchronous result set.
      */
     public ResultSetImpl(AsyncResultSet ars) {
+        assert ars != null;
+
         this.ars = ars;
+        it = ars.hasRowSet() ? new IteratorImpl(ars) : null;
     }
 
     /** {@inheritDoc} */
@@ -73,10 +77,23 @@ public class ResultSetImpl implements ResultSet {
     }
 
     /** {@inheritDoc} */
-    @NotNull
     @Override
-    public Iterator<SqlRow> iterator() {
-        return new IteratorImpl(ars);
+    public boolean hasNext() {
+        if (it == null) {
+            throw new IgniteSqlException("There are no results");
+        }
+
+        return it.hasNext();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlRow next() {
+        if (it == null) {
+            throw new IgniteSqlException("There are no results");
+        }
+
+        return it.next();
     }
 
     private static class IteratorImpl implements Iterator<SqlRow> {
