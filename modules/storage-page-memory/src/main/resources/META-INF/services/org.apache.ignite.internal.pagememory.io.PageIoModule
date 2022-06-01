@@ -15,3 +15,4 @@
 # limitations under the License.
 #
 org.apache.ignite.internal.storage.pagememory.PageMemoryStorageIoModule
+org.apache.ignite.internal.storage.pagememory.mv.PageMemoryMvStorageIoModule

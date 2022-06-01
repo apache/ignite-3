@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
 /**
- * Data region based on {@link PageMemory}.
+ * A link to version chain.
  */
-public interface PageMemoryDataRegion {
-    /**
-     * Returns {@link true} if the date region is persistent.
-     */
-    boolean persistent();
+public class VersionChainLink {
+    public static final int SIZE_IN_BYTES = Long.BYTES;
 
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+    private long link;
+
+    public VersionChainLink() {
+    }
+
+    public VersionChainLink(long link) {
+        this.link = link;
+    }
+
+    public long link() {
+        return link;
+    }
+
+    public void link(long link) {
+        this.link = link;
+    }
 }

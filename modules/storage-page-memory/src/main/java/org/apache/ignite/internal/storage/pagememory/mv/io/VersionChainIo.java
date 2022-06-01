@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv.io;
 
 /**
- * Data region based on {@link PageMemory}.
+ * Interface for VersionChain B+Tree-related IO.
  */
-public interface PageMemoryDataRegion {
+public interface VersionChainIo {
     /**
-     * Returns {@link true} if the date region is persistent.
+     * Returns the link for the row in the page by index.
+     *
+     * @param pageAddr Page address.
+     * @param idx Index.
      */
-    boolean persistent();
-
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+    long link(long pageAddr, int idx);
 }

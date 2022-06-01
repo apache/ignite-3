@@ -47,7 +47,11 @@ public interface FreeList<T extends Storable> {
     void insertDataRows(Collection<T> rows, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException;
 
     /**
-     * Updates a row by link.
+     * Makes an in-place update of a row identified by the link.
+     * This has a couple of restrictions:
+     * 1. The size of the payload must not change, otherwise the page will be broken (and next insertion will fail due
+     * to assertion failure).
+     * 2. The row cannot be fragmented. If it is, this will return {@code false} without doing anything.
      *
      * @param link Row link.
      * @param row New row data.

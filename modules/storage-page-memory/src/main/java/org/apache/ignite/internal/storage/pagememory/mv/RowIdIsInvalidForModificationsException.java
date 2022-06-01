@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
+
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Data region based on {@link PageMemory}.
+ * Thrown when trying to do a modification at {@link RowId} that has already become invalid for writes.
  */
-public interface PageMemoryDataRegion {
-    /**
-     * Returns {@link true} if the date region is persistent.
-     */
-    boolean persistent();
-
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+class RowIdIsInvalidForModificationsException extends IgniteInternalException {
 }

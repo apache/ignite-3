@@ -15,19 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage;
+
+import org.apache.ignite.lang.IgniteInternalException;
 
 /**
- * Data region based on {@link PageMemory}.
+ * Thrown when an operation is invoked that requires an uncommitted version to exist, but no such version exists in reality.
  */
-public interface PageMemoryDataRegion {
-    /**
-     * Returns {@link true} if the date region is persistent.
-     */
-    boolean persistent();
-
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+public class NoUncommittedVersionException extends IgniteInternalException {
 }
