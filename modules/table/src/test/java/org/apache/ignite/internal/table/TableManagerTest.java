@@ -43,7 +43,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
@@ -70,7 +73,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
-import org.apache.ignite.internal.schema.event.SchemaEvent;
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -80,6 +82,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -232,7 +235,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
-        TableManager tableManager = createTableManager(tblManagerFut);
+        TableManager tableManager = createTableManager(tblManagerFut, false);
 
         tblManagerFut.complete(tableManager);
 
@@ -327,7 +330,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testApiTableManagerOnStop() {
-        createTableManager(tblManagerFut);
+        createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -378,7 +381,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testInternalApiTableManagerOnStop() {
-        createTableManager(tblManagerFut);
+        createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -431,7 +434,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<Table> createFut = CompletableFuture.supplyAsync(() -> {
             try {
                 return mockManagersAndCreateTableWithDelay(scmTbl, tblManagerFut, phaser);
-            } catch (NodeStoppingException e) {
+            } catch (Exception e) {
                 fail(e.getMessage());
             }
 
@@ -493,12 +496,12 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tableDefinition Configuration schema for a table.
      * @param tblManagerFut Future for table manager.
      * @return Table.
-     * @throws NodeStoppingException If something went wrong.
+     * @throws Exception If something went wrong.
      */
     private TableImpl mockManagersAndCreateTable(
             TableDefinition tableDefinition,
             CompletableFuture<TableManager> tblManagerFut
-    ) throws NodeStoppingException {
+    ) throws Exception {
         return mockManagersAndCreateTableWithDelay(tableDefinition, tblManagerFut, null);
     }
 
@@ -509,13 +512,13 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tblManagerFut Future for table manager.
      * @param phaser Phaser for the wait.
      * @return Table manager.
-     * @throws NodeStoppingException If something went wrong.
+     * @throws Exception If something went wrong.
      */
     private TableImpl mockManagersAndCreateTableWithDelay(
             TableDefinition tableDefinition,
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
-    ) throws NodeStoppingException {
+    ) throws Exception {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
@@ -546,7 +549,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     .thenReturn(assignment);
         }
 
-        TableManager tableManager = createTableManager(tblManagerFut);
+        TableManager tableManager = createTableManager(tblManagerFut, true);
 
         final int tablesBeforeCreation = tableManager.tables().size();
 
@@ -568,11 +571,34 @@ public class TableManagerTest extends IgniteAbstractTest {
             return CompletableFuture.completedFuture(null);
         });
 
-        TableImpl tbl2 = (TableImpl) tableManager.createTable(tableDefinition.canonicalName(),
+        CountDownLatch createTblLatch = new CountDownLatch(1);
+
+        AtomicLong token = new AtomicLong();
+
+        tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+
+            createTblLatch.countDown();
+
+            token.set(parameters.causalityToken());
+
+            return true;
+        });
+
+        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
         );
+
+        assertFalse(tbl2Fut.isDone());
+
+        assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
+
+        assertFalse(tbl2Fut.isDone());
+
+        tableManager.onSqlSchemaReady(token.get());
+
+        TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
         assertNotNull(tbl2);
 
@@ -584,10 +610,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Creates Table manager.
      *
-     * @param tblManagerFut Future to wrap Table manager.
+     * @param tblManagerFut    Future to wrap Table manager.
+     * @param waitingSqlSchema If the flag is true, a table will wait of {@link TableManager#onSqlSchemaReady(long)} invocation before
+     *                         create otherwise, the waiting will not be.
      * @return Table manager.
      */
-    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -602,11 +630,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         sm.start();
 
         //TODO: Get rid of it after IGNITE-17062.
-        sm.listen(SchemaEvent.COMPLETE, (parameters, exception) -> {
-            tableManager.onSqlSchemaReady(parameters.causalityToken());
+        if (!waitingSqlSchema) {
+            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+                tableManager.onSqlSchemaReady(parameters.causalityToken());
 
-            return false;
-        });
+                return false;
+            });
+        }
 
         tableManager.start();
 
