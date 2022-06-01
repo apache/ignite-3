@@ -28,7 +28,7 @@ public interface RaftGroupEventsListener {
     /**
      * Invoked, when new leader is elected (if it is the first leader of group ever - will be invoked too).
      */
-    void onLeaderElected();
+    void onLeaderElected(long term);
 
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.
@@ -50,7 +50,7 @@ public interface RaftGroupEventsListener {
     RaftGroupEventsListener noopLsnr = new RaftGroupEventsListener() {
         /** {@inheritDoc} */
         @Override
-        public void onLeaderElected() { }
+        public void onLeaderElected(long term) { }
 
         /** {@inheritDoc} */
         @Override

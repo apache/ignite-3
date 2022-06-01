@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -121,14 +122,38 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** {@inheritDoc} */
     @Override
-    public void onLeaderElected() {
-        // TODO: IGNITE-16800 implement this method
+    public void onLeaderElected(long term) {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
-            rebalanceAttempts.set(0);
+            rebalanceScheduler.schedule(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+
+                try {
+                    rebalanceAttempts.set(0);
+
+                    metaStorageMgr.get(pendingPartAssignmentsKey(partId))
+                            .thenCompose(pendingEntry -> {
+                                if (!pendingEntry.empty()) {
+                                    List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
+
+                                    return raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term);
+                                } else {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+                            }).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+                    LOG.error("Couldn't start rebalance for partition {} of table {} on new elected leader for term {}",
+                            e, partNum, tblConfiguration.name().value(), term);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }, 0, TimeUnit.MILLISECONDS);
         } finally {
             busyLock.leaveBusy();
         }
@@ -142,9 +167,17 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            doOnNewPeersConfigurationApplied(peers);
+            rebalanceScheduler.schedule(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
 
-            rebalanceAttempts.set(0);
+                try {
+                    doOnNewPeersConfigurationApplied(peers);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }, 0, TimeUnit.MILLISECONDS);
         } finally {
             busyLock.leaveBusy();
         }
@@ -182,7 +215,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         } finally {
             busyLock.leaveBusy();
         }
-
     }
 
     /**
@@ -193,15 +225,19 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      */
     private void scheduleChangePeers(List<PeerId> peers, long term) {
         rebalanceScheduler.schedule(() -> {
+            if (!busyLock.enterBusy()) {
+                return;
+            }
+
             LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
             try {
-                raftGroupServiceSupplier.get().refreshLeader().get();
-
                 raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
             } catch (InterruptedException | ExecutionException e) {
                 // TODO: IGNITE-17013 errors during this call should be handled by retry logic
                 LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
+            } finally {
+                busyLock.leaveBusy();
             }
         }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
     }
@@ -212,43 +248,51 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param peers Peers
      */
     private void doOnNewPeersConfigurationApplied(List<PeerId> peers) {
-        Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
-                Set.of(
-                        plannedPartAssignmentsKey(partId),
-                        pendingPartAssignmentsKey(partId),
-                        stablePartAssignmentsKey(partId))).join();
+        try {
+            Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
+                    Set.of(
+                            plannedPartAssignmentsKey(partId),
+                            pendingPartAssignmentsKey(partId),
+                            stablePartAssignmentsKey(partId))).get();
 
-        Entry plannedEntry = keys.get(plannedPartAssignmentsKey(partId));
+            Entry plannedEntry = keys.get(plannedPartAssignmentsKey(partId));
 
-        List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
-                keys.get(pendingPartAssignmentsKey(partId)).value(), keys.get(stablePartAssignmentsKey(partId)).value());
+            List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
+                    keys.get(pendingPartAssignmentsKey(partId)).value(), keys.get(stablePartAssignmentsKey(partId)).value());
 
-        tblConfiguration.change(ch -> {
-            List<List<ClusterNode>> assignments =
-                    (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-            assignments.set(partNum, appliedPeers);
-            ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-        }).join();
+            tblConfiguration.change(ch -> {
+                List<List<ClusterNode>> assignments =
+                        (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
+                assignments.set(partNum, appliedPeers);
+                ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
+            }).get();
 
-        if (plannedEntry.value() != null) {
-            if (!metaStorageMgr.invoke(If.iif(
-                    revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
-                    ops(
-                            put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
-                            put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
-                            remove(plannedPartAssignmentsKey(partId)))
-                            .yield(true),
-                    ops().yield(false))).join().getAsBoolean()) {
-                doOnNewPeersConfigurationApplied(peers);
+            if (plannedEntry.value() != null) {
+                if (!metaStorageMgr.invoke(If.iif(
+                        revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
+                        ops(
+                                put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
+                                put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
+                                remove(plannedPartAssignmentsKey(partId)))
+                                .yield(true),
+                        ops().yield(false))).get().getAsBoolean()) {
+                    doOnNewPeersConfigurationApplied(peers);
+                }
+            } else {
+                if (!metaStorageMgr.invoke(If.iif(
+                        notExists(plannedPartAssignmentsKey(partId)),
+                        ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
+                                remove(pendingPartAssignmentsKey(partId))).yield(true),
+                        ops().yield(false))).get().getAsBoolean()) {
+                    doOnNewPeersConfigurationApplied(peers);
+                }
             }
-        } else {
-            if (!metaStorageMgr.invoke(If.iif(
-                    notExists(plannedPartAssignmentsKey(partId)),
-                    ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
-                            remove(pendingPartAssignmentsKey(partId))).yield(true),
-                    ops().yield(false))).join().getAsBoolean()) {
-                doOnNewPeersConfigurationApplied(peers);
-            }
+
+            rebalanceAttempts.set(0);
+        } catch (InterruptedException | ExecutionException e) {
+            // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+            LOG.error("Couldn't commit new partition configuration to metastore for table = {}, partition = {}",
+                    e, tblConfiguration.name(), partNum);
         }
     }
 
@@ -277,6 +321,22 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         return resolvedNodes;
+    }
+
+    /**
+     * Transforms list of cluster nodes to the list of peers.
+     *
+     * @param nodes List of cluster nodes to transform.
+     * @return List of transformed peers.
+     */
+    private static List<Peer> clusterNodesToPeers(List<ClusterNode> nodes) {
+        List<Peer> peers = new ArrayList<>(nodes.size());
+
+        for (ClusterNode node : nodes) {
+            peers.add(new Peer(node.address()));
+        }
+
+        return peers;
     }
 
     /**
