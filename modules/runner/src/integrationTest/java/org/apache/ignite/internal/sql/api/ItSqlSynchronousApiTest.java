@@ -160,7 +160,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         }
 
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4) .build();
 
         ResultSet rs = ses.execute(null, "SELECT ID FROM TEST");
 
