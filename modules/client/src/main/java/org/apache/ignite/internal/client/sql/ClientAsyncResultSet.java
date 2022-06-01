@@ -87,7 +87,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable ResultSetMetadata metadata() {
+    public ResultSetMetadata metadata() {
         return metadata;
     }
 

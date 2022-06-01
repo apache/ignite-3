@@ -32,7 +32,6 @@ import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
 
 /**
@@ -97,7 +96,7 @@ public class FakeAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public @Nullable ResultSetMetadata metadata() {
+    public ResultSetMetadata metadata() {
         return new ResultSetMetadata() {
             @Override
             public List<ColumnMetadata> columns() {
