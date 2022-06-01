@@ -78,6 +78,8 @@ public interface Statement extends AutoCloseable {
 
     /**
      * Creates a new statement builder from current statement.
+     *
+     * @return Statement builder based on the current statement.
      */
     StatementBuilder toBuilder();
 
@@ -95,6 +97,9 @@ public interface Statement extends AutoCloseable {
 
         /**
          * Set SQL statement string.
+         *
+         * @param sql SQL query.
+         * @return {@code this} for chaining.
          */
         StatementBuilder query(String sql);
 
@@ -107,6 +112,9 @@ public interface Statement extends AutoCloseable {
 
         /**
          * Marks current statement as prepared.
+         *
+         * @param prepared if {@code true} marks current statement as prepared.
+         * @return {@code this} for chaining.
          */
         StatementBuilder prepared(boolean prepared);
 
@@ -123,6 +131,7 @@ public interface Statement extends AutoCloseable {
          *
          * @param timeout Query timeout value.
          * @param timeUnit Timeunit.
+         * @return {@code this} for chaining.
          */
         StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit);
 
@@ -137,6 +146,7 @@ public interface Statement extends AutoCloseable {
          * Sets default schema for the statement, which the queries will be executed with.
          *
          * @param schema Default schema.
+         * @return {@code this} for chaining.
          */
         StatementBuilder defaultSchema(@NotNull String schema);
 
