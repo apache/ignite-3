@@ -65,4 +65,19 @@ public interface QueryProcessor extends IgniteComponent {
      * @throws IgniteException in case of an error.
      */
     CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry, Object... params);
+
+    /**
+     * Execute the DML batch statement with given schema name and batch parameters.
+     *
+     * <p>If the query string contains more than one statement or query is not DML the IgniteException will be thrown.
+     *
+     * @param context User query context.
+     * @param schemaName Schema name.
+     * @param qry Single statement SQL query .
+     * @param batchArgs Batch arguments.
+     * @return Sql cursor.
+     *
+     * @throws IgniteException in case of an error.
+     */
+    CompletableFuture<long[]> batchAsync(QueryContext context, String schemaName, String qry, List<List<Object>> batchArgs);
 }

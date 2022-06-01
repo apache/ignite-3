@@ -111,7 +111,7 @@ public interface Session extends AutoCloseable {
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
      */
-    int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
+    long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
 
     /**
      * Executes batched SQL query. Only DML queries are supported.
@@ -121,7 +121,7 @@ public interface Session extends AutoCloseable {
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
      */
-    int[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch);
+    long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in an asynchronous way.
@@ -132,7 +132,7 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
+    CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in an asynchronous way.
@@ -143,7 +143,7 @@ public interface Session extends AutoCloseable {
      * @return Operation future.
      * @throws SqlException If failed.
      */
-    CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
+    CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in a reactive way.
@@ -154,7 +154,7 @@ public interface Session extends AutoCloseable {
      * @return Publisher for the number of rows affected by the query.
      * @throws SqlException If failed.
      */
-    Flow.Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch);
+    Flow.Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
     /**
      * Executes batched SQL query in a reactive way.
@@ -165,7 +165,7 @@ public interface Session extends AutoCloseable {
      * @return Publisher for the number of rows affected by the query.
      * @throws SqlException If failed.
      */
-    Flow.Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
+    Flow.Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
 
     /**
      * Executes multi-statement SQL query.

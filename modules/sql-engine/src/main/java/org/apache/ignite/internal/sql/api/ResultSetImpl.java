@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -80,7 +81,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public boolean hasNext() {
         if (it == null) {
-            throw new IgniteSqlException("There are no results");
+            throw new SqlException("There are no results");
         }
 
         return it.hasNext();
@@ -90,7 +91,7 @@ public class ResultSetImpl implements ResultSet {
     @Override
     public SqlRow next() {
         if (it == null) {
-            throw new IgniteSqlException("There are no results");
+            throw new SqlException("There are no results");
         }
 
         return it.next();

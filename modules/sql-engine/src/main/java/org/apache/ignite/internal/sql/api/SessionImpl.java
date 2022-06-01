@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.AsyncCursor;
@@ -36,6 +37,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.sql.reactive.ReactiveResultSet;
@@ -57,7 +59,7 @@ public class SessionImpl implements Session {
 
     private final int pageSize;
 
-    private final Set<CompletableFuture<AsyncSqlCursor<List<Object>>>> futsToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<CompletableFuture<?>> futsToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private final Set<AsyncSqlCursor<List<Object>>> cursToClose = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -100,13 +102,13 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public int[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
+        return await(executeBatchAsync(transaction, dmlQuery, batch));
     }
 
     /** {@inheritDoc} */
     @Override
-    public int[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
+    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -144,7 +146,7 @@ public class SessionImpl implements Session {
     @Override
     public SessionBuilder toBuilder() {
         if (!busyLock.enterBusy()) {
-            throw new IgniteSqlException("Session is closed");
+            throw new SqlException("Session is closed");
         }
 
         try {
@@ -161,7 +163,7 @@ public class SessionImpl implements Session {
     @Override
     public CompletableFuture<AsyncResultSet> executeAsync(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
         if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new IgniteSqlException("Session is closed."));
+            return CompletableFuture.failedFuture(new SqlException("Session is closed."));
         }
 
         try {
@@ -176,7 +178,7 @@ public class SessionImpl implements Session {
                     .thenCompose(cur -> {
                         if (!busyLock.enterBusy()) {
                             return cur.closeAsync()
-                                    .thenCompose((v) -> CompletableFuture.failedFuture(new IgniteSqlException("Session is closed")));
+                                    .thenCompose((v) -> CompletableFuture.failedFuture(new SqlException("Session is closed")));
                         }
 
                         try {
@@ -228,13 +230,25 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        if (!busyLock.enterBusy()) {
+            return CompletableFuture.failedFuture(new SqlException("Session is closed."));
+        }
+
+        try {
+            QueryContext ctx = QueryContext.of(transaction, new QueryTimeout(timeout, TimeUnit.NANOSECONDS));
+
+            return qryProc.batchAsync(ctx, schema, query, batch);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<int[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -258,13 +272,13 @@ public class SessionImpl implements Session {
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
     @Override
-    public Publisher<Integer> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
@@ -309,7 +323,11 @@ public class SessionImpl implements Session {
         try {
             return stage.toCompletableFuture().get();
         } catch (Throwable e) {
-            throw new IgniteException(e);
+            if (e instanceof ExecutionException) {
+                throw new IgniteException(e.getCause());
+            } else {
+                throw new IgniteException(e);
+            }
         }
     }
 }

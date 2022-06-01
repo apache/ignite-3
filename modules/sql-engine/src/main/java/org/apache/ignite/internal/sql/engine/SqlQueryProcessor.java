@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -37,7 +38,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.manager.EventListener;
-import org.apache.ignite.internal.sql.api.IgniteSqlException;
 import org.apache.ignite.internal.sql.engine.exec.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
@@ -49,6 +49,8 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
@@ -57,12 +59,17 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterService;
+import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -245,6 +252,19 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
     }
 
+    @Override
+    public CompletableFuture<long[]> batchAsync(QueryContext context, String schemaName, String qry, List<List<Object>> batchArgs) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteInternalException(new NodeStoppingException());
+        }
+
+        try {
+            return batch0(context, schemaName, qry, batchArgs);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     private CompletableFuture<AsyncSqlCursor<List<Object>>> querySingle0(
             QueryContext context,
             String schemaName,
@@ -274,7 +294,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 )
                 .thenApply(nodes -> {
                     if (nodes.size() > 1) {
-                        throw new IgniteSqlException("Multiple statements aren't allowed.");
+                        throw new SqlException("Multiple statements aren't allowed.");
                     }
 
                     return nodes.get(0);
@@ -300,6 +320,110 @@ public class SqlQueryProcessor implements QueryProcessor {
         start.completeAsync(() -> null, taskExecutor);
 
         return stage;
+    }
+
+    @SuppressWarnings("checkstyle:Indentation")
+    private CompletableFuture<long[]> batch0(
+            QueryContext context,
+            String schemaName,
+            String sql,
+            List<List<Object>> batchArgs) {
+        if (CollectionUtils.nullOrEmpty(batchArgs)) {
+            return CompletableFuture.failedFuture(new IgniteException("Batch is empty"));
+        }
+
+        SchemaPlus schema = schemaManager.schema(schemaName);
+
+        if (schema == null) {
+            return CompletableFuture.failedFuture(new IgniteInternalException(format("Schema not found [schemaName={}]", schemaName)));
+        }
+
+        final BaseQueryContext ctx = BaseQueryContext.builder()
+                .cancel(new QueryCancel())
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(schema)
+                                .build()
+                )
+                .logger(LOG)
+                .parameters(batchArgs.get(0).toArray())
+                .build();
+
+        CompletableFuture<Void> start = new CompletableFuture<>();
+
+        CompletableFuture<QueryPlan> planning = start.thenApply(
+                        (v) -> Commons.parse(sql, FRAMEWORK_CONFIG.getParserConfig())
+                )
+                .thenApply(nodes -> {
+                    if (nodes.size() > 1) {
+                        throw new SqlException("Multiple statements aren't allowed.");
+                    }
+
+                    return nodes.get(0);
+                })
+                .thenCompose(sqlNode -> prepareSvc.prepareAsync(sqlNode, ctx))
+                .thenApply(plan -> {
+                    if (plan.type() != Type.DML) {
+                        throw new SqlException("Invalid SQL statement type in the batch [plan=" + plan + ']');
+                    }
+
+                    context.maybeUnwrap(QueryValidator.class)
+                            .ifPresent(queryValidator -> queryValidator.validatePlan(plan));
+
+                    return plan;
+                });
+
+        var counters = new LongArrayList(batchArgs.size());
+        var tail = CompletableFuture.completedFuture(counters);
+
+        for (List<Object> batch : batchArgs) {
+            final BaseQueryContext ctx0 = BaseQueryContext.builder()
+                    .cancel(new QueryCancel())
+                    .frameworkConfig(
+                            Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                    .defaultSchema(schema)
+                                    .build()
+                    )
+                    .logger(LOG)
+                    .parameters(batch.toArray())
+                    .build();
+
+            tail = tail.thenCombine(planning, (updCntr, plan) -> new AsyncSqlCursorImpl<>(
+                            SqlQueryType.mapPlanTypeToSqlType(plan.type()),
+                            plan.metadata(),
+                            executionSrvc.executePlan(plan, ctx0)
+                    ))
+                    .thenCompose(cur -> cur.requestNextAsync(1))
+                    .thenApply(page -> {
+                        if (page == null
+                                || page.items() == null
+                                || page.items().size() != 1
+                                || page.items().get(0).size() != 1
+                                || page.hasMore()) {
+                            throw new SqlException("Invalid DML results: " + page);
+                        }
+
+                        counters.add((long) page.items().get(0).get(0));
+
+                        return counters;
+                    });
+        }
+
+        CompletableFuture<long[]> res = tail
+                .exceptionally((th) -> {
+                    throw new SqlBatchException(counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY), th);
+                })
+                .thenApply(lst -> lst.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
+
+        res.whenComplete((cur, ex) -> {
+            if (ex instanceof CancellationException) {
+                ctx.cancel().cancel();
+            }
+        });
+
+        start.completeAsync(() -> null, taskExecutor);
+
+        return res;
     }
 
     private List<CompletableFuture<AsyncSqlCursor<List<Object>>>> query0(

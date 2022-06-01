@@ -18,14 +18,19 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Streams;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
@@ -34,9 +39,12 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlBatchException;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -188,7 +196,7 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
         // Multiple statements error.
         assertThrowsWithCause(
                 () -> ses.execute(null, "SELECT 1; SELECT 2"),
-                IgniteSqlException.class,
+                SqlException.class,
                 "Multiple statements aren't allowed"
         );
 
@@ -205,6 +213,71 @@ public class ItSqlSynchronousApiTest extends AbstractBasicIntegrationTest {
                 ArithmeticException.class,
                 "/ by zero"
         );
+    }
+
+    @Test
+    public void batch() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        BatchedArguments args = BatchedArguments.of(0, 0);
+
+        for (int i = 1; i < ROW_COUNT; ++i) {
+            args.add(i, i);
+        }
+
+        long[] batchRes = ses.executeBatch(null, "INSERT INTO TEST VALUES (?, ?)", args);
+
+        Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
+
+        // Check that data are inserted OK
+        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
+        IntStream.range(0, ROW_COUNT).forEach(i -> assertEquals(i, res.get(i).get(0)));
+
+        // Check invalid query type
+        assertThrowsWithCause(
+                () -> ses.executeBatch(null, "SELECT * FROM TEST", args),
+                SqlException.class,
+                "Invalid SQL statement type in the batch"
+        );
+
+        assertThrowsWithCause(
+                () -> ses.executeBatch(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args),
+                SqlException.class,
+                "Invalid SQL statement type in the batch"
+        );
+    }
+
+    @Test
+    public void batchIncomplete() {
+        int err = ROW_COUNT / 2;
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
+
+        BatchedArguments args = BatchedArguments.of(0, 0);
+
+        for (int i = 1; i < ROW_COUNT; ++i) {
+            if (i == err) {
+                args.add(1, 1);
+            } else {
+                args.add(i, i);
+            }
+        }
+
+        Throwable ex = assertThrowsWithCause(
+                () -> ses.executeBatch(null, "INSERT INTO TEST VALUES (?, ?)", args),
+                SqlBatchException.class
+        );
+        assertTrue(hasCause(ex, IgniteInternalException.class, "Failed to INSERT some keys because they are already in cache"));
+        SqlBatchException batchEx = cause(ex, SqlBatchException.class, null);
+
+        assertEquals(err, batchEx.updateCounters().length);
+        IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
     }
 
     private void checkDdl(boolean expectedApplied, Session ses, String sql) {

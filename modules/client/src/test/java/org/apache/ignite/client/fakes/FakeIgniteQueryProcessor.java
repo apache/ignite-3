@@ -45,6 +45,12 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     }
 
     @Override
+    public CompletableFuture<long[]> batchAsync(QueryContext context, String schemaName, String qry,
+            List<List<Object>> batchArgs) {
+        return CompletableFuture.completedFuture(new long[0]);
+    }
+
+    @Override
     public void start() {
 
     }
