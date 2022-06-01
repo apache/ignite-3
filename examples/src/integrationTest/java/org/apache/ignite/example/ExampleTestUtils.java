@@ -91,7 +91,7 @@ public class ExampleTestUtils {
         captured = captured.replaceAll("\r", "");
 
         for (String single : expected) {
-            assertTrue(captured.contains(single));
+            assertTrue(captured.contains(single), "Actual: " + captured);
         }
     }
 }
