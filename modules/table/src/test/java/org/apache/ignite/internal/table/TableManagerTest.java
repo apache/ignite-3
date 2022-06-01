@@ -226,6 +226,10 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
+        SchemaManager schemaManager = new SchemaManager(revisionUpdater, tblsCfg);
+
+        schemaManager.start();
+
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -234,7 +238,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
-                new SchemaManager(revisionUpdater, tblsCfg)
+                schemaManager
         );
 
         tblManagerFut.complete(tableManager);
@@ -593,6 +597,10 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @return Table manager.
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+        SchemaManager schemaManager = new SchemaManager(revisionUpdater, tblsCfg);
+
+        schemaManager.start();
+
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -601,7 +609,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
-                new SchemaManager(revisionUpdater, tblsCfg)
+                schemaManager
         );
 
         tableManager.start();
