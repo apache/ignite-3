@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.cluster.management.rest.exception;
 
 /**
- * Exception that is thrown when the wrong node names is passed to the init cluster method.
+ * Exception that is thrown when the wrong arguments are passed to the init cluster method.
  */
-public class InvalidNodesInitClusterException extends RuntimeException {
-    public InvalidNodesInitClusterException(Throwable cause) {
+public class InvalidArgumentClusterInitializationException extends RuntimeException {
+    public InvalidArgumentClusterInitializationException(Throwable cause) {
         super(cause);
     }
 }

@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
-import org.apache.ignite.internal.cluster.management.rest.exception.InvalidNodesInitClusterException;
+import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -86,7 +86,7 @@ public class ClusterManagementController {
         }
 
         if (ex instanceof IllegalArgumentException) {
-            return new InvalidNodesInitClusterException(ex);
+            return new InvalidArgumentClusterInitializationException(ex);
         }
 
         return new IgniteException(ex);

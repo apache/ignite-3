@@ -23,21 +23,21 @@ import io.micronaut.http.HttpResponse;
 import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import jakarta.inject.Singleton;
-import org.apache.ignite.internal.cluster.management.rest.exception.InvalidNodesInitClusterException;
+import org.apache.ignite.internal.cluster.management.rest.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.rest.api.ErrorResult;
 
 /**
- * Handles {@link InvalidNodesInitClusterException} and represents it as a rest response.
+ * Handles {@link InvalidArgumentClusterInitializationException} and represents it as a rest response.
  */
 @Produces
 @Singleton
-@Requires(classes = {InvalidNodesInitClusterException.class, ExceptionHandler.class})
+@Requires(classes = {InvalidArgumentClusterInitializationException.class, ExceptionHandler.class})
 public class InvalidNodesInitClusterExceptionHandler implements
-        ExceptionHandler<InvalidNodesInitClusterException, HttpResponse<ErrorResult>> {
+        ExceptionHandler<InvalidArgumentClusterInitializationException, HttpResponse<ErrorResult>> {
 
     @Override
-    public HttpResponse<ErrorResult> handle(HttpRequest request, InvalidNodesInitClusterException exception) {
-        final ErrorResult errorResult = new ErrorResult("INVALID_NODES", exception.getMessage());
+    public HttpResponse<ErrorResult> handle(HttpRequest request, InvalidArgumentClusterInitializationException exception) {
+        final ErrorResult errorResult = new ErrorResult("INVALID_ARGUMENT", exception.getCause().getMessage());
         return HttpResponse.badRequest().body(errorResult);
     }
 }

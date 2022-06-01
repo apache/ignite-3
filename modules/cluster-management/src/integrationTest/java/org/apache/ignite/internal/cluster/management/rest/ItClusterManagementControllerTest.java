@@ -73,14 +73,11 @@ public class ItClusterManagementControllerTest {
     private static Path workDir;
 
     @Inject
-    EmbeddedServer server;
+    private EmbeddedServer server;
 
     @Inject
     @Client("/management/v1/cluster/init/")
-    HttpClient client;
-
-    @Inject
-    ClusterInitializer clusterInitializer;
+    private HttpClient client;
 
     @BeforeAll
     static void setUp(TestInfo testInfo) throws IOException {
@@ -130,7 +127,7 @@ public class ItClusterManagementControllerTest {
         assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
         // And
         var errorResult = getErrorResult(thrown);
-        assertEquals("INVALID_NODES", errorResult.type());
+        assertEquals("INVALID_ARGUMENT", errorResult.type());
     }
 
     @Test
@@ -160,10 +157,10 @@ public class ItClusterManagementControllerTest {
         );
 
         // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.CONFLICT))));
+        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
         // And
         var errorResult = getErrorResult(thrown);
-        assertEquals("ALREADY_INITIALIZED", errorResult.type());
+        assertEquals("INITIALIZATION_EXCEPTION", errorResult.type());
 
     }
 
