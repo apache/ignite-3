@@ -109,7 +109,7 @@ public class IgniteSqlApiTest {
         Statement preparedStatement = igniteSql.statementBuilder()
                 .query("SELECT id, val FROM tbl WHERE id > ?")
                 .defaultSchema("PUBLIC")
-                .prepared()
+                .prepared(true)
                 .build();
 
         // Execute statement.
@@ -414,7 +414,7 @@ public class IgniteSqlApiTest {
         Mockito.when(stmtBuilder.pageSize(Mockito.anyInt())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.queryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.property(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.prepared()).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.prepared(Mockito.anyBoolean())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.build()).thenReturn(statement);
 
         Mockito.when(igniteSql.createSession()).thenReturn(session);

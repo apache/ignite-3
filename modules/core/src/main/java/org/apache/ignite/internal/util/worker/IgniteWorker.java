@@ -65,7 +65,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
     private final Object mux = new Object();
 
     /**
-     * Creates new grid worker with given parameters.
+     * Creates new ignite worker with given parameters.
      *
      * @param log Logger.
      * @param igniteInstanceName Name of the Ignite instance this runnable is used in.
@@ -94,7 +94,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
         runner = Thread.currentThread();
 
         if (log.isDebugEnabled()) {
-            log.debug("Grid runnable started: " + name);
+            log.debug("Ignite runnable started: " + name);
         }
 
         try {
@@ -118,7 +118,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
             // Catch everything to make sure that it gets logged properly and
             // not to kill any threads from the underlying thread pool.
 
-            log.error("Runtime error caught during grid runnable execution: " + this, e);
+            log.error("Runtime error caught during ignite runnable execution: " + this, e);
 
             if (e instanceof Error) {
                 throw e;
@@ -138,11 +138,11 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
 
             if (log.isDebugEnabled()) {
                 if (isCancelled.get()) {
-                    log.debug("Grid runnable finished due to cancellation: " + name);
+                    log.debug("Ignite runnable finished due to cancellation: " + name);
                 } else if (runner.isInterrupted()) {
-                    log.debug("Grid runnable finished due to interruption without cancellation: " + name);
+                    log.debug("Ignite runnable finished due to interruption without cancellation: " + name);
                 } else {
-                    log.debug("Grid runnable finished normally: " + name);
+                    log.debug("Ignite runnable finished normally: " + name);
                 }
             }
 
@@ -194,7 +194,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
      */
     public void cancel() {
         if (log.isDebugEnabled()) {
-            log.debug("Cancelling grid runnable: " + this);
+            log.debug("Cancelling ignite runnable: " + this);
         }
 
         onCancel(isCancelled.compareAndSet(false, true));
@@ -207,7 +207,7 @@ public abstract class IgniteWorker implements Runnable, WorkProgressDispatcher {
      */
     public void join() throws InterruptedException {
         if (log.isDebugEnabled()) {
-            log.debug("Joining grid runnable: " + this);
+            log.debug("Joining ignite runnable: " + this);
         }
 
         if ((runner == null && isCancelled.get()) || finished) {

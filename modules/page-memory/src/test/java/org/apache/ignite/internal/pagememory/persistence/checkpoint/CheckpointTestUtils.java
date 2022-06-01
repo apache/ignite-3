@@ -18,16 +18,13 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
-import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
-import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Useful class for testing a checkpoint.
  */
-class CheckpointTestUtils {
+public class CheckpointTestUtils {
     /**
      * Returns new instance of {@link CheckpointReadWriteLock}.
      *
@@ -38,18 +35,26 @@ class CheckpointTestUtils {
     }
 
     /**
-     * Returns mocked instance of {@link PageMemoryDataRegion}.
+     * Returns mocked {@link CheckpointTimeoutLock}.
      *
-     * @param persistent Persistent data region.
-     * @param pageMemory Persistent page memory.
+     * @param log Logger.
+     * @param checkpointHeldByCurrentThread Result of {@link CheckpointTimeoutLock#checkpointLockIsHeldByThread()}.
      */
-    static PageMemoryDataRegion newDataRegion(boolean persistent, PageMemoryImpl pageMemory) {
-        PageMemoryDataRegion mock = mock(PageMemoryDataRegion.class);
-
-        when(mock.persistent()).thenReturn(persistent);
-
-        when(mock.pageMemory()).thenReturn(pageMemory);
-
-        return mock;
+    public static CheckpointTimeoutLock mockCheckpointTimeoutLock(IgniteLogger log, boolean checkpointHeldByCurrentThread) {
+        // Do not use "mock(CheckpointTimeoutLock.class)" because calling the CheckpointTimeoutLock.checkpointLockIsHeldByThread
+        // greatly degrades in time, which is critical for ItBPlus*Test (it increases from 2 minutes to 5 minutes).
+        return new CheckpointTimeoutLock(
+                log,
+                mock(CheckpointReadWriteLock.class),
+                Long.MAX_VALUE,
+                () -> true,
+                mock(Checkpointer.class)
+        ) {
+            /** {@inheritDoc} */
+            @Override
+            public boolean checkpointLockIsHeldByThread() {
+                return checkpointHeldByCurrentThread;
+            }
+        };
     }
 }

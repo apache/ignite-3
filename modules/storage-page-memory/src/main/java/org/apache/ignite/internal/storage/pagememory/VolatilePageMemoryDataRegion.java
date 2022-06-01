@@ -22,11 +22,9 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.INDEX_PARTIT
 
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
@@ -59,10 +57,7 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     public void start() {
         assert !persistent() : cfg.value().name();
 
-        assert cfg.memoryAllocator() instanceof UnsafeMemoryAllocatorConfiguration : cfg.memoryAllocator();
-
         PageMemory pageMemory = new PageMemoryNoStoreImpl(
-                new UnsafeMemoryProvider(null),
                 cfg,
                 ioRegistry,
                 pageSize

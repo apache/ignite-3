@@ -117,9 +117,9 @@ public class ClientResourceRegistry {
      */
     public void close() {
         rwLock.writeLock().lock();
-        closed = true;
 
         try {
+            closed = true;
             IgniteInternalException ex = null;
 
             for (ClientResource r : res.values()) {

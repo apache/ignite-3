@@ -43,6 +43,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointView;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
@@ -101,10 +102,12 @@ class CheckpointWorkflow implements IgniteComponent {
             CheckpointReadWriteLock checkpointReadWriteLock,
             Collection<PageMemoryDataRegion> dataRegions
     ) {
+        PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
+
         this.checkpointMarkersStorage = checkpointMarkersStorage;
         this.checkpointReadWriteLock = checkpointReadWriteLock;
-        this.checkpointWriteOrder = CheckpointWriteOrder.valueOf(checkpointConfig.writeOrder().value());
-        this.parallelSortThreshold = checkpointConfig.parallelSortThreshold().value();
+        this.checkpointWriteOrder = CheckpointWriteOrder.valueOf(checkpointConfigView.writeOrder());
+        this.parallelSortThreshold = checkpointConfigView.parallelSortThreshold();
         this.dataRegions = dataRegions;
     }
 
@@ -214,7 +217,9 @@ class CheckpointWorkflow implements IgniteComponent {
             }
         }
 
-        checkpointMarkersStorage.onCheckpointEnd(chp.progress.id());
+        if (chp.hasDelta()) {
+            checkpointMarkersStorage.onCheckpointEnd(chp.progress.id());
+        }
 
         for (CheckpointListener listener : collectCheckpointListeners(dataRegions)) {
             listener.afterCheckpointEnd(chp.progress);
