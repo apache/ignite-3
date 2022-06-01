@@ -43,7 +43,6 @@ class ClusterConfigurationControllerTest extends ConfigurationControllerBaseTest
         return client;
     }
 
-
     /**
      * Creates test hocon configuration representation.
      */

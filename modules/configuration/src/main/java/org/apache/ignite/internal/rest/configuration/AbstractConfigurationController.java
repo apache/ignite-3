@@ -28,7 +28,7 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Base configuration controller.
  */
-public class AbstractConfigurationController {
+public abstract class AbstractConfigurationController {
     /** Presentation of the configuration. */
     private final ConfigurationPresentation<String> cfgPresentation;
 

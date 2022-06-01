@@ -109,7 +109,10 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         assertEquals(0, exitCode);
 
-        assertTrue(out.toString(UTF_8).contains("\"shutdownQuietPeriod\" : 1"));
+        assertThat(
+                out.toString(UTF_8),
+                containsString("\"shutdownQuietPeriod\" : 1")
+        );
     }
 
     @Test

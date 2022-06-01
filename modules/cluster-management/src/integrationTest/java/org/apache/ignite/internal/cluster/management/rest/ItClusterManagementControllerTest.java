@@ -48,7 +48,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -170,7 +169,6 @@ public class ItClusterManagementControllerTest {
         return new ClusterManagementRestFactory(clusterService);
     }
 
-    @NotNull
     private ErrorResult getErrorResult(HttpClientResponseException exception) {
         return exception.getResponse().getBody(ErrorResult.class).orElseThrow();
     }

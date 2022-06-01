@@ -37,7 +37,7 @@ public class InvalidConfigFormatExceptionHandler implements ExceptionHandler<Inv
 
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, InvalidConfigFormatException exception) {
-        final ErrorResult errorResult = new ErrorResult("INVALID_CONFIG_FORMAT", exception.getCause().getCause().getMessage());
+        ErrorResult errorResult = new ErrorResult("INVALID_CONFIG_FORMAT", exception.getCause().getCause().getMessage());
         return HttpResponse.badRequest().body(errorResult);
     }
 }

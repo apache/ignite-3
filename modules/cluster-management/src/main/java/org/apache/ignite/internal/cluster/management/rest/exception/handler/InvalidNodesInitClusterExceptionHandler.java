@@ -37,7 +37,7 @@ public class InvalidNodesInitClusterExceptionHandler implements
 
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, InvalidArgumentClusterInitializationException exception) {
-        final ErrorResult errorResult = new ErrorResult("INVALID_ARGUMENT", exception.getCause().getMessage());
+        ErrorResult errorResult = new ErrorResult("INVALID_ARGUMENT", exception.getCause().getMessage());
         return HttpResponse.badRequest().body(errorResult);
     }
 }

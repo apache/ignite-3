@@ -38,7 +38,7 @@ public class ConfigPathUnrecognizedExceptionHandler implements
 
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, ConfigPathUnrecognizedException exception) {
-        final ErrorResult errorResult = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", exception.getCause().getMessage());
+        ErrorResult errorResult = new ErrorResult("CONFIG_PATH_UNRECOGNIZED", exception.getCause().getMessage());
         return HttpResponse.badRequest().body(errorResult);
     }
 }

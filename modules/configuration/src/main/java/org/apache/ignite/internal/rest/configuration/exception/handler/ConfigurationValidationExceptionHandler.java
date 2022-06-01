@@ -44,7 +44,7 @@ public class ConfigurationValidationExceptionHandler implements
                 .stream()
                 .map(ValidationIssue::message)
                 .collect(Collectors.joining(","));
-        final ErrorResult errorResult = new ErrorResult("VALIDATION_EXCEPTION", joinedMessage);
+        ErrorResult errorResult = new ErrorResult("VALIDATION_EXCEPTION", joinedMessage);
         return HttpResponse.badRequest().body(errorResult);
     }
 }

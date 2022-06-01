@@ -133,7 +133,7 @@ public class RestComponent implements IgniteComponent {
 
     private int mapServerStartupException(ServerStartupException exception) {
         if (exception.getCause() instanceof BindException) {
-            return -1;
+            return -1; // -1 forces the micronaut to throw an ApplicationStartupException
         } else {
             return 1;
         }

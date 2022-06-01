@@ -38,7 +38,7 @@ import org.apache.ignite.lang.IgniteLogger;
  * Cluster management controller.
  */
 @Controller("/management/v1/cluster/init")
-@ApiResponse(responseCode = "400", description = "Incorrect body")
+@ApiResponse(responseCode = "400", description = "Bad request")
 @ApiResponse(responseCode = "500", description = "Internal error")
 @Tag(name = "clusterManagement")
 public class ClusterManagementController {
@@ -63,7 +63,6 @@ public class ClusterManagementController {
     @Post
     @Operation(operationId = "init")
     @ApiResponse(responseCode = "200", description = "Cluster initialized")
-    @ApiResponse(responseCode = "409", description = "Cluster already initialized")
     @Consumes(MediaType.APPLICATION_JSON)
     public CompletableFuture<Void> init(@Body InitCommand initCommand) throws ExecutionException, InterruptedException {
         if (log.isInfoEnabled()) {
