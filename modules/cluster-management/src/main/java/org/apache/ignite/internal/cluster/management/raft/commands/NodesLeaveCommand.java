@@ -33,6 +33,8 @@ public class NodesLeaveCommand implements WriteCommand {
      * @param nodes Nodes that need to be removed from the logical topology.
      */
     public NodesLeaveCommand(Set<ClusterNode> nodes) {
+        assert !nodes.isEmpty();
+
         this.nodes = nodes;
     }
 

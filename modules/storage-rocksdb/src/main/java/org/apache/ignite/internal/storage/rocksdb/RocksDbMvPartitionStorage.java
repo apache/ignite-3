@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.NoUncommittedVersionException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -212,6 +213,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         try {
             byte[] previousValue = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
+            if (previousValue == null) {
+                throw new NoUncommittedVersionException();
+            }
 
             if (previousValue == null) {
                 return null;

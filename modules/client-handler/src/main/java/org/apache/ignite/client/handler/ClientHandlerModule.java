@@ -41,6 +41,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NettyBootstrapFactory;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 
@@ -59,6 +60,9 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Ignite transactions API. */
     private final IgniteTransactions igniteTransactions;
+
+    /** Ignite SQL API. */
+    private final IgniteSql sql;
 
     /** Netty channel. */
     private volatile Channel channel;
@@ -93,13 +97,15 @@ public class ClientHandlerModule implements IgniteComponent {
             ConfigurationRegistry registry,
             IgniteCompute igniteCompute,
             ClusterService clusterService,
-            NettyBootstrapFactory bootstrapFactory) {
+            NettyBootstrapFactory bootstrapFactory,
+            IgniteSql sql) {
         assert igniteTables != null;
         assert registry != null;
         assert queryProcessor != null;
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
+        assert sql != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -108,6 +114,7 @@ public class ClientHandlerModule implements IgniteComponent {
         this.clusterService = clusterService;
         this.registry = registry;
         this.bootstrapFactory = bootstrapFactory;
+        this.sql = sql;
     }
 
     /** {@inheritDoc} */
@@ -185,7 +192,8 @@ public class ClientHandlerModule implements IgniteComponent {
                                         queryProcessor,
                                         configuration,
                                         igniteCompute,
-                                        clusterService));
+                                        clusterService,
+                                        sql));
                     }
                 })
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());

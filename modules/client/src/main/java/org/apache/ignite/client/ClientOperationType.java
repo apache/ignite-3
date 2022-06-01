@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import java.util.Collection;
 import java.util.Set;
+import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
@@ -120,5 +121,15 @@ public enum ClientOperationType {
     /**
      * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#execute(Set, String, Object...)}).
      */
-    COMPUTE_EXECUTE
+    COMPUTE_EXECUTE,
+
+    /**
+     * SQL Execute ({@link org.apache.ignite.sql.Session#executeAsync(Transaction, String, Object...)}).
+     */
+    SQL_EXECUTE,
+
+    /**
+     * SQL Cursor Next Page ({@link AsyncResultSet#fetchNextPage()}).
+     */
+    SQL_CURSOR_NEXT_PAGE
 }

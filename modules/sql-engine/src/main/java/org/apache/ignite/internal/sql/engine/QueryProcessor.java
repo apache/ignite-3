@@ -48,6 +48,21 @@ public interface QueryProcessor extends IgniteComponent {
      * @return List of sql cursors.
      *
      * @throws IgniteException in case of an error.
-     * */
+     */
     List<CompletableFuture<AsyncSqlCursor<List<Object>>>> queryAsync(QueryContext context, String schemaName, String qry, Object... params);
+
+    /**
+     * Execute the single statement query with given schema name and parameters.
+     *
+     * <p>If the query string contains more than one statement the IgniteException will be thrown.
+     *
+     * @param context User query context.
+     * @param schemaName Schema name.
+     * @param qry Single statement SQL query .
+     * @param params Query parameters.
+     * @return Sql cursor.
+     *
+     * @throws IgniteException in case of an error.
+     */
+    CompletableFuture<AsyncSqlCursor<List<Object>>> querySingleAsync(QueryContext context, String schemaName, String qry, Object... params);
 }

@@ -21,24 +21,24 @@ import static java.util.Comparator.comparing;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.pagememory.PageMemoryTestUtils.newDataRegion;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema.RANDOM_WRITE_ORDER;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_RELEASED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.MARKER_STORED_TO_DISK;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGE_SNAPSHOT_TAKEN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newDataRegion;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.newReadWriteLock;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.AFTER_CHECKPOINT_END;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.BEFORE_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_CHECKPOINT_BEGIN;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflowTest.TestCheckpointListener.ON_MARK_CHECKPOINT_BEGIN;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.RANDOM;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWriteOrder.SEQUENTIAL;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.EMPTY;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -53,11 +53,16 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemoryDataRegion;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfiguration;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.IgniteConcurrentMultiPairQueue.Result;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -66,13 +71,18 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 
 /**
  * For {@link CheckpointWorkflow} testing.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class CheckpointWorkflowTest {
     private final IgniteLogger log = IgniteLogger.forClass(CheckpointWorkflowTest.class);
+
+    @InjectConfiguration
+    private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @Nullable
     private CheckpointWorkflow workflow;
@@ -91,9 +101,9 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion2 = newDataRegion(true, mock(PageMemoryImpl.class));
 
         workflow = new CheckpointWorkflow(
+                checkpointConfig,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                RANDOM,
                 List.of(dataRegion0, dataRegion1)
         );
 
@@ -171,7 +181,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, List.of(dataRegion));
+        workflow = new CheckpointWorkflow(checkpointConfig, markersStorage, readWriteLock, List.of(dataRegion));
 
         workflow.start();
 
@@ -300,14 +310,16 @@ public class CheckpointWorkflowTest {
 
     @Test
     void testMarkCheckpointBeginRandom() throws Exception {
+        checkpointConfig.writeOrder().update(RANDOM_WRITE_ORDER).get(100, TimeUnit.MILLISECONDS);
+
         List<FullPageId> dirtyPages = List.of(new FullPageId(1, 0), new FullPageId(0, 0), new FullPageId(2, 0));
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
         workflow = new CheckpointWorkflow(
+                checkpointConfig,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                RANDOM,
                 List.of(dataRegion)
         );
 
@@ -336,9 +348,9 @@ public class CheckpointWorkflowTest {
         PageMemoryDataRegion dataRegion = newDataRegion(true, newPageMemoryImpl(dirtyPages));
 
         workflow = new CheckpointWorkflow(
+                checkpointConfig,
                 mock(CheckpointMarkersStorage.class),
                 newReadWriteLock(log),
-                SEQUENTIAL,
                 List.of(dataRegion)
         );
 
@@ -368,7 +380,7 @@ public class CheckpointWorkflowTest {
 
         PageMemoryDataRegion dataRegion = newDataRegion(true, pageMemory);
 
-        workflow = new CheckpointWorkflow(markersStorage, readWriteLock, RANDOM, List.of(dataRegion));
+        workflow = new CheckpointWorkflow(checkpointConfig, markersStorage, readWriteLock, List.of(dataRegion));
 
         workflow.start();
 
@@ -384,7 +396,7 @@ public class CheckpointWorkflowTest {
 
         when(progressImpl.id()).thenReturn(checkpointId);
 
-        workflow.addCheckpointListener(new TestCheckpointListener(events) {
+        TestCheckpointListener checkpointListener = new TestCheckpointListener(events) {
             /** {@inheritDoc} */
             @Override
             public void afterCheckpointEnd(CheckpointProgress progress) throws IgniteInternalCheckedException {
@@ -400,9 +412,14 @@ public class CheckpointWorkflowTest {
 
                 verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
             }
-        }, dataRegion);
+        };
 
-        workflow.markCheckpointEnd(new Checkpoint(EMPTY, progressImpl));
+        workflow.addCheckpointListener(checkpointListener, dataRegion);
+
+        workflow.markCheckpointEnd(new Checkpoint(
+                new IgniteConcurrentMultiPairQueue<>(Map.of(pageMemory, List.of(new FullPageId(0, 0)))),
+                progressImpl
+        ));
 
         assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(FINISHED)));
 
@@ -411,6 +428,14 @@ public class CheckpointWorkflowTest {
         verify(progressImpl, times(1)).clearCounters();
 
         verify(pageMemory, times(1)).finishCheckpoint();
+
+        // Checks with empty dirty pages.
+
+        workflow.removeCheckpointListener(checkpointListener);
+
+        assertDoesNotThrow(() -> workflow.markCheckpointEnd(new Checkpoint(EMPTY, progressImpl)));
+
+        verify(markersStorage, times(1)).onCheckpointEnd(checkpointId);
     }
 
     private List<IgniteBiTuple<PageMemoryImpl, FullPageId>> collect(IgniteConcurrentMultiPairQueue<PageMemoryImpl, FullPageId> queue) {

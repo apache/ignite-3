@@ -109,7 +109,7 @@ public class IgniteSqlApiTest {
         Statement preparedStatement = igniteSql.statementBuilder()
                 .query("SELECT id, val FROM tbl WHERE id > ?")
                 .defaultSchema("PUBLIC")
-                .prepared()
+                .prepared(true)
                 .build();
 
         // Execute statement.
@@ -132,12 +132,12 @@ public class IgniteSqlApiTest {
 
         assertTrue(rs.wasApplied());
         assertFalse(rs.hasRowSet());
-        assertEquals(-1, rs.affectedRows());
+        assertEquals(-1L, rs.affectedRows());
 
         // Execute DML.
         rs = sess.execute(null, "INSERT INTO tbl VALUES (?, ?)", 1, "str1");
 
-        assertEquals(1, rs.affectedRows());
+        assertEquals(1L, rs.affectedRows());
         assertFalse(rs.wasApplied());
         assertFalse(rs.hasRowSet());
 
@@ -153,7 +153,7 @@ public class IgniteSqlApiTest {
 
         assertTrue(rs.hasRowSet());
         assertFalse(rs.wasApplied());
-        assertEquals(-1, rs.affectedRows());
+        assertEquals(-1L, rs.affectedRows());
 
         assertTrue(rs.iterator().hasNext());
         for (SqlRow r : rs) {
@@ -163,7 +163,7 @@ public class IgniteSqlApiTest {
         // Execute DML.
         rs = sess.execute(null, "DELETE FROM tbl");
 
-        assertEquals(4, rs.affectedRows());
+        assertEquals(4L, rs.affectedRows());
         assertFalse(rs.wasApplied());
         assertFalse(rs.hasRowSet());
     }
@@ -205,7 +205,7 @@ public class IgniteSqlApiTest {
             // Execute DML outside tx in same session after tx commit.
             rs = sess.execute(null, "DELETE FROM tbl");
 
-            assertEquals(4, rs.affectedRows());
+            assertEquals(4L, rs.affectedRows());
         });
 
         Mockito.verify(transaction).commit();
@@ -414,7 +414,7 @@ public class IgniteSqlApiTest {
         Mockito.when(stmtBuilder.pageSize(Mockito.anyInt())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.queryTimeout(Mockito.anyLong(), Mockito.any(TimeUnit.class))).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.property(Mockito.anyString(), Mockito.any())).thenAnswer(Answers.RETURNS_SELF);
-        Mockito.when(stmtBuilder.prepared()).thenAnswer(Answers.RETURNS_SELF);
+        Mockito.when(stmtBuilder.prepared(Mockito.anyBoolean())).thenAnswer(Answers.RETURNS_SELF);
         Mockito.when(stmtBuilder.build()).thenReturn(statement);
 
         Mockito.when(igniteSql.createSession()).thenReturn(session);
@@ -451,7 +451,7 @@ public class IgniteSqlApiTest {
                     Mockito.when(res.iterator()).thenThrow(AssertionError.class);
                     Mockito.when(res.wasApplied()).thenReturn(false);
                     Mockito.when(res.hasRowSet()).thenReturn(false);
-                    Mockito.when(res.affectedRows()).thenReturn(1);
+                    Mockito.when(res.affectedRows()).thenReturn(1L);
 
                     return res;
                 });
@@ -474,7 +474,7 @@ public class IgniteSqlApiTest {
                     ResultSet res = Mockito.mock(ResultSet.class);
                     Mockito.when(res.wasApplied()).thenReturn(false);
                     Mockito.when(res.hasRowSet()).thenReturn(true);
-                    Mockito.when(res.affectedRows()).thenReturn(-1);
+                    Mockito.when(res.affectedRows()).thenReturn(-1L);
 
                     Transaction txArg = ans.getArgument(0);
                     Integer filterArg = ans.getArgument(2);
@@ -491,7 +491,7 @@ public class IgniteSqlApiTest {
 
                             oldState.forEach((k, v) -> state.put(k, null));
 
-                            return oldState.size();
+                            return (long) oldState.size();
                         })
                         .getMock());
 
@@ -500,7 +500,7 @@ public class IgniteSqlApiTest {
                     ResultSet res = Mockito.mock(ResultSet.class);
                     Mockito.when(res.wasApplied()).thenReturn(false);
                     Mockito.when(res.hasRowSet()).thenReturn(true);
-                    Mockito.when(res.affectedRows()).thenReturn(-1);
+                    Mockito.when(res.affectedRows()).thenReturn(-1L);
                     Mockito.when(res.iterator())
                             .thenReturn(List.of(
                                     createRow(2, "str2").build(),
@@ -515,7 +515,7 @@ public class IgniteSqlApiTest {
                     Mockito.when(res.iterator()).thenThrow(AssertionError.class);
                     Mockito.when(res.wasApplied()).thenReturn(true);
                     Mockito.when(res.hasRowSet()).thenReturn(false);
-                    Mockito.when(res.affectedRows()).thenReturn(-1);
+                    Mockito.when(res.affectedRows()).thenReturn(-1L);
                     return res;
                 });
 

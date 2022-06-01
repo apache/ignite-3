@@ -37,6 +37,6 @@ class VolatilePageMemoryTableStorage extends PageMemoryTableStorage {
     /** {@inheritDoc} */
     @Override
     protected PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        return new PageMemoryPartitionStorage(partId, tableCfg, dataRegion, ((VolatilePageMemoryDataRegion) dataRegion).freeList());
+        return new PageMemoryPartitionStorage(partId, tableCfg, dataRegion, ((VolatilePageMemoryDataRegion) dataRegion).tableFreeList());
     }
 }

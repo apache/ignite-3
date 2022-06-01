@@ -38,9 +38,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryData
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -60,14 +58,16 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
 
     private static final PageIo PAGE_IO = new TestPageIo();
 
+    protected static final int GRP_ID = -1;
+
+    protected static final int PARTITION_ID = 1;
+
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
     protected PageMemoryDataRegionConfiguration dataRegionCfg;
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg
-                .change(cfg -> cfg.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
-                .get(1, SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @Test
@@ -307,19 +307,16 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      * Creates new page memory instance.
      *
      * @return Page memory implementation.
-     * @throws Exception If failed.
      */
-    protected PageMemory memory() throws Exception {
-        DirectMemoryProvider provider = new UnsafeMemoryProvider(null);
-
+    protected PageMemory memory() {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-            provider,
-            dataRegionCfg,
-            ioRegistry
+                dataRegionCfg,
+                ioRegistry,
+                PAGE_SIZE
         );
     }
 
@@ -331,8 +328,8 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      * @param page Page pointer.
      * @param val Value to write.
      */
-    private void writePage(PageMemory mem, FullPageId fullId, long page, int val) {
-        long pageAddr = mem.writeLock(-1, fullId.pageId(), page);
+    protected void writePage(PageMemory mem, FullPageId fullId, long page, int val) {
+        long pageAddr = mem.writeLock(GRP_ID, fullId.pageId(), page);
 
         try {
             PAGE_IO.initNewPage(pageAddr, fullId.pageId(), mem.realPageSize(fullId.groupId()));
@@ -341,7 +338,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
                 PageUtils.putByte(pageAddr, i, (byte) val);
             }
         } finally {
-            mem.writeUnlock(-1, fullId.pageId(), page, true);
+            mem.writeUnlock(GRP_ID, fullId.pageId(), page, true);
         }
     }
 
@@ -356,7 +353,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
     private void readPage(PageMemory mem, long pageId, long page, int expVal) {
         expVal &= 0xFF;
 
-        long pageAddr = mem.readLock(-1, pageId, page);
+        long pageAddr = mem.readLock(GRP_ID, pageId, page);
 
         assert pageAddr != 0;
 
@@ -367,7 +364,7 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
                 assertEquals(expVal, val, "Unexpected value at position: " + i);
             }
         } finally {
-            mem.readUnlock(-1, pageId, page);
+            mem.readUnlock(GRP_ID, pageId, page);
         }
     }
 
@@ -379,6 +376,6 @@ public class PageMemoryNoLoadSelfTest extends BaseIgniteAbstractTest {
      * @throws IgniteInternalCheckedException If failed.
      */
     public static FullPageId allocatePage(PageIdAllocator mem) throws IgniteInternalCheckedException {
-        return new FullPageId(mem.allocatePage(-1, 1, PageIdAllocator.FLAG_DATA), -1);
+        return new FullPageId(mem.allocatePage(GRP_ID, PARTITION_ID, PageIdAllocator.FLAG_DATA), GRP_ID);
     }
 }

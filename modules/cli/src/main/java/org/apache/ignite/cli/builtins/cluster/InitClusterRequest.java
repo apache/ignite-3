@@ -32,8 +32,20 @@ public class InitClusterRequest {
     @JsonProperty
     private final List<String> cmgNodes;
 
-    public InitClusterRequest(List<String> metaStorageNodes, List<String> cmgNodes) {
+    @SuppressWarnings("unused")
+    @JsonProperty
+    private final String clusterName;
+
+    /**
+     * Creates a new request.
+     *
+     * @param metaStorageNodes Names of the nodes that host the Meta Storage.
+     * @param cmgNodes Names of the nodes that host the CMG.
+     * @param clusterName Human-readable name of the cluster.
+     */
+    public InitClusterRequest(List<String> metaStorageNodes, List<String> cmgNodes, String clusterName) {
         this.metaStorageNodes = List.copyOf(metaStorageNodes);
         this.cmgNodes = List.copyOf(cmgNodes);
+        this.clusterName = clusterName;
     }
 }

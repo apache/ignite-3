@@ -29,7 +29,6 @@ import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageView;
@@ -46,12 +45,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ConfigurationExtension.class)
-public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
+public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTest<RocksDbMvPartitionStorage> {
     private RocksDbStorageEngine engine;
 
     private RocksDbTableStorage table;
-
-    private RocksDbMvPartitionStorage storage;
 
     @BeforeEach
     public void setUp(
@@ -92,8 +89,4 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
         );
     }
 
-    @Override
-    protected MvPartitionStorage partitionStorage() {
-        return storage;
-    }
 }

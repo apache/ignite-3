@@ -57,7 +57,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.toHexString;
 import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWAYS;
-import static org.apache.ignite.lang.IgniteSystemProperties.getBoolean;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -75,16 +74,20 @@ import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
+import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMetricsTracker;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPages;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.persistence.replacement.ClockPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.replacement.DelayedPageReplacementTracker;
 import org.apache.ignite.internal.pagememory.persistence.replacement.PageReplacementPolicy;
@@ -100,7 +103,9 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Page header structure is described by the following diagram.
+ * Page memory with some persistence related additions.
+ *
+ * <p>Page header structure is described by the following diagram.
  *
  * <p>When page is not allocated (in a free list):
  * <pre>
@@ -124,14 +129,7 @@ import org.jetbrains.annotations.TestOnly;
  * in use or not.
  */
 @SuppressWarnings({"LockAcquiredButNotSafelyReleased"})
-public class PageMemoryImpl implements PageMemoryEx {
-    /**
-     * When set to {@code true} (default), pages are written to page store without holding segment lock (with delay).
-     * Because other thread may require exactly the same page to be loaded from store, reads are protected by locking.
-     */
-    // TODO: IGNITE-16350 Move to config or something else.
-    public static final String IGNITE_DELAYED_REPLACED_PAGE_WRITE = "IGNITE_DELAYED_REPLACED_PAGE_WRITE";
-
+public class PageMemoryImpl implements PageMemory {
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(PageMemoryImpl.class);
 
@@ -154,13 +152,13 @@ public class PageMemoryImpl implements PageMemoryEx {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PageMemoryDataRegionView dataRegionCfg;
+    private final PageMemoryDataRegionView dataRegionConfigView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
 
     /** Page manager. */
-    private final PageReadWriteManager pmPageMgr;
+    private final PageReadWriteManager pageStoreManager;
 
     /** Page size. */
     private final int sysPageSize;
@@ -215,41 +213,51 @@ public class PageMemoryImpl implements PageMemoryEx {
     /** Flush dirty page closure. */
     private final PageStoreWriter flushDirtyPage;
 
+    /** Checkpoint timeout lock. */
+    private final CheckpointTimeoutLock checkpointTimeoutLock;
+
     /**
      * Constructor.
      *
-     * @param directMemoryProvider Memory allocator to use.
-     * @param dataRegionCfg Data region configuration.
+     * @param dataRegionConfig Data region configuration.
      * @param ioRegistry IO registry.
      * @param sizes Segments sizes, the last one being the checkpoint buffer size.
-     * @param pmPageMgr Page store manager.
+     * @param pageStoreManager Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
+     * @param checkpointTimeoutLock Checkpoint timeout lock.
+     * @param pageSize Page size in bytes.
      */
     public PageMemoryImpl(
-            DirectMemoryProvider directMemoryProvider,
-            PageMemoryDataRegionConfiguration dataRegionCfg,
+            PageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
             long[] sizes,
-            PageReadWriteManager pmPageMgr,
+            PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
-            PageStoreWriter flushDirtyPage
+            PageStoreWriter flushDirtyPage,
+            CheckpointTimeoutLock checkpointTimeoutLock,
+            // TODO: IGNITE-17017 Move to common config
+            int pageSize
     ) {
-        this.directMemoryProvider = directMemoryProvider;
-        this.dataRegionCfg = dataRegionCfg.value();
+        this.dataRegionConfigView = dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
         this.sizes = sizes;
-        this.pmPageMgr = pmPageMgr;
+        this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
         this.flushDirtyPage = flushDirtyPage;
+        this.checkpointTimeoutLock = checkpointTimeoutLock;
 
-        int pageSize = this.dataRegionCfg.pageSize();
+        if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
+            throw new IgniteInternalException("Unexpected memory allocator: " + dataRegionConfigView.memoryAllocator());
+        }
+
+        directMemoryProvider = new UnsafeMemoryProvider(null);
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
         rwLock = new OffheapReadWriteLock(128);
 
-        String replacementMode = this.dataRegionCfg.replacementMode();
+        String replacementMode = dataRegionConfigView.replacementMode();
 
         switch (replacementMode) {
             case RANDOM_LRU_REPLACEMENT_MODE:
@@ -268,7 +276,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 throw new IgniteInternalException("Unexpected page replacement mode: " + replacementMode);
         }
 
-        delayedPageReplacementTracker = getBoolean(IGNITE_DELAYED_REPLACED_PAGE_WRITE, true)
+        delayedPageReplacementTracker = dataRegionConfigView.delayedReplacedPageWrite()
                 ? new DelayedPageReplacementTracker(pageSize, flushDirtyPage, LOG, sizes.length - 1) : null;
     }
 
@@ -386,8 +394,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         return readLock(page, pageId, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Acquires a read lock associated with the given page.
+     *
+     * @param absPtr Absolute pointer to read lock.
+     * @param pageId Page ID.
+     * @param force Force flag.
+     * @param touch Update page timestamp.
+     * @return Pointer to the page read buffer.
+     */
     public long readLock(long absPtr, long pageId, boolean force, boolean touch) {
         assert started;
 
@@ -428,8 +443,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         return writeLock(grpId, pageId, page, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Acquired a write lock on the page.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param restore Determines if the page is locked for restore memory (crash recovery).
+     * @return Pointer to the page read buffer.
+     */
     public long writeLock(int grpId, long pageId, long page, boolean restore) {
         assert started;
 
@@ -452,8 +474,15 @@ public class PageMemoryImpl implements PageMemoryEx {
         writeUnlock(grpId, pageId, page, dirtyFlag, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Releases locked page.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param page Page pointer.
+     * @param dirtyFlag Determines whether the page was modified since the last checkpoint.
+     * @param restore Determines if the page is locked for restore.
+     */
     public void writeUnlock(int grpId, long pageId, long page, boolean dirtyFlag, boolean restore) {
         assert started;
 
@@ -483,13 +512,12 @@ public class PageMemoryImpl implements PageMemoryEx {
         assert partId <= MAX_PARTITION_ID || partId == INDEX_PARTITION && flags == FLAG_AUX : "flags = " + flags + ", partId = " + partId;
 
         assert started;
+        assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
-        long pageId = pmPageMgr.allocatePage(grpId, partId, flags);
-
-        assert pageIndex(pageId) > 0; //it's crucial for tracking pages (zero page is super one)
+        long pageId = pageStoreManager.allocatePage(grpId, partId, flags);
 
         // We need to allocate page in memory for marking it dirty to save it in the next checkpoint.
-        // Otherwise it is possible that on file will be empty page which will be saved at snapshot and read with error
+        // Otherwise, it is possible that on file will be empty page which will be saved at snapshot and read with error
         // because there is no crc inside them.
         Segment seg = segment(grpId, pageId);
 
@@ -541,10 +569,10 @@ public class PageMemoryImpl implements PageMemoryEx {
             seg.loadedPages.put(grpId, effectivePageId(pageId), relPtr, seg.partGeneration(grpId, partId));
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
-                    + "name=" + dataRegionCfg.name()
-                    + ", initSize=" + readableSize(dataRegionCfg.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionCfg.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionCfg.persistent() + "] Try the following:" + lineSeparator()
+                    + "name=" + dataRegionConfigView.name()
+                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
+                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
+                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
@@ -573,8 +601,13 @@ public class PageMemoryImpl implements PageMemoryEx {
         return false;
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Gets partition metadata page ID for specified grpId and partId.
+     *
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     * @return Meta page for grpId and partId.
+     */
     public long partitionMetaPageId(int grpId, int partId) {
         assert started;
 
@@ -594,14 +627,30 @@ public class PageMemoryImpl implements PageMemoryEx {
         return acquirePage(grpId, pageId, statHolder, false);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns an absolute pointer to a page, associated with the given page ID.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page ID.
+     * @param pageAllocated Flag is set if new page was allocated in offheap memory.
+     * @return Page.
+     * @throws IgniteInternalCheckedException If failed.
+     * @see #acquirePage(int, long) Sets additional flag indicating that page was not found in memory and had to be allocated.
+     */
     public long acquirePage(int grpId, long pageId, AtomicBoolean pageAllocated) throws IgniteInternalCheckedException {
         return acquirePage(grpId, pageId, IoStatisticsHolderNoOp.INSTANCE, false, pageAllocated);
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Returns an absolute pointer to a page, associated with the given page ID.
+     *
+     * @param grpId Group ID.
+     * @param pageId Page id.
+     * @param restore Get page for restore
+     * @return Page.
+     * @throws IgniteInternalCheckedException If failed.
+     * @see #acquirePage(int, long) Will read page from file if it is not present in memory.
+     */
     public long acquirePage(int grpId, long pageId, IoStatisticsHolder statHolder, boolean restore) throws IgniteInternalCheckedException {
         return acquirePage(grpId, pageId, statHolder, restore, null);
     }
@@ -767,7 +816,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 long actualPageId = 0;
 
                 try {
-                    pmPageMgr.read(grpId, pageId, buf, false);
+                    pageStoreManager.read(grpId, pageId, buf, false);
 
                     statHolder.trackPhysicalAndLogicalRead(pageAddr);
 
@@ -800,7 +849,6 @@ public class PageMemoryImpl implements PageMemoryEx {
     /**
      * Returns total pages can be placed in all segments.
      */
-    @Override
     public long totalPages() {
         if (segments == null) {
             return 0;
@@ -864,8 +912,13 @@ public class PageMemoryImpl implements PageMemoryEx {
         );
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Marks partition as invalid / outdated.
+     *
+     * @param grpId Group ID.
+     * @param partId Partition ID.
+     * @return New partition generation (growing 1-based partition file version).
+     */
     public int invalidate(int grpId, int partId) {
         synchronized (segmentsLock) {
             if (!started) {
@@ -894,8 +947,11 @@ public class PageMemoryImpl implements PageMemoryEx {
         }
     }
 
-    /** {@inheritDoc} */
-    @Override
+    /**
+     * Clears internal metadata of destroyed group.
+     *
+     * @param grpId Group ID.
+     */
     public void onCacheGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
             seg.writeLock().lock();
@@ -1053,7 +1109,7 @@ public class PageMemoryImpl implements PageMemoryEx {
 
                 throw new IgniteInternalException(
                         "Failed to allocate temporary buffer for checkpoint (increase checkpointPageBufferSize configuration property): "
-                                + dataRegionCfg.name());
+                                + dataRegionConfigView.name());
             }
 
             // Pin the page until checkpoint is not finished.
@@ -1187,7 +1243,7 @@ public class PageMemoryImpl implements PageMemoryEx {
         boolean wasDirty = dirty(absPtr, dirty);
 
         if (dirty) {
-            // TODO: IGNITE-16984 Don't forget add assertion for checkpoint lock held by this thread
+            assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
             if (!wasDirty || forceAdd) {
                 Segment seg = segment(pageId.groupId(), pageId.pageId());
@@ -1437,7 +1493,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 // Can evict a dirty page only if should be written by a checkpoint.
                 // These pages does not have tmp buffer.
                 if (checkpointPages != null && checkpointPages.allowToSave(fullPageId)) {
-                    assert pmPageMgr != null;
+                    assert pageStoreManager != null;
 
                     PageStoreWriter saveDirtyPage = delayedPageReplacementTracker != null
                             ? delayedPageReplacementTracker.delayedPageWrite() : flushDirtyPage;
@@ -1536,7 +1592,7 @@ public class PageMemoryImpl implements PageMemoryEx {
                 if (pageReplacementWarnedFieldUpdater.compareAndSet(PageMemoryImpl.this, 0, 1)) {
                     String msg = "Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
-                            + "data region): " + dataRegionCfg.name();
+                            + "data region): " + dataRegionConfigView.name();
 
                     LOG.warn(msg);
                 }
@@ -1562,10 +1618,10 @@ public class PageMemoryImpl implements PageMemoryEx {
                     + ", dirtyPages=" + dirtyPagesCntr
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
-                    + "name=" + dataRegionCfg.name()
-                    + ", initSize=" + readableSize(dataRegionCfg.initSize(), false)
-                    + ", maxSize=" + readableSize(dataRegionCfg.maxSize(), false)
-                    + ", persistenceEnabled=" + dataRegionCfg.persistent() + "] Try the following:" + lineSeparator()
+                    + "name=" + dataRegionConfigView.name()
+                    + ", initSize=" + readableSize(dataRegionConfigView.initSize(), false)
+                    + ", maxSize=" + readableSize(dataRegionConfigView.maxSize(), false)
+                    + ", persistenceEnabled=" + dataRegionConfigView.persistent() + "] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PageMemoryDataRegionConfiguration.maxSize)" + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
@@ -1723,9 +1779,9 @@ public class PageMemoryImpl implements PageMemoryEx {
          *
          * @param page – Page pointer.
          * @param fullPageId Full page ID.
-         * @param pageMemoryEx Page memory.
+         * @param pageMemoryImpl Page memory.
          */
-        void apply(long page, FullPageId fullPageId, PageMemoryEx pageMemoryEx);
+        void apply(long page, FullPageId fullPageId, PageMemoryImpl pageMemoryImpl);
     }
 
     /**
