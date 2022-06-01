@@ -19,25 +19,19 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.cause;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.hasCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
@@ -51,10 +45,8 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -245,149 +237,33 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
+        var p0 = ars0.currentPage();
         AsyncResultSet ars1 = ars0.fetchNextPage().toCompletableFuture().get();
+        var p1 = ars1.currentPage();
         AsyncResultSet ars2 = ars1.fetchNextPage().toCompletableFuture().get();
+        var p2 = ars2.currentPage();
         AsyncResultSet ars3 = ars1.fetchNextPage().toCompletableFuture().get();
+        var p3 = ars3.currentPage();
         AsyncResultSet ars4 = ars0.fetchNextPage().toCompletableFuture().get();
+        var p4 = ars4.currentPage();
 
-        assertSame(ars1, ars4);
-        assertSame(ars2, ars3);
+        assertSame(ars0, ars1);
+        assertSame(ars0, ars2);
+        assertSame(ars0, ars3);
+        assertSame(ars0, ars4);
 
-        List<SqlRow> res = Stream.of(ars0, ars1, ars2)
-                .map(AsyncResultSet::currentPage)
+        List<SqlRow> res = Stream.of(p0, p1, p2, p3, p4)
                 .flatMap(p -> StreamSupport.stream(p.spliterator(), false))
                 .collect(Collectors.toList());
 
         TestPageProcessor pageProc = new TestPageProcessor(ROW_COUNT - res.size());
-        ars3.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
+        ars4.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
 
         res.addAll(pageProc.result());
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertEquals(i, res.get(i).intValue(0));
         }
-    }
-
-    @Test
-    public void fetchNextPageParallel() throws Exception {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
-
-        final List<SqlRow> res = new ArrayList<>();
-
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
-
-        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
-        StreamSupport.stream(ars0.currentPage().spliterator(), false).forEach(res::add);
-
-        AtomicInteger cnt = new AtomicInteger();
-        ConcurrentHashMap<Integer, AsyncResultSet> results = new ConcurrentHashMap<>();
-
-        IgniteTestUtils.runMultiThreaded(
-                () -> {
-                    AsyncResultSet ars = ars0.fetchNextPage().toCompletableFuture().get();
-
-                    results.put(cnt.getAndIncrement(), ars);
-
-                    assertFalse(ars.hasMorePages());
-
-                    return null;
-                },
-                10,
-                "test-fetch");
-
-        AsyncResultSet ars1 = CollectionUtils.first(results.values());
-        StreamSupport.stream(ars1.currentPage().spliterator(), false).forEach(res::add);
-
-        // Check that all next page are same.
-        results.values().forEach(ars -> assertSame(ars1, ars));
-
-        assertThrowsWithCause(
-                () -> ars1.fetchNextPage().toCompletableFuture().get(),
-                SqlException.class,
-                "There are no more pages"
-        );
-
-        await(ars0.closeAsync());
-
-        // Check results
-        Set<Integer> rs = res.stream().map(r -> r.intValue(0)).collect(Collectors.toSet());
-
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            assertTrue(rs.remove(i), "Results invalid: " + res);
-        }
-
-        assertTrue(rs.isEmpty());
-
-        checkSession(ses);
-    }
-
-    @Test
-    public void batch() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
-
-        BatchedArguments args = BatchedArguments.of(0, 0);
-
-        for (int i = 1; i < ROW_COUNT; ++i) {
-            args.add(i, i);
-        }
-
-        long[] batchRes = ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join();
-
-        Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
-
-        // Check that data are inserted OK
-        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
-        IntStream.range(0, ROW_COUNT).forEach(i -> assertEquals(i, res.get(i).get(0)));
-
-        // Check invalid query type
-        assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "SELECT * FROM TEST", args).get(),
-                SqlException.class,
-                "Invalid SQL statement in the batch"
-        );
-
-        assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args).get(),
-                SqlException.class,
-                "Invalid SQL statement in the batch"
-        );
-    }
-
-    @Test
-    public void batchIncomplete() {
-        int err = ROW_COUNT / 2;
-
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
-
-        BatchedArguments args = BatchedArguments.of(0, 0);
-
-        for (int i = 1; i < ROW_COUNT; ++i) {
-            if (i == err) {
-                args.add(1, 1);
-            } else {
-                args.add(i, i);
-            }
-        }
-
-        Throwable ex = assertThrowsWithCause(
-                () -> ses.executeBatchAsync(null, "INSERT INTO TEST VALUES (?, ?)", args).join(),
-                SqlBatchException.class
-        );
-        assertTrue(hasCause(ex, IgniteInternalException.class, "Failed to INSERT some keys because they are already in cache"));
-        SqlBatchException batchEx = cause(ex, SqlBatchException.class, null);
-
-        assertEquals(err, batchEx.updateCounters().length);
-        IntStream.range(0, batchEx.updateCounters().length).forEach(i -> assertEquals(1, batchEx.updateCounters()[i]));
     }
 
     @Test
