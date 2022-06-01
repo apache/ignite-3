@@ -30,7 +30,6 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client async result set.
