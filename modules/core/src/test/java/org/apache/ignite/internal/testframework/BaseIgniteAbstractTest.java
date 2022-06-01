@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tostring.SensitiveDataLoggingPolicy;
 import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -50,14 +51,14 @@ public abstract class BaseIgniteAbstractTest {
      * Should be invoked before a test will start.
      *
      * @param testInfo Test information object.
-     * @param workDir  Work directory.
+     * @param workDir Work directory.
      */
-    protected void setupBase(TestInfo testInfo, Path workDir) {
+    protected void setupBase(TestInfo testInfo, @Nullable Path workDir) {
         log.info(">>> Starting test: {}#{}, displayName: {}, workDir: {}",
                 testInfo.getTestClass().map(Class::getSimpleName).orElse("<null>"),
                 testInfo.getTestMethod().map(Method::getName).orElse("<null>"),
                 testInfo.getDisplayName(),
-                workDir.toAbsolutePath());
+                workDir == null ? "<null>" : workDir.toAbsolutePath());
 
         this.testStartMs = monotonicMs();
     }
