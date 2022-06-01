@@ -128,25 +128,26 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            rebalanceAttempts.set(0);
+            rebalanceScheduler.schedule(() -> {
+                try {
+                    rebalanceAttempts.set(0);
 
-            metaStorageMgr.get(pendingPartAssignmentsKey(partId))
-                    .thenCompose(pendingEntry -> {
-                        if (!pendingEntry.empty()) {
-                            List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
+                    metaStorageMgr.get(pendingPartAssignmentsKey(partId))
+                            .thenCompose(pendingEntry -> {
+                                if (!pendingEntry.empty()) {
+                                    List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
 
-                            // TODO: IGNITE-17013 errors during this call should be handled by retry logic
-                            return raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term);
-                        } else {
-                            return CompletableFuture.completedFuture(null);
-                        }
-                    })
-                    .whenCompleteAsync((v, th) -> {
-                        if (th != null) {
-                            LOG.error("Can't start rebalance for partition {} of table {} on new elected leader for term {}",
-                                    th, partNum, tblConfiguration.name().value(), term);
-                        }
-                    }, rebalanceScheduler);
+                                    return raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term);
+                                } else {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+                            }).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+                    LOG.error("Couldn't start rebalance for partition {} of table {} on new elected leader for term {}",
+                            e, partNum, tblConfiguration.name().value(), term);
+                }
+            }, 0, TimeUnit.MILLISECONDS);
         } finally {
             busyLock.leaveBusy();
         }
@@ -228,43 +229,48 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param peers Peers
      */
     private void doOnNewPeersConfigurationApplied(List<PeerId> peers) {
-        Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
-                Set.of(
-                        plannedPartAssignmentsKey(partId),
-                        pendingPartAssignmentsKey(partId),
-                        stablePartAssignmentsKey(partId))).join();
+        try {
+            Map<ByteArray, Entry> keys = metaStorageMgr.getAll(
+                    Set.of(
+                            plannedPartAssignmentsKey(partId),
+                            pendingPartAssignmentsKey(partId),
+                            stablePartAssignmentsKey(partId))).get();
 
-        Entry plannedEntry = keys.get(plannedPartAssignmentsKey(partId));
+            Entry plannedEntry = keys.get(plannedPartAssignmentsKey(partId));
 
-        List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
-                keys.get(pendingPartAssignmentsKey(partId)).value(), keys.get(stablePartAssignmentsKey(partId)).value());
+            List<ClusterNode> appliedPeers = resolveClusterNodes(peers,
+                    keys.get(pendingPartAssignmentsKey(partId)).value(), keys.get(stablePartAssignmentsKey(partId)).value());
 
-        tblConfiguration.change(ch -> {
-            List<List<ClusterNode>> assignments =
-                    (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
-            assignments.set(partNum, appliedPeers);
-            ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
-        }).join();
+            tblConfiguration.change(ch -> {
+                List<List<ClusterNode>> assignments =
+                        (List<List<ClusterNode>>) ByteUtils.fromBytes(((ExtendedTableChange) ch).assignments());
+                assignments.set(partNum, appliedPeers);
+                ((ExtendedTableChange) ch).changeAssignments(ByteUtils.toBytes(assignments));
+            }).get();
 
-        if (plannedEntry.value() != null) {
-            if (!metaStorageMgr.invoke(If.iif(
-                    revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
-                    ops(
-                            put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
-                            put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
-                            remove(plannedPartAssignmentsKey(partId)))
-                            .yield(true),
-                    ops().yield(false))).join().getAsBoolean()) {
-                doOnNewPeersConfigurationApplied(peers);
+            if (plannedEntry.value() != null) {
+                if (!metaStorageMgr.invoke(If.iif(
+                        revision(plannedPartAssignmentsKey(partId)).eq(plannedEntry.revision()),
+                        ops(
+                                put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
+                                put(pendingPartAssignmentsKey(partId), plannedEntry.value()),
+                                remove(plannedPartAssignmentsKey(partId)))
+                                .yield(true),
+                        ops().yield(false))).get().getAsBoolean()) {
+                    doOnNewPeersConfigurationApplied(peers);
+                }
+            } else {
+                if (!metaStorageMgr.invoke(If.iif(
+                        notExists(plannedPartAssignmentsKey(partId)),
+                        ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
+                                remove(pendingPartAssignmentsKey(partId))).yield(true),
+                        ops().yield(false))).get().getAsBoolean()) {
+                    doOnNewPeersConfigurationApplied(peers);
+                }
             }
-        } else {
-            if (!metaStorageMgr.invoke(If.iif(
-                    notExists(plannedPartAssignmentsKey(partId)),
-                    ops(put(stablePartAssignmentsKey(partId), ByteUtils.toBytes(appliedPeers)),
-                            remove(pendingPartAssignmentsKey(partId))).yield(true),
-                    ops().yield(false))).join().getAsBoolean()) {
-                doOnNewPeersConfigurationApplied(peers);
-            }
+        } catch (InterruptedException | ExecutionException e) {
+            // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+            LOG.error("Could't commit new partition configuration to metastore for table = {}, partition = {}", e, tblConfiguration.name(), partNum);
         }
     }
 
@@ -306,22 +312,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         for (ClusterNode node : nodes) {
             peers.add(new Peer(node.address()));
-        }
-
-        return peers;
-    }
-
-    /**
-     * Transforms list of cluster nodes to the list of peerIds.
-     *
-     * @param nodes List of cluster nodes to transform.
-     * @return List of transformed peerIds.
-     */
-    private static List<PeerId> clusterNodesToPeerIds(List<ClusterNode> nodes) {
-        List<PeerId> peers = new ArrayList<>(nodes.size());
-
-        for (ClusterNode node : nodes) {
-            peers.add(new PeerId(node.address()));
         }
 
         return peers;
