@@ -12,8 +12,6 @@ The following examples are included:
 * `RebalanceExample` - demonstrates the data rebalancing process.
 * `VolatilePageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with an in-memory data region.
 
-Before running the examples, read abaut [cli](https://ignite.apache.org/docs/3.0.0-alpha/ignite-cli-tool).
+Before running the examples, read about [cli](https://ignite.apache.org/docs/3.0.0-alpha/ignite-cli-tool).
 
 To run the examples, refer to their JavaDoc for instructions.
-
-If errors occur at the cluster initialization step, it is recommended to delete the `ignite-work` directory and repeat the instruction to run the example.
