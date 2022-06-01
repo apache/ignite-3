@@ -38,9 +38,6 @@ import org.jetbrains.annotations.Nullable;
  * Caching registry of actual schema descriptors for a table.
  */
 public class SchemaRegistryImpl implements SchemaRegistry {
-    /** Initial schema version. */
-    public static final int INITIAL_SCHEMA_VERSION = -1;
-
     /** Cached schemas. */
     private final ConcurrentNavigableMap<Integer, SchemaDescriptor> schemaCache = new ConcurrentSkipListMap<>();
 
@@ -57,26 +54,22 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     private final IntSupplier latestVersionStore;
 
     /**
-     * Default constructor.
-     *
-     * @param history            Schema history.
-     * @param latestVersionStore The method to provide the latest version of the schema.
-     */
-    public SchemaRegistryImpl(Function<Integer, SchemaDescriptor> history, IntSupplier latestVersionStore) {
-        this(INITIAL_SCHEMA_VERSION, history, latestVersionStore);
-    }
-
-    /**
      * Constructor.
      *
-     * @param initialVer         Initial version.
      * @param history            Schema history.
      * @param latestVersionStore The method to provide the latest version of the schema.
+     * @param initialSchema      Initial schema.
      */
-    public SchemaRegistryImpl(int initialVer, Function<Integer, SchemaDescriptor> history, IntSupplier latestVersionStore) {
-        lastVer = initialVer;
+    public SchemaRegistryImpl(
+            Function<Integer, SchemaDescriptor> history,
+            IntSupplier latestVersionStore,
+            SchemaDescriptor initialSchema
+    ) {
+        this.lastVer = initialSchema.version();
         this.history = history;
         this.latestVersionStore = latestVersionStore;
+
+        schemaCache.put(initialSchema.version(), initialSchema);
     }
 
     /** {@inheritDoc} */
@@ -113,10 +106,6 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public @Nullable SchemaDescriptor schema() {
         final int lastVer0 = lastVer;
 
-        if (lastVer0 == INITIAL_SCHEMA_VERSION) {
-            return null;
-        }
-
         return schema(lastVer0);
     }
 
@@ -125,11 +114,8 @@ public class SchemaRegistryImpl implements SchemaRegistry {
     public SchemaDescriptor waitLatestSchema() {
         int lastVer0 = latestVersionStore.getAsInt();
 
-        if (lastVer0 == INITIAL_SCHEMA_VERSION) {
-            return schema();
-        }
-
-        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer + ", consLastVer=" + lastVer0 + ']';
+        assert lastVer <= lastVer0 : "Cached schema is earlier than consensus [lastVer=" + lastVer
+            + ", consLastVer=" + lastVer0 + ']';
 
         return schema(lastVer0);
     }
@@ -231,12 +217,7 @@ public class SchemaRegistryImpl implements SchemaRegistry {
      * @throws SchemaRegistryException If schema of incorrect version provided.
      */
     public void onSchemaRegistered(SchemaDescriptor desc) {
-        if (lastVer == INITIAL_SCHEMA_VERSION) {
-            if (desc.version() != 1) {
-                throw new SchemaRegistryException(
-                        "Try to register schema of wrong version: ver=" + desc.version() + ", lastVer=" + lastVer);
-            }
-        } else if (desc.version() != lastVer + 1) {
+        if (desc.version() != lastVer + 1) {
             if (desc.version() > 0 && desc.version() <= lastVer) {
                 throw new SchemaRegistrationConflictException("Schema with given version has been already registered: " + desc.version());
             }

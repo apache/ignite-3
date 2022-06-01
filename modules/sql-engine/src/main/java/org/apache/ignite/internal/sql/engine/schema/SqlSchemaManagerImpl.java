@@ -48,6 +48,8 @@ import org.jetbrains.annotations.Nullable;
  * Holds actual schema and mutates it on schema change, requested by Ignite.
  */
 public class SqlSchemaManagerImpl implements SqlSchemaManager {
+    private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
+
     private final VersionedValue<Map<String, IgniteSchema>> schemasVv;
 
     private final VersionedValue<Map<UUID, IgniteTable>> tablesVv;
@@ -72,9 +74,11 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         calciteSchemaVv = new VersionedValue<>(registry, () -> {
             SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
-            newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+            newCalciteSchema.add(DEFAULT_SCHEMA_NAME, new IgniteSchema(DEFAULT_SCHEMA_NAME));
             return newCalciteSchema;
         });
+
+        calciteSchemaVv.whenComplete((token, schema, e) -> listeners.forEach(SchemaUpdateListener::onSchemaUpdated));
     }
 
     /** {@inheritDoc} */
@@ -82,7 +86,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     public SchemaPlus schema(@Nullable String schema) {
         SchemaPlus schemaPlus = calciteSchemaVv.latest();
 
-        return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus;
+        return schema != null ? schemaPlus.getSubSchema(schema) : schemaPlus.getSubSchema(DEFAULT_SCHEMA_NAME);
     }
 
     /** {@inheritDoc} */
@@ -291,21 +295,21 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     private void rebuild(long causalityToken, CompletableFuture<Map<String, IgniteSchema>> schemasFut) {
-        SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
+        schemasFut.thenCompose(schemas -> {
+            SchemaPlus newCalciteSchema = Frameworks.createRootSchema(false);
 
-        newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
+            newCalciteSchema.add("PUBLIC", new IgniteSchema("PUBLIC"));
 
-        schemasFut.join().forEach(newCalciteSchema::add);
+            schemas.forEach(newCalciteSchema::add);
 
-        calciteSchemaVv.update(causalityToken, (s, e) -> {
-            if (e != null) {
-                return failedFuture(e);
-            }
+            return calciteSchemaVv.update(causalityToken, (s, e) -> {
+                if (e != null) {
+                    return failedFuture(e);
+                }
 
-            return completedFuture(newCalciteSchema);
+                return completedFuture(newCalciteSchema);
+            });
         });
-
-        listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
     }
 
     private IgniteTableImpl convert(TableImpl table) {

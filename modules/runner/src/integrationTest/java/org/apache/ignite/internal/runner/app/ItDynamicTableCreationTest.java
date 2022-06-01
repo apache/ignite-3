@@ -90,7 +90,7 @@ class ItDynamicTableCreationTest {
 
         String metaStorageNode = testNodeName(testInfo, PORTS[0]);
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

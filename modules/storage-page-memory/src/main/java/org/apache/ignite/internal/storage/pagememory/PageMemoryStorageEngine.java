@@ -61,14 +61,23 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(engineConfig.defaultRegion(), ioRegistry);
+        int pageSize = engineConfig.pageSize().value();
+
+        VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(
+                engineConfig.defaultRegion(),
+                ioRegistry, pageSize
+        );
 
         defaultRegion.start();
 
         regions.put(DEFAULT_DATA_REGION_NAME, defaultRegion);
 
         for (String regionName : engineConfig.regions().value().namedListKeys()) {
-            VolatilePageMemoryDataRegion region = new VolatilePageMemoryDataRegion(engineConfig.regions().get(regionName), ioRegistry);
+            VolatilePageMemoryDataRegion region = new VolatilePageMemoryDataRegion(
+                    engineConfig.regions().get(regionName),
+                    ioRegistry,
+                    pageSize
+            );
 
             region.start();
 

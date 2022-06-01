@@ -21,8 +21,8 @@ import static java.sql.ResultSet.CLOSE_CURSORS_AT_COMMIT;
 import static java.sql.ResultSet.CONCUR_READ_ONLY;
 import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
-import static org.apache.ignite.client.proto.query.SqlStateCode.CLIENT_CONNECTION_FAILED;
-import static org.apache.ignite.client.proto.query.SqlStateCode.CONNECTION_CLOSED;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -51,11 +51,10 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.client.proto.query.JdbcQueryEventHandler;
-import org.apache.ignite.client.proto.query.SqlStateCode;
 import org.apache.ignite.internal.client.HostAndPortRange;
 import org.apache.ignite.internal.client.TcpIgniteClient;
-import org.apache.ignite.internal.client.query.JdbcClientQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
+import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.jetbrains.annotations.Nullable;
 

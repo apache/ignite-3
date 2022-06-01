@@ -25,7 +25,7 @@ import org.apache.ignite.internal.configuration.notifications.ConfigurationStora
 /**
  * Creates a future that completes when local recovery is finished.
  */
-public class RecoveryCompletionFutureFactory extends CompletableFuture<Void> {
+public class RecoveryCompletionFutureFactory {
     /**
      * Create recovery completion future.
      *

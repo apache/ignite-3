@@ -33,6 +33,8 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
 
     protected final PageIoRegistry ioRegistry;
 
+    protected final int pageSize;
+
     protected PageMemory pageMemory;
 
     /**
@@ -40,10 +42,12 @@ abstract class AbstractPageMemoryDataRegion implements PageMemoryDataRegion, Ign
      *
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
+     * @param pageSize Page size in bytes.
      */
-    public AbstractPageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry) {
+    public AbstractPageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry, int pageSize) {
         this.cfg = cfg;
         this.ioRegistry = ioRegistry;
+        this.pageSize = pageSize;
     }
 
     /** {@inheritDoc} */

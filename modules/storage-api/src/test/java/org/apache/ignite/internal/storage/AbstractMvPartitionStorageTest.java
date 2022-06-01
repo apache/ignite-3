@@ -62,15 +62,26 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
      */
     @Test
     public void testReadsFromEmpty() {
-        RowId rowId = freshRowId(partitionId());
+        RowId rowId = insertAndAbortWrite();
+
         assertEquals(partitionId(), rowId.partitionId());
 
         assertNull(storage.read(rowId, newTransactionId()));
         assertNull(storage.read(rowId, Timestamp.nextVersion()));
     }
 
+    private RowId insertAndAbortWrite() {
+        RowId rowId = storage.insert(binaryRow, txId);
+
+        storage.abortWrite(rowId);
+
+        return rowId;
+    }
+
     @Test
     public void testScanOverEmpty() throws Exception {
+        insertAndAbortWrite();
+
         assertEquals(List.of(), convert(storage.scan(row -> true, newTransactionId())));
         assertEquals(List.of(), convert(storage.scan(row -> true, Timestamp.nextVersion())));
     }
@@ -577,9 +588,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
     @Test
     void abortOfInsertMakesRowNonExistentForReadWithTxId() {
-        RowId rowId = storage.insert(binaryRow, txId);
-
-        storage.abortWrite(rowId);
+        RowId rowId = insertAndAbortWrite();
 
         BinaryRow foundRow = storage.read(rowId, txId);
 

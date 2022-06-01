@@ -103,10 +103,6 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    protected RowId freshRowId(int partitionId) {
-        return UuidRowId.randomRowId(partitionId);
-    }
-
     /**
      * Test pojo key.
      */

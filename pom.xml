@@ -54,6 +54,8 @@
         <module>modules/configuration-annotation-processor</module>
         <module>modules/configuration-api</module>
         <module>modules/core</module>
+        <module>modules/extended-api</module>
+        <module>modules/file-io</module>
         <module>modules/jacoco-report</module>
         <module>modules/marshaller-common</module>
         <module>modules/metastorage</module>

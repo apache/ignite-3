@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -27,10 +26,8 @@ import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchem
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
@@ -110,14 +107,6 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         // 1 instead of the default 0 to make sure that we note cases when we forget to pass the partition ID (in which
         // case it will turn into 0).
         return 1;
-    }
-
-    @Override
-    protected RowId freshRowId(int partitionId) {
-        long pageId = pageId(partitionId, PageIdAllocator.FLAG_DATA, nextPageIndex++);
-        int itemId = 0;
-        long link = PageIdUtils.link(pageId, itemId);
-        return new LinkRowId(link);
     }
 
     @SuppressWarnings("JUnit3StyleTestMethodInJUnit4Class")

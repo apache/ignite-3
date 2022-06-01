@@ -40,7 +40,7 @@ public interface ColumnMetadata {
 
     /**
      * Returns SQL column type.
-     * TODO: replace return type regarding the SQL type system.
+     * TODO: IGNITE-16962 replace return type regarding the SQL type system.
      *
      * @return Value type.
      */

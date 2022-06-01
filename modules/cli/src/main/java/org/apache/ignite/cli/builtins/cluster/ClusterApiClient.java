@@ -54,13 +54,20 @@ public class ClusterApiClient {
      * Sends 'cluster init' command to the specified node.
      *
      * @param nodeEndpoint host:port on which REST API is listening
-     * @param metastorageNodeIds consistent IDs of the nodes that will host the Meta Storage Raft group
+     * @param metaStorageNodeIds consistent IDs of the nodes that will host the Meta Storage Raft group
      * @param cmgNodeIds         consistent IDs of the nodes that will host the Cluster Management Raft Group; if empty,
-     *                           {@code metastorageNodeIds} will be used to host the CMG as well
+     *                           {@code metaStorageNodeIds} will be used to host the CMG as well
+     * @param clusterName Human-readable name of the cluster
      * @param out                {@link PrintWriter} to which to report about the command outcome
      */
-    public void init(String nodeEndpoint, List<String> metastorageNodeIds, List<String> cmgNodeIds, PrintWriter out) {
-        InitClusterRequest requestPayload = new InitClusterRequest(metastorageNodeIds, cmgNodeIds);
+    public void init(
+            String nodeEndpoint,
+            List<String> metaStorageNodeIds,
+            List<String> cmgNodeIds,
+            String clusterName,
+            PrintWriter out
+    ) {
+        InitClusterRequest requestPayload = new InitClusterRequest(metaStorageNodeIds, cmgNodeIds, clusterName);
         String requestJson = toJson(requestPayload);
 
         var httpRequest = HttpRequest

@@ -46,9 +46,12 @@ public interface PageStore extends Closeable {
     void removeWriteListener(PageWriteListener listener);
 
     /**
-     * Returns {@code true} if the page store exists.
+     * Stops the page store.
+     *
+     * @param clean {@code True} to clean page store.
+     * @throws IgniteInternalCheckedException If failed.
      */
-    boolean exists();
+    void stop(boolean clean) throws IgniteInternalCheckedException;
 
     /**
      * Allocates next page index.
@@ -76,20 +79,12 @@ public interface PageStore extends Closeable {
     boolean read(long pageId, ByteBuffer pageBuf, boolean keepCrc) throws IgniteInternalCheckedException;
 
     /**
-     * Reads a page store header.
-     *
-     * @param buf Buffer to write to.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    void readHeader(ByteBuffer buf) throws IgniteInternalCheckedException;
-
-    /**
      * Writes a page.
      *
      * @param pageId Page ID.
      * @param pageBuf Page buffer to write from.
-     * @param tag Partition page store version, 1-based incrementing counter. For outdated pages {@code tag} has lower value,
-     *      and write does nothing.
+     * @param tag Partition page store version, 1-based incrementing counter. For outdated pages {@code tag} has lower value, and write does
+     *      nothing.
      * @param calculateCrc If {@code false} crc calculation will be forcibly skipped.
      * @throws IgniteInternalCheckedException If page writing failed (IO error occurred).
      */
@@ -103,42 +98,14 @@ public interface PageStore extends Closeable {
     void sync() throws IgniteInternalCheckedException;
 
     /**
+     * Returns {@code true} if the page store exists.
+     */
+    boolean exists();
+
+    /**
      * Initializes the page store if it hasn't already.
      *
      * @throws IgniteInternalCheckedException If initialization failed (IO error occurred).
      */
     void ensure() throws IgniteInternalCheckedException;
-
-    /**
-     * Returns page store version.
-     */
-    int version();
-
-    /**
-     * Stops the page store.
-     *
-     * @param clean {@code True} to clean page store.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    void stop(boolean clean) throws IgniteInternalCheckedException;
-
-    /**
-     * Truncates and deletes page store.
-     *
-     * @param tag New partition tag.
-     * @throws IgniteInternalCheckedException If failed.
-     */
-    void truncate(int tag) throws IgniteInternalCheckedException;
-
-    /**
-     * Returns page size in bytes.
-     */
-    int pageSize();
-
-    /**
-     * Returns size of the page store in bytes.
-     *
-     * <p>May differ from {@link #pages} * {@link #pageSize} due to delayed writes or due to other implementation specific details.
-     */
-    long size();
 }

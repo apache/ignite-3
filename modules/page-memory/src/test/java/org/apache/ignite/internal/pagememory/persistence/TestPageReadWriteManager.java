@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.pagememory.FullPageId;
+import org.apache.ignite.internal.pagememory.persistence.store.PageStore;
 
 /**
  * Implementation for tests.
@@ -39,8 +40,8 @@ public class TestPageReadWriteManager implements PageReadWriteManager {
 
     /** {@inheritDoc} */
     @Override
-    public void write(int grpId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) {
-        // No-op.
+    public PageStore write(int grpId, long pageId, ByteBuffer pageBuf, int tag, boolean calculateCrc) {
+        return null;
     }
 
     /** {@inheritDoc} */

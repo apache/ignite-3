@@ -40,7 +40,7 @@ import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
-import org.apache.ignite.internal.storage.UuidRowId;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.PrefixComparator;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
-    private final NavigableSet<Pair<BinaryRow, UuidRowId>> index;
+    private final NavigableSet<Pair<BinaryRow, TestRowId>> index;
 
     private final SchemaDescriptor descriptor;
 
@@ -83,11 +83,10 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         partitions = tableCfg.partitions();
 
         index = new ConcurrentSkipListSet<>(
-                ((Comparator<Pair<BinaryRow, UuidRowId>>) (p1, p2) -> {
+                ((Comparator<Pair<BinaryRow, TestRowId>>) (p1, p2) -> {
                     return compareColumns(p1.getFirst(), p2.getFirst());
                 })
-                .thenComparingLong(pair -> pair.getSecond().mostSignificantBits())
-                .thenComparingLong(pair -> pair.getSecond().leastSignificantBits())
+                .thenComparing(pair -> pair.getSecond().uuid)
         );
 
         // Init columns.
@@ -150,11 +149,11 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
     }
 
     public void append(BinaryRow row, RowId rowId) {
-        index.add(new Pair<>(row, (UuidRowId) rowId));
+        index.add(new Pair<>(row, (TestRowId) rowId));
     }
 
     public void remove(BinaryRow row, RowId rowId) {
-        index.remove(new Pair<>(row, (UuidRowId) rowId));
+        index.remove(new Pair<>(row, (TestRowId) rowId));
     }
 
     public boolean matches(BinaryRow aborted, BinaryRow existing) {
@@ -198,7 +197,7 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        NavigableSet<Pair<BinaryRow, UuidRowId>> index = this.index;
+        NavigableSet<Pair<BinaryRow, TestRowId>> index = this.index;
         int direction = 1;
 
         // Swap bounds and flip index for backwards scan.

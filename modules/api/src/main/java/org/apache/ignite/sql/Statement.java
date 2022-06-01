@@ -62,6 +62,13 @@ public interface Statement extends AutoCloseable {
     int pageSize();
 
     /**
+     * Returns a value indicating whether this is a prepared statement.
+     *
+     * @return Whether this is a prepared statement.
+     */
+    boolean prepared();
+
+    /**
      * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
      *
      * @param name Property name.
@@ -92,9 +99,16 @@ public interface Statement extends AutoCloseable {
         StatementBuilder query(String sql);
 
         /**
+         * Returns prepared flag.
+         *
+         * @return Prepared flag.
+         */
+        boolean prepared();
+
+        /**
          * Marks current statement as prepared.
          */
-        StatementBuilder prepared();
+        StatementBuilder prepared(boolean prepared);
 
         /**
          * Returns query timeout.

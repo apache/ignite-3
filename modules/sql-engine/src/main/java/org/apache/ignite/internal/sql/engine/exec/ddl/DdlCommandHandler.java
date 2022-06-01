@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
@@ -47,8 +48,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteObjectName;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -81,21 +82,21 @@ public class DdlCommandHandler {
     }
 
     /** Handles ddl commands. */
-    public void handle(DdlCommand cmd) throws IgniteInternalCheckedException {
+    public boolean handle(DdlCommand cmd) throws IgniteInternalCheckedException {
         validateCommand(cmd);
 
         if (cmd instanceof CreateTableCommand) {
-            handleCreateTable((CreateTableCommand) cmd);
+            return handleCreateTable((CreateTableCommand) cmd);
         } else if (cmd instanceof DropTableCommand) {
-            handleDropTable((DropTableCommand) cmd);
+            return handleDropTable((DropTableCommand) cmd);
         } else if (cmd instanceof AlterTableAddCommand) {
-            handleAlterAddColumn((AlterTableAddCommand) cmd);
+            return handleAlterAddColumn((AlterTableAddCommand) cmd);
         } else if (cmd instanceof AlterTableDropCommand) {
-            handleAlterDropColumn((AlterTableDropCommand) cmd);
+            return handleAlterDropColumn((AlterTableDropCommand) cmd);
         } else if (cmd instanceof CreateIndexCommand) {
-            handleCreateIndex((CreateIndexCommand) cmd);
+            return handleCreateIndex((CreateIndexCommand) cmd);
         } else if (cmd instanceof DropIndexCommand) {
-            handleDropIndex((DropIndexCommand) cmd);
+            return handleDropIndex((DropIndexCommand) cmd);
         } else {
             throw new IgniteInternalCheckedException("Unsupported DDL operation ["
                     + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
@@ -108,14 +109,14 @@ public class DdlCommandHandler {
         if (cmd instanceof AbstractTableDdlCommand) {
             AbstractTableDdlCommand cmd0 = (AbstractTableDdlCommand) cmd;
 
-            if (IgniteUtils.nullOrEmpty(cmd0.tableName())) {
+            if (StringUtils.nullOrEmpty(cmd0.tableName())) {
                 throw new IllegalArgumentException("Table name is undefined.");
             }
         }
     }
 
     /** Handles create table command. */
-    private void handleCreateTable(CreateTableCommand cmd) {
+    private boolean handleCreateTable(CreateTableCommand cmd) {
         final PrimaryKeyDefinitionBuilder pkeyDef = SchemaBuilders.primaryKey();
 
         pkeyDef.withColumns(IgniteObjectName.quoteNames(cmd.primaryKeyColumns()));
@@ -162,32 +163,40 @@ public class DdlCommandHandler {
 
         try {
             tableManager.createTable(fullName, tblChanger);
+
+            return true;
         } catch (TableAlreadyExistsException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles drop table command. */
-    private void handleDropTable(DropTableCommand cmd) {
+    private boolean handleDropTable(DropTableCommand cmd) {
         String fullName = TableDefinitionImpl.canonicalName(
                 IgniteObjectName.quote(cmd.schemaName()),
                 IgniteObjectName.quote(cmd.tableName())
         );
         try {
             tableManager.dropTable(fullName);
+
+            return true;
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles add column command. */
-    private void handleAlterAddColumn(AlterTableAddCommand cmd) {
+    private boolean handleAlterAddColumn(AlterTableAddCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return;
+            return false;
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
@@ -196,18 +205,20 @@ public class DdlCommandHandler {
         );
 
         try {
-            addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
+            return addColumnInternal(fullName, cmd.columns(), cmd.ifColumnNotExists());
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles drop column command. */
-    private void handleAlterDropColumn(AlterTableDropCommand cmd) {
+    private boolean handleAlterDropColumn(AlterTableDropCommand cmd) {
         if (nullOrEmpty(cmd.columns())) {
-            return;
+            return false;
         }
 
         String fullName = TableDefinitionImpl.canonicalName(
@@ -216,16 +227,18 @@ public class DdlCommandHandler {
         );
 
         try {
-            dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
+            return dropColumnInternal(fullName, cmd.columns(), cmd.ifColumnExists());
         } catch (TableNotFoundException ex) {
             if (!cmd.ifTableExists()) {
                 throw ex;
+            } else {
+                return false;
             }
         }
     }
 
     /** Handles create index command. */
-    private void handleCreateIndex(CreateIndexCommand cmd) {
+    private boolean handleCreateIndex(CreateIndexCommand cmd) {
         // Only sorted idx for now.
         SortedIndexDefinitionBuilder idx = SchemaBuilders.sortedIndex(cmd.indexName());
 
@@ -244,21 +257,29 @@ public class DdlCommandHandler {
                 IgniteObjectName.quote(cmd.tableName())
         );
 
+        AtomicBoolean ret = new AtomicBoolean();
+
         tableManager.alterTable(fullName, chng -> chng.changeIndices(idxes -> {
             if (idxes.get(cmd.indexName()) != null) {
                 if (!cmd.ifIndexNotExists()) {
                     throw new IndexAlreadyExistsException(cmd.indexName());
                 } else {
+                    ret.set(false);
+
                     return;
                 }
             }
 
             idxes.create(cmd.indexName(), tableIndexChange -> convert(idx.build(), tableIndexChange));
+
+            ret.set(true);
         }));
+
+        return ret.get();
     }
 
     /** Handles drop index command. */
-    private void handleDropIndex(DropIndexCommand cmd) {
+    private boolean handleDropIndex(DropIndexCommand cmd) {
         throw new UnsupportedOperationException("DROP INDEX command not supported for now.");
     }
 
@@ -268,8 +289,11 @@ public class DdlCommandHandler {
      * @param fullName Table with schema name.
      * @param colsDef  Columns defenitions.
      * @param colNotExist Flag indicates exceptionally behavior in case of already existing column.
+     *
+     * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private void addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
+    private boolean addColumnInternal(String fullName, List<ColumnDefinition> colsDef, boolean colNotExist) {
+        AtomicBoolean ret = new AtomicBoolean(true);
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
@@ -285,7 +309,15 @@ public class DdlCommandHandler {
 
                         colsDef0 = colsDef;
                     } else {
-                        colsDef0 = colsDef.stream().filter(k -> !colNamesToOrders.containsKey(k.name())).collect(Collectors.toList());
+                        colsDef0 = colsDef.stream().filter(k -> {
+                            if (colNamesToOrders.containsKey(k.name())) {
+                                ret.set(false);
+
+                                return false;
+                            } else {
+                                return true;
+                            }
+                        }).collect(Collectors.toList());
                     }
 
                     final IgniteTypeFactory typeFactory = Commons.typeFactory();
@@ -301,6 +333,8 @@ public class DdlCommandHandler {
                         cols.create(col.name(), colChg -> convert(col0.build(), colChg));
                     }
                 }));
+
+        return ret.get();
     }
 
     /**
@@ -309,8 +343,11 @@ public class DdlCommandHandler {
      * @param fullName Table with schema name.
      * @param colNames Columns definitions.
      * @param colExist Flag indicates exceptionally behavior in case of already existing column.
+     * @return {@code true} if the full columns set is applied successfully. Otherwise, returns {@code false}.
      */
-    private void dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
+    private boolean dropColumnInternal(String fullName, Set<String> colNames, boolean colExist) {
+        AtomicBoolean ret = new AtomicBoolean(true);
+
         tableManager.alterTable(
                 fullName,
                 chng -> chng.changeColumns(cols -> {
@@ -324,6 +361,8 @@ public class DdlCommandHandler {
 
                     for (String colName : colNames) {
                         if (!colNamesToOrders.containsKey(colName)) {
+                            ret.set(false);
+
                             if (!colExist) {
                                 throw new ColumnNotFoundException(colName, fullName);
                             }
@@ -339,6 +378,8 @@ public class DdlCommandHandler {
 
                     colNames0.forEach(k -> cols.delete(colNamesToOrders.get(k)));
                 }));
+
+        return ret.get();
     }
 
     /** Map column name to order. */

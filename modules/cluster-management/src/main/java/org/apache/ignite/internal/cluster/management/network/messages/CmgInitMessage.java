@@ -35,4 +35,9 @@ public interface CmgInitMessage extends NetworkMessage {
      * Consistent IDs of nodes that host the Meta Storage.
      */
     Collection<String> metaStorageNodes();
+
+    /**
+     * Name of the cluster that will be a part of the generated cluster tag.
+     */
+    String clusterName();
 }

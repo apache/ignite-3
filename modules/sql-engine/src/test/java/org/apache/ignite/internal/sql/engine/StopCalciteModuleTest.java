@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,6 +65,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
@@ -138,7 +138,7 @@ public class StopCalciteModuleTest {
                 new Column[]{new Column(1, "VAL", NativeTypes.INT32, false)}
         );
 
-        schemaReg = new SchemaRegistryImpl(1, (v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION);
+        schemaReg = new SchemaRegistryImpl((v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION, schemaDesc);
 
         when(tbl.name()).thenReturn("PUBLIC.TEST");
 
@@ -242,8 +242,7 @@ public class StopCalciteModuleTest {
 
         System.gc();
 
-        // Check: there are no alive Ignite threads.
-        assertFalse(isThereNodeThreads(NODE_NAME));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> !isThereNodeThreads(NODE_NAME), 1000));
     }
 
     /**

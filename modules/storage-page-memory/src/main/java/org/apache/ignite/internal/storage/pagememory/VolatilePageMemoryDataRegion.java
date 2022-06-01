@@ -51,9 +51,15 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      *
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
+     * @param pageSize Page size in bytes.
      */
-    public VolatilePageMemoryDataRegion(PageMemoryDataRegionConfiguration cfg, PageIoRegistry ioRegistry) {
-        super(cfg, ioRegistry);
+    public VolatilePageMemoryDataRegion(
+            PageMemoryDataRegionConfiguration cfg,
+            PageIoRegistry ioRegistry,
+            // TODO: IGNITE-17017 Move to common config
+            int pageSize
+    ) {
+        super(cfg, ioRegistry, pageSize);
     }
 
     /** {@inheritDoc} */
@@ -63,7 +69,12 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
 
         assert cfg.memoryAllocator() instanceof UnsafeMemoryAllocatorConfiguration : cfg.memoryAllocator();
 
-        PageMemory pageMemory = new PageMemoryNoStoreImpl(new UnsafeMemoryProvider(null), cfg, ioRegistry);
+        PageMemory pageMemory = new PageMemoryNoStoreImpl(
+                new UnsafeMemoryProvider(null),
+                cfg,
+                ioRegistry,
+                pageSize
+        );
 
         pageMemory.start();
 

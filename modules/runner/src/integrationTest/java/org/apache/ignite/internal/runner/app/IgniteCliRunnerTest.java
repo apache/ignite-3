@@ -58,7 +58,7 @@ public class IgniteCliRunnerTest {
                 NODE_NAME
         );
 
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME));
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
 
         assertThat(ign, willCompleteSuccessfully());
     }
@@ -70,7 +70,7 @@ public class IgniteCliRunnerTest {
                 NODE_NAME
         );
 
-        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME));
+        IgnitionManager.init(NODE_NAME, List.of(NODE_NAME), "cluster");
 
         assertThat(ign, willCompleteSuccessfully());
     }
