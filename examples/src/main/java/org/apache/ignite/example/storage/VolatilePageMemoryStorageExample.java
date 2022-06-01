@@ -30,7 +30,7 @@ import java.sql.Statement;
  * <ol>
  *     <li>Import the examples project into you IDE.</li>
  *     <li>
- *         Download and prepare artifacts for run Ignite node using the CLI tool (if not done yet):<br>
+ *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
  *         {@code ignite init}
  *     </li>
  *     <li>
@@ -49,7 +49,7 @@ import java.sql.Statement;
  *     </li>
  *     <li>
  *         Add configuration for in-memory data region of of the PageMemory storage engine using the CLI tool (if not done yet):<br>
- *         {@code ignite config set --type=cluster "{pageMemory:{regions:[{name:in-memory,persistent:false}]}}"}
+ *         {@code ignite config set --type=cluster "pageMemory.regions.in-memory:{persistent=false}"}
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>

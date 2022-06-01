@@ -32,7 +32,7 @@ import org.apache.ignite.tx.IgniteTransactions;
  * <ol>
  *     <li>Import the examples project into you IDE.</li>
  *     <li>
- *         Download and prepare artifacts for run Ignite node using the CLI tool (if not done yet):<br>
+ *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
  *         {@code ignite init}
  *     </li>
  *     <li>

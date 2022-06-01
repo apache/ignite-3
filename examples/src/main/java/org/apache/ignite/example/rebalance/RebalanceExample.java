@@ -40,7 +40,7 @@ import org.apache.ignite.table.Tuple;
  * <ol>
  *     <li>Import the examples project into you IDE.</li>
  *     <li>
- *         Download and prepare artifacts for run Ignite node using the CLI tool (if not done yet):<br>
+ *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
  *         {@code ignite init}
  *     </li>
  *     <li>
@@ -61,10 +61,10 @@ import org.apache.ignite.table.Tuple;
  *     <li>Press {@code Enter} to resume the example.</li>
  *     <li>
  *         Stop <b>four</b> nodes using the CLI tool:<br>
- *         {@code ignite node stop --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node}<br>
- *         {@code ignite node stop --config=$IGNITE_HOME/examples/config/ignite-config.json my-second-node}<br>
- *         {@code ignite node stop --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-additional-node}<br>
- *         {@code ignite node stop --config=$IGNITE_HOME/examples/config/ignite-config.json my-second-additional-node}
+ *         {@code ignite node stop my-first-node}<br>
+ *         {@code ignite node stop my-second-node}<br>
+ *         {@code ignite node stop my-first-additional-node}<br>
+ *         {@code ignite node stop my-second-additional-node}
  *     </li>
  * </ol>
  */

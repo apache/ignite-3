@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -68,16 +67,14 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        int pageSize = engineConfig.pageSize().value();
-
-        addDataRegion(DEFAULT_DATA_REGION_NAME, engineConfig.defaultRegion(), pageSize);
+        addDataRegion(engineConfig.defaultRegion());
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
             /** {@inheritDoc} */
             @Override
             public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.newValue().name(), ctx.config(PageMemoryDataRegionConfiguration.class), pageSize);
+                addDataRegion(ctx.config(PageMemoryDataRegionConfiguration.class));
 
                 return completedFuture(null);
             }
@@ -109,12 +106,15 @@ public class PageMemoryStorageEngine implements StorageEngine {
     }
 
     /**
-     * Creates, starts and adds a new date region to the engine.
+     * Creates, starts and adds a new data region to the engine.
      *
-     * @param name Data region name.
      * @param dataRegionConfig Data region configuration.
      */
-    private void addDataRegion(String name, PageMemoryDataRegionConfiguration dataRegionConfig, int pageSize) {
+    private void addDataRegion(PageMemoryDataRegionConfiguration dataRegionConfig) {
+        int pageSize = engineConfig.pageSize().value();
+
+        String name = dataRegionConfig.name().value();
+
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
 
         dataRegion.start();
