@@ -42,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  *          }
  *
  *           return resultSet.fetchNextPage()
- *              .thenCompose(res -> fetchAllRowsInto(res, target));
+ *              .thenCompose(res -&gt; fetchAllRowsInto(res, target));
  *      }
  * </code></pre>
  *
