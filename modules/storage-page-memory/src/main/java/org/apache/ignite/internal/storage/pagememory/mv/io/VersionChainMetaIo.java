@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv.io;
+
+import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
+import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 
 /**
- * Data region based on {@link PageMemory}.
+ * IO routines for {@link VersionChainTree} meta pages.
  */
-public interface PageMemoryDataRegion {
-    /**
-     * Returns {@link true} if the date region is persistent.
-     */
-    boolean persistent();
+public class VersionChainMetaIo extends BplusMetaIo {
+    /** Page IO type. */
+    public static final short T_VERSION_CHAIN_META_IO = 8;
+
+    /** I/O versions. */
+    public static final IoVersions<VersionChainMetaIo> VERSIONS = new IoVersions<>(new VersionChainMetaIo(1));
 
     /**
-     * Returns page memory or throws an exception if not started.
+     * Constructor.
+     *
+     * @param ver Page format version.
      */
-    PageMemory pageMemory();
+    protected VersionChainMetaIo(int ver) {
+        super(T_VERSION_CHAIN_META_IO, ver);
+    }
 }

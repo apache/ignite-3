@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
+
+import org.apache.ignite.internal.pagememory.datapage.ReadPageMemoryRowValue;
 
 /**
- * Data region based on {@link PageMemory}.
+ * Reads {@link RowVersion#value()} from page-memory.
  */
-public interface PageMemoryDataRegion {
-    /**
-     * Returns {@link true} if the date region is persistent.
-     */
-    boolean persistent();
+class ReadRowVersionValue extends ReadPageMemoryRowValue {
+    @Override
+    protected int valueSizeOffsetInFirstSlot() {
+        return RowVersion.VALUE_SIZE_OFFSET;
+    }
 
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+    @Override
+    protected int valueOffsetInFirstSlot() {
+        return RowVersion.VALUE_OFFSET;
+    }
 }

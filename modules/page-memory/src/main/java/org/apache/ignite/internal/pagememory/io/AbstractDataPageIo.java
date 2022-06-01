@@ -189,6 +189,11 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
     /** Minimum page overhead in bytes. */
     public static final int MIN_DATA_PAGE_OVERHEAD = ITEMS_OFF + ITEM_SIZE + PAYLOAD_LEN_SIZE + LINK_SIZE;
 
+    /** Special index value that signals that the given itemId does not exist. */
+    private static final int NON_EXISTENT_ITEM_INDEX = -1;
+    /** Special offset value that signals that the given itemId does not exist. */
+    private static final int NON_EXISTENT_ITEM_OFFSET = -1;
+
     /**
      * Constructor.
      *
@@ -345,7 +350,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
         // possibly a link to the next row fragment.
         freeSpace -= ITEM_SIZE + PAYLOAD_LEN_SIZE + LINK_SIZE;
 
-        return freeSpace < 0 ? 0 : freeSpace;
+        return Math.max(freeSpace, 0);
     }
 
     /**
@@ -483,6 +488,16 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
      * @return Found index of indirect item.
      */
     private int findIndirectItemIndex(long pageAddr, int itemId, int directCnt, int indirectCnt) {
+        int maybeOffset = findIndirectItemIndexOrNotFoundMarker(pageAddr, itemId, directCnt, indirectCnt);
+
+        if (maybeOffset == NON_EXISTENT_ITEM_INDEX) {
+            throw new IllegalStateException("Item not found: " + itemId);
+        }
+
+        return maybeOffset;
+    }
+
+    private int findIndirectItemIndexOrNotFoundMarker(long pageAddr, int itemId, int directCnt, int indirectCnt) {
         int low = directCnt;
         int high = directCnt + indirectCnt - 1;
 
@@ -500,7 +515,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             }
         }
 
-        throw new IllegalStateException("Item not found: " + itemId);
+        return NON_EXISTENT_ITEM_INDEX;
     }
 
     /**
@@ -611,6 +626,7 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
 
         assert directCnt > 0 : "itemId=" + itemId + ", directCnt=" + directCnt + ", page=" + printPageLayout(pageAddr, pageSize);
 
+        final int directItemId;
         if (itemId >= directCnt) { // Need to do indirect lookup.
             int indirectCnt = getIndirectCount(pageAddr);
 
@@ -618,17 +634,65 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
             assert indirectCnt > 0 : "itemId=" + itemId + ", directCnt=" + directCnt + ", indirectCnt=" + indirectCnt
                     + ", page=" + printPageLayout(pageAddr, pageSize);
 
-            int indirectItemIdx = findIndirectItemIndex(pageAddr, itemId, directCnt, indirectCnt);
-
-            assert indirectItemIdx >= directCnt : indirectItemIdx + " " + directCnt;
-            assert indirectItemIdx < directCnt + indirectCnt : indirectItemIdx + " " + directCnt + " " + indirectCnt;
-
-            itemId = directItemIndex(getItem(pageAddr, indirectItemIdx));
-
-            assert itemId >= 0 && itemId < directCnt : itemId + " " + directCnt + " " + indirectCnt; // Direct item.
+            directItemId = resolveDirectItemIdFromIndirectItemId(pageAddr, itemId, directCnt, indirectCnt);
+        } else {
+            directItemId = itemId;
         }
 
-        return directItemToOffset(getItem(pageAddr, itemId));
+        return directItemToOffset(getItem(pageAddr, directItemId));
+    }
+
+    private int resolveDirectItemIdFromIndirectItemId(long pageAddr, int itemId, int directCnt, int indirectCnt) {
+        int indirectItemIdx = findIndirectItemIndex(pageAddr, itemId, directCnt, indirectCnt);
+
+        assert indirectItemIdx >= directCnt : indirectItemIdx + " " + directCnt;
+        assert indirectItemIdx < directCnt + indirectCnt : indirectItemIdx + " " + directCnt + " " + indirectCnt;
+
+        int directItemId = directItemIndex(getItem(pageAddr, indirectItemIdx));
+
+        assert directItemId >= 0 && directItemId < directCnt : directItemId + " " + directCnt + " " + indirectCnt; // Direct item.
+        return directItemId;
+    }
+
+    protected int getDataOffsetOrNotFoundMarker(long pageAddr, int itemId, int pageSize) {
+        assert checkIndex(itemId) : itemId;
+
+        int directCnt = getDirectCount(pageAddr);
+
+        if (directCnt <= 0) {
+            return NON_EXISTENT_ITEM_OFFSET;
+        }
+
+        int indirectCnt = getIndirectCount(pageAddr);
+
+        final int directItemId;
+        if (itemId >= directCnt) { // Need to do indirect lookup.
+            if (indirectCnt <= 0) {
+                return NON_EXISTENT_ITEM_OFFSET;
+            }
+
+            int indirectItemIdx = findIndirectItemIndexOrNotFoundMarker(pageAddr, itemId, directCnt, indirectCnt);
+            if (indirectItemIdx == NON_EXISTENT_ITEM_INDEX) {
+                return NON_EXISTENT_ITEM_OFFSET;
+            }
+
+            directItemId = resolveDirectItemIdFromIndirectItemId(pageAddr, itemId, directCnt, indirectCnt);
+        } else {
+            // it is a direct item
+
+            if (anyIndirectItemPointsAtDirectItem(pageAddr, itemId, directCnt, indirectCnt)) {
+                return NON_EXISTENT_ITEM_OFFSET;
+            }
+
+            directItemId = itemId;
+        }
+
+        return directItemToOffset(getItem(pageAddr, directItemId));
+    }
+
+    private boolean anyIndirectItemPointsAtDirectItem(long pageAddr, int itemId, int directCnt, int indirectCnt) {
+        int maybeIndirectItemIdx = findIndirectItemIndexOrNotFoundMarker(pageAddr, itemId, directCnt, indirectCnt);
+        return maybeIndirectItemIdx != NON_EXISTENT_ITEM_INDEX;
     }
 
     /**
@@ -671,6 +735,18 @@ public abstract class AbstractDataPageIo<T extends Storable> extends PageIo {
         return new DataPagePayload(dataOff + PAYLOAD_LEN_SIZE + (fragmented ? LINK_SIZE : 0),
                 payloadSize,
                 nextLink);
+    }
+
+    /**
+     * Returns {@code true} iff an item with given ID exists in a page at the given address.
+     *
+     * @param pageAddr address where page data begins in memory
+     * @param itemId   item ID to check
+     * @param pageSize size of the page in bytes
+     * @return {@code true} iff an item with given ID exists in a page at the given address
+     */
+    public boolean itemExists(long pageAddr, int itemId, final int pageSize) {
+        return getDataOffsetOrNotFoundMarker(pageAddr, itemId, pageSize) != NON_EXISTENT_ITEM_OFFSET;
     }
 
     /**
