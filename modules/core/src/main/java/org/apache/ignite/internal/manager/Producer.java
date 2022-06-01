@@ -77,6 +77,7 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
      * @param evt    Event type.
      * @param params Event parameters.
      * @param err    Exception when it was happened, or {@code null} otherwise.
+     * @return Completable future which is completed when event handling is complete.
      */
     protected CompletableFuture<?> fireEvent(T evt, P params, Throwable err) {
         List<EventListener<P>> eventListeners = listeners.get(evt);

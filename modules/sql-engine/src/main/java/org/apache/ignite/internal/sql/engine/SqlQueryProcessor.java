@@ -379,13 +379,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableCreated(
+            return schemaHolder.onTableCreated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
-            );
-
-            return completedFuture(false);
+                )
+                .thenApply(v -> false);
         }
     }
 
@@ -399,13 +398,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableUpdated(
+            return schemaHolder.onTableUpdated(
                     "PUBLIC",
                     parameters.table(),
                     parameters.causalityToken()
-            );
-
-            return completedFuture(false);
+                )
+                .thenApply(v -> false);
         }
     }
 
@@ -419,13 +417,12 @@ public class SqlQueryProcessor implements QueryProcessor {
         /** {@inheritDoc} */
         @Override
         public CompletableFuture<Boolean> notify(@NotNull TableEventParameters parameters, @Nullable Throwable exception) {
-            schemaHolder.onTableDropped(
+            return schemaHolder.onTableDropped(
                     "PUBLIC",
                     parameters.tableName(),
                     parameters.causalityToken()
-            );
-
-            return completedFuture(false);
+                )
+                .thenApply(v -> false);
         }
     }
 }

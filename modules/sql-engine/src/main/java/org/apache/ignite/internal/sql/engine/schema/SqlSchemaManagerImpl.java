@@ -190,7 +190,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
      * OnSqlTypeCreated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized void onTableCreated(
+    public synchronized CompletableFuture<?> onTableCreated(
             String schemaName,
             TableImpl table,
             long causalityToken
@@ -230,25 +230,27 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         );
 
         rebuild(causalityToken, schemasMapFut);
+
+        return calciteSchemaVv.get(causalityToken);
     }
 
     /**
      * OnSqlTypeUpdated.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public void onTableUpdated(
+    public CompletableFuture<?> onTableUpdated(
             String schemaName,
             TableImpl table,
             long causalityToken
     ) {
-        onTableCreated(schemaName, table, causalityToken);
+        return onTableCreated(schemaName, table, causalityToken);
     }
 
     /**
      * OnSqlTypeDropped.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public synchronized void onTableDropped(
+    public synchronized CompletableFuture<?> onTableDropped(
             String schemaName,
             String tableName,
             long causalityToken
@@ -292,6 +294,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         );
 
         rebuild(causalityToken, schemasMapFut);
+
+        return calciteSchemaVv.get(causalityToken);
     }
 
     private void rebuild(long causalityToken, CompletableFuture<Map<String, IgniteSchema>> schemasFut) {
