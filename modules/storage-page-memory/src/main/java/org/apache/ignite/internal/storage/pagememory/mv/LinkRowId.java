@@ -15,19 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory;
+package org.apache.ignite.internal.storage.pagememory.mv;
+
+import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.storage.RowId;
 
 /**
- * Data region based on {@link PageMemory}.
+ * {@link RowId} implementation which identifies the row data using row link in page-memory.
+ *
+ * @see RowId
+ * @see PageIdUtils#link(long, int)
  */
-public interface PageMemoryDataRegion {
-    /**
-     * Returns {@link true} if the date region is persistent.
-     */
-    boolean persistent();
+public class LinkRowId implements RowId {
+    private final long rowLink;
 
-    /**
-     * Returns page memory or throws an exception if not started.
-     */
-    PageMemory pageMemory();
+    public LinkRowId(long rowLink) {
+        this.rowLink = rowLink;
+    }
+
+    @Override
+    public int partitionId() {
+        long pageId = PageIdUtils.pageId(rowLink);
+        return PageIdUtils.partitionId(pageId);
+    }
+
+    long versionChainLink() {
+        return rowLink;
+    }
 }

@@ -76,7 +76,17 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     @Override
     public int compareTo(@NotNull Timestamp other) {
         return (this.timestamp < other.timestamp ? -1 : (this.timestamp > other.timestamp ? 1 :
-                (this.nodeId < other.nodeId ? -1 : (this.nodeId > other.nodeId ? 1 : 0))));
+                Long.compare(this.nodeId, other.nodeId)));
+    }
+
+    /**
+     * Returns {@code true} if this is before or equal to another timestamp.
+     *
+     * @param that another timestamp
+     * @return {@code true} if this is before or equal to another timestamp
+     */
+    public boolean beforeOrEquals(Timestamp that) {
+        return this.compareTo(that) <= 0;
     }
 
     /**
