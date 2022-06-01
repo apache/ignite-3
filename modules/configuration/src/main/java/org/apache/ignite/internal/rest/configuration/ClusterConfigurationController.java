@@ -59,6 +59,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
             description = "Get cluster configuration")
     @Produces(MediaType.TEXT_PLAIN)
     @Get
+    @Override
     public String getConfiguration() {
         return super.getConfiguration();
     }
@@ -76,6 +77,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
             description = "Configuration represented by path")
     @Produces(MediaType.TEXT_PLAIN)
     @Get("/{path}")
+    @Override
     public String getConfigurationByPath(@PathVariable String path) {
         return super.getConfigurationByPath(path);
     }
@@ -89,6 +91,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
     @ApiResponse(responseCode = "200", description = "Configuration updated")
     @Consumes(MediaType.TEXT_PLAIN)
     @Patch
+    @Override
     public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) throws Throwable {
         return super.updateConfiguration(updatedConfiguration);
     }
