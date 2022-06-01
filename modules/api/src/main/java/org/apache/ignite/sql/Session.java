@@ -238,6 +238,8 @@ public interface Session extends AutoCloseable {
 
     /**
      * Creates a new session builder from current session.
+     *
+     * @return Session builder based on the current session.
      */
     SessionBuilder toBuilder();
 
