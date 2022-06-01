@@ -91,11 +91,5 @@
             <artifactId>hamcrest</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-storage-page-memory</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 </project>

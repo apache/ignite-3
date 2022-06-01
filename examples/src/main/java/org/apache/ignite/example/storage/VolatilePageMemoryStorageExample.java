@@ -34,12 +34,6 @@ import java.sql.Statement;
  *         {@code ignite init}
  *     </li>
  *     <li>
- *         Add module "ignite-storage-page-memory" using the CLI tool (if not done yet):<br>
- *         {@code ignite module add mvn:org.apache.ignite:ignite-storage-page-memory:version}<br>
- *         For example:<br>
- *         {@code ignite module add mvn:org.apache.ignite:ignite-storage-page-memory:3.0.0-SNAPSHOT}<br>
- *     </li>
- *     <li>
  *         Start a server node using the CLI tool:<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node}
  *     </li>
@@ -55,12 +49,6 @@ import java.sql.Statement;
  *     <li>
  *         Stop a server node using the CLI tool:<br>
  *         {@code ignite node stop my-first-node}
- *     </li>
- *     <li>
- *         Remove module "ignite-storage-page-memory" using the CLI tool (if not done yet):<br>
- *         {@code ignite module remove org.apache.ignite:ignite-storage-page-memory:version}<br>
- *         For example:<br>
- *         {@code ignite module remove org.apache.ignite:ignite-storage-page-memory:3.0.0-SNAPSHOT}<br>
  *     </li>
  * </ol>
  */

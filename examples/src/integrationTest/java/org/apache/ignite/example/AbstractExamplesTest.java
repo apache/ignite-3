@@ -63,15 +63,6 @@ public abstract class AbstractExamplesTest extends IgniteAbstractTest {
 
         // We can call without a timeout, since the future is guaranteed to be completed above.
         ignite = (IgniteImpl) igniteFuture.join();
-
-        // We change the default engine so that existing tests that create tables through SQL
-        // without using the "ENGINE" do not fall with errors "no storage engine defined".
-        ignite
-                .clusterConfiguration()
-                .getConfiguration(TablesConfiguration.KEY)
-                .defaultDataStorage()
-                .update(RocksDbStorageEngine.ENGINE_NAME)
-                .get(1, TimeUnit.SECONDS);
     }
 
     /**
