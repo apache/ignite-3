@@ -8,6 +8,6 @@
   },
   "rest": {
     "port": <REST_PORT>,
-    "portRange": 5
+    "portRange": 0
   }
 }
