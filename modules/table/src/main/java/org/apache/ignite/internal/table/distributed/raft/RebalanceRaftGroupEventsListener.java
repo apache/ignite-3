@@ -129,6 +129,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         try {
             rebalanceScheduler.schedule(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+
                 try {
                     rebalanceAttempts.set(0);
 
@@ -146,6 +150,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     // TODO: IGNITE-17013 errors during this call should be handled by retry logic
                     LOG.error("Couldn't start rebalance for partition {} of table {} on new elected leader for term {}",
                             e, partNum, tblConfiguration.name().value(), term);
+                } finally {
+                    busyLock.leaveBusy();
                 }
             }, 0, TimeUnit.MILLISECONDS);
         } finally {
@@ -161,7 +167,17 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         }
 
         try {
-            rebalanceScheduler.schedule(() -> doOnNewPeersConfigurationApplied(peers), 0, TimeUnit.MILLISECONDS);
+            rebalanceScheduler.schedule(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+
+                try {
+                    doOnNewPeersConfigurationApplied(peers);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            }, 0, TimeUnit.MILLISECONDS);
         } finally {
             busyLock.leaveBusy();
         }
@@ -199,7 +215,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         } finally {
             busyLock.leaveBusy();
         }
-
     }
 
     /**
@@ -210,6 +225,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      */
     private void scheduleChangePeers(List<PeerId> peers, long term) {
         rebalanceScheduler.schedule(() -> {
+            if (!busyLock.enterBusy()) {
+                return;
+            }
+
             LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
             try {
@@ -217,6 +236,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             } catch (InterruptedException | ExecutionException e) {
                 // TODO: IGNITE-17013 errors during this call should be handled by retry logic
                 LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
+            } finally {
+                busyLock.leaveBusy();
             }
         }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
     }
