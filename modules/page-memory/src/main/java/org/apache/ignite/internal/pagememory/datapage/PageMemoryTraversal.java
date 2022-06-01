@@ -31,9 +31,9 @@ public interface PageMemoryTraversal<T> {
     long STOP_TRAVERSAL = 0;
 
     /**
-     * Consumes the currently traversed data row and decides how to proceed.
+     * Consumes the currently traversed data payload and decides how to proceed.
      *
-     * @param link     link to the current data row
+     * @param link     link to the current data payload
      * @param pageAddr address of the current page
      * @param payload  represents the row content
      * @param arg      argument passed to the traversal

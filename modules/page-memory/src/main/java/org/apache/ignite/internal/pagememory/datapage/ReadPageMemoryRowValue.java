@@ -24,7 +24,7 @@ import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Reads full data row value (as byte array) from page memory. Supports fragmented values occupying more than one slot.
+ * Reads full data payload value (as byte array) from page memory. Supports fragmented values occupying more than one slot.
  *
  * <p>This works for the cases when the following conditions are satisfied:
  * 1. Row data starts with a fixed-length header, which is followed by the 'value'; the 'value' ends the row data
