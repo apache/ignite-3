@@ -38,7 +38,7 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
 
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, IgniteInternalException exception) {
-        final ErrorResult errorResult = new ErrorResult("ALREADY_INITIALIZED", exception.getMessage());
+        ErrorResult errorResult = new ErrorResult("ALREADY_INITIALIZED", exception.getMessage());
         return HttpResponseFactory.INSTANCE.status(HttpStatus.CONFLICT).body(errorResult);
     }
 }
