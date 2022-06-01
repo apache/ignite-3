@@ -465,7 +465,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         return tablesByIdVv.get(causalityToken)
             .thenCompose(v -> schemaFut)
             .thenRun(() -> {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table));
 
                 completeApiCreateFuture(table);
             });
@@ -524,7 +524,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             table.internalTable().storage().destroy();
 
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table), null);
+            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table));
 
             schemaManager.dropRegistry(causalityToken, table.tableId());
         } catch (Exception e) {

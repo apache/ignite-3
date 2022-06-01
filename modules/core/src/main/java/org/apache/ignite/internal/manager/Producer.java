@@ -31,7 +31,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
- * Interface which can produce its events.
+ * A class which can produce its events.
  */
 public abstract class Producer<T extends Event, P extends EventParameters> {
     /** All listeners. */
@@ -104,5 +104,16 @@ public abstract class Producer<T extends Event, P extends EventParameters> {
         }
 
         return allOf(futures.toArray(new CompletableFuture[0]));
+    }
+
+    /**
+     * Notifies every listener that subscribed before.
+     *
+     * @param evt    Event type.
+     * @param params Event parameters.
+     * @return Completable future which is completed when event handling is complete.
+     */
+    protected  CompletableFuture<?> fireEvent(T evt, P params) {
+        return fireEvent(evt, params, null);
     }
 }
