@@ -270,7 +270,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-17013 errors during this call should be handled by retry logic
-            LOG.error("Could't commit new partition configuration to metastore for table = {}, partition = {}", e, tblConfiguration.name(), partNum);
+            LOG.error("Could't commit new partition configuration to metastore for table = {}, partition = {}",
+                    e, tblConfiguration.name(), partNum);
         }
     }
 
