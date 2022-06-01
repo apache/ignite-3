@@ -49,7 +49,7 @@ public class DataPageReader {
     }
 
     /**
-     * Traverses page memory starting at the given link. At each step, reads the current data row and feeds it to the given
+     * Traverses page memory starting at the given link. At each step, reads the current data payload and feeds it to the given
      * {@link PageMemoryTraversal} object which updates itself (usually) and returns next link to continue traversal
      * (or {@link PageMemoryTraversal#STOP_TRAVERSAL} to stop).
      *
