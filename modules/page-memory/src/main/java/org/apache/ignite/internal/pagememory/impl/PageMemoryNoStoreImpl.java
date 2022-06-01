@@ -29,12 +29,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryRegion;
 import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryAllocator;
 import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -183,7 +183,7 @@ public class PageMemoryNoStoreImpl implements PageMemory {
         this.trackAcquiredPages = false;
         this.dataRegionConfigView = dataRegionConfig.value();
 
-        if (dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocator) {
+        if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
             throw new IgniteInternalException("Unexpected memory allocator: " + dataRegionConfigView.memoryAllocator());
         }
 
