@@ -477,18 +477,6 @@
 
             <dependency>
                 <groupId>io.micronaut</groupId>
-                <artifactId>micronaut-context</artifactId>
-                <version>${micronaut.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.micronaut</groupId>
-                <artifactId>micronaut-runtime</artifactId>
-                <version>${micronaut.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.micronaut</groupId>
                 <artifactId>micronaut-inject</artifactId>
                 <version>${micronaut.version}</version>
             </dependency>
