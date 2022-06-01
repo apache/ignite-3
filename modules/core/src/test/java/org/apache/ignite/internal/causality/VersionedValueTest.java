@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteTriConsumer;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +53,9 @@ import org.junit.jupiter.api.Test;
 public class VersionedValueTest {
     /** Test value. */
     public static final int TEST_VALUE = 1;
+
+    /** Test exception is used for exceptionally completion Versioned value object. */
+    public static final Exception TEST_EXCEPTION = new Exception("Test exception.");
 
     /** The test revision register is used to move the revision forward. */
     public static final TestRevisionRegister REGISTER = new TestRevisionRegister();
@@ -68,7 +72,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testGetValueBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(REGISTER, 2, null);
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(null);
 
         CompletableFuture<Integer> fut = intVersionedValue.get(0);
 
@@ -76,13 +80,55 @@ public class VersionedValueTest {
 
         intVersionedValue.complete(0L, TEST_VALUE);
 
-        REGISTER.moveRevision(0L).join();
-
         assertTrue(fut.isDone());
 
         assertEquals(TEST_VALUE, fut.join());
 
         assertSame(fut.join(), intVersionedValue.get(0).join());
+    }
+
+    /**
+     * Test checks completion of several sequential updates.
+     */
+    @Test
+    public void testManualCompleteSeveralTokens() {
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(null);
+
+        IntStream.range(5, 10).forEach(token -> {
+            CompletableFuture<Integer> fut = intVersionedValue.get(token);
+
+            assertFalse(fut.isDone());
+
+            intVersionedValue.complete(token, TEST_VALUE);
+
+            assertTrue(fut.isDone());
+
+            assertEquals(TEST_VALUE, fut.join());
+
+            assertSame(fut.join(), intVersionedValue.get(token).join());
+        });
+    }
+
+    /**
+     * Test checks exceptionally completion of several sequential updates.
+     */
+    @Test
+    public void testManualExceptionallyCompleteSeveralTokens() {
+        VersionedValue<Integer> intVersionedValue = new VersionedValue<>(null);
+
+        IntStream.range(5, 10).forEach(token -> {
+            CompletableFuture<Integer> fut = intVersionedValue.get(token);
+
+            assertFalse(fut.isDone());
+
+            intVersionedValue.completeExceptionally(token, TEST_EXCEPTION);
+
+            assertTrue(fut.isDone());
+
+            assertThrows(Exception.class, fut::get);
+
+            assertThrows(Exception.class, () -> intVersionedValue.get(token).get());
+        });
     }
 
     /**
@@ -115,17 +161,15 @@ public class VersionedValueTest {
      */
     @Test
     public void testMissValueUpdateBeforeReady() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
 
         longVersionedValue.complete(0, TEST_VALUE);
-
-        REGISTER.moveRevision(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision(1L).join();
+        longVersionedValue.complete(1);
 
         assertTrue(fut.isDone());
 
@@ -142,12 +186,11 @@ public class VersionedValueTest {
      */
     @Test
     public void testMissValueUpdate() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
 
         longVersionedValue.complete(0, TEST_VALUE);
 
-        REGISTER.moveRevision(0L).join();
-        REGISTER.moveRevision(1L).join();
+        longVersionedValue.complete(1);
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
@@ -163,16 +206,12 @@ public class VersionedValueTest {
      */
     @Test
     public void testObsoleteToken() {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
 
         longVersionedValue.complete(0, TEST_VALUE);
-
-        REGISTER.moveRevision(0L).join();
-
         longVersionedValue.complete(1, TEST_VALUE);
 
-        REGISTER.moveRevision(1L).join();
-        REGISTER.moveRevision(2L).join();
+        longVersionedValue.complete(2);
 
         assertThrowsExactly(OutdatedTokenException.class, () -> longVersionedValue.get(0));
     }
@@ -182,18 +221,16 @@ public class VersionedValueTest {
      */
     @Test
     public void testAutocompleteFuture() throws OutdatedTokenException {
-        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
+        VersionedValue<Integer> longVersionedValue = new VersionedValue<>(null);
 
         longVersionedValue.complete(0, TEST_VALUE);
-
-        REGISTER.moveRevision(0L).join();
 
         CompletableFuture<Integer> fut = longVersionedValue.get(1);
 
         assertFalse(fut.isDone());
 
-        REGISTER.moveRevision(1L).join();
-        REGISTER.moveRevision(2L).join();
+        longVersionedValue.complete(1);
+        longVersionedValue.complete(2);
 
         assertTrue(fut.isDone());
         assertTrue(longVersionedValue.get(2).isDone());
@@ -208,7 +245,7 @@ public class VersionedValueTest {
     public void testUpdate() throws Exception {
         VersionedValue<Integer> longVersionedValue = new VersionedValue<>(REGISTER);
 
-        longVersionedValue.complete(0, TEST_VALUE);
+        longVersionedValue.update(0, (integer, throwable) -> CompletableFuture.completedFuture(TEST_VALUE));
 
         REGISTER.moveRevision(0L).join();
 
@@ -465,7 +502,7 @@ public class VersionedValueTest {
      */
     @Test
     public void testWhenComplete() {
-        VersionedValue<Integer> vv = new VersionedValue<>(REGISTER);
+        VersionedValue<Integer> vv = new VersionedValue<>(null);
 
         AtomicInteger a = new AtomicInteger();
         AtomicInteger cntr = new AtomicInteger(-1);
@@ -490,12 +527,10 @@ public class VersionedValueTest {
         vv.complete(token, TEST_VALUE);
 
         assertThrows(AssertionError.class, () -> vv.complete(finalToken0, 0));
-        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken0, new Exception()));
+        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken0, TEST_EXCEPTION));
 
         assertEquals(TEST_VALUE, a.get());
         assertEquals(token, cntr.get());
-
-        REGISTER.moveRevision(token).join();
 
         // Test update.
         token = 1;
@@ -504,7 +539,7 @@ public class VersionedValueTest {
 
         assertEquals(TEST_VALUE, a.get());
 
-        REGISTER.moveRevision(token).join();
+        vv.complete(token);
 
         assertEquals(TEST_VALUE + 1, a.get());
         assertEquals(token, cntr.get());
@@ -512,7 +547,7 @@ public class VersionedValueTest {
         // Test move revision.
         token = 2;
 
-        REGISTER.moveRevision(token).join();
+        vv.complete(token);
 
         assertEquals(TEST_VALUE + 1, a.get());
         assertEquals(token, cntr.get());
@@ -522,15 +557,13 @@ public class VersionedValueTest {
 
         final long finalToken3 = token;
 
-        vv.completeExceptionally(token, new Exception());
+        vv.completeExceptionally(token, TEST_EXCEPTION);
 
         assertThrows(AssertionError.class, () -> vv.complete(finalToken3, 0));
-        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken3, new Exception()));
+        assertThrows(AssertionError.class, () -> vv.completeExceptionally(finalToken3, TEST_EXCEPTION));
 
         assertEquals(-1, a.get());
         assertEquals(token, cntr.get());
-
-        REGISTER.moveRevision(token).join();
 
         assertEquals(token, cntr.get());
 
@@ -545,8 +578,6 @@ public class VersionedValueTest {
 
         assertEquals(0, a.get());
         assertEquals(token - 1, cntr.get());
-
-        REGISTER.moveRevision(token).join();
     }
 
     /**

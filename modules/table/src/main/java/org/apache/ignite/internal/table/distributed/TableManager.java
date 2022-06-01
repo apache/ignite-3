@@ -451,8 +451,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable);
 
-        CompletableFuture<Void> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
-
         tablesByIdVv.update(causalityToken, (previous, e) -> {
             if (e != null) {
                 return failedFuture(e);
@@ -465,7 +463,9 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(val);
         });
 
-        schemaFut.thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
+        schemaManager.schemaRegistry(causalityToken, tblId)
+                .thenAccept(table::schemaView)
+                .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
 
         // TODO should be reworked in IGNITE-16763
         return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
@@ -516,7 +516,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             TableImpl table = tablesByIdVv.latest().get(tblId);
 
-            assert table != null : "There is no table with the name specified [name=" + name + ']';
+            assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
+                    name, tblId);
 
             table.internalTable().storage().destroy();
 
