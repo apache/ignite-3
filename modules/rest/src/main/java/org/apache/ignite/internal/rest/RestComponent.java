@@ -40,7 +40,7 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 
 /**
- * Rest module is responsible for starting a REST endpoints for accessing and managing configuration.
+ * Rest module is responsible for starting REST endpoints for accessing and managing configuration.
  *
  * <p>It is started on port 10300 by default but it is possible to change this in configuration itself. Refer to default config file in
  * resources for the example.
