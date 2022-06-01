@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.sql.api;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 
@@ -27,10 +30,14 @@ import org.apache.ignite.sql.ResultSetMetadata;
  * Results set metadata holder.
  */
 public class ResultSetMetadataImpl implements ResultSetMetadata {
+    /** Empty metadata holder. */
+    public static final ResultSetMetadata NO_METADATA = new ResultSetMetadataImpl(List.of());
+
     /** Column`s metadata ordered list. */
     private final List<ColumnMetadata> columns;
 
     /** Column`s metadata map. */
+    @IgniteToStringExclude
     private final Map<String, Integer> columnsIndices;
 
     /**
@@ -38,13 +45,13 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
      *
      * @param columns Columns metadata.
      */
-    ResultSetMetadataImpl(List<ColumnMetadata> columns) {
-        this.columns = columns;
+    public ResultSetMetadataImpl(List<ColumnMetadata> columns) {
+        this.columns = Collections.unmodifiableList(columns);
 
-        columnsIndices = new HashMap(columns.size());
+        columnsIndices = new HashMap<>(columns.size());
 
-        for (int i = 0; i < columns.size(); i++) {
-            columnsIndices.put(columns.get(i).name(), i);
+        for (ColumnMetadata column : columns) {
+            columnsIndices.put(column.name(), column.order());
         }
     }
 
@@ -60,5 +67,11 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
         Integer idx = columnsIndices.get(columnName);
 
         return idx == null ? -1 : idx;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(ResultSetMetadataImpl.class, this);
     }
 }

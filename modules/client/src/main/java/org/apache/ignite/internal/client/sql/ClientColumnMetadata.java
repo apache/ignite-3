@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.util.List;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
 
 /**
@@ -47,6 +49,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
             name = unpacker.unpackString();
             nullable = unpacker.unpackBoolean();
             valueClass = Class.forName(unpacker.unpackString());
+            // TODO: IGNITE-17052 Unpack according to metadata type.
             type = unpacker.unpackObjectWithType();
         } catch (ClassNotFoundException e) {
             throw new IgniteClientException(e.getMessage(), e);
@@ -67,13 +70,27 @@ public class ClientColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public Object type() {
-        return type;
+    public ColumnType type() {
+        return (ColumnType) type;
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean nullable() {
         return nullable;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int order() {
+        // TODO: IGNITE-17052
+        return -1;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<String> origin() {
+        // TODO: IGNITE-17052
+        return null;
     }
 }

@@ -35,6 +35,11 @@ public interface ColumnMetadata {
     String name();
 
     /**
+     * Get index (order) of the result's field (starts from 0).
+     */
+    int order();
+
+    /**
      * Returns a class of column values.
      *
      * @return Value class.

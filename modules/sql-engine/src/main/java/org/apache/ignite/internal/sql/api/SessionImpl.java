@@ -220,7 +220,7 @@ public class SessionImpl implements Session {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        // TODO: IGNITE-16962 use all statement prperties.
+        // TODO: IGNITE-16967 use all statement properties.
         return executeAsync(transaction, statement.query(), arguments);
     }
 

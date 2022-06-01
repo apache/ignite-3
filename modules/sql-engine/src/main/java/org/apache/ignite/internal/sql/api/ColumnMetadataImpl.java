@@ -17,48 +17,88 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
+import java.util.List;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
 
 /**
- * Column metadata.
+ * Metadata of the field of a query result set.
  */
-class ColumnMetadataImpl implements ColumnMetadata {
-    /** Field meta. */
-    private final ResultFieldMetadata fieldMetadata;
+public class ColumnMetadataImpl implements ColumnMetadata {
+    /** Name of the result's field. */
+    private final String name;
+
+    /** Type of the result's field. */
+    private final ColumnType type;
+
+    /** Order of the result's field. */
+    private final int order;
+
+    /** Nullable flag of the result's field. */
+    private final boolean nullable;
+
+    /** Origin of the result's field. */
+    private final List<String> origin;
 
     /**
      * Constructor.
-     *
-     * @param fieldMetadata Field metadata.
+     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ColumnMetadataImpl(ResultFieldMetadata fieldMetadata) {
-        this.fieldMetadata = fieldMetadata;
+    public ColumnMetadataImpl(
+            String name,
+            ColumnType type,
+            int order,
+            boolean nullable,
+            List<String> origin
+    ) {
+        this.name = name;
+        this.type = type;
+        this.order = order;
+        this.nullable = nullable;
+        this.origin = origin;
     }
 
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return fieldMetadata.name();
+        return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int order() {
+        return order;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ColumnType type() {
+        return type;
     }
 
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        // TODO: IGNITE-16962
-        return Object.class;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Object type() {
-        // TODO: IGNITE-16962
-        return null;
+        return Commons.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean nullable() {
-        return fieldMetadata.isNullable();
+        return nullable;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<String> origin() {
+        return origin;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(ColumnMetadataImpl.class,  this);
     }
 }

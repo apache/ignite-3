@@ -41,6 +41,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
@@ -279,9 +281,10 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                     for (int i = 0; i < rowType.getFieldCount(); ++i) {
                         RelDataTypeField fld = rowType.getFieldList().get(i);
 
-                        ResultFieldMetadataImpl fldMeta = new ResultFieldMetadataImpl(
+                        ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
                                 fld.getName(),
                                 TypeUtils.columnType(fld.getType()),
+                                fld.getIndex(),
                                 fld.getType().isNullable(),
                                 origins == null ? List.of() : origins.get(i)
                         );
