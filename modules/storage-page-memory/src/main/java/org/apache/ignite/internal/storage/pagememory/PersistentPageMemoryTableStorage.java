@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 
@@ -60,6 +61,23 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /** {@inheritDoc} */
     @Override
     protected PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
+        TableView tableView = tableCfg.value();
+
+        int grpId = groupId(tableView);
+
+        try {
+            FilePageStore partitionFilePageStore = ((PersistentPageMemoryDataRegion) dataRegion)
+                    .filePageStoreManager()
+                    .getStore(grpId, partId);
+
+            partitionFilePageStore.ensure();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error initializing file page store [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
+        }
+
         // TODO: IGNITE-16641 continue
 
         return null;
