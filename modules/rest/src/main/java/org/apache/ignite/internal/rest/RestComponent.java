@@ -38,6 +38,7 @@ import org.apache.ignite.internal.rest.configuration.ClusterConfigurationControl
 import org.apache.ignite.internal.rest.configuration.NodeConfigurationController;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Rest module is responsible for starting REST endpoints for accessing and managing configuration.
@@ -91,12 +92,13 @@ public class RestComponent implements IgniteComponent {
                 log.info("REST protocol started successfully");
                 return;
             } catch (ApplicationStartupException e) {
-                if (isBindExceptionInside(e)) {
-                    log.error("Got exception " + e.getCause().getCause().getCause() + " during node start on port "
+                BindException bindException = findBindException(e);
+                if (bindException != null) {
+                    log.error("Got exception " + bindException + " during node start on port "
                             + portCandidate + " , trying again");
                     continue;
                 }
-                break;
+                throw new RuntimeException(e);
             }
         }
 
@@ -106,13 +108,16 @@ public class RestComponent implements IgniteComponent {
         throw new RuntimeException(msg);
     }
 
-    private boolean isBindExceptionInside(ApplicationStartupException e) {
-        if (e.getCause() instanceof ApplicationStartupException) {
-            if (e.getCause().getCause() instanceof ServerStartupException) {
-                return e.getCause().getCause().getCause() instanceof BindException;
+    @Nullable
+    private BindException findBindException(ApplicationStartupException e) {
+        var throwable = e.getCause();
+        while (throwable != null) {
+            if (throwable instanceof BindException) {
+                return (BindException) throwable;
             }
+            throwable = throwable.getCause();
         }
-        return false;
+        return null;
     }
 
     private Micronaut buildMicronautContext(int portCandidate) {
