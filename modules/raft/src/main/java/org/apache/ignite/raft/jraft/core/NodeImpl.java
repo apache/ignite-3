@@ -36,6 +36,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteLogger;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
@@ -432,7 +433,7 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // must be copied before clearing
-            final List<PeerId> resultPeers = new ArrayList<>(this.newPeers);
+            final List<PeerId> resultPeerIds = new ArrayList<>(this.newPeers);
 
             clearPeers();
             clearLearners();
@@ -444,16 +445,18 @@ public class NodeImpl implements Node, RaftServerService {
             Closure oldDoneClosure = done;
 
             if (this.done != null) {
-                this.done = (Status status) -> {
+                Closure newDone = (Status status) -> {
                     if (status.isOk()) {
-                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeers);
+                        node.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(resultPeerIds);
                     } else {
-                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status);
+                        node.getOptions().getRaftGrpEvtsLsnr().onReconfigurationError(status, resultPeerIds, node.getCurrentTerm());
                     }
                     oldDoneClosure.run(status);
                 };
-                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), done, st != null ? st :
-                    new Status(RaftError.EPERM, "Leader stepped down."));
+
+                // TODO: in case of changePeerAsync this invocation is useless as far as we have already sent OK response in done closure.
+                Utils.runClosureInThread(this.node.getOptions().getCommonExecutor(), newDone, st != null ? st :
+                        new Status(RaftError.EPERM, "Leader stepped down."));
                 this.done = null;
             }
         }
@@ -1370,9 +1373,6 @@ public class NodeImpl implements Node, RaftServerService {
             throw new IllegalStateException();
         }
         this.confCtx.flush(this.conf.getConf(), this.conf.getOldConf());
-
-        if (options.getRaftGrpEvtsLsnr() != null)
-            options.getRaftGrpEvtsLsnr().onLeaderElected();
 
         resetElectionTimeoutToInitial();
         this.stepDownTimer.start();
@@ -2467,6 +2467,9 @@ public class NodeImpl implements Node, RaftServerService {
             if (status.isOk()) {
                 onConfigurationChangeDone(this.term);
                 if (this.leaderStart) {
+                    if (getOptions().getRaftGrpEvtsLsnr() != null) {
+                        options.getRaftGrpEvtsLsnr().onLeaderElected(term);
+                    }
                     getOptions().getFsm().onLeaderStart(this.term);
                 }
             }
@@ -2535,7 +2538,13 @@ public class NodeImpl implements Node, RaftServerService {
         }
         // Return immediately when the new peers equals to current configuration
         if (this.conf.getConf().equals(newConf)) {
-            Utils.runClosureInThread(this.getOptions().getCommonExecutor(), done);
+            Closure newDone = (Status status) -> {
+                // doOnNewPeersConfigurationApplied should be called, otherwise we could lose the callback invocation.
+                // For example, old leader failed just before an invocation of doOnNewPeersConfigurationApplied
+                this.getOptions().getRaftGrpEvtsLsnr().onNewPeersConfigurationApplied(newConf.getPeers());
+                done.run(status);
+            };
+            Utils.runClosureInThread(this.getOptions().getCommonExecutor(), newDone);
             return;
         }
         this.confCtx.start(oldConf, newConf, done, async);

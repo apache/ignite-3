@@ -21,15 +21,21 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.RootKey;
@@ -49,6 +55,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
@@ -57,6 +64,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableTxManagerImpl;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -67,10 +75,13 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.StaticNodeFinder;
+import org.apache.ignite.raft.client.Peer;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.schema.SchemaBuilders;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
@@ -108,9 +119,7 @@ public class ItRebalanceDistributedTest {
         finder = new StaticNodeFinder(nodeAddresses);
 
         for (NetworkAddress addr : nodeAddresses) {
-            Files.createDirectory(workDir.resolve("" + addr));
-
-            var node = new Node(testInfo, workDir.resolve(addr.toString()), addr);
+            var node = new Node(testInfo, workDir, addr);
 
             nodes.add(node);
 
@@ -128,7 +137,6 @@ public class ItRebalanceDistributedTest {
 
     @Test
     void testOneRebalance(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
-
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -147,14 +155,13 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        assertEquals(2, getAssignments(0, 0).size());
-        assertEquals(2, getAssignments(1, 0).size());
-        assertEquals(2, getAssignments(2, 0).size());
+        assertEquals(2, getPartitionClusterNodes(0, 0).size());
+        assertEquals(2, getPartitionClusterNodes(1, 0).size());
+        assertEquals(2, getPartitionClusterNodes(2, 0).size());
     }
 
     @Test
     void testTwoQueuedRebalances(@WorkDirectory Path workDir, TestInfo testInfo) {
-
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -174,14 +181,13 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 3);
 
-        assertEquals(3, getAssignments(0, 0).size());
-        assertEquals(3, getAssignments(1, 0).size());
-        assertEquals(3, getAssignments(2, 0).size());
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
     @Test
     void testThreeQueuedRebalances(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
-
         TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
                 SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
@@ -202,18 +208,125 @@ public class ItRebalanceDistributedTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        assertEquals(2, getAssignments(0, 0).size());
-        assertEquals(2, getAssignments(1, 0).size());
-        assertEquals(2, getAssignments(2, 0).size());
+        assertEquals(2, getPartitionClusterNodes(0, 0).size());
+        assertEquals(2, getPartitionClusterNodes(1, 0).size());
+        assertEquals(2, getPartitionClusterNodes(2, 0).size());
+    }
+
+    @Test
+    void testOnLeaderElectedRebalanceRestart(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        var table = (TableImpl) nodes.get(1).tableManager.createTable(
+                "PUBLIC.tbl1",
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                        .changeReplicas(2)
+                        .changePartitions(1));
+
+        Set<NetworkAddress> partitionNodesAddresses = getPartitionClusterNodes(0, 0)
+                .stream().map(ClusterNode::address).collect(Collectors.toSet());
+
+        Node newNode = nodes.stream().filter(n -> !partitionNodesAddresses.contains(n.address())).findFirst().get();
+
+        Node leaderNode = findNodeByAddress(table.leaderAssignment(0).address());
+
+        NetworkAddress nonLeaderNodeAddress = partitionNodesAddresses
+                .stream().filter(n -> !n.equals(leaderNode.address())).findFirst().get();
+
+        TableImpl nonLeaderTable = (TableImpl) findNodeByAddress(nonLeaderNodeAddress).tableManager.table("PUBLIC.TBL1");
+
+        var countDownLatch = new CountDownLatch(1);
+
+        String raftGroupNodeName = leaderNode.raftManager.server().startedGroups()
+                .stream().filter(grp -> grp.contains("part")).findFirst().get();
+
+        ((JraftServerImpl) leaderNode.raftManager.server()).blockMessages(
+                raftGroupNodeName, (msg, node) -> {
+                    if (node.equals(String.valueOf(newNode.address().toString())) && msg instanceof RpcRequests.PingRequest) {
+                        countDownLatch.countDown();
+
+                        return true;
+                    }
+                    return false;
+                });
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+
+        countDownLatch.await();
+
+        nonLeaderTable.internalTable().partitionRaftGroupService(0).transferLeadership(new Peer(nonLeaderNodeAddress)).get();
+
+        ((JraftServerImpl) leaderNode.raftManager.server()).stopBlockMessages(raftGroupNodeName);
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
+
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
+    }
+
+    @Test
+    void testRebalanceRetryWhenCatchupFailed(@WorkDirectory Path workDir, TestInfo testInfo) throws Exception {
+        TableDefinition schTbl1 = SchemaBuilders.tableBuilder("PUBLIC", "tbl1").columns(
+                SchemaBuilders.column("key", ColumnType.INT64).build(),
+                SchemaBuilders.column("val", ColumnType.INT32).asNullable(true).build()
+        ).withPrimaryKey("key").build();
+
+        nodes.get(0).tableManager.createTable(
+                "PUBLIC.tbl1",
+                tblChanger -> SchemaConfigurationConverter.convert(schTbl1, tblChanger)
+                        .changeReplicas(1)
+                        .changePartitions(1));
+
+        assertEquals(1, nodes.get(0).clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY)
+                .tables().get("PUBLIC.TBL1").replicas().value());
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(1));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 1);
+
+        JraftServerImpl raftServer = (JraftServerImpl) nodes.stream()
+                .filter(n -> n.raftManager.startedGroups().stream().anyMatch(grp -> grp.contains("_part_"))).findFirst()
+                .get().raftManager.server();
+
+        AtomicInteger counter = new AtomicInteger(0);
+
+        String partGrpId = raftServer.startedGroups().stream().filter(grp -> grp.contains("_part_")).findFirst().get();
+
+        raftServer.blockMessages(partGrpId, (msg, node) -> {
+            if (msg instanceof RpcRequests.PingRequest) {
+                // We block ping request to prevent starting replicator, hence we fail catch up and fail rebalance.
+                assertEquals(1, getPartitionClusterNodes(0, 0).size());
+                assertEquals(1, getPartitionClusterNodes(1, 0).size());
+                assertEquals(1, getPartitionClusterNodes(2, 0).size());
+                return counter.incrementAndGet() <= 5;
+            }
+            return false;
+        });
+
+        nodes.get(0).tableManager.alterTable("PUBLIC.TBL1", ch -> ch.changeReplicas(3));
+
+        waitPartitionAssignmentsSyncedToExpected(0, 3);
+
+        assertEquals(3, getPartitionClusterNodes(0, 0).size());
+        assertEquals(3, getPartitionClusterNodes(1, 0).size());
+        assertEquals(3, getPartitionClusterNodes(2, 0).size());
     }
 
     private void waitPartitionAssignmentsSyncedToExpected(int partNum, int replicasNum) {
-        while (!IntStream.range(0, 3).allMatch(n -> getAssignments(n, partNum).size() == replicasNum)) {
-            LockSupport.parkNanos(10_000_000);
+        while (!IntStream.range(0, nodes.size()).allMatch(n -> getPartitionClusterNodes(n, partNum).size() == replicasNum)) {
+            LockSupport.parkNanos(100_000_000);
         }
     }
 
-    private List<ClusterNode> getAssignments(int nodeNum, int partNum) {
+    private Node findNodeByAddress(NetworkAddress addr) {
+        return nodes.stream().filter(n -> n.address().equals(addr)).findFirst().get();
+    }
+
+    private List<ClusterNode> getPartitionClusterNodes(int nodeNum, int partNum) {
         var table = ((ExtendedTableConfiguration) nodes.get(nodeNum).clusterCfgMgr.configurationRegistry()
                 .getConfiguration(TablesConfiguration.KEY).tables().get("PUBLIC.TBL1"));
 
@@ -266,7 +379,9 @@ public class ItRebalanceDistributedTest {
 
             name = testNodeName(testInfo, addr.port());
 
-            vaultManager = new VaultManager(new PersistentVaultService(workDir.resolve("vault")));
+            Path dir = workDir.resolve(name);
+
+            vaultManager = createVault(dir);
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NetworkConfiguration.KEY,
@@ -286,7 +401,7 @@ public class ItRebalanceDistributedTest {
 
             lockManager = new HeapLockManager();
 
-            raftManager = new Loza(clusterService, workDir);
+            raftManager = new Loza(clusterService, dir);
 
             txManager = new TableTxManagerImpl(clusterService, lockManager);
 
@@ -333,7 +448,7 @@ public class ItRebalanceDistributedTest {
 
             dataStorageMgr = new DataStorageManager(
                     tablesCfg,
-                    dataStorageModules.createStorageEngines(clusterCfgMgr.configurationRegistry(), workDir.resolve("storage")));
+                    dataStorageModules.createStorageEngines(clusterCfgMgr.configurationRegistry(), dir.resolve("storage")));
 
             baselineMgr = new BaselineManager(
                     clusterCfgMgr,
@@ -392,6 +507,24 @@ public class ItRebalanceDistributedTest {
                 component.stop();
             }
         }
+
+        NetworkAddress address() {
+            return clusterService.topologyService().localMember().address();
+        }
     }
 
+    /**
+     * Starts the Vault component.
+     */
+    private static VaultManager createVault(Path workDir) {
+        Path vaultPath = workDir.resolve(Paths.get("vault"));
+
+        try {
+            Files.createDirectories(vaultPath);
+        } catch (IOException e) {
+            throw new IgniteInternalException(e);
+        }
+
+        return new VaultManager(new PersistentVaultService(vaultPath));
+    }
 }

@@ -28,7 +28,7 @@ public interface RaftGroupEventsListener {
     /**
      * Invoked, when new leader is elected (if it is the first leader of group ever - will be invoked too).
      */
-    void onLeaderElected();
+    void onLeaderElected(long term);
 
     /**
      * Invoked on the leader, when new peers' configuration applied to raft group.
@@ -42,7 +42,7 @@ public interface RaftGroupEventsListener {
      *
      * @param status with description of failure.
      */
-    void onReconfigurationError(Status status);
+    void onReconfigurationError(Status status, List<PeerId> peers, long term);
 
     /**
      * No-op raft group events listener.
@@ -50,7 +50,7 @@ public interface RaftGroupEventsListener {
     RaftGroupEventsListener noopLsnr = new RaftGroupEventsListener() {
         /** {@inheritDoc} */
         @Override
-        public void onLeaderElected() { }
+        public void onLeaderElected(long term) { }
 
         /** {@inheritDoc} */
         @Override
@@ -58,7 +58,7 @@ public interface RaftGroupEventsListener {
 
         /** {@inheritDoc} */
         @Override
-        public void onReconfigurationError(Status status) { }
+        public void onReconfigurationError(Status status, List<PeerId> peers, long term) {}
     };
 
 }

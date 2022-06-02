@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftServer;
@@ -72,6 +73,7 @@ import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.JDKMarshaller;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Raft server implementation on top of forked JRaft library.
@@ -409,6 +411,31 @@ public class JraftServerImpl implements RaftServer {
     @Override
     public Set<String> startedGroups() {
         return groups.keySet();
+    }
+
+    /**
+     * Blocks messages for raft group node according to provided predicate.
+     *
+     * @param groupId Raft group id.
+     * @param predicate Predicate to block messages.
+     */
+    @TestOnly
+    public void blockMessages(String groupId, BiPredicate<Object, String> predicate) {
+        IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
+
+        client.blockMessages(predicate);
+    }
+
+    /**
+     * Stops blocking messages for raft group node.
+     *
+     * @param groupId Raft group id.
+     */
+    @TestOnly
+    public void stopBlockMessages(String groupId) {
+        IgniteRpcClient client = (IgniteRpcClient) groups.get(groupId).getNodeOptions().getRpcClient();
+
+        client.stopBlock();
     }
 
     /**
