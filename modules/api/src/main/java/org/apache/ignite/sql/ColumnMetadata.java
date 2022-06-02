@@ -17,8 +17,8 @@
 
 package org.apache.ignite.sql;
 
-import java.util.List;
 import org.apache.ignite.schema.definition.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface that provides methods for accessing column metadata.
@@ -33,11 +33,6 @@ public interface ColumnMetadata {
      * @return Column name.
      */
     String name();
-
-    /**
-     * Get index (order) of the result's field (starts from 0).
-     */
-    int order();
 
     /**
      * Returns a class of column values.
@@ -61,12 +56,44 @@ public interface ColumnMetadata {
     boolean nullable();
 
     /**
-     * Example: SELECT SUM(price), category, subcategory FROM Goods WHERE [condition] GROUP_BY category, subcategory.
+     * Return column origin.
      *
-     * <p>Field - Origin SUM(price) - null; category - {"PUBLIC", "Goods", "category"};
-     * subcategory - {"PUBLIC", "Goods", "subcategory"};
-     *
-     * @return field's origin (or where a field value comes from).
+     * @return Column origin or {@code null} if not applicable.
      */
-    List<String> origin();
+    @Nullable ColumnOrigin origin();
+
+    /**
+     * Represent column origin.
+     *
+     * <p>Example: "SELECT SUM(price), category as cat, subcategory AS subcategory FROM Goods WHERE [condition] GROUP_BY cat, subcategory".
+     *
+     * <p>Column origins:
+     * <ul>
+     * <li>SUM(price): null</li>
+     * <li>cat: {"PUBLIC", "Goods", "category"}</li>
+     * <li>subcategory: {"PUBLIC", "Goods", "subcategory"}</li>
+     * </ul>
+     */
+    interface ColumnOrigin {
+        /**
+         * Return the column's table's schema.
+         *
+         * @return Schema name or "" if not applicable
+         */
+        String schemaName();
+
+        /**
+         * Return the column's table name.
+         *
+         * @return Table name or "" if not applicable
+         */
+        String tableName();
+
+        /**
+         * Return the column name.
+         *
+         * @return Table name or "" if not applicable
+         */
+        String columnName();
+    }
 }

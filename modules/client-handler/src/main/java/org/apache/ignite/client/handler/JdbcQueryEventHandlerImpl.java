@@ -68,6 +68,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -318,11 +319,11 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @return JdbcColumnMeta object.
      */
     private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
-        List<String> origin = fldMeta.origin();
+        ColumnOrigin origin = fldMeta.origin();
 
-        String schemaName = origin == null ? null : origin.get(0);
-        String tblName = origin == null ? null : origin.get(1);
-        String colName = origin == null ? null : origin.get(2);
+        String schemaName = origin == null ? null : origin.schemaName();
+        String tblName = origin == null ? null : origin.tableName();
+        String colName = origin == null ? null : origin.columnName();
 
         return new JdbcColumnMeta(
                 fldMeta.name(),

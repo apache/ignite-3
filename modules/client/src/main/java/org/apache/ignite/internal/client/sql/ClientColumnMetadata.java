@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import java.util.List;
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.schema.definition.ColumnType;
@@ -82,14 +81,7 @@ public class ClientColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public int order() {
-        // TODO: IGNITE-17052
-        return -1;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<String> origin() {
+    public ColumnOrigin origin() {
         // TODO: IGNITE-17052
         return null;
     }

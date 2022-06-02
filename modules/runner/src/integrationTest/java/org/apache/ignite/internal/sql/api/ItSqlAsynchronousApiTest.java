@@ -36,6 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -215,9 +216,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(1, meta.indexOf("COL0"));
 
         //TODO: Fix nullability issue
-        checkMetadata(new ColumnMetadataImpl("COL1", ColumnType.string(), 0, true, List.of("PUBLIC", "TEST", "COL1")),
+        checkMetadata(new ColumnMetadataImpl("COL1", ColumnType.string(), true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
-        checkMetadata(new ColumnMetadataImpl("COL0", ColumnType.INT64, 1, true, List.of("PUBLIC", "TEST", "COL0")),
+        checkMetadata(new ColumnMetadataImpl("COL0", ColumnType.INT64, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
                 meta.columns().get(1));
 
         // Validate result columns types.
@@ -412,7 +413,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertNotNull(asyncRes.metadata());
         assertEquals(1, asyncRes.metadata().columns().size());
-        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64, 0, false, List.of()), asyncRes.metadata().columns().get(0));
+        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64, false, null), asyncRes.metadata().columns().get(0));
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }

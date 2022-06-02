@@ -50,8 +50,10 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
 
         columnsIndices = new HashMap<>(columns.size());
 
-        for (ColumnMetadata column : columns) {
-            columnsIndices.put(column.name(), column.order());
+        for (int i = 0; i < columns.size(); i++) {
+            ColumnMetadata column = columns.get(i);
+
+            columnsIndices.put(column.name(), i);
         }
     }
 

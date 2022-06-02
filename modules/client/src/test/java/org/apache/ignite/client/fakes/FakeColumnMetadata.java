@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.fakes;
 
-import java.util.List;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
 
@@ -62,13 +61,7 @@ class FakeColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public int order() {
-        return -1;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public List<String> origin() {
+    public ColumnOrigin origin() {
         return null;
     }
 }

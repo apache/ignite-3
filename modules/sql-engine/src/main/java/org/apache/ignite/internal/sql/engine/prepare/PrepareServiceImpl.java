@@ -284,9 +284,8 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                         ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
                                 fld.getName(),
                                 TypeUtils.columnType(fld.getType()),
-                                fld.getIndex(),
                                 fld.getType().isNullable(),
-                                origins == null ? List.of() : origins.get(i)
+                                origins == null ? null : ColumnMetadataImpl.originFromList(origins.get(i))
                         );
 
                         fieldsMeta.add(fldMeta);

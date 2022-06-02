@@ -22,25 +22,41 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metadata of the field of a query result set.
  */
 public class ColumnMetadataImpl implements ColumnMetadata {
+    /**
+     * Creates column origin from list.
+     *
+     * @param origin Origin list.
+     * @return Column origin.
+     */
+    public static @Nullable ColumnOrigin originFromList(@Nullable List<String> origin) {
+        if (origin == null) {
+            return null;
+        }
+
+        String schemaName = origin.size() < 1 ? "" : origin.get(0);
+        String tableName = origin.size() < 2 ? "" : origin.get(1);
+        String columnName = origin.size() < 3 ? "" : origin.get(2);
+
+        return new ColumnOriginImpl(schemaName, tableName, columnName);
+    }
+
     /** Name of the result's field. */
     private final String name;
 
     /** Type of the result's field. */
     private final ColumnType type;
 
-    /** Order of the result's field. */
-    private final int order;
-
     /** Nullable flag of the result's field. */
     private final boolean nullable;
 
     /** Origin of the result's field. */
-    private final List<String> origin;
+    private final ColumnOrigin origin;
 
     /**
      * Constructor.
@@ -49,13 +65,11 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     public ColumnMetadataImpl(
             String name,
             ColumnType type,
-            int order,
             boolean nullable,
-            List<String> origin
+            @Nullable ColumnOrigin origin
     ) {
         this.name = name;
         this.type = type;
-        this.order = order;
         this.nullable = nullable;
         this.origin = origin;
     }
@@ -64,12 +78,6 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     @Override
     public String name() {
         return name;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int order() {
-        return order;
     }
 
     /** {@inheritDoc} */
@@ -92,7 +100,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public List<String> origin() {
+    public ColumnOrigin origin() {
         return origin;
     }
 
@@ -100,5 +108,52 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     @Override
     public String toString() {
         return S.toString(ColumnMetadataImpl.class,  this);
+    }
+
+    /**
+     * Metadata of column's origin.
+     */
+    public static class ColumnOriginImpl implements ColumnOrigin {
+        /** Schema name. */
+        private final String schemaName;
+
+        /** Table name. */
+        private final String tableName;
+
+        /** Column name. */
+        private final String columnName;
+
+        /**
+         * Constructor.
+         */
+        public ColumnOriginImpl(String schemaName, String tableName, String columnName) {
+            this.schemaName = schemaName;
+            this.tableName = tableName;
+            this.columnName = columnName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String schemaName() {
+            return schemaName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String tableName() {
+            return tableName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String columnName() {
+            return columnName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(ColumnOriginImpl.class,  this);
+        }
     }
 }

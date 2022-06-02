@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
@@ -293,11 +294,21 @@ public class AbstractBasicIntegrationTest extends BaseIgniteAbstractTest {
     protected static void checkMetadata(ColumnMetadata expectedMeta, ColumnMetadata actualMeta) {
         assertAll("Missmatch:\n expected = " + expectedMeta + ",\n actual = " + actualMeta,
                 () -> assertEquals(expectedMeta.name(), actualMeta.name(), "name"),
-                () -> assertEquals(expectedMeta.order(), actualMeta.order(), "order"),
                 () -> assertEquals(expectedMeta.nullable(), actualMeta.nullable(), "nullable"),
                 () -> assertSame(expectedMeta.type(), actualMeta.type(), "type"),
                 () -> assertSame(expectedMeta.valueClass(), actualMeta.valueClass(), "value class"),
-                () -> assertEquals(expectedMeta.origin(), actualMeta.origin(), " origin")
+                () -> {
+                    if (expectedMeta.origin() == null) {
+                        assertNull(actualMeta.origin(), "origin");
+
+                        return;
+                    }
+
+                    assertNotNull(actualMeta.origin(), "origin");
+                    assertEquals(expectedMeta.origin().schemaName(), actualMeta.origin().schemaName(), " origin schema");
+                    assertEquals(expectedMeta.origin().tableName(), actualMeta.origin().tableName(), " origin table");
+                    assertEquals(expectedMeta.origin().columnName(), actualMeta.origin().columnName(), " origin column");
+                }
         );
     }
 }
