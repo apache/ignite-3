@@ -25,24 +25,37 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryData
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PageMemoryImpl;
+import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
+import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 
 /**
  * Implementation of {@link AbstractPageMemoryDataRegion} for persistent case.
  */
 public class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
+    private final FilePageStoreManager filePageStoreManager;
+
+    private final CheckpointManager checkpointManager;
+
     /**
      * Constructor.
      *
      * @param cfg Data region configuration.
      * @param ioRegistry IO registry.
+     * @param filePageStoreManager File page store manager.
+     * @param checkpointManager Checkpoint manager.
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemoryDataRegion(
             PageMemoryDataRegionConfiguration cfg,
             PageIoRegistry ioRegistry,
+            FilePageStoreManager filePageStoreManager,
+            CheckpointManager checkpointManager,
             int pageSize
     ) {
         super(cfg, ioRegistry, pageSize);
+
+        this.filePageStoreManager = filePageStoreManager;
+        this.checkpointManager = checkpointManager;
     }
 
     /** {@inheritDoc} */
@@ -52,19 +65,24 @@ public class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion
 
         assert persistent() : dataRegionConfigView.name();
 
-        // TODO: IGNITE-16641 continue.
-
         PageMemoryImpl pageMemoryImpl = new PageMemoryImpl(
                 cfg,
                 ioRegistry,
                 calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
                 calculateCheckpointBufferSize(dataRegionConfigView),
+                filePageStoreManager,
                 null,
-                null,
-                null,
-                null,
+                (fullPageId, buf, tag) -> {
+                    // Write page to disk.
+                    filePageStoreManager.write(fullPageId.groupId(), fullPageId.pageId(), buf, tag, true);
+                },
+                checkpointManager.checkpointTimeoutLock(),
                 pageSize
         );
+
+        pageMemoryImpl.start();
+
+        pageMemory = pageMemoryImpl;
     }
 
     /**

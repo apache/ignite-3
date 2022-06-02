@@ -199,7 +199,13 @@ public class PageMemoryStorageEngine implements StorageEngine {
         AbstractPageMemoryDataRegion dataRegion;
 
         if (dataRegionConfig.persistent().value()) {
-            throw new UnsupportedOperationException("Persistent data region not supported yet");
+            dataRegion = new PersistentPageMemoryDataRegion(
+                    dataRegionConfig,
+                    ioRegistry,
+                    filePageStoreManager,
+                    checkpointManager,
+                    pageSize
+            );
         } else {
             dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
         }
