@@ -180,10 +180,10 @@ public class PageMemoryStorageEngine implements StorageEngine {
         PageMemoryDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
         if (dataRegion.persistent()) {
-            return new VolatilePageMemoryTableStorage(tableCfg, (VolatilePageMemoryDataRegion) dataRegion);
+            throw new UnsupportedOperationException("Persistent data region not supported yet");
         }
 
-        throw new UnsupportedOperationException("Persistent data region not supported yet");
+        return new VolatilePageMemoryTableStorage(tableCfg, (VolatilePageMemoryDataRegion) dataRegion);
     }
 
     /**
@@ -196,7 +196,13 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
         String name = dataRegionConfig.name().value();
 
-        VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
+        AbstractPageMemoryDataRegion dataRegion;
+
+        if (dataRegionConfig.persistent().value()) {
+            throw new UnsupportedOperationException("Persistent data region not supported yet");
+        } else {
+            dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
+        }
 
         dataRegion.start();
 
