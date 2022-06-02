@@ -17,14 +17,14 @@
 
 package org.apache.ignite.cli;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Properties;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 
 /**

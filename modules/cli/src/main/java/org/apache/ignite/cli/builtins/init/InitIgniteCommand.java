@@ -19,6 +19,7 @@ package org.apache.ignite.cli.builtins.init;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import jakarta.inject.Inject;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -30,7 +31,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Properties;
-import javax.inject.Inject;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.IgnitePaths;

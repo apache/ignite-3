@@ -17,6 +17,8 @@
 
 package org.apache.ignite.cli.builtins.module;
 
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -26,8 +28,6 @@ import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCliException;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
 import org.apache.ignite.cli.ui.ProgressBar;

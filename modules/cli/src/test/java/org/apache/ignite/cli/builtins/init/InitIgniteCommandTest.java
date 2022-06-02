@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -32,7 +33,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Comparator;
-import javax.inject.Inject;
 import org.apache.ignite.cli.AbstractCliTest;
 import org.apache.ignite.cli.CliPathsConfigLoader;
 import org.apache.ignite.cli.builtins.SystemPathResolver;
