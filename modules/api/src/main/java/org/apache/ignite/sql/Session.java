@@ -110,6 +110,7 @@ public interface Session extends AutoCloseable {
      * @param dmlQuery DML query template.
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
      */
     long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
 
@@ -120,6 +121,7 @@ public interface Session extends AutoCloseable {
      * @param dmlStatement DML statement to execute.
      * @param batch Batch of query arguments.
      * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
      */
     long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch);
 
@@ -129,8 +131,8 @@ public interface Session extends AutoCloseable {
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param query SQL query template.
      * @param batch List of batch rows, where each row is a list of statement arguments.
-     * @return Operation future.
-     * @throws SqlException If failed.
+     * @return Operation future completed with number of rows affected by each query in the batch on batch success,
+     *      if the batch fails the future completed with the {@link SqlBatchException}.
      */
     CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
 
@@ -140,8 +142,8 @@ public interface Session extends AutoCloseable {
      * @param transaction Transaction to execute the statement within or {@code null}.
      * @param statement SQL statement to execute.
      * @param batch List of batch rows, where each row is a list of statement arguments.
-     * @return Operation future.
-     * @throws SqlException If failed.
+     * @return Operation future completed with number of rows affected by each query in the batch on batch success,
+     *      if the batch fails the future completed with the {@link SqlBatchException}.
      */
     CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
 
