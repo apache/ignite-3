@@ -79,8 +79,6 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         });
 
         schemasVv.whenComplete((token, stringIgniteSchemaMap, throwable) -> {
-            System.out.println("Receive token " + token);
-
             rebuild(token, stringIgniteSchemaMap);
 
             listeners.forEach(SchemaUpdateListener::onSchemaUpdated);
