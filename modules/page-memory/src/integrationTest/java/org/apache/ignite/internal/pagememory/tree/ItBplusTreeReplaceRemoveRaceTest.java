@@ -38,7 +38,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryData
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
@@ -95,7 +94,6 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-                new UnsafeMemoryProvider(null),
                 dataRegionCfg,
                 ioRegistry,
                 512

@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.tree.ItBplusTreeReuseSelfTest;
 
 /**
@@ -44,15 +44,15 @@ public class ItBplusTreeReuseListPageMemoryImplTest extends ItBplusTreeReuseSelf
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryImpl(
-                new UnsafeMemoryProvider(null),
                 dataRegionCfg,
                 ioRegistry,
                 sizes,
                 new TestPageReadWriteManager(),
-                (page, fullPageId, pageMemoryEx) -> {
+                (page, fullPageId, pageMemoryImpl) -> {
                 },
                 (fullPageId, buf, tag) -> {
                 },
+                mockCheckpointTimeoutLock(log, true),
                 PAGE_SIZE
         );
     }

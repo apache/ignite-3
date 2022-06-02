@@ -9,15 +9,8 @@ The following examples are included:
 * `RecordViewExample` - demonstrates the usage of the `org.apache.ignite.table.RecordView` API
 * `KeyValueViewExample` - demonstrates the usage of the `org.apache.ignite.table.KeyValueView` API
 * `SqlJdbcExample` - demonstrates the usage of the Apache Ignite JDBC driver.
+* `VolatilePageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with an in-memory data region.
 
-To run any other example, do the following:
-1. Import the examples project into you IDE.
-2. Start a server node using the CLI tool:
-   ```
-   ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node
-   ```
-3. Initialize the node using the following command:
-   ```
-   ignite cluster init --node-endpoint 'localhost:10300' --meta-storage-node 'my-first-node' --cluster-name 'ignite-cluster'
-   ```
-4. Run the preferred example in the IDE.
+Before running the examples, read about [cli](https://ignite.apache.org/docs/3.0.0-alpha/ignite-cli-tool).
+
+To run the examples, refer to their JavaDoc for instructions.
