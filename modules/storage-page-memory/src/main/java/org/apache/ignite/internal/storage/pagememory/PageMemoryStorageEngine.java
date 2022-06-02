@@ -27,6 +27,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNamedListListe
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Storage engine implementation based on {@link PageMemory}.
@@ -44,26 +46,40 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "pagememory";
 
+    private final String igniteInstanceName;
+
     private final PageMemoryStorageEngineConfiguration engineConfig;
 
     private final PageIoRegistry ioRegistry;
+
+    private final Path storagePath;
+
+    @Nullable
+    private final LongJvmPauseDetector longJvmPauseDetector;
 
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
      *
+     * @param igniteInstanceName String igniteInstanceName
      * @param engineConfig PageMemory storage engine configuration.
      * @param ioRegistry IO registry.
      * @param storagePath Storage path.
+     * @param longJvmPauseDetector Long JVM pause detector.
      */
     public PageMemoryStorageEngine(
+            String igniteInstanceName,
             PageMemoryStorageEngineConfiguration engineConfig,
             PageIoRegistry ioRegistry,
-            Path storagePath
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector
     ) {
+        this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
         this.ioRegistry = ioRegistry;
+        this.storagePath = storagePath;
+        this.longJvmPauseDetector = longJvmPauseDetector;
     }
 
     /** {@inheritDoc} */

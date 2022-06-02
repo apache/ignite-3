@@ -631,7 +631,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         DataStorageManager manager = new DataStorageManager(
                 tblsCfg,
-                dataStorageModules.createStorageEngines(mockedRegistry, storagePath)
+                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null)
         );
 
         manager.start();

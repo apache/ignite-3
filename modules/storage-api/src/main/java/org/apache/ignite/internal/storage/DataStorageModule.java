@@ -19,8 +19,10 @@ package org.apache.ignite.internal.storage;
 
 import java.nio.file.Path;
 import org.apache.ignite.configuration.schemas.store.DataStorageConfigurationSchema;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data storage module.
@@ -36,9 +38,16 @@ public interface DataStorageModule {
     /**
      * Creates a new storage engine.
      *
+     * @param igniteInstanceName String igniteInstanceName
      * @param configRegistry Configuration register.
      * @param storagePath Storage path.
+     * @param longJvmPauseDetector Long JVM pause detector.
      * @throws StorageException If there is an error when creating the storage engine.
      */
-    StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException;
+    StorageEngine createEngine(
+            String igniteInstanceName,
+            ConfigurationRegistry configRegistry,
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector
+    ) throws StorageException;
 }

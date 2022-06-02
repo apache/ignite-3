@@ -202,6 +202,8 @@ public class IgniteImpl implements Ignite {
     IgniteImpl(String name, Path workDir, @Nullable ClassLoader serviceProviderClassLoader) {
         this.name = name;
 
+        longJvmPauseDetector = new LongJvmPauseDetector(name);
+
         lifecycleManager = new LifecycleManager(name);
 
         vaultMgr = createVault(workDir);
@@ -290,8 +292,10 @@ public class IgniteImpl implements Ignite {
         dataStorageMgr = new DataStorageManager(
                 clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY),
                 dataStorageModules.createStorageEngines(
+                        name,
                         clusterCfgMgr.configurationRegistry(),
-                        getPartitionsStorePath(workDir)
+                        getPartitionsStorePath(workDir),
+                        longJvmPauseDetector
                 )
         );
 
@@ -335,8 +339,6 @@ public class IgniteImpl implements Ignite {
         );
 
         new ConfigurationHttpHandlers(nodeCfgMgr, clusterCfgMgr).registerHandlers(restComponent);
-
-        longJvmPauseDetector = new LongJvmPauseDetector(name);
     }
 
     private static ConfigurationModules loadConfigurationModules(ClassLoader classLoader) {
