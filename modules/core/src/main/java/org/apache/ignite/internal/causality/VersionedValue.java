@@ -285,6 +285,8 @@ public class VersionedValue<T> {
         checkToken(actualToken0, causalityToken);
 
         completeInternal(causalityToken, value, null);
+
+        completeOnRevision(causalityToken);
     }
 
     /**
@@ -304,6 +306,8 @@ public class VersionedValue<T> {
         checkToken(actualToken0, causalityToken);
 
         completeInternal(causalityToken, null, throwable);
+
+        completeOnRevision(causalityToken);
     }
 
     /**

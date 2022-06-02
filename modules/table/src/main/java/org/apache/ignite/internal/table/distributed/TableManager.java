@@ -46,7 +46,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -227,12 +226,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         tablesByIdVv = new VersionedValue<>(null, HashMap::new);
 
-        this.schemaManager.listen(SchemaEvent.COMPLETE, (parameters, e) -> {
-            tablesByIdVv.complete(parameters.causalityToken());
-
-            return false;
-        });
-
         rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 new NamedThreadFactory("rebalance-scheduler"));
     }
@@ -267,17 +260,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         schemaManager.listen(SchemaEvent.CREATE, new EventListener<>() {
             /** {@inheritDoc} */
-            @Override public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
-                tablesByIdVv.get(parameters.causalityToken()).thenAccept(tablesById -> {
+            @Override
+            public boolean notify(@NotNull SchemaEventParameters parameters, @Nullable Throwable exception) {
+                if (tablesByIdVv.latest().get(parameters.tableId()) != null) {
                     fireEvent(
                             TableEvent.ALTER,
-                            new TableEventParameters(parameters.causalityToken(), tablesById.get(parameters.tableId())), null
+                            new TableEventParameters(parameters.causalityToken(), tablesByIdVv.latest().get(parameters.tableId())), null
                     );
-                });
+                }
 
                 return false;
             }
         });
+    }
+
+    /**
+     * Completes all table futures.
+     * TODO: Get rid of it after IGNITE-17062.
+     *
+     * @param causalityToken Causality token.
+     */
+    public void onSqlSchemaReady(long causalityToken) {
+        tablesByIdVv.complete(causalityToken);
     }
 
     /**
@@ -534,8 +538,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
         var table = new TableImpl(internalTable);
 
-        CompletableFuture<Void> schemaFut = schemaManager.schemaRegistry(causalityToken, tblId).thenAccept(table::schemaView);
-
         tablesByIdVv.update(causalityToken, (previous, e) -> {
             if (e != null) {
                 return failedFuture(e);
@@ -548,14 +550,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             return completedFuture(val);
         });
 
-        // TODO should be reworked in IGNITE-16763
-        return tablesByIdVv.get(causalityToken)
-            .thenCompose(v -> schemaFut)
-            .thenRun(() -> {
-                fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+        schemaManager.schemaRegistry(causalityToken, tblId)
+                .thenAccept(table::schemaView)
+                .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
 
-                completeApiCreateFuture(table);
-            });
+        // TODO should be reworked in IGNITE-16763
+        return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
     }
 
     /**
@@ -589,8 +589,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.stopRaftGroup(partitionRaftGroupName(tblId, p));
             }
 
-            AtomicReference<TableImpl> tableHolder = new AtomicReference<>();
-
             tablesByIdVv.update(causalityToken, (previousVal, e) -> {
                 if (e != null) {
                     return failedFuture(e);
@@ -598,16 +596,15 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 var map = new HashMap<>(previousVal);
 
-                TableImpl table = map.remove(tblId);
-
-                tableHolder.set(table);
+                map.remove(tblId);
 
                 return completedFuture(map);
             });
 
-            TableImpl table = tableHolder.get();
+            TableImpl table = tablesByIdVv.latest().get(tblId);
 
-            assert table != null : "There is no table with the name specified [name=" + name + ']';
+            assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
+                    name, tblId);
 
             table.internalTable().storage().destroy();
 
@@ -1133,7 +1130,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 }
 
                 if (e == null) {
-                    getTblFut.complete(parameters.table());
+                    tablesByIdVv.get(parameters.causalityToken()).thenRun(() -> getTblFut.complete(parameters.table()));
                 } else {
                     getTblFut.completeExceptionally(e);
                 }
