@@ -130,7 +130,7 @@ public class PartitionListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        System.out.println("start PartitionListener.onWrite");
+//        System.out.println("start PartitionListener.onWrite");
 
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();

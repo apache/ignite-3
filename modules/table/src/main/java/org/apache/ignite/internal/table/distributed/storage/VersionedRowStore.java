@@ -23,11 +23,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.ByteBufferRow;
@@ -58,7 +59,8 @@ public class VersionedRowStore {
 
     private ConcurrentHashMap<ByteBuffer, RowId> primaryIndex = new ConcurrentHashMap<>();
 
-    private ConcurrentHashMap<UUID, Map<ByteBuffer, Boolean>> txsKeys = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, List<ByteBuffer>> txsKeys = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<UUID, List<ByteBuffer>> txsKeysForRemove = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -92,18 +94,18 @@ public class VersionedRowStore {
      */
     public BinaryRow get(@NotNull BinaryRow row, UUID id) {
         assert row != null;
-        System.out.println("get1");
+//        System.out.println("get1");
         RowId rowId = primaryIndex.get(row.keySlice());
 
         if (rowId == null) {
             return null;
         }
 
-        System.out.println("get2");
+//        System.out.println("get2");
 
         BinaryRow result = storage.read(rowId, id);
 
-        System.out.println("get3");
+//        System.out.println("get3");
 
         return result;
 
@@ -149,6 +151,7 @@ public class VersionedRowStore {
      * @param id The timestamp.
      */
     public void upsert(@NotNull BinaryRow row, UUID id) {
+//        System.out.println("VRS.upsert");
         assert row != null;
 
         ByteBuffer key = row.keySlice();
@@ -159,9 +162,10 @@ public class VersionedRowStore {
             rowId = storage.insert(row, id);
 
             primaryIndex.put(key, rowId);
+            txsKeys.computeIfAbsent(id, entry -> new CopyOnWriteArrayList<ByteBuffer>()).add(key);
         }
         else {
-            System.out.println("upsert else");
+//            System.out.println("upsert else");
             storage.addWrite(rowId, row,  id);
         }
 
@@ -213,9 +217,19 @@ public class VersionedRowStore {
         }
 
 //        BinaryRow result = storage.read(rowId, id);
-
+//        primaryIndex.remove(row.keySlice());
         // Write a tombstone.
         storage.addWrite(primaryIndex.get(row.keySlice()), null, id);
+
+
+
+
+//        BinaryRow result = storage.read(rowId, id);
+//        primaryIndex.remove(row.keySlice());
+        // Write a tombstone.
+        txsKeysForRemove.computeIfAbsent(id, entry -> new CopyOnWriteArrayList<ByteBuffer>()).add(row.keySlice());
+
+
 
         return true;
     }
@@ -242,6 +256,7 @@ public class VersionedRowStore {
      * @return {@code true} if was inserted.
      */
     public boolean insert(BinaryRow row, UUID id) {
+//        System.out.println("VRS.insert");
         assert row != null && row.hasValue() : row;
 
         ByteBuffer key = row.keySlice();
@@ -255,6 +270,8 @@ public class VersionedRowStore {
             rowId = storage.insert(row, id);
 
             primaryIndex.put(key, rowId);
+
+            txsKeys.computeIfAbsent(id, entry -> new CopyOnWriteArrayList<ByteBuffer>()).add(key);
 
             return true;
         }
@@ -441,7 +458,58 @@ public class VersionedRowStore {
             return;
         }
 
-        System.out.println("VRS.commitWrite " + key + " " + rowId);
+//        System.out.println("VRS.commitWrite " + Arrays.toString(key.array()) + " " + rowId);
+
+//        txsKeys.remove(id);
+
+
+
+
+
+
+            List<ByteBuffer> keys = txsKeysForRemove.get(id);
+
+            if (keys != null) {
+                boolean removed = keys.remove(key);
+
+                if (removed) {
+                    primaryIndex.remove(key);
+                }
+
+                if (keys.size() == 0) {
+                    txsKeysForRemove.remove(id);
+                }
+            }
+
+
+
+
+
+        keys = txsKeys.get(id);
+
+            if (keys != null) {
+                keys.remove(key);
+//                primaryIndex.remove(key);
+
+                if (keys.size() == 0) {
+                    txsKeys.remove(id);
+                }
+            }
+
+
+
+
+
+
+//        List<ByteBuffer> keys = txsKeys.get(id);
+//
+//        if (keys != null) {
+//            keys.remove(key);
+//
+//            if (keys.size() == 0) {
+//                txsKeys.remove(id);
+//            }
+//        }
 
         storage.commitWrite(rowId, new Timestamp(id));
     }
@@ -455,11 +523,56 @@ public class VersionedRowStore {
             return;
         }
 
-        System.out.println("VRS.abortWrite " + key + " " + rowId);
+        AtomicReference<UUID> id = new AtomicReference<>();
+
+        txsKeys.entrySet().forEach(entry -> {
+            if (entry.getValue().contains(key)) {
+                id.set(entry.getKey());
+            }
+//            primaryIndex.remove(entry.getValue());
+//            txForRemove.add(entry.getKey());
+        });
+
+        if (id.get() != null) {
+            List<ByteBuffer> keys = txsKeys.get(id.get());
+
+            if (keys != null) {
+                boolean removed = keys.remove(key);
+
+                if (removed) {
+                    primaryIndex.remove(key);
+                }
+
+                if (keys.size() == 0) {
+                    txsKeys.remove(id.get());
+                }
+            }
+        }
+
+//        assert txForRemove !=
+//
+//        txsKeys.remove(key)
+//
+//
+//
+//
+//        List<ByteBuffer> keys = txsKeys.get(id);
+//
+//        if (keys != null) {
+//            keys.remove(key);
+//
+//            if (keys.size() == 0) {
+//                txsKeys.remove(id);
+//            }
+//        }
+
+
+
+//        System.out.println("VRS.abortWrite " + key + " " + rowId);
 
         storage.abortWrite(rowId);
 
-        System.out.println("VRS.abortWrite after");
+//        System.out.println("VRS.abortWrite after");
     }
 
     /**
@@ -623,7 +736,7 @@ public class VersionedRowStore {
      * @return Snapshot future.
      */
     public CompletionStage<Void> snapshot(Path path) {
-        System.out.println("VersionedRowStore.snapshot");
+//        System.out.println("VersionedRowStore.snapshot");
 //        return storage.snapshot(path);
         return null;
     }
@@ -634,7 +747,7 @@ public class VersionedRowStore {
      * @param path The path.
      */
     public void restoreSnapshot(Path path) {
-        System.out.println("VersionedRowStore.restoreSnapshot");
+//        System.out.println("VersionedRowStore.restoreSnapshot");
 //        storage.restoreSnapshot(path);
     }
 
