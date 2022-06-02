@@ -54,6 +54,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.rest.RestComponent;
@@ -61,6 +62,9 @@ import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -428,11 +432,14 @@ public class ItRebalanceDistributedTest {
 
             clusterCfgMgr = new ConfigurationManager(
                     List.of(RocksDbStorageEngineConfiguration.KEY,
+                            PageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY),
                     Map.of(),
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(UnknownDataStorageConfigurationSchema.class,
+                            PageMemoryDataStorageConfigurationSchema.class,
+                            UnsafeMemoryAllocatorConfigurationSchema.class,
                             RocksDbDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class)
             );
@@ -444,7 +451,8 @@ public class ItRebalanceDistributedTest {
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
-            DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
+            DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                    new RocksDbDataStorageModule(), new PageMemoryDataStorageModule()));
 
             dataStorageMgr = new DataStorageManager(
                     tablesCfg,
