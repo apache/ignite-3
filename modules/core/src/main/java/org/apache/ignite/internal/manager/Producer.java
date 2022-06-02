@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.manager;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -26,9 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
-
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * A class which can produce its events.

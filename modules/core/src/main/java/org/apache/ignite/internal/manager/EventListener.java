@@ -34,8 +34,8 @@ public interface EventListener<P extends EventParameters> {
      * @param parameters Parameters provide a properties of the event. This attribute cannot be {@code null}.
      * @param exception  Exception which is happened during the event produced or {@code null}.
      * @return Completable future, which is completed when event handling is finished. The {@code True} value of the future
-     * means that the event is handled and a listener will be removed, {@code false} is the listener will stay listen.
-     * This future must not be completed with {@code null} value.
+     *     means that the event is handled and a listener will be removed, {@code false} is the listener will stay listen.
+     *     This future must not be completed with {@code null} value.
      */
     CompletableFuture<Boolean> notify(@NotNull P parameters, @Nullable Throwable exception);
 

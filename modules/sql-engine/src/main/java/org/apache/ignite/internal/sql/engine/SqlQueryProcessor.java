@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.IgniteStringFormatter.format;
 
