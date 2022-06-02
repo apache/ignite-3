@@ -402,13 +402,15 @@ public class RecoveryHandshakeTest {
     }
 
     private void exchangeServerToClient(EmbeddedChannel serverSideChannel, EmbeddedChannel clientSideChannel) {
-        ByteBuf handshakeStartMessage = serverSideChannel.readOutbound();
-        clientSideChannel.writeInbound(handshakeStartMessage);
+        ByteBuf outgoingMessageBuffer = serverSideChannel.readOutbound();
+        // No need to release buffer because inbound buffers are released by InboundDecoder
+        clientSideChannel.writeInbound(outgoingMessageBuffer);
     }
 
     private void exchangeClientToServer(EmbeddedChannel serverSideChannel, EmbeddedChannel clientSideChannel) {
-        ByteBuf handshakeStartMessage = clientSideChannel.readOutbound();
-        serverSideChannel.writeInbound(handshakeStartMessage);
+        ByteBuf outgoingMessageBuffer = clientSideChannel.readOutbound();
+        // No need to release buffer because inbound buffers are released by InboundDecoder
+        serverSideChannel.writeInbound(outgoingMessageBuffer);
     }
 
     private final Consumer<InNetworkObject> noMessageListener = inNetworkObject ->
