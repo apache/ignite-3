@@ -86,8 +86,8 @@ public class RestComponent implements IgniteComponent {
 
         for (int portCandidate = desiredPort; portCandidate <= desiredPort + portRange; portCandidate++) {
             try {
-                context = buildMicronautContext(portCandidate).start();
                 port = portCandidate;
+                context = buildMicronautContext(portCandidate).start();
                 log.info("REST protocol started successfully");
                 return;
             } catch (ApplicationStartupException e) {
