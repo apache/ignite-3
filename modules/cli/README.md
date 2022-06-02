@@ -13,7 +13,7 @@ For Linux/MacOS:
 
     ./target/ignite
 ## Examples
-Download and prepare artifacts for run Ignite node:
+Download and prepare artifacts for running an Ignite node:
 
     ignite init
 Node start:
@@ -22,6 +22,11 @@ Node start:
 Node stop:
 
     ignite stop consistent-id
+
+Cluster initialization:
+
+    ignite cluster init --cluster-name=cluster-name --node-endpoint=localhost:10300 --meta-storage-node=consistent-id --cmg-node=consistent-id
+
 Get current node configuration:
 
     ignite config get --node-endpoint=localhost:10300

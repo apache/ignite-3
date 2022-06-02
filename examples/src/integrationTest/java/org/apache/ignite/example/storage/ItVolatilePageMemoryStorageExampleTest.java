@@ -15,39 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.sql.jdbc;
+package org.apache.ignite.example.storage;
 
 import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 /**
- * These tests check that all SQL JDBC examples pass correctly.
+ * For {@link VolatilePageMemoryStorageExample} testing.
  */
-public class ItSqlExamplesTest extends AbstractExamplesTest {
-    /**
-     * Runs SqlJdbcExample and checks its output.
-     *
-     * @throws Exception If failed.
-     */
+public class ItVolatilePageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
-    public void testSqlJdbcExample() throws Exception {
-        assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
-                "\nAll accounts:\n"
-                        + "    John, Doe, Forest Hill\n"
-                        + "    Jane, Roe, Forest Hill\n"
-                        + "    Mary, Major, Denver\n"
-                        + "    Richard, Miles, St. Petersburg\n",
+    public void testExample() throws Exception {
+        ignite
+                .clusterConfiguration()
+                .getConfiguration(PageMemoryStorageEngineConfiguration.KEY)
+                .regions()
+                .change(regionsChange -> regionsChange.create("in-memory", regionChange -> regionChange.changePersistent(false)))
+                .get(1, TimeUnit.SECONDS);
 
-                "\nAccounts with balance lower than 1,500:\n"
-                        + "    John, Doe, 1000.0\n"
-                        + "    Richard, Miles, 1450.0\n",
-
+        assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
-                        + "    Jane, Roe, Forest Hill\n"
-                        + "    Mary, Major, Denver\n"
-                        + "    Richard, Miles, St. Petersburg\n"
+                        + "    1, John, Doe, 1000.0\n"
+                        + "    2, Jane, Roe, 2000.0\n"
+                        + "    3, Mary, Major, 1500.0\n"
+                        + "    4, Richard, Miles, 1450.0\n"
         );
     }
 }
