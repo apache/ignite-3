@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -233,7 +234,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Test
     public void testPreconfiguredTable() throws Exception {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
-                CompletableFuture.completedFuture(mock(RaftGroupService.class)));
+                completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
 
@@ -524,7 +525,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
 
-            return CompletableFuture.completedFuture(raftGrpSrvcMock);
+            return completedFuture(raftGrpSrvcMock);
         });
 
         when(ts.getByAddress(any(NetworkAddress.class))).thenReturn(new ClusterNode(
@@ -561,14 +562,14 @@ public class TableManagerTest extends IgniteAbstractTest {
                     && ctx.newValue().get(tableDefinition.canonicalName()) == null;
 
             if (!createTbl && !dropTbl) {
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             }
 
             if (phaser != null) {
                 phaser.arriveAndAwaitAdvance();
             }
 
-            return CompletableFuture.completedFuture(null);
+            return completedFuture(null);
         });
 
         CountDownLatch createTblLatch = new CountDownLatch(1);
@@ -581,7 +582,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
             token.set(parameters.causalityToken());
 
-            return true;
+            return completedFuture(true);
         });
 
         CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
@@ -634,7 +635,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
                 tableManager.onSqlSchemaReady(parameters.causalityToken());
 
-                return false;
+                return completedFuture(false);
             });
         }
 
