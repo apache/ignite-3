@@ -36,10 +36,6 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
     protected PageMemory createPageMemory() throws Exception {
         dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
 
-        long[] sizes = LongStream.range(0, CPUS + 1).map(i -> MAX_MEMORY_SIZE / CPUS).toArray();
-
-        sizes[CPUS] = 10 * MiB;
-
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -47,7 +43,8 @@ public class ItBplusTreePageMemoryImplTest extends ItBplusTreeSelfTest {
         return new PageMemoryImpl(
                 dataRegionCfg,
                 ioRegistry,
-                sizes,
+                LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
+                10 * MiB,
                 new TestPageReadWriteManager(),
                 (page, fullPageId, pageMemoryImpl) -> {
                 },

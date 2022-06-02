@@ -80,6 +80,9 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     private TableStorage table;
 
+    @WorkDirectory
+    private Path workDir;
+
     @BeforeAll
     static void beforeAll() {
         ioRegistry = new PageIoRegistry();
@@ -89,7 +92,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     @BeforeEach
     void setUp() throws Exception {
-        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry);
+        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry, workDir);
 
         engine.start();
 

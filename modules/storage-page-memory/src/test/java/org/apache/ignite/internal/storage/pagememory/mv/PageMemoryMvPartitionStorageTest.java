@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -73,9 +75,12 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
     private int nextPageIndex = 100;
 
+    @WorkDirectory
+    private Path workDir;
+
     @BeforeEach
     void setUp() throws Exception {
-        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry);
+        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry, workDir);
 
         engine.start();
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -49,10 +50,12 @@ public class PageMemoryStorageEngine implements StorageEngine {
      *
      * @param engineConfig PageMemory storage engine configuration.
      * @param ioRegistry IO registry.
+     * @param storagePath Storage path.
      */
     public PageMemoryStorageEngine(
             PageMemoryStorageEngineConfiguration engineConfig,
-            PageIoRegistry ioRegistry
+            PageIoRegistry ioRegistry,
+            Path storagePath
     ) {
         this.engineConfig = engineConfig;
         this.ioRegistry = ioRegistry;

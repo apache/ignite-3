@@ -48,6 +48,6 @@ public class PageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryStorageEngine(engineConfig, ioRegistry);
+        return new PageMemoryStorageEngine(engineConfig, ioRegistry, storagePath);
     }
 }
