@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.example.table;
+package org.apache.ignite.example.storage;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Tuple;
 
 /**
- * This example demonstrates the usage of the {@link RecordView} API.
+ * This example demonstrates a usage of the PageMemory storage engine configured with an in-memory data region.
  *
  * <p>To run the example, do the following:
  * <ol>
@@ -42,6 +41,10 @@ import org.apache.ignite.table.Tuple;
  *         Cluster initialization using the CLI tool (if not done yet):<br>
  *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
  *     </li>
+ *     <li>
+ *         Add configuration for in-memory data region of of the PageMemory storage engine using the CLI tool (if not done yet):<br>
+ *         {@code ignite config set --type=cluster "pageMemory.regions.in-memory:{persistent=false}"}
+ *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
  *         Stop a server node using the CLI tool:<br>
@@ -49,7 +52,7 @@ import org.apache.ignite.table.Tuple;
  *     </li>
  * </ol>
  */
-public class RecordViewExample {
+public class VolatilePageMemoryStorageExample {
     /**
      * Main method of the example.
      *
@@ -59,76 +62,88 @@ public class RecordViewExample {
     public static void main(String[] args) throws Exception {
         //--------------------------------------------------------------------------------------
         //
-        // Creating 'accounts' table.
-        //
-        //--------------------------------------------------------------------------------------
-
-        try (
-                Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-                Statement stmt = conn.createStatement()
-        ) {
-            stmt.executeUpdate(
-                    "CREATE TABLE accounts ("
-                            + "accountNumber INT PRIMARY KEY,"
-                            + "firstName     VARCHAR,"
-                            + "lastName      VARCHAR,"
-                            + "balance       DOUBLE)"
-            );
-        }
-
-        //--------------------------------------------------------------------------------------
-        //
-        // Creating a client to connect to the cluster.
+        // Creating a JDBC connection to connect to the cluster.
         //
         //--------------------------------------------------------------------------------------
 
         System.out.println("\nConnecting to server...");
 
-        try (IgniteClient client = IgniteClient.builder()
-                .addresses("127.0.0.1:10800")
-                .build()
-        ) {
+        try (Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/")) {
             //--------------------------------------------------------------------------------------
             //
-            // Creating a record view for the 'accounts' table.
+            // Creating table.
             //
             //--------------------------------------------------------------------------------------
 
-            RecordView<Tuple> accounts = client.tables().table("PUBLIC.accounts").recordView();
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate(
+                        "CREATE TABLE ACCOUNTS ( "
+                                + "ACCOUNT_ID INT PRIMARY KEY,"
+                                + "FIRST_NAME VARCHAR, "
+                                + "LAST_NAME  VARCHAR, "
+                                + "BALANCE    DOUBLE) "
+                                + "ENGINE pagememory "
+                                + "WITH dataRegion='in-memory'"
+                );
+            }
 
             //--------------------------------------------------------------------------------------
             //
-            // Performing the 'insert' operation.
+            // Populating 'ACCOUNTS' table.
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nInserting a record into the 'accounts' table...");
+            System.out.println("\nPopulating 'ACCOUNTS' table...");
 
-            Tuple newAccountTuple = Tuple.create()
-                    .set("accountNumber", 123456)
-                    .set("firstName", "Val")
-                    .set("lastName", "Kulichenko")
-                    .set("balance", 100.00d);
+            try (PreparedStatement stmt = conn.prepareStatement(
+                    "INSERT INTO ACCOUNTS (ACCOUNT_ID, FIRST_NAME, LAST_NAME, BALANCE) values (?, ?, ?, ?)"
+            )) {
+                stmt.setInt(1, 1);
+                stmt.setString(2, "John");
+                stmt.setString(3, "Doe");
+                stmt.setDouble(4, 1000.0d);
+                stmt.executeUpdate();
 
-            accounts.insert(null, newAccountTuple);
+                stmt.setInt(1, 2);
+                stmt.setString(2, "Jane");
+                stmt.setString(3, "Roe");
+                stmt.setDouble(4, 2000.0d);
+                stmt.executeUpdate();
+
+                stmt.setInt(1, 3);
+                stmt.setString(2, "Mary");
+                stmt.setString(3, "Major");
+                stmt.setDouble(4, 1500.0d);
+                stmt.executeUpdate();
+
+                stmt.setInt(1, 4);
+                stmt.setString(2, "Richard");
+                stmt.setString(3, "Miles");
+                stmt.setDouble(4, 1450.0d);
+                stmt.executeUpdate();
+            }
 
             //--------------------------------------------------------------------------------------
             //
-            // Performing the 'get' operation.
+            // Requesting information about all account owners.
             //
             //--------------------------------------------------------------------------------------
 
-            System.out.println("\nRetrieving a record using RecordView API...");
+            System.out.println("\nAll accounts:");
 
-            Tuple accountNumberTuple = Tuple.create().set("accountNumber", 123456);
-
-            Tuple accountTuple = accounts.get(null, accountNumberTuple);
-
-            System.out.println(
-                    "\nRetrieved record:\n"
-                            + "    Account Number: " + accountTuple.intValue("accountNumber") + '\n'
-                            + "    Owner: " + accountTuple.stringValue("firstName") + " " + accountTuple.stringValue("lastName") + '\n'
-                            + "    Balance: $" + accountTuple.doubleValue("balance"));
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery(
+                        "SELECT ACCOUNT_ID, FIRST_NAME, LAST_NAME, BALANCE FROM ACCOUNTS ORDER BY ACCOUNT_ID"
+                )) {
+                    while (rs.next()) {
+                        System.out.println("    "
+                                + rs.getString(1) + ", "
+                                + rs.getString(2) + ", "
+                                + rs.getString(3) + ", "
+                                + rs.getString(4));
+                    }
+                }
+            }
         } finally {
             System.out.println("\nDropping the table...");
 
@@ -136,7 +151,7 @@ public class RecordViewExample {
                     Connection conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
                     Statement stmt = conn.createStatement()
             ) {
-                stmt.executeUpdate("DROP TABLE accounts");
+                stmt.executeUpdate("DROP TABLE ACCOUNTS");
             }
         }
     }
