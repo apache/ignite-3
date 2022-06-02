@@ -109,7 +109,7 @@ public class PartitionListener implements RaftGroupListener {
     /** {@inheritDoc} */
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
-        System.out.println("onRead1");
+//        System.out.println("onRead1");
         iterator.forEachRemaining((CommandClosure<? extends ReadCommand> clo) -> {
             Command command = clo.command();
 
@@ -405,28 +405,28 @@ public class PartitionListener implements RaftGroupListener {
      * @return Result.
      */
     public boolean handleFinishTxCommand(FinishTxCommand cmd) {
-        System.out.println("handleFinishTxCommand1");
+//        System.out.println("handleFinishTxCommand1");
 
         UUID id = cmd.id();
         boolean commit = cmd.finish();
 
         boolean b = txManager.changeState(id, TxState.PENDING, commit ? TxState.COMMITED : TxState.ABORTED);
 
-        System.out.println("handleFinishTxCommand2 " + b + " " + txManager.state(id));
+//        System.out.println("handleFinishTxCommand2 " + b + " " + txManager.state(id));
 
             if (txManager.state(id) == TxState.COMMITED) {
                 cmd.lockedKeys.getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
-                    System.out.println("lockedKeys1: " + Arrays.toString(new ByteBufferRow(row).bytes()));
+//                    System.out.println("lockedKeys1: " + Arrays.toString(new ByteBufferRow(row).bytes()));
                     storage.commitWrite(new ByteBufferRow(row).keySlice(), id);
                 });
             } else if (txManager.state(id) == TxState.ABORTED) {
                 cmd.lockedKeys.getOrDefault(lockId, new ArrayList<>()).forEach(row -> {
-                    System.out.println("lockedKeys2: " + Arrays.toString(new ByteBufferRow(row).bytes()));
+//                    System.out.println("lockedKeys2: " + Arrays.toString(new ByteBufferRow(row).bytes()));
                     storage.abortWrite(new ByteBufferRow(row).keySlice());
                 });
             }
 
-        System.out.println("handleFinishTxCommand3 " + id + " " + b + " " + commit);
+//        System.out.println("handleFinishTxCommand3 " + id + " " + b + " " + commit);
         return b;
     }
 
@@ -558,7 +558,7 @@ public class PartitionListener implements RaftGroupListener {
         if (command instanceof SingleKeyCommand) {
             SingleKeyCommand cmd0 = (SingleKeyCommand) command;
 
-            System.out.println("onBeforeApply " + Arrays.toString(cmd0.getRow().bytes()));
+//            System.out.println("onBeforeApply " + Arrays.toString(cmd0.getRow().bytes()));
 
             return cmd0 instanceof ReadCommand ? txManager.readLock(lockId, cmd0.getRow().bytes(), cmd0.getRow().keySlice(), cmd0.getId()) :
                     txManager.writeLock(lockId, cmd0.getRow().bytes(), cmd0.getRow().keySlice(), cmd0.getId());

@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -219,10 +220,11 @@ public class VersionedRowStore {
 //        BinaryRow result = storage.read(rowId, id);
 //        primaryIndex.remove(row.keySlice());
         // Write a tombstone.
-        storage.addWrite(primaryIndex.get(row.keySlice()), null, id);
 
+        BinaryRow prevRow = storage.addWrite(primaryIndex.get(row.keySlice()), null, id);
 
-
+        if (prevRow == null && txsKeysForRemove.getOrDefault(id, Collections.emptyList()).contains(row.keySlice()))
+            return false;
 
 //        BinaryRow result = storage.read(rowId, id);
 //        primaryIndex.remove(row.keySlice());

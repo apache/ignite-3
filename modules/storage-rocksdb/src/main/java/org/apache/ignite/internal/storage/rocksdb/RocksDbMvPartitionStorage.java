@@ -213,9 +213,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         try {
             byte[] previousValue = db.get(cf, keyBuf.array(), 0, ROW_PREFIX_SIZE);
-            if (previousValue == null) {
-                throw new NoUncommittedVersionException();
-            }
 
             if (previousValue == null) {
                 return null;

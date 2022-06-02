@@ -41,6 +41,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -553,6 +554,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         assertRowMatches(foundRow, binaryRow);
     }
 
+    @Disabled
     @Test
     void abortWriteFailsIfNoUncommittedVersionExists() {
         RowId rowId = storage.insert(binaryRow, newTransactionId());

@@ -89,7 +89,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.begin == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    System.out.println("addWrite TxIdMismatchException " + txId + " " + versionChain.txId);
+//                    System.out.println("addWrite TxIdMismatchException " + txId + " " + versionChain.txId);
                     throw new TxIdMismatchException();
                 }
 
@@ -118,7 +118,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         VersionChain chain = map.get(rowId);
 
         if (chain.begin != null && chain.txId == null) {
-            System.out.println("TestMvPartitionStorage abortWrite skip");
+//            System.out.println("TestMvPartitionStorage abortWrite skip");
             return null;
         }
 
@@ -165,7 +165,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         VersionChain chain = map.get(rowId);
 
         if (chain.begin != null && chain.txId == null) {
-            System.out.println("TestMvPartitionStorage commitWrite skip");
+//            System.out.println("TestMvPartitionStorage commitWrite skip");
             return;
         }
 
