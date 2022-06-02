@@ -32,7 +32,7 @@ import org.apache.ignite.internal.rest.api.ErrorResult;
 @Produces
 @Singleton
 @Requires(classes = {InvalidArgumentClusterInitializationException.class, ExceptionHandler.class})
-public class InvalidNodesInitClusterExceptionHandler implements
+public class InvalidArgumentClusterInitializationExceptionHandler implements
         ExceptionHandler<InvalidArgumentClusterInitializationException, HttpResponse<ErrorResult>> {
 
     @Override

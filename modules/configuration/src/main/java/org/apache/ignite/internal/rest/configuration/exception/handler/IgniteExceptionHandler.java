@@ -38,6 +38,6 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, IgniteException exception) {
         ErrorResult errorResult = new ErrorResult("APPLICATION_EXCEPTION", exception.getMessage());
-        return HttpResponse.badRequest().body(errorResult);
+        return HttpResponse.serverError().body(errorResult);
     }
 }

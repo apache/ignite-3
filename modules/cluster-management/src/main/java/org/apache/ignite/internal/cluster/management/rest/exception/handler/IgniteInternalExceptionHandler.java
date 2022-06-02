@@ -36,7 +36,7 @@ public class IgniteInternalExceptionHandler implements ExceptionHandler<IgniteIn
 
     @Override
     public HttpResponse<ErrorResult> handle(HttpRequest request, IgniteInternalException exception) {
-        ErrorResult errorResult = new ErrorResult("INITIALIZATION_EXCEPTION", exception.getMessage());
-        return HttpResponse.badRequest().body(errorResult);
+        ErrorResult errorResult = new ErrorResult("SERVER_ERROR", exception.getMessage());
+        return HttpResponse.serverError().body(errorResult);
     }
 }

@@ -155,10 +155,10 @@ public class ItClusterManagementControllerTest {
         );
 
         // Then
-        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.BAD_REQUEST))));
+        assertThat(thrown.getResponse().getStatus(), is(equalTo((HttpStatus.INTERNAL_SERVER_ERROR))));
         // And
         var errorResult = getErrorResult(thrown);
-        assertEquals("INITIALIZATION_EXCEPTION", errorResult.type());
+        assertEquals("SERVER_ERROR", errorResult.type());
 
     }
 
