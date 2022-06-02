@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,7 +54,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiConsumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.FullPageId;
@@ -201,33 +199,6 @@ public class CheckpointerTest {
 
         assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
         assertEquals(scheduledReason, currentProgress.reason());
-
-        // Checks the listener.
-
-        BiConsumer<Void, Throwable> finishFutureListener = mock(BiConsumer.class);
-
-        assertSame(scheduledProgress, checkpointer.scheduleCheckpoint(0, "test4", finishFutureListener));
-        assertSame(currentProgress, checkpointer.currentProgress());
-        assertSame(scheduledProgress, checkpointer.scheduledProgress());
-
-        assertThat(scheduledProgress.nextCheckpointNanos() - nanoTime(), lessThan(0L));
-
-        assertEquals("test4", scheduledProgress.reason());
-
-        assertEquals(scheduledNextCheckpointNanos, currentProgress.nextCheckpointNanos());
-        assertEquals(scheduledReason, currentProgress.reason());
-
-        verify(finishFutureListener, times(0)).accept(null, null);
-
-        currentProgress.transitTo(FINISHED);
-
-        verify(finishFutureListener, times(0)).accept(null, null);
-
-        scheduledProgress.transitTo(FINISHED);
-
-        verify(finishFutureListener, times(1)).accept(null, null);
-
-        verify(checkpointer, times(1)).nextCheckpointInterval();
     }
 
     @Test

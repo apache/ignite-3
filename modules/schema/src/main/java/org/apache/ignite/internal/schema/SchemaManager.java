@@ -77,10 +77,6 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         this.registriesVv = new VersionedValue<>(registry, HashMap::new);
 
         this.tablesCfg = tablesCfg;
-
-        registriesVv.whenComplete((token, registries, e) -> {
-            fireEvent(SchemaEvent.COMPLETE, new SchemaEventParameters(token, null, null), e);
-        });
     }
 
     /** {@inheritDoc} */

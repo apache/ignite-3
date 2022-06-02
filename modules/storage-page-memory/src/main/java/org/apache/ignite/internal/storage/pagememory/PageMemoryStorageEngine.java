@@ -17,17 +17,21 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.PageMemory;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -62,28 +66,18 @@ public class PageMemoryStorageEngine implements StorageEngine {
     /** {@inheritDoc} */
     @Override
     public void start() {
-        int pageSize = engineConfig.pageSize().value();
+        addDataRegion(engineConfig.defaultRegion());
 
-        VolatilePageMemoryDataRegion defaultRegion = new VolatilePageMemoryDataRegion(
-                engineConfig.defaultRegion(),
-                ioRegistry, pageSize
-        );
+        // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
+        engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
+            /** {@inheritDoc} */
+            @Override
+            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PageMemoryDataRegionView> ctx) {
+                addDataRegion(ctx.config(PageMemoryDataRegionConfiguration.class));
 
-        defaultRegion.start();
-
-        regions.put(DEFAULT_DATA_REGION_NAME, defaultRegion);
-
-        for (String regionName : engineConfig.regions().value().namedListKeys()) {
-            VolatilePageMemoryDataRegion region = new VolatilePageMemoryDataRegion(
-                    engineConfig.regions().get(regionName),
-                    ioRegistry,
-                    pageSize
-            );
-
-            region.start();
-
-            regions.put(regionName, region);
-        }
+                return completedFuture(null);
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -98,7 +92,7 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public TableStorage createTable(TableConfiguration tableCfg) {
+    public PageMemoryTableStorage createTable(TableConfiguration tableCfg) {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
@@ -108,5 +102,22 @@ public class PageMemoryStorageEngine implements StorageEngine {
         VolatilePageMemoryDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
         return new VolatilePageMemoryTableStorage(tableCfg, dataRegion);
+    }
+
+    /**
+     * Creates, starts and adds a new data region to the engine.
+     *
+     * @param dataRegionConfig Data region configuration.
+     */
+    private void addDataRegion(PageMemoryDataRegionConfiguration dataRegionConfig) {
+        int pageSize = engineConfig.pageSize().value();
+
+        String name = dataRegionConfig.name().value();
+
+        VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(dataRegionConfig, ioRegistry, pageSize);
+
+        dataRegion.start();
+
+        regions.put(name, dataRegion);
     }
 }

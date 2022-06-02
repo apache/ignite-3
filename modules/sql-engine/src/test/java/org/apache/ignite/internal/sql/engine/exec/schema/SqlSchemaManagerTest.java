@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -105,6 +106,9 @@ public class SqlSchemaManagerTest {
         assertThat(ex.getMessage(), containsString("Table not found"));
 
         Mockito.verify(tableManager).table(eq(tblId));
+
+        Mockito.verify(tableManager, times(1)).onSqlSchemaReady(anyLong());
+
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
@@ -125,6 +129,9 @@ public class SqlSchemaManagerTest {
         assertEquals(tableId, actTable.id());
 
         Mockito.verify(tableManager).table(eq(tableId));
+
+        Mockito.verify(tableManager, times(1)).onSqlSchemaReady(anyLong());
+
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
@@ -147,6 +154,8 @@ public class SqlSchemaManagerTest {
 
         assertEquals(tableId, actTable.id());
 
+        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
+
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
@@ -168,6 +177,8 @@ public class SqlSchemaManagerTest {
         IgniteTable actTable = schemaManager.tableById(tableId, tableVer - 1);
 
         assertEquals(tableId, actTable.id());
+
+        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
@@ -197,6 +208,8 @@ public class SqlSchemaManagerTest {
         assertThat(ex.getMessage(), containsString("Table version not found"));
 
         Mockito.verify(tableManager, times(2)).table(eq(tableId));
+        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
+
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 

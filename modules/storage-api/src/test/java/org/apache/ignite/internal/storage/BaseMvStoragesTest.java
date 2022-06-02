@@ -86,7 +86,6 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    @Nullable
     protected static TestKey key(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));

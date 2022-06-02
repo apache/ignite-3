@@ -87,7 +87,8 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
-        assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));
+        // Checks that the current default is "pagememory" even if we have one engine and it's not "pagememory".
+        assertThat("pagememory", equalTo(dataStorageManager.defaultDataStorage()));
     }
 
     @Test
@@ -102,7 +103,7 @@ public class DataStorageManagerTest {
                 dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir)
         );
 
-        assertThat(UNKNOWN_DATA_STORAGE, equalTo(dataStorageManager.defaultDataStorage()));
+        assertThat("pagememory", equalTo(dataStorageManager.defaultDataStorage()));
 
         tablesConfig.defaultDataStorage().update(FIRST).get(1, TimeUnit.SECONDS);
         assertThat(FIRST, equalTo(dataStorageManager.defaultDataStorage()));

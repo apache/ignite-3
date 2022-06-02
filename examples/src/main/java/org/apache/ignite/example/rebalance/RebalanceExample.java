@@ -40,17 +40,32 @@ import org.apache.ignite.table.Tuple;
  * <ol>
  *     <li>Import the examples project into you IDE.</li>
  *     <li>
+ *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
+ *         {@code ignite init}
+ *     </li>
+ *     <li>
  *         Start <b>two</b> nodes using the CLI tool:<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node}<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-second-node}
  *     </li>
+ *     <li>
+ *         Cluster initialization using the CLI tool (if not done yet):<br>
+ *         {@code ignite cluster init --cluster-name=ignite-cluster --node-endpoint=localhost:10300 --meta-storage-node=my-first-node}
+ *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
- *         When requested, start another two nodes using the CLI tool:
+ *         When requested, start another <b>two</b> nodes using the CLI tool:
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-additional-node}<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-second-additional-node}
  *     </li>
  *     <li>Press {@code Enter} to resume the example.</li>
+ *     <li>
+ *         Stop <b>four</b> nodes using the CLI tool:<br>
+ *         {@code ignite node stop my-first-node}<br>
+ *         {@code ignite node stop my-second-node}<br>
+ *         {@code ignite node stop my-first-additional-node}<br>
+ *         {@code ignite node stop my-second-additional-node}
+ *     </li>
  * </ol>
  */
 public class RebalanceExample {

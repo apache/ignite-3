@@ -116,7 +116,11 @@ public class MarshallableTest {
 
         while (!channel.outboundMessages().isEmpty()) {
             ByteBuf channelBuf = channel.readOutbound();
+
             nioBuffer.put(channelBuf.nioBuffer());
+
+            // This buffer is outbound, so we need to manually release ше after we are done
+            channelBuf.release();
         }
 
         assertFalse(channel.finish());

@@ -17,8 +17,9 @@
 
 package org.apache.ignite.example.table;
 
+import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
+
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.example.ExampleTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,7 +33,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testRecordViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
+        assertConsoleOutputContains(RecordViewExample::main, EMPTY_ARGS,
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -46,7 +47,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testRecordViewPojoExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(RecordViewPojoExample::main, EMPTY_ARGS,
+        assertConsoleOutputContains(RecordViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved record:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -60,7 +61,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testKeyValueViewExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
+        assertConsoleOutputContains(KeyValueViewExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
@@ -74,7 +75,7 @@ public class ItTableExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testKeyValueViewPojoExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(KeyValueViewPojoExample::main, EMPTY_ARGS,
+        assertConsoleOutputContains(KeyValueViewPojoExample::main, EMPTY_ARGS,
                 "\nRetrieved value:\n"
                         + "    Account Number: 123456\n"
                         + "    Owner: Val Kulichenko\n"
