@@ -287,7 +287,7 @@ public class Loza implements IgniteComponent {
      * @param nodes                   Full set of raft group nodes.
      * @param deltaNodes              New raft group nodes.
      * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group listener supplier.
+     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<RaftGroupService> updateRaftGroupInternal(String grpId, Collection<ClusterNode> nodes,
