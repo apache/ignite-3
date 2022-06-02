@@ -1,0 +1,6 @@
+micronaut:
+  application:
+    name: ignite-cli
+logger:
+  levels:
+    io.micronaut: ERROR

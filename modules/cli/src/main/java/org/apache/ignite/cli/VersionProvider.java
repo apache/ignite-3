@@ -33,6 +33,13 @@ public class VersionProvider implements CommandLine.IVersionProvider {
     private final CliVersionInfo cliVerInfo;
 
     /**
+     * Default constructor needed for bash-autocompletion.
+     */
+    public VersionProvider() {
+        cliVerInfo = null;
+    }
+
+    /**
      * Creates version provider.
      *
      * @param cliVerInfo Actual Ignite CLI version container.
