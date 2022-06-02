@@ -22,8 +22,6 @@ import static java.lang.System.nanoTime;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
-import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
@@ -40,7 +38,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -96,6 +93,13 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
             + "%s"
             + "pages=%d, "
             + "reason='%s']";
+
+    /**
+     * Any thread with a such prefix is managed by the checkpoint.
+     *
+     * <p>So some conditions can rely on it(ex. we don't need a checkpoint lock there because checkpoint is already held write lock).
+     */
+    static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     /** Pause detector. */
     @Nullable
@@ -218,39 +222,14 @@ public class Checkpointer extends IgniteWorker implements IgniteComponent {
      * @return Nearest scheduled checkpoint which is not started yet (dirty pages weren't collected yet).
      */
     public CheckpointProgress scheduleCheckpoint(long delayFromNow, String reason) {
-        return scheduleCheckpoint(delayFromNow, reason, null);
-    }
-
-    /**
-     * Changes the information for a scheduled checkpoint if it was scheduled further than {@code delayFromNow}, or do nothing otherwise.
-     *
-     * @param delayFromNow Delay from now in milliseconds.
-     * @param reason Wakeup reason.
-     * @param finishFutureListener Checkpoint finish listener.
-     * @return Nearest scheduled checkpoint which is not started yet (dirty pages weren't collected yet).
-     */
-    public CheckpointProgress scheduleCheckpoint(
-            long delayFromNow,
-            String reason,
-            @Nullable BiConsumer<Void, Throwable> finishFutureListener
-    ) {
         CheckpointProgressImpl current = currentCheckpointProgress;
 
         // If checkpoint haven't taken write lock yet it shouldn't trigger a new checkpoint but should return current one.
-        if (finishFutureListener == null && current != null && !current.greaterOrEqualTo(LOCK_TAKEN)) {
+        if (current != null && !current.greaterOrEqualTo(LOCK_TAKEN)) {
             return current;
         }
 
-        if (finishFutureListener != null) {
-            // To be sure finishFutureListener will always be executed in checkpoint thread.
-            synchronized (this) {
-                current = scheduledCheckpointProgress;
-
-                current.futureFor(FINISHED).whenComplete(finishFutureListener);
-            }
-        } else {
-            current = scheduledCheckpointProgress;
-        }
+        current = scheduledCheckpointProgress;
 
         long nextNanos = nanoTime() + MILLISECONDS.toNanos(delayFromNow);
 

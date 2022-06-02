@@ -46,7 +46,7 @@ public class ReentrantReadWriteLockWithTracking implements ReadWriteLock {
      * lock more than {@code readLockThreshold}.
      *
      * @param log Ignite logger.
-     * @param readLockThreshold ReadLock threshold timeout.
+     * @param readLockThreshold ReadLock threshold timeout in milliseconds.
      */
     public ReentrantReadWriteLockWithTracking(IgniteLogger log, long readLockThreshold) {
         readLock = new ReadLockWithTracking(delegate, log, readLockThreshold);

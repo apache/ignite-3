@@ -26,6 +26,25 @@ import org.apache.ignite.sql.SqlRow;
 /**
  * Asynchronous result set provides methods for query results processing in asynchronous way.
  *
+ * <p>Usage example:
+ * <pre><code>
+ *      private CompletionStage&lt;Void&gt; fetchAllRowsInto(
+ *          AsyncResultSet resultSet,
+ *          List&lt;SqlRow&gt; target
+ *      ) {
+ *          for (var row : resultSet.currentPage()) {
+ *              target.add(row);
+ *          }
+ *
+ *          if (!resultSet.hasMorePages()) {
+ *              return CompletableFuture.completedFuture(null);
+ *          }
+ *
+ *           return resultSet.fetchNextPage()
+ *              .thenCompose(res -&gt; fetchAllRowsInto(res, target));
+ *      }
+ * </code></pre>
+ *
  * @see ResultSet
  */
 public interface AsyncResultSet {
@@ -89,6 +108,10 @@ public interface AsyncResultSet {
 
     /**
      * Fetch the next page of results asynchronously.
+     * The future that is completed with the same {@code AsyncResultSet} object.
+     * The current page is changed after the future complete.
+     * The methods {@link #currentPage()}, {@link #currentPageSize()}, {@link #hasMorePages()}
+     * use current page and return consistent results between complete last page future and call {@code fetchNextPage}.
      *
      * @return Operation future.
      * @throws NoRowSetExpectedException if no row set is expected as a query result.
