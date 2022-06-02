@@ -166,7 +166,10 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         assertEquals(0, exitCode);
 
-        assertTrue(out.toString(UTF_8).contains("\"inbound\""));
+        assertThat(
+                out.toString(UTF_8),
+                containsString("\"inbound\"")
+        );
 
         assertFalse(out.toString(UTF_8).contains("\"node\""));
     }
