@@ -57,7 +57,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
             responseCode = "200",
             content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
             description = "Get cluster configuration")
-    @Produces(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
     @Get
     @Override
     public String getConfiguration() {
@@ -75,7 +75,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
             content = @Content(mediaType = MediaType.TEXT_PLAIN,
                     schema = @Schema(type = "string")),
             description = "Configuration represented by path")
-    @Produces(MediaType.TEXT_PLAIN)
+    @Produces(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
     @Get("/{path}")
     @Override
     public String getConfigurationByPath(@PathVariable String path) {
@@ -89,7 +89,7 @@ public class ClusterConfigurationController extends AbstractConfigurationControl
      */
     @Operation(operationId = "updateClusterConfiguration")
     @ApiResponse(responseCode = "200", description = "Configuration updated")
-    @Consumes(MediaType.TEXT_PLAIN)
+    @Consumes(MediaType.TEXT_PLAIN) // todo: IGNITE-17082
     @Patch
     @Override
     public CompletableFuture<Void> updateConfiguration(@Body String updatedConfiguration) throws Throwable {
