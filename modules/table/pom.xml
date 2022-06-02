@@ -90,16 +90,6 @@
 
         <dependency>
             <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-storage-rocksdb</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-storage-page-memory</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-transactions</artifactId>
         </dependency>
 
@@ -197,6 +187,12 @@
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-schema</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.ignite</groupId>
+            <artifactId>ignite-storage-page-memory</artifactId>
             <scope>test</scope>
         </dependency>
 
