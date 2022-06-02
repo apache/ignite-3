@@ -170,7 +170,7 @@ public class PageMemoryStorageEngine implements StorageEngine {
 
     /** {@inheritDoc} */
     @Override
-    public PageMemoryTableStorage createTable(TableConfiguration tableCfg) {
+    public AbstractPageMemoryTableStorage createTable(TableConfiguration tableCfg) {
         TableView tableView = tableCfg.value();
 
         assert tableView.dataStorage().name().equals(ENGINE_NAME) : tableView.dataStorage().name();
@@ -180,7 +180,7 @@ public class PageMemoryStorageEngine implements StorageEngine {
         PageMemoryDataRegion dataRegion = regions.get(dataStorageView.dataRegion());
 
         if (dataRegion.persistent()) {
-            throw new UnsupportedOperationException("Persistent data region not supported yet");
+            return new PersistentPageMemoryTableStorage(tableCfg, (PersistentPageMemoryDataRegion) dataRegion);
         }
 
         return new VolatilePageMemoryTableStorage(tableCfg, (VolatilePageMemoryDataRegion) dataRegion);

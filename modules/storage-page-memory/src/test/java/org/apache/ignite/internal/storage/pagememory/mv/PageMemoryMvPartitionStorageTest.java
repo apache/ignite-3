@@ -31,8 +31,8 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
@@ -71,7 +71,7 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
     private PageMemoryStorageEngine engine;
 
-    private PageMemoryTableStorage table;
+    private AbstractPageMemoryTableStorage table;
 
     private int nextPageIndex = 100;
 

@@ -17,26 +17,51 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.storage.StorageUtils.groupId;
+
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
- * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
+ * Implementation of {@link AbstractPageMemoryTableStorage} for persistent case.
  */
-class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     /**
      * Constructor.
      *
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public VolatilePageMemoryTableStorage(TableConfiguration tableCfg, VolatilePageMemoryDataRegion dataRegion) {
+    public PersistentPageMemoryTableStorage(
+            TableConfiguration tableCfg,
+            PersistentPageMemoryDataRegion dataRegion
+    ) {
         super(tableCfg, dataRegion);
     }
 
     /** {@inheritDoc} */
     @Override
+    public void start() throws StorageException {
+        super.start();
+
+        TableView tableView = tableCfg.value();
+
+        try {
+            ((PersistentPageMemoryDataRegion) dataRegion)
+                    .filePageStoreManager()
+                    .initialize(tableView.name(), groupId(tableView), tableView.partitions());
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error initializing file page stores for table: " + tableView.name(), e);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     protected PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        return new PageMemoryPartitionStorage(partId, tableCfg, dataRegion, ((VolatilePageMemoryDataRegion) dataRegion).tableFreeList());
+        // TODO: IGNITE-16641 continue
+
+        return null;
     }
 }

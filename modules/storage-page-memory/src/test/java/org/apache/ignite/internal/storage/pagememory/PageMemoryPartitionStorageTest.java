@@ -106,7 +106,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         table = engine.createTable(tableCfg);
 
-        assertThat(table, is(instanceOf(PageMemoryTableStorage.class)));
+        assertThat(table, is(instanceOf(AbstractPageMemoryTableStorage.class)));
 
         table.start();
 

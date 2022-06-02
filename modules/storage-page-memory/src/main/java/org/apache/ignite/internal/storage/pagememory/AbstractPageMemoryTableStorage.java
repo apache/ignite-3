@@ -38,9 +38,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
-// TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
-public abstract class PageMemoryTableStorage implements TableStorage {
+public abstract class AbstractPageMemoryTableStorage implements TableStorage {
     protected final AbstractPageMemoryDataRegion dataRegion;
 
     protected final TableConfiguration tableCfg;
@@ -58,7 +57,7 @@ public abstract class PageMemoryTableStorage implements TableStorage {
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public PageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
         this.dataRegion = dataRegion;
         this.tableCfg = tableCfg;
     }

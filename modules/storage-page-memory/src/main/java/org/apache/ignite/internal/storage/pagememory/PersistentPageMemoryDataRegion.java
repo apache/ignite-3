@@ -86,6 +86,13 @@ public class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion
     }
 
     /**
+     * Returns file page store manager.
+     */
+    public FilePageStoreManager filePageStoreManager() {
+        return filePageStoreManager;
+    }
+
+    /**
      * Calculates the size of segments in bytes.
      *
      * @param dataRegionConfigView Data region configuration.
