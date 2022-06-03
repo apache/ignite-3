@@ -323,9 +323,10 @@ public class SessionImpl implements Session {
         try {
             return stage.toCompletableFuture().get();
         } catch (Throwable e) {
-            if (e instanceof ExecutionException) {
+            catch (ExecutionException e) {
                 throw new IgniteException(e.getCause());
-            } else {
+            }
+            catch (Throwable e) {
                 throw new IgniteException(e);
             }
         }
