@@ -78,7 +78,13 @@ public interface ColumnMetadata {
     /**
      * Represent column origin.
      *
-     * <p>Example: "SELECT SUM(price), category as cat, subcategory AS subcategory FROM Goods WHERE [condition] GROUP_BY cat, subcategory".
+     * <p>Example:
+     * <pre>
+     *     SELECT SUM(price), category as cat, subcategory AS subcategory 
+     *       FROM Goods
+     *      WHERE [condition]
+     *      GROUP BY cat, subcategory
+     * </pre>
      *
      * <p>Column origins:
      * <ul>
