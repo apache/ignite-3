@@ -105,10 +105,10 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
             PageMemoryDataRegion dataRegion,
             VersionChainFreeList versionChainFreeList1
     ) throws IgniteInternalCheckedException {
-        // TODO: IGNITE-16641 It is necessary to do getting the tree root for the persistent case.
+        // TODO: IGNITE-17085 It is necessary to do getting the tree root for the persistent case.
         long metaPageId = dataRegion.pageMemory().allocatePage(groupId, partitionId, FLAG_AUX);
 
-        // TODO: IGNITE-16641 It is necessary to take into account the persistent case.
+        // TODO: IGNITE-17085 It is necessary to take into account the persistent case.
         boolean initNew = true;
 
         return new VersionChainTree(

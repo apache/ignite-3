@@ -22,7 +22,7 @@ import org.apache.ignite.internal.pagememory.FullPageId;
 /**
  * Class for storing {@link TableTree} partition metadata.
  */
-class TableTreePartitionMetas {
+class PartitionMeta {
     /** {@link TableTree} root. */
     final FullPageId treeRoot;
 
@@ -39,7 +39,7 @@ class TableTreePartitionMetas {
      * @param treeRoot {@link TableTree} root.
      * @param allocated Have been allocated (created) or read.
      */
-    public TableTreePartitionMetas(
+    public PartitionMeta(
             FullPageId treeRoot,
             FullPageId reuseListRoot,
             boolean allocated

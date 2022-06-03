@@ -28,7 +28,7 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 /**
  * Io for partition metadata pages.
  */
-public class TablePartitionMetaIo extends PageIo {
+public class PartitionMetaIo extends PageIo {
     private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
 
     private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + 8;
@@ -37,14 +37,14 @@ public class TablePartitionMetaIo extends PageIo {
     public static final short T_TABLE_PARTITION_META_IO = 7;
 
     /** I/O versions. */
-    public static final IoVersions<TablePartitionMetaIo> VERSIONS = new IoVersions<>(new TablePartitionMetaIo(1));
+    public static final IoVersions<PartitionMetaIo> VERSIONS = new IoVersions<>(new PartitionMetaIo(1));
 
     /**
      * Constructor.
      *
      * @param ver Page format version.
      */
-    protected TablePartitionMetaIo(int ver) {
+    protected PartitionMetaIo(int ver) {
         super(T_TABLE_PARTITION_META_IO, ver, FLAG_AUX);
     }
 
