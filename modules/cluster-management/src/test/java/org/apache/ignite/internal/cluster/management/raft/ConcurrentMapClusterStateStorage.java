@@ -83,6 +83,10 @@ public class ConcurrentMapClusterStateStorage implements ClusterStateStorage {
                 .filter(e -> {
                     byte[] key = e.getKey().bytes();
 
+                    if (key.length < prefix.length) {
+                        return false;
+                    }
+
                     return Arrays.equals(key, 0, prefix.length, prefix, 0, prefix.length);
                 })
                 .map(e -> entryTransformer.apply(e.getKey().bytes(), e.getValue()))
