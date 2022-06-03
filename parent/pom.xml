@@ -1317,6 +1317,12 @@
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.maven.plugin.version}</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.openapitools</groupId>
+                    <artifactId>openapi-generator-maven-plugin</artifactId>
+                    <version>${maven.openapi.plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
