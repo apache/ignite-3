@@ -23,7 +23,6 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTi
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
-import org.apache.ignite.internal.storage.OperationType;
 import org.apache.ignite.internal.storage.PartitionStorage;
 import org.apache.ignite.internal.storage.SearchRow;
 import org.apache.ignite.internal.storage.StorageException;
@@ -130,16 +129,12 @@ public class PersistentPageMemoryPartitionStorage extends VolatilePageMemoryPart
     /** {@inheritDoc} */
     @Override
     public <T> @Nullable T invoke(SearchRow key, InvokeClosure<T> clo) throws StorageException {
-        if (clo.operationType() == OperationType.NOOP) {
-            return super.invoke(key, clo);
-        } else {
-            checkpointTimeoutLock.checkpointReadLock();
+        checkpointTimeoutLock.checkpointReadLock();
 
-            try {
-                return super.invoke(key, clo);
-            } finally {
-                checkpointTimeoutLock.checkpointReadUnlock();
-            }
+        try {
+            return super.invoke(key, clo);
+        } finally {
+            checkpointTimeoutLock.checkpointReadUnlock();
         }
     }
 

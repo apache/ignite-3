@@ -17,25 +17,22 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static java.util.stream.Collectors.joining;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
-import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
@@ -55,11 +52,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Storage test implementation for {@link VolatilePageMemoryPartitionStorage}.
+ * Storage test implementation for {@link PersistentPageMemoryPartitionStorage}.
  */
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
+public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
     private static PageIoRegistry ioRegistry;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
@@ -74,6 +71,8 @@ public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionSto
             }
     )
     private TableConfiguration tableCfg;
+
+    private LongJvmPauseDetector longJvmPauseDetector;
 
     private StorageEngine engine;
 
@@ -91,9 +90,15 @@ public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionSto
 
     @BeforeEach
     void setUp() throws Exception {
-        engineConfig.defaultRegion().persistent().update(false).get(1, TimeUnit.SECONDS);
+        String nodeName = "test-node";
 
-        engine = new PageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
+        longJvmPauseDetector = new LongJvmPauseDetector(nodeName);
+
+        longJvmPauseDetector.start();
+
+        engineConfig.defaultRegion().persistent().update(true).get(1, TimeUnit.SECONDS);
+
+        engine = new PageMemoryStorageEngine(nodeName, engineConfig, ioRegistry, workDir, longJvmPauseDetector);
 
         engine.start();
 
@@ -106,13 +111,13 @@ public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionSto
 
         table = engine.createTable(tableCfg);
 
-        assertThat(table, is(instanceOf(VolatilePageMemoryTableStorage.class)));
+        assertThat(table, is(instanceOf(PersistentPageMemoryTableStorage.class)));
 
         table.start();
 
         storage = table.getOrCreatePartition(0);
 
-        assertThat(storage, is(instanceOf(VolatilePageMemoryPartitionStorage.class)));
+        assertThat(storage, is(instanceOf(PersistentPageMemoryPartitionStorage.class)));
     }
 
     @AfterEach
@@ -120,7 +125,8 @@ public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionSto
         IgniteUtils.closeAll(
                 storage,
                 table == null ? null : table::stop,
-                engine == null ? null : engine::stop
+                engine == null ? null : engine::stop,
+                longJvmPauseDetector == null ? null : longJvmPauseDetector::stop
         );
     }
 
@@ -135,27 +141,5 @@ public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionSto
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16644")
     public void testSnapshot(@WorkDirectory Path workDir) throws Exception {
         super.testSnapshot(workDir);
-    }
-
-    /**
-     * Checks that fragments are written and read correctly.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    void testFragments() {
-        int pageSize = engineConfig.pageSize().value();
-
-        DataRow dataRow = dataRow(createRandomString(pageSize), createRandomString(pageSize));
-
-        storage.write(dataRow);
-
-        DataRow read = storage.read(dataRow);
-
-        assertArrayEquals(dataRow.valueBytes(), read.valueBytes());
-    }
-
-    private String createRandomString(int len) {
-        return ThreadLocalRandom.current().ints(len).mapToObj(i -> String.valueOf(Math.abs(i % 10))).collect(joining(""));
     }
 }
