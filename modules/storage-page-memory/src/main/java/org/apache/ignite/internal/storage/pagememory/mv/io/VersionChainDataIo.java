@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VersionChainDataIo extends AbstractDataPageIo<VersionChain> {
     /** Page IO type. */
-    public static final short T_VERSION_CHAIN_IO = 7;
+    public static final short T_VERSION_CHAIN_IO = 8;
 
     /** I/O versions. */
     public static final IoVersions<VersionChainDataIo> VERSIONS = new IoVersions<>(new VersionChainDataIo(1));
