@@ -69,8 +69,11 @@ public enum SqlColumnType {
     /** Binary data. */
     BYTE_ARRAY,
 
+    /** Date interval. */
+    PERIOD,
+
     /** Time interval. */
-    INTERVAL,
+    DURATION,
 
     /** Number. */
     NUMBER

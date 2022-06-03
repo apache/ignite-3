@@ -399,6 +399,7 @@ public class TypeUtils {
             case INTERVAL_YEAR:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_MONTH:
+                return SqlColumnType.PERIOD;
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:
             case INTERVAL_DAY_SECOND:
@@ -409,7 +410,7 @@ public class TypeUtils {
             case INTERVAL_MINUTE_SECOND:
             case INTERVAL_SECOND:
             case INTERVAL_DAY:
-                return SqlColumnType.INTERVAL;
+                return SqlColumnType.DURATION;
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;
