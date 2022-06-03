@@ -27,7 +27,6 @@ import org.apache.ignite.cli.call.CallIntegrationTestBase;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.exception.handler.CommandExecutionExceptionHandler;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
