@@ -187,6 +187,13 @@ public class PageMemoryStorageEngine implements StorageEngine {
     }
 
     /**
+     * Returns checkpoint manager, {@code null} if engine not started.
+     */
+    public @Nullable CheckpointManager checkpointManager() {
+        return checkpointManager;
+    }
+
+    /**
      * Creates, starts and adds a new data region to the engine.
      *
      * @param dataRegionConfig Data region configuration.

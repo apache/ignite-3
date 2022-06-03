@@ -17,13 +17,17 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -33,7 +37,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.AbstractPartitionStorageTest;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
@@ -74,7 +78,7 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
 
     private LongJvmPauseDetector longJvmPauseDetector;
 
-    private StorageEngine engine;
+    private PageMemoryStorageEngine engine;
 
     private TableStorage table;
 
@@ -141,5 +145,26 @@ public class PersistentPageMemoryPartitionStorageTest extends AbstractPartitionS
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-16644")
     public void testSnapshot(@WorkDirectory Path workDir) throws Exception {
         super.testSnapshot(workDir);
+    }
+
+    @Test
+    void testReadAfterRestart() throws Exception {
+        List<DataRow> rows = IntStream.range(0, 100)
+                .mapToObj(i -> dataRow(KEY + i, VALUE + i))
+                .collect(Collectors.toList());
+
+        storage.writeAll(rows);
+
+        engine
+                .checkpointManager()
+                .forceCheckpoint("before_stop_engine")
+                .futureFor(FINISHED)
+                .get(1, TimeUnit.SECONDS);
+
+        tearDown();
+
+        setUp();
+
+        rows.forEach(this::checkHasSameEntry);
     }
 }
