@@ -19,6 +19,7 @@ import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
+import org.jline.widget.TailTipWidgets;
 import picocli.CommandLine;
 import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.IDefaultValueProvider;
@@ -34,7 +35,6 @@ public class ReplExecutor {
     private final AtomicBoolean interrupted = new AtomicBoolean();
     private final ReplExceptionHandlers exceptionHandlers = new ReplExceptionHandlers(interrupted::set);
     private final PicocliCommandsFactory factory;
-    private final Config config;
     private final Terminal terminal;
 
     /**
@@ -42,12 +42,10 @@ public class ReplExecutor {
      *
      * @param commandsFactory picocli commands factory.
      * @param terminal terminal instance.
-     * @param config config instance.
      */
-    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal, Config config) {
+    public ReplExecutor(PicocliCommandsFactory commandsFactory, Terminal terminal) {
         this.factory = commandsFactory;
         this.terminal = terminal;
-        this.config = config;
     }
 
     /**
@@ -62,6 +60,7 @@ public class ReplExecutor {
             PicocliCommands picocliCommands = createPicocliCommands(repl);
             SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
             registry.setCommandRegistries(picocliCommands);
+            registry.register("help", picocliCommands);
 
             LineReader reader = createReader(repl.getCompleter() != null
                     ? repl.getCompleter()
@@ -70,7 +69,14 @@ public class ReplExecutor {
                 reader.variable(LineReader.HISTORY_FILE, new File(Config.getStateFolder(), repl.getHistoryFileName()));
             }
 
-            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry, picocliCommands, reader);
+            RegistryCommandExecutor executor = new RegistryCommandExecutor(registry);
+            if (repl.isTailTipWidgetsEnabled()) {
+                TailTipWidgets widgets = new TailTipWidgets(reader, registry::commandDescription, 5,
+                        TailTipWidgets.TipType.COMPLETER);
+                widgets.enable();
+                // Workaround for jline issue where TailTipWidgets will produce NPE when passed a bracket
+                registry.setScriptDescription(cmdLine -> null);
+            }
 
             while (!interrupted.get()) {
                 try {

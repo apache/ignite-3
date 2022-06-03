@@ -23,6 +23,7 @@ public class Repl {
     private final CallExecutionPipelineProvider provider;
     private final Completer completer;
     private final String historyFileName;
+    private final boolean tailTipWidgetsEnabled;
 
     /**
      * Constructor.
@@ -35,6 +36,7 @@ public class Repl {
      * @param provider default call execution pipeline provider.
      * @param completer completer instance.
      * @param historyFileName file name for storing commands history.
+     * @param tailTipWidgetsEnabled whether tailtip widgets are enabled.
      */
     public Repl(PromptProvider promptProvider,
             Class<?> commandClass,
@@ -43,7 +45,8 @@ public class Repl {
             TerminalCustomizer terminalCustomizer,
             CallExecutionPipelineProvider provider,
             Completer completer,
-            String historyFileName
+            String historyFileName,
+            boolean tailTipWidgetsEnabled
     ) {
         this.promptProvider = promptProvider;
         this.commandClass = commandClass;
@@ -53,6 +56,7 @@ public class Repl {
         this.provider = provider;
         this.completer = completer;
         this.historyFileName = historyFileName;
+        this.tailTipWidgetsEnabled = tailTipWidgetsEnabled;
     }
 
     /**
@@ -112,5 +116,9 @@ public class Repl {
 
     public String getHistoryFileName() {
         return historyFileName;
+    }
+
+    public boolean isTailTipWidgetsEnabled() {
+        return tailTipWidgetsEnabled;
     }
 }

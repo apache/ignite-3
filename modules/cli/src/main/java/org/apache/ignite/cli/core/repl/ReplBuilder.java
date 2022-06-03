@@ -21,6 +21,7 @@ public class ReplBuilder {
     private Completer completer;
     private CallExecutionPipelineProvider provider;
     private String historyFileName;
+    private boolean tailTipWidgetsEnabled;
 
     /**
      * Build methods.
@@ -36,7 +37,8 @@ public class ReplBuilder {
                 terminalCustomizer,
                 provider,
                 completer,
-                historyFileName
+                historyFileName,
+                tailTipWidgetsEnabled
         );
     }
 
@@ -101,6 +103,11 @@ public class ReplBuilder {
 
     public ReplBuilder withHistoryFileName(String historyFileName) {
         this.historyFileName = historyFileName;
+        return this;
+    }
+
+    public ReplBuilder withTailTipWidgets() {
+        this.tailTipWidgetsEnabled = true;
         return this;
     }
 }

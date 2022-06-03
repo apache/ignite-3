@@ -104,6 +104,7 @@ public class Main {
                                 .exceptionHandlers(exceptionHandlers)
                                 .build())
                 .withHistoryFileName("history")
+                .withTailTipWidgets()
                 .build());
     }
 

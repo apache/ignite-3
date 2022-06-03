@@ -19,5 +19,6 @@ public class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new IgniteCliExceptionHandler());
         addExceptionHandler(new ConnectExceptionHandler());
         addExceptionHandler(new ApiExceptionHandler());
+        addExceptionHandler(new UnknownCommandExceptionHandler());
     }
 }
