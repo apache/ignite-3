@@ -59,7 +59,7 @@ We recommend that you generate client code in your project language by using an 
 [source,java]
 ----
 ApiClient client = Configuration.getDefaultApiClient();
-// Set OpenAPI BasePath
+// Set base URL
 client.setBasePath("http://localhost:10300");
 
 // Get cluster configuration.
