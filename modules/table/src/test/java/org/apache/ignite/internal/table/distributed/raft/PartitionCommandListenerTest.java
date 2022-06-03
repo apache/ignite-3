@@ -27,6 +27,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
 import org.apache.ignite.internal.table.distributed.command.DeleteAllCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteCommand;
 import org.apache.ignite.internal.table.distributed.command.DeleteExactAllCommand;
@@ -64,6 +64,7 @@ import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Command;
@@ -90,6 +91,8 @@ public class PartitionCommandListenerTest {
     /** Table command listener. */
     private PartitionListener commandListener;
 
+    private VersionedRowStore versionedRowStore;
+
     /**
      * Initializes a table listener before tests.
      */
@@ -99,12 +102,14 @@ public class PartitionCommandListenerTest {
         NetworkAddress addr = new NetworkAddress("127.0.0.1", 5003);
         Mockito.when(clusterService.topologyService().localMember().address()).thenReturn(addr);
 
+        versionedRowStore = new VersionedRowStore(
+                new TestMvPartitionStorage(List.of(), 0),
+                new TxManagerImpl(clusterService, new HeapLockManager())
+        );
+
         commandListener = new PartitionListener(
                 UUID.randomUUID(),
-                new VersionedRowStore(
-                        new TestMvPartitionStorage(List.of(), 0),
-                        new TxManagerImpl(clusterService, new HeapLockManager())
-                )
+                versionedRowStore
         );
     }
 
@@ -319,6 +324,8 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void insertAll(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(batchIterator(clo -> {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
@@ -342,19 +349,28 @@ public class PartitionCommandListenerTest {
             }).when(clo).result(any(MultiRowsResponse.class));
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
+            UUID txId = Timestamp.nextId();
 
             for (int i = 0; i < KEY_COUNT; i++) {
-                rows.add(getTestRow(i, i));
+                Row row = getTestRow(i, i);
+
+                rows.add(row);
+
+                txs.add(new IgniteBiTuple<>(row, txId));
             }
 
-            when(clo.command()).thenReturn(new InsertAllCommand(rows, Timestamp.nextId()));
+            when(clo.command()).thenReturn(new InsertAllCommand(rows, txId));
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
      * Upserts values from the listener in the batch operation.
      */
     private void upsertAll() {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(batchIterator(clo -> {
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
@@ -364,12 +380,20 @@ public class PartitionCommandListenerTest {
 
             Set<BinaryRow> rows = new HashSet<>(KEY_COUNT);
 
+            UUID txId = Timestamp.nextId();
+
             for (int i = 0; i < KEY_COUNT; i++) {
-                rows.add(getTestRow(i, i));
+                Row row = getTestRow(i, i);
+
+                rows.add(row);
+
+                txs.add(new IgniteBiTuple<>(row, txId));
             }
 
             when(clo.command()).thenReturn(new UpsertAllCommand(rows, Timestamp.nextId()));
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -378,6 +402,8 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void deleteAll(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(batchIterator(clo -> {
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
@@ -401,12 +427,20 @@ public class PartitionCommandListenerTest {
 
             Set<BinaryRow> keyRows = new HashSet<>(KEY_COUNT);
 
+            UUID txId = Timestamp.nextId();
+
             for (int i = 0; i < KEY_COUNT; i++) {
-                keyRows.add(getTestKey(i));
+                Row row = getTestRow(i, i);
+
+                keyRows.add(row);
+
+                txs.add(new IgniteBiTuple<>(row, txId));
             }
 
             when(clo.command()).thenReturn(new DeleteAllCommand(keyRows, Timestamp.nextId()));
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -452,8 +486,13 @@ public class PartitionCommandListenerTest {
      * Upserts rows.
      */
     private void upsert() {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new UpsertCommand(getTestRow(i, i), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i);
+            txs.add(new IgniteBiTuple<>(row, txId));
+            when(clo.command()).thenReturn(new UpsertCommand(row, txId));
 
             doAnswer(invocation -> {
                 assertNull(invocation.getArgument(0));
@@ -461,6 +500,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -469,8 +510,14 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void delete(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new DeleteCommand(getTestKey(i), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new DeleteCommand(row, txId));
 
             doAnswer(invocation -> {
                 assertEquals(existed, invocation.getArgument(0));
@@ -478,6 +525,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -526,8 +575,14 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void insert(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new InsertCommand(getTestRow(i, i), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new InsertCommand(row, txId));
 
             doAnswer(mock -> {
                 assertEquals(!existed, mock.getArgument(0));
@@ -535,6 +590,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(!existed);
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -543,14 +600,22 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void deleteExactAllValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(batchIterator(clo -> {
+            UUID txId = Timestamp.nextId();
+
             HashSet rows = new HashSet(KEY_COUNT);
 
             for (int i = 0; i < KEY_COUNT; i++) {
-                rows.add(getTestRow(i, i));
+                Row row = getTestRow(i, i);
+
+                rows.add(row);
+
+                txs.add(new IgniteBiTuple<>(row, txId));
             }
 
-            when(clo.command()).thenReturn(new DeleteExactAllCommand(rows, Timestamp.nextId()));
+            when(clo.command()).thenReturn(new DeleteExactAllCommand(rows, txId));
 
             doAnswer(invocation -> {
                 MultiRowsResponse resp = invocation.getArgument(0);
@@ -574,6 +639,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -582,17 +649,23 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void getAndReplaceValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetAndReplaceCommand(getTestRow(i, i + 1), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i + 1);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new GetAndReplaceCommand(row, txId));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
 
                 if (existed) {
-                    Row row = new Row(SCHEMA, resp.getValue());
+                    Row row0 = new Row(SCHEMA, resp.getValue());
 
-                    assertEquals(i, row.intValue(0));
-                    assertEquals(i, row.intValue(1));
+                    assertEquals(i, row0.intValue(0));
+                    assertEquals(i, row0.intValue(1));
                 } else {
                     assertNull(resp.getValue());
                 }
@@ -600,6 +673,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -608,17 +683,23 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void getAndUpsertValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetAndUpsertCommand(getTestRow(i, i), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new GetAndUpsertCommand(row, txId));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
 
                 if (existed) {
-                    Row row = new Row(SCHEMA, resp.getValue());
+                    Row row0 = new Row(SCHEMA, resp.getValue());
 
-                    assertEquals(i, row.intValue(0));
-                    assertEquals(i + 1, row.intValue(1));
+                    assertEquals(i, row0.intValue(0));
+                    assertEquals(i + 1, row0.intValue(1));
                 } else {
                     assertNull(resp.getValue());
                 }
@@ -626,6 +707,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -634,18 +717,23 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void getAndDeleteValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new GetAndDeleteCommand(getTestKey(i), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new GetAndDeleteCommand(row, txId));
 
             doAnswer(invocation -> {
                 SingleRowResponse resp = invocation.getArgument(0);
 
                 if (existed) {
+                    Row row0 = new Row(SCHEMA, resp.getValue());
 
-                    Row row = new Row(SCHEMA, resp.getValue());
-
-                    assertEquals(i, row.intValue(0));
-                    assertEquals(i + 1, row.intValue(1));
+                    assertEquals(i, row0.intValue(0));
+                    assertEquals(i + 1, row0.intValue(1));
                 } else {
                     assertNull(resp.getValue());
                 }
@@ -653,6 +741,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -661,8 +751,14 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void putIfExistValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new ReplaceIfExistCommand(getTestRow(i, i + 1), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i + 1);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new ReplaceIfExistCommand(row, Timestamp.nextId()));
 
             doAnswer(invocation -> {
                 boolean result = invocation.getArgument(0);
@@ -672,6 +768,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -680,8 +778,14 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void deleteExactValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new DeleteExactCommand(getTestRow(i, i + 1), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i + 1);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new DeleteExactCommand(row, txId));
 
             doAnswer(invocation -> {
                 boolean result = invocation.getArgument(0);
@@ -691,6 +795,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
@@ -699,8 +805,14 @@ public class PartitionCommandListenerTest {
      * @param existed True if rows are existed, false otherwise.
      */
     private void replaceValues(boolean existed) {
+        List<IgniteBiTuple<Row, UUID>> txs = new ArrayList<>();
+
         commandListener.onWrite(iterator((i, clo) -> {
-            when(clo.command()).thenReturn(new ReplaceCommand(getTestRow(i, i), getTestRow(i, i + 1), Timestamp.nextId()));
+            UUID txId = Timestamp.nextId();
+            Row row = getTestRow(i, i);
+            txs.add(new IgniteBiTuple<>(row, txId));
+
+            when(clo.command()).thenReturn(new ReplaceCommand(row, getTestRow(i, i + 1), txId));
 
             doAnswer(invocation -> {
                 assertTrue(invocation.getArgument(0) instanceof Boolean);
@@ -712,6 +824,8 @@ public class PartitionCommandListenerTest {
                 return null;
             }).when(clo).result(any());
         }));
+
+        txs.forEach(tuple -> versionedRowStore.commitWrite(tuple.getKey().keySlice(), tuple.getValue()));
     }
 
     /**
