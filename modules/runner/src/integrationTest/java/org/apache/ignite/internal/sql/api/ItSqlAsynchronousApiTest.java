@@ -215,7 +215,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(0, meta.indexOf("COL1"));
         assertEquals(1, meta.indexOf("COL0"));
 
-        //TODO: Fix nullability issue
+        //TODO: IGNITE-17094: ColumnMetadata.nullable() must return false for non-null column.
         checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
         checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),

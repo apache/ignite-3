@@ -37,7 +37,7 @@ public class SchemaUtils {
      * Creates schema descriptor for the table with specified configuration.
      *
      * @param schemaVer Schema version.
-     * @param tblCfg Table configuration.
+     * @param tblCfg    Table configuration.
      * @return Schema descriptor.
      */
     public static SchemaDescriptor prepareSchemaDescriptor(int schemaVer, TableView tblCfg) {

@@ -66,7 +66,6 @@ public class ColumnMetadataImpl implements ColumnMetadata {
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public ColumnMetadataImpl(
             String name,
