@@ -38,6 +38,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Asynchronous result set implementation.
@@ -74,8 +75,8 @@ public class AsyncResultSetImpl implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSetMetadata metadata() {
-        return cur.metadata();
+    public @Nullable ResultSetMetadata metadata() {
+        return hasRowSet() ? cur.metadata() : null;
     }
 
     /** {@inheritDoc} */

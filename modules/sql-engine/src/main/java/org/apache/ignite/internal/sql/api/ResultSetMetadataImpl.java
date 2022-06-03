@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -38,7 +38,7 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
 
     /** Column`s metadata map. */
     @IgniteToStringExclude
-    private final Map<String, Integer> columnsIndices;
+    private final Object2IntMap<String> columnsIndices;
 
     /**
      * Constructor.
@@ -48,7 +48,7 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
     public ResultSetMetadataImpl(List<ColumnMetadata> columns) {
         this.columns = Collections.unmodifiableList(columns);
 
-        columnsIndices = new HashMap<>(columns.size());
+        columnsIndices = new Object2IntOpenHashMap<>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
             ColumnMetadata column = columns.get(i);
@@ -66,9 +66,7 @@ public class ResultSetMetadataImpl implements ResultSetMetadata {
     /** {@inheritDoc} */
     @Override
     public int indexOf(String columnName) {
-        Integer idx = columnsIndices.get(columnName);
-
-        return idx == null ? -1 : idx;
+        return columnsIndices.getOrDefault(columnName, -1);
     }
 
     /** {@inheritDoc} */

@@ -77,14 +77,14 @@ public class ClientColumnMetadata implements ColumnMetadata {
     @Override
     public int precision() {
         // TODO: IGNITE-17052
-        return 0;
+        return -1;
     }
 
     /** {@inheritDoc} */
     @Override
     public int scale() {
         // TODO: IGNITE-17052
-        return 0;
+        return -1;
     }
 
     /** {@inheritDoc} */

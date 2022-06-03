@@ -30,6 +30,7 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client async result set.
@@ -76,8 +77,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-
-        metadata = new ClientResultSetMetadata(in);
+        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
 
         if (hasRowSet) {
             readRows(in);
@@ -86,7 +86,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSetMetadata metadata() {
+    public @Nullable ResultSetMetadata metadata() {
         return metadata;
     }
 

@@ -22,6 +22,7 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Asynchronous result set provides methods for query results processing in asynchronous way.
@@ -49,12 +50,13 @@ import org.apache.ignite.sql.SqlRow;
  */
 public interface AsyncResultSet {
     /**
-     * Returns metadata for the results.
+     * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}), or {@code null} if
+     * inapplicable.
      *
      * @return ResultSet metadata.
      * @see ResultSet#metadata()
      */
-    ResultSetMetadata metadata();
+    @Nullable ResultSetMetadata metadata();
 
     /**
      * Returns whether the result of the query execution is a collection of rows, or not.

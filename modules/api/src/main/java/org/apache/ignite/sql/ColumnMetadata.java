@@ -48,16 +48,18 @@ public interface ColumnMetadata {
     SqlColumnType type();
 
     /**
-     * Returns SQL column precision.
+     * Returns SQL column precision or {@code -1} if precision is not applicable for the type.
      *
-     * @return Value precision.
+     * @return Number of decimal digits for exact numeric types; number of decimal digits in mantissa for approximate numeric types; number
+     * of decimal digits for fractional seconds of datetime types; length in characters for character types; length in bytes for binary
+     * types; length in bits for bit types; 1 for BOOLEAN; -1 if precision is not valid for the type.
      */
     int precision();
 
     /**
-     * Returns SQL column scale.
+     * Returns SQL column scale or {@code -1} if scale is not applicable for this type.
      *
-     * @return Value scale.
+     * @return Number of digits of scale.
      */
     int scale();
 
@@ -97,21 +99,21 @@ public interface ColumnMetadata {
         /**
          * Return the column's table's schema.
          *
-         * @return Schema name or "" if not applicable
+         * @return Schema name.
          */
         String schemaName();
 
         /**
          * Return the column's table name.
          *
-         * @return Table name or "" if not applicable
+         * @return Table name.
          */
         String tableName();
 
         /**
          * Return the column name.
          *
-         * @return Table name or "" if not applicable
+         * @return Table name.
          */
         String columnName();
     }

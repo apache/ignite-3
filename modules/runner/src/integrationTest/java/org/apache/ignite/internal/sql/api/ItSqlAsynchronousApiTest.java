@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -380,8 +381,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertFalse(asyncRes.hasRowSet());
         assertEquals(-1, asyncRes.affectedRows());
 
-        assertNotNull(asyncRes.metadata());
-        assertTrue(asyncRes.metadata().columns().isEmpty());
+        assertNull(asyncRes.metadata());
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }
@@ -411,10 +411,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertFalse(asyncRes.hasRowSet());
         assertEquals(expectedAffectedRows, asyncRes.affectedRows());
 
-        assertNotNull(asyncRes.metadata());
-        assertEquals(1, asyncRes.metadata().columns().size());
-        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", SqlColumnType.INT64, 0, 0, false, null),
-                asyncRes.metadata().columns().get(0));
+        assertNull(asyncRes.metadata());
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }

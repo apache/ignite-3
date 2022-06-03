@@ -55,6 +55,18 @@ class FakeColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
+    public int precision() {
+        return -1;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int scale() {
+        return -1;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean nullable() {
         return false;
     }

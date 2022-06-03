@@ -321,9 +321,15 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
     private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
         ColumnOrigin origin = fldMeta.origin();
 
-        String schemaName = origin == null ? null : origin.schemaName();
-        String tblName = origin == null ? null : origin.tableName();
-        String colName = origin == null ? null : origin.columnName();
+        String schemaName = null;
+        String tblName = null;
+        String colName = null;
+
+        if (origin != null) {
+            schemaName = origin.schemaName();
+            tblName = origin.tableName();
+            colName = origin.columnName();
+        }
 
         return new JdbcColumnMeta(
                 fldMeta.name(),
