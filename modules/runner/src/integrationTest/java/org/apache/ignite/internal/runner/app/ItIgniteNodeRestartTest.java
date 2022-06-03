@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.recovery.ConfigurationCatchUpListener.CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY;
 import static org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter.convert;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalConfigurationStorage;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
@@ -103,6 +105,7 @@ import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
@@ -338,8 +341,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             lastRevision.set(rev);
         };
 
-        CompletableFuture<Void> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
-                clusterCfgMgr,
+        CompletableFuture<?> configurationCatchUpFuture = RecoveryCompletionFutureFactory.create(
+                metaStorageMgr,
+                cfgStorage,
                 fut -> new TestConfigurationCatchUpListener(cfgStorage, fut, revisionCallback0)
         );
 
@@ -1060,7 +1064,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
          */
         TestConfigurationCatchUpListener(
                 ConfigurationStorage cfgStorage,
-                CompletableFuture<Void> catchUpFuture,
+                CompletableFuture<?> catchUpFuture,
                 Consumer<Long> revisionCallback
         ) {
             super(cfgStorage, catchUpFuture, log);
@@ -1068,14 +1072,15 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
             this.revisionCallback = revisionCallback;
         }
 
-        /** {@inheritDoc} */
         @Override
-        public CompletableFuture<?> onUpdate(long appliedRevision) {
+        public CompletableFuture<Boolean> notify(@NotNull MetaStorageEventParameters parameters, @Nullable Throwable exception) {
+            long appliedRevision = parameters.causalityToken();
+
             if (revisionCallback != null) {
                 revisionCallback.accept(appliedRevision);
             }
 
-            return super.onUpdate(appliedRevision);
+            return super.notify(parameters, exception);
         }
     }
 }

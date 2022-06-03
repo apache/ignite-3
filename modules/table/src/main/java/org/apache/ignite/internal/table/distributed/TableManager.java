@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static java.util.Collections.unmodifiableMap;
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.getByInternalId;
@@ -188,9 +189,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
             return node.id();
         };
+
         clusterNodeResolver = topologyService::getByAddress;
 
-        tablesByIdVv = new VersionedValue<>(null, HashMap::new);
+        tablesByIdVv = new VersionedValue<>(registry, HashMap::new);
     }
 
     /** {@inheritDoc} */
@@ -233,16 +235,6 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 return completedFuture(false);
             }
         });
-    }
-
-    /**
-     * Completes all table futures.
-     * TODO: Get rid of it after IGNITE-17062.
-     *
-     * @param causalityToken Causality token.
-     */
-    public void onSqlSchemaReady(long causalityToken) {
-        tablesByIdVv.complete(causalityToken);
     }
 
     /**
@@ -322,12 +314,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         }
 
         try {
-            updateAssignmentInternal(assignmentsCtx);
+            return updateAssignmentInternal(assignmentsCtx);
         } finally {
             busyLock.leaveBusy();
         }
-
-        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -335,7 +325,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
      *
      * @param assignmentsCtx Change assignment event.
      */
-    private void updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
+    private CompletableFuture<?> updateAssignmentInternal(ConfigurationNotificationEvent<byte[]> assignmentsCtx) {
         ExtendedTableConfiguration tblCfg = assignmentsCtx.config(ExtendedTableConfiguration.class);
 
         UUID tblId = tblCfg.id().value();
@@ -358,25 +348,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         // TODO: IGNITE-15554 Add logic for assignment recalculation in case of partitions or replicas changes
         // TODO: Until IGNITE-15554 is implemented it's safe to iterate over partitions and replicas cause there will
         // TODO: be exact same amount of partitions and replicas for both old and new assignments
-        for (int i = 0; i < partitions; i++) {
-            int partId = i;
+        return tablesByIdVv.update(causalityToken, (tablesById, e) -> {
+            if (e != null) {
+                return failedFuture(e);
+            }
 
-            List<ClusterNode> oldPartitionAssignment = oldAssignments == null ? Collections.emptyList() :
-                    oldAssignments.get(partId);
-
-            List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
-
-            var toAdd = new HashSet<>(newPartitionAssignment);
-
-            toAdd.removeAll(oldPartitionAssignment);
+            InternalTable internalTable = tablesById.get(tblId).internalTable();
 
             // Create new raft nodes according to new assignments.
-            tablesByIdVv.update(causalityToken, (tablesById, e) -> {
-                if (e != null) {
-                    return failedFuture(e);
-                }
+            for (int i = 0; i < partitions; i++) {
+                int partId = i;
 
-                InternalTable internalTable = tablesById.get(tblId).internalTable();
+                List<ClusterNode> oldPartitionAssignment = oldAssignments == null ? Collections.emptyList() :
+                    oldAssignments.get(partId);
+
+                List<ClusterNode> newPartitionAssignment = newAssignments.get(partId);
+
+                var toAdd = new HashSet<>(newPartitionAssignment);
+
+                toAdd.removeAll(oldPartitionAssignment);
+
+                System.out.println("qqq create partition=" + partId);
 
                 try {
                     futures[partId] = raftMgr.updateRaftGroup(
@@ -384,25 +376,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             newPartitionAssignment,
                             toAdd,
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId),
-                                            txManager))
+                                new VersionedRowStore(internalTable.storage().getOrCreatePartition(partId),
+                                    txManager))
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTable)
-                                    .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
+                                .updateInternalTableRaftGroupService(partId, updatedRaftGroupService)
                     ).exceptionally(th -> {
                         LOG.error("Failed to update raft groups one the node", th);
 
                         return null;
+                    }).thenApply(v -> {
+                        System.out.println("qqq finished creating partition=" + partId);
+                        return tablesById;
                     });
                 } catch (NodeStoppingException ex) {
                     throw new AssertionError("Loza was stopped before Table manager", ex);
                 }
+            }
 
-                return completedFuture(tablesById);
-            });
-        }
-
-        CompletableFuture.allOf(futures).join();
+            return allOf(futures)
+                  .thenApply(f -> tablesById);
+        });
     }
 
     /** {@inheritDoc} */
@@ -449,26 +443,28 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
 
-        var table = new TableImpl(internalTable);
-
-        tablesByIdVv.update(causalityToken, (previous, e) -> {
+        return tablesByIdVv.update(causalityToken, (previous, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            var val = new HashMap<>(previous);
+            System.out.println("qqq create table locally");
 
-            val.put(tblId, table);
+            return schemaManager.schemaRegistry(causalityToken, tblId)
+                .thenCompose(registry -> {
+                    System.out.println("qqq actual create table after schema registry is ready");
+                    var table = new TableImpl(internalTable, registry);
 
-            return completedFuture(val);
+                    var val = new HashMap<>(previous);
+
+                    val.put(tblId, table);
+
+                    tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
+
+                    return fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null)
+                        .thenApply(v -> val);
+                });
         });
-
-        schemaManager.schemaRegistry(causalityToken, tblId)
-                .thenAccept(table::schemaView)
-                .thenRun(() -> fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null));
-
-        // TODO should be reworked in IGNITE-16763
-        return tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
     }
 
     /**
@@ -502,6 +498,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 raftMgr.stopRaftGroup(raftGroupName(tblId, p));
             }
 
+            TableImpl table = tablesByIdVv.latest().get(tblId);
+
+            assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
+                name, tblId);
+
             tablesByIdVv.update(causalityToken, (previousVal, e) -> {
                 if (e != null) {
                     return failedFuture(e);
@@ -511,17 +512,11 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 map.remove(tblId);
 
-                return completedFuture(map);
+                return fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table))
+                    .thenApply(v -> map);
             });
 
-            TableImpl table = tablesByIdVv.latest().get(tblId);
-
-            assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
-                    name, tblId);
-
             table.internalTable().storage().destroy();
-
-            fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table));
 
             schemaManager.dropRegistry(causalityToken, table.tableId());
         } catch (Exception e) {
@@ -878,7 +873,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         tableFuts[i++] = tableAsyncInternal(tblId, false);
                     }
 
-                    return CompletableFuture.allOf(tableFuts).thenApply(unused -> {
+                    return allOf(tableFuts).thenApply(unused -> {
                         var tables = new ArrayList<Table>(tableIds.size());
 
                         try {
@@ -1213,7 +1208,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                         changePeersFutures[i++] = task.get();
                     }
 
-                    return CompletableFuture.allOf(changePeersFutures);
+                    return allOf(changePeersFutures);
                 })
                 .whenComplete((res, th) -> {
                     if (th != null) {
@@ -1264,7 +1259,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             }
         }
 
-        return CompletableFuture.allOf(futures);
+        return allOf(futures);
     }
 
     /**

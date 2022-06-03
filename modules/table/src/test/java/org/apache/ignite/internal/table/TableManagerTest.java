@@ -597,7 +597,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertFalse(tbl2Fut.isDone());
 
-        tableManager.onSqlSchemaReady(token.get());
+        //tableManager.onSqlSchemaReady(token.get());
 
         TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
@@ -633,7 +633,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         //TODO: Get rid of it after IGNITE-17062.
         if (!waitingSqlSchema) {
             tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
-                tableManager.onSqlSchemaReady(parameters.causalityToken());
+                //tableManager.onSqlSchemaReady(parameters.causalityToken());
 
                 return completedFuture(false);
             });

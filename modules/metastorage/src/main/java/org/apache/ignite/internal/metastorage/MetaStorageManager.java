@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.Producer;
 import org.apache.ignite.internal.metastorage.client.CompactedException;
 import org.apache.ignite.internal.metastorage.client.Condition;
 import org.apache.ignite.internal.metastorage.client.Entry;
@@ -42,6 +43,8 @@ import org.apache.ignite.internal.metastorage.client.Operation;
 import org.apache.ignite.internal.metastorage.client.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.client.StatementResult;
 import org.apache.ignite.internal.metastorage.client.WatchListener;
+import org.apache.ignite.internal.metastorage.event.MetaStorageEvent;
+import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.watch.AggregatedWatch;
@@ -74,7 +77,7 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Providing corresponding meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManager implements IgniteComponent {
+public class MetaStorageManager extends Producer<MetaStorageEvent, MetaStorageEventParameters> implements IgniteComponent {
     /** Meta storage raft group name. */
     private static final String METASTORAGE_RAFT_GROUP_NAME = "metastorage_raft_group";
 
@@ -801,7 +804,7 @@ public class MetaStorageManager implements IgniteComponent {
     /**
      * Returns applied revision for {@link VaultManager#putAll} operation.
      */
-    private CompletableFuture<Long> appliedRevision() {
+    public CompletableFuture<Long> appliedRevision() {
         return vaultMgr.get(APPLIED_REV)
                 .thenApply(appliedRevision -> appliedRevision == null ? 0L : bytesToLong(appliedRevision.value()));
     }
@@ -859,7 +862,8 @@ public class MetaStorageManager implements IgniteComponent {
 
                     entries.forEach(e -> batch.put(e.getKey(), e.getValue()));
 
-                    return vaultMgr.putAll(batch);
+                    return vaultMgr.putAll(batch)
+                            .thenCompose(v -> fireEvent(MetaStorageEvent.REVISION_APPLIED, new MetaStorageEventParameters(revision)));
                 })
                 .join();
     }

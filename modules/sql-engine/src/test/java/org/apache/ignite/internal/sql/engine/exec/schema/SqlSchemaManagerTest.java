@@ -107,8 +107,6 @@ public class SqlSchemaManagerTest {
 
         Mockito.verify(tableManager).table(eq(tblId));
 
-        Mockito.verify(tableManager, times(1)).onSqlSchemaReady(anyLong());
-
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
@@ -129,8 +127,6 @@ public class SqlSchemaManagerTest {
         assertEquals(tableId, actTable.id());
 
         Mockito.verify(tableManager).table(eq(tableId));
-
-        Mockito.verify(tableManager, times(1)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
@@ -154,8 +150,6 @@ public class SqlSchemaManagerTest {
 
         assertEquals(tableId, actTable.id());
 
-        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
-
         Mockito.verifyNoMoreInteractions(tableManager);
     }
 
@@ -177,8 +171,6 @@ public class SqlSchemaManagerTest {
         IgniteTable actTable = schemaManager.tableById(tableId, tableVer - 1);
 
         assertEquals(tableId, actTable.id());
-
-        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
@@ -208,7 +200,6 @@ public class SqlSchemaManagerTest {
         assertThat(ex.getMessage(), containsString("Table version not found"));
 
         Mockito.verify(tableManager, times(2)).table(eq(tableId));
-        Mockito.verify(tableManager, times(2)).onSqlSchemaReady(anyLong());
 
         Mockito.verifyNoMoreInteractions(tableManager);
     }
