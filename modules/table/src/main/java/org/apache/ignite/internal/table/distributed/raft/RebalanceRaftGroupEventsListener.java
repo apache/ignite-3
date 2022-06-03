@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -136,18 +135,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 try {
                     rebalanceAttempts.set(0);
 
-                    metaStorageMgr.get(pendingPartAssignmentsKey(partId))
-                            .thenCompose(pendingEntry -> {
-                                if (!pendingEntry.empty()) {
-                                    List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
+                    Entry pendingEntry = metaStorageMgr.get(pendingPartAssignmentsKey(partId)).get();
 
-                                    return raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term);
-                                } else {
-                                    return CompletableFuture.completedFuture(null);
-                                }
-                            }).get();
+                    if (!pendingEntry.empty()) {
+                        List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
+
+                        raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term).join();
+                    }
                 } catch (InterruptedException | ExecutionException e) {
-                    // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+                    // TODO: IGNITE-14693
                     LOG.error("Couldn't start rebalance for partition {} of table {} on new elected leader for term {}",
                             e, partNum, tblConfiguration.name().value(), term);
                 } finally {
@@ -232,10 +228,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
             try {
-                raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).get();
-            } catch (InterruptedException | ExecutionException e) {
-                // TODO: IGNITE-17013 errors during this call should be handled by retry logic
-                LOG.error("Error during the rebalance retry for the partId = {}", e, partId);
+                raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).join();
             } finally {
                 busyLock.leaveBusy();
             }
@@ -290,7 +283,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             rebalanceAttempts.set(0);
         } catch (InterruptedException | ExecutionException e) {
-            // TODO: IGNITE-17013 errors during this call should be handled by retry logic
+            // TODO: IGNITE-14693
             LOG.error("Couldn't commit new partition configuration to metastore for table = {}, partition = {}",
                     e, tblConfiguration.name(), partNum);
         }

@@ -49,6 +49,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteBiTuple;
@@ -68,7 +69,6 @@ import org.apache.ignite.raft.jraft.rpc.ActionRequest;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAsyncResponse;
-import org.apache.ignite.raft.jraft.rpc.Message;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.jetbrains.annotations.NotNull;
 
@@ -359,8 +359,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     @Override public CompletableFuture<Void> changePeersAsync(List<Peer> peers, long term) {
         Peer leader = this.leader;
 
-        if (leader == null)
+        if (leader == null) {
             return refreshLeader().thenCompose(res -> changePeersAsync(peers, term));
+        }
 
         List<String> peersToChange = peers.stream().map(p -> PeerId.fromPeer(p).toString())
                 .collect(Collectors.toList());
@@ -373,7 +374,26 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
-        return fut.thenRun(() -> {});
+        return fut.handleAsync((resp, err) -> {
+            // We expect that all raft related errors will be handled by sendWithRetry, means that
+            // such responses will initiate a retrying of the original request.
+            assert !(resp instanceof RpcRequests.ErrorResponse);
+
+            if (err != null) {
+                if (recoverable(err)) {
+                    LOG.warn("Recoverable error received during changePeersAsync invocation, retrying", err);
+                } else {
+                    // TODO: Ideally rebalance, which has initiated this invocation should be canceled,
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17056
+                    // TODO: Also it might be reasonable to delegate such exceptional case to failure handler.
+                    // TODO: At the moment, we repeat such intents as well.
+                    LOG.error("Unrecoverable error received during changePeersAsync invocation, retrying", err);
+                }
+                return changePeersAsync(peers, term);
+            }
+
+            return CompletableFuture.<Void>completedFuture(null);
+        }, executor).thenCompose(Function.identity());
     }
 
     /** {@inheritDoc} */
@@ -645,7 +665,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      * @param t The throwable.
      * @return {@code True} if this is a recoverable exception.
      */
-    private boolean recoverable(Throwable t) {
+    public static boolean recoverable(Throwable t) {
         if (t instanceof ExecutionException || t instanceof CompletionException) {
             t = t.getCause();
         }
@@ -702,24 +722,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         for (String peer: peers)
             res.add(parsePeer(peer));
-
-        return res;
-    }
-
-    /**
-     * Convert list of {@link PeerId} to list of {@link Peer}.
-     *
-     * @param peers List of {@link PeerId}
-     * @return List of {@link Peer}
-     */
-    private List<Peer> convertPeerIdList(List<PeerId> peers) {
-        if (peers == null)
-            return Collections.emptyList();
-
-        List<Peer> res = new ArrayList<>(peers.size());
-
-        for (PeerId peerId: peers)
-            res.add(peerFromPeerId(peerId));
 
         return res;
     }
