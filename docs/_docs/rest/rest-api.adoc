@@ -35,7 +35,7 @@ We recommend that you generate client code in your project language by using an 
         <goal>generate</goal>
       </goals>
       <configuration>
-        <inputSpec>${project.basedir}/../rest/openapi/openapi.yaml</inputSpec>
+        <inputSpec>https://github.com/apache/ignite-3/tree/main/modules/rest/openapi/openapi.yaml</inputSpec>
         <generatorName>java</generatorName>
         <apiPackage>org.apache.ignite.rest.client.api</apiPackage>
         <invokerPackage>org.apache.ignite.rest.client.invoker</invokerPackage>
