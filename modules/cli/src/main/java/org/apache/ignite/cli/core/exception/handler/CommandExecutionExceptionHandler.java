@@ -20,14 +20,13 @@ package org.apache.ignite.cli.core.exception.handler;
 import org.apache.ignite.cli.core.exception.CommandExecutionException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Exception handler for {@link CommandExecutionException}.
  */
 public class CommandExecutionExceptionHandler implements ExceptionHandler<CommandExecutionException> {
-    private static final Logger log = LoggerFactory.getLogger(CommandExecutionExceptionHandler.class);
+    private static final IgniteLogger log = IgniteLogger.forClass(CommandExecutionExceptionHandler.class);
 
     @Override
     public void handle(ExceptionWriter err, CommandExecutionException e) {

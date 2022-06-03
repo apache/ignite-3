@@ -110,12 +110,6 @@
         </dependency>
 
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
         </dependency>
@@ -184,14 +178,12 @@
         <dependency>
             <groupId>io.micronaut.test</groupId>
             <artifactId>micronaut-test-junit5</artifactId>
-            <version>${micronaut.test.junit5.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.micronaut.test</groupId>
             <artifactId>micronaut-test-core</artifactId>
-            <version>${micronaut.test.junit5.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -210,7 +202,6 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>${assertj-core.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -322,7 +313,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
-                <!--                <version>${maven-resources-plugin.version}</version>-->
             </plugin>
 
             <plugin>

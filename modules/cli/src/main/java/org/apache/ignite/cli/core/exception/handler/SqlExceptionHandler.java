@@ -21,14 +21,13 @@ import java.sql.SQLException;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
 import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * Exception handler for {@link SQLException}.
  */
 public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
-    private static final Logger log = LoggerFactory.getLogger(SqlExceptionHandler.class);
+    private static final IgniteLogger log = IgniteLogger.forClass(SqlExceptionHandler.class);
 
     public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error.";
     public static final String INVALID_PARAMETER_MESSAGE = "Invalid parameter value.";

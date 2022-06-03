@@ -18,8 +18,7 @@
 package org.apache.ignite.cli.core.exception;
 
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.ignite.lang.IgniteLogger;
 
 /**
  * General interface of exception handler.
@@ -27,7 +26,7 @@ import org.slf4j.LoggerFactory;
  * @param <T> exception type.
  */
 public interface ExceptionHandler<T extends Throwable> {
-    Logger logger = LoggerFactory.getLogger("DefaultExceptionHandler");
+    IgniteLogger logger = IgniteLogger.forClass(ExceptionHandler.class);
 
     ExceptionHandler<Throwable> DEFAULT = new ExceptionHandler<>() {
         @Override
