@@ -549,12 +549,6 @@
             </dependency>
 
             <dependency>
-                <groupId>info.picocli</groupId>
-                <artifactId>picocli-codegen</artifactId>
-                <version>${picocli.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.micronaut</groupId>
                 <artifactId>micronaut-runtime</artifactId>
                 <version>${micronaut.version}</version>
