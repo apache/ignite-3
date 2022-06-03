@@ -113,7 +113,8 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
 
     @Test
     @DisplayName("Should return error if wrong nodename is given")
-    @Disabled //TODO: https://issues.apache.org/jira/browse/IGNITE-17089
+    @Disabled
+    //TODO: https://issues.apache.org/jira/browse/IGNITE-17089
     void readNodeConfigurationWithWrongNodename() {
         // Given
         var input = ShowConfigurationCallInput.builder()
