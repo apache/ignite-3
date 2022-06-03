@@ -52,7 +52,7 @@ public class ColumnMetadataImpl implements ColumnMetadata {
     /** Type of the result's column. */
     private final SqlColumnType type;
 
-    /** Column precision, */
+    /** Column precision. */
     private final int precision;
 
     /** Column scale. */

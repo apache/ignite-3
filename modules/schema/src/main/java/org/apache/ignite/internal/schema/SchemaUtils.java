@@ -28,7 +28,6 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapper;
 import org.apache.ignite.internal.schema.mapping.ColumnMapping;
 import org.apache.ignite.lang.IgniteStringFormatter;
 import org.apache.ignite.schema.definition.TableDefinition;
-import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Stateless schema utils that produces helper methods for schema preparation.

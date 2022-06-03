@@ -48,10 +48,10 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
@@ -216,11 +216,9 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(1, meta.indexOf("COL0"));
 
         //TODO: Fix nullability issue
-        checkMetadata(new ColumnMetadataImpl("COL1", ColumnType.string(), fld.getType().getPrecision(), fld.getType().getScale(),
-                        true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
-        checkMetadata(new ColumnMetadataImpl("COL0", ColumnType.INT64, fld.getType().getPrecision(), fld.getType().getScale(),
-                        true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
                 meta.columns().get(1));
 
         // Validate result columns types.
@@ -415,7 +413,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertNotNull(asyncRes.metadata());
         assertEquals(1, asyncRes.metadata().columns().size());
-        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64, fld.getType().getPrecision(), fld.getType().getScale(), false, null), asyncRes.metadata().columns().get(0));
+        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", SqlColumnType.INT64, 0, 0, false, null),
+                asyncRes.metadata().columns().get(0));
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }
