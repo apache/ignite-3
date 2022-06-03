@@ -223,6 +223,8 @@ public class InboundDecoderTest {
 
         decoder.decode(ctx, buffer, list);
 
+        buffer.release();
+
         assertEquals(1, list.size());
 
         TestMessage actualMessage = (TestMessage) list.get(0);
