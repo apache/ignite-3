@@ -322,13 +322,10 @@ public class SessionImpl implements Session {
     public static <T> T await(CompletionStage<T> stage) {
         try {
             return stage.toCompletableFuture().get();
+        } catch (ExecutionException e) {
+            throw new IgniteException(e.getCause());
         } catch (Throwable e) {
-            catch (ExecutionException e) {
-                throw new IgniteException(e.getCause());
-            }
-            catch (Throwable e) {
-                throw new IgniteException(e);
-            }
+            throw new IgniteException(e);
         }
     }
 }
