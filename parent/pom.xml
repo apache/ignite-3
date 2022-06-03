@@ -641,6 +641,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.jline</groupId>
+                <artifactId>jline-console</artifactId>
+                <version>${jline.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>javax.annotation</groupId>
                 <artifactId>javax.annotation-api</artifactId>
                 <version>${javax.annotation.api.version}</version>
