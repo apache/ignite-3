@@ -133,21 +133,21 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
     }
 
     /**
-     * Tests "init" command.
+     * Tests "bootstrap" command.
      */
-    @DisplayName("init")
+    @DisplayName("bootstrap")
     @Nested
-    class Init {
+    class Bootstrap {
         @Test
-        @DisplayName("init")
-        void init() {
+        @DisplayName("bootstrap")
+        void bootstrap() {
             var initIgniteCmd = mock(InitIgniteCommand.class);
 
             ctx.registerSingleton(InitIgniteCommand.class, initIgniteCmd);
 
             CommandLine cli = cmd(ctx);
 
-            assertEquals(0, cli.execute("init"));
+            assertEquals(0, cli.execute("bootstrap"));
             verify(initIgniteCmd).init(any(), any(), any());
         }
     }

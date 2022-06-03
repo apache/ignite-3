@@ -25,12 +25,12 @@ import org.apache.ignite.cli.deprecated.builtins.init.InitIgniteCommand;
 import picocli.CommandLine;
 
 /**
- * Command for init Ignite distributive to start new nodes on the current machine.
+ * Command for install Ignite distributive to start new nodes on the current machine.
  *
  * @see IgniteCommand
  */
-@CommandLine.Command(name = "init", description = "Installs Ignite core modules locally.")
-public class InitIgniteCommandSpec extends BaseCommand implements IgniteCommand {
+@CommandLine.Command(name = "bootstrap", description = "Installs Ignite core modules locally.")
+public class BootstrapIgniteCommandSpec extends BaseCommand implements IgniteCommand {
     /** Init command implementation. */
     @Inject
     private InitIgniteCommand cmd;

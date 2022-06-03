@@ -84,12 +84,12 @@ public class CliPathsConfigLoader {
         if (ignitePaths.isPresent()) {
             if (!ignitePaths.get().validateDirs()) {
                 throw new IgniteCliException("Some required directories are absent. "
-                        + "Try to run 'init' command to fix the issue.");
+                        + "Try to run 'bootstrap' command to fix the issue.");
             }
 
             return ignitePaths.get();
         } else {
-            throw new IgniteCliException("To execute node module/node management commands you must run 'init' first");
+            throw new IgniteCliException("To execute node module/node management commands you must run 'bootstrap' first");
         }
     }
 

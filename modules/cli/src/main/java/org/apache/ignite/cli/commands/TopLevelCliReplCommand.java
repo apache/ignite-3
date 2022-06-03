@@ -25,8 +25,8 @@ import org.apache.ignite.cli.commands.connect.DisconnectCommand;
 import org.apache.ignite.cli.commands.sql.SqlCommand;
 import org.apache.ignite.cli.commands.status.StatusCommand;
 import org.apache.ignite.cli.commands.version.VersionCommand;
+import org.apache.ignite.cli.deprecated.spec.BootstrapIgniteCommandSpec;
 import org.apache.ignite.cli.deprecated.spec.ClusterReplCommandSpec;
-import org.apache.ignite.cli.deprecated.spec.InitIgniteCommandSpec;
 import org.apache.ignite.cli.deprecated.spec.NodeCommandSpec;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
@@ -44,7 +44,7 @@ import picocli.shell.jline3.PicocliCommands;
                 VersionCommand.class,
                 StatusCommand.class,
                 CliCommand.class,
-                InitIgniteCommandSpec.class,
+                BootstrapIgniteCommandSpec.class,
                 NodeCommandSpec.class,
                 ClusterReplCommandSpec.class,
                 ConnectCommand.class,
