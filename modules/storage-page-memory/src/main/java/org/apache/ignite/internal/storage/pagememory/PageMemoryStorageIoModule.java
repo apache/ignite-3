@@ -25,6 +25,7 @@ import org.apache.ignite.internal.storage.pagememory.io.TableDataIo;
 import org.apache.ignite.internal.storage.pagememory.io.TableInnerIo;
 import org.apache.ignite.internal.storage.pagememory.io.TableLeafIo;
 import org.apache.ignite.internal.storage.pagememory.io.TableMetaIo;
+import org.apache.ignite.internal.storage.pagememory.io.TablePartitionMetaIo;
 
 /**
  * {@link PageIoModule} implementation in storage-page-memory module.
@@ -37,7 +38,8 @@ public class PageMemoryStorageIoModule implements PageIoModule {
                 TableMetaIo.VERSIONS,
                 TableInnerIo.VERSIONS,
                 TableLeafIo.VERSIONS,
-                TableDataIo.VERSIONS
+                TableDataIo.VERSIONS,
+                TablePartitionMetaIo.VERSIONS
         );
     }
 }

@@ -173,12 +173,12 @@ public abstract class AbstractPageMemoryTableStorage implements TableStorage {
     }
 
     /**
-     * Returns a new instance of {@link PageMemoryPartitionStorage}.
+     * Returns a new instance of {@link VolatilePageMemoryPartitionStorage}.
      *
      * @param partId Partition id.
      * @throws StorageException If there is an error while creating the partition storage.
      */
-    protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
+    protected abstract VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
 
     /**
      * This API is not yet ready. But we need to test mv storages anyways.

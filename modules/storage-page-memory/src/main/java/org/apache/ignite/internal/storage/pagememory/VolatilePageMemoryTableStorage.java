@@ -17,8 +17,15 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
+import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
+import static org.apache.ignite.internal.storage.StorageUtils.groupId;
+
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
+import org.apache.ignite.configuration.schemas.table.TableView;
+import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.lang.IgniteInternalCheckedException;
 
 /**
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
@@ -36,7 +43,50 @@ class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    protected PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
-        return new PageMemoryPartitionStorage(partId, tableCfg, dataRegion, ((VolatilePageMemoryDataRegion) dataRegion).tableFreeList());
+    protected VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
+        TableFreeList tableFreeList = ((VolatilePageMemoryDataRegion) dataRegion).tableFreeList();
+
+        TableTree tableTree = createTableTree(tableCfg.value(), partId, tableFreeList);
+
+        return new VolatilePageMemoryPartitionStorage(
+                partId,
+                tableFreeList,
+                tableTree
+        );
+    }
+
+    /**
+     * Returns new {@link TableTree} instance for partition.
+     *
+     * @param tableView Table configuration.
+     * @param partId Partition ID.
+     * @param freeList Table free list.
+     * @throws StorageException If failed.
+     */
+    TableTree createTableTree(
+            TableView tableView,
+            int partId,
+            TableFreeList freeList
+    ) throws StorageException {
+        int grpId = groupId(tableView);
+
+        try {
+            return new TableTree(
+                    grpId,
+                    tableView.name(),
+                    dataRegion.pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX),
+                    freeList,
+                    partId,
+                    true
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(
+                    String.format("Error creating TableTree [tableName=%s, partitionId=%s]", tableView.name(), partId),
+                    e
+            );
+        }
     }
 }

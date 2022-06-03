@@ -55,12 +55,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Storage test implementation for {@link PageMemoryPartitionStorage}.
+ * Storage test implementation for {@link VolatilePageMemoryPartitionStorage}.
  */
 // TODO: IGNITE-16641 Add test for persistent case.
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
+public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
     private static PageIoRegistry ioRegistry;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
@@ -112,7 +112,7 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         storage = table.getOrCreatePartition(0);
 
-        assertThat(storage, is(instanceOf(PageMemoryPartitionStorage.class)));
+        assertThat(storage, is(instanceOf(VolatilePageMemoryPartitionStorage.class)));
     }
 
     @AfterEach
