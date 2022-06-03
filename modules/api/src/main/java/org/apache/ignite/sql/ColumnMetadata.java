@@ -51,8 +51,8 @@ public interface ColumnMetadata {
      * Returns SQL column precision or {@code -1} if precision is not applicable for the type.
      *
      * @return Number of decimal digits for exact numeric types; number of decimal digits in mantissa for approximate numeric types; number
-     * of decimal digits for fractional seconds of datetime types; length in characters for character types; length in bytes for binary
-     * types; length in bits for bit types; 1 for BOOLEAN; -1 if precision is not valid for the type.
+     *     of decimal digits for fractional seconds of datetime types; length in characters for character types; length in bytes for binary
+     *     types; length in bits for bit types; 1 for BOOLEAN; -1 if precision is not valid for the type.
      */
     int precision();
 
