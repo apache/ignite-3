@@ -82,7 +82,7 @@ public interface ColumnMetadata {
      *
      * <p>Example:
      * <pre>
-     *     SELECT SUM(price), category as cat, subcategory AS subcategory 
+     *     SELECT SUM(price), category as cat, subcategory AS subcategory
      *       FROM Goods
      *      WHERE [condition]
      *      GROUP BY cat, subcategory
