@@ -1,5 +1,3 @@
-package org.apache.ignite.cli;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.ignite.cli;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package org.apache.ignite.cli;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
