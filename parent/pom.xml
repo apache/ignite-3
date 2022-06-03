@@ -1517,6 +1517,7 @@
                         <!-- DEB package assembly files -->
                         <exclude>deliveries/deb/rules</exclude>
                         <exclude>deliveries/deb/control</exclude>
+                        <exclude>**/*.bat</exclude> <!-- Files in bat format -->
                     </excludes>
                 </configuration>
             </plugin>
