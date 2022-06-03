@@ -77,8 +77,8 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
 
         if (rowOff == 0) {
             // first fragment
-            assert row.headerSize() <= payloadSize : "Header must entirely fit first fragment, but header size is " + row.headerSize()
-                    + " and payload size is " + payloadSize;
+            assert row.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
+                    + row.headerSize() + " and payload size is " + payloadSize;
 
             Timestamps.writeTimestampToBuffer(buf, row.timestamp());
 
