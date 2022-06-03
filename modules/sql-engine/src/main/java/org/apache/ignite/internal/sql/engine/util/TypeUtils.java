@@ -381,8 +381,9 @@ public class TypeUtils {
             case SMALLINT:
                 return SqlColumnType.INT16;
             case TINYINT:
-            case BOOLEAN:
                 return SqlColumnType.INT8;
+            case BOOLEAN:
+                return SqlColumnType.BOOLEAN;
             case DECIMAL:
                 return SqlColumnType.DECIMAL;
             case DOUBLE:

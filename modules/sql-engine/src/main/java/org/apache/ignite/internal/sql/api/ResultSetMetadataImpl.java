@@ -30,9 +30,6 @@ import org.apache.ignite.sql.ResultSetMetadata;
  * Results set metadata holder.
  */
 public class ResultSetMetadataImpl implements ResultSetMetadata {
-    /** Empty metadata holder. */
-    public static final ResultSetMetadata NO_METADATA = new ResultSetMetadataImpl(List.of());
-
     /** Column`s metadata ordered list. */
     private final List<ColumnMetadata> columns;
 
