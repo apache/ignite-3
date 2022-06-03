@@ -20,12 +20,14 @@ package org.apache.ignite.cli.commands.topology;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link TopologyCommand}.
  */
+@Disabled // TODO https://issues.apache.org/jira/browse/IGNITE-17092
 class ItTopologyCommandTest extends CliCommandTestIntegrationBase {
 
     @Test
