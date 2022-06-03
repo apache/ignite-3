@@ -20,12 +20,12 @@ package org.apache.ignite.internal.sql.api;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Metadata of the field of a query result set.
+ * Metadata of the column of a query result set.
  */
 public class ColumnMetadataImpl implements ColumnMetadata {
     /**
@@ -46,16 +46,22 @@ public class ColumnMetadataImpl implements ColumnMetadata {
         return new ColumnOriginImpl(schemaName, tableName, columnName);
     }
 
-    /** Name of the result's field. */
+    /** Name of the result's column. */
     private final String name;
 
-    /** Type of the result's field. */
-    private final ColumnType type;
+    /** Type of the result's column. */
+    private final SqlColumnType type;
 
-    /** Nullable flag of the result's field. */
+    /** Column precision, */
+    private final int precision;
+
+    /** Column scale. */
+    private final int scale;
+
+    /** Nullable flag of the result's column. */
     private final boolean nullable;
 
-    /** Origin of the result's field. */
+    /** Origin of the result's column. */
     private final ColumnOrigin origin;
 
     /**
@@ -64,12 +70,16 @@ public class ColumnMetadataImpl implements ColumnMetadata {
      */
     public ColumnMetadataImpl(
             String name,
-            ColumnType type,
+            SqlColumnType type,
+            int precision,
+            int scale,
             boolean nullable,
             @Nullable ColumnOrigin origin
     ) {
         this.name = name;
         this.type = type;
+        this.precision = precision;
+        this.scale = scale;
         this.nullable = nullable;
         this.origin = origin;
     }
@@ -82,8 +92,20 @@ public class ColumnMetadataImpl implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnType type() {
+    public SqlColumnType type() {
         return type;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int precision() {
+        return precision;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int scale() {
+        return scale;
     }
 
     /** {@inheritDoc} */

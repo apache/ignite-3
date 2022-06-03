@@ -33,13 +33,12 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
 import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.util.Pair;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
@@ -231,16 +230,16 @@ public class JdbcMetadataCatalog {
      * @return Column metadata.
      */
     private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
-        ColumnType type = SchemaUtils.columnType(col.type());
+        NativeType colType = col.type();
 
         return new JdbcColumnMeta(
                 col.name(),
                 getTblSchema(tblName),
                 getTblName(tblName),
                 col.name(),
-                Commons.columnTypeToClass(type),
-                Commons.columnTypePrecision(type),
-                Commons.columnTypeScale(type),
+                Commons.nativeTypeToClass(colType),
+                Commons.nativeTypePrecision(colType),
+                Commons.nativeTypeScale(colType),
                 col.nullable()
         );
     }

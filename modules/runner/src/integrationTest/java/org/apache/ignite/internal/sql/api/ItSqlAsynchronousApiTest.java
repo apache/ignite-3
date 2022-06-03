@@ -216,9 +216,11 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertEquals(1, meta.indexOf("COL0"));
 
         //TODO: Fix nullability issue
-        checkMetadata(new ColumnMetadataImpl("COL1", ColumnType.string(), true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+        checkMetadata(new ColumnMetadataImpl("COL1", ColumnType.string(), fld.getType().getPrecision(), fld.getType().getScale(),
+                        true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
                 meta.columns().get(0));
-        checkMetadata(new ColumnMetadataImpl("COL0", ColumnType.INT64, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+        checkMetadata(new ColumnMetadataImpl("COL0", ColumnType.INT64, fld.getType().getPrecision(), fld.getType().getScale(),
+                        true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
                 meta.columns().get(1));
 
         // Validate result columns types.
@@ -413,7 +415,7 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
 
         assertNotNull(asyncRes.metadata());
         assertEquals(1, asyncRes.metadata().columns().size());
-        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64, false, null), asyncRes.metadata().columns().get(0));
+        checkMetadata(new ColumnMetadataImpl("ROWCOUNT", ColumnType.INT64, fld.getType().getPrecision(), fld.getType().getScale(), false, null), asyncRes.metadata().columns().get(0));
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }

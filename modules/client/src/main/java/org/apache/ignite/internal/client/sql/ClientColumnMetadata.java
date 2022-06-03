@@ -19,8 +19,8 @@ package org.apache.ignite.internal.client.sql;
 
 import org.apache.ignite.client.IgniteClientException;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Client column metadata.
@@ -69,8 +69,22 @@ public class ClientColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnType type() {
-        return (ColumnType) type;
+    public SqlColumnType type() {
+        return (SqlColumnType) type;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int precision() {
+        // TODO: IGNITE-17052
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int scale() {
+        // TODO: IGNITE-17052
+        return 0;
     }
 
     /** {@inheritDoc} */

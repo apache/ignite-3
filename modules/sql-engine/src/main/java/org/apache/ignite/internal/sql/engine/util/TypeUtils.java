@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.util.Util.last;
-import static org.apache.ignite.internal.sql.engine.util.Commons.columnTypeToClass;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -57,7 +56,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.schema.definition.ColumnType;
+import org.apache.ignite.sql.SqlColumnType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -237,7 +236,7 @@ public class TypeUtils {
 
         assert fldDesc != null;
 
-        return columnTypeToClass(fldDesc.physicalType());
+        return Commons.nativeTypeToClass(fldDesc.physicalType());
     }
 
     /**
@@ -362,40 +361,54 @@ public class TypeUtils {
     /**
      * Convert calcite date type to Ignite native type.
      */
-    public static ColumnType columnType(RelDataType type) {
+    public static SqlColumnType columnType(RelDataType type) {
         switch (type.getSqlTypeName()) {
             case VARCHAR:
             case CHAR:
-                return type.getPrecision() > 0 ? ColumnType.stringOf(type.getPrecision()) : ColumnType.string();
+                return SqlColumnType.STRING;
             case DATE:
-                return ColumnType.DATE;
+                return SqlColumnType.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return type.getPrecision() > 0 ? ColumnType.time(type.getPrecision()) : ColumnType.time();
+                return SqlColumnType.TIME;
             case INTEGER:
-                return ColumnType.INT32;
+                return SqlColumnType.INT32;
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return type.getPrecision() > 0 ? ColumnType.timestamp(type.getPrecision()) : ColumnType.timestamp();
+                return SqlColumnType.TIMESTAMP;
             case BIGINT:
-                return ColumnType.INT64;
+                return SqlColumnType.INT64;
             case SMALLINT:
-                return ColumnType.INT16;
+                return SqlColumnType.INT16;
             case TINYINT:
             case BOOLEAN:
-                return ColumnType.INT8;
+                return SqlColumnType.INT8;
             case DECIMAL:
-                return type.getPrecision() > 0 ? ColumnType.decimalOf(type.getPrecision(), type.getScale()) : ColumnType.decimalOf();
+                return SqlColumnType.DECIMAL;
             case DOUBLE:
-                return ColumnType.DOUBLE;
+                return SqlColumnType.DOUBLE;
             case REAL:
             case FLOAT:
-                return ColumnType.FLOAT;
+                return SqlColumnType.FLOAT;
             case BINARY:
             case VARBINARY:
             case ANY:
             case OTHER:
-                return ColumnType.blobOf(type.getPrecision());
+                return SqlColumnType.BYTE_ARRAY;
+            case INTERVAL_YEAR:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_MONTH:
+            case INTERVAL_DAY_HOUR:
+            case INTERVAL_DAY_MINUTE:
+            case INTERVAL_DAY_SECOND:
+            case INTERVAL_HOUR:
+            case INTERVAL_HOUR_MINUTE:
+            case INTERVAL_HOUR_SECOND:
+            case INTERVAL_MINUTE:
+            case INTERVAL_MINUTE_SECOND:
+            case INTERVAL_SECOND:
+            case INTERVAL_DAY:
+                return SqlColumnType.INTERVAL;
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;

@@ -70,6 +70,7 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Jdbc query event handler implementation.
@@ -331,8 +332,8 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 tblName,
                 colName,
                 Commons.columnTypeToClass(fldMeta.type()),
-                Commons.columnTypePrecision(fldMeta.type()),
-                Commons.columnTypeScale(fldMeta.type()),
+                fldMeta.precision(),
+                fldMeta.scale(),
                 fldMeta.nullable()
         );
     }
@@ -426,6 +427,6 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return false;
         }
 
-        return meta.columns().get(0).type() == ColumnType.INT64;
+        return meta.columns().get(0).type() == SqlColumnType.INT64;
     }
 }

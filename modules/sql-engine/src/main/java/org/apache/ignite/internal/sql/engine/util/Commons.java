@@ -80,8 +80,12 @@ import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
+import org.apache.ignite.internal.schema.BitmaskNativeType;
+import org.apache.ignite.internal.schema.DecimalNativeType;
 import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.SchemaUtils;
+import org.apache.ignite.internal.schema.NumberNativeType;
+import org.apache.ignite.internal.schema.TemporalNativeType;
+import org.apache.ignite.internal.schema.VarlenNativeType;
 import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -107,8 +111,8 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteSystemProperties;
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
@@ -639,17 +643,10 @@ public final class Commons {
      * NativeTypeToClass.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static Class<?> columnTypeToClass(NativeType type) {
-        return columnTypeToClass(SchemaUtils.columnType(type));
-    }
-
-    /**
-     * Column type to Java class.
-     */
-    public static Class<?> columnTypeToClass(ColumnType type) {
+    public static Class<?> nativeTypeToClass(NativeType type) {
         assert type != null;
 
-        switch (type.typeSpec()) {
+        switch (type.spec()) {
             case INT8:
                 return Byte.class;
 
@@ -680,7 +677,7 @@ public final class Commons {
             case STRING:
                 return String.class;
 
-            case BLOB:
+            case BYTES:
                 return byte[].class;
 
             case BITMASK:
@@ -699,7 +696,67 @@ public final class Commons {
                 return Instant.class;
 
             default:
-                throw new IllegalArgumentException("Unsupported type " + type.typeSpec());
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
+        }
+    }
+
+    /**
+     * Column type to Java class.
+     */
+    public static Class<?> columnTypeToClass(SqlColumnType type) {
+        assert type != null;
+
+        switch (type) {
+            case INT8:
+                return Byte.class;
+
+            case INT16:
+                return Short.class;
+
+            case INT32:
+                return Integer.class;
+
+            case INT64:
+                return Long.class;
+
+            case FLOAT:
+                return Float.class;
+
+            case DOUBLE:
+                return Double.class;
+
+            case NUMBER:
+                return BigInteger.class;
+
+            case DECIMAL:
+                return BigDecimal.class;
+
+            case UUID:
+                return UUID.class;
+
+            case STRING:
+                return String.class;
+
+            case BYTE_ARRAY:
+                return byte[].class;
+
+            case BITMASK:
+                return BitSet.class;
+
+            case DATE:
+                return LocalDate.class;
+
+            case TIME:
+                return LocalTime.class;
+
+            case DATETIME:
+                return LocalDateTime.class;
+
+            case TIMESTAMP:
+                return Instant.class;
+
+            default:
+                throw new IllegalArgumentException("Unsupported type " + type);
         }
     }
 
@@ -707,10 +764,10 @@ public final class Commons {
      * NativeTypePrecision.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static int columnTypePrecision(ColumnType type) {
+    public static int nativeTypePrecision(NativeType type) {
         assert type != null;
 
-        switch (type.typeSpec()) {
+        switch (type.spec()) {
             case INT8:
                 return 3;
 
@@ -728,27 +785,29 @@ public final class Commons {
                 return 15;
 
             case NUMBER:
-                return ((ColumnType.NumberColumnType) type).precision();
+                return ((NumberNativeType) type).precision();
 
             case DECIMAL:
-                return ((ColumnType.DecimalColumnType) type).precision();
-
-            case TIME:
-            case DATETIME:
-            case TIMESTAMP:
-                return ((ColumnType.TemporalColumnType) type).precision();
-
-            case BLOB:
-            case STRING:
-            case BITMASK:
-                return ((ColumnType.VarLenColumnType) type).length();
+                return ((DecimalNativeType) type).precision();
 
             case UUID:
             case DATE:
                 return -1;
 
+            case TIME:
+            case DATETIME:
+            case TIMESTAMP:
+                return ((TemporalNativeType) type).precision();
+
+            case BYTES:
+            case STRING:
+                return ((VarlenNativeType) type).length();
+
+            case BITMASK:
+                return ((BitmaskNativeType) type).bits();
+
             default:
-                throw new IllegalArgumentException("Unsupported type " + type.typeSpec());
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 
@@ -756,8 +815,8 @@ public final class Commons {
      * NativeTypeScale.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public static int columnTypeScale(ColumnType type) {
-        switch (type.typeSpec()) {
+    public static int nativeTypeScale(NativeType type) {
+        switch (type.spec()) {
             case INT8:
             case INT16:
             case INT32:
@@ -772,16 +831,16 @@ public final class Commons {
             case TIME:
             case DATETIME:
             case TIMESTAMP:
-            case BLOB:
+            case BYTES:
             case STRING:
             case BITMASK:
                 return Integer.MIN_VALUE;
 
             case DECIMAL:
-                return ((ColumnType.DecimalColumnType) type).scale();
+                return ((DecimalNativeType) type).scale();
 
             default:
-                throw new IllegalArgumentException("Unsupported type " + type.typeSpec());
+                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 

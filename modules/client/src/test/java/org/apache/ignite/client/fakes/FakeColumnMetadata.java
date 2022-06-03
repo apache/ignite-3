@@ -17,8 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Fake column meta.
@@ -49,7 +49,7 @@ class FakeColumnMetadata implements ColumnMetadata {
 
     /** {@inheritDoc} */
     @Override
-    public ColumnType type() {
+    public SqlColumnType type() {
         return null;
     }
 

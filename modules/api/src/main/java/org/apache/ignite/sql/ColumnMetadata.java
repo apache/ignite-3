@@ -17,7 +17,6 @@
 
 package org.apache.ignite.sql;
 
-import org.apache.ignite.schema.definition.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,7 +45,21 @@ public interface ColumnMetadata {
      *
      * @return Value type.
      */
-    ColumnType type();
+    SqlColumnType type();
+
+    /**
+     * Returns SQL column precision.
+     *
+     * @return Value precision.
+     */
+    int precision();
+
+    /**
+     * Returns SQL column scale.
+     *
+     * @return Value scale.
+     */
+    int scale();
 
     /**
      * Returns row column nullability flag.
