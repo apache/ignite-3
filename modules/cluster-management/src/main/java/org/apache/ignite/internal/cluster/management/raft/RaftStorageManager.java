@@ -110,14 +110,21 @@ class RaftStorageManager {
         storage.removeAll(keys);
     }
 
+    /**
+     * Returns {@code true} if a given node is present in the logical topology or {@code false} otherwise.
+     */
+    boolean isNodeInLogicalTopology(ClusterNode node) {
+        byte[] value = storage.get(logicalTopologyKey(node));
+
+        return value != null;
+    }
+
     private static byte[] logicalTopologyKey(ClusterNode node) {
         return prefixedKey(LOGICAL_TOPOLOGY_PREFIX, node.id());
     }
 
     /**
-     * Retrieves the validation token for a given node.
-     *
-     * @return Validation token or {@code null} if it does not exist.
+     * Returns {@code true} if a given node has been previously validated or {@code false} otherwise.
      */
     boolean isNodeValidated(String nodeId) {
         byte[] value = storage.get(validatedNodeKey(nodeId));
@@ -126,14 +133,14 @@ class RaftStorageManager {
     }
 
     /**
-     * Saves the validation token for a given node.
+     * Marks the given node as validated.
      */
     void putValidatedNode(String nodeId) {
         storage.put(validatedNodeKey(nodeId), EMPTY_VALUE);
     }
 
     /**
-     * Removes the validation token for a given node.
+     * Removes the given node from the validated node set.
      */
     void removeValidatedNode(String nodeId) {
         storage.remove(validatedNodeKey(nodeId));
