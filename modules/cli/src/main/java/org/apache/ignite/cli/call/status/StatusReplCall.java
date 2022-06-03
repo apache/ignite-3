@@ -18,63 +18,54 @@
 package org.apache.ignite.cli.call.status;
 
 import jakarta.inject.Singleton;
-import java.net.ConnectException;
 import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.CallOutput;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
-import org.apache.ignite.cli.core.call.StatusCallInput;
-import org.apache.ignite.cli.core.exception.CommandExecutionException;
+import org.apache.ignite.cli.core.call.EmptyCallInput;
+import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.cli.deprecated.CliPathsConfigLoader;
 import org.apache.ignite.cli.deprecated.IgnitePaths;
 import org.apache.ignite.cli.deprecated.builtins.node.NodeManager;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Call to get cluster status.
  */
 @Singleton
 //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
-public class StatusCall implements Call<StatusCallInput, Status> {
+public class StatusReplCall implements Call<EmptyCallInput, Status> {
     private final NodeManager nodeManager;
     private final CliPathsConfigLoader cliPathsCfgLdr;
+    private final Session session;
 
     /**
      * Default constructor.
      */
-    public StatusCall(NodeManager nodeManager, CliPathsConfigLoader cliPathsCfgLdr) {
+    public StatusReplCall(NodeManager nodeManager, CliPathsConfigLoader cliPathsCfgLdr, Session session) {
         this.nodeManager = nodeManager;
         this.cliPathsCfgLdr = cliPathsCfgLdr;
+        this.session = session;
     }
 
     @Override
-    public CallOutput<Status> execute(StatusCallInput input) {
+    public CallOutput<Status> execute(EmptyCallInput input) {
         IgnitePaths paths = cliPathsCfgLdr.loadIgnitePathsOrThrowError();
-        String connected = null;
-        try {
-            connected = createNodeApi(input).getNodeConfiguration();
-        } catch (ApiException e) {
-            if (e.getCause() instanceof ConnectException) {
-                return DefaultCallOutput.failure(new CommandExecutionException("status", "cannot connect to " + input.getClusterUrl()));
-            } else {
-                return DefaultCallOutput.failure(e);
-            }
-        }
         return DefaultCallOutput.success(
                 Status.builder()
-                        .connected(connected != null)
-                        .connectedNodeUrl(input.getClusterUrl())
-                        .initialized(connected != null && canReadClusterConfig(input))
+                        .connected(session.isConnectedToNode())
+                        .connectedNodeUrl(session.getNodeUrl())
+                        .initialized(session.isConnectedToNode() && canReadClusterConfig())
                         .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
                         .build()
         );
     }
 
-    private boolean canReadClusterConfig(StatusCallInput input) {
-        var clusterApi = createClusterApi(input);
+    private boolean canReadClusterConfig() {
+        var clusterApi = createApiClient();
         try {
             clusterApi.getClusterConfiguration();
             return true;
@@ -83,15 +74,10 @@ public class StatusCall implements Call<StatusCallInput, Status> {
         }
     }
 
-    private ClusterConfigurationApi createClusterApi(StatusCallInput input) {
+    @NotNull
+    private ClusterConfigurationApi createApiClient() {
         ApiClient client = Configuration.getDefaultApiClient();
-        client.setBasePath(input.getClusterUrl());
+        client.setBasePath(session.getNodeUrl());
         return new ClusterConfigurationApi(client);
-    }
-
-    private NodeConfigurationApi createNodeApi(StatusCallInput input) {
-        ApiClient client = Configuration.getDefaultApiClient();
-        client.setBasePath(input.getClusterUrl());
-        return new NodeConfigurationApi(client);
     }
 }

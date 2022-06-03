@@ -25,15 +25,15 @@ import picocli.CommandLine.Help.Ansi;
 /**
  * Decorator for {@link Status}.
  */
-public class StatusDecorator implements Decorator<Status, TerminalOutput> {
+public class StatusReplDecorator implements Decorator<Status, TerminalOutput> {
 
     @Override
     public TerminalOutput decorate(Status data) {
         if (!data.isConnected()) {
-            return () -> "Can not get status from " + data.getConnectedNodeUrl();
+            return () -> "You are not connected to any Ignite 3 node. Try to run 'connect' command.";
         }
 
-        return () -> Ansi.AUTO.string("Status from " + data.getConnectedNodeUrl() + System.lineSeparator()
+        return () -> Ansi.AUTO.string("Connected to " + data.getConnectedNodeUrl() + System.lineSeparator()
                 + "[nodes: " + data.getNodeCount() + ", status: "
                 + (data.isInitialized() ? "@|fg(10) active|@" : "@|fg(9) not initialized|@") + "]");
     }

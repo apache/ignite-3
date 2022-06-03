@@ -26,7 +26,6 @@ import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Shows configuration from ignite cluster.
@@ -58,7 +57,6 @@ public class ShowConfigurationCall implements Call<ShowConfigurationCallInput, S
         return input.getSelector() != null ? api.getClusterConfigurationByPath(input.getSelector()) : api.getClusterConfiguration();
     }
 
-    @NotNull
     private ApiClient createApiClient(ShowConfigurationCallInput input) {
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath(input.getClusterUrl());

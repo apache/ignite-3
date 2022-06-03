@@ -25,9 +25,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link StatusCommand}.
+ * Tests for {@link StatusReplCommand}.
  */
-class ItStatusCommandTest extends CliCommandTestIntegrationBase {
+class ItStatusReplCommandTest extends CliCommandTestIntegrationBase {
 
     @Test
     @DisplayName("Should print status when valid cluster url is given")

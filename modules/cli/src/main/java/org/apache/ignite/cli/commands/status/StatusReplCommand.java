@@ -19,11 +19,11 @@ package org.apache.ignite.cli.commands.status;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.call.status.StatusCall;
+import org.apache.ignite.cli.call.status.StatusReplCall;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.StatusDecorator;
+import org.apache.ignite.cli.commands.decorators.StatusReplDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
+import org.apache.ignite.cli.core.call.EmptyCallInput;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -34,15 +34,14 @@ import picocli.CommandLine.Spec;
  */
 @Command(name = "status", description = "Prints status of the cluster.")
 @Singleton
-public class StatusCommand extends BaseCommand {
+public class StatusReplCommand extends BaseCommand {
 
     /**
      * Cluster url option.
      */
     @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node.",
-            descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
+            names = {"--cluster-url"}, description = "Url to cluster node."
     )
     private String clusterUrl;
 
@@ -50,16 +49,16 @@ public class StatusCommand extends BaseCommand {
     private CommandSpec commandSpec;
 
     @Inject
-    private StatusCall statusCall;
+    private StatusReplCall statusReplCall;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        CallExecutionPipeline.builder(statusCall)
-                .inputProvider(() -> new StatusCallInput(clusterUrl))
+        CallExecutionPipeline.builder(statusReplCall)
+                .inputProvider(EmptyCallInput::new)
                 .output(commandSpec.commandLine().getOut())
                 .errOutput(commandSpec.commandLine().getErr())
-                .decorator(new StatusDecorator())
+                .decorator(new StatusReplDecorator())
                 .build()
                 .runPipeline();
     }
