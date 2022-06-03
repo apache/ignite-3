@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import io.micronaut.test.annotation.MockBean;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -34,7 +35,6 @@ import java.util.Collections;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
-import javax.inject.Inject;
 import org.apache.ignite.cli.AbstractCliTest;
 import org.apache.ignite.cli.IgnitePaths;
 import org.junit.jupiter.api.Test;

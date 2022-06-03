@@ -17,7 +17,7 @@
 
 package org.apache.ignite.cli.spec;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 import org.apache.ignite.cli.builtins.config.ConfigurationClient;
 import picocli.CommandLine;
 

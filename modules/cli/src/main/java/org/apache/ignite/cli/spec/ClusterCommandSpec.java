@@ -17,9 +17,9 @@
 
 package org.apache.ignite.cli.spec;
 
+import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
-import javax.inject.Inject;
 import org.apache.ignite.cli.builtins.cluster.ClusterApiClient;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;

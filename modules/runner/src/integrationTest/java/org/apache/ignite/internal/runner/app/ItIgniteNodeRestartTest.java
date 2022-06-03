@@ -70,7 +70,6 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
-import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -231,7 +230,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 vault,
                 clusterSvc,
                 raftMgr,
-                mock(RestComponent.class),
                 new RocksDbClusterStateStorage(dir.resolve("cmg"))
         );
 
