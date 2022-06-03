@@ -36,6 +36,7 @@ import picocli.CommandLine.Option;
         })
 @Singleton
 public class TopLevelCliCommand extends BaseCommand {
+    @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(names = {"--version"}, versionHelp = true, description = "Print version information and exit")
     private boolean versionRequested;
 

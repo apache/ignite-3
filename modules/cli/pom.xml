@@ -32,12 +32,12 @@
     <artifactId>ignite-cli</artifactId>
     <version>3.0.0-SNAPSHOT</version>
 
-    <properties>
-        <fliptables.version>1.1.0</fliptables.version>
-        <assertj-core.version>3.22.0</assertj-core.version>
-    </properties>
-
     <dependencies>
+        <dependency>
+            <groupId>com.jakewharton.fliptables</groupId>
+            <artifactId>fliptables</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.ignite</groupId>
             <artifactId>ignite-cli-common</artifactId>
@@ -58,21 +58,10 @@
             <artifactId>ignite-client</artifactId>
         </dependency>
 
-        <!--<dependency>
-            <groupId>org.apache.ignite</groupId>
-            <artifactId>ignite-rest-client</artifactId>
-        </dependency>-->
-
         <!-- 3rd party dependencies -->
         <dependency>
             <groupId>io.micronaut</groupId>
             <artifactId>micronaut-inject</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.jakewharton.fliptables</groupId>
-            <artifactId>fliptables</artifactId>
-            <version>${fliptables.version}</version>
         </dependency>
 
         <dependency>
@@ -83,13 +72,11 @@
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli-shell-jline3</artifactId>
-            <version>${picocli.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.fusesource.jansi</groupId>
             <artifactId>jansi</artifactId>
-            <version>${jansi.version}</version>
         </dependency>
 
         <dependency>
@@ -131,43 +118,36 @@
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.8.9</version>
         </dependency>
 
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>4.9.1</version>
         </dependency>
 
         <dependency>
             <groupId>org.threeten</groupId>
             <artifactId>threetenbp</artifactId>
-            <version>1.5.2</version>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>logging-interceptor</artifactId>
-            <version>4.9.1</version>
         </dependency>
 
         <dependency>
             <groupId>io.gsonfire</groupId>
             <artifactId>gson-fire</artifactId>
-            <version>1.8.5</version>
         </dependency>
 
         <dependency>
             <groupId>io.swagger</groupId>
             <artifactId>swagger-annotations</artifactId>
-            <version>1.6.4</version>
         </dependency>
 
         <!--        Test dependencies-->

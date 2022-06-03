@@ -17,6 +17,7 @@ public class TopologyCommand extends BaseCommand {
     /**
      * Cluster url option.
      */
+    @SuppressWarnings("PMD.UnusedPrivateField")
     @Option(
             names = {"--cluster-url"}, description = "Url to cluster node.",
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
