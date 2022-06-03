@@ -29,19 +29,20 @@ The following commands can be executed in REPL mode of the command line tool:
 | Command| Parameters | Description
 | `bootsrap` || Installs Ignite core modules locally. Previously `init`.
 | `clear` || Clears the terminal.
+| `cli config` || Gets all CLI tool configuration values.
 | `cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
 | `cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
 | `cluster init` | `[--cluster-url] <--meta-storage-node> [--cmg-node]`| Initializes the cluster on the specified URL.
-| `cluster show` | `[--cluster-url]` | Displays the status of the specified cluster.
+| `cluster show` | `[--cluster-url]` | Displays the detailed status of the specified cluster.
 | `cluster config show` | `[--cluster-url] [--selector]` | Gets the configuration of the specified cluster.
-| `cluster config update` | `[--cluster-url] <config in HOCON format or path to file>` | Updates the configuration of the cluster with the provided configuration in HOCON format.
-| `connect` | [--cluster-url] | Connects to the specified cluster.
+| `cluster config update` | `[--cluster-url] <config in HOCON format>` | Updates the configuration of the cluster with the provided configuration in HOCON format.
+| `connect` | [--cluster-url] | Connects to the specified cluster, or `localhost:3000` if no cluster url is specified. All subsequent commands use the specified cluster url.
 | `disconnect` || Disconnects from the cluster.
 | `exit` || Stops current interactive session.
 | `help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
 | `node classpath` || Shows the current classpath used by Ignite nodes.
 | `node config show` | `[--node-url][--selector]` | Gets the local node configuration.
-|`node config update` | `[--node-url] <config in HOCON format or path to file>` | Updates the local node configuration with the provided configuration in HOCON format.
+|`node config update` | `[--node-url] <config in HOCON format>` | Updates the local node configuration with the provided configuration in HOCON format.
 | `node list` || Shows the list of currently running local Ignite nodes.
 | `node start` | `[--config] <nodeName>` | Starts an Ignite node locally.
 | `node stop` | `<nodeName>` | Stops a locally running Ignite node.
@@ -63,22 +64,22 @@ The following commands can be executed in non-REPL mode of the command-line tool
 [cols="1,1,3",opts="header", stripes=none]
 |===
 | Command| Parameters | Description
-
-| `cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
-| `cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
-| `help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
+| `ignite cli config` || Gets all CLI tool configuration values.
+| `ignite cli config get` | `<config key-value>` | Gets the value of the specified CLI tool configuration.
+| `ignite cli config set` | `<config key-value>` | Sets the value of the specified CLI tool configuration.
 | `ignite bootsrap` || Installs Ignite core modules locally. Previously `init`.
 | `ignite cluster config show` | `[--cluster-url] [--selector]` | Gets the configuration of the specified cluster.
-| `ignite cluster config update` | `[--cluster-url] <config in HOCON format or path to file>` | Sets the configuration of the cluster with the provided configuration in HOCON format.
+| `ignite cluster config update` | `[--cluster-url] <config in HOCON format>` | Sets the configuration of the cluster with the provided configuration in HOCON format.
 | `ignite cluster init` | `[--cluster-url] <--meta-storage-node> [--cmg-node]`| Initializes the cluster on the specified URL.
-| `ignite cluster show` | `[--cluster-url]` | Displays the status of the specified cluster.
+| `ignite cluster show` | `[--cluster-url]` | Displays the detailed status of the specified cluster.
+| `ignite help` | `<command>` | Provides information on available commands, or for specific command if the `command` parameter is specified.
 | `ignite node classpath` || Shows the current classpath used by Ignite nodes.
 | `ignite node config show` | `[--node-url][--selector]` | Gets the local node configuration.
 | `ignite node list` || Shows the list of currently running local Ignite nodes.
 | `ignite node start` | `[--config] <nodeName>` | Starts an Ignite node locally.
 | `ignite node stop` | `<nodeName>` | Stops a locally running Ignite node.
-|`ignite node config update` | `[--node-url] <config in HOCON format or path to file>` | Updates the local node configuration with the provided configuration in HOCON format.
+|`ignite node config update` | `[--node-url] <config in HOCON format>` | Updates the local node configuration with the provided configuration in HOCON format.
+| `ignite status` | `--cluster-url` |Shows the status of the default cluster, or a different one if cluster-url is provided.
 | `ignite sql` | `[--cluster-url][--script-file] <query>` | Executes the specified SQL query.
-| `status` | `--cluster-url` |Shows the status of the default cluster, or a different one if cluster-url is provided.
-| `version` || Displays current CLI tool version.
+| `ignite version` || Displays current CLI tool version.
 |===
