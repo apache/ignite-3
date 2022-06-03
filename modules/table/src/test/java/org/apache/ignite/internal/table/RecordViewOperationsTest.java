@@ -48,7 +48,7 @@ import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -309,6 +309,10 @@ public class RecordViewOperationsTest {
 
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager), txManager);
+
+        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
+
+        MessagingServiceTestUtils.mockMessagingService(txManager, messagingService, partitionListeners);
 
         Mapper<TestObjectWithAllTypes> recMapper = Mapper.of(TestObjectWithAllTypes.class);
 

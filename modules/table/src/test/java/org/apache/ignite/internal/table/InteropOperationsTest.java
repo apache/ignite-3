@@ -45,7 +45,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.RecordMarshallerTest;
 import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.chm.TestConcurrentHashMapPartitionStorage;
+import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.table.distributed.storage.VersionedRowStore;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
@@ -123,6 +123,10 @@ public class InteropOperationsTest {
 
         INT_TABLE = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(),0), txManager), txManager);
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(SCHEMA);
+
+        List<PartitionListener> partitionListeners = List.of(((DummyInternalTableImpl) INT_TABLE).getPartitionListener());
+
+        MessagingServiceTestUtils.mockMessagingService(txManager, messagingService, partitionListeners);
 
         TABLE = new TableImpl(INT_TABLE, schemaRegistry);
         KV_BIN_VIEW =  new KeyValueBinaryViewImpl(INT_TABLE, schemaRegistry);

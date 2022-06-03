@@ -221,10 +221,22 @@ public class VersionedRowStore {
 //        primaryIndex.remove(row.keySlice());
         // Write a tombstone.
 
-        BinaryRow prevRow = storage.addWrite(primaryIndex.get(row.keySlice()), null, id);
+        //------------
+//        BinaryRow prevRow = storage.addWrite(primaryIndex.get(row.keySlice()), null, id);
+//
+//        if (prevRow == null && txsKeysForRemove.getOrDefault(id, Collections.emptyList()).contains(row.keySlice()))
+//            return false;
+        //------------
 
-        if (prevRow == null && txsKeysForRemove.getOrDefault(id, Collections.emptyList()).contains(row.keySlice()))
+
+        BinaryRow prevRow = storage.read(primaryIndex.get(row.keySlice()), id);
+
+        if (prevRow == null)
             return false;
+
+        storage.addWrite(primaryIndex.get(row.keySlice()), null, id);
+
+        //------------
 
 //        BinaryRow result = storage.read(rowId, id);
 //        primaryIndex.remove(row.keySlice());
