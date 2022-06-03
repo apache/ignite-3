@@ -624,7 +624,6 @@ public class RaftGroupServiceTest {
         assertEquals(Collections.emptyList(), service.learners());
     }
 
-
     /**
      * @throws Exception
      */
