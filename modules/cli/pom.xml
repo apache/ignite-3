@@ -441,17 +441,18 @@
                         <id>generate-autocompletion-script</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>exec</goal>
+                            <goal>java</goal>
                         </goals>
                     </execution>
                 </executions>
                 <configuration>
-                    <executable>java</executable>
+                    <mainClass>picocli.AutoComplete</mainClass>
+                    <systemProperties>
+                        <systemProperty>
+                            <key>picocli.autocomplete.systemExitOnError</key>
+                        </systemProperty>
+                    </systemProperties>
                     <arguments>
-                        <argument>-Dpicocli.autocomplete.systemExitOnError</argument>
-                        <argument>-cp</argument>
-                        <classpath/>
-                        <argument>picocli.AutoComplete</argument>
                         <argument>--force</argument><!-- overwrite if exists -->
                         <argument>--completionScript</argument>
                         <argument>${project.build.directory}/ignite_completion.sh</argument>
