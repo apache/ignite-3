@@ -34,7 +34,7 @@ public class StatusDecorator implements Decorator<Status, TerminalOutput> {
         }
 
         return () -> Ansi.AUTO.string("Connected to " + data.getConnectedNodeUrl() + System.lineSeparator()
-                + "[name: " + data.getName() + ", nodes: " + data.getNodeCount() + ", status: "
+                + "[nodes: " + data.getNodeCount() + ", status: "
                 + (data.isInitialized() ? "@|fg(10) active|@" : "@|fg(9) not initialized|@") + "]");
     }
 }

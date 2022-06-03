@@ -24,7 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link ItTopologyCommand}.
+ * Tests for {@link TopologyCommand}.
  */
 class ItTopologyCommandTest extends CliCommandTestIntegrationBase {
 
@@ -40,7 +40,7 @@ class ItTopologyCommandTest extends CliCommandTestIntegrationBase {
                 this::assertErrOutputIsEmpty,
                 this::assertOutputIsNotEmpty
         );
-        //todo: check output contains something like:
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-17092
         //consistent ID, ID, address, status
         //node 1, e2d4988a-b836-4e7e-a888-2639e6f79ef0, 127.0.0.1, RUNNING
         //node 2, 5cb561fc-1963-4f95-98f8-deb407669a86, 127.0.0.2, RECOVERY

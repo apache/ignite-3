@@ -37,7 +37,7 @@ public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
     ShowConfigurationCall readCall;
 
     @Test
-    @DisplayName("Should show cluster configuration")
+    @DisplayName("Should update cluster configuration")
     void shouldUpdateClusterConfiguration() {
         // Given default write buffer size
         String givenConfigurationProperty = readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize");

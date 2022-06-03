@@ -64,7 +64,7 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
     }
 
     protected void assertExitCodeIs(int expectedExitCode) {
-        //TODO: temporary disable.
+        //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
         /*assertThat(exitCode)
                 .as("Expected exit code to be: " + expectedExitCode + " but was " + exitCode)
                 .isEqualTo(expectedExitCode);*/

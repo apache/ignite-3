@@ -65,7 +65,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsNotEmpty,
-                // todo: specify error output
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
                 () -> assertErrOutputIs(CLIENT_CONNECTION_FAILED_MESSAGE + System.lineSeparator())
         );
     }
@@ -79,7 +79,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
                 () -> assertExitCodeIs(1),
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsNotEmpty,
-                // todo: specify error output
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
                 () -> assertErrOutputIs(PARSING_ERROR_MESSAGE + System.lineSeparator())
         );
     }

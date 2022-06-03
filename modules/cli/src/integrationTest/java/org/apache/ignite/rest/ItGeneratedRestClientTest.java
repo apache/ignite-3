@@ -60,13 +60,20 @@ public class ItGeneratedRestClientTest {
 
     /** Start rest server port. */
     private static final int BASE_REST_PORT = 10300;
+
     private final List<String> clusterNodeNames = new ArrayList<>();
+
     private final List<Ignite> clusterNodes = new ArrayList<>();
+
     @WorkDirectory
     private Path workDir;
+
     private CompletableFuture<Ignite> ignite;
+
     private ClusterConfigurationApi clusterConfigurationApi;
+
     private NodeConfigurationApi nodeConfigurationApi;
+
     private ClusterManagementApi clusterManagementApi;
 
     private static String buildConfig(int nodeIdx) {
@@ -115,7 +122,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testGetClusterConfiguration() {
+    void getClusterConfiguration() {
         assertDoesNotThrow(() -> {
             String configuration = clusterConfigurationApi.getClusterConfiguration();
 
@@ -125,7 +132,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testGetClusterConfigurationByPath() {
+    void getClusterConfigurationByPath() {
         assertDoesNotThrow(() -> {
             String configuration = clusterConfigurationApi.getClusterConfigurationByPath("rocksDb.defaultRegion");
 
@@ -135,7 +142,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testUpdateTheSameClusterConfiguration() {
+    void updateTheSameClusterConfiguration() {
         assertDoesNotThrow(() -> {
             String originalConfiguration = clusterConfigurationApi.getClusterConfiguration();
 
@@ -148,7 +155,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testGetClusterConfigurationByPathBadRequest() {
+    void getClusterConfigurationByPathBadRequest() {
         try {
             clusterConfigurationApi.getClusterConfigurationByPath("no.such.path");
             fail("Expected ApiException to be thrown");
@@ -158,7 +165,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testGetNodeConfiguration() {
+    void getNodeConfiguration() {
         assertDoesNotThrow(() -> {
             String configuration = nodeConfigurationApi.getNodeConfiguration();
 
@@ -168,7 +175,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testGetNodeConfigurationByPath() {
+    void getNodeConfigurationByPath() {
         assertDoesNotThrow(() -> {
             String configuration = nodeConfigurationApi.getNodeConfigurationByPath("clientConnector.connectTimeout");
 
@@ -178,7 +185,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testGetNodeConfigurationByPathBadRequest() {
+    void getNodeConfigurationByPathBadRequest() {
         try {
             nodeConfigurationApi.getNodeConfigurationByPath("no.such.path");
             fail("Expected ApiException to be thrown");
@@ -188,7 +195,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testUpdateTheSameNodeConfiguration() {
+    void updateTheSameNodeConfiguration() {
         assertDoesNotThrow(() -> {
             String originalConfiguration = nodeConfigurationApi.getNodeConfiguration();
 
@@ -201,7 +208,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testInitCluster() {
+    void initCluster() {
         assertDoesNotThrow(() -> {
             String nodeName = clusterNodes.get(0).name();
             clusterManagementApi.init(new InitCommand().clusterName("cluster").metaStorageNodes(List.of(nodeName)).cmgNodes(List.of()));
@@ -209,7 +216,7 @@ public class ItGeneratedRestClientTest {
     }
 
     @Test
-    void testInitClusterNoSuchNode() {
+    void initClusterNoSuchNode() {
         try {
             clusterManagementApi.init(new InitCommand().metaStorageNodes(List.of("no-such-node")).cmgNodes(List.of()));
             fail("Expected ApiException to be thrown");

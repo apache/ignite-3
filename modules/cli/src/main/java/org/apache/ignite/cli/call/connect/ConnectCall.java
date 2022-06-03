@@ -36,7 +36,7 @@ import org.jetbrains.annotations.NotNull;
 
 
 /**
- * Call for connect to Ignite 3 node.
+ * Call for connect to Ignite 3 node. As a result {@link Session} will hold a valid node-url.
  */
 @Singleton
 public class ConnectCall implements Call<ConnectCallInput, String> {

@@ -46,7 +46,7 @@ class SqlCompleter implements Completer {
             addCandidate(schema, candidates);
             for (String table : schemaProvider.getSchema().tables(schema)) {
                 addCandidate(table, candidates);
-                //TODO: add columns from current schema?
+                //TODO: https://issues.apache.org/jira/browse/IGNITE-16973
             }
         }
     }

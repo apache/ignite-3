@@ -15,7 +15,7 @@ source target/ignite_completion.sh
 
 Add `ignite` alias:
 ```bash
-alias ignite='sh ignite.sh'
+alias ignite='./target/ignite'
 ```
 
 For more info, see [Autocomplete for Java Command Line Applications](https://picocli.info/autocomplete.html).

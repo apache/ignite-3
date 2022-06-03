@@ -36,6 +36,7 @@ import org.jetbrains.annotations.NotNull;
  * Call to get cluster status.
  */
 @Singleton
+//TODO: https://issues.apache.org/jira/browse/IGNITE-17093
 public class StatusCall implements Call<EmptyCallInput, Status> {
     private final NodeManager nodeManager;
     private final CliPathsConfigLoader cliPathsCfgLdr;
@@ -59,7 +60,7 @@ public class StatusCall implements Call<EmptyCallInput, Status> {
                         .connectedNodeUrl(session.getNodeUrl())
                         .initialized(session.isConnectedToNode() && canReadClusterConfig())
                         .nodeCount(nodeManager.getRunningNodes(paths.logDir, paths.cliPidsDir()).size())
-                        .name("CHANGE_ME").build()
+                        .build()
         );
     }
 

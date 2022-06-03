@@ -114,7 +114,7 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
 
     @Test
     @DisplayName("Should return error if wrong nodename is given")
-    @Disabled //TODO: create a ticket: node name validation
+    @Disabled //TODO: https://issues.apache.org/jira/browse/IGNITE-17089
     void readNodeConfigurationWithWrongNodename() {
         // Given
         var input = ShowConfigurationCallInput.builder()
@@ -130,7 +130,7 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("")
+    @DisplayName("Should display error when wrong port is given")
     public void incorrectPortTest() {
         var input = ShowConfigurationCallInput.builder()
                 .clusterUrl(NODE_URL + "incorrect")
@@ -144,12 +144,12 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
                 .build()
                 .runPipeline();
 
-        Assertions.assertThat(new String(Chars.toArray(list)))
+        assertThat(new String(Chars.toArray(list)))
                 .contains("Invalid URL port: \"10300incorrect");
     }
 
     @Test
-    @DisplayName("")
+    @DisplayName("Should display error when wrong url is given")
     public void incorrectSchemeTest() {
         var input = ShowConfigurationCallInput.builder()
                 .clusterUrl("incorrect" + NODE_URL)
@@ -163,7 +163,7 @@ class ItShowConfigurationCallTest extends CallIntegrationTestBase {
                 .build()
                 .runPipeline();
 
-        Assertions.assertThat(new String(Chars.toArray(list)))
+        assertThat(new String(Chars.toArray(list)))
                 .contains("Expected URL scheme 'http' or 'https' but was 'incorrecthttp'");
     }
 }
