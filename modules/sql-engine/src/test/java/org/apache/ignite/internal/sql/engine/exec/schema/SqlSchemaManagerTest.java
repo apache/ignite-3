@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -40,6 +39,7 @@ import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTableImpl;
@@ -75,12 +75,15 @@ public class SqlSchemaManagerTest {
     private TableManager tableManager;
 
     @Mock
+    private SchemaManager schemaManager;
+
+    @Mock
     private TableImpl table;
 
     @Mock
     SchemaRegistryImpl schemaRegistry;
 
-    private SqlSchemaManagerImpl schemaManager;
+    private SqlSchemaManagerImpl sqlSchemaManager;
 
     private TestRevisionRegister testRevisionRegister;
 
@@ -90,8 +93,9 @@ public class SqlSchemaManagerTest {
 
         testRevisionRegister = new TestRevisionRegister();
 
-        schemaManager = new SqlSchemaManagerImpl(
+        sqlSchemaManager = new SqlSchemaManagerImpl(
                 tableManager,
+                schemaManager,
                 testRevisionRegister
         );
 
@@ -102,7 +106,7 @@ public class SqlSchemaManagerTest {
     public void testNonExistingTable() throws NodeStoppingException {
         UUID tblId = UUID.randomUUID();
 
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tblId, tableVer));
+        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> sqlSchemaManager.tableById(tblId, tableVer));
         assertThat(ex.getMessage(), containsString("Table not found"));
 
         Mockito.verify(tableManager).table(eq(tblId));
@@ -122,7 +126,7 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
 
         assertEquals(tableId, actTable.id());
 
@@ -143,10 +147,10 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
 
         assertEquals(tableId, actTable.id());
 
@@ -165,10 +169,10 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer - 1);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer - 1);
 
         assertEquals(tableId, actTable.id());
 
@@ -187,16 +191,16 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer - 1);
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
         when(tableManager.table(eq(tableId))).thenReturn(table);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(tableVer);
 
-        IgniteTable actTable = schemaManager.tableById(tableId, tableVer);
+        IgniteTable actTable = sqlSchemaManager.tableById(tableId, tableVer);
         assertEquals(tableId, actTable.id());
 
-        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> schemaManager.tableById(tableId, tableVer + 1));
+        IgniteInternalException ex = assertThrows(IgniteInternalException.class, () -> sqlSchemaManager.tableById(tableId, tableVer + 1));
         assertThat(ex.getMessage(), containsString("Table version not found"));
 
         Mockito.verify(tableManager, times(2)).table(eq(tableId));
@@ -216,19 +220,19 @@ public class SqlSchemaManagerTest {
         when(schemaRegistry.schema()).thenReturn(schemaDescriptor);
         when(schemaRegistry.lastSchemaVersion()).thenReturn(schemaDescriptor.version());
 
-        schemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableCreated("TEST_SCHEMA", table, testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        Table schemaTable = schemaManager.schema("TEST_SCHEMA").getTable("T");
+        Table schemaTable = sqlSchemaManager.schema("TEST_SCHEMA").getTable("T");
 
         assertNotNull(schemaTable);
         IgniteTableImpl igniteTable = assertInstanceOf(IgniteTableImpl.class, schemaTable);
         assertEquals(tableId, igniteTable.table().tableId());
 
-        schemaManager.onTableDropped("TEST_SCHEMA", table.name(), testRevisionRegister.actualToken() + 1);
+        sqlSchemaManager.onTableDropped("TEST_SCHEMA", table.name(), testRevisionRegister.actualToken() + 1);
         testRevisionRegister.moveForward();
 
-        assertNull(schemaManager.schema("TEST_SCHEMA").getTable("T"));
+        assertNull(sqlSchemaManager.schema("TEST_SCHEMA").getTable("T"));
     }
 
     /**

@@ -25,6 +25,7 @@ import org.apache.ignite.internal.manager.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.event.MetaStorageEvent;
 import org.apache.ignite.internal.metastorage.event.MetaStorageEventParameters;
+import org.apache.ignite.lang.IgniteLogger;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -47,6 +48,8 @@ public class RecoveryCompletionFutureFactory {
         return metaStorageManager.appliedRevision()
             .thenCombine(cfgStorage.lastRevision(), (appliedRevision, lastRevision) -> {
                 if (appliedRevision >= lastRevision) {
+                    System.out.println("qqq Applied revision is not behind the last revision, completing recovery.");
+
                     return completedFuture(null);
                 }
 

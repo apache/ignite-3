@@ -54,6 +54,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
@@ -99,6 +100,9 @@ public class StopCalciteModuleTest {
 
     @Mock
     TableManager tableManager;
+
+    @Mock
+    SchemaManager schemaManager;
 
     @Mock
     DataStorageManager dataStorageManager;
@@ -195,6 +199,7 @@ public class StopCalciteModuleTest {
                 testRevisionRegister,
                 clusterSrvc,
                 tableManager,
+                schemaManager,
                 dataStorageManager,
                 Map::of
         );

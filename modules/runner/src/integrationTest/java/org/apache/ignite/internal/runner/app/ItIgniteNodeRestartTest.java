@@ -43,6 +43,8 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -104,6 +106,7 @@ import org.apache.ignite.schema.definition.ColumnType;
 import org.apache.ignite.schema.definition.TableDefinition;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.checkerframework.checker.units.qual.Time;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -285,7 +288,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
         );
 
         //TODO: Get rid of it after IGNITE-17062.
-        SqlQueryProcessor queryProcessor = new SqlQueryProcessor(registry, clusterSvc, tableManager, dataStorageManager, Map::of);
+        SqlQueryProcessor queryProcessor =
+            new SqlQueryProcessor(registry, clusterSvc, tableManager, schemaManager, dataStorageManager, Map::of);
 
         // Preparing the result map.
 
@@ -364,7 +368,7 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                     return configurationCatchUpFuture;
                 });
 
-        assertThat(startFuture, willCompleteSuccessfully());
+        assertThat(startFuture, willCompleteSuccessfully(60, TimeUnit.SECONDS));
 
         log.info("Completed recovery on partially started node, last revision applied: " + lastRevision.get()
                 + ", acceptableDifference: " + IgniteSystemProperties.getInteger(CONFIGURATION_CATCH_UP_DIFFERENCE_PROPERTY, 100)

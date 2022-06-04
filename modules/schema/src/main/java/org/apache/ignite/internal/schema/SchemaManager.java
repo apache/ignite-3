@@ -336,6 +336,10 @@ public class SchemaManager extends Producer<SchemaEvent, SchemaEventParameters> 
         }
     }
 
+    public SchemaRegistry schemaRegistry(UUID tableId) {
+        return registriesVv.latest().get(tableId);
+    }
+
     /**
      * Drop schema registry for the given table id.
      *

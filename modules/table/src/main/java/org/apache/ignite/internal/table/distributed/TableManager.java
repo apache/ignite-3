@@ -331,6 +331,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         UUID tblId = tblCfg.id().value();
 
         long causalityToken = assignmentsCtx.storageRevision();
+        System.out.println("qqq updateAssignmentInternal start" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
 
         List<List<ClusterNode>> oldAssignments = assignmentsCtx.oldValue() == null ? null :
                 (List<List<ClusterNode>>) ByteUtils.fromBytes(assignmentsCtx.oldValue());
@@ -368,7 +369,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 toAdd.removeAll(oldPartitionAssignment);
 
-                System.out.println("qqq create partition=" + partId);
+                System.out.println("qqq create partition=" + partId + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
 
                 try {
                     futures[partId] = raftMgr.updateRaftGroup(
@@ -386,7 +387,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                         return null;
                     }).thenApply(v -> {
-                        System.out.println("qqq finished creating partition=" + partId);
+                        System.out.println("qqq finished creating partition=" + partId + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
                         return tablesById;
                     });
                 } catch (NodeStoppingException ex) {
@@ -443,27 +444,27 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
         InternalTableImpl internalTable = new InternalTableImpl(name, tblId, new Int2ObjectOpenHashMap<>(partitions),
                 partitions, netAddrResolver, clusterNodeResolver, txManager, tableStorage);
 
+        var table = new TableImpl(internalTable);
+
+        CompletableFuture<?> eventFut = fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null);
+
         return tablesByIdVv.update(causalityToken, (previous, e) -> {
             if (e != null) {
                 return failedFuture(e);
             }
 
-            System.out.println("qqq create table locally");
+            System.out.println("qqq create table locally" + ", tableManager=" + this + ", tableId=" + tblId + ", token=" + causalityToken);
 
-            return schemaManager.schemaRegistry(causalityToken, tblId)
-                .thenCompose(registry -> {
-                    System.out.println("qqq actual create table after schema registry is ready");
-                    var table = new TableImpl(internalTable, registry);
+            var val = new HashMap<>(previous);
 
-                    var val = new HashMap<>(previous);
+            val.put(tblId, table);
 
-                    val.put(tblId, table);
+            tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
 
-                    tablesByIdVv.get(causalityToken).thenRun(() -> completeApiCreateFuture(table));
-
-                    return fireEvent(TableEvent.CREATE, new TableEventParameters(causalityToken, table), null)
-                        .thenApply(v -> val);
-                });
+            return eventFut
+                .thenCompose(v -> schemaManager.schemaRegistry(causalityToken, tblId))
+                .thenAccept(table::schemaView)
+                .thenApply(v -> val);
         });
     }
 
@@ -503,6 +504,8 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
             assert table != null : IgniteStringFormatter.format("There is no table with the name specified [name={}, id={}]",
                 name, tblId);
 
+            CompletableFuture<?> eventFut = fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table));
+
             tablesByIdVv.update(causalityToken, (previousVal, e) -> {
                 if (e != null) {
                     return failedFuture(e);
@@ -512,7 +515,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                 map.remove(tblId);
 
-                return fireEvent(TableEvent.DROP, new TableEventParameters(causalityToken, table))
+                return eventFut
                     .thenApply(v -> map);
             });
 
@@ -941,6 +944,10 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
     @TestOnly
     public Map<UUID, TableImpl> latestTables() {
         return unmodifiableMap(tablesByIdVv.latest());
+    }
+
+    public TableImpl latestTable(UUID tableId) {
+        return tablesByIdVv.latest().get(tableId);
     }
 
     /** {@inheritDoc} */
