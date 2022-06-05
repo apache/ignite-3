@@ -20,6 +20,7 @@ package org.apache.ignite.cli.commands.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.apache.ignite.cli.commands.CliCommandTestBase;
+import org.apache.ignite.cli.commands.configuration.node.NodeConfigShowSubCommand;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +30,7 @@ class ShowConfigSubCommandTest extends CliCommandTestBase {
 
     @BeforeEach
     void setUp() {
-        setUp(ShowConfigSubCommand.class);
+        setUp(NodeConfigShowSubCommand.class);
     }
 
     @Disabled(value = "Cluster-url has a default value")

@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.cli.commands.configuration.node;
 
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.rest.client.invoker.ApiException;
+import org.apache.ignite.cli.deprecated.spec.NodeCommandSpec;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
 
 /**
- * Exception handler for {@link ApiException}.
+ * Node command in REPL mode.
  */
-public class ApiExceptionHandler implements ExceptionHandler<ApiException> {
-    @Override
-    public void handle(ExceptionWriter err, ApiException e) {
-        err.write("Api error: " + e.getCause());
-    }
-
-    @Override
-    public Class<ApiException> applicableException() {
-        return ApiException.class;
-    }
+@Command(name = "node",
+        subcommands = {NodeConfigReplSubCommand.class},
+        description = "Node config operations.")
+public class NodeReplCommand {
+    @Mixin
+    NodeCommandSpec nodeCommandSpec;
 }

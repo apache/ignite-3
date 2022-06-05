@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.core.exception.handler;
+package org.apache.ignite.cli.commands.configuration.cluster;
 
-import org.apache.ignite.cli.core.exception.ExceptionHandler;
-import org.apache.ignite.cli.core.exception.ExceptionWriter;
-import org.apache.ignite.rest.client.invoker.ApiException;
+import picocli.CommandLine.Command;
 
 /**
- * Exception handler for {@link ApiException}.
+ * Node config command in REPL.
  */
-public class ApiExceptionHandler implements ExceptionHandler<ApiException> {
-    @Override
-    public void handle(ExceptionWriter err, ApiException e) {
-        err.write("Api error: " + e.getCause());
-    }
+@Command(name = "config",
+        subcommands = {ClusterConfigShowReplSubCommand.class, ClusterConfigUpdateReplSubCommand.class},
+        description = "Cluster config operations.")
+public class ClusterConfigReplSubCommand {
 
-    @Override
-    public Class<ApiException> applicableException() {
-        return ApiException.class;
-    }
 }

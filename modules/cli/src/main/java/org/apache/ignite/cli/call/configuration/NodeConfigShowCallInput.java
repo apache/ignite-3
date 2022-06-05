@@ -20,35 +20,29 @@ package org.apache.ignite.cli.call.configuration;
 import org.apache.ignite.cli.core.call.CallInput;
 
 /**
- * Input for {@link ShowConfigurationCall}.
+ * Input for {@link NodeConfigShowCall}.
  */
-public class ShowConfigurationCallInput implements CallInput {
-    /**
-     * Node ID.
-     */
-    private final String nodeId;
+public class NodeConfigShowCallInput implements CallInput {
     /**
      * Selector for configuration tree.
      */
     private final String selector;
-    /**
-     * Cluster url.
-     */
-    private final String clusterUrl;
 
-    private ShowConfigurationCallInput(String nodeId, String selector, String clusterUrl) {
-        this.nodeId = nodeId;
+    /**
+     * Node url.
+     */
+    private final String nodeUrl;
+
+    private NodeConfigShowCallInput(String selector, String nodeUrl) {
+        this.nodeUrl = nodeUrl;
         this.selector = selector;
-        this.clusterUrl = clusterUrl;
     }
 
     /**
-     * Get node ID.
-     *
-     * @return Node ID.
+     * Builder for {@link NodeConfigShowCallInput}.
      */
-    public String getNodeId() {
-        return nodeId;
+    public static ShowConfigurationCallInputBuilder builder() {
+        return new ShowConfigurationCallInputBuilder();
     }
 
     /**
@@ -61,46 +55,33 @@ public class ShowConfigurationCallInput implements CallInput {
     }
 
     /**
-     * Get cluster URL.
+     * Get node URL.
      *
      * @return Cluster URL.
      */
-    public String getClusterUrl() {
-        return clusterUrl;
+    public String getNodeUrl() {
+        return nodeUrl;
     }
 
     /**
-     * Builder for {@link ShowConfigurationCallInput}.
-     */
-    public static ShowConfigurationCallInputBuilder builder() {
-        return new ShowConfigurationCallInputBuilder();
-    }
-
-    /**
-     * Builder for {@link ShowConfigurationCallInput}.
+     * Builder for {@link NodeConfigShowCallInput}.
      */
     public static class ShowConfigurationCallInputBuilder {
-        private String nodeId;
         private String selector;
-        private String clusterUrl;
-
-        public ShowConfigurationCallInputBuilder nodeId(String nodeId) {
-            this.nodeId = nodeId;
-            return this;
-        }
+        private String nodeUrl;
 
         public ShowConfigurationCallInputBuilder selector(String selector) {
             this.selector = selector;
             return this;
         }
 
-        public ShowConfigurationCallInputBuilder clusterUrl(String clusterUrl) {
-            this.clusterUrl = clusterUrl;
+        public ShowConfigurationCallInputBuilder nodeUrl(String nodeUrl) {
+            this.nodeUrl = nodeUrl;
             return this;
         }
 
-        public ShowConfigurationCallInput build() {
-            return new ShowConfigurationCallInput(nodeId, selector, clusterUrl);
+        public NodeConfigShowCallInput build() {
+            return new NodeConfigShowCallInput(selector, nodeUrl);
         }
     }
 }

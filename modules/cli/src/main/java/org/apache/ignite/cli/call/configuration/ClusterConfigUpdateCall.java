@@ -22,57 +22,46 @@ import org.apache.ignite.cli.core.call.Call;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.core.exception.CommandExecutionException;
 import org.apache.ignite.rest.client.api.ClusterConfigurationApi;
-import org.apache.ignite.rest.client.api.NodeConfigurationApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.invoker.Configuration;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Updates configuration for node or ignite cluster.
+ * Updates cluster configuration.
  */
 @Singleton
-public class UpdateConfigurationCall implements Call<UpdateConfigurationCallInput, String> {
+public class ClusterConfigUpdateCall implements Call<ClusterConfigUpdateCallInput, String> {
     /** {@inheritDoc} */
     @Override
-    public DefaultCallOutput<String> execute(UpdateConfigurationCallInput updateConfigurationCallInput) {
-        ApiClient client = createApiClient(updateConfigurationCallInput);
+    public DefaultCallOutput<String> execute(ClusterConfigUpdateCallInput clusterConfigUpdateCallInput) {
+        ClusterConfigurationApi client = createApiClient(clusterConfigUpdateCallInput);
 
         try {
-            if (updateConfigurationCallInput.getNodeId() != null) {
-                return updateNodeConfig(new NodeConfigurationApi(client), updateConfigurationCallInput);
-            } else {
-                return updateClusterConfig(new ClusterConfigurationApi(client), updateConfigurationCallInput);
-            }
+            return updateClusterConfig(client, clusterConfigUpdateCallInput);
         } catch (ApiException e) {
             if (e.getCode() == 400) {
                 return DefaultCallOutput.failure(
                         new CommandExecutionException(
-                                "update config",
-                                "Got error while updating the node configuration. " + System.lineSeparator()
+                                "cluster config update",
+                                "Got error while updating the cluster configuration. " + System.lineSeparator()
                                         + "Code:  " + e.getCode() + ", response:  " + e.getResponseBody()
                         ));
             }
-            return DefaultCallOutput.failure(new CommandExecutionException("update config", "Ignite api return " + e.getCode()));
+            return DefaultCallOutput.failure(new CommandExecutionException("cluster config update", "Ignite api return " + e.getCode()));
         }
     }
 
-    private DefaultCallOutput<String> updateClusterConfig(ClusterConfigurationApi api, UpdateConfigurationCallInput input)
+    private DefaultCallOutput<String> updateClusterConfig(ClusterConfigurationApi api, ClusterConfigUpdateCallInput input)
             throws ApiException {
         api.updateClusterConfiguration(input.getConfig());
         return DefaultCallOutput.success("Cluster configuration was updated successfully.");
     }
 
-    private DefaultCallOutput<String> updateNodeConfig(NodeConfigurationApi api, UpdateConfigurationCallInput input)
-            throws ApiException {
-        api.updateNodeConfiguration(input.getConfig());
-        return DefaultCallOutput.success("Node configuration was updated successfully.");
-    }
-
     @NotNull
-    private ApiClient createApiClient(UpdateConfigurationCallInput input) {
+    private ClusterConfigurationApi createApiClient(ClusterConfigUpdateCallInput input) {
         ApiClient client = Configuration.getDefaultApiClient();
         client.setBasePath(input.getClusterUrl());
-        return client;
+        return new ClusterConfigurationApi(client);
     }
 }

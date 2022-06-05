@@ -20,13 +20,9 @@ package org.apache.ignite.cli.call.configuration;
 import org.apache.ignite.cli.core.call.CallInput;
 
 /**
- * Input for {@link UpdateConfigurationCall}.
+ * Input for {@link NodeConfigUpdateCall}.
  */
-public class UpdateConfigurationCallInput implements CallInput {
-    /**
-     * Node ID.
-     */
-    private final String nodeId;
+public class ClusterConfigUpdateCallInput implements CallInput {
     /**
      * Configuration to update.
      */
@@ -36,8 +32,7 @@ public class UpdateConfigurationCallInput implements CallInput {
      */
     private final String clusterUrl;
 
-    private UpdateConfigurationCallInput(String nodeId, String config, String clusterUrl) {
-        this.nodeId = nodeId;
+    private ClusterConfigUpdateCallInput(String config, String clusterUrl) {
         this.config = config;
         this.clusterUrl = clusterUrl;
     }
@@ -45,19 +40,10 @@ public class UpdateConfigurationCallInput implements CallInput {
     /**
      * Builder method.
      *
-     * @return Builder for {@link UpdateConfigurationCallInput}.
+     * @return Builder for {@link ClusterConfigUpdateCallInput}.
      */
     public static UpdateConfigurationCallInputBuilder builder() {
         return new UpdateConfigurationCallInputBuilder();
-    }
-
-    /**
-     * Get node ID.
-     *
-     * @return Node ID.
-     */
-    public String getNodeId() {
-        return nodeId;
     }
 
     /**
@@ -79,17 +65,11 @@ public class UpdateConfigurationCallInput implements CallInput {
     }
 
     /**
-     * Builder for {@link UpdateConfigurationCallInput}.
+     * Builder for {@link ClusterConfigUpdateCallInput}.
      */
     public static class UpdateConfigurationCallInputBuilder {
-        private String nodeId;
         private String config;
         private String clusterUrl;
-
-        public UpdateConfigurationCallInputBuilder nodeId(String nodeId) {
-            this.nodeId = nodeId;
-            return this;
-        }
 
         public UpdateConfigurationCallInputBuilder config(String config) {
             this.config = config;
@@ -101,8 +81,8 @@ public class UpdateConfigurationCallInput implements CallInput {
             return this;
         }
 
-        public UpdateConfigurationCallInput build() {
-            return new UpdateConfigurationCallInput(nodeId, config, clusterUrl);
+        public ClusterConfigUpdateCallInput build() {
+            return new ClusterConfigUpdateCallInput(config, clusterUrl);
         }
     }
 }

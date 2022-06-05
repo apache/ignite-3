@@ -15,54 +15,58 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.status;
+package org.apache.ignite.cli.commands.configuration.node;
 
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
-import org.apache.ignite.cli.call.status.StatusCall;
+import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
+import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
-import org.apache.ignite.cli.commands.decorators.StatusDecorator;
+import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.cli.core.call.StatusCallInput;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Spec;
 
 /**
- * Command that prints status of ignite cluster.
+ * Command that shows configuration from the cluster.
  */
-@Command(name = "status",
-        aliases = "cluster show", //TODO: https://issues.apache.org/jira/browse/IGNITE-17102
-        description = "Prints status of the cluster.")
-@Singleton
-public class StatusCommand extends BaseCommand {
+@Command(name = "show",
+        description = "Shows node configuration.")
+public class NodeConfigShowSubCommand extends BaseCommand {
 
     /**
-     * Cluster url option.
+     * Configuration selector option.
      */
-    @SuppressWarnings("PMD.UnusedPrivateField")
+    @Option(names = {"--selector"}, description = "Configuration path selector.")
+    private String selector;
+
+    /**
+     * Node url option.
+     */
     @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node.",
+            names = {"--node-url"}, description = "Url to ignite node.",
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
-    private String clusterUrl;
-
-    @Spec
-    private CommandSpec commandSpec;
+    private String nodeUrl;
 
     @Inject
-    private StatusCall statusCall;
+    private NodeConfigShowCall call;
 
     /** {@inheritDoc} */
     @Override
     public void run() {
-        CallExecutionPipeline.builder(statusCall)
-                .inputProvider(() -> new StatusCallInput(clusterUrl))
-                .output(commandSpec.commandLine().getOut())
-                .errOutput(commandSpec.commandLine().getErr())
-                .decorator(new StatusDecorator())
+        CallExecutionPipeline.builder(call)
+                .inputProvider(this::buildCallInput)
+                .output(spec.commandLine().getOut())
+                .errOutput(spec.commandLine().getErr())
+                .decorator(new JsonDecorator())
                 .build()
                 .runPipeline();
+    }
+
+    private NodeConfigShowCallInput buildCallInput() {
+        return NodeConfigShowCallInput.builder()
+                .nodeUrl(nodeUrl)
+                .selector(selector)
+                .build();
     }
 }

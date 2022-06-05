@@ -44,7 +44,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Integration test for {@code ignite config} commands.
+ * Integration test for {@code ignite node/cluster config} commands.
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItConfigCommandTest extends AbstractCliIntegrationTest {
@@ -79,11 +79,11 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
     @Test
     public void setAndGetWithManualHost() {
         int exitCode = cmd(ctx).execute(
+                "node",
                 "config",
                 "update",
-                "--cluster-url",
+                "--node-url",
                 "http://localhost:" + node.restAddress().port(),
-                "--node", node.name(), //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
                 "network.shutdownQuietPeriod=1"
         );
 
@@ -97,11 +97,11 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
         resetStreams();
 
         exitCode = cmd(ctx).execute(
+                "node",
                 "config",
                 "show",
-                "--cluster-url",
-                "http://localhost:" + node.restAddress().port(),
-                "--node", node.name() //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+                "--node-url",
+                "http://localhost:" + node.restAddress().port()
         );
 
         assertEquals(0, exitCode);
@@ -115,36 +115,36 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
     @Test
     public void setWithWrongData() {
         int exitCode = cmd(ctx).execute(
+                "node",
                 "config",
                 "update",
-                "--cluster-url",
+                "--node-url",
                 "http://localhost:" + node.restAddress().port(),
-                "--node", node.name(), //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
                 "network.foo=\"bar\""
         );
 
         //assertEquals(1, exitCode); // TODO
         assertThat(
                 err.toString(UTF_8),
-                both(startsWith("Command update config failed with reason: Got error while updating the node configuration."))
+                both(startsWith("Command node config update failed with reason: Got error while updating the node configuration."))
                         .and(containsString("'network' configuration doesn't have the 'foo' sub-configuration"))
         );
 
         resetStreams();
 
         exitCode = cmd(ctx).execute(
+                "node",
                 "config",
                 "update",
-                "--cluster-url",
+                "--node-url",
                 "http://localhost:" + node.restAddress().port(),
-                "--node", node.name(), //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-                "network.shutdownQuietPeriod=abc"
+                "network.shutdownQuietPeriod=asd"
         );
 
         //assertEquals(1, exitCode); // TODO
         assertThat(
                 err.toString(UTF_8),
-                both(startsWith("Command update config failed with reason: Got error while updating the node configuration. "))
+                both(containsString("Command node config update failed with reason: Got error while updating the node configuration."))
                         .and(containsString("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"))
         );
     }
@@ -152,11 +152,11 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
     @Test
     public void partialGet() {
         int exitCode = cmd(ctx).execute(
+                "node",
                 "config",
                 "show",
-                "--cluster-url",
+                "--node-url",
                 "http://localhost:" + node.restAddress().port(),
-                "--node", node.name(), //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
                 "--selector",
                 "network"
         );

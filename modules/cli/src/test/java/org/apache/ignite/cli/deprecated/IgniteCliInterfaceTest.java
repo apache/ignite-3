@@ -46,10 +46,14 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
-import org.apache.ignite.cli.call.configuration.ShowConfigurationCall;
-import org.apache.ignite.cli.call.configuration.ShowConfigurationCallInput;
-import org.apache.ignite.cli.call.configuration.UpdateConfigurationCall;
-import org.apache.ignite.cli.call.configuration.UpdateConfigurationCallInput;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
+import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
+import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
+import org.apache.ignite.cli.call.configuration.NodeConfigShowCall;
+import org.apache.ignite.cli.call.configuration.NodeConfigShowCallInput;
+import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCall;
+import org.apache.ignite.cli.call.configuration.NodeConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.TopLevelCliCommand;
 import org.apache.ignite.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.cli.deprecated.builtins.init.InitIgniteCommand;
@@ -325,114 +329,113 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                     out.toString(UTF_8));
             assertThatStderrIsEmpty();
         }
-    }
 
-    /**
-     * Tests "config" command.
-     */
-    @Nested
-    @DisplayName("config")
-    class Config {
-        /** Http client that is used for communication purposes. */
-        @Mock
-        private HttpClient httpClient;
+        /**
+         * Tests "config" command.
+         */
+        @Nested
+        @DisplayName("config")
+        class Config {
+            /** Http client that is used for communication purposes. */
+            @Mock
+            private HttpClient httpClient;
 
-        /** HTTP response. */
-        @Mock
-        private HttpResponse<String> res;
+            /** HTTP response. */
+            @Mock
+            private HttpResponse<String> res;
 
-        private ShowConfigurationCallInput capturedShowConfigurationInput;
+            private NodeConfigShowCallInput capturedShowConfigurationInput;
 
-        private UpdateConfigurationCallInput capturedUpdateConfigurationInput;
+            private NodeConfigUpdateCallInput capturedUpdateConfigurationInput;
 
-        ShowConfigurationCall showConfigurationCall() {
-            return new ShowConfigurationCall() {
-                @Override
-                public DefaultCallOutput<String> execute(ShowConfigurationCallInput readConfigurationInput) {
-                    capturedShowConfigurationInput = readConfigurationInput;
-                    return DefaultCallOutput.success("{\"autoAdjust\":{\"enabled\":true}}");
-                }
-            };
-        }
+            NodeConfigShowCall showConfigurationCall() {
+                return new NodeConfigShowCall() {
+                    @Override
+                    public DefaultCallOutput<String> execute(NodeConfigShowCallInput readConfigurationInput) {
+                        capturedShowConfigurationInput = readConfigurationInput;
+                        return DefaultCallOutput.success("{\"autoAdjust\":{\"enabled\":true}}");
+                    }
+                };
+            }
 
-        UpdateConfigurationCall updateConfigurationCall() {
-            return new UpdateConfigurationCall() {
-                @Override
-                public DefaultCallOutput<String> execute(UpdateConfigurationCallInput updateConfigurationCallInput) {
-                    capturedUpdateConfigurationInput = updateConfigurationCallInput;
-                    return DefaultCallOutput.success("Configuration was updated successfully.");
-                }
-            };
-        }
+            NodeConfigUpdateCall updateConfigurationCall() {
+                return new NodeConfigUpdateCall() {
+                    @Override
+                    public DefaultCallOutput<String> execute(NodeConfigUpdateCallInput nodeConfigUpdateCallInput) {
+                        capturedUpdateConfigurationInput = nodeConfigUpdateCallInput;
+                        return DefaultCallOutput.success("Configuration was updated successfully.");
+                    }
+                };
+            }
 
-        @BeforeEach
-        void setUp() {
-            ctx.registerSingleton(showConfigurationCall());
-            ctx.registerSingleton(updateConfigurationCall());
-        }
+            @BeforeEach
+            void setUp() {
+                ctx.registerSingleton(showConfigurationCall());
+                ctx.registerSingleton(updateConfigurationCall());
+            }
 
-        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-        @Test
-        @DisplayName("show --cluster-url http://localhost:8081 --node node1")
-        void show() {
-            int exitCode =
-                    cmd(ctx).execute("config show --cluster-url http://localhost:8081 --node node1".split(" "));
+            //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+            @Test
+            @DisplayName("config show --node-url http://localhost:8081")
+            void show() {
+                int exitCode =
+                        cmd(ctx).execute("node config show --node-url http://localhost:8081".split(" "));
 
-            assertThatExitCodeMeansSuccess(exitCode);
+                assertThatExitCodeMeansSuccess(exitCode);
 
-            assertThat(capturedShowConfigurationInput.getClusterUrl(), is("http://localhost:8081"));
-            assertThat(capturedShowConfigurationInput.getNodeId(), is("node1"));
-            assertNull(capturedShowConfigurationInput.getSelector());
+                assertThat(capturedShowConfigurationInput.getNodeUrl(), is("http://localhost:8081"));
+                assertNull(capturedShowConfigurationInput.getSelector());
 
-            assertOutputEqual("{\n"
-                            + "  \"autoAdjust\" : {\n"
-                            + "    \"enabled\" : true\n"
-                            + "  }\n"
-                            + "}\n",
-                    out.toString(UTF_8)
-            );
-            assertThatStderrIsEmpty();
-        }
+                assertOutputEqual("{\n"
+                                + "  \"autoAdjust\" : {\n"
+                                + "    \"enabled\" : true\n"
+                                + "  }\n"
+                                + "}\n",
+                        out.toString(UTF_8)
+                );
+                assertThatStderrIsEmpty();
+            }
 
-        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-        @Test
-        @DisplayName("show --cluster-url http://localhost:8081 --selector local.baseline --node node1")
-        void showSubtree() {
-            int exitCode =
-                    cmd(ctx).execute(("config show --cluster-url http://localhost:8081 "
-                            + "--selector local.baseline --node node1").split(" "));
+            //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+            @Test
+            @DisplayName("config show --node-url http://localhost:8081 --selector local.baseline")
+            void showSubtree() {
+                int exitCode =
+                        cmd(ctx).execute(("node config show --node-url http://localhost:8081 "
+                                + "--selector local.baseline").split(" "));
 
-            assertThatExitCodeMeansSuccess(exitCode);
+                assertThatExitCodeMeansSuccess(exitCode);
 
-            assertThat(capturedShowConfigurationInput.getClusterUrl(), is("http://localhost:8081"));
-            assertThat(capturedShowConfigurationInput.getSelector(), is("local.baseline"));
-            assertThat(capturedShowConfigurationInput.getNodeId(), is("node1"));
+                assertThat(capturedShowConfigurationInput.getNodeUrl(), is("http://localhost:8081"));
+                assertThat(capturedShowConfigurationInput.getSelector(), is("local.baseline"));
 
-            assertOutputEqual("{\n"
-                            + "  \"autoAdjust\" : {\n"
-                            + "    \"enabled\" : true\n"
-                            + "  }\n"
-                            + "}\n",
-                    out.toString(UTF_8)
-            );
-            assertThatStderrIsEmpty();
-        }
+                assertOutputEqual("{\n"
+                                + "  \"autoAdjust\" : {\n"
+                                + "    \"enabled\" : true\n"
+                                + "  }\n"
+                                + "}\n",
+                        out.toString(UTF_8)
+                );
+                assertThatStderrIsEmpty();
+            }
 
-        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
-        @Test
-        @DisplayName("update --cluster-url http://localhost:8081 local.baseline.autoAdjust.enabled=true --node node1")
-        void updateHocon() {
-            CommandLine cmd = cmd(ctx);
-            int exitCode =
-                    cmd.execute(("config update --cluster-url http://localhost:8081 local.baseline.autoAdjust.enabled=true --node node1")
-                            .split(" "));
+            //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+            @Test
+            @DisplayName("config update --node-url http://localhost:8081 local.baseline.autoAdjust.enabled=true")
+            void updateHocon() {
+                CommandLine cmd = cmd(ctx);
+                int exitCode =
+                        cmd.execute(("node config update --node-url http://localhost:8081 local.baseline.autoAdjust.enabled=true")
+                                .split(" "));
 
-            assertThatExitCodeMeansSuccess(exitCode);
+                assertThatExitCodeMeansSuccess(exitCode);
 
-            assertThat(capturedUpdateConfigurationInput.getClusterUrl(), is("http://localhost:8081"));
+                assertThat(capturedUpdateConfigurationInput.getNodeUrl(), is("http://localhost:8081"));
+                assertThat(capturedUpdateConfigurationInput.getConfig(), is("local.baseline.autoAdjust.enabled=true"));
 
-            assertOutputEqual("Configuration was updated successfully.", out.toString(UTF_8));
-            assertThatStderrIsEmpty();
+                assertOutputEqual("Configuration was updated successfully.", out.toString(UTF_8));
+                assertThatStderrIsEmpty();
+            }
         }
     }
 
@@ -448,9 +451,35 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         @Mock
         private HttpResponse<String> response;
 
+        private ClusterConfigShowCallInput capturedShowConfigurationInput;
+
+        private ClusterConfigUpdateCallInput capturedUpdateConfigurationInput;
+
+        ClusterConfigShowCall showConfigurationCall() {
+            return new ClusterConfigShowCall() {
+                @Override
+                public DefaultCallOutput<String> execute(ClusterConfigShowCallInput input) {
+                    capturedShowConfigurationInput = input;
+                    return DefaultCallOutput.success("{\"autoAdjust\":{\"enabled\":true}}");
+                }
+            };
+        }
+
+        ClusterConfigUpdateCall updateConfigurationCall() {
+            return new ClusterConfigUpdateCall() {
+                @Override
+                public DefaultCallOutput<String> execute(ClusterConfigUpdateCallInput input) {
+                    capturedUpdateConfigurationInput = input;
+                    return DefaultCallOutput.success("Configuration was updated successfully.");
+                }
+            };
+        }
+
         @BeforeEach
         void setUp() {
             ctx.registerSingleton(httpClient);
+            ctx.registerSingleton(showConfigurationCall());
+            ctx.registerSingleton(updateConfigurationCall());
         }
 
         @Test
@@ -620,6 +649,69 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
 
             assertThatStdoutIsEmpty();
             assertThat(err.toString(UTF_8), startsWith("Missing required option: '--cluster-name=<clusterName>'"));
+        }
+
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+        @Test
+        @DisplayName("config show --cluster-url http://localhost:8081")
+        void show() {
+            int exitCode =
+                    cmd(ctx).execute("cluster config show --cluster-url http://localhost:8081".split(" "));
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            assertThat(capturedShowConfigurationInput.getClusterUrl(), is("http://localhost:8081"));
+            assertNull(capturedShowConfigurationInput.getSelector());
+
+            assertOutputEqual("{\n"
+                            + "  \"autoAdjust\" : {\n"
+                            + "    \"enabled\" : true\n"
+                            + "  }\n"
+                            + "}\n",
+                    out.toString(UTF_8)
+            );
+            assertThatStderrIsEmpty();
+        }
+
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+        @Test
+        @DisplayName("config show --cluster-url http://localhost:8081 --selector local.baseline")
+        void showSubtree() {
+            int exitCode =
+                    cmd(ctx).execute(("cluster config show --cluster-url http://localhost:8081 "
+                            + "--selector local.baseline").split(" "));
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            assertThat(capturedShowConfigurationInput.getClusterUrl(), is("http://localhost:8081"));
+            assertThat(capturedShowConfigurationInput.getSelector(), is("local.baseline"));
+
+            assertOutputEqual("{\n"
+                            + "  \"autoAdjust\" : {\n"
+                            + "    \"enabled\" : true\n"
+                            + "  }\n"
+                            + "}\n",
+                    out.toString(UTF_8)
+            );
+            assertThatStderrIsEmpty();
+        }
+
+        //TODO: Fix in https://issues.apache.org/jira/browse/IGNITE-15306
+        @Test
+        @DisplayName("config update --cluster-url http://localhost:8081 local.baseline.autoAdjust.enabled=true")
+        void updateHocon() {
+            CommandLine cmd = cmd(ctx);
+            int exitCode =
+                    cmd.execute(("cluster config update --cluster-url http://localhost:8081 local.baseline.autoAdjust.enabled=true")
+                            .split(" "));
+
+            assertThatExitCodeMeansSuccess(exitCode);
+
+            assertThat(capturedUpdateConfigurationInput.getClusterUrl(), is("http://localhost:8081"));
+            assertThat(capturedUpdateConfigurationInput.getConfig(), is("local.baseline.autoAdjust.enabled=true"));
+
+            assertOutputEqual("Configuration was updated successfully.", out.toString(UTF_8));
+            assertThatStderrIsEmpty();
         }
     }
 

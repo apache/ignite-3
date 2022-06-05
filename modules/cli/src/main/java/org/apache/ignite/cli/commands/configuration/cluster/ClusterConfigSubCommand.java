@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.configuration;
+package org.apache.ignite.cli.commands.configuration.cluster;
 
-import jakarta.inject.Singleton;
-import org.apache.ignite.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
 /**
- * Parent command for configuration commands.
+ * Node config command.
  */
 @Command(name = "config",
-        description = "Cluster/node configuration operations.",
-        subcommands = {
-                ShowConfigSubCommand.class,
-                UpdateConfigSubCommand.class
-        })
-@Singleton
-public class ConfigCommand extends BaseCommand {
+        subcommands = {ClusterConfigShowSubCommand.class, ClusterConfigUpdateSubCommand.class},
+        description = "Cluster config operations.")
+public class ClusterConfigSubCommand {
+
 }

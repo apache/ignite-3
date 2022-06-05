@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.configuration;
+package org.apache.ignite.cli.commands.configuration.cluster;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.apache.ignite.cli.call.configuration.UpdateConfigurationCall;
-import org.apache.ignite.cli.call.configuration.UpdateConfigurationCallInput;
+import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCall;
+import org.apache.ignite.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
@@ -28,35 +28,27 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 /**
- * Command that updates configuration.
+ * Command that updates cluster configuration.
  */
 @Command(name = "update",
-        description = "Updates configuration.")
+        description = "Updates cluster configuration.")
 @Singleton
-public class UpdateConfigSubCommand extends BaseCommand {
-    /**
-     * Node ID option.
-     */
-    @Option(names = {"--node"}, description = "Node ID to get local configuration.")
-    private String nodeId;
-
+public class ClusterConfigUpdateSubCommand extends BaseCommand {
+    @Inject
+    ClusterConfigUpdateCall call;
     /**
      * Cluster url option.
      */
     @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node.",
+            names = {"--cluster-url"}, description = "Url to Ignite node.",
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;
-
     /**
      * Configuration that will be updated.
      */
     @Parameters(index = "0")
     private String config;
-
-    @Inject
-    UpdateConfigurationCall call;
 
     /** {@inheritDoc} */
     @Override
@@ -69,11 +61,10 @@ public class UpdateConfigSubCommand extends BaseCommand {
                 .runPipeline();
     }
 
-    private UpdateConfigurationCallInput buildCallInput() {
-        return UpdateConfigurationCallInput.builder()
+    private ClusterConfigUpdateCallInput buildCallInput() {
+        return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl)
                 .config(config)
-                .nodeId(nodeId)
                 .build();
     }
 }

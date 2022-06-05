@@ -18,7 +18,6 @@
 package org.apache.ignite.cli.commands.sql;
 
 import static org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler.CLIENT_CONNECTION_FAILED_MESSAGE;
-import static org.apache.ignite.cli.core.exception.handler.SqlExceptionHandler.PARSING_ERROR_MESSAGE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.cli.commands.CliCommandTestIntegrationBase;
@@ -80,7 +79,7 @@ class ItSqlCommandTest extends CliCommandTestIntegrationBase {
                 this::assertOutputIsEmpty,
                 this::assertErrOutputIsNotEmpty,
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17090
-                () -> assertErrOutputIs(PARSING_ERROR_MESSAGE + System.lineSeparator())
+                () -> assertErrOutputIs("SQL query parsing error: Sql query execution failed." + System.lineSeparator())
         );
     }
 }

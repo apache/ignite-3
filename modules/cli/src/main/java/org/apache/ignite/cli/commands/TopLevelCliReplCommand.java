@@ -19,15 +19,14 @@ package org.apache.ignite.cli.commands;
 
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.commands.cliconfig.CliCommand;
-import org.apache.ignite.cli.commands.configuration.ConfigReplCommand;
+import org.apache.ignite.cli.commands.configuration.cluster.ClusterReplCommand;
+import org.apache.ignite.cli.commands.configuration.node.NodeReplCommand;
 import org.apache.ignite.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.cli.commands.connect.DisconnectCommand;
 import org.apache.ignite.cli.commands.sql.SqlCommand;
 import org.apache.ignite.cli.commands.status.StatusReplCommand;
 import org.apache.ignite.cli.commands.version.VersionCommand;
 import org.apache.ignite.cli.deprecated.spec.BootstrapIgniteCommandSpec;
-import org.apache.ignite.cli.deprecated.spec.ClusterReplCommandSpec;
-import org.apache.ignite.cli.deprecated.spec.NodeCommandSpec;
 import picocli.CommandLine;
 import picocli.shell.jline3.PicocliCommands;
 
@@ -40,15 +39,14 @@ import picocli.shell.jline3.PicocliCommands;
                 SqlCommand.class,
                 PicocliCommands.ClearScreen.class,
                 CommandLine.HelpCommand.class,
-                ConfigReplCommand.class,
                 VersionCommand.class,
                 StatusReplCommand.class,
                 CliCommand.class,
                 BootstrapIgniteCommandSpec.class,
-                NodeCommandSpec.class,
-                ClusterReplCommandSpec.class,
                 ConnectCommand.class,
-                DisconnectCommand.class
+                DisconnectCommand.class,
+                NodeReplCommand.class,
+                ClusterReplCommand.class
         })
 @Singleton
 public class TopLevelCliReplCommand {

@@ -26,15 +26,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link UpdateConfigurationCall}.
+ * Tests for {@link NodeConfigUpdateCall}.
  */
 public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
 
     @Inject
-    UpdateConfigurationCall updateCall;
+    ClusterConfigUpdateCall updateCall;
 
     @Inject
-    ShowConfigurationCall readCall;
+    ClusterConfigShowCall readCall;
 
     @Test
     @DisplayName("Should update cluster configuration")
@@ -43,7 +43,7 @@ public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
         String givenConfigurationProperty = readConfigurationProperty("rocksDb.defaultRegion.writeBufferSize");
         assertThat(givenConfigurationProperty).isEqualTo("67108864");
         // And
-        var input = UpdateConfigurationCallInput.builder()
+        var input = ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(NODE_URL)
                 .config("{rocksDb: {defaultRegion: {writeBufferSize: 1024}}}")
                 .build();
@@ -61,7 +61,7 @@ public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
 
         // When update buffer size back to default but using key-value format
         updateCall.execute(
-                UpdateConfigurationCallInput.builder()
+                ClusterConfigUpdateCallInput.builder()
                         .clusterUrl(NODE_URL)
                         .config("rocksDb.defaultRegion.writeBufferSize=67108864")
                         .build()
@@ -72,7 +72,7 @@ public class ItUpdateConfigurationCallTest extends CallIntegrationTestBase {
     }
 
     private String readConfigurationProperty(String selector) {
-        var input = ShowConfigurationCallInput.builder().clusterUrl(NODE_URL).selector(selector).build();
+        var input = ClusterConfigShowCallInput.builder().clusterUrl(NODE_URL).selector(selector).build();
         return readCall.execute(input).body();
     }
 }

@@ -20,12 +20,11 @@ package org.apache.ignite.cli.commands;
 import jakarta.inject.Singleton;
 import org.apache.ignite.cli.VersionProvider;
 import org.apache.ignite.cli.commands.cliconfig.CliCommand;
-import org.apache.ignite.cli.commands.configuration.ConfigCommand;
+import org.apache.ignite.cli.commands.configuration.cluster.ClusterCommand;
+import org.apache.ignite.cli.commands.configuration.node.NodeCommand;
 import org.apache.ignite.cli.commands.sql.SqlCommand;
 import org.apache.ignite.cli.commands.status.StatusCommand;
 import org.apache.ignite.cli.deprecated.spec.BootstrapIgniteCommandSpec;
-import org.apache.ignite.cli.deprecated.spec.ClusterCommandSpec;
-import org.apache.ignite.cli.deprecated.spec.NodeCommandSpec;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -42,12 +41,11 @@ import picocli.CommandLine.Option;
         subcommands = {
                 SqlCommand.class,
                 CommandLine.HelpCommand.class,
-                ConfigCommand.class,
                 StatusCommand.class,
                 CliCommand.class,
                 BootstrapIgniteCommandSpec.class,
-                NodeCommandSpec.class,
-                ClusterCommandSpec.class
+                NodeCommand.class,
+                ClusterCommand.class
         })
 @Singleton
 public class TopLevelCliCommand extends BaseCommand {

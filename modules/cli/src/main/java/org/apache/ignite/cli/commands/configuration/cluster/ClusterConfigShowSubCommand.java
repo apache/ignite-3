@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.configuration;
+package org.apache.ignite.cli.commands.configuration.cluster;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.call.configuration.ShowConfigurationCall;
-import org.apache.ignite.cli.call.configuration.ShowConfigurationCallInput;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
 import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
@@ -30,14 +30,9 @@ import picocli.CommandLine.Option;
  * Command that shows configuration from the cluster.
  */
 @Command(name = "show",
-        description = "Shows configuration.")
-public class ShowConfigSubCommand extends BaseCommand {
+        description = "Shows cluster configuration.")
+public class ClusterConfigShowSubCommand extends BaseCommand {
 
-    /**
-     * Node ID option.
-     */
-    @Option(names = {"--node"}, description = "Node ID to get local configuration.")
-    private String nodeId;
     /**
      * Configuration selector option.
      */
@@ -45,16 +40,16 @@ public class ShowConfigSubCommand extends BaseCommand {
     private String selector;
 
     /**
-     * Cluster url option.
+     * Node url option.
      */
     @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node.",
+            names = {"--cluster-url"}, description = "Url to ignite node.",
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;
 
     @Inject
-    private ShowConfigurationCall call;
+    private ClusterConfigShowCall call;
 
     /** {@inheritDoc} */
     @Override
@@ -68,11 +63,10 @@ public class ShowConfigSubCommand extends BaseCommand {
                 .runPipeline();
     }
 
-    private ShowConfigurationCallInput buildCallInput() {
-        return ShowConfigurationCallInput.builder()
+    private ClusterConfigShowCallInput buildCallInput() {
+        return ClusterConfigShowCallInput.builder()
                 .clusterUrl(clusterUrl)
                 .selector(selector)
-                .nodeId(nodeId)
                 .build();
     }
 }

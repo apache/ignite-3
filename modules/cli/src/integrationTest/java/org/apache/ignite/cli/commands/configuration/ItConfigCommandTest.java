@@ -25,7 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link ConfigCommand}.
+ * Tests for cluster/node config commands.
  */
 class ItConfigCommandTest extends CliCommandTestIntegrationBase {
 
@@ -33,7 +33,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
     @DisplayName("Should read config when valid cluster-url is given")
     void readDefaultConfig() {
         // When read cluster config with valid url
-        execute("config", "show", "--cluster-url", NODE_URL);
+        execute("cluster", "config", "show", "--cluster-url", NODE_URL);
 
         // Then
         assertAll(
@@ -47,7 +47,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
     @DisplayName("Should update config with hocon format when valid cluster-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("config", "update", "--cluster-url", NODE_URL, "{table: {defaultDataStorage: rocksdb}}");
+        execute("cluster", "config", "update", "--cluster-url", NODE_URL, "{table: {defaultDataStorage: rocksdb}}");
 
         // Then
         assertAll(
@@ -57,7 +57,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
         );
 
         // When read the updated cluster configuration
-        execute("config", "show", "--cluster-url", NODE_URL);
+        execute("cluster", "config", "show", "--cluster-url", NODE_URL);
 
         // Then
         assertAll(
@@ -71,7 +71,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
     @DisplayName("Should update config with key-value format when valid cluster-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("config", "update", "--cluster-url", NODE_URL, "table.defaultDataStorage=rocksdb");
+        execute("cluster", "config", "update", "--cluster-url", NODE_URL, "table.defaultDataStorage=rocksdb");
 
         // Then
         assertAll(
@@ -81,7 +81,7 @@ class ItConfigCommandTest extends CliCommandTestIntegrationBase {
         );
 
         // When read the updated cluster configuration
-        execute("config", "show", "--cluster-url", NODE_URL);
+        execute("cluster", "config", "show", "--cluster-url", NODE_URL);
 
         // Then
         assertAll(

@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.cli.commands.configuration;
+package org.apache.ignite.cli.commands.configuration.cluster;
 
 import jakarta.inject.Inject;
-import org.apache.ignite.cli.call.configuration.ShowConfigurationCall;
-import org.apache.ignite.cli.call.configuration.ShowConfigurationCallInput;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCall;
+import org.apache.ignite.cli.call.configuration.ClusterConfigShowCallInput;
+import org.apache.ignite.cli.commands.BaseCommand;
 import org.apache.ignite.cli.commands.decorators.JsonDecorator;
 import org.apache.ignite.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.cli.core.exception.ExceptionHandler;
@@ -27,22 +28,14 @@ import org.apache.ignite.cli.core.exception.ExceptionWriter;
 import org.apache.ignite.cli.core.repl.Session;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Spec;
 
 /**
- * Command that shows configuration from the cluster.
+ * Command that shows configuration from the cluster in REPL mode.
  */
 @Command(name = "show",
-        description = "Shows configuration.")
-public class ShowConfigReplSubCommand implements Runnable {
-
-    /**
-     * Node ID option.
-     */
-    @Option(names = {"--node"}, description = "Node ID to get local configuration.")
-    private String nodeId;
+        description = "Shows cluster configuration.")
+public class ClusterConfigShowReplSubCommand extends BaseCommand {
 
     /**
      * Configuration selector option.
@@ -51,18 +44,15 @@ public class ShowConfigReplSubCommand implements Runnable {
     private String selector;
 
     /**
-     * Cluster url option.
+     * Node url option.
      */
     @Option(
-            names = {"--cluster-url"}, description = "Url to cluster node."
+            names = {"--cluster-url"}, description = "Url to Ignite node."
     )
     private String clusterUrl;
 
-    @Spec
-    private CommandSpec spec;
-
     @Inject
-    private ShowConfigurationCall call;
+    private ClusterConfigShowCall call;
 
     @Inject
     private Session session;
@@ -70,7 +60,7 @@ public class ShowConfigReplSubCommand implements Runnable {
     /** {@inheritDoc} */
     @Override
     public void run() {
-        var input = ShowConfigurationCallInput.builder().selector(selector).nodeId(nodeId);
+        var input = ClusterConfigShowCallInput.builder().selector(selector);
         if (session.isConnectedToNode()) {
             input.clusterUrl(session.getNodeUrl());
         } else if (clusterUrl != null) {
@@ -93,7 +83,13 @@ public class ShowConfigReplSubCommand implements Runnable {
     private static class ShowConfigReplExceptionHandler implements ExceptionHandler<ApiException> {
         @Override
         public void handle(ExceptionWriter err, ApiException e) {
-            err.write("Cannot show config, probably you have not initialized the cluster. Try to run 'cluster init' command.");
+            if (e.getCode() == 500) { //TODO: https://issues.apache.org/jira/browse/IGNITE-17091
+                err.write("Cannot show cluster config, probably you have not initialized the cluster. "
+                        + "Try to run 'cluster init' command.");
+                return;
+            }
+
+            err.write(e.getResponseBody());
         }
 
         @Override
