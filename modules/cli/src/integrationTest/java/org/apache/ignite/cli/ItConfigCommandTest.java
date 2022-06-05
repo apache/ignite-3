@@ -26,17 +26,12 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.jayway.jsonpath.DocumentContext;
-import com.jayway.jsonpath.JsonPath;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.env.Environment;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import net.minidev.json.JSONObject;
-import net.minidev.json.JSONValue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -113,9 +108,10 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         assertEquals(0, exitCode);
 
-        DocumentContext document = JsonPath.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
-
-        assertEquals(1, document.read("$.network.shutdownQuietPeriod", Integer.class));
+        assertThat(
+                out.toString(UTF_8),
+                containsString("\"shutdownQuietPeriod\" : 1")
+        );
     }
 
     @Test
@@ -169,11 +165,12 @@ public class ItConfigCommandTest extends AbstractCliIntegrationTest {
 
         assertEquals(0, exitCode);
 
-        JSONObject outResult = (JSONObject) JSONValue.parse(removeTrailingQuotes(unescapeQuotes(out.toString(UTF_8))));
+        assertThat(
+                out.toString(UTF_8),
+                containsString("\"inbound\"")
+        );
 
-        assertTrue(outResult.containsKey("inbound"));
-
-        assertFalse(outResult.containsKey("node"));
+        assertFalse(out.toString(UTF_8).contains("\"node\""));
     }
 
     /**

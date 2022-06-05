@@ -18,10 +18,10 @@
 package org.apache.ignite.cli.builtins;
 
 import io.micronaut.core.annotation.Introspected;
+import jakarta.inject.Singleton;
 import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
-import javax.inject.Singleton;
 import org.apache.ignite.cli.IgniteCliApp;
 import org.apache.ignite.cli.IgniteCliException;
 
