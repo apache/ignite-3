@@ -506,8 +506,8 @@ public class ItRebalanceDistributedTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(sqlQueryProcessor, tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, raftManager,
-                            txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
+                    List.of(sqlQueryProcessor, tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr,
+                            raftManager, txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();
