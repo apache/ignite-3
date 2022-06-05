@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,7 +56,6 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.storage.DataStorageManager;
@@ -416,7 +414,6 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    mock(RestComponent.class),
                     new ConcurrentMapClusterStateStorage()
             );
 
