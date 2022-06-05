@@ -58,6 +58,7 @@ import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryDataStorageModule;
@@ -128,6 +129,7 @@ public class ItRebalanceDistributedTest {
             node.start();
         }
 
+        nodes.get(0).cmgManager.initCluster(List.of(nodes.get(0).name), List.of(), "cluster");
     }
 
     @AfterEach
@@ -374,6 +376,8 @@ public class ItRebalanceDistributedTest {
 
         private final SchemaManager schemaManager;
 
+        private final SqlQueryProcessor sqlQueryProcessor;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -472,6 +476,9 @@ public class ItRebalanceDistributedTest {
                     dataStorageMgr,
                     metaStorageManager,
                     schemaManager);
+
+            //TODO: Get rid of it after IGNITE-17062.
+            sqlQueryProcessor = new SqlQueryProcessor(registry, clusterService, tableManager, dataStorageMgr, Map::of);
         }
 
         /**
@@ -483,9 +490,7 @@ public class ItRebalanceDistributedTest {
             nodeCfgMgr.start();
 
             Stream.of(clusterService, clusterCfgMgr, dataStorageMgr, raftManager, txManager, cmgManager,
-                    metaStorageManager, baselineMgr, schemaManager, tableManager).forEach(IgniteComponent::start);
-
-            cmgManager.initCluster(List.of(nodes.get(0).name), List.of(), "testCluster");
+                    metaStorageManager, baselineMgr, schemaManager, tableManager, sqlQueryProcessor).forEach(IgniteComponent::start);
 
             CompletableFuture.allOf(
                     nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -501,7 +506,7 @@ public class ItRebalanceDistributedTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, raftManager,
+                    List.of(sqlQueryProcessor, tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, raftManager,
                             txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
