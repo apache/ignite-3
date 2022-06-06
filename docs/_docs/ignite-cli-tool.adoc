@@ -20,6 +20,10 @@ allowing you to configure the node. By default, the CLI tool runs in the REPL (R
 
 Below is a list of Ignite CLI tool commands with short descriptions:
 
+== Installation and Usage
+
+You can find detailed installation guide in the link:quick-start/getting-started-guide[Getting Started] tutorial. The tutorial also includes some basic usage examples.
+
 == Command Options
 
 The following commands can be executed in REPL mode of the command line tool:
