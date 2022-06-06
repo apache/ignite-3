@@ -93,6 +93,8 @@ class LifecycleManager {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     void onStartComplete() throws NodeStoppingException {
+        LOG.info("Start complete, transferring to {} state", Status.STARTED);
+
         Status currentStatus = status.compareAndExchange(Status.STARTING, Status.STARTED);
 
         if (currentStatus == Status.STOPPING) {

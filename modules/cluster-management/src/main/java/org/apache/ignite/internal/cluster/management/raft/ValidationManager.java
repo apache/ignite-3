@@ -150,8 +150,8 @@ class ValidationManager implements AutoCloseable {
     ValidationResult completeValidation(ClusterNode node) {
         String nodeId = node.id();
 
-        if (!storage.isNodeValidated(nodeId)) {
-            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", nodeId));
+        if (!storage.isNodeValidated(nodeId) && !storage.isNodeInLogicalTopology(node)) {
+            return ValidationResult.errorResult(String.format("Node \"%s\" has not yet passed the validation step", node));
         }
 
         Future<?> cleanupFuture = cleanupFutures.remove(nodeId);
