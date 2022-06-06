@@ -43,7 +43,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.configuration.NamedListView;
@@ -64,6 +67,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -72,12 +76,13 @@ import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConver
 import org.apache.ignite.internal.schema.marshaller.schema.SchemaSerializerImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
-import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageChange;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -168,18 +173,20 @@ public class TableManagerTest extends IgniteAbstractTest {
                     SortedIndexConfigurationSchema.class,
                     PartialIndexConfigurationSchema.class,
                     UnknownDataStorageConfigurationSchema.class,
-                    RocksDbDataStorageConfigurationSchema.class
+                    PageMemoryDataStorageConfigurationSchema.class
             }
     )
     private TablesConfiguration tblsCfg;
 
-    @InjectConfiguration
-    private RocksDbStorageEngineConfiguration rocksDbEngineConfig;
+    @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
+    private PageMemoryStorageEngineConfiguration pageMemoryEngineConfig;
 
     @Mock
     private ConfigurationRegistry configRegistry;
 
     private DataStorageManager dsm;
+
+    private SchemaManager sm;
 
     /** Test node. */
     private final ClusterNode node = new ClusterNode(
@@ -216,6 +223,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         tblManagerFut.join().stop();
 
         dsm.stop();
+
+        sm.stop();
     }
 
     /**
@@ -226,20 +235,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
-        TableManager tableManager = new TableManager(
-                revisionUpdater,
-                tblsCfg,
-                rm,
-                bm,
-                ts,
-                tm,
-                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
-                new SchemaManager(revisionUpdater, tblsCfg)
-        );
+        TableManager tableManager = createTableManager(tblManagerFut, false);
 
         tblManagerFut.complete(tableManager);
-
-        tableManager.start();
 
         TableDefinition scmTbl = SchemaBuilders.tableBuilder("PUBLIC", PRECONFIGURED_TABLE_NAME).columns(
                 SchemaBuilders.column("key", ColumnType.INT64).build(),
@@ -252,7 +250,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS);
 
-                tableChange.changeDataStorage(c -> c.convert(RocksDbDataStorageChange.class));
+                tableChange.changeDataStorage(c -> c.convert(PageMemoryDataStorageChange.class));
 
                 var extConfCh = ((ExtendedTableChange) tableChange);
 
@@ -280,7 +278,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertNotNull(tableManager.table(scmTbl.canonicalName()));
 
-        checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(tblsCfg.tables().value(), PageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -301,7 +299,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertSame(table, tblManagerFut.join().table(scmTbl.canonicalName()));
 
-        checkTableDataStorage(tblsCfg.tables().value(), RocksDbStorageEngine.ENGINE_NAME);
+        checkTableDataStorage(tblsCfg.tables().value(), PageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -332,7 +330,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testApiTableManagerOnStop() {
-        createTableManager(tblManagerFut);
+        createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -383,7 +381,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testInternalApiTableManagerOnStop() {
-        createTableManager(tblManagerFut);
+        createTableManager(tblManagerFut, false);
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -436,7 +434,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<Table> createFut = CompletableFuture.supplyAsync(() -> {
             try {
                 return mockManagersAndCreateTableWithDelay(scmTbl, tblManagerFut, phaser);
-            } catch (NodeStoppingException e) {
+            } catch (Exception e) {
                 fail(e.getMessage());
             }
 
@@ -498,12 +496,12 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tableDefinition Configuration schema for a table.
      * @param tblManagerFut Future for table manager.
      * @return Table.
-     * @throws NodeStoppingException If something went wrong.
+     * @throws Exception If something went wrong.
      */
     private TableImpl mockManagersAndCreateTable(
             TableDefinition tableDefinition,
             CompletableFuture<TableManager> tblManagerFut
-    ) throws NodeStoppingException {
+    ) throws Exception {
         return mockManagersAndCreateTableWithDelay(tableDefinition, tblManagerFut, null);
     }
 
@@ -514,13 +512,13 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param tblManagerFut Future for table manager.
      * @param phaser Phaser for the wait.
      * @return Table manager.
-     * @throws NodeStoppingException If something went wrong.
+     * @throws Exception If something went wrong.
      */
     private TableImpl mockManagersAndCreateTableWithDelay(
             TableDefinition tableDefinition,
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
-    ) throws NodeStoppingException {
+    ) throws Exception {
         when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
@@ -551,7 +549,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     .thenReturn(assignment);
         }
 
-        TableManager tableManager = createTableManager(tblManagerFut);
+        TableManager tableManager = createTableManager(tblManagerFut, true);
 
         final int tablesBeforeCreation = tableManager.tables().size();
 
@@ -573,11 +571,34 @@ public class TableManagerTest extends IgniteAbstractTest {
             return CompletableFuture.completedFuture(null);
         });
 
-        TableImpl tbl2 = (TableImpl) tableManager.createTable(tableDefinition.canonicalName(),
+        CountDownLatch createTblLatch = new CountDownLatch(1);
+
+        AtomicLong token = new AtomicLong();
+
+        tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+
+            createTblLatch.countDown();
+
+            token.set(parameters.causalityToken());
+
+            return true;
+        });
+
+        CompletableFuture<Table> tbl2Fut = tableManager.createTableAsync(tableDefinition.canonicalName(),
                 tblCh -> SchemaConfigurationConverter.convert(tableDefinition, tblCh)
                         .changeReplicas(REPLICAS)
                         .changePartitions(PARTITIONS)
         );
+
+        assertFalse(tbl2Fut.isDone());
+
+        assertTrue(createTblLatch.await(10, TimeUnit.SECONDS));
+
+        assertFalse(tbl2Fut.isDone());
+
+        tableManager.onSqlSchemaReady(token.get());
+
+        TableImpl tbl2 = (TableImpl) tbl2Fut.get();
 
         assertNotNull(tbl2);
 
@@ -589,10 +610,12 @@ public class TableManagerTest extends IgniteAbstractTest {
     /**
      * Creates Table manager.
      *
-     * @param tblManagerFut Future to wrap Table manager.
+     * @param tblManagerFut    Future to wrap Table manager.
+     * @param waitingSqlSchema If the flag is true, a table will wait of {@link TableManager#onSqlSchemaReady(long)} invocation before
+     *                         create otherwise, the waiting will not be.
      * @return Table manager.
      */
-    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut) {
+    private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, boolean waitingSqlSchema) {
         TableManager tableManager = new TableManager(
                 revisionUpdater,
                 tblsCfg,
@@ -600,9 +623,20 @@ public class TableManagerTest extends IgniteAbstractTest {
                 bm,
                 ts,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, rocksDbEngineConfig),
-                new SchemaManager(revisionUpdater, tblsCfg)
+                dsm = createDataStorageManager(configRegistry, workDir, pageMemoryEngineConfig),
+                sm = new SchemaManager(revisionUpdater, tblsCfg)
         );
+
+        sm.start();
+
+        //TODO: Get rid of it after IGNITE-17062.
+        if (!waitingSqlSchema) {
+            tableManager.listen(TableEvent.CREATE, (parameters, exception) -> {
+                tableManager.onSqlSchemaReady(parameters.causalityToken());
+
+                return false;
+            });
+        }
 
         tableManager.start();
 
@@ -614,11 +648,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
-            RocksDbStorageEngineConfiguration config
+            PageMemoryStorageEngineConfiguration config
     ) {
-        when(mockedRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(PageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
                 tblsCfg,

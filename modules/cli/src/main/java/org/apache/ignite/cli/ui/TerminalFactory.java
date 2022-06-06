@@ -19,8 +19,8 @@ package org.apache.ignite.cli.ui;
 
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
+import jakarta.inject.Singleton;
 import java.io.IOException;
-import javax.inject.Singleton;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 

@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -69,8 +70,8 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.recovery.ConfigurationCatchUpListener;
 import org.apache.ignite.internal.recovery.RecoveryCompletionFutureFactory;
-import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -229,7 +230,6 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 vault,
                 clusterSvc,
                 raftMgr,
-                mock(RestComponent.class),
                 new RocksDbClusterStateStorage(dir.resolve("cmg"))
         );
 
@@ -279,6 +279,9 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 schemaManager
         );
 
+        //TODO: Get rid of it after IGNITE-17062.
+        SqlQueryProcessor queryProcessor = new SqlQueryProcessor(registry, clusterSvc, tableManager, dataStorageManager, Map::of);
+
         // Preparing the result map.
 
         res.add(vault);
@@ -313,7 +316,8 @@ public class ItIgniteNodeRestartTest extends IgniteAbstractTest {
                 clusterCfgMgr,
                 dataStorageManager,
                 schemaManager,
-                tableManager
+                tableManager,
+                queryProcessor
         );
 
         for (IgniteComponent component : otherComponents) {

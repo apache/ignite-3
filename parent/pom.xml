@@ -53,6 +53,7 @@
         <asm.framework.version>9.0</asm.framework.version>
         <compile.testing.library.version>0.19</compile.testing.library.version>
         <jackson.version>2.13.1</jackson.version>
+        <jakarta.annotations.version>2.0.0</jakarta.annotations.version>
         <jansi.version>1.18</jansi.version>
         <netty.version>4.1.70.Final</netty.version>
         <javapoet.version>1.13.0</javapoet.version>
@@ -60,12 +61,13 @@
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
         <jmh.framework.version>1.35</jmh.framework.version>
         <junit.version>5.8.1</junit.version>
-        <micronaut.version>2.1.2</micronaut.version>
-        <micronaut.test.junit5.version>2.3.1</micronaut.test.junit5.version>
+        <micronaut.version>3.4.1</micronaut.version>
+        <micronaut.test.junit5.version>3.3.0</micronaut.test.junit5.version>
         <mockito.version>4.3.1</mockito.version>
         <picocli.version>4.5.2</picocli.version>
         <slf4j.version>1.7.32</slf4j.version>
         <spoon.framework.version>8.4.0-beta-18</spoon.framework.version>
+        <swagger.annotations.version>2.1.12</swagger.annotations.version>
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
         <hamcrest.optional.version>2.0.0</hamcrest.optional.version>
@@ -113,7 +115,7 @@
         <maven.shade.plugin.version>3.2.4</maven.shade.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
-
+        <maven.micronaut.openapi.plugin.version>3.2.0</maven.micronaut.openapi.plugin.version>
         <!-- We leave it empty so that, when jacoco does not run, the unreplaced @{argLine} does not impede the build. -->
         <additional.test.argLine/>
         <common.test.argLine>
@@ -380,6 +382,12 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-page-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- 3rd party dependencies -->
             <dependency>
                 <groupId>org.jetbrains</groupId>
@@ -471,6 +479,55 @@
                 <groupId>io.micronaut</groupId>
                 <artifactId>micronaut-inject-java</artifactId>
                 <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-inject</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http-server</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http-server-netty</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut.openapi</groupId>
+                <artifactId>micronaut-openapi</artifactId>
+                <version>${maven.micronaut.openapi.plugin.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <scope>compile</scope>
+                <version>${jakarta.annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.inject</groupId>
+                <artifactId>jakarta.inject-api</artifactId>
+                <version>${jakarta.annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger.annotations.version}</version>
             </dependency>
 
             <dependency>
@@ -605,6 +662,13 @@
                 <groupId>io.micronaut.test</groupId>
                 <artifactId>micronaut-test-junit5</artifactId>
                 <version>${micronaut.test.junit5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http-client</artifactId>
+                <version>${micronaut.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -1332,6 +1396,7 @@
                         <exclude>docs/_plugins/asciidoctor-extensions.rb</exclude> <!-- MIT license -->
                         <exclude>docs/_sass/rouge-base16-solarized.scss</exclude> <!-- MIT license. -->
                         <exclude>**/*.json</exclude> <!-- Files in JSON format -->
+                        <exclude>modules/rest/openapi/openapi.yaml</exclude> <!-- Autogenerated Open API spec -->
                         <exclude>**/*.drawio</exclude> <!-- Draw.IO diagrams -->
                         <exclude>modules/cli/src/**/resources//builtin_modules.conf</exclude> <!-- CLI configuration files -->
                         <exclude>**/*.iml</exclude> <!-- IntelliJ IDEA project files -->
