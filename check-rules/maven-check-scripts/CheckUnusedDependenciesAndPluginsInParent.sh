@@ -24,7 +24,7 @@ for xpath in "project/dependencyManagement/dependencies/dependency[not(scope='im
         FOUND=false
         for pom in ${POMS}; do
             local_xpath=$(sed -r -e 's|dependencyManagement/||' -e 's|pluginManagement/||' <<< ${xpath})
-            if xpath -q -e "${local_xpath}" "${pom}" | grep -E "${declaration}" 2>&1 1>/dev/null; then
+            if xpath -q -e "${local_xpath}" "${pom}" | grep -w -E "${declaration}" 2>&1 1>/dev/null; then
             	FOUND=true
                 continue 2
             fi
