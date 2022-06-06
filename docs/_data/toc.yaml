@@ -34,6 +34,8 @@
       url: sql-reference/operators-and-functions
 - title: REST API
   url: rest/rest-api
+- title: Distributed Computing
+  url: compute/compute
 - title: Binary Client Protocol
   url: binary-protocol
 - title: Native Persistence
