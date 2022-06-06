@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.example.sql;
 
 import java.util.Arrays;
@@ -11,6 +28,9 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
+/**
+ * Examples of using SQL API.
+ */
 public class SqlApiExample {
     /**
      * Main method of the example.
@@ -147,7 +167,8 @@ public class SqlApiExample {
 
                 System.out.println("\nDeleting one of the accounts...");
 
-                try (ResultSet ignored = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
+                try (ResultSet rs = ses.execute(null, "DELETE FROM ACCOUNTS WHERE ACCOUNT_ID = ?", 1)) {
+                    System.out.println("\n Removed accounts: " + rs.affectedRows());
                 }
 
                 //--------------------------------------------------------------------------------------
@@ -161,7 +182,8 @@ public class SqlApiExample {
 
                 // Async way.
                 Statement stmt = client.sql().statementBuilder()
-                        .query("SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")
+                        .query("SELECT a.FIRST_NAME, a.LAST_NAME, c.NAME FROM ACCOUNTS a "
+                                + "INNER JOIN CITIES c on c.ID = a.CITY_ID ORDER BY a.ACCOUNT_ID")
                         .pageSize(1)
                         .build();
 
@@ -181,6 +203,7 @@ public class SqlApiExample {
 
     /**
      * Fetch full result set asynchronously.
+     *
      * @param resultSet Async result set.
      * @return Operation future.
      */
