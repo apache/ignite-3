@@ -34,7 +34,7 @@ import java.sql.Statement;
  *         {@code ignite init}
  *     </li>
  *     <li>
- *         Start a server node using the CLI tool:<br>
+ *         Start an Ignite node using the CLI tool:<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node}
  *     </li>
  *     <li>
@@ -47,7 +47,7 @@ import java.sql.Statement;
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
- *         Stop a server node using the CLI tool:<br>
+ *         Stop an Ignite node using the CLI tool:<br>
  *         {@code ignite node stop my-first-node}
  *     </li>
  * </ol>
