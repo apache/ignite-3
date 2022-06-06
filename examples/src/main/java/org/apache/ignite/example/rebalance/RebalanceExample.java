@@ -41,7 +41,7 @@ import org.apache.ignite.table.Tuple;
  *     <li>Import the examples project into you IDE.</li>
  *     <li>
  *         Download and prepare artifacts for running an Ignite node using the CLI tool (if not done yet):<br>
- *         {@code ignite init}
+ *         {@code ignite bootstrap}
  *     </li>
  *     <li>
  *         Start <b>two</b> nodes using the CLI tool:<br>

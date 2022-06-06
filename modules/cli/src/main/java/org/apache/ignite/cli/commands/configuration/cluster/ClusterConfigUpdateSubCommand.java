@@ -35,8 +35,8 @@ import picocli.CommandLine.Parameters;
 @Singleton
 public class ClusterConfigUpdateSubCommand extends BaseCommand {
     @Inject
-
     ClusterConfigUpdateCall call;
+
     /**
      * Cluster url option.
      */

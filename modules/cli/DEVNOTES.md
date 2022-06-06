@@ -10,8 +10,8 @@ mvn clean install -DskipTests=true
 Cd to the build directory:
 ```bash
 cd modules/cli/target
-
 ```
+
 Install autocompletion script to your shell:
 ```bash 
 source target/ignite_completion.sh 

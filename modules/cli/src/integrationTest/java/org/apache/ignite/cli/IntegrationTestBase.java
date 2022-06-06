@@ -74,7 +74,6 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
     public static final int DEFAULT_NODES_COUNT = 3;
 
     /** Correct ignite cluster url. */
-
     protected static final String NODE_URL = "http://localhost:10300";
 
     /** Cluster nodes. */
