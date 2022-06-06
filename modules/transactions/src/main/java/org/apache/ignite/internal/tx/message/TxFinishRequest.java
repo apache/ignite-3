@@ -35,7 +35,7 @@ public interface TxFinishRequest extends NetworkMessage, Serializable {
      * @return The timestamp.
      */
     @Marshallable
-    UUID id();
+    UUID txId();
 
     /**
      * Returns {@code True} if a commit request.

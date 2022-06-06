@@ -30,12 +30,12 @@ public class GetAndUpsertCommand extends SingleKeyCommand implements WriteComman
      * Creates a new instance of GetAndUpsertCommand with the given row to be got and upserted. The
      * {@code row} should not be {@code null}.
      *
-     * @param row       Binary row.
-     * @param id The timestamp.
+     * @param row Binary row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetAndUpsertCommand(@NotNull BinaryRow row, @NotNull UUID id) {
-        super(row, id);
+    public GetAndUpsertCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
+        super(row, txId);
     }
 }

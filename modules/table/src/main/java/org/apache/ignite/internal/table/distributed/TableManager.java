@@ -376,14 +376,12 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 InternalTable internalTable = tablesById.get(tblId).internalTable();
 
                 try {
-                    internalTable.storage().getOrCreatePartition(partId);
-
                     futures[partId] = raftMgr.updateRaftGroup(
                             raftGroupName(tblId, partId),
                             newPartitionAssignment,
                             toAdd,
                             () -> new PartitionListener(tblId,
-                                    new VersionedRowStore(((MvTableStorage) (internalTable.storage())).partition(partId),
+                                    new VersionedRowStore(((MvTableStorage) (internalTable.storage())).createPartition(partId),
                                             txManager))
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTable)

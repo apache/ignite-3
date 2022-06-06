@@ -31,8 +31,8 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     /** Binary rows. */
     private transient Collection<BinaryRow> rows;
 
-    /** The timestamp. */
-    private @NotNull UUID id;
+    /** Transaction id. */
+    private @NotNull UUID txId;
 
     /*
      * Row bytes.
@@ -45,12 +45,12 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
      * The constructor.
      *
      * @param rows Rows.
-     * @param id   The timestamp.
+     * @param txId Transaction id.
      */
-    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID id) {
+    public MultiKeyCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID txId) {
         assert rows != null && !rows.isEmpty();
         this.rows = rows;
-        this.id = id;
+        this.txId = txId;
 
         rowsBytes = CommandUtils.rowsToBytes(rows);
     }
@@ -71,13 +71,13 @@ public abstract class MultiKeyCommand implements TransactionalCommand, Serializa
     }
 
     /**
-     * Returns a timestamp.
+     * Returns a transaction id.
      *
-     * @return The timestamp.
+     * @return The transaction id.
      */
     @NotNull
     @Override
-    public UUID getId() {
-        return id;
+    public UUID getTxId() {
+        return txId;
     }
 }

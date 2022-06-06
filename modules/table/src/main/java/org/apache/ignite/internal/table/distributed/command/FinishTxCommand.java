@@ -25,23 +25,24 @@ import org.apache.ignite.raft.client.WriteCommand;
 
 /** State machine command to finish a transaction. */
 public class FinishTxCommand implements WriteCommand {
-    /** The timestamp. */
-    private final UUID id;
+    /** Transaction id. */
+    private final UUID txId;
 
     /** Commit or rollback state. */
     private final boolean finish;
 
-    /** */
-    public Map<IgniteUuid, List<byte[]>> lockedKeys;
+    /** Keys that are locked by the transaction. */
+    private Map<IgniteUuid, List<byte[]>> lockedKeys;
 
     /**
      * The constructor.
      *
-     * @param id The id.
-     * @param finish    Commit or rollback state {@code True} to commit.
+     * @param txId          The txId.
+     * @param finish        Commit or rollback state {@code True} to commit.
+     * @param lockedKeys    Keys that are locked by the transaction.
      */
-    public FinishTxCommand(UUID id, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
-        this.id = id;
+    public FinishTxCommand(UUID txId, boolean finish, Map<IgniteUuid, List<byte[]>> lockedKeys) {
+        this.txId = txId;
         this.finish = finish;
         this.lockedKeys = lockedKeys;
     }
@@ -51,8 +52,8 @@ public class FinishTxCommand implements WriteCommand {
      *
      * @return The timestamp.
      */
-    public UUID id() {
-        return id;
+    public UUID txId() {
+        return txId;
     }
 
     /**
@@ -62,5 +63,14 @@ public class FinishTxCommand implements WriteCommand {
      */
     public boolean finish() {
         return finish;
+    }
+
+    /**
+     * Returns keys that are locked by the transaction.
+     *
+     * @return Keys that are locked by the transaction.
+     */
+    public Map<IgniteUuid, List<byte[]>> lockedKeys() {
+        return lockedKeys;
     }
 }

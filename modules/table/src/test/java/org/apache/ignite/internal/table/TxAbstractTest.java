@@ -117,14 +117,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public abstract void before() throws Exception;
 
     @Test
-    public void testMixedPutGet1() throws TransactionException {
-        System.out.println("test start");
-        accounts.recordView().insert(null, makeValue(1, BALANCE_1));
-        accounts.recordView().insert(null, makeValue(1, BALANCE_1));
-        System.out.println("test end");
-    }
-
-    @Test
     public void testMixedPutGet() throws TransactionException {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
 
@@ -279,7 +271,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @Test
     public void testSimpleConflict() throws Exception {
-        System.out.println("start first upsert");
         accounts.recordView().upsert(null, makeValue(1, 100.));
 
         Transaction tx = igniteTransactions.begin();
@@ -288,13 +279,10 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         var table = accounts.recordView();
         var table2 = accounts.recordView();
 
-        System.out.println("start get1 tx");
         double val = table.get(tx, makeKey(1)).doubleValue("balance");
-        System.out.println("start get1 tx2");
         table2.get(tx2, makeKey(1)).doubleValue("balance");
 
         try {
-            System.out.println("start upsert tx");
             table.upsert(tx, makeValue(1, val + 1));
 
             fail();
@@ -302,13 +290,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
             // Expected.
         }
 
-        System.out.println("start upsert tx2");
-
         table2.upsert(tx2, makeValue(1, val + 1));
 
         tx2.commit();
-
-        System.out.println("start last commit");
 
         try {
             tx.commit();
@@ -317,8 +301,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         } catch (TransactionException e) {
             // Expected.
         }
-
-        System.out.println("start last commit after");
 
         assertEquals(101., accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
     }
@@ -331,20 +313,16 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
         var table = accounts.recordView();
 
-        System.out.println("qqq1");
         table.upsert(tx, makeValue(1, 100.));
 
         assertEquals(100., table.get(tx, key).doubleValue("balance"));
 
-        System.out.println("qqq2");
         table.upsert(tx, makeValue(1, 200.));
 
         assertEquals(200., table.get(tx, key).doubleValue("balance"));
 
-        System.out.println("qqq3");
         tx.commit();
 
-        System.out.println("qqq4");
         assertEquals(200., accounts.recordView().get(null, key).doubleValue("balance"));
 
         assertEquals(COMMITED, txManager(accounts).state(tx.id()));
@@ -729,8 +707,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
     public void testDeleteAllExact() throws TransactionException {
         accounts.recordView().upsertAll(null, List.of(makeValue(1, 100.), makeValue(2, 200.)));
 
-        System.out.println("start tx2");
-
         igniteTransactions.runInTransaction(
                 tx -> {
                     Collection<Tuple> res = accounts.recordView().deleteAllExact(
@@ -1085,8 +1061,6 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
         List<Tuple> rows = new ArrayList<>();
 
         CountDownLatch l = new CountDownLatch(1);
-
-        System.out.println("pub.subscribe");
 
         pub.subscribe(new Flow.Subscriber<BinaryRow>() {
             @Override

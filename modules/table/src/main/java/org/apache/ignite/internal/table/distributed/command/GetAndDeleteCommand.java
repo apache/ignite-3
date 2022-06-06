@@ -30,12 +30,12 @@ public class GetAndDeleteCommand extends SingleKeyCommand implements WriteComman
      * Creates a new instance of GetAndDeleteCommand with the given key to be got and deleted. The {@code keyRow} should not be {@code
      * null}.
      *
-     * @param keyRow    Binary key row.
-     * @param id The timestamp.
+     * @param keyRow Binary key row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetAndDeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID id) {
-        super(keyRow, id);
+    public GetAndDeleteCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
+        super(keyRow, txId);
     }
 }

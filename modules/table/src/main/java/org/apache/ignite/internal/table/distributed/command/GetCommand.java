@@ -29,12 +29,12 @@ public class GetCommand extends SingleKeyCommand implements ReadCommand {
     /**
      * Creates a new instance of GetCommand with the given key to be got. The {@code keyRow} should not be {@code null}.
      *
-     * @param keyRow    Binary key row.
-     * @param id The timestamp.
+     * @param keyRow Binary key row.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetCommand(@NotNull BinaryRow keyRow, @NotNull UUID id) {
-        super(keyRow, id);
+    public GetCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
+        super(keyRow, txId);
     }
 }

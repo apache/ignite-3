@@ -465,10 +465,6 @@ public class JraftServerImpl implements RaftServer {
                     iter.done().run(st);
                 }
 
-                System.out.println("+++++++");
-                err.printStackTrace();
-                System.out.println("+++++++");
-
                 iter.setErrorAndRollback(1, st);
             }
         }

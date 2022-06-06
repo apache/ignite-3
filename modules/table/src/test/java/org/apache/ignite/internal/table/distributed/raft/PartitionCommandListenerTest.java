@@ -492,6 +492,7 @@ public class PartitionCommandListenerTest {
             UUID txId = Timestamp.nextId();
             Row row = getTestRow(i, i);
             txs.add(new IgniteBiTuple<>(row, txId));
+
             when(clo.command()).thenReturn(new UpsertCommand(row, txId));
 
             doAnswer(invocation -> {

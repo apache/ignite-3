@@ -24,9 +24,11 @@ import java.util.UUID;
  */
 public interface Waiter {
     /**
-     * Returns associated timestamp.
+     * Associated transaction id.
+     *
+     * @return Associated transaction id.
      */
-    UUID id();
+    UUID txId();
 
     /**
      * Returns lock state.

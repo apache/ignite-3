@@ -24,16 +24,16 @@ import org.jetbrains.annotations.NotNull;
 /**
  * A marker interface for a transactional command.
  *
- * <p>Each transactional command contains an id.
+ * <p>Each transactional command contains a transaction id.
  *
  * @see Timestamp
  */
 public interface TransactionalCommand {
     /**
-     * Returns a timestamp.
+     * Returns a transaction id.
      *
-     * @return The timestamp.
+     * @return The transaction id.
      */
     @NotNull
-    public UUID getId();
+    public UUID getTxId();
 }

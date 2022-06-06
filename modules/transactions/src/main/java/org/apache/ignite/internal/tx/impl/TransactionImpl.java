@@ -46,7 +46,7 @@ public class TransactionImpl implements InternalTransaction {
     /** The logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(TransactionImpl.class);
 
-    /** The ID. */
+    /** The id. */
     private final UUID id;
 
     /** The transaction manager. */
@@ -61,7 +61,7 @@ public class TransactionImpl implements InternalTransaction {
     /**
      * The constructor.
      *
-     * @param txManager The tx managert.
+     * @param txManager The tx manager.
      * @param id The id.
      * @param address   The local address.
      */
@@ -148,7 +148,6 @@ public class TransactionImpl implements InternalTransaction {
      * @return The future.
      */
     private CompletableFuture<Void> finish(boolean commit) {
-        System.out.println("TransactionImpl.finish");
         Map<NetworkAddress, Set<String>> tmp = new HashMap<>();
 
         // Group by common leader addresses.
@@ -167,7 +166,7 @@ public class TransactionImpl implements InternalTransaction {
 
             futs[i++] = txManager.finishRemote(entry.getKey(), id, commit, entry.getValue());
 
-            LOG.debug("finish [addr={}, commit={}, ts={}, local={}, groupIds={}",
+            LOG.debug("finish [addr={}, commit={}, id={}, local={}, groupIds={}",
                     address, commit, id, local, entry.getValue());
         }
 

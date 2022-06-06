@@ -29,12 +29,12 @@ public class UpsertCommand extends SingleKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of UpsertCommand with the given row to be upserted. The {@code row} should not be {@code null}.
      *
-     * @param row       Binary row.
-     * @param id The timestamp.
+     * @param row Binary row.
+     * @param txId The transaction id.
      *
      * @see TransactionalCommand
      */
-    public UpsertCommand(@NotNull BinaryRow row, @NotNull UUID id) {
-        super(row, id);
+    public UpsertCommand(@NotNull BinaryRow row, @NotNull UUID txId) {
+        super(row, txId);
     }
 }

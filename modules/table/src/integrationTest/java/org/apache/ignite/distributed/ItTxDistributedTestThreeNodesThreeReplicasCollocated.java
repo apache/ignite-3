@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.impl.TransactionImpl;
 import org.apache.ignite.raft.jraft.test.TestUtils;

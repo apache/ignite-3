@@ -282,13 +282,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private void onMessage(InNetworkObject obj) {
         if (isInNetworkThread()) {
-            try {
-                inboundService.submit(() -> onMessage(obj));
-            } catch (Exception e) {
-                System.out.println("onMessage exception ++++++++++++++++++++++ " + obj);
-//                e.printStackTrace();
-                throw e;
-            }
+            inboundService.submit(() -> onMessage(obj));
             return;
         }
 

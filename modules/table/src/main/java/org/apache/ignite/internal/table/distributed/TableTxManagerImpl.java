@@ -49,7 +49,8 @@ public class TableTxManagerImpl extends TxManagerImpl {
     /** {@inheritDoc} */
     @Override
     protected CompletableFuture<?> finish(String groupId, UUID id, boolean commit) {
-        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(id, commit, lockedKeys(id))).groupId(groupId).readOnlySafe(true).build();
+        ActionRequest req = FACTORY.actionRequest().command(new FinishTxCommand(id, commit, lockedKeys(id)))
+                .groupId(groupId).readOnlySafe(true).build();
 
         return clusterService.messagingService().invoke(clusterService.topologyService().localMember(), req, FINISH_TIMEOUT);
     }

@@ -31,40 +31,40 @@ public interface LockManager {
     /**
      * Attempts to acquire a lock for the specified {@code key} in exclusive mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquire(Object key, UUID id);
+    public CompletableFuture<Void> tryAcquire(Object key, UUID txId);
 
     /**
      * Attempts to release a lock for the specified {@code key} in exclusive mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryRelease(Object key, UUID id) throws LockException;
+    public void tryRelease(Object key, UUID txId) throws LockException;
 
     /**
      * Attempts to acquire a lock for the specified {@code key} in shared mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @return The future that will be completed when a lock is successfully acquired.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> tryAcquireShared(Object key, UUID id);
+    public CompletableFuture<Void> tryAcquireShared(Object key, UUID txId);
 
     /**
      * Attempts to release a lock for the specified {@code key} in shared mode.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @throws LockException If the unlock operation is invalid.
      */
-    public void tryReleaseShared(Object key, UUID id) throws LockException;
+    public void tryReleaseShared(Object key, UUID txId) throws LockException;
 
     /**
      * Returns a collection of timestamps that is associated with the specified {@code key}.
@@ -78,12 +78,12 @@ public interface LockManager {
     /**
      * Returns a waiter associated with the specified {@code key}.
      *
-     * @param key       The key.
-     * @param timestamp The timestamp.
+     * @param key The key.
+     * @param txId Transaction id.
      * @return The waiter.
      */
     @TestOnly
-    public Waiter waiter(Object key, UUID id);
+    public Waiter waiter(Object key, UUID txId);
 
     /**
      * Returns {@code true} if no locks have been held.

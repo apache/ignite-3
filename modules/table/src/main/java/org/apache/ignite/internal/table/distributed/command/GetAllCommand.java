@@ -30,12 +30,12 @@ public class GetAllCommand extends MultiKeyCommand implements ReadCommand {
     /**
      * Creates a new instance of GetAllCommand with the given keys to be got. The {@code keyRows} should not be {@code null} or empty.
      *
-     * @param keyRows   Binary key rows.
-     * @param id The timestamp.
+     * @param keyRows Binary key rows.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public GetAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID id) {
-        super(keyRows, id);
+    public GetAllCommand(@NotNull Collection<BinaryRow> keyRows, @NotNull UUID txId) {
+        super(keyRows, txId);
     }
 }

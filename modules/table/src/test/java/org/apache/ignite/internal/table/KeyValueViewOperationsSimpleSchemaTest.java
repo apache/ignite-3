@@ -51,7 +51,6 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.NotNull;
@@ -718,16 +717,13 @@ public class KeyValueViewOperationsSimpleSchemaTest {
 
         TxManager txManager = new TxManagerImpl(clusterService, lockManager);
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
         DummyInternalTableImpl table = new DummyInternalTableImpl(
                 new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
                 txManager);
 
         List<PartitionListener> partitionListeners = List.of(table.getPartitionListener());
 
-        MessagingServiceTestUtils.mockMessagingService(txManager, messagingService, partitionListeners);
+        MessagingServiceTestUtils.mockMessagingService(clusterService, txManager, partitionListeners);
 
         return new TableImpl(table, new DummySchemaManagerImpl(schema));
     }

@@ -75,12 +75,11 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
     /**
      * The constructor.
      *
-     * @param timestamp The timestamp.
-     * @param nodeId    Node id.
+     * @param txId Transaction id.
      */
-    public Timestamp(UUID id) {
-        this.timestamp = id.getMostSignificantBits();
-        this.nodeId = id.getLeastSignificantBits();
+    public Timestamp(UUID txId) {
+        this.timestamp = txId.getMostSignificantBits();
+        this.nodeId = txId.getLeastSignificantBits();
     }
 
     /** {@inheritDoc} */
@@ -162,9 +161,15 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         return new Timestamp(newTime << 16 | cntr, localNodeId);
     }
 
-    /** */
-    public static synchronized UUID nextId() {
-        return nextVersion().toUUID();
+    /**
+     * Next id.
+     *
+     * @return Next id.
+     */
+    public static UUID nextId() {
+        Timestamp ts = nextVersion();
+
+        return new UUID(ts.timestamp, ts.nodeId);
     }
 
     /**
@@ -181,11 +186,6 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         } while (timestamp <= lastTimestamp); // Wall clock can go backward.
 
         return timestamp;
-    }
-
-    /** */
-    public UUID toUUID() {
-        return new UUID(timestamp, nodeId);
     }
 
     /** {@inheritDoc} */
@@ -228,11 +228,5 @@ public class Timestamp implements Comparable<Timestamp>, Serializable {
         } catch (Exception e) {
             throw new IgniteException("Failed to get local node id", e);
         }
-    }
-
-    public static void main(String[] args) {
-        long timestamp = Clock.systemUTC().instant().toEpochMilli() - EPOCH;
-        System.out.println("qwer " + timestamp);
-//        new UUID(timestamp, nodeId).getMostSignificantBits();
     }
 }

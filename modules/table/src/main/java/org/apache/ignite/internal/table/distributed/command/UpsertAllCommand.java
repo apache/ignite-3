@@ -30,12 +30,12 @@ public class UpsertAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of UpsertAllCommand with the given rows to be upserted. The {@code rows} should not be {@code null} or empty.
      *
-     * @param rows      Binary rows.
-     * @param id The timestamp.
+     * @param rows Binary rows.
+     * @param txId The transaction id.
      *
      * @see TransactionalCommand
      */
-    public UpsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID id) {
-        super(rows, id);
+    public UpsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID txId) {
+        super(rows, txId);
     }
 }

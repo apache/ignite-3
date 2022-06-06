@@ -31,7 +31,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterService;
-import org.apache.ignite.network.MessagingService;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -58,24 +57,25 @@ public class TxLocalTest extends TxAbstractTest {
 
         txManager = new TxManagerImpl(clusterService, lockManager);
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
-        Mockito.when(clusterService.messagingService()).thenReturn(messagingService);
-
         igniteTransactions = new IgniteTransactionsImpl(txManager);
 
-        InternalTable table = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager);
+        DummyInternalTableImpl table = new DummyInternalTableImpl(
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                txManager
+        );
 
         accounts = new TableImpl(table, new DummySchemaManagerImpl(ACCOUNTS_SCHEMA));
 
-        InternalTable table2 = new DummyInternalTableImpl(new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
-                txManager);
+        DummyInternalTableImpl table2 = new DummyInternalTableImpl(
+                new VersionedRowStore(new TestMvPartitionStorage(List.of(), 0), txManager),
+                txManager
+        );
 
         customers = new TableImpl(table2, new DummySchemaManagerImpl(CUSTOMERS_SCHEMA));
 
-        List<PartitionListener> partitionListeners = List.of(((DummyInternalTableImpl) table).getPartitionListener(), ((DummyInternalTableImpl) table2).getPartitionListener());
+        List<PartitionListener> partitionListeners = List.of(table.getPartitionListener(), table2.getPartitionListener());
 
-        MessagingServiceTestUtils.mockMessagingService(txManager, messagingService, partitionListeners);
+        MessagingServiceTestUtils.mockMessagingService(clusterService, txManager, partitionListeners);
 
     }
 

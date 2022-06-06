@@ -64,7 +64,6 @@ import org.apache.ignite.internal.table.distributed.command.response.MultiRowsRe
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
-import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -118,7 +117,7 @@ public class ItColocationTest {
         };
         txManager.start();
 
-        MessagingService messagingService = MessagingServiceTestUtils.mockMessagingService(txManager);
+        MessagingService messagingService = Mockito.mock(MessagingService.class, RETURNS_DEEP_STUBS);;
         when(clusterService.messagingService()).thenReturn(messagingService);
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();

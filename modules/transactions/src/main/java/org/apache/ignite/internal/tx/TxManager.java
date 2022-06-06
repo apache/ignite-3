@@ -43,84 +43,92 @@ public interface TxManager extends IgniteComponent {
     /**
      * Returns a transaction state.
      *
-     * @param id The timestamp.
+     * @param txId Transaction id.
      * @return The state or null if the state is unknown.
      */
-    @Nullable TxState state(UUID id);
+    @Nullable TxState state(UUID txId);
 
     /**
      * Atomically changes the state of a transaction.
      *
-     * @param id     The timestamp.
+     * @param txId Transaction id.
      * @param before Before state.
-     * @param after  After state.
+     * @param after After state.
      * @return {@code True} if a state was changed.
      */
-    boolean changeState(UUID id, @Nullable TxState before, TxState after);
+    boolean changeState(UUID txId, @Nullable TxState before, TxState after);
 
     /**
      * Forgets the transaction state. Intended for cleanup.
      *
-     * @param id The timestamp.
+     * @param txId Transaction id.
      */
-    void forget(UUID id);
+    void forget(UUID txId);
 
     /**
      * Commits a transaction.
      *
-     * @param id The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      */
-    CompletableFuture<Void> commitAsync(UUID id);
+    CompletableFuture<Void> commitAsync(UUID txId);
 
     /**
      * Aborts a transaction.
      *
-     * @param id The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      */
-    CompletableFuture<Void> rollbackAsync(UUID id);
+    CompletableFuture<Void> rollbackAsync(UUID txId);
 
     /**
      * Acqures a write lock.
      *
-     * @param lockId  Table ID.
+     * @param lockId Table ID.
      * @param keyData The key data.
-     * @param id      The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> writeLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID id);
+    public CompletableFuture<Void> writeLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID txId);
 
     /**
      * Acqures a read lock.
      *
-     * @param lockId  Lock id.
+     * @param lockId Lock id.
      * @param keyData The key data.
-     * @param id      The timestamp.
+     * @param txId Transaction id.
      * @return The future.
      * @throws LockException When a lock can't be taken due to possible deadlock.
      */
-    public CompletableFuture<Void> readLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID id);
+    public CompletableFuture<Void> readLock(IgniteUuid lockId, byte[] row, ByteBuffer keyData, UUID txId);
 
     /**
      * Returns a transaction state or starts a new in the PENDING state.
      *
-     * @param id The timestamp.
+     * @param txId Transaction id.
      * @return @{code null} if a transaction was created, or a current state.
      */
     @Nullable
-    TxState getOrCreateTransaction(UUID id);
+    TxState getOrCreateTransaction(UUID txId);
 
     /**
      * Finishes a dependant remote transactions.
      *
-     * @param id     The timestamp.
-     * @param addr   The address.
+     * @param txId Transaction id.
+     * @param addr The address.
      * @param commit {@code True} if a commit requested.
      * @param groups Enlisted partition groups.
      */
-    CompletableFuture<Void> finishRemote(NetworkAddress addr, UUID id, boolean commit, Set<String> groups);
+    CompletableFuture<Void> finishRemote(NetworkAddress addr, UUID txId, boolean commit, Set<String> groups);
+
+    /**
+     * Keys that are locked by the transaction.
+     *
+     * @param txId Transaction id.
+     * @return Keys that are locked by the transaction.
+     */
+    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID txId);
 
     /**
      * Checks if a passed address belongs to a local node.
@@ -129,10 +137,6 @@ public interface TxManager extends IgniteComponent {
      * @return {@code True} if a local node.
      */
     boolean isLocal(NetworkAddress addr);
-
-    List<ByteBuffer> lockedKeys(UUID id, IgniteUuid lockId);
-
-    Map<IgniteUuid, List<byte[]>> lockedKeys(UUID id);
 
     /**
      * Returns a number of finished transactions.

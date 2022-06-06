@@ -30,12 +30,12 @@ public class InsertAllCommand extends MultiKeyCommand implements WriteCommand {
     /**
      * Creates a new instance of InsertAllCommand with the given rows to be inserted. The {@code rows} should not be {@code null} or empty.
      *
-     * @param rows        Binary rows.
-     * @param id   The timestamp.
+     * @param rows Binary rows.
+     * @param txId Transaction id.
      *
      * @see TransactionalCommand
      */
-    public InsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID id) {
-        super(rows, id);
+    public InsertAllCommand(@NotNull Collection<BinaryRow> rows, @NotNull UUID txId) {
+        super(rows, txId);
     }
 }

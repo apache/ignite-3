@@ -30,27 +30,27 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     /** Binary key row. */
     private transient BinaryRow keyRow;
 
-    /** The timestamp. */
-    private @NotNull final UUID id;
+    /** Transaction id. */
+    private @NotNull final UUID txId;
 
     /*
      * Row bytes.
      * It is a temporary solution, before network have not implement correct serialization BinaryRow.
      * TODO: Remove the field after (IGNITE-14793).
      */
-    public byte[] keyRowBytes;
+    private byte[] keyRowBytes;
 
     /**
      * The constructor.
      *
-     * @param keyRow    The row.
-     * @param id The id.
+     * @param keyRow The row.
+     * @param txId The transaction id.
      */
-    public SingleKeyCommand(@NotNull BinaryRow keyRow, @NotNull UUID id) {
+    public SingleKeyCommand(@NotNull BinaryRow keyRow, @NotNull UUID txId) {
         assert keyRow != null;
 
         this.keyRow = keyRow;
-        this.id = id;
+        this.txId = txId;
 
         keyRowBytes = CommandUtils.rowToBytes(keyRow);
     }
@@ -69,13 +69,13 @@ public abstract class SingleKeyCommand implements TransactionalCommand, Serializ
     }
 
     /**
-     * Returns a timestamp.
+     * Returns a transaction id.
      *
-     * @return The timestamp.
+     * @return The transaction id.
      */
     @NotNull
     @Override
-    public UUID getId() {
-        return id;
+    public UUID getTxId() {
+        return txId;
     }
 }
