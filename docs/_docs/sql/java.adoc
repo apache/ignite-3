@@ -10,15 +10,15 @@ IgniteSql sql = CLUSTER_NODES.get(0).sql();
 Session ses = sql.createSession();
 ResultSet synchRes = ses.execute(
     null,
-    `CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)`
+    `CREATE TABLE SYNCH(ID INT PRIMARY KEY, VAL0 INT)`
 );
 
 CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
     null,
-    `CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)`
+    `CREATE TABLE ASYNCH(ID INT PRIMARY KEY, VAL0 INT)`
 );
 
 AsyncResultSet asyncRes = fut.get();
 
-ses.closeAsync();
+ses.closeAsync().get();
 ----
