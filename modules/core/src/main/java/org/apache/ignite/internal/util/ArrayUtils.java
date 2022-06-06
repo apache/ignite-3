@@ -316,6 +316,25 @@ public final class ArrayUtils {
     }
 
     /**
+     * Concatenates an elements to an array.
+     *
+     * @param arr Array.
+     * @param longs One or more elements.
+     * @return Concatenated array.
+     */
+    public static long[] concat(@Nullable long[] arr, long... longs) {
+        if (nullOrEmpty(arr)) {
+            return longs;
+        }
+
+        long[] newArr = Arrays.copyOf(arr, arr.length + longs.length);
+
+        System.arraycopy(longs, 0, newArr, arr.length, longs.length);
+
+        return newArr;
+    }
+
+    /**
      * Removes an element from an array with decrementing the array itself.
      *
      * @param arr Array.

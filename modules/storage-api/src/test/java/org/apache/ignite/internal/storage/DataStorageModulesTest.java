@@ -114,7 +114,12 @@ public class DataStorageModulesTest {
                 createMockedDataStorageModule(SECOND)
         ));
 
-        Map<String, StorageEngine> engines = dataStorageModules.createStorageEngines(mock(ConfigurationRegistry.class), workDir);
+        Map<String, StorageEngine> engines = dataStorageModules.createStorageEngines(
+                "test",
+                mock(ConfigurationRegistry.class),
+                workDir,
+                null
+        );
 
         assertThat(engines, aMapWithSize(2));
 
@@ -208,7 +213,7 @@ public class DataStorageModulesTest {
 
         when(mock.name()).thenReturn(name);
 
-        when(mock.createEngine(any(), any())).thenReturn(mock(StorageEngine.class));
+        when(mock.createEngine(any(), any(), any(), any())).thenReturn(mock(StorageEngine.class));
 
         return mock;
     }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.getLong;
 import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,13 +56,26 @@ public class Timestamps {
      * @param timestamp the timestamp to write
      * @return number of bytes written
      */
-    public static int writeTimestamp(long addr, int offset, @Nullable Timestamp timestamp) {
+    public static int writeTimestampToMemory(long addr, int offset, @Nullable Timestamp timestamp) {
         Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
 
         putLong(addr, offset, timestampForStorage.getNodeId());
         putLong(addr, offset + Long.BYTES, timestampForStorage.getTimestamp());
 
         return 2 * Long.BYTES;
+    }
+
+    /**
+     * Writes a {@link Timestamp} to a buffer.
+     *
+     * @param buffer buffer to which to write
+     * @param timestamp the timestamp to write
+     */
+    public static void writeTimestampToBuffer(ByteBuffer buffer, @Nullable Timestamp timestamp) {
+        Timestamp timestampForStorage = RowVersion.timestampForStorage(timestamp);
+
+        buffer.putLong(timestampForStorage.getNodeId());
+        buffer.putLong(timestampForStorage.getTimestamp());
     }
 
     private Timestamps() {

@@ -63,10 +63,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class AbstractPartitionStorageTest {
     /** Test key. */
-    private static final String KEY = "key";
+    protected static final String KEY = "key";
 
     /** Test value. */
-    private static final String VALUE = "value";
+    protected static final String VALUE = "value";
 
     /** Storage instance. */
     protected PartitionStorage storage;
@@ -644,7 +644,7 @@ public abstract class AbstractPartitionStorageTest {
      *
      * @param row Expected data row.
      */
-    private void checkHasSameEntry(DataRow row) {
+    protected void checkHasSameEntry(DataRow row) {
         DataRow read = storage.read(row);
 
         assertNotNull(read);

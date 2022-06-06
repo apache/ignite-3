@@ -129,6 +129,8 @@ public class CmgRaftService {
                         throw new JoinDeniedException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
+                    }  else {
+                        LOG.info("JoinRequest command executed successfully");
                     }
                 });
     }
@@ -150,6 +152,8 @@ public class CmgRaftService {
                                 + ((ValidationErrorResponse) response).reason());
                     } else if (response != null) {
                         throw new IgniteInternalException("Unexpected response: " + response);
+                    } else {
+                        LOG.info("JoinReady command executed successfully");
                     }
                 });
     }

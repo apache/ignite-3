@@ -20,10 +20,12 @@ package org.apache.ignite.internal.storage.chm;
 import static org.apache.ignite.internal.storage.chm.TestConcurrentHashMapStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation for creating {@link TestConcurrentHashMapStorageEngine}s.
@@ -37,7 +39,12 @@ public class TestConcurrentHashMapDataStorageModule implements DataStorageModule
 
     /** {@inheritDoc} */
     @Override
-    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
+    public StorageEngine createEngine(
+            String igniteInstanceName,
+            ConfigurationRegistry configRegistry,
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector
+    ) throws StorageException {
         return new TestConcurrentHashMapStorageEngine();
     }
 }

@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
-import static org.apache.ignite.internal.storage.StorageUtils.groupId;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -29,13 +27,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
-import org.apache.ignite.configuration.schemas.table.TableConfiguration;
-import org.apache.ignite.configuration.schemas.table.TableView;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree;
-import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.DataRow;
 import org.apache.ignite.internal.storage.InvokeClosure;
 import org.apache.ignite.internal.storage.OperationType;
@@ -50,10 +44,10 @@ import org.apache.ignite.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Storage implementation based on a {@link BplusTree}.
+ * Implementation of {@link PartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 // TODO: IGNITE-16644 Support snapshots.
-class PageMemoryPartitionStorage implements PartitionStorage {
+class VolatilePageMemoryPartitionStorage implements PartitionStorage {
     private final int partId;
 
     private final TableTree tree;
@@ -64,48 +58,20 @@ class PageMemoryPartitionStorage implements PartitionStorage {
      * Constructor.
      *
      * @param partId Partition id.
-     * @param tableCfg – Table configuration.
-     * @param dataRegion – Data region for the table.
      * @param freeList Table free list.
+     * @param tree Table tree.
      * @throws StorageException If there is an error while creating the partition storage.
      */
-    public PageMemoryPartitionStorage(
+    public VolatilePageMemoryPartitionStorage(
             int partId,
-            TableConfiguration tableCfg,
-            AbstractPageMemoryDataRegion dataRegion,
-            TableFreeList freeList
+            TableFreeList freeList,
+            TableTree tree
     ) throws StorageException {
         assert partId >= 0 && partId < MAX_PARTITION_ID : partId;
 
         this.partId = partId;
-
         this.freeList = freeList;
-
-        TableView tableView = tableCfg.value();
-
-        int grpId = groupId(tableView);
-
-        try {
-            // TODO: IGNITE-16641 It is necessary to do getting the tree root for the persistent case.
-            long metaPageId = dataRegion.pageMemory().allocatePage(grpId, partId, FLAG_AUX);
-
-            // TODO: IGNITE-16641 It is necessary to take into account the persistent case.
-            boolean initNew = true;
-
-            tree = new TableTree(
-                    grpId,
-                    tableView.name(),
-                    dataRegion.pageMemory(),
-                    PageLockListenerNoOp.INSTANCE,
-                    new AtomicLong(),
-                    metaPageId,
-                    freeList,
-                    partId,
-                    initNew
-            );
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error occurred while creating the partition storage", e);
-        }
+        this.tree = tree;
     }
 
     /** {@inheritDoc} */
