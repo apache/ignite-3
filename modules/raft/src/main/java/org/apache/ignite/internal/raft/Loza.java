@@ -29,7 +29,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -46,6 +45,7 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -145,12 +145,16 @@ public class Loza implements IgniteComponent {
      * Creates a raft group service providing operations on a raft group. If {@code nodes} contains the current node, then raft group starts
      * on the current node.
      *
+     * <p>IMPORTANT: DON'T USE. This method should be used only for long running changePeers requests - until IGNITE-14209 will be fixed
+     * with stable solution.
+     *
      * @param groupId      Raft group id.
      * @param nodes        Raft group nodes.
      * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
+    @Experimental
     public CompletableFuture<RaftGroupService> prepareRaftGroup(
             String groupId,
             List<ClusterNode> nodes,
@@ -161,7 +165,7 @@ public class Loza implements IgniteComponent {
         }
 
         try {
-            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier, () -> RaftGroupEventsListener.noopLsnr);
+            return prepareRaftGroupInternal(groupId, nodes, lsnrSupplier);
         } finally {
             busyLock.leaveBusy();
         }
@@ -170,14 +174,13 @@ public class Loza implements IgniteComponent {
     /**
      * Internal method to a raft group creation.
      *
-     * @param groupId                 Raft group id.
-     * @param nodes                   Raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
+     * @param groupId      Raft group id.
+     * @param nodes        Raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<RaftGroupService> prepareRaftGroupInternal(String groupId, List<ClusterNode> nodes,
-            Supplier<RaftGroupListener> lsnrSupplier, Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier) {
+            Supplier<RaftGroupListener> lsnrSupplier) {
         assert !nodes.isEmpty();
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
@@ -187,7 +190,7 @@ public class Loza implements IgniteComponent {
         boolean hasLocalRaft = nodes.stream().anyMatch(n -> locNodeName.equals(n.name()));
 
         if (hasLocalRaft) {
-            if (!raftServer.startRaftGroup(groupId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
+            if (!raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers)) {
                 throw new IgniteInternalException(IgniteStringFormatter.format(
                         "Raft group on the node is already started [node={}, raftGrp={}]",
                         locNodeName,
@@ -210,71 +213,29 @@ public class Loza implements IgniteComponent {
     }
 
     /**
-     * If {@code deltaNodes} contains the current node, then raft group starts on the current node.
-     *
-     * @param grpId                   Raft group id.
-     * @param nodes                   Full set of raft group nodes.
-     * @param deltaNodes              New raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    public void startRaftGroupNode(
-            String grpId,
-            Collection<ClusterNode> nodes,
-            Collection<ClusterNode> deltaNodes,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier) throws NodeStoppingException {
-        assert !nodes.isEmpty();
-
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
-
-            String locNodeName = clusterNetSvc.topologyService().localMember().name();
-
-            if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
-                if (!raftServer.startRaftGroup(grpId, raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
-                    throw new IgniteInternalException(IgniteStringFormatter.format(
-                            "Raft group on the node is already started [node={}, raftGrp={}]",
-                            locNodeName,
-                            grpId
-                    ));
-                }
-            }
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    /**
      * Creates a raft group service providing operations on a raft group. If {@code deltaNodes} contains the current node, then raft group
      * starts on the current node.
      *
-     * @param grpId                   Raft group id.
-     * @param nodes                   Full set of raft group nodes.
-     * @param deltaNodes              New raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
+     * @param groupId      Raft group id.
+     * @param nodes        Full set of raft group nodes.
+     * @param deltaNodes   New raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
+    @Experimental
     public CompletableFuture<RaftGroupService> updateRaftGroup(
-            String grpId,
+            String groupId,
             Collection<ClusterNode> nodes,
             Collection<ClusterNode> deltaNodes,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier
+            Supplier<RaftGroupListener> lsnrSupplier
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
-            return updateRaftGroupInternal(grpId, nodes, deltaNodes, lsnrSupplier, raftGrpEvtsLsnrSupplier);
+            return updateRaftGroupInternal(groupId, nodes, deltaNodes, lsnrSupplier);
         } finally {
             busyLock.leaveBusy();
         }
@@ -283,19 +244,14 @@ public class Loza implements IgniteComponent {
     /**
      * Internal method for updating a raft group.
      *
-     * @param grpId                   Raft group id.
-     * @param nodes                   Full set of raft group nodes.
-     * @param deltaNodes              New raft group nodes.
-     * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
+     * @param groupId      Raft group id.
+     * @param nodes        Full set of raft group nodes.
+     * @param deltaNodes   New raft group nodes.
+     * @param lsnrSupplier Raft group listener supplier.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<RaftGroupService> updateRaftGroupInternal(
-            String grpId,
-            Collection<ClusterNode> nodes,
-            Collection<ClusterNode> deltaNodes,
-            Supplier<RaftGroupListener> lsnrSupplier,
-            Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier) {
+    private CompletableFuture<RaftGroupService> updateRaftGroupInternal(String groupId, Collection<ClusterNode> nodes,
+            Collection<ClusterNode> deltaNodes, Supplier<RaftGroupListener> lsnrSupplier) {
         assert !nodes.isEmpty();
 
         List<Peer> peers = nodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
@@ -303,17 +259,17 @@ public class Loza implements IgniteComponent {
         String locNodeName = clusterNetSvc.topologyService().localMember().name();
 
         if (deltaNodes.stream().anyMatch(n -> locNodeName.equals(n.name()))) {
-            if (!raftServer.startRaftGroup(grpId,  raftGrpEvtsLsnrSupplier.get(), lsnrSupplier.get(), peers)) {
+            if (!raftServer.startRaftGroup(groupId, lsnrSupplier.get(), peers)) {
                 throw new IgniteInternalException(IgniteStringFormatter.format(
                         "Raft group on the node is already started [node={}, raftGrp={}]",
                         locNodeName,
-                        grpId
+                        groupId
                 ));
             }
         }
 
         return RaftGroupServiceImpl.start(
-                grpId,
+                groupId,
                 clusterNetSvc,
                 FACTORY,
                 RETRY_TIMEOUT,
@@ -323,6 +279,57 @@ public class Loza implements IgniteComponent {
                 DELAY,
                 executor
         );
+    }
+
+    /**
+     * Changes peers for a group from {@code expectedNodes} to {@code changedNodes}.
+     *
+     * @param groupId       Raft group id.
+     * @param expectedNodes List of nodes that contains the raft group peers.
+     * @param changedNodes  List of nodes that will contain the raft group peers after.
+     * @return Future which will complete when peers change.
+     * @throws NodeStoppingException If node stopping intention was detected.
+     */
+    public CompletableFuture<Void> changePeers(
+            String groupId,
+            List<ClusterNode> expectedNodes,
+            List<ClusterNode> changedNodes
+    ) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            return changePeersInternal(groupId, expectedNodes, changedNodes);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Internal method for changing peers for a RAFT group.
+     *
+     * @param groupId       Raft group id.
+     * @param expectedNodes List of nodes that contains the raft group peers.
+     * @param changedNodes  List of nodes that will contain the raft group peers after.
+     * @return Future which will complete when peers change.
+     */
+    private CompletableFuture<Void> changePeersInternal(String groupId, List<ClusterNode> expectedNodes, List<ClusterNode> changedNodes) {
+        List<Peer> expectedPeers = expectedNodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+        List<Peer> changedPeers = changedNodes.stream().map(n -> new Peer(n.address())).collect(Collectors.toList());
+
+        return RaftGroupServiceImpl.start(
+                groupId,
+                clusterNetSvc,
+                FACTORY,
+                10 * RETRY_TIMEOUT,
+                10 * RPC_TIMEOUT,
+                expectedPeers,
+                true,
+                DELAY,
+                executor
+        ).thenCompose(srvc -> srvc.changePeers(changedPeers)
+                .thenRun(() -> srvc.shutdown()));
     }
 
     /**

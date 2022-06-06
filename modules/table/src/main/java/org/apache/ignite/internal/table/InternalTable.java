@@ -28,7 +28,6 @@ import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -238,15 +237,6 @@ public interface InternalTable extends AutoCloseable {
      * @return leader node of the partition group corresponding to the partition
      */
     ClusterNode leaderAssignment(int partition);
-
-    /**
-     * Returns raft group client for corresponding partition.
-     *
-     * @param partition partition number
-     * @return raft group client for corresponding partition
-     * @throws org.apache.ignite.lang.IgniteInternalException if partition can't be found.
-     */
-    RaftGroupService partitionRaftGroupService(int partition);
 
     //TODO: IGNITE-14488. Add invoke() methods.
 }

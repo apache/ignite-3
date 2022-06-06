@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
@@ -316,7 +317,6 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 txManager,
                 dataStorageMgr,
-                metaStorageMgr,
                 schemaManager
         );
 
@@ -542,6 +542,16 @@ public class IgniteImpl implements Ignite {
     @Override
     public String name() {
         return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setBaseline(Set<String> baselineNodes) {
+        try {
+            distributedTblMgr.setBaseline(baselineNodes);
+        } catch (NodeStoppingException e) {
+            throw new IgniteException(e);
+        }
     }
 
     /** {@inheritDoc} */

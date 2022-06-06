@@ -31,21 +31,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import com.codahale.metrics.ConsoleReporter;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.rmi.StubNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,17 +56,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.network.NodeFinder;
 import org.apache.ignite.network.StaticNodeFinder;
-import org.apache.ignite.network.scalecube.TestScaleCubeClusterServiceFactory;
-import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
@@ -3014,15 +3002,6 @@ public class ItNodeTest {
 
     @Test
     public void testChangePeers() throws Exception {
-        changePeers(false);
-    }
-
-    @Test
-    public void testChangeAsyncPeers() throws Exception {
-        changePeers(true);
-    }
-
-    private void changePeers(boolean async) throws Exception {
         PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
         cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
         assertTrue(cluster.start(peer0.getEndpoint()));
@@ -3039,222 +3018,19 @@ public class ItNodeTest {
             cluster.waitLeader();
             leader = cluster.getLeader();
             assertNotNull(leader);
-            PeerId leaderPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
-            assertEquals(leaderPeer, leader.getNodeId().getPeerId());
-            PeerId newLeaderPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
-            if (async) {
-                SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
-                        leader.getCurrentTerm(), done);
-                Status status = done.await();
-                assertTrue(status.isOk(), status.getRaftError().toString());
-                assertTrue(waitForCondition(() -> {
-                    if (cluster.getLeader() != null) {
-                        return newLeaderPeer.equals(cluster.getLeader().getLeaderId());
-                    }
-                    return false;
-                }, 10_000));
-            } else {
-                SynchronizedClosure done = new SynchronizedClosure();
-                leader.changePeers(new Configuration(Collections.singletonList(newLeaderPeer)), done);
-                Status status = done.await();
-                assertTrue(status.isOk(), status.getRaftError().toString());
-            }
-        }
-
-        cluster.waitLeader();
-
-        for (MockStateMachine fsm : cluster.getFsms()) {
-            assertEquals(10, fsm.getLogs().size());
-        }
-    }
-
-    @Test
-    public void testOnReconfigurationErrorListener() throws Exception {
-        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
-
-        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
-
-        cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
-        assertTrue(cluster.start(peer0.getEndpoint()));
-
-        cluster.waitLeader();
-
-        Node leader = cluster.getLeader();
-        sendTestTaskAndWait(leader);
-
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any());
-
-        PeerId newPeer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1);
-
-        SynchronizedClosure done = new SynchronizedClosure();
-
-        leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
-                leader.getCurrentTerm(), done);
-        assertEquals(done.await(), Status.OK());
-
-        verify(raftGrpEvtsLsnr, timeout(10_000))
-                .onReconfigurationError(argThat(st -> st.getRaftError() == RaftError.ECATCHUP), any(), anyLong());
-    }
-
-    @Test
-    public void testNewPeersConfigurationAppliedListener() throws Exception {
-        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
-
-        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
-
-        cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
-        assertTrue(cluster.start(peer0.getEndpoint()));
-
-        cluster.waitLeader();
-
-        Node leader = cluster.getLeader();
-        sendTestTaskAndWait(leader);
-
-        for (int i = 1; i < 5; i++) {
-            PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i);
-            assertTrue(cluster.start(peer.getEndpoint(), false, 300));
-        }
-
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any());
-
-        for (int i = 0; i < 4; i++) {
-            leader = cluster.getLeader();
-            assertNotNull(leader);
             PeerId peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i);
             assertEquals(peer, leader.getNodeId().getPeerId());
-            PeerId newPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
-
+            peer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + i + 1);
             SynchronizedClosure done = new SynchronizedClosure();
-            leader.changePeersAsync(new Configuration(Collections.singletonList(newPeer)),
-                    leader.getCurrentTerm(), done);
-            assertEquals(done.await(), Status.OK());
-            assertTrue(waitForCondition(() -> {
-                if (cluster.getLeader() != null) {
-                    return newPeer.equals(cluster.getLeader().getLeaderId());
-                }
-                return false;
-            }, 10_000));
-
-            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(Collections.singletonList(newPeer));
-        }
-    }
-
-    @Test
-    public void testChangePeersOnLeaderElected() throws Exception {
-        List<PeerId> peers = IntStream.range(0, 6)
-                .mapToObj(i -> new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i))
-                .collect(toList());
-
-        cluster = new TestCluster("testChangePeers", dataPath, peers, testInfo);
-
-        var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);
-
-        cluster.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
-
-        for (PeerId p: peers) {
-            assertTrue(cluster.start(p.getEndpoint(), false, 300));
+            leader.changePeers(new Configuration(Collections.singletonList(peer)), done);
+            Status status = done.await();
+            assertTrue(status.isOk(), status.getRaftError().toString());
         }
 
         cluster.waitLeader();
-
-        verify(raftGrpEvtsLsnr, times(1)).onLeaderElected(anyLong());
-
-        cluster.stop(cluster.getLeader().getLeaderId().getEndpoint());
-
-        cluster.waitLeader();
-
-        verify(raftGrpEvtsLsnr, times(2)).onLeaderElected(anyLong());
-
-        cluster.stop(cluster.getLeader().getLeaderId().getEndpoint());
-
-        cluster.waitLeader();
-
-        verify(raftGrpEvtsLsnr, times(3)).onLeaderElected(anyLong());
-    }
-
-    @Test
-    public void changePeersAsyncResponses() throws Exception {
-        PeerId peer0 = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
-        assertTrue(cluster.start(peer0.getEndpoint()));
-
-        cluster.waitLeader();
-        Node leader = cluster.getLeader();
-        sendTestTaskAndWait(leader);
-
-        PeerId peer = new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1);
-        assertTrue(cluster.start(peer.getEndpoint(), false, 300));
-
-        cluster.waitLeader();
-        leader = cluster.getLeader();
-        assertNotNull(leader);
-        PeerId leaderPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort());
-        assertEquals(leaderPeer, leader.getNodeId().getPeerId());
-
-        PeerId newLeaderPeer = new PeerId(TestUtils.getLocalAddress(), peer0.getEndpoint().getPort() + 1);
-
-        // wrong leader term, do nothing
-        SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
-                leader.getCurrentTerm() - 1, done);
-        assertEquals(done.await(), Status.OK());
-
-        // the same config, do nothing
-        done = new SynchronizedClosure();
-        leader.changePeersAsync(new Configuration(Collections.singletonList(leaderPeer)),
-                leader.getCurrentTerm(), done);
-        assertEquals(done.await(), Status.OK());
-
-        // change peer to new conf containing only new node
-        done = new SynchronizedClosure();
-        leader.changePeersAsync(new Configuration(Collections.singletonList(newLeaderPeer)),
-                leader.getCurrentTerm(), done);
-        assertEquals(done.await(), Status.OK());
-
-        assertTrue(waitForCondition(() -> {
-            if (cluster.getLeader() != null)
-                return newLeaderPeer.equals(cluster.getLeader().getLeaderId());
-            return false;
-        }, 10_000));
 
         for (MockStateMachine fsm : cluster.getFsms()) {
             assertEquals(10, fsm.getLogs().size());
-        }
-
-        // check concurrent start of two async change peers.
-        Node newLeader = cluster.getLeader();
-
-        sendTestTaskAndWait(newLeader);
-
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-
-        List<SynchronizedClosure> dones = new ArrayList<>();
-        List<Future> futs = new ArrayList<>();
-
-        for (int i = 0; i < 2; i++) {
-            SynchronizedClosure newDone = new SynchronizedClosure();
-            dones.add(newDone);
-            futs.add(executor.submit(() -> {
-                newLeader.changePeersAsync(new Configuration(Collections.singletonList(peer0)), 2, newDone);
-            }));
-        }
-        futs.get(0).get();
-        futs.get(1).get();
-
-        assertEquals(dones.get(0).await(), Status.OK());
-        assertEquals(dones.get(1).await().getRaftError(), RaftError.EBUSY);
-
-        assertTrue(waitForCondition(() -> {
-            if (cluster.getLeader() != null)
-                return peer0.equals(cluster.getLeader().getLeaderId());
-            return false;
-        }, 10_000));
-
-        for (MockStateMachine fsm : cluster.getFsms()) {
-            assertEquals(20, fsm.getLogs().size());
         }
     }
 

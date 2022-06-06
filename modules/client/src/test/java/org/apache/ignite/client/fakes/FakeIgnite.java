@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.IgniteCompute;
@@ -97,6 +98,12 @@ public class FakeIgnite implements Ignite {
     @Override
     public IgniteSql sql() {
         return new FakeIgniteSql();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setBaseline(Set<String> baselineNodes) {
+        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */

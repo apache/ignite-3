@@ -56,7 +56,6 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -76,7 +75,6 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.ColumnAlreadyExistsException;
 import org.apache.ignite.lang.ColumnNotFoundException;
 import org.apache.ignite.lang.IgniteException;
@@ -131,10 +129,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
     /** TX manager. */
     @Mock(lenient = true)
     private TxManager tm;
-
-    /** Meta storage manager. */
-    @Mock
-    MetaStorageManager msm;
 
     /**
      * Revision listener holder. It uses for the test configurations:
@@ -634,7 +628,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return completedFuture(raftGrpSrvcMock);
         });
 
-        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -675,8 +669,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
             return ret;
         });
 
-        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
-
         TableManager tableManager = createTableManager();
 
         return tableManager;
@@ -693,7 +685,6 @@ public class MockedStructuresTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dataStorageManager,
-                msm,
                 sm
         );
 

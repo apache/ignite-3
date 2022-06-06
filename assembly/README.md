@@ -42,6 +42,9 @@ The following examples are included:
 * `RecordViewExample` - demonstrates the usage of the `org.apache.ignite.table.RecordView` API
 * `KeyValueViewExample` - demonstrates the usage of the `org.apache.ignite.table.KeyValueView` API
 * `SqlJdbcExample` - demonstrates the usage of the Apache Ignite JDBC driver.
+* `RebalanceExample` - demonstrates the data rebalancing process.
+
+To run the `RebalanceExample`, refer to its JavaDoc for instructions.
 
 To run any other example, do the following:
 1. Import the examples project into you IDE.

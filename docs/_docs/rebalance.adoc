@@ -18,3 +18,10 @@ When a new node joins the cluster, some of the partitions are relocated to the n
 If an existing node permanently leaves the cluster and backups are not configured, you lose the partitions stored on this node. When backups are configured, one of the backup copies of the lost partitions becomes a primary partition and the rebalancing process is initiated.
 
 WARNING: Data rebalancing is triggered by changes in the Baseline Topology. In pure in-memory clusters, the default behavior is to start rebalancing immediately when a node leaves or joins the cluster (the baseline topology changes automatically). In clusters with persistence, the baseline topology has to be changed manually (default behavior), or can be changed automatically when automatic baseline adjustment is enabled.
+
+== Running an Example
+
+Examples are shipped as a separate Maven project, which is located in the `examples` folder. `RebalanceExample` demonstrates the data rebalancing process.
+
+To start running `RebalanceExample`, please refer to its link:https://github.com/apache/ignite-3/blob/3.0.0-alpha3/examples/src/main/java/org/apache/ignite/example/rebalance/RebalanceExample.java[JavaDoc,window=_blank] for instructions.
+

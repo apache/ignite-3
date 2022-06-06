@@ -190,8 +190,11 @@ The project includes the following examples:
 * `RecordViewExample` demonstrates the usage of the `org.apache.ignite.table.RecordView` API to create a table. It also shows how to get data from a table, or insert a line into a table.
 * `KeyValueViewExample` - demonstrates the usage of the `org.apache.ignite.table.KeyValueView` API to insert a line into a table.
 * `SqlJdbcExample` - demonstrates the usage of the Apache Ignite JDBC driver.
+* `RebalanceExample` - demonstrates the data rebalancing process.
 
-To run any example, perform the following steps:
+To run the `RebalanceExample`, refer to its link:https://github.com/apache/ignite-3/blob/3.0.0-alpha4/examples/src/main/java/org/apache/ignite/example/rebalance/RebalanceExample.java[JavaDoc,window=_blank] for instructions.
+
+To run any other example, perform the following steps:
 
 . Import the examples project into you IDE.
 

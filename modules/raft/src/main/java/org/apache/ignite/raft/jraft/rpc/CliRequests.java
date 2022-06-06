@@ -20,9 +20,8 @@
 package org.apache.ignite.raft.jraft.rpc;
 
 import java.util.Collection;
-import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.network.annotations.Transferable;
-import org.apache.ignite.raft.jraft.RaftMessageGroup.RpcClientMessageGroup;
+import org.apache.ignite.raft.jraft.RaftMessageGroup;
 
 public final class CliRequests {
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.ADD_PEER_REQUEST)
@@ -68,24 +67,6 @@ public final class CliRequests {
 
     @Transferable(value = RaftMessageGroup.RpcClientMessageGroup.CHANGE_PEERS_RESPONSE)
     public interface ChangePeersResponse extends Message {
-        Collection<String> oldPeersList();
-
-        Collection<String> newPeersList();
-    }
-
-    @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_REQUEST)
-    public interface ChangePeersAsyncRequest extends Message {
-        String groupId();
-
-        String leaderId();
-
-        Collection<String> newPeersList();
-
-        long term();
-    }
-
-    @Transferable(value = RpcClientMessageGroup.CHANGE_PEERS_ASYNC_RESPONSE)
-    public interface ChangePeersAsyncResponse extends Message {
         Collection<String> oldPeersList();
 
         Collection<String> newPeersList();
