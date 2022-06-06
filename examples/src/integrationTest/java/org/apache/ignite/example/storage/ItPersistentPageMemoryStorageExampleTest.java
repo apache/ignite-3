@@ -34,7 +34,7 @@ public class ItPersistentPageMemoryStorageExampleTest extends AbstractExamplesTe
                 .clusterConfiguration()
                 .getConfiguration(PageMemoryStorageEngineConfiguration.KEY)
                 .regions()
-                .change(regionsChange -> regionsChange.create("persistent", regionChange -> regionChange.changePersistent(false)))
+                .change(regionsChange -> regionsChange.create("persistent", regionChange -> regionChange.changePersistent(true)))
                 .get(1, TimeUnit.SECONDS);
 
         assertConsoleOutputContains(PersistentPageMemoryStorageExample::main, EMPTY_ARGS,
