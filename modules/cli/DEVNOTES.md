@@ -2,12 +2,16 @@
 
 ## How to build module and add bash/zsh autocompletion to your shell
 
-Cd to module directory and build the module:
+Build the ignite-3 and cli modules:
 ```bash
-cd modules/cli
-mvn clean package
+mvn clean install -DskipTests=true
 ```
 
+Cd to the build directory:
+```bash
+cd modules/cli/target
+
+```
 Install autocompletion script to your shell:
 ```bash 
 source target/ignite_completion.sh 
@@ -15,7 +19,7 @@ source target/ignite_completion.sh
 
 Add `ignite` alias:
 ```bash
-alias ignite='./target/ignite'
+alias ignite='./ignite'
 ```
 
 For more info, see [Autocomplete for Java Command Line Applications](https://picocli.info/autocomplete.html).
