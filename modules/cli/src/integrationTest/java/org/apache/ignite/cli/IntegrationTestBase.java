@@ -20,6 +20,8 @@ package org.apache.ignite.cli;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -256,7 +258,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
         IgnitionManager.init(metaStorageNodeName, List.of(metaStorageNodeName), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
-            future.get(); //fixme
+            assertThat(future, willCompleteSuccessfully());
 
             CLUSTER_NODES.add(future.join());
         }
