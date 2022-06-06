@@ -15,28 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv.io;
+package org.apache.ignite.internal.storage.pagememory;
 
-import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.tree.io.BplusMetaIo;
-import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
+import org.apache.ignite.internal.pagememory.FullPageId;
 
 /**
- * IO routines for {@link VersionChainTree} meta pages.
+ * Class for storing {@link TableTree} partition metadata.
  */
-public class VersionChainMetaIo extends BplusMetaIo {
-    /** Page IO type. */
-    public static final short T_VERSION_CHAIN_META_IO = 9;
+class PartitionMeta {
+    /** {@link TableTree} root. */
+    final FullPageId treeRoot;
 
-    /** I/O versions. */
-    public static final IoVersions<VersionChainMetaIo> VERSIONS = new IoVersions<>(new VersionChainMetaIo(1));
+    /** {@link TableFreeList} root. */
+    final FullPageId reuseListRoot;
+
+    /** Have been allocated (created) or read. */
+    final boolean allocated;
 
     /**
      * Constructor.
      *
-     * @param ver Page format version.
+     * @param reuseListRoot {@link TableFreeList} root.
+     * @param treeRoot {@link TableTree} root.
+     * @param allocated Have been allocated (created) or read.
      */
-    protected VersionChainMetaIo(int ver) {
-        super(T_VERSION_CHAIN_META_IO, ver);
+    public PartitionMeta(
+            FullPageId treeRoot,
+            FullPageId reuseListRoot,
+            boolean allocated
+    ) {
+        this.treeRoot = treeRoot;
+        this.reuseListRoot = reuseListRoot;
+        this.allocated = allocated;
     }
 }

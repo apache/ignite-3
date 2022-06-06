@@ -80,7 +80,7 @@ class CheckpointWorkflow implements IgniteComponent {
     private final CheckpointReadWriteLock checkpointReadWriteLock;
 
     /** Persistent data regions for the checkpointing. */
-    private final Collection<PageMemoryDataRegion> dataRegions;
+    private final Collection<? extends PageMemoryDataRegion> dataRegions;
 
     /** Checkpoint write order configuration. */
     private final CheckpointWriteOrder checkpointWriteOrder;
@@ -100,7 +100,7 @@ class CheckpointWorkflow implements IgniteComponent {
             PageMemoryCheckpointConfiguration checkpointConfig,
             CheckpointMarkersStorage checkpointMarkersStorage,
             CheckpointReadWriteLock checkpointReadWriteLock,
-            Collection<PageMemoryDataRegion> dataRegions
+            Collection<? extends PageMemoryDataRegion> dataRegions
     ) {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
@@ -260,7 +260,7 @@ class CheckpointWorkflow implements IgniteComponent {
      *
      * @param dataRegions Data regions.
      */
-    public List<CheckpointListener> collectCheckpointListeners(Collection<PageMemoryDataRegion> dataRegions) {
+    public List<CheckpointListener> collectCheckpointListeners(Collection<? extends PageMemoryDataRegion> dataRegions) {
         return listeners.stream()
                 .filter(tuple -> tuple.getValue() == null || dataRegions.contains(tuple.getValue()))
                 .map(IgniteBiTuple::getKey)
@@ -268,7 +268,7 @@ class CheckpointWorkflow implements IgniteComponent {
     }
 
     private CheckpointDirtyPagesInfoHolder beginCheckpoint(
-            Collection<PageMemoryDataRegion> dataRegions,
+            Collection<? extends PageMemoryDataRegion> dataRegions,
             CompletableFuture<?> allowToReplace
     ) {
         Collection<IgniteBiTuple<PageMemoryImpl, Collection<FullPageId>>> pages = new ArrayList<>(dataRegions.size());

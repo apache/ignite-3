@@ -104,6 +104,7 @@ public abstract class PageIo {
     private final int ver;
 
     /** IO type. */
+    // TODO: IGNITE-17104 Consider the mechanism for avoiding type intersection for different structures
     private final int type;
 
     /** IO flag: either {@link PageIdAllocator#FLAG_DATA} or {@link PageIdAllocator#FLAG_AUX}. */

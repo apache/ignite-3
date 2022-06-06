@@ -55,12 +55,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Storage test implementation for {@link PageMemoryPartitionStorage}.
+ * Storage test implementation for {@link VolatilePageMemoryPartitionStorage}.
  */
-// TODO: IGNITE-16641 Add test for persistent case.
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
+public class VolatilePageMemoryPartitionStorageTest extends AbstractPartitionStorageTest {
     private static PageIoRegistry ioRegistry;
 
     @InjectConfiguration(polymorphicExtensions = UnsafeMemoryAllocatorConfigurationSchema.class)
@@ -80,6 +79,9 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     private TableStorage table;
 
+    @WorkDirectory
+    private Path workDir;
+
     @BeforeAll
     static void beforeAll() {
         ioRegistry = new PageIoRegistry();
@@ -89,12 +91,13 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
     @BeforeEach
     void setUp() throws Exception {
-        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry);
+        engineConfig.defaultRegion().persistent().update(false).get(1, TimeUnit.SECONDS);
+
+        engine = new PageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
 
         engine.start();
 
-        tableCfg.change(c -> c.changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class)))
-                .get(1, TimeUnit.SECONDS);
+        tableCfg.change(c -> c.changeDataStorage(dsc -> dsc.convert(PageMemoryDataStorageChange.class))).get(1, TimeUnit.SECONDS);
 
         assertEquals(
                 PageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME,
@@ -103,13 +106,13 @@ public class PageMemoryPartitionStorageTest extends AbstractPartitionStorageTest
 
         table = engine.createTable(tableCfg);
 
-        assertThat(table, is(instanceOf(PageMemoryTableStorage.class)));
+        assertThat(table, is(instanceOf(VolatilePageMemoryTableStorage.class)));
 
         table.start();
 
         storage = table.getOrCreatePartition(0);
 
-        assertThat(storage, is(instanceOf(PageMemoryPartitionStorage.class)));
+        assertThat(storage, is(instanceOf(VolatilePageMemoryPartitionStorage.class)));
     }
 
     @AfterEach

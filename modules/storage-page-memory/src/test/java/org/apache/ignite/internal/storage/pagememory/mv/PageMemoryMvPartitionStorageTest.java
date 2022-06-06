@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
@@ -33,13 +34,14 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageChange;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageView;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfigurationSchema;
+import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
@@ -73,13 +75,16 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
 
     private PageMemoryStorageEngine engine;
 
-    private PageMemoryTableStorage table;
+    private AbstractPageMemoryTableStorage table;
 
     private int nextPageIndex = 100;
 
+    @WorkDirectory
+    private Path workDir;
+
     @BeforeEach
     void setUp() throws Exception {
-        engine = new PageMemoryStorageEngine(engineConfig, ioRegistry);
+        engine = new PageMemoryStorageEngine("test", engineConfig, ioRegistry, workDir, null);
 
         engine.start();
 

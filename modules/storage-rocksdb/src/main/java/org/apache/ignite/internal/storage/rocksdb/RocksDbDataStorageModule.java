@@ -20,11 +20,13 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation for creating {@link RocksDbStorageEngine}s.
@@ -38,7 +40,12 @@ public class RocksDbDataStorageModule implements DataStorageModule {
 
     /** {@inheritDoc} */
     @Override
-    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
+    public StorageEngine createEngine(
+            String igniteInstanceName,
+            ConfigurationRegistry configRegistry,
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector
+    ) throws StorageException {
         RocksDbStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(RocksDbStorageEngineConfiguration.KEY);
 
         assert engineConfig != null;

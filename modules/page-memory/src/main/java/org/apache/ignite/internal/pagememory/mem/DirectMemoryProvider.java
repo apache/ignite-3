@@ -28,6 +28,7 @@ public interface DirectMemoryProvider {
      *
      * @param chunkSizes Chunk sizes.
      */
+    // TODO: IGNITE-16350 Consider deleting a method
     void initialize(long[] chunkSizes);
 
     /**
@@ -43,5 +44,6 @@ public interface DirectMemoryProvider {
      * @return Next memory region.
      */
     @Nullable
+    // TODO: IGNITE-16350 Consider adding a region size argument
     DirectMemoryRegion nextRegion();
 }
