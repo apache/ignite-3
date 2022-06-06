@@ -105,6 +105,7 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      * @param dataRegionConfigView Data region configuration.
      * @param concurrencyLevel Number of concurrent segments in Ignite internal page mapping tables, must be greater than 0.
      */
+    // TODO: IGNITE-16350 Add more and more detailed description
     static long[] calculateSegmentSizes(PageMemoryDataRegionView dataRegionConfigView, int concurrencyLevel) {
         assert concurrencyLevel > 0 : concurrencyLevel;
 
@@ -124,6 +125,7 @@ class PersistentPageMemoryDataRegion extends AbstractPageMemoryDataRegion {
      *
      * @param dataRegionConfigView Data region configuration.
      */
+    // TODO: IGNITE-16350 Add more and more detailed description
     static long calculateCheckpointBufferSize(PageMemoryDataRegionView dataRegionConfigView) {
         long maxSize = dataRegionConfigView.maxSize();
 

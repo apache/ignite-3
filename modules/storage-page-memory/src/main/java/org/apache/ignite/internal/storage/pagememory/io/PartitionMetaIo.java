@@ -31,7 +31,7 @@ import org.apache.ignite.lang.IgniteStringBuilder;
 public class PartitionMetaIo extends PageIo {
     private static final int TREE_ROOT_PAGE_ID_OFF = COMMON_HEADER_END;
 
-    private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + 8;
+    private static final int REUSE_LIST_ROOT_PAGE_ID_OFF = TREE_ROOT_PAGE_ID_OFF + Long.BYTES;
 
     /** Page IO type. */
     public static final short T_TABLE_PARTITION_META_IO = 7;

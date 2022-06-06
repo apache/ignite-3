@@ -70,7 +70,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
 
     /** {@inheritDoc} */
     @Override
-    protected VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
+    protected PersistentPageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException {
         TableView tableView = tableCfg.value();
 
         FilePageStore partitionFilePageStore = ensurePartitionFilePageStore(tableView, partId);
@@ -82,7 +82,7 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
         checkpointTimeoutLock.checkpointReadLock();
 
         try {
-            PartitionMeta partitionMeta = getOrCreateTableTreePartitionMetas(tableView, partId, partitionFilePageStore);
+            PartitionMeta partitionMeta = getOrCreatePartitionMeta(tableView, partId, partitionFilePageStore);
 
             TableFreeList tableFreeList = createTableFreeList(tableView, partId, partitionMeta);
 
@@ -122,14 +122,15 @@ class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     }
 
     /**
-     * Returns the read and created new partition {@link PartitionMeta}.
+     * Creates new or reads existing partition meta.
      *
      * @param tableView Table configuration.
      * @param partId Partition ID.
      * @param filePageStore Partition file page store.
+     * @return Partition meta.
      * @throws StorageException If failed.
      */
-    PartitionMeta getOrCreateTableTreePartitionMetas(
+    PartitionMeta getOrCreatePartitionMeta(
             TableView tableView,
             int partId,
             FilePageStore filePageStore
