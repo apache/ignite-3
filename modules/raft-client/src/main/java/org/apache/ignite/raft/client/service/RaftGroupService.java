@@ -159,6 +159,9 @@ public interface RaftGroupService {
      * <p>Asynchronous variant of the previous method.
      * When the future completed, it just means, that changePeers process successfully started.
      *
+     * <p> The results of rebalance itself will be processed by the listener of raft reconfiguration event
+     * (from raft/server module).
+     *
      * <p>This operation is executed on a group leader.
      *
      * @param peers Peers.

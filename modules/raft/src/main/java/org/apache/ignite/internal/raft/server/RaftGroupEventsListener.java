@@ -27,6 +27,8 @@ import org.apache.ignite.raft.jraft.entity.PeerId;
 public interface RaftGroupEventsListener {
     /**
      * Invoked, when new leader is elected (if it is the first leader of group ever - will be invoked too).
+     *
+     * @param term Raft term of the current leader.
      */
     void onLeaderElected(long term);
 
@@ -41,6 +43,8 @@ public interface RaftGroupEventsListener {
      * Invoked on the leader, when membership reconfiguration was failed, because of {@link Status}.
      *
      * @param status with description of failure.
+     * @param peers List of peers, which was tried as a target of reconfiguration.
+     * @param term Raft term of the current leader.
      */
     void onReconfigurationError(Status status, List<PeerId> peers, long term);
 
