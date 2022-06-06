@@ -185,11 +185,14 @@
                         <configuration>
                             <finalName>ignite</finalName>
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <transformer
+                                  implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <manifestEntries>
                                         <Main-Class>org.apache.ignite.cli.IgniteCliApp</Main-Class>
                                     </manifestEntries>
                                 </transformer>
+                                <transformer
+                                  implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <filters>
                                 <filter>
