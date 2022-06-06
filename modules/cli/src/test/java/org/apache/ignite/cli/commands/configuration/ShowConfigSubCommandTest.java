@@ -33,7 +33,7 @@ class ShowConfigSubCommandTest extends CliCommandTestBase {
         setUp(NodeConfigShowSubCommand.class);
     }
 
-    @Disabled(value = "Cluster-url has a default value")
+    @Disabled("Cluster-url has a default value")
     @Test
     @DisplayName("Cluster-url is mandatory option")
     void mandatoryOptions() {
