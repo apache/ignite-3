@@ -43,7 +43,7 @@ import java.sql.Statement;
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
- *         Stop an Ignite node using the CLI tool:<br>
+ *         Stop the Ignite node using the CLI tool:<br>
  *         {@code ignite node stop my-first-node}
  *     </li>
  * </ol>
