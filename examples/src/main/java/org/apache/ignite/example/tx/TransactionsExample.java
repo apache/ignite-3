@@ -36,7 +36,7 @@ import org.apache.ignite.tx.IgniteTransactions;
  *         {@code ignite init}
  *     </li>
  *     <li>
- *         Start a server node using the CLI tool:<br>
+ *         Start an Ignite node using the CLI tool:<br>
  *         {@code ignite node start --config=$IGNITE_HOME/examples/config/ignite-config.json my-first-node}
  *     </li>
  *     <li>
@@ -45,7 +45,7 @@ import org.apache.ignite.tx.IgniteTransactions;
  *     </li>
  *     <li>Run the example in the IDE.</li>
  *     <li>
- *         Stop a server node using the CLI tool:<br>
+ *         Stop the Ignite node using the CLI tool:<br>
  *         {@code ignite node stop my-first-node}
  *     </li>
  * </ol>

@@ -21,21 +21,30 @@ import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputCont
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 /**
- * For {@link VolatilePageMemoryStorageExample} testing.
+ * For testing examples demonstrating work with {@link PageMemoryStorageEngine}.
  */
-public class ItVolatilePageMemoryStorageExampleTest extends AbstractExamplesTest {
+public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
-    public void testExample() throws Exception {
-        ignite
-                .clusterConfiguration()
-                .getConfiguration(PageMemoryStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create("in-memory", regionChange -> regionChange.changePersistent(false)))
-                .get(1, TimeUnit.SECONDS);
+    public void testPersistentExample() throws Exception {
+        addDataRegionConfig("persistent", true);
+
+        assertConsoleOutputContains(PersistentPageMemoryStorageExample::main, EMPTY_ARGS,
+                "\nAll accounts:\n"
+                        + "    1, John, Doe, 1000.0\n"
+                        + "    2, Jane, Roe, 2000.0\n"
+                        + "    3, Mary, Major, 1500.0\n"
+                        + "    4, Richard, Miles, 1450.0\n"
+        );
+    }
+
+    @Test
+    public void testInMemoryExample() throws Exception {
+        addDataRegionConfig("in-memory", false);
 
         assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
@@ -44,5 +53,12 @@ public class ItVolatilePageMemoryStorageExampleTest extends AbstractExamplesTest
                         + "    3, Mary, Major, 1500.0\n"
                         + "    4, Richard, Miles, 1450.0\n"
         );
+    }
+
+    private void addDataRegionConfig(String name, boolean persistent) throws Exception {
+        ignite.clusterConfiguration().getConfiguration(PageMemoryStorageEngineConfiguration.KEY)
+                .regions()
+                .change(regionsChange -> regionsChange.create(name, regionChange -> regionChange.changePersistent(persistent)))
+                .get(1, TimeUnit.SECONDS);
     }
 }
