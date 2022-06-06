@@ -1,0 +1,24 @@
+= Java SQL API
+
+In your Java projects, you can use the Java SQL API to execute SQL statements and getting results. Statements can be executed both synchronously and asynchronously.
+
+Here is an example of how you can create a new table on a cluster:
+
+[source, java]
+----
+IgniteSql sql = CLUSTER_NODES.get(0).sql();
+Session ses = sql.createSession();
+ResultSet synchRes = ses.execute(
+    null,
+    `CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)`
+);
+
+CompletableFuture<AsyncResultSet> fut = ses.executeAsync(
+    null,
+    `CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)`
+);
+
+AsyncResultSet asyncRes = fut.get();
+
+ses.closeAsync();
+----
