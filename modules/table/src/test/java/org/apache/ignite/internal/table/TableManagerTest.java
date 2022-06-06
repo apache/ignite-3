@@ -67,6 +67,7 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableView;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectRevisionListenerHolder;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -87,8 +88,8 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.lang.ByteArray;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.NodeStoppingException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -152,6 +153,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     @Mock(lenient = true)
     private LockManager lm;
 
+    /** Meta storage manager. */
+    @Mock
+    MetaStorageManager msm;
+
     /**
      * Revision listener holder. It uses for the test configurations:
      * <ul>
@@ -211,6 +216,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             });
         };
 
+        when(msm.registerWatch(any(ByteArray.class), any())).thenReturn(CompletableFuture.completedFuture(1L));
+
         tblManagerFut = new CompletableFuture<>();
     }
 
@@ -232,7 +239,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     public void testPreconfiguredTable() throws Exception {
-        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock ->
+        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock ->
                 CompletableFuture.completedFuture(mock(RaftGroupService.class)));
 
         TableManager tableManager = createTableManager(tblManagerFut, false);
@@ -392,8 +399,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThrows(IgniteException.class, () -> tableManager.table(fakeTblId));
         assertThrows(IgniteException.class, () -> tableManager.tableAsync(fakeTblId));
-
-        assertThrows(NodeStoppingException.class, () -> tableManager.setBaseline(Collections.singleton("fakeNode0")));
     }
 
     /**
@@ -410,7 +415,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockManagersAndCreateTable(scmTbl, tblManagerFut);
 
-        verify(rm, times(PARTITIONS)).updateRaftGroup(anyString(), any(), any(), any());
+        verify(rm, times(PARTITIONS)).updateRaftGroup(anyString(), any(), any(), any(), any());
 
         TableManager tableManager = tblManagerFut.join();
 
@@ -519,7 +524,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             CompletableFuture<TableManager> tblManagerFut,
             Phaser phaser
     ) throws Exception {
-        when(rm.updateRaftGroup(any(), any(), any(), any())).thenAnswer(mock -> {
+        when(rm.updateRaftGroup(any(), any(), any(), any(), any())).thenAnswer(mock -> {
             RaftGroupService raftGrpSrvcMock = mock(RaftGroupService.class);
 
             when(raftGrpSrvcMock.leader()).thenReturn(new Peer(new NetworkAddress("localhost", 47500)));
@@ -624,6 +629,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 ts,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir, pageMemoryEngineConfig),
+                msm,
                 sm = new SchemaManager(revisionUpdater, tblsCfg)
         );
 

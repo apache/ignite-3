@@ -38,6 +38,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddLearnersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.AddPeerRequestProcessor;
+import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersAsyncRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.ChangePeersRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.GetLeaderRequestProcessor;
 import org.apache.ignite.raft.jraft.rpc.impl.cli.GetPeersRequestProcessor;
@@ -104,6 +105,7 @@ public class IgniteRpcServer implements RpcServer<Void> {
         registerProcessor(new RemovePeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ResetPeerRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new ChangePeersRequestProcessor(rpcExecutor, raftMessagesFactory));
+        registerProcessor(new ChangePeersAsyncRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new GetLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new SnapshotRequestProcessor(rpcExecutor, raftMessagesFactory));
         registerProcessor(new TransferLeaderRequestProcessor(rpcExecutor, raftMessagesFactory));

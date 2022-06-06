@@ -414,6 +414,21 @@ public class InternalTableImpl implements InternalTable {
         return clusterNodeResolver.apply(raftGroupService.leader().address());
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public RaftGroupService partitionRaftGroupService(int partition) {
+        RaftGroupService raftGroupService = partitionMap.get(partition);
+        if (raftGroupService == null) {
+            throw new IgniteInternalException("No such partition " + partition + " in table " + tableName);
+        }
+
+        if (raftGroupService.leader() == null) {
+            raftGroupService.refreshLeader().join();
+        }
+
+        return raftGroupService;
+    }
+
     private void awaitLeaderInitialization() {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
