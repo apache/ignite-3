@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import static org.apache.ignite.internal.util.ArrayUtils.clearTail;
+import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.ArrayUtils.remove;
 import static org.apache.ignite.internal.util.ArrayUtils.set;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -133,5 +134,19 @@ public class ArrayUtilsSelfTest {
         for (int i = 0; i < 7; i++) {
             assertEquals("zz", arr[i]);
         }
+    }
+
+    @Test
+    void testConcatLong() {
+        long[] arr = {};
+
+        assertSame(arr, concat(null, arr));
+        assertSame(arr, concat(new long[0], arr));
+
+        assertArrayEquals(new long[]{0}, concat(arr, 0));
+        assertArrayEquals(new long[]{0, 1}, concat(arr, 0, 1));
+        assertArrayEquals(new long[]{1, 2}, concat(new long[]{1}, 2));
+        assertArrayEquals(new long[]{1, 2, 3}, concat(new long[]{1, 2}, 3));
+        assertArrayEquals(new long[]{1, 2, 3, 4}, concat(new long[]{1, 2}, 3, 4));
     }
 }

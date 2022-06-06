@@ -38,9 +38,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Abstract table storage implementation based on {@link PageMemory}.
  */
-// TODO: IGNITE-16641 Add support for persistent case.
 // TODO: IGNITE-16642 Support indexes.
-public abstract class PageMemoryTableStorage implements TableStorage {
+public abstract class AbstractPageMemoryTableStorage implements TableStorage {
     protected final AbstractPageMemoryDataRegion dataRegion;
 
     protected final TableConfiguration tableCfg;
@@ -58,7 +57,7 @@ public abstract class PageMemoryTableStorage implements TableStorage {
      * @param tableCfg – Table configuration.
      * @param dataRegion – Data region for the table.
      */
-    public PageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
+    public AbstractPageMemoryTableStorage(TableConfiguration tableCfg, AbstractPageMemoryDataRegion dataRegion) {
         this.dataRegion = dataRegion;
         this.tableCfg = tableCfg;
     }
@@ -174,12 +173,12 @@ public abstract class PageMemoryTableStorage implements TableStorage {
     }
 
     /**
-     * Returns a new instance of {@link PageMemoryPartitionStorage}.
+     * Returns a new instance of {@link VolatilePageMemoryPartitionStorage}.
      *
      * @param partId Partition id.
      * @throws StorageException If there is an error while creating the partition storage.
      */
-    protected abstract PageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
+    protected abstract VolatilePageMemoryPartitionStorage createPartitionStorage(int partId) throws StorageException;
 
     /**
      * This API is not yet ready. But we need to test mv storages anyways.

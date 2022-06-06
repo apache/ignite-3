@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
-import static java.util.Collections.singletonList;
-import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -40,19 +38,18 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.SchemaUpdateListener;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -203,7 +200,7 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             String plan = RelOptUtil.toString(igniteRel, SqlExplainLevel.ALL_ATTRIBUTES);
 
-            return new ExplainPlan(plan, explainFieldsMetadata(ctx));
+            return new ExplainPlan(plan);
         }, planningPool);
     }
 
@@ -252,20 +249,10 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
 
             QueryTemplate template = new QueryTemplate(fragments);
 
-            return new MultiStepDmlPlan(template, resultSetMetadata(ctx, igniteRel.getRowType(), null));
+            return new MultiStepDmlPlan(template);
         }, planningPool));
 
         return planFut.thenApply(QueryPlan::copy);
-    }
-
-    private ResultSetMetadata explainFieldsMetadata(PlanningContext ctx) {
-        IgniteTypeFactory factory = ctx.typeFactory();
-        RelDataType planStrDataType =
-                factory.createSqlType(SqlTypeName.VARCHAR, PRECISION_NOT_SPECIFIED);
-        Map.Entry<String, RelDataType> planField = new IgniteBiTuple<>(ExplainPlan.PLAN_COL_NAME, planStrDataType);
-        RelDataType planDataType = factory.createStructType(singletonList(planField));
-
-        return resultSetMetadata(ctx, planDataType, null);
     }
 
     private ResultSetMetadata resultSetMetadata(PlanningContext ctx, RelDataType sqlType,
@@ -274,23 +261,24 @@ public class PrepareServiceImpl implements PrepareService, SchemaUpdateListener 
                 () -> {
                     RelDataType rowType = TypeUtils.getResultType(ctx.typeFactory(), ctx.catalogReader(), sqlType, origins);
 
-                    List<ResultFieldMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
+                    List<ColumnMetadata> fieldsMeta = new ArrayList<>(rowType.getFieldCount());
 
                     for (int i = 0; i < rowType.getFieldCount(); ++i) {
                         RelDataTypeField fld = rowType.getFieldList().get(i);
 
-                        fieldsMeta.add(
-                                new ResultFieldMetadataImpl(
-                                        fld.getName(),
-                                        TypeUtils.nativeType(fld.getType()),
-                                        fld.getIndex(),
-                                        fld.getType().isNullable(),
-                                        origins == null ? List.of() : origins.get(i)
-                                )
+                        ColumnMetadataImpl fldMeta = new ColumnMetadataImpl(
+                                fld.getName(),
+                                TypeUtils.columnType(fld.getType()),
+                                fld.getType().getPrecision(),
+                                fld.getType().getScale(),
+                                fld.getType().isNullable(),
+                                origins == null ? null : ColumnMetadataImpl.originFromList(origins.get(i))
                         );
+
+                        fieldsMeta.add(fldMeta);
                     }
 
-                    return fieldsMeta;
+                    return new ResultSetMetadataImpl(fieldsMeta);
                 }
         );
     }

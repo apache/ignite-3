@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.nativeTypeToClass;
-
 import java.util.function.Supplier;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.schema.NativeType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -101,7 +100,7 @@ public class ColumnDescriptorImpl implements ColumnDescriptor {
     /** {@inheritDoc} */
     @Override
     public RelDataType logicalType(IgniteTypeFactory f) {
-        return f.createJavaType(nativeTypeToClass(storageType));
+        return f.createJavaType(Commons.nativeTypeToClass(storageType));
     }
 
     /** {@inheritDoc} */

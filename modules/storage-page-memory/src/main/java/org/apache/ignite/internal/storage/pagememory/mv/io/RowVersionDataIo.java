@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     /** Page IO type. */
-    public static final short T_VALUE_VERSION_DATA_IO = 11;
+    public static final short T_VALUE_VERSION_DATA_IO = 12;
 
     /** I/O versions. */
     public static final IoVersions<RowVersionDataIo> VERSIONS = new IoVersions<>(new RowVersionDataIo(1));

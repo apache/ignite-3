@@ -232,7 +232,7 @@ public class MockedStructuresTest extends IgniteAbstractTest {
 
         dataStorageManager = new DataStorageManager(
                 tblsCfg,
-                dataStorageModules.createStorageEngines(configRegistry, workDir)
+                dataStorageModules.createStorageEngines(NODE_NAME, configRegistry, workDir, null)
         );
 
         dataStorageManager.start();

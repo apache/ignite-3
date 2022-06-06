@@ -28,6 +28,7 @@ import org.apache.ignite.configuration.validation.ExceptKeys;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.PowerOfTwo;
 import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryCheckpointConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryDataRegionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine;
 
@@ -55,4 +56,8 @@ public class PageMemoryStorageEngineConfigurationSchema {
     @ExceptKeys(DEFAULT_DATA_REGION_NAME)
     @NamedConfigValue
     public PageMemoryDataRegionConfigurationSchema regions;
+
+    /* Checkpoint configuration for persistent data regions. */
+    @ConfigValue
+    public PageMemoryCheckpointConfigurationSchema checkpoint;
 }

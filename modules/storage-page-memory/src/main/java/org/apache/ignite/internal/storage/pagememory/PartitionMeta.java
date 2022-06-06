@@ -15,31 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare;
+package org.apache.ignite.internal.storage.pagememory;
 
-import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.internal.pagememory.FullPageId;
 
 /**
- * Distributed query plan.
+ * Class for storing {@link TableTree} partition metadata.
  */
-public class MultiStepQueryPlan extends AbstractMultiStepPlan {
+class PartitionMeta {
+    /** {@link TableTree} root. */
+    final FullPageId treeRoot;
+
+    /** {@link TableFreeList} root. */
+    final FullPageId reuseListRoot;
+
+    /** Have been allocated (created) or read. */
+    final boolean allocated;
+
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *
-     * @param meta Fields metadata.
+     * @param reuseListRoot {@link TableFreeList} root.
+     * @param treeRoot {@link TableTree} root.
+     * @param allocated Have been allocated (created) or read.
      */
-    public MultiStepQueryPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
-        super(queryTemplate, meta);
-    }
-
-    /** {@inheritDoc} */
-    @Override public Type type() {
-        return Type.QUERY;
-    }
-
-    /** {@inheritDoc} */
-    @Override public QueryPlan copy() {
-        return new MultiStepQueryPlan(queryTemplate, meta);
+    public PartitionMeta(
+            FullPageId treeRoot,
+            FullPageId reuseListRoot,
+            boolean allocated
+    ) {
+        this.treeRoot = treeRoot;
+        this.reuseListRoot = reuseListRoot;
+        this.allocated = allocated;
     }
 }

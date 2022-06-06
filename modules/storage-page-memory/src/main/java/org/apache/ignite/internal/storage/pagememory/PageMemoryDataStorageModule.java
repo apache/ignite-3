@@ -20,12 +20,14 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.storage.pagememory.PageMemoryStorageEngine.ENGINE_NAME;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation for creating {@link PageMemoryStorageEngine}s.
@@ -39,7 +41,12 @@ public class PageMemoryDataStorageModule implements DataStorageModule {
 
     /** {@inheritDoc} */
     @Override
-    public StorageEngine createEngine(ConfigurationRegistry configRegistry, Path storagePath) throws StorageException {
+    public StorageEngine createEngine(
+            String igniteInstanceName,
+            ConfigurationRegistry configRegistry,
+            Path storagePath,
+            @Nullable LongJvmPauseDetector longJvmPauseDetector
+    ) throws StorageException {
         PageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(PageMemoryStorageEngineConfiguration.KEY);
 
         assert engineConfig != null;
@@ -48,6 +55,6 @@ public class PageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PageMemoryStorageEngine(engineConfig, ioRegistry);
+        return new PageMemoryStorageEngine(igniteInstanceName, engineConfig, ioRegistry, storagePath, longJvmPauseDetector);
     }
 }

@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,6 +37,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -46,7 +50,9 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
@@ -190,6 +196,40 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertTrue(rs.isEmpty());
 
         checkSession(ses);
+    }
+
+    @Test
+    public void metadata() throws ExecutionException, InterruptedException {
+        sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
+        sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().build();
+
+        AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
+
+        // Validata columns metadata.
+        ResultSetMetadata meta = rs.metadata();
+
+        assertNotNull(meta);
+        assertEquals(-1, meta.indexOf("COL"));
+        assertEquals(0, meta.indexOf("COL1"));
+        assertEquals(1, meta.indexOf("COL0"));
+
+        //TODO: IGNITE-17094: ColumnMetadata.nullable() must return false for non-null column.
+        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+                meta.columns().get(0));
+        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+                meta.columns().get(1));
+
+        // Validate result columns types.
+        assertTrue(rs.hasRowSet());
+        assertEquals(1, rs.currentPageSize());
+
+        SqlRow row = rs.currentPage().iterator().next();
+
+        assertInstanceOf(meta.columns().get(0).valueClass(), row.value(0));
+        assertInstanceOf(meta.columns().get(1).valueClass(), row.value(1));
     }
 
     @Test
@@ -341,6 +381,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertFalse(asyncRes.hasRowSet());
         assertEquals(-1, asyncRes.affectedRows());
 
+        assertNull(asyncRes.metadata());
+
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
@@ -368,6 +410,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertFalse(asyncRes.hasMorePages());
         assertFalse(asyncRes.hasRowSet());
         assertEquals(expectedAffectedRows, asyncRes.affectedRows());
+
+        assertNull(asyncRes.metadata());
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }

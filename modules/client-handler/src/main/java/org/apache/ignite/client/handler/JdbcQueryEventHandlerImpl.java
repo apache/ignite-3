@@ -57,18 +57,19 @@ import org.apache.ignite.internal.jdbc.proto.event.QueryFetchRequest;
 import org.apache.ignite.internal.jdbc.proto.event.QueryFetchResult;
 import org.apache.ignite.internal.jdbc.proto.event.QuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryValidator;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
 import org.apache.ignite.internal.sql.engine.exec.QueryValidationException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.IgniteInternalException;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Jdbc query event handler implementation.
@@ -304,7 +305,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                     "Failed to get query metadata for cursor with ID : " + req.cursorId()));
         }
 
-        List<JdbcColumnMeta> meta = metadata.fields().stream()
+        List<JdbcColumnMeta> meta = metadata.columns().stream()
                 .map(this::createColumnMetadata)
                 .collect(Collectors.toList());
 
@@ -317,22 +318,28 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
      * @param fldMeta field metadata contains info about column.
      * @return JdbcColumnMeta object.
      */
-    private JdbcColumnMeta createColumnMetadata(ResultFieldMetadata fldMeta) {
-        List<String> origin = fldMeta.origin();
+    private JdbcColumnMeta createColumnMetadata(ColumnMetadata fldMeta) {
+        ColumnOrigin origin = fldMeta.origin();
 
-        String schemaName = origin == null ? null : origin.get(0);
-        String tblName = origin == null ? null : origin.get(1);
-        String colName = origin == null ? null : origin.get(2);
+        String schemaName = null;
+        String tblName = null;
+        String colName = null;
+
+        if (origin != null) {
+            schemaName = origin.schemaName();
+            tblName = origin.tableName();
+            colName = origin.columnName();
+        }
 
         return new JdbcColumnMeta(
                 fldMeta.name(),
                 schemaName,
                 tblName,
                 colName,
-                Commons.nativeTypeToClass(fldMeta.type()),
-                Commons.nativeTypePrecision(fldMeta.type()),
-                Commons.nativeTypeScale(fldMeta.type()),
-                fldMeta.isNullable()
+                Commons.columnTypeToClass(fldMeta.type()),
+                fldMeta.precision(),
+                fldMeta.scale(),
+                fldMeta.nullable()
         );
     }
 
@@ -421,10 +428,10 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return false;
         }
 
-        if (meta.fields().size() != 1) {
+        if (meta.columns().size() != 1) {
             return false;
         }
 
-        return meta.fields().get(0).type() == NativeTypes.INT64;
+        return meta.columns().get(0).type() == SqlColumnType.INT64;
     }
 }
