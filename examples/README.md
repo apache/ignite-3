@@ -11,6 +11,7 @@ The following examples are included:
 * `SqlJdbcExample` - demonstrates the usage of the Apache Ignite JDBC driver.
 * `RebalanceExample` - demonstrates the data rebalancing process.
 * `VolatilePageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with an in-memory data region.
+* `PersistentPageMemoryStorageExample` - demonstrates the usage of the PageMemory storage engine configured with a persistent data region.
 
 Before running the examples, read about [cli](https://ignite.apache.org/docs/3.0.0-alpha/ignite-cli-tool).
 
