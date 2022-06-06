@@ -47,11 +47,17 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
  * Executor of {@link Repl}.
  */
 public class ReplExecutor {
+
     private final Parser parser = new DefaultParser();
+
     private final Supplier<Path> workDirProvider = () -> Paths.get(System.getProperty("user.dir"));
+
     private final AtomicBoolean interrupted = new AtomicBoolean();
+
     private final ReplExceptionHandlers exceptionHandlers = new ReplExceptionHandlers(interrupted::set);
+
     private final PicocliCommandsFactory factory;
+
     private final Terminal terminal;
 
     /**

@@ -40,22 +40,27 @@ public class CallExecutionPipeline<I extends CallInput, T> {
      * Call to execute.
      */
     private final Call<I, T> call;
+
     /**
      * Writer for execution output.
      */
     private final PrintWriter output;
+
     /**
      * Writer for error execution output.
      */
     private final PrintWriter errOutput;
+
     /**
      * Decorator that decorates call's output.
      */
     private final Decorator<T, TerminalOutput> decorator;
+
     /**
      * Handlers for any exceptions.
      */
     private final ExceptionHandlers exceptionHandlers;
+
     /**
      * Provider for call's input.
      */
@@ -109,10 +114,15 @@ public class CallExecutionPipeline<I extends CallInput, T> {
     public static class CallExecutionPipelineBuilder<I extends CallInput, T> {
 
         private final Call<I, T> call;
+
         private final ExceptionHandlers exceptionHandlers = new DefaultExceptionHandlers();
+
         private Supplier<I> inputProvider;
+
         private PrintWriter output = wrapOutputStream(System.out);
+
         private PrintWriter errOutput = wrapOutputStream(System.err);
+
         private Decorator<T, TerminalOutput> decorator = new DefaultDecorator<>();
 
         public CallExecutionPipelineBuilder(Call<I, T> call) {

@@ -70,13 +70,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @MicronautTest
 public class IntegrationTestBase extends BaseIgniteAbstractTest {
     public static final int DEFAULT_NODES_COUNT = 3;
+
     /** Correct ignite cluster url. */
+
     protected static final String NODE_URL = "http://localhost:10300";
+
     /** Cluster nodes. */
     protected static final List<Ignite> CLUSTER_NODES = new ArrayList<>();
+
     private static final IgniteLogger LOG = IgniteLogger.forClass(IntegrationTestBase.class);
+
     /** Base port number. */
     private static final int BASE_PORT = 3344;
+
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG = "{\n"
             + "  \"network\": {\n"
@@ -87,6 +93,7 @@ public class IntegrationTestBase extends BaseIgniteAbstractTest {
             + "    }\n"
             + "  }\n"
             + "}";
+
     /** Work directory. */
     @WorkDirectory
     private static Path WORK_DIR;

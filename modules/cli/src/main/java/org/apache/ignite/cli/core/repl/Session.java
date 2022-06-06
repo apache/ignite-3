@@ -25,8 +25,11 @@ import jakarta.inject.Singleton;
  */
 @Singleton
 public class Session {
+
     private boolean connectedToNode;
+
     private String nodeUrl;
+
     private String jdbcUrl;
 
     public boolean isConnectedToNode() {

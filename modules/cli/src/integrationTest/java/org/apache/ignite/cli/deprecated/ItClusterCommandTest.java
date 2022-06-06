@@ -50,8 +50,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WorkDirectoryExtension.class)
 class ItClusterCommandTest extends AbstractCliIntegrationTest {
     private static final Node FIRST_NODE = new Node(0, 10100, 10300);
+
     private static final Node SECOND_NODE = new Node(1, 11100, 11300);
+
     private static final Node THIRD_NODE = new Node(2, 12100, 12300);
+
     private static final Node FOURTH_NODE = new Node(3, 13100, 13300);
 
     private static final List<Node> NODES = List.of(FIRST_NODE, SECOND_NODE, THIRD_NODE, FOURTH_NODE);

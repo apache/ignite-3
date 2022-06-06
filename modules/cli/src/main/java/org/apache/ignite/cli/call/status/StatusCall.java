@@ -39,7 +39,9 @@ import org.apache.ignite.rest.client.invoker.Configuration;
 @Singleton
 //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
 public class StatusCall implements Call<StatusCallInput, Status> {
+
     private final NodeManager nodeManager;
+
     private final CliPathsConfigLoader cliPathsCfgLdr;
 
     /**

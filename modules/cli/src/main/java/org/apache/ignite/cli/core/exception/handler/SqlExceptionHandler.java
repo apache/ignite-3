@@ -30,8 +30,11 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     private static final IgniteLogger log = IgniteLogger.forClass(SqlExceptionHandler.class);
 
     public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error: %s";
+
     public static final String INVALID_PARAMETER_MESSAGE = "Invalid parameter value.";
+
     public static final String CLIENT_CONNECTION_FAILED_MESSAGE = "Connection failed.";
+
     public static final String CONNECTION_BROKE_MESSAGE = "Connection error.";
 
     @Override

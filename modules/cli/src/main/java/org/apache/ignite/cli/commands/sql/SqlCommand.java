@@ -53,8 +53,10 @@ public class SqlCommand extends BaseCommand {
     @Option(names = {"-u", "--jdbc-url"}, required = true,
             descriptionKey = "ignite.jdbc-url", description = "JDBC url to ignite cluster")
     private String jdbc;
+
     @Option(names = {"-e", "--execute", "--exec"}) //todo: can be passed as parameter, not option (see IEP-88)
     private String command;
+
     @Option(names = {"-f", "--script-file"})
     private File file;
 

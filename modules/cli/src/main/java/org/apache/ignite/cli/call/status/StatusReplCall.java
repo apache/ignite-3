@@ -38,8 +38,11 @@ import org.jetbrains.annotations.NotNull;
 @Singleton
 //TODO: https://issues.apache.org/jira/browse/IGNITE-17093
 public class StatusReplCall implements Call<EmptyCallInput, Status> {
+
     private final NodeManager nodeManager;
+
     private final CliPathsConfigLoader cliPathsCfgLdr;
+
     private final Session session;
 
     /**

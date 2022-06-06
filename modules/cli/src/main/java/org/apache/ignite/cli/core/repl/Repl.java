@@ -32,14 +32,23 @@ import picocli.CommandLine.IDefaultValueProvider;
  * Data class with all information about REPL.
  */
 public class Repl {
+
     private final PromptProvider promptProvider;
+
     private final Map<String, String> aliases;
+
     private final TerminalCustomizer terminalCustomizer;
+
     private final Class<?> commandClass;
+
     private final IDefaultValueProvider defaultValueProvider;
+
     private final CallExecutionPipelineProvider provider;
+
     private final Completer completer;
+
     private final String historyFileName;
+
     private final boolean tailTipWidgetsEnabled;
 
     /**

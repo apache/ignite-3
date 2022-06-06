@@ -27,8 +27,11 @@ public class SqlSchemaProvider implements SchemaProvider {
     private static final int SCHEMA_UPDATE_TIMEOUT = 10;
 
     private final SqlSchemaLoader sqlSchemaLoader;
+
     private final int schemaUpdateTimeout;
+
     private SqlSchema schema;
+
     private Instant lastUpdate;
 
     public SqlSchemaProvider(MetadataSupplier metadataSupplier) {

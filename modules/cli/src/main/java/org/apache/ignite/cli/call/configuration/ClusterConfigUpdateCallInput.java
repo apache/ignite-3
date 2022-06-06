@@ -27,6 +27,7 @@ public class ClusterConfigUpdateCallInput implements CallInput {
      * Configuration to update.
      */
     private final String config;
+
     /**
      * Cluster url.
      */
@@ -68,7 +69,9 @@ public class ClusterConfigUpdateCallInput implements CallInput {
      * Builder for {@link ClusterConfigUpdateCallInput}.
      */
     public static class UpdateConfigurationCallInputBuilder {
+
         private String config;
+
         private String clusterUrl;
 
         public UpdateConfigurationCallInputBuilder config(String config) {

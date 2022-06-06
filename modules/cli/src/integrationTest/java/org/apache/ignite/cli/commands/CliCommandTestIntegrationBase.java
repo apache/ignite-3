@@ -43,7 +43,9 @@ public class CliCommandTestIntegrationBase extends IntegrationTestBase {
     private CommandLine cmd;
 
     private StringWriter sout;
+
     private StringWriter serr;
+
     private int exitCode = Integer.MIN_VALUE;
 
     protected void setupCmd(MicronautFactory factory) {

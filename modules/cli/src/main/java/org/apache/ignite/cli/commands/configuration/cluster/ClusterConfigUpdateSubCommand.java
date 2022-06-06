@@ -35,6 +35,7 @@ import picocli.CommandLine.Parameters;
 @Singleton
 public class ClusterConfigUpdateSubCommand extends BaseCommand {
     @Inject
+
     ClusterConfigUpdateCall call;
     /**
      * Cluster url option.
@@ -44,6 +45,7 @@ public class ClusterConfigUpdateSubCommand extends BaseCommand {
             descriptionKey = "ignite.cluster-url", defaultValue = "http://localhost:10300"
     )
     private String clusterUrl;
+
     /**
      * Configuration that will be updated.
      */

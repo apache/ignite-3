@@ -21,10 +21,15 @@ package org.apache.ignite.cli.call.status;
  * Class that represents the cluster status.
  */
 public class Status {
+
     private final int nodeCount;
+
     private final boolean initialized;
+
     private final String name;
+
     private final boolean connected;
+
     private final String connectedNodeUrl;
 
     private Status(int nodeCount, boolean initialized, String name, boolean connected, String connectedNodeUrl) {
@@ -67,9 +72,13 @@ public class Status {
      */
     public static class StatusBuilder {
         private int nodeCount;
+
         private boolean initialized;
+
         private String name;
+
         private boolean connected;
+
         private String connectedNodeUrl;
 
         private StatusBuilder() {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.cli.commands.configuration.cluster;
 
-import org.apache.ignite.cli.commands.configuration.cluster.ClusterConfigReplSubCommand;
 import org.apache.ignite.cli.deprecated.spec.ClusterReplCommandSpec;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;

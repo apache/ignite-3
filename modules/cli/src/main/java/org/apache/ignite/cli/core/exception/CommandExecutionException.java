@@ -21,7 +21,9 @@ package org.apache.ignite.cli.core.exception;
  * Command execution exception.
  */
 public class CommandExecutionException extends RuntimeException {
+
     private final String commandId;
+
     private final String reason;
 
     public CommandExecutionException(String commandId, String reason) {

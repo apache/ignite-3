@@ -29,7 +29,9 @@ import picocli.CommandLine.PropertiesDefaultProvider;
  */
 @Singleton
 public class SessionDefaultValueProvider implements IDefaultValueProvider {
+
     private final Session session;
+
     private final IDefaultValueProvider defaultValueProvider;
 
     /**

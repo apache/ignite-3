@@ -27,6 +27,7 @@ public class ClusterConfigShowCallInput implements CallInput {
      * Selector for configuration tree.
      */
     private final String selector;
+
     /**
      * Cluster url.
      */

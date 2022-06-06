@@ -30,7 +30,9 @@ import java.util.stream.Collectors;
  * @param <T> type of table elements.
  */
 public class Table<T> {
+
     private final String[] header;
+
     private final List<TableRow<T>> content;
 
     /**

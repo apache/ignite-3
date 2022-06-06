@@ -67,7 +67,9 @@ public class NodeConfigShowCallInput implements CallInput {
      * Builder for {@link NodeConfigShowCallInput}.
      */
     public static class ShowConfigurationCallInputBuilder {
+
         private String selector;
+
         private String nodeUrl;
 
         public ShowConfigurationCallInputBuilder selector(String selector) {

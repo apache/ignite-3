@@ -29,15 +29,24 @@ import picocli.CommandLine.IDefaultValueProvider;
  * Builder of {@link Repl}.
  */
 public class ReplBuilder {
+
     private PromptProvider promptProvider;
+
     private final Map<String, String> aliases = new HashMap<>();
+
     private Class<?> commandClass;
+
     private IDefaultValueProvider defaultValueProvider;
+
     private TerminalCustomizer terminalCustomizer = terminal -> {
     };
+
     private Completer completer;
+
     private CallExecutionPipelineProvider provider;
+
     private String historyFileName;
+
     private boolean tailTipWidgetsEnabled;
 
     /**

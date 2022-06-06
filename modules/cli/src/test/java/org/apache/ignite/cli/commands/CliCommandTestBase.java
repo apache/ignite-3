@@ -34,8 +34,11 @@ public class CliCommandTestBase {
     private ApplicationContext context;
 
     private CommandLine commandLine;
+
     protected StringWriter err;
+
     protected StringWriter out;
+
     private int exitCode = Integer.MIN_VALUE;
 
     protected void setUp(Class<?> commandClass) {

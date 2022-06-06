@@ -23,8 +23,11 @@ import java.util.Objects;
  * Default implementation of {@link CallOutput} with {@link T} body.
  */
 public class DefaultCallOutput<T> implements CallOutput<T> {
+
     private final CallOutputStatus status;
+
     private final T body;
+
     private final Throwable cause;
 
     private DefaultCallOutput(CallOutputStatus status, T body, Throwable cause) {
@@ -132,8 +135,11 @@ public class DefaultCallOutput<T> implements CallOutput<T> {
      * Builder of {@link DefaultCallOutput}.
      */
     public static class DefaultCallOutputBuilder<T> {
+
         private CallOutputStatus status;
+
         private T body;
+
         private Throwable cause;
 
         /**
