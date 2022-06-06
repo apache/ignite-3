@@ -31,7 +31,7 @@ class ItStatusReplCommandTest extends CliCommandTestIntegrationBase {
 
     @Test
     @DisplayName("Should print status when valid cluster url is given")
-    @Disabled // TODO: https://issues.apache.org/jira/browse/IGNITE-17091
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17091")
     void printStatus() {
         execute("status", "--cluster-url", NODE_URL);
 

@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for {@link TopologyCommand}.
  */
-@Disabled // TODO https://issues.apache.org/jira/browse/IGNITE-17092
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-17092")
 class ItTopologyCommandTest extends CliCommandTestIntegrationBase {
 
     @Test
