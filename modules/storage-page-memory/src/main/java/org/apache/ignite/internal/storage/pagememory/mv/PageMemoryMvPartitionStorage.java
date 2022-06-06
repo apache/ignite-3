@@ -430,9 +430,7 @@ public class PageMemoryMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        versionChainFreeList.close();
         versionChainTree.close();
-        rowVersionFreeList.close();
     }
 
     private class ScanCursor implements Cursor<BinaryRow> {

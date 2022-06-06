@@ -86,8 +86,12 @@ public abstract class ReadPageMemoryRowValue implements PageMemoryTraversal<Void
     }
 
     private void readValueFragmentToArray(long pageAddr, DataPagePayload payload, int offsetToValue) {
-        PageUtils.getBytes(pageAddr, payload.offset() + offsetToValue, allValueBytes, transferredBytes, payload.payloadSize());
-        transferredBytes += payload.payloadSize();
+        assert allValueBytes != null;
+
+        int valueBytesToRead = payload.payloadSize() - offsetToValue;
+
+        PageUtils.getBytes(pageAddr, payload.offset() + offsetToValue, allValueBytes, transferredBytes, valueBytesToRead);
+        transferredBytes += valueBytesToRead;
     }
 
     private long readNextFragment(long pageAddr, DataPagePayload payload) {

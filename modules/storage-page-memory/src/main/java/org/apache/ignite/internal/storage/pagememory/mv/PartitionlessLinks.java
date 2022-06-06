@@ -128,6 +128,17 @@ public class PartitionlessLinks {
         return PartitionlessLinks.PARTITIONLESS_LINK_SIZE_BYTES;
     }
 
+    /**
+     * Writes a partitionless link to a buffer: first high 2 bytes, then low 4 bytes.
+     *
+     * @param buffer            where to write
+     * @param partitionlessLink the link to write
+     */
+    public static void writeToBuffer(ByteBuffer buffer, long partitionlessLink) {
+        buffer.putShort(PartitionlessLinks.high16Bits(partitionlessLink));
+        buffer.putInt(PartitionlessLinks.low32Bits(partitionlessLink));
+    }
+
     private PartitionlessLinks() {
         // prevent instantiation
     }

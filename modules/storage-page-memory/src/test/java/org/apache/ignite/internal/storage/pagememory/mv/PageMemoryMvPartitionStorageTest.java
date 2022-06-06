@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.stream.Collectors.joining;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
@@ -29,6 +31,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
@@ -41,6 +44,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMe
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.Timestamp;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -145,5 +149,66 @@ class PageMemoryMvPartitionStorageTest extends AbstractMvPartitionStorageTest<Pa
         storage.abortWrite(rowId);
 
         assertThrows(RowIdIsInvalidForModificationsException.class, () -> storage.abortWrite(rowId));
+    }
+
+    @Test
+    void uncommittedMultiPageValuesAreReadSuccessfully() {
+        BinaryRow longRow = rowStoredInFragments();
+        LinkRowId rowId = storage.insert(longRow, txId);
+
+        BinaryRow foundRow = storage.read(rowId, txId);
+
+        assertRowMatches(foundRow, longRow);
+    }
+
+    private BinaryRow rowStoredInFragments() {
+        int pageSize = engineConfig.pageSize().value();
+
+        // A repetitive pattern of 19 different characters (19 is chosen as a prime number) to reduce probability of 'lucky' matches
+        // hiding bugs.
+        String pattern = IntStream.range(0, 20)
+                .mapToObj(ch -> String.valueOf((char) ('a' + ch)))
+                .collect(joining());
+
+        TestValue value = new TestValue(1, pattern.repeat((int) (2.5 * pageSize / pattern.length())));
+        return binaryRow(key, value);
+    }
+
+    @Test
+    void committedMultiPageValuesAreReadSuccessfully() {
+        BinaryRow longRow = rowStoredInFragments();
+
+        LinkRowId rowId = storage.insert(longRow, txId);
+        storage.commitWrite(rowId, Timestamp.nextVersion());
+
+        BinaryRow foundRow = storage.read(rowId, Timestamp.nextVersion());
+
+        assertRowMatches(foundRow, longRow);
+    }
+
+    @Test
+    void uncommittedMultiPageValuesWorkWithScans() throws Exception {
+        BinaryRow longRow = rowStoredInFragments();
+        storage.insert(longRow, txId);
+
+        try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
+            BinaryRow foundRow = cursor.next();
+
+            assertRowMatches(foundRow, longRow);
+        }
+    }
+
+    @Test
+    void committedMultiPageValuesWorkWithScans() throws Exception {
+        BinaryRow longRow = rowStoredInFragments();
+
+        LinkRowId rowId = storage.insert(longRow, txId);
+        storage.commitWrite(rowId, Timestamp.nextVersion());
+
+        try (Cursor<BinaryRow> cursor = storage.scan(row -> true, txId)) {
+            BinaryRow foundRow = cursor.next();
+
+            assertRowMatches(foundRow, longRow);
+        }
     }
 }

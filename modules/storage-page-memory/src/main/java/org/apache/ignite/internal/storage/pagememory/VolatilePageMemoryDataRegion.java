@@ -151,6 +151,12 @@ class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
         if (tableFreeList != null) {
             tableFreeList.close();
         }
+        if (versionChainFreeList != null) {
+            versionChainFreeList.close();
+        }
+        if (rowVersionFreeList != null) {
+            rowVersionFreeList.close();
+        }
     }
 
     /**
