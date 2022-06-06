@@ -21,22 +21,17 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -50,19 +45,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AsyncResultSetImpl implements AsyncResultSet {
     private static final CompletableFuture<? extends AsyncResultSet> HAS_NO_MORE_PAGE_FUTURE =
-            CompletableFuture.failedFuture(new IgniteSqlException("There are no more pages."));
+            CompletableFuture.failedFuture(new IgniteSqlException("No more pages."));
 
     private final AsyncSqlCursor<List<Object>> cur;
 
-    private final BatchedResult<List<Object>> batchPage;
+    private volatile BatchedResult<List<Object>> curPage;
 
     private final int pageSize;
 
     private final Runnable closeRun;
-
-    private final Object mux = new Object();
-
-    private volatile CompletionStage<? extends AsyncResultSet> next;
 
     /**
      * Constructor.
@@ -71,39 +62,21 @@ public class AsyncResultSetImpl implements AsyncResultSet {
      */
     public AsyncResultSetImpl(AsyncSqlCursor<List<Object>> cur, BatchedResult<List<Object>> page, int pageSize, Runnable closeRun) {
         this.cur = cur;
-        this.batchPage = page;
+        this.curPage = page;
         this.pageSize = pageSize;
         this.closeRun = closeRun;
 
         assert cur.queryType() == SqlQueryType.QUERY
                 || ((cur.queryType() == SqlQueryType.DML || cur.queryType() == SqlQueryType.DDL)
-                && batchPage.items().size() == 1
-                && batchPage.items().get(0).size() == 1
-                && !batchPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + batchPage + ']';
+                && curPage.items().size() == 1
+                && curPage.items().get(0).size() == 1
+                && !curPage.hasMore()) : "Invalid query result: [type=" + cur.queryType() + "res=" + curPage + ']';
     }
 
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        // TODO: IGNITE-16962
-        return new ResultSetMetadata() {
-            @Override
-            public List<ColumnMetadata> columns() {
-                var res = new ArrayList<ColumnMetadata>(cur.metadata().fields().size());
-
-                for (var f : cur.metadata().fields()) {
-                    res.add(new ColumnMetadataImpl(f));
-                }
-
-                return res;
-            }
-
-            @Override
-            public int indexOf(String columnName) {
-                // TODO: IGNITE-16962
-                return 0;
-            }
-        };
+        return hasRowSet() ? cur.metadata() : null;
     }
 
     /** {@inheritDoc} */
@@ -119,9 +92,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return -1;
         }
 
-        assert batchPage.items().get(0).get(0) instanceof Long : "Invalid DML result: " + batchPage;
+        assert curPage.items().get(0).get(0) instanceof Long : "Invalid DML result: " + curPage;
 
-        return (long) batchPage.items().get(0).get(0);
+        return (long) curPage.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -131,9 +104,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
             return false;
         }
 
-        assert batchPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + batchPage;
+        assert curPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + curPage;
 
-        return (boolean) batchPage.items().get(0).get(0);
+        return (boolean) curPage.items().get(0).get(0);
     }
 
     /** {@inheritDoc} */
@@ -141,7 +114,10 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     public Iterable<SqlRow> currentPage() {
         requireResultSet();
 
-        return () -> new TransformingIterator<>(batchPage.items().iterator(), SqlRowImpl::new);
+        final Iterator<List<Object>> it0 = curPage.items().iterator();
+        final ResultSetMetadata meta0 = cur.metadata();
+
+        return () -> new TransformingIterator<>(it0, (item) -> new SqlRowImpl(item, meta0));
     }
 
     /** {@inheritDoc} */
@@ -149,32 +125,28 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     public int currentPageSize() {
         requireResultSet();
 
-        return batchPage.items().size();
+        return curPage.items().size();
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletionStage<? extends AsyncResultSet> fetchNextPage() {
-        if (next == null) {
-            synchronized (mux) {
-                if (next == null) {
-                    if (!hasMorePages()) {
-                        next = HAS_NO_MORE_PAGE_FUTURE;
-                    } else {
-                        next = cur.requestNextAsync(pageSize)
-                                .thenApply(batchRes -> new AsyncResultSetImpl(cur, batchRes, pageSize, closeRun));
-                    }
-                }
-            }
-        }
+        if (!hasMorePages()) {
+            return HAS_NO_MORE_PAGE_FUTURE;
+        } else {
+            return cur.requestNextAsync(pageSize)
+                    .thenApply(page -> {
+                        curPage = page;
 
-        return next;
+                        return AsyncResultSetImpl.this;
+                    });
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean hasMorePages() {
-        return batchPage.hasMore();
+        return curPage.hasMore();
     }
 
     /** {@inheritDoc} */
@@ -189,35 +161,32 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
     }
 
-    private class SqlRowImpl implements SqlRow {
+    private static class SqlRowImpl implements SqlRow {
         private final List<Object> row;
 
-        private final Map<String, Integer> fields;
+        private final ResultSetMetadata meta;
 
-        org.apache.ignite.internal.sql.engine.ResultSetMetadata meta = cur.metadata();
-
-        SqlRowImpl(List<Object> row) {
+        SqlRowImpl(List<Object> row, ResultSetMetadata meta) {
             this.row = row;
-            fields = meta.fields().stream()
-                    .collect(Collectors.toMap(ResultFieldMetadata::name, ResultFieldMetadata::order));
+            this.meta = meta;
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return meta.fields().size();
+            return meta.columns().size();
         }
 
         /** {@inheritDoc} */
         @Override
         public String columnName(int columnIndex) {
-            return meta.fields().get(columnIndex).name();
+            return meta.columns().get(columnIndex).name();
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnIndex(@NotNull String columnName) {
-            return fields.getOrDefault(columnName, -1);
+            return meta.indexOf(columnName);
         }
 
         private int columnIndexChecked(@NotNull String columnName) {
@@ -425,15 +394,15 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Iterator<Object> iterator() {
             return row.iterator();
         }
 
+        /** {@inheritDoc} */
         @Override
         public ResultSetMetadata metadata() {
-            throw new UnsupportedOperationException("Not implemented yet.");
+            return meta;
         }
     }
 }

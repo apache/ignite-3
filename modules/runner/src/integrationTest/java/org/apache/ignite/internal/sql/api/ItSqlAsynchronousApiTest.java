@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,13 +32,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
 import org.apache.ignite.internal.sql.engine.AbstractBasicIntegrationTest;
 import org.apache.ignite.internal.sql.engine.ClosedCursorException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -48,7 +50,9 @@ import org.apache.ignite.lang.IndexAlreadyExistsException;
 import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlColumnType;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.Table;
@@ -195,6 +199,40 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
     }
 
     @Test
+    public void metadata() throws ExecutionException, InterruptedException {
+        sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
+        sql("INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
+
+        IgniteSql sql = CLUSTER_NODES.get(0).sql();
+        Session ses = sql.sessionBuilder().build();
+
+        AsyncResultSet rs = ses.executeAsync(null, "SELECT COL1, COL0 FROM TEST").get();
+
+        // Validata columns metadata.
+        ResultSetMetadata meta = rs.metadata();
+
+        assertNotNull(meta);
+        assertEquals(-1, meta.indexOf("COL"));
+        assertEquals(0, meta.indexOf("COL1"));
+        assertEquals(1, meta.indexOf("COL0"));
+
+        //TODO: IGNITE-17094: ColumnMetadata.nullable() must return false for non-null column.
+        checkMetadata(new ColumnMetadataImpl("COL1", SqlColumnType.STRING, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL1")),
+                meta.columns().get(0));
+        checkMetadata(new ColumnMetadataImpl("COL0", SqlColumnType.INT64, 0, 0, true, new ColumnOriginImpl("PUBLIC", "TEST", "COL0")),
+                meta.columns().get(1));
+
+        // Validate result columns types.
+        assertTrue(rs.hasRowSet());
+        assertEquals(1, rs.currentPageSize());
+
+        SqlRow row = rs.currentPage().iterator().next();
+
+        assertInstanceOf(meta.columns().get(0).valueClass(), row.value(0));
+        assertInstanceOf(meta.columns().get(1).valueClass(), row.value(1));
+    }
+
+    @Test
     public void sqlRow() throws ExecutionException, InterruptedException {
         IgniteSql sql = CLUSTER_NODES.get(0).sql();
         Session ses = sql.sessionBuilder().build();
@@ -238,84 +276,33 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
         AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID").get();
+        var p0 = ars0.currentPage();
         AsyncResultSet ars1 = ars0.fetchNextPage().toCompletableFuture().get();
+        var p1 = ars1.currentPage();
         AsyncResultSet ars2 = ars1.fetchNextPage().toCompletableFuture().get();
+        var p2 = ars2.currentPage();
         AsyncResultSet ars3 = ars1.fetchNextPage().toCompletableFuture().get();
+        var p3 = ars3.currentPage();
         AsyncResultSet ars4 = ars0.fetchNextPage().toCompletableFuture().get();
+        var p4 = ars4.currentPage();
 
-        assertSame(ars1, ars4);
-        assertSame(ars2, ars3);
+        assertSame(ars0, ars1);
+        assertSame(ars0, ars2);
+        assertSame(ars0, ars3);
+        assertSame(ars0, ars4);
 
-        List<SqlRow> res = Stream.of(ars0, ars1, ars2)
-                .map(AsyncResultSet::currentPage)
+        List<SqlRow> res = Stream.of(p0, p1, p2, p3, p4)
                 .flatMap(p -> StreamSupport.stream(p.spliterator(), false))
                 .collect(Collectors.toList());
 
         TestPageProcessor pageProc = new TestPageProcessor(ROW_COUNT - res.size());
-        ars3.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
+        ars4.fetchNextPage().thenCompose(pageProc).toCompletableFuture().get();
 
         res.addAll(pageProc.result());
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertEquals(i, res.get(i).intValue(0));
         }
-    }
-
-    @Test
-    public void fetchNextPageParallel() throws Exception {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            sql("INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
-
-        final List<SqlRow> res = new ArrayList<>();
-
-        IgniteSql sql = CLUSTER_NODES.get(0).sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
-
-        AsyncResultSet ars0 = ses.executeAsync(null, "SELECT ID FROM TEST").get();
-        StreamSupport.stream(ars0.currentPage().spliterator(), false).forEach(res::add);
-
-        AtomicInteger cnt = new AtomicInteger();
-        ConcurrentHashMap<Integer, AsyncResultSet> results = new ConcurrentHashMap<>();
-
-        IgniteTestUtils.runMultiThreaded(
-                () -> {
-                    AsyncResultSet ars = ars0.fetchNextPage().toCompletableFuture().get();
-
-                    results.put(cnt.getAndIncrement(), ars);
-
-                    assertFalse(ars.hasMorePages());
-
-                    return null;
-                },
-                10,
-                "test-fetch");
-
-        AsyncResultSet ars1 = CollectionUtils.first(results.values());
-        StreamSupport.stream(ars1.currentPage().spliterator(), false).forEach(res::add);
-
-        // Check that all next page are same.
-        results.values().forEach(ars -> assertSame(ars1, ars));
-
-        assertThrowsWithCause(
-                () -> ars1.fetchNextPage().toCompletableFuture().get(),
-                IgniteSqlException.class,
-                "There are no more pages"
-        );
-
-        await(ars0.closeAsync());
-
-        // Check results
-        Set<Integer> rs = res.stream().map(r -> r.intValue(0)).collect(Collectors.toSet());
-
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            assertTrue(rs.remove(i), "Results invalid: " + res);
-        }
-
-        assertTrue(rs.isEmpty());
-
-        checkSession(ses);
     }
 
     @Test
@@ -394,6 +381,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertFalse(asyncRes.hasRowSet());
         assertEquals(-1, asyncRes.affectedRows());
 
+        assertNull(asyncRes.metadata());
+
         asyncRes.closeAsync().toCompletableFuture().get();
     }
 
@@ -421,6 +410,8 @@ public class ItSqlAsynchronousApiTest extends AbstractBasicIntegrationTest {
         assertFalse(asyncRes.hasMorePages());
         assertFalse(asyncRes.hasRowSet());
         assertEquals(expectedAffectedRows, asyncRes.affectedRows());
+
+        assertNull(asyncRes.metadata());
 
         asyncRes.closeAsync().toCompletableFuture().get();
     }

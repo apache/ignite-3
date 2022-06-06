@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.mockito.Mockito.mock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -37,7 +36,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -91,7 +89,6 @@ public class ItDistributedConfigurationStorageTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    mock(RestComponent.class),
                     new ConcurrentMapClusterStateStorage()
             );
 

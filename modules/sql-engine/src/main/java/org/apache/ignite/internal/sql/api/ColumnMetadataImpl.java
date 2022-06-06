@@ -17,48 +17,164 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
+import java.util.List;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.SqlColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Column metadata.
+ * Metadata of the column of a query result set.
  */
-class ColumnMetadataImpl implements ColumnMetadata {
-    /** Field meta. */
-    private final ResultFieldMetadata fieldMetadata;
+public class ColumnMetadataImpl implements ColumnMetadata {
+    /**
+     * Creates column origin from list.
+     *
+     * @param origin Origin list.
+     * @return Column origin.
+     */
+    public static @Nullable ColumnOrigin originFromList(@Nullable List<String> origin) {
+        if (origin == null) {
+            return null;
+        }
+
+        String schemaName = origin.size() < 1 ? "" : origin.get(0);
+        String tableName = origin.size() < 2 ? "" : origin.get(1);
+        String columnName = origin.size() < 3 ? "" : origin.get(2);
+
+        return new ColumnOriginImpl(schemaName, tableName, columnName);
+    }
+
+    /** Name of the result's column. */
+    private final String name;
+
+    /** Type of the result's column. */
+    private final SqlColumnType type;
+
+    /** Column precision. */
+    private final int precision;
+
+    /** Column scale. */
+    private final int scale;
+
+    /** Nullable flag of the result's column. */
+    private final boolean nullable;
+
+    /** Origin of the result's column. */
+    private final ColumnOrigin origin;
 
     /**
      * Constructor.
-     *
-     * @param fieldMetadata Field metadata.
      */
-    public ColumnMetadataImpl(ResultFieldMetadata fieldMetadata) {
-        this.fieldMetadata = fieldMetadata;
+    public ColumnMetadataImpl(
+            String name,
+            SqlColumnType type,
+            int precision,
+            int scale,
+            boolean nullable,
+            @Nullable ColumnOrigin origin
+    ) {
+        this.name = name;
+        this.type = type;
+        this.precision = precision;
+        this.scale = scale;
+        this.nullable = nullable;
+        this.origin = origin;
     }
 
     /** {@inheritDoc} */
     @Override
     public String name() {
-        return fieldMetadata.name();
+        return name;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public SqlColumnType type() {
+        return type;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int precision() {
+        return precision;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int scale() {
+        return scale;
     }
 
     /** {@inheritDoc} */
     @Override
     public Class<?> valueClass() {
-        // TODO: IGNITE-16962
-        return Object.class;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Object type() {
-        // TODO: IGNITE-16962
-        return null;
+        return Commons.columnTypeToClass(type);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean nullable() {
-        return fieldMetadata.isNullable();
+        return nullable;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ColumnOrigin origin() {
+        return origin;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(ColumnMetadataImpl.class,  this);
+    }
+
+    /**
+     * Metadata of column's origin.
+     */
+    public static class ColumnOriginImpl implements ColumnOrigin {
+        /** Schema name. */
+        private final String schemaName;
+
+        /** Table name. */
+        private final String tableName;
+
+        /** Column name. */
+        private final String columnName;
+
+        /**
+         * Constructor.
+         */
+        public ColumnOriginImpl(String schemaName, String tableName, String columnName) {
+            this.schemaName = schemaName;
+            this.tableName = tableName;
+            this.columnName = columnName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String schemaName() {
+            return schemaName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String tableName() {
+            return tableName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String columnName() {
+            return columnName;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String toString() {
+            return S.toString(ColumnOriginImpl.class,  this);
+        }
     }
 }

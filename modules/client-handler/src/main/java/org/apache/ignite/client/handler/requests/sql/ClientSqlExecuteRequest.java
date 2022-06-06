@@ -105,7 +105,7 @@ public class ClientSqlExecuteRequest {
                 // TODO: IGNITE-17052 Implement query metadata.
                 // Ideally we only need the type code here.
                 out.packString(col.valueClass().getName());
-                out.packObjectWithType(col.type());
+                out.packObjectWithType(null /*col.type()*/);
             }
         }
 

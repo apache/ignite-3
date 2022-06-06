@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.QueryContext;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryTimeout;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.Session;
@@ -87,7 +89,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public ResultSet execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return new ResultSetImpl(await(executeAsync(transaction, query, arguments)));
     }
 
     /** {@inheritDoc} */
@@ -220,7 +222,7 @@ public class SessionImpl implements Session {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        // TODO: IGNITE-16962 use all statement prperties.
+        // TODO: IGNITE-16967 use all statement properties.
         return executeAsync(transaction, statement.query(), arguments);
     }
 
@@ -269,7 +271,7 @@ public class SessionImpl implements Session {
     /** {@inheritDoc} */
     @Override
     public void close() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        await(closeAsync());
     }
 
     /** {@inheritDoc} */
@@ -293,5 +295,21 @@ public class SessionImpl implements Session {
     @Override
     public Publisher<Void> closeReactive() {
         throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
+    /**
+     * Awaits completion of the given stage and returns its result.
+     *
+     * @param stage The stage.
+     * @param <T> Type of the result returned by the stage.
+     * @return A result of the stage.
+     */
+    @SuppressWarnings("UnusedReturnValue")
+    public static <T> T await(CompletionStage<T> stage) {
+        try {
+            return stage.toCompletableFuture().get();
+        } catch (Throwable e) {
+            throw new IgniteException(e);
+        }
     }
 }

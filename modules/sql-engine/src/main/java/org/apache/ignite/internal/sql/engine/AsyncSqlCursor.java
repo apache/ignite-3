@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import org.apache.ignite.sql.ResultSetMetadata;
+
 /**
  * Sql query cursor.
  *

@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.raft.Loza;
-import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -117,7 +115,6 @@ public class ItDistributedConfigurationPropertiesTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    mock(RestComponent.class),
                     new ConcurrentMapClusterStateStorage()
             );
 

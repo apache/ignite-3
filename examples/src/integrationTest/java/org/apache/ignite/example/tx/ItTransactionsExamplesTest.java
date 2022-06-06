@@ -17,8 +17,9 @@
 
 package org.apache.ignite.example.tx;
 
+import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
+
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.example.ExampleTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,7 +33,7 @@ public class ItTransactionsExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testTransactionsExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(TransactionsExample::main, EMPTY_ARGS,
+        assertConsoleOutputContains(TransactionsExample::main, EMPTY_ARGS,
                 "Initial balance: 1000.0",
                 "Balance after the sync transaction: 1200.0",
                 "Balance after the async transaction: 1500.0");

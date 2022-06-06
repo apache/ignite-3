@@ -85,7 +85,7 @@ public class CheckpointManager implements IgniteComponent {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             PageMemoryCheckpointConfiguration checkpointConfig,
             FilePageStoreManager filePageStoreManager,
-            Collection<PageMemoryDataRegion> dataRegions,
+            Collection<? extends PageMemoryDataRegion> dataRegions,
             Path storagePath,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
@@ -196,7 +196,7 @@ public class CheckpointManager implements IgniteComponent {
      * @param dataRegions Data regions.
      * @see PageMemoryImpl#safeToUpdate()
      */
-    static boolean safeToUpdateAllPageMemories(Collection<PageMemoryDataRegion> dataRegions) {
+    static boolean safeToUpdateAllPageMemories(Collection<? extends PageMemoryDataRegion> dataRegions) {
         for (PageMemoryDataRegion dataRegion : dataRegions) {
             if (dataRegion.persistent() && !((PageMemoryImpl) dataRegion.pageMemory()).safeToUpdate()) {
                 return false;

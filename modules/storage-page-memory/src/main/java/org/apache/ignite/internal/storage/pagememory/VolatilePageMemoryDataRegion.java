@@ -36,7 +36,7 @@ import org.apache.ignite.lang.IgniteInternalCheckedException;
 /**
  * Implementation of {@link AbstractPageMemoryDataRegion} for in-memory case.
  */
-public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
+class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
     private static final int FREE_LIST_GROUP_ID = 0;
 
     private TableFreeList tableFreeList;
@@ -150,6 +150,12 @@ public class VolatilePageMemoryDataRegion extends AbstractPageMemoryDataRegion {
 
         if (tableFreeList != null) {
             tableFreeList.close();
+        }
+        if (versionChainFreeList != null) {
+            versionChainFreeList.close();
+        }
+        if (rowVersionFreeList != null) {
+            rowVersionFreeList.close();
         }
     }
 

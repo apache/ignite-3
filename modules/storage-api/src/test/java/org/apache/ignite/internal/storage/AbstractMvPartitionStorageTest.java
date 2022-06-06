@@ -52,7 +52,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
 
     protected final UUID txId = newTransactionId();
 
-    private final TestKey key = new TestKey(10, "foo");
+    protected final TestKey key = new TestKey(10, "foo");
     private final TestValue value = new TestValue(20, "bar");
     protected final BinaryRow binaryRow = binaryRow(key, value);
     private final TestValue value2 = new TestValue(21, "bar2");
@@ -307,7 +307,7 @@ public abstract class AbstractMvPartitionStorageTest<S extends MvPartitionStorag
         assertRowMatches(foundRow, binaryRow);
     }
 
-    private void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
+    protected final void assertRowMatches(@Nullable BinaryRow rowUnderQuestion, BinaryRow expectedRow) {
         assertThat(rowUnderQuestion, is(notNullValue()));
         assertThat(rowUnderQuestion.bytes(), is(equalTo(expectedRow.bytes())));
     }

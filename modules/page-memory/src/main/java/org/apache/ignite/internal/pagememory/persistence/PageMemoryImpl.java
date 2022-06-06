@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageIndex;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.tag;
+import static org.apache.ignite.internal.util.ArrayUtils.concat;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.GridUnsafe.BYTE_ARR_OFF;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
@@ -191,6 +192,7 @@ public class PageMemoryImpl implements PageMemory {
     private volatile int pageReplacementWarned;
 
     /** Segments sizes, the last one being the {@link #checkpointPool checkpoint buffer} size. */
+    // TODO: IGNITE-16350 Consider splitting into segments and the checkpoint buffer
     private final long[] sizes;
 
     /** {@code False} if memory was not started or already stopped and is not supposed for any usage. */
@@ -221,7 +223,8 @@ public class PageMemoryImpl implements PageMemory {
      *
      * @param dataRegionConfig Data region configuration.
      * @param ioRegistry IO registry.
-     * @param sizes Segments sizes, the last one being the checkpoint buffer size.
+     * @param segmentSizes Segments sizes in bytes.
+     * @param checkpointBufferSize Checkpoint buffer size in bytes.
      * @param pageStoreManager Page store manager.
      * @param changeTracker Callback invoked to track changes in pages.
      * @param flushDirtyPage Write callback invoked when a dirty page is removed for replacement.
@@ -231,7 +234,8 @@ public class PageMemoryImpl implements PageMemory {
     public PageMemoryImpl(
             PageMemoryDataRegionConfiguration dataRegionConfig,
             PageIoRegistry ioRegistry,
-            long[] sizes,
+            long[] segmentSizes,
+            long checkpointBufferSize,
             PageReadWriteManager pageStoreManager,
             @Nullable PageChangeTracker changeTracker,
             PageStoreWriter flushDirtyPage,
@@ -241,7 +245,7 @@ public class PageMemoryImpl implements PageMemory {
     ) {
         this.dataRegionConfigView = dataRegionConfig.value();
         this.ioRegistry = ioRegistry;
-        this.sizes = sizes;
+        this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
         this.flushDirtyPage = flushDirtyPage;
@@ -308,11 +312,11 @@ public class PageMemoryImpl implements PageMemory {
 
             Segment[] segments = new Segment[regs - 1];
 
-            DirectMemoryRegion cpReg = regions.get(regs - 1);
+            DirectMemoryRegion checkpointRegion = regions.get(regs - 1);
 
-            checkpointPool = new PagePool(regs - 1, cpReg, sysPageSize, rwLock);
+            checkpointPool = new PagePool(regs - 1, checkpointRegion, sysPageSize, rwLock);
 
-            long checkpointBuf = cpReg.size();
+            long checkpointBufferSize = checkpointRegion.size();
 
             long totalAllocated = 0;
             int pages = 0;
@@ -340,7 +344,7 @@ public class PageMemoryImpl implements PageMemory {
                         + ", pages=" + pages
                         + ", tableSize=" + readableSize(totalTblSize, false)
                         + ", replacementSize=" + readableSize(totalReplSize, false)
-                        + ", checkpointBuffer=" + readableSize(checkpointBuf, false)
+                        + ", checkpointBuffer=" + readableSize(checkpointBufferSize, false)
                         + ']');
             }
         }
@@ -611,8 +615,7 @@ public class PageMemoryImpl implements PageMemory {
     public long partitionMetaPageId(int grpId, int partId) {
         assert started;
 
-        //TODO IGNITE-16350 Consider reworking in FLAG_AUX.
-        return pageId(partId, FLAG_DATA, 0);
+        return pageId(partId, FLAG_AUX, 0);
     }
 
     /** {@inheritDoc} */

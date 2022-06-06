@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     /** Page IO type. */
-    public static final short T_VALUE_VERSION_DATA_IO = 11;
+    public static final short T_VALUE_VERSION_DATA_IO = 12;
 
     /** I/O versions. */
     public static final IoVersions<RowVersionDataIo> VERSIONS = new IoVersions<>(new RowVersionDataIo(1));
@@ -60,15 +60,14 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
         putShort(addr, 0, (short) payloadSize);
         addr += 2;
 
-        addr += Timestamps.writeTimestamp(addr, 0, row.timestamp());
+        addr += Timestamps.writeTimestampToMemory(addr, 0, row.timestamp());
 
         addr += PartitionlessLinks.writeToMemory(addr, row.nextLink());
 
-        ByteBuffer value = row.value();
-        putInt(addr, 0, value.limit());
+        putInt(addr, 0, row.valueSize());
         addr += 4;
 
-        putByteBuffer(addr, 0, value);
+        putByteBuffer(addr, 0, row.value());
     }
 
     /** {@inheritDoc} */
@@ -76,9 +75,39 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
     protected void writeFragmentData(RowVersion row, ByteBuffer buf, int rowOff, int payloadSize) {
         assertPageType(buf);
 
-        // TODO: IGNITE-17009 - implement
+        if (rowOff == 0) {
+            // first fragment
+            assert row.headerSize() <= payloadSize : "Header must entirely fit in the first fragment, but header size is "
+                    + row.headerSize() + " and payload size is " + payloadSize;
 
-        throw new UnsupportedOperationException("Not implemented yet");
+            Timestamps.writeTimestampToBuffer(buf, row.timestamp());
+
+            PartitionlessLinks.writeToBuffer(buf, row.nextLink());
+
+            buf.putInt(row.valueSize());
+
+            int valueBytesToWrite = payloadSize - row.headerSize();
+            putValueFragmentToBuffer(row, buf, 0, valueBytesToWrite);
+        } else {
+            // non-first fragment
+            assert rowOff > row.headerSize();
+
+            putValueFragmentToBuffer(row, buf, rowOff - row.headerSize(), payloadSize);
+        }
+    }
+
+    private void putValueFragmentToBuffer(RowVersion row, ByteBuffer buf, int readBufferPosition, int valueBytesToWrite) {
+        ByteBuffer valueBuffer = row.value();
+
+        int oldLimit = valueBuffer.limit();
+        int oldPosition = valueBuffer.position();
+
+        valueBuffer.position(readBufferPosition);
+        valueBuffer.limit(valueBuffer.position() + valueBytesToWrite);
+        buf.put(valueBuffer);
+
+        valueBuffer.position(oldPosition);
+        valueBuffer.limit(oldLimit);
     }
 
     /**
@@ -90,10 +119,9 @@ public class RowVersionDataIo extends AbstractDataPageIo<RowVersion> {
      * @param timestamp timestamp to store
      */
     public void updateTimestamp(long pageAddr, int itemId, int pageSize, @Nullable Timestamp timestamp) {
-        int dataOff = getDataOffset(pageAddr, itemId, pageSize);
-        int payloadOffset = dataOff + Short.BYTES;
+        int payloadOffset = getPayloadOffset(pageAddr, itemId, pageSize, 0);
 
-        Timestamps.writeTimestamp(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
+        Timestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
     /** {@inheritDoc} */

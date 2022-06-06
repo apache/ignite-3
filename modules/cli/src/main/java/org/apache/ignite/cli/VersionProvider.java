@@ -18,8 +18,8 @@
 package org.apache.ignite.cli;
 
 import io.micronaut.core.annotation.Introspected;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import picocli.CommandLine;
 
 /**
@@ -31,6 +31,13 @@ public class VersionProvider implements CommandLine.IVersionProvider {
 
     /** Actual Ignite CLI version info. */
     private final CliVersionInfo cliVerInfo;
+
+    /**
+     * Default constructor needed for bash-autocompletion.
+     */
+    public VersionProvider() {
+        cliVerInfo = null;
+    }
 
     /**
      * Creates version provider.

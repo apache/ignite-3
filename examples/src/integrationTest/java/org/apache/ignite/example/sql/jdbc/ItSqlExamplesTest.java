@@ -17,8 +17,9 @@
 
 package org.apache.ignite.example.sql.jdbc;
 
+import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
+
 import org.apache.ignite.example.AbstractExamplesTest;
-import org.apache.ignite.example.ExampleTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,7 +33,7 @@ public class ItSqlExamplesTest extends AbstractExamplesTest {
      */
     @Test
     public void testSqlJdbcExample() throws Exception {
-        ExampleTestUtils.assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
+        assertConsoleOutputContains(SqlJdbcExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
                         + "    John, Doe, Forest Hill\n"
                         + "    Jane, Roe, Forest Hill\n"
