@@ -29,9 +29,9 @@ import org.apache.ignite.sql.SqlColumnType;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class DdlPlan implements QueryPlan {
-    /** Empty metadata holder. */
+    /** DDL metadata holder. */
     private static final ResultSetMetadata DDL_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("APPLIED", SqlColumnType.BOOLEAN, 1, -1, false, null)));
+            new ColumnMetadataImpl("APPLIED", SqlColumnType.BOOLEAN, 1, Integer.MIN_VALUE, false, null)));
 
     private final DdlCommand cmd;
 

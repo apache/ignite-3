@@ -17,16 +17,19 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Query explain plan.
  */
 public class ExplainPlan implements QueryPlan {
-    /** Column name. */
-    public static final String PLAN_COL_NAME = "PLAN";
-
-    private final ResultSetMetadata meta;
+    /** Explain metadata holder. */
+    private static final ResultSetMetadata EXPLAIN_METADATA = new ResultSetMetadataImpl(List.of(
+            new ColumnMetadataImpl("PLAN", SqlColumnType.STRING, -1, Integer.MIN_VALUE, true, null)));
 
     private final String plan;
 
@@ -34,8 +37,7 @@ public class ExplainPlan implements QueryPlan {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public ExplainPlan(String plan, ResultSetMetadata meta) {
-        this.meta = meta;
+    public ExplainPlan(String plan) {
         this.plan = plan;
     }
 
@@ -51,7 +53,7 @@ public class ExplainPlan implements QueryPlan {
 
     /** {@inheritDoc} */
     @Override public ResultSetMetadata metadata() {
-        return meta;
+        return EXPLAIN_METADATA;
     }
 
     public String plan() {

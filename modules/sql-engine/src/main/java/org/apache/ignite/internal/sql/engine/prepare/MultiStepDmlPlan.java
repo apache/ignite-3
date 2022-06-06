@@ -17,18 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * Distributed dml plan.
  */
 public class MultiStepDmlPlan extends AbstractMultiStepPlan {
+    /** DML metadata holder. */
+    private static final ResultSetMetadata DML_METADATA = new ResultSetMetadataImpl(List.of(
+            new ColumnMetadataImpl("ROWCOUNT", SqlColumnType.INT64, -1, Integer.MIN_VALUE, false, null)));
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public MultiStepDmlPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
-        super(queryTemplate, meta);
+    public MultiStepDmlPlan(QueryTemplate queryTemplate) {
+        super(queryTemplate, DML_METADATA);
     }
 
     /** {@inheritDoc} */
@@ -38,6 +46,6 @@ public class MultiStepDmlPlan extends AbstractMultiStepPlan {
 
     /** {@inheritDoc} */
     @Override public QueryPlan copy() {
-        return new MultiStepDmlPlan(queryTemplate, meta);
+        return new MultiStepDmlPlan(queryTemplate);
     }
 }
