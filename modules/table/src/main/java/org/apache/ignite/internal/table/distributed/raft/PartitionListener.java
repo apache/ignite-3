@@ -404,7 +404,7 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      * @return Result.
      */
-    public boolean handleFinishTxCommand(FinishTxCommand cmd) {
+    private boolean handleFinishTxCommand(FinishTxCommand cmd) {
 //        System.out.println("handleFinishTxCommand1");
 
         UUID id = cmd.id();
