@@ -457,7 +457,11 @@ public class ItRebalanceDistributedTest {
 
             dataStorageMgr = new DataStorageManager(
                     tablesCfg,
-                    dataStorageModules.createStorageEngines(clusterCfgMgr.configurationRegistry(), dir.resolve("storage")));
+                    dataStorageModules.createStorageEngines(
+                            name,
+                            clusterCfgMgr.configurationRegistry(),
+                            dir.resolve("storage"),
+                            null));
 
             baselineMgr = new BaselineManager(
                     clusterCfgMgr,
