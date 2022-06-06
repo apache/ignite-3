@@ -591,10 +591,10 @@ public class VersionedValue<T> {
      * Check that the given causality token os correct according to the actual token.
      *
      * @param actualToken Actual token.
-     * @param causalityToken Causality token.
+     * @param candidateToken Candidate token.
      */
-    private static void checkToken(long actualToken, long causalityToken) {
-        assert actualToken == NOT_INITIALIZED || actualToken + 1 == causalityToken : IgniteStringFormatter.format(
-            "Token must be greater than actual by exactly 1 [token={}, actual={}]", causalityToken, actualToken);
+    private static void checkToken(long actualToken, long candidateToken) {
+        assert actualToken == NOT_INITIALIZED || actualToken < candidateToken : IgniteStringFormatter.format(
+                "Token must be greater than actual [token={}, actual={}]", candidateToken, actualToken);
     }
 }

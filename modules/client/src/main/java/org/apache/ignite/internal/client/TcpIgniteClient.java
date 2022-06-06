@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.client.ClientUtils.sync;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.apache.ignite.client.IgniteClient;
@@ -132,12 +131,6 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public IgniteSql sql() {
         return sql;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setBaseline(Set<String> baselineNodes) {
-        throw new UnsupportedOperationException();
     }
 
     /** {@inheritDoc} */
