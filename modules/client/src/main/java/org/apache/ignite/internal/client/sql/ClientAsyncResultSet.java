@@ -77,8 +77,7 @@ class ClientAsyncResultSet implements AsyncResultSet {
         hasMorePages = in.unpackBoolean();
         wasApplied = in.unpackBoolean();
         affectedRows = in.unpackLong();
-
-        metadata = new ClientResultSetMetadata(in);
+        metadata = hasRowSet ? new ClientResultSetMetadata(in) : null;
 
         if (hasRowSet) {
             readRows(in);

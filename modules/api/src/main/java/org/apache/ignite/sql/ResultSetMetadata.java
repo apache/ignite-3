@@ -34,7 +34,7 @@ public interface ResultSetMetadata {
      * Returns column index in columns list by given column name.
      *
      * @param columnName Columns name which index is resolving.
-     * @return Column index.
+     * @return Column index, or {@code -1} when a column with given name is not present.
      */
     int indexOf(String columnName);
 }

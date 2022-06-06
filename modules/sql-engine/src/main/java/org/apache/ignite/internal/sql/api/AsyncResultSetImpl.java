@@ -21,22 +21,17 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 import org.apache.ignite.binary.BinaryObject;
 import org.apache.ignite.internal.sql.engine.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.TransformingIterator;
-import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -81,25 +76,7 @@ public class AsyncResultSetImpl implements AsyncResultSet {
     /** {@inheritDoc} */
     @Override
     public @Nullable ResultSetMetadata metadata() {
-        // TODO: IGNITE-16962
-        return new ResultSetMetadata() {
-            @Override
-            public List<ColumnMetadata> columns() {
-                var res = new ArrayList<ColumnMetadata>(cur.metadata().fields().size());
-
-                for (var f : cur.metadata().fields()) {
-                    res.add(new ColumnMetadataImpl(f));
-                }
-
-                return res;
-            }
-
-            @Override
-            public int indexOf(String columnName) {
-                // TODO: IGNITE-16962
-                return 0;
-            }
-        };
+        return hasRowSet() ? cur.metadata() : null;
     }
 
     /** {@inheritDoc} */
@@ -138,8 +115,9 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         requireResultSet();
 
         final Iterator<List<Object>> it0 = curPage.items().iterator();
+        final ResultSetMetadata meta0 = cur.metadata();
 
-        return () -> new TransformingIterator<>(it0, SqlRowImpl::new);
+        return () -> new TransformingIterator<>(it0, (item) -> new SqlRowImpl(item, meta0));
     }
 
     /** {@inheritDoc} */
@@ -183,35 +161,32 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
     }
 
-    private class SqlRowImpl implements SqlRow {
+    private static class SqlRowImpl implements SqlRow {
         private final List<Object> row;
 
-        private final Map<String, Integer> fields;
+        private final ResultSetMetadata meta;
 
-        org.apache.ignite.internal.sql.engine.ResultSetMetadata meta = cur.metadata();
-
-        SqlRowImpl(List<Object> row) {
+        SqlRowImpl(List<Object> row, ResultSetMetadata meta) {
             this.row = row;
-            fields = meta.fields().stream()
-                    .collect(Collectors.toMap(ResultFieldMetadata::name, ResultFieldMetadata::order));
+            this.meta = meta;
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnCount() {
-            return meta.fields().size();
+            return meta.columns().size();
         }
 
         /** {@inheritDoc} */
         @Override
         public String columnName(int columnIndex) {
-            return meta.fields().get(columnIndex).name();
+            return meta.columns().get(columnIndex).name();
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnIndex(@NotNull String columnName) {
-            return fields.getOrDefault(columnName, -1);
+            return meta.indexOf(columnName);
         }
 
         private int columnIndexChecked(@NotNull String columnName) {
@@ -419,15 +394,15 @@ public class AsyncResultSetImpl implements AsyncResultSet {
         }
 
         /** {@inheritDoc} */
-        @NotNull
         @Override
         public Iterator<Object> iterator() {
             return row.iterator();
         }
 
+        /** {@inheritDoc} */
         @Override
         public ResultSetMetadata metadata() {
-            throw new UnsupportedOperationException("Not implemented yet.");
+            return meta;
         }
     }
 }

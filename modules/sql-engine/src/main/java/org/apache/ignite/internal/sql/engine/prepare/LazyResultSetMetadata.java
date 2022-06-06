@@ -19,31 +19,40 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import java.util.List;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
-import org.apache.ignite.internal.sql.engine.ResultSetMetadata;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * Results set metadata holder.
  */
 public class LazyResultSetMetadata implements ResultSetMetadata {
-    private final Supplier<List<ResultFieldMetadata>> fieldsMetaProvider;
+    /** Metadata provider. */
+    private final Supplier<ResultSetMetadata> columnMetadataProvider;
 
-    /** Fields metadata. */
-    private volatile List<ResultFieldMetadata> fields;
+    /** Columns metadata. */
+    private volatile ResultSetMetadata metadata;
 
-    public LazyResultSetMetadata(
-            Supplier<List<ResultFieldMetadata>> fieldsMetaProvider
-    ) {
-        this.fieldsMetaProvider = fieldsMetaProvider;
+    public LazyResultSetMetadata(Supplier<ResultSetMetadata> columnMetadataProvider) {
+        this.columnMetadataProvider = columnMetadataProvider;
     }
 
     /** {@inheritDoc} */
     @Override
-    public List<ResultFieldMetadata> fields() {
-        if (fields == null) {
-            fields = fieldsMetaProvider.get();
+    public List<ColumnMetadata> columns() {
+        if (metadata == null) {
+            metadata = columnMetadataProvider.get();
         }
 
-        return fields;
+        return metadata.columns();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int indexOf(String columnName) {
+        if (metadata == null) {
+            metadata = columnMetadataProvider.get();
+        }
+
+        return metadata.indexOf(columnName);
     }
 }

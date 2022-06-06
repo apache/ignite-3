@@ -230,16 +230,16 @@ public class JdbcMetadataCatalog {
      * @return Column metadata.
      */
     private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
-        NativeType type = col.type();
+        NativeType colType = col.type();
 
         return new JdbcColumnMeta(
                 col.name(),
                 getTblSchema(tblName),
                 getTblName(tblName),
                 col.name(),
-                Commons.nativeTypeToClass(type),
-                Commons.nativeTypePrecision(type),
-                Commons.nativeTypeScale(type),
+                Commons.nativeTypeToClass(colType),
+                Commons.nativeTypePrecision(colType),
+                Commons.nativeTypeScale(colType),
                 col.nullable()
         );
     }
