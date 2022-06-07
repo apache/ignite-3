@@ -37,5 +37,5 @@ public class TablesConfigurationSchema {
     /** Default data storage for tables. */
     @ExistingDataStorage
     @Value(hasDefault = true)
-    public String defaultDataStorage = "pagememory";
+    public String defaultDataStorage = "rocksdb";
 }
