@@ -374,26 +374,17 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         sendWithRetry(leader, req, currentTimeMillis() + timeout, fut);
 
-        return fut.handleAsync((resp, err) -> {
+        return fut.handle((resp, err) -> {
             // We expect that all raft related errors will be handled by sendWithRetry, means that
             // such responses will initiate a retrying of the original request.
             assert !(resp instanceof RpcRequests.ErrorResponse);
 
             if (err != null) {
-                if (recoverable(err)) {
-                    LOG.warn("Recoverable error received during changePeersAsync invocation, retrying", err);
-                } else {
-                    // TODO: Ideally rebalance, which has initiated this invocation should be canceled,
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-17056
-                    // TODO: Also it might be reasonable to delegate such exceptional case to failure handler.
-                    // TODO: At the moment, we repeat such intents as well.
-                    LOG.error("Unrecoverable error received during changePeersAsync invocation, retrying", err);
-                }
-                return changePeersAsync(peers, term);
+                return CompletableFuture.<Void>failedFuture(err);
             }
 
             return CompletableFuture.<Void>completedFuture(null);
-        }, executor).thenCompose(Function.identity());
+        }).thenCompose(Function.identity());
     }
 
     /** {@inheritDoc} */

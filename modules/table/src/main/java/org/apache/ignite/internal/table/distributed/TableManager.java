@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.utils.RebalanceUtil.extractTableId;
 import static org.apache.ignite.internal.utils.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.utils.RebalanceUtil.updatePendingAssignmentsKeys;
+import static org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl.recoverable;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -514,7 +516,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                                     partitionRaftGroupName(tblId, partId),
                                     partId,
                                     busyLock,
-                                    () -> internalTbl.partitionRaftGroupService(partId),
+                                    changePeersAsync(() -> internalTbl.partitionRaftGroupService(partId)),
                                     rebalanceScheduler)
                     ).thenAccept(
                             updatedRaftGroupService -> ((InternalTableImpl) internalTbl)
@@ -1449,7 +1451,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                             partId,
                             part,
                             busyLock,
-                            () -> tbl.internalTable().partitionRaftGroupService(part),
+                            changePeersAsync(() -> tbl.internalTable().partitionRaftGroupService(part)),
                             rebalanceScheduler);
 
                     // Stable assignments from the meta store, which revision is bounded by the current pending event.
@@ -1488,7 +1490,7 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
 
                     // run update of raft configuration if this node is a leader
                     if (localMember.address().equals(leaderWithTerm.get1().address())) {
-                        partGrpSvc.changePeersAsync(newNodes, leaderWithTerm.get2()).join();
+                        changePeersAsync(() -> partGrpSvc).apply(newNodes, leaderWithTerm.get2());
                     }
 
                     return true;
@@ -1557,6 +1559,49 @@ public class TableManager extends Producer<TableEvent, TableEventParameters> imp
                 LOG.error("Error while processing stable assignments event", e);
             }
         });
+    }
+
+    /**
+     * Performs {@link RaftGroupService#changePeersAsync(java.util.List, long)} on a provided raft group service.
+     * Retry mechanism is applied to repeat {@link RaftGroupService#changePeersAsync(java.util.List, long)} if previous one
+     * failed with some exception.
+     *
+     * @param raftGroupServiceSupplier Raft groups service.
+     * @return Function which performs {@link RaftGroupService#changePeersAsync(java.util.List, long)}.
+     */
+    public BiFunction<List<Peer>, Long, CompletableFuture<Void>> changePeersAsync(Supplier<RaftGroupService> raftGroupServiceSupplier) {
+        return (List<Peer> peers, Long term) -> {
+            if (!busyLock.enterBusy()) {
+                throw new IgniteInternalException(new NodeStoppingException());
+            }
+            try {
+                return raftGroupServiceSupplier.get().changePeersAsync(peers, term).handleAsync((resp, err) -> {
+                    if (!busyLock.enterBusy()) {
+                        throw new IgniteInternalException(new NodeStoppingException());
+                    }
+                    try {
+                        if (err != null) {
+                            if (recoverable(err)) {
+                                LOG.warn("Recoverable error received during changePeersAsync invocation, retrying", err);
+                            } else {
+                                // TODO: Ideally, rebalance, which has initiated this invocation should be canceled,
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-17056
+                                // TODO: Also it might be reasonable to delegate such exceptional case to failure handler.
+                                // TODO: At the moment, we repeat such intents as well.
+                                LOG.error("Unrecoverable error received during changePeersAsync invocation, retrying", err);
+                            }
+                            return changePeersAsync(raftGroupServiceSupplier).apply(peers, term);
+                        }
+
+                        return CompletableFuture.<Void>completedFuture(null);
+                    } finally {
+                        busyLock.leaveBusy();
+                    }
+                }, rebalanceScheduler).thenCompose(Function.identity());
+            } finally {
+                busyLock.leaveBusy();
+            }
+        };
     }
 
     /**

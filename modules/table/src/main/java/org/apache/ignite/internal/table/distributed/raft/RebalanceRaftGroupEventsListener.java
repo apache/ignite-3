@@ -31,11 +31,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.function.BiFunction;
 import org.apache.ignite.configuration.schemas.table.TableConfiguration;
 import org.apache.ignite.internal.configuration.schema.ExtendedTableChange;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -50,7 +51,6 @@ import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.client.Peer;
-import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -81,8 +81,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
-    /** Supplier of client for raft group of rebalance listener. */
-    private final Supplier<RaftGroupService> raftGroupServiceSupplier;
+    /** Function that performs changing peers on a provided raft group. */
+    private final BiFunction<List<Peer>, Long, CompletableFuture<Void>> changePeersFunction;
 
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
@@ -108,14 +108,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             String partId,
             int partNum,
             IgniteSpinBusyLock busyLock,
-            Supplier<RaftGroupService> raftGroupServiceSupplier,
+            BiFunction<List<Peer>, Long, CompletableFuture<Void>> changePeersFunction,
             ScheduledExecutorService rebalanceScheduler) {
         this.metaStorageMgr = metaStorageMgr;
         this.tblConfiguration = tblConfiguration;
         this.partId = partId;
         this.partNum = partNum;
         this.busyLock = busyLock;
-        this.raftGroupServiceSupplier = raftGroupServiceSupplier;
+        this.changePeersFunction = changePeersFunction;
         this.rebalanceScheduler = rebalanceScheduler;
     }
 
@@ -140,7 +140,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (!pendingEntry.empty()) {
                         List<ClusterNode> pendingNodes = (List<ClusterNode>) ByteUtils.fromBytes(pendingEntry.value());
 
-                        raftGroupServiceSupplier.get().changePeersAsync(clusterNodesToPeers(pendingNodes), term).join();
+                        changePeersFunction.apply(clusterNodesToPeers(pendingNodes), term).join();
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     // TODO: IGNITE-14693
@@ -228,7 +228,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Started {} attempt to retry the current rebalance for the partId = {}.", rebalanceAttempts.get(), partId);
 
             try {
-                raftGroupServiceSupplier.get().changePeersAsync(peerIdsToPeers(peers), term).join();
+                changePeersFunction.apply(peerIdsToPeers(peers), term).join();
             } finally {
                 busyLock.leaveBusy();
             }
