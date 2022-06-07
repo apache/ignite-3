@@ -60,12 +60,14 @@
                         <path d="M220 48h20"></path>
                     </g>
                     <path d="M240 48h10"></path>
-                    <g class="non-terminal ">
-                        <path d="M250 48h0"></path>
-                        <path d="M358 48h0"></path>
-                        <rect x="250" y="37" width="108" height="22"></rect>
-                        <text x="304" y="52">column list</text>
-                    </g>
+                    <a xlink:href="https://ignite.apache.org/docs/3.0.0-alpha/sql-reference/ddl#column_list">
+                        <g class="non-terminal ">
+                            <path d="M250 48h0"></path>
+                            <path d="M358 48h0"></path>
+                            <rect x="250" y="37" width="108" height="22"></rect>
+                            <text x="304" y="52" fill="blue">column_list</text>
+                        </g>
+                    </a>
                 </g>
                 <path d="M358 48h20"></path>
             </g>
