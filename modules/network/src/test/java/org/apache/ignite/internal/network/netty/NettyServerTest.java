@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -42,7 +43,6 @@ import org.apache.ignite.configuration.schemas.network.NetworkConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
-import org.apache.ignite.internal.network.handshake.HandshakeResult;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.lang.IgniteInternalException;
@@ -125,6 +125,8 @@ public class NettyServerTest {
         future.setSuccess(null);
 
         stop.get(3, TimeUnit.SECONDS);
+
+        assertFalse(channel.finish());
     }
 
     /**
@@ -147,10 +149,6 @@ public class NettyServerTest {
         HandshakeManager handshakeManager = mock(HandshakeManager.class);
 
         when(handshakeManager.handshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
-        HandshakeResult noOp = HandshakeResult.noOp();
-        when(handshakeManager.init(any())).thenReturn(noOp);
-        when(handshakeManager.onConnectionOpen(any())).thenReturn(noOp);
-        when(handshakeManager.onMessage(any(), any())).thenReturn(noOp);
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 
@@ -220,10 +218,10 @@ public class NettyServerTest {
 
         InOrder order = Mockito.inOrder(handshakeManager);
 
-        order.verify(handshakeManager, timeout()).init(any());
+        order.verify(handshakeManager, timeout()).onInit(any());
         order.verify(handshakeManager, timeout()).handshakeFuture();
-        order.verify(handshakeManager, timeout()).onConnectionOpen(any());
-        order.verify(handshakeManager, timeout()).onMessage(any(), any());
+        order.verify(handshakeManager, timeout()).onConnectionOpen();
+        order.verify(handshakeManager, timeout()).onMessage(any());
     }
 
     /**

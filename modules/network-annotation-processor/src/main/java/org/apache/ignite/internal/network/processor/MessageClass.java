@@ -81,6 +81,7 @@ public class MessageClass {
                 .filter(e -> !typeUtils.isSameType(e.asType(), NetworkMessage.class))
                 .flatMap(e -> e.getEnclosedElements().stream())
                 .filter(e -> e.getKind() == ElementKind.METHOD)
+                .filter(e -> !((ExecutableElement) e).isDefault())
                 // use a tree map to sort getters by name and remove duplicates
                 .collect(Collectors.toMap(
                         e -> e.getSimpleName().toString(),

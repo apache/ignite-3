@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,6 +33,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -53,12 +53,17 @@ import org.apache.ignite.internal.configuration.schema.ExtendedTableConfiguratio
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
+import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.rest.RestComponent;
+import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.pagememory.PageMemoryDataStorageModule;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryDataStorageConfigurationSchema;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataStorageModule;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
@@ -124,6 +129,7 @@ public class ItRebalanceDistributedTest {
             node.start();
         }
 
+        nodes.get(0).cmgManager.initCluster(List.of(nodes.get(0).name), List.of(), "cluster");
     }
 
     @AfterEach
@@ -368,6 +374,10 @@ public class ItRebalanceDistributedTest {
 
         private final ClusterManagementGroupManager cmgManager;
 
+        private final SchemaManager schemaManager;
+
+        private final SqlQueryProcessor sqlQueryProcessor;
+
         /**
          * Constructor that simply creates a subset of components of this node.
          */
@@ -408,7 +418,6 @@ public class ItRebalanceDistributedTest {
                     vaultManager,
                     clusterService,
                     raftManager,
-                    mock(RestComponent.class),
                     new ConcurrentMapClusterStateStorage()
             );
 
@@ -424,35 +433,42 @@ public class ItRebalanceDistributedTest {
 
             clusterCfgMgr = new ConfigurationManager(
                     List.of(RocksDbStorageEngineConfiguration.KEY,
+                            PageMemoryStorageEngineConfiguration.KEY,
                             TablesConfiguration.KEY),
                     Map.of(),
                     cfgStorage,
                     List.of(ExtendedTableConfigurationSchema.class),
                     List.of(UnknownDataStorageConfigurationSchema.class,
+                            PageMemoryDataStorageConfigurationSchema.class,
+                            UnsafeMemoryAllocatorConfigurationSchema.class,
                             RocksDbDataStorageConfigurationSchema.class,
                             HashIndexConfigurationSchema.class)
             );
 
-            Consumer<Consumer<Long>> registry = (c) -> {
-                clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(newStorageRevision -> {
-                    c.accept(newStorageRevision);
-
-                    return CompletableFuture.completedFuture(null);
-                });
+            Consumer<Function<Long, CompletableFuture<?>>> registry = (Function<Long, CompletableFuture<?>> function) -> {
+                clusterCfgMgr.configurationRegistry().listenUpdateStorageRevision(
+                        newStorageRevision -> function.apply(newStorageRevision));
             };
 
             TablesConfiguration tablesCfg = clusterCfgMgr.configurationRegistry().getConfiguration(TablesConfiguration.KEY);
 
-            DataStorageModules dataStorageModules = new DataStorageModules(List.of(new RocksDbDataStorageModule()));
+            DataStorageModules dataStorageModules = new DataStorageModules(List.of(
+                    new RocksDbDataStorageModule(), new PageMemoryDataStorageModule()));
 
             dataStorageMgr = new DataStorageManager(
                     tablesCfg,
-                    dataStorageModules.createStorageEngines(clusterCfgMgr.configurationRegistry(), dir.resolve("storage")));
+                    dataStorageModules.createStorageEngines(
+                            name,
+                            clusterCfgMgr.configurationRegistry(),
+                            dir.resolve("storage"),
+                            null));
 
             baselineMgr = new BaselineManager(
                     clusterCfgMgr,
                     metaStorageManager,
                     clusterService);
+
+            schemaManager = new SchemaManager(registry, tablesCfg);
 
             tableManager = new TableManager(
                     registry,
@@ -462,7 +478,11 @@ public class ItRebalanceDistributedTest {
                     clusterService.topologyService(),
                     txManager,
                     dataStorageMgr,
-                    metaStorageManager);
+                    metaStorageManager,
+                    schemaManager);
+
+            //TODO: Get rid of it after IGNITE-17062.
+            sqlQueryProcessor = new SqlQueryProcessor(registry, clusterService, tableManager, dataStorageMgr, Map::of);
         }
 
         /**
@@ -474,9 +494,7 @@ public class ItRebalanceDistributedTest {
             nodeCfgMgr.start();
 
             Stream.of(clusterService, clusterCfgMgr, dataStorageMgr, raftManager, txManager, cmgManager,
-                    metaStorageManager, baselineMgr, tableManager).forEach(IgniteComponent::start);
-
-            cmgManager.initCluster(List.of(nodes.get(0).name), List.of());
+                    metaStorageManager, baselineMgr, schemaManager, tableManager, sqlQueryProcessor).forEach(IgniteComponent::start);
 
             CompletableFuture.allOf(
                     nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
@@ -492,8 +510,8 @@ public class ItRebalanceDistributedTest {
          */
         void stop() throws Exception {
             var components =
-                    List.of(tableManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr, raftManager,
-                            txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
+                    List.of(sqlQueryProcessor, tableManager, schemaManager, baselineMgr, metaStorageManager, cmgManager, dataStorageMgr,
+                            raftManager, txManager, clusterCfgMgr, clusterService, nodeCfgMgr, vaultManager);
 
             for (IgniteComponent igniteComponent : components) {
                 igniteComponent.beforeNodeStop();

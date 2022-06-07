@@ -46,7 +46,6 @@ import org.apache.ignite.raft.client.service.RaftGroupService;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupServiceImpl;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.jetbrains.annotations.ApiStatus.Experimental;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -220,7 +219,9 @@ public class Loza implements IgniteComponent {
      * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    public void startRaftGroupNode(String grpId, Collection<ClusterNode> nodes,
+    public void startRaftGroupNode(
+            String grpId,
+            Collection<ClusterNode> nodes,
             Collection<ClusterNode> deltaNodes,
             Supplier<RaftGroupListener> lsnrSupplier,
             Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier) throws NodeStoppingException {
@@ -261,7 +262,6 @@ public class Loza implements IgniteComponent {
      * @return Future representing pending completion of the operation.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    @Experimental
     public CompletableFuture<RaftGroupService> updateRaftGroup(
             String grpId,
             Collection<ClusterNode> nodes,
@@ -287,10 +287,12 @@ public class Loza implements IgniteComponent {
      * @param nodes                   Full set of raft group nodes.
      * @param deltaNodes              New raft group nodes.
      * @param lsnrSupplier            Raft group listener supplier.
-     * @param raftGrpEvtsLsnrSupplier Raft group listener supplier.
+     * @param raftGrpEvtsLsnrSupplier Raft group events listener supplier.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<RaftGroupService> updateRaftGroupInternal(String grpId, Collection<ClusterNode> nodes,
+    private CompletableFuture<RaftGroupService> updateRaftGroupInternal(
+            String grpId,
+            Collection<ClusterNode> nodes,
             Collection<ClusterNode> deltaNodes,
             Supplier<RaftGroupListener> lsnrSupplier,
             Supplier<RaftGroupEventsListener> raftGrpEvtsLsnrSupplier) {

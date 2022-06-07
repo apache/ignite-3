@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql;
 
+import java.util.Iterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -25,10 +26,13 @@ import org.jetbrains.annotations.Nullable;
  * <p>All the rows in result set have the same structure described in {@link ResultSetMetadata}.
  * ResultSet must be closed after usage to free resources.
  *
+ * <p>The class and his methods are not thread-safe. If more than one thread use the result set object
+ * please use external synchronization on iterator methods.
+ *
  * <p>Note: one and only one of following is possible: {@link #hasRowSet()} returns {@code true}, or {@link #wasApplied()} returns
  * {@code true}, or {@link #affectedRows()} return zero or higher value.
  */
-public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
+public interface ResultSet extends Iterator<SqlRow>, AutoCloseable {
     /**
      * Returns metadata for the results if the result contains rows ({@link #hasRowSet()} returns {@code true}).
      *
@@ -39,7 +43,8 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
     /**
      * Returns whether the result of the query execution is a collection of rows, or not.
      *
-     * <p>Note: when returns {@code false}, then calling {@link #iterator()} will failed, and either {@link #affectedRows()} return number
+     * <p>Note: when returns {@code false}, then calling {@link #hasNext()}, {@link #next()} will fail,
+     * and either {@link #affectedRows()} return number
      * of affected rows or {@link #wasApplied()} returns {@code true}.
      *
      * @return {@code True} if the query returns rows, {@code false} otherwise.
@@ -54,7 +59,7 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      *
      * @return Number of rows affected by the query, or {@code 0} if statement return nothing, or {@code -1} if inapplicable.
      */
-    int affectedRows();
+    long affectedRows();
 
     /**
      * Returns whether the query that produce this result was a conditional query, or not. E.g. for the query "Create table if not exists"
@@ -67,4 +72,10 @@ public interface ResultSet extends Iterable<SqlRow>, AutoCloseable {
      * @return {@code True} if conditional query applied, {@code false} otherwise.
      */
     boolean wasApplied();
+
+    /**
+     * Invalidates result set and cleanup remote resources.
+     */
+    @Override
+    void close();
 }

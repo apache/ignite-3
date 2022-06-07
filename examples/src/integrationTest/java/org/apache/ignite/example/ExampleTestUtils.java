@@ -18,8 +18,9 @@
 package org.apache.ignite.example;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -81,17 +82,20 @@ public class ExampleTestUtils {
      * Assert that console output of the example equals expected.
      *
      * @param consumer Method which output should be captured. Ordinary main of the example.
-     * @param args     Arguments.
+     * @param args Arguments.
      * @param expected Expected console output.
      */
-    public static void assertConsoleOutputContains(ExampleConsumer consumer, String[] args,
-            String... expected) throws Exception {
+    public static void assertConsoleOutputContains(
+            ExampleConsumer consumer,
+            String[] args,
+            String... expected
+    ) throws Exception {
         String captured = ExampleTestUtils.captureConsole(consumer, args);
 
         captured = captured.replaceAll("\r", "");
 
         for (String single : expected) {
-            assertTrue(captured.contains(single));
+            assertThat(captured, containsString(single));
         }
     }
 }

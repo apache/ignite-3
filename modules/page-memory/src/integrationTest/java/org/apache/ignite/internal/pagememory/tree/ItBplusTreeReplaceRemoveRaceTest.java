@@ -38,7 +38,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PageMemoryData
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.tree.io.BplusInnerIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.tree.io.BplusLeafIo;
@@ -88,18 +87,16 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     }
 
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg
-                .change(c -> c.changePageSize(512).changeInitSize(1024 * MiB).changeMaxSize(1024 * MiB))
-                .get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(1024 * MiB).changeMaxSize(1024 * MiB)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-                new UnsafeMemoryProvider(null),
                 dataRegionCfg,
-                ioRegistry
+                ioRegistry,
+                512
         );
     }
 

@@ -44,9 +44,13 @@ namespace Apache.Ignite.Internal
         public IgniteClientInternal(ClientFailoverSocket socket)
         {
             _socket = socket;
-            Tables = new Tables(socket);
+
+            var tables = new Tables(socket);
+            Tables = tables;
+
             Transactions = new Transactions.Transactions(socket);
-            Compute = new Compute.Compute(socket);
+
+            Compute = new Compute.Compute(socket, tables);
         }
 
         /// <inheritdoc/>

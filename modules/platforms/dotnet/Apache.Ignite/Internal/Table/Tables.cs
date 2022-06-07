@@ -35,8 +35,8 @@ namespace Apache.Ignite.Internal.Table
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
-        /** Cached tables. */
-        private readonly ConcurrentDictionary<Guid, ITable> _tables = new();
+        /** Cached tables. Caching here is required to retain schema and serializer caches in <see cref="Table"/>. */
+        private readonly ConcurrentDictionary<Guid, Table> _tables = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Tables"/> class.
@@ -50,28 +50,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<ITable?> GetTableAsync(string name)
         {
-            IgniteArgumentCheck.NotNull(name, nameof(name));
-
-            using var writer = new PooledArrayBufferWriter();
-            Write(writer.GetMessageWriter());
-
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
-            return Read(resBuf.GetReader());
-
-            void Write(MessagePackWriter w)
-            {
-                w.Write(name);
-                w.Flush();
-            }
-
-            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
-            ITable? Read(MessagePackReader r) =>
-                r.NextMessagePackType == MessagePackType.Nil
-                    ? null
-                    : _tables.GetOrAdd(
-                        r.ReadGuid(),
-                        (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
-                        (name, _socket));
+            return await GetTableInternalAsync(name).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
@@ -90,11 +69,49 @@ namespace Apache.Ignite.Internal.Table
                 {
                     var id = r.ReadGuid();
                     var name = r.ReadString();
-                    res.Add(new Table(name, id, _socket));
+
+                    // ReSharper disable once LambdaExpressionMustBeStatic (not supported by .NET Core 3.1, TODO IGNITE-16994)
+                    var table = _tables.GetOrAdd(
+                        id,
+                        (Guid id0, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id0, arg.Socket),
+                        (name, _socket));
+
+                    res.Add(table);
                 }
 
                 return res;
             }
+        }
+
+        /// <summary>
+        /// Gets the table by name.
+        /// </summary>
+        /// <param name="name">Name.</param>
+        /// <returns>Table.</returns>
+        internal async Task<Table?> GetTableInternalAsync(string name)
+        {
+            IgniteArgumentCheck.NotNull(name, nameof(name));
+
+            using var writer = new PooledArrayBufferWriter();
+            Write(writer.GetMessageWriter());
+
+            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
+            return Read(resBuf.GetReader());
+
+            void Write(MessagePackWriter w)
+            {
+                w.Write(name);
+                w.Flush();
+            }
+
+            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
+            Table? Read(MessagePackReader r) =>
+                r.NextMessagePackType == MessagePackType.Nil
+                    ? null
+                    : _tables.GetOrAdd(
+                        r.ReadGuid(),
+                        (Guid id, (string Name, ClientFailoverSocket Socket) arg) => new Table(arg.Name, id, arg.Socket),
+                        (name, _socket));
         }
     }
 }

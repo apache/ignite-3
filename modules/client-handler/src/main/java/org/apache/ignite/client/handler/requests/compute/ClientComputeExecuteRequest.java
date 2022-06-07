@@ -63,8 +63,14 @@ public class ClientComputeExecuteRequest {
         return compute.execute(Set.of(node), jobClassName, args).thenAccept(out::packObjectWithType);
     }
 
+    /**
+     * Unpacks args.
+     *
+     * @param in Unpacker.
+     * @return Args array.
+     */
     @NotNull
-    private static Object[] unpackArgs(ClientMessageUnpacker in) {
+    public static Object[] unpackArgs(ClientMessageUnpacker in) {
         if (in.tryUnpackNil()) {
             return OBJECT_EMPTY_ARRAY;
         }

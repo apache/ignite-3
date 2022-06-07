@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.util;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -34,13 +35,17 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.util.worker.IgniteWorker;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.IgniteStringBuilder;
 import org.apache.ignite.lang.IgniteStringFormatter;
@@ -262,8 +267,24 @@ public class IgniteUtils {
         StringBuilder sb = new StringBuilder(len * 2);
 
         for (int i = 0; i < len; i++) {
-            // Can not use getLong because on little-endian it produces bs.
+            // Can not use getLong because on little-endian it produces wrong result.
             addByteAsHex(sb, GridUnsafe.getByte(addr + i));
+        }
+
+        return sb.toString();
+    }
+
+    /**
+     * Returns hex representation of memory region.
+     *
+     * @param buf Buffer which content should be converted to string.
+     */
+    public static String toHexString(ByteBuffer buf) {
+        StringBuilder sb = new StringBuilder(buf.capacity() * 2);
+
+        for (int i = buf.position(); i < buf.limit(); i++) {
+            // Can not use getLong because on little-endian it produces wrong result.
+            addByteAsHex(sb, buf.get(i));
         }
 
         return sb.toString();
@@ -329,9 +350,17 @@ public class IgniteUtils {
      * @return Absolute value.
      */
     public static int safeAbs(int i) {
-        i = Math.abs(i);
+        return Math.max(Math.abs(i), 0);
+    }
 
-        return i < 0 ? 0 : i;
+    /**
+     * Gets absolute value for long. If long is {@link Long#MIN_VALUE}, then {@code 0} is returned.
+     *
+     * @param i Long value.
+     * @return Absolute value.
+     */
+    public static long safeAbs(long i) {
+        return Math.max(Math.abs(i), 0);
     }
 
     /**
@@ -661,16 +690,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Tests if given string is {@code null} or empty.
-     *
-     * @param s String to test.
-     * @return Whether or not the given string is {@code null} or empty.
-     */
-    public static boolean nullOrEmpty(@Nullable String s) {
-        return s == null || s.isEmpty();
-    }
-
-    /**
      * Return {@code obj} if not null, otherwise {@code defaultObj}.
      *
      * @param obj Object.
@@ -689,5 +708,62 @@ public class IgniteUtils {
      */
     public static boolean isPow2(int i) {
         return i > 0 && (i & (i - 1)) == 0;
+    }
+
+    /**
+     * Returns {@code true} If the given value is power of 2 (0 is not power of 2).
+     *
+     * @param i Value.
+     */
+    public static boolean isPow2(long i) {
+        return i > 0 && (i & (i - 1)) == 0;
+    }
+
+    /**
+     * Waits if necessary for this future to complete, and then returns its result ignoring interrupts.
+     *
+     * @return Result value.
+     * @throws CancellationException If this future was cancelled.
+     * @throws ExecutionException If this future completed exceptionally.
+     */
+    public static <T> T getUninterruptibly(CompletableFuture<T> future) throws ExecutionException {
+        boolean interrupted = false;
+
+        try {
+            while (true) {
+                try {
+                    return future.get();
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /**
+     * Stops workers from given collection and waits for their completion.
+     *
+     * @param workers Workers collection.
+     * @param cancel Whether it should cancel workers.
+     * @param log Logger.
+     */
+    public static void awaitForWorkersStop(Collection<IgniteWorker> workers, boolean cancel, @Nullable IgniteLogger log) {
+        if (cancel) {
+            workers.forEach(IgniteWorker::cancel);
+        }
+
+        for (IgniteWorker worker : workers) {
+            try {
+                worker.join();
+            } catch (Exception e) {
+                if (log != null && log.isWarnEnabled()) {
+                    log.warn("Failed to cancel ignite worker [" + worker.toString() + "]: " + e.getMessage());
+                }
+            }
+        }
     }
 }

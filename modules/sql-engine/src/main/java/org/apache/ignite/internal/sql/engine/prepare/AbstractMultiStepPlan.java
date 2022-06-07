@@ -28,19 +28,20 @@ import org.apache.ignite.internal.sql.engine.metadata.FragmentMapping;
 import org.apache.ignite.internal.sql.engine.metadata.MappingService;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSender;
+import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
  * AbstractMultiStepPlan.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public abstract class AbstractMultiStepPlan implements MultiStepPlan {
-    protected final ResultSetMetadataInternal meta;
+    protected final ResultSetMetadata meta;
 
     protected final QueryTemplate queryTemplate;
 
     protected ExecutionPlan executionPlan;
 
-    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, ResultSetMetadataInternal meta) {
+    protected AbstractMultiStepPlan(QueryTemplate queryTemplate, ResultSetMetadata meta) {
         this.queryTemplate = queryTemplate;
         this.meta = meta;
     }
@@ -53,7 +54,7 @@ public abstract class AbstractMultiStepPlan implements MultiStepPlan {
 
     /** {@inheritDoc} */
     @Override
-    public ResultSetMetadataInternal metadata() {
+    public ResultSetMetadata metadata() {
         return meta;
     }
 

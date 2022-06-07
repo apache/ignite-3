@@ -149,20 +149,6 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
      * @param e Exception.
      */
     public void onError(Throwable e) {
-        if (e instanceof ExecutionCancelledException) {
-            log.warn("Execution is cancelled.", e);
-        } else {
-            onErrorInternal(e);
-        }
-    }
-
-    protected void closeInternal() {
-        closed = true;
-    }
-
-    protected abstract void rewindInternal();
-
-    protected void onErrorInternal(Throwable e) {
         Downstream<RowT> downstream = downstream();
 
         assert downstream != null;
@@ -173,6 +159,12 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             Commons.closeQuiet(this);
         }
     }
+
+    protected void closeInternal() {
+        closed = true;
+    }
+
+    protected abstract void rewindInternal();
 
     /**
      * Get closed flag: {@code true} if the subtree is canceled.

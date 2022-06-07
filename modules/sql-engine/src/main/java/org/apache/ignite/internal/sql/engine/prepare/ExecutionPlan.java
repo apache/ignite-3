@@ -24,17 +24,10 @@ import java.util.List;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 class ExecutionPlan {
-    private final long ver;
-
     private final List<Fragment> fragments;
 
-    ExecutionPlan(long ver, List<Fragment> fragments) {
-        this.ver = ver;
+    ExecutionPlan(List<Fragment> fragments) {
         this.fragments = List.copyOf(fragments);
-    }
-
-    public long topologyVersion() {
-        return ver;
     }
 
     public List<Fragment> fragments() {

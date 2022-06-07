@@ -27,11 +27,13 @@ import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.FieldAccessor;
 import org.apache.ignite.internal.network.serialization.FieldDescriptor;
 import org.apache.ignite.internal.network.serialization.MergedField;
+import org.apache.ignite.internal.network.serialization.MergedLayer;
 import org.apache.ignite.internal.network.serialization.SpecialMethodInvocationException;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectInputStream.UosGetField;
 import org.apache.ignite.internal.network.serialization.marshal.UosObjectOutputStream.UosPutField;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -75,7 +77,6 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             throws MarshalException, IOException {
         List<ClassDescriptor> lineage = descriptor.lineage();
 
-        // using a for loop to avoid allocation of an iterator
         for (ClassDescriptor layer : lineage) {
             writeStructuredObjectLayer(object, layer, output, context);
         }
@@ -101,7 +102,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.startWritingWithWriteObject(object, descriptor);
 
         try {
-            descriptor.serializationMethods().writeObject(object, oos);
+            writeObjectWithLength(object, descriptor, oos);
             oos.flush();
         } catch (SpecialMethodInvocationException e) {
             throw new MarshalException("Cannot invoke writeObject()", e);
@@ -109,6 +110,26 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
             context.endWritingWithWriteObject();
             oos.restoreCurrentPutFieldTo(oldPut);
         }
+    }
+
+    private void writeObjectWithLength(Object object, ClassDescriptor descriptor, UosObjectOutputStream oos)
+            throws IOException, SpecialMethodInvocationException {
+        // NB: this only works with purely in-memory IgniteDataInput implementations!
+
+        int offsetBefore = oos.memoryBufferOffset();
+
+        writeLengthPlaceholder(oos);
+
+        descriptor.serializationMethods().writeObject(object, oos);
+        oos.flush();
+
+        int externalDataLength = oos.memoryBufferOffset() - offsetBefore - Integer.BYTES;
+
+        oos.writeIntAtOffset(offsetBefore, externalDataLength);
+    }
+
+    private void writeLengthPlaceholder(UosObjectOutputStream oos) throws IOException {
+        oos.writeInt(0);
     }
 
     /** {@inheritDoc} */
@@ -189,22 +210,50 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
-    void fillStructuredObjectFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    void fillStructuredObjectFrom(IgniteDataInput input, Object object, ClassDescriptor remoteDescriptor, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        List<ClassDescriptor> lineage = descriptor.lineage();
+        List<MergedLayer> lineage = remoteDescriptor.mergedLineage();
 
-        // using a for loop to avoid allocation of an iterator
-        for (ClassDescriptor layer : lineage) {
-            fillStructuredObjectLayerFrom(input, layer, object, context);
+        for (MergedLayer mergedLayer : lineage) {
+            if (mergedLayer.hasRemote()) {
+                fillStructuredObjectLayerFrom(input, mergedLayer.remote(), object, context);
+            } else if (mergedLayer.hasLocal()) {
+                fireEventsForLocalOnlyLayer(object, mergedLayer.local());
+            }
         }
     }
 
-    private void fillStructuredObjectLayerFrom(IgniteDataInput input, ClassDescriptor layer, Object object, UnmarshallingContext context)
-            throws IOException, UnmarshalException {
-        if (layer.hasReadObject()) {
-            fillObjectWithReadObjectFrom(input, object, layer, context);
+    private void fireEventsForLocalOnlyLayer(Object object, ClassDescriptor localLayer) throws SchemaMismatchException {
+        fireOnFieldMissedOnLayerFields(object, localLayer);
+        schemaMismatchHandlers.onReadObjectMissed(localLayer.className(), object);
+    }
+
+    private void fireOnFieldMissedOnLayerFields(Object object, ClassDescriptor layer) throws SchemaMismatchException {
+        for (FieldDescriptor localField : layer.fields()) {
+            schemaMismatchHandlers.onFieldMissed(layer.className(), object, localField.name());
+        }
+    }
+
+    private void fillStructuredObjectLayerFrom(
+            IgniteDataInput input,
+            ClassDescriptor remoteLayer,
+            Object object,
+            UnmarshallingContext context
+    ) throws IOException, UnmarshalException {
+        boolean hasReadObjectLocally = remoteLayer.hasLocal() && remoteLayer.local().hasReadObject();
+
+        if (remoteLayer.hasWriteObject()) {
+            if (hasReadObjectLocally) {
+                fillObjectWithReadObjectFrom(input, object, remoteLayer, context);
+            } else {
+                fireReadObjectIgnored(remoteLayer, object, input, context);
+            }
         } else {
-            defaultFillFieldsFrom(input, object, layer, context);
+            defaultFillFieldsFrom(input, object, remoteLayer, context);
+
+            if (hasReadObjectLocally) {
+                schemaMismatchHandlers.onReadObjectMissed(remoteLayer.className(), object);
+            }
         }
     }
 
@@ -221,7 +270,7 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         context.startReadingWithReadObject(object, descriptor);
 
         try {
-            descriptor.serializationMethods().readObject(object, ois);
+            readObjectWithLength(object, descriptor, ois);
         } catch (SpecialMethodInvocationException e) {
             throw new UnmarshalException("Cannot invoke readObject()", e);
         } finally {
@@ -230,17 +279,47 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
         }
     }
 
+    private void readObjectWithLength(Object object, ClassDescriptor descriptor, UosObjectInputStream ois)
+            throws IOException, SpecialMethodInvocationException {
+        skipWriteObjectDataLength(ois);
+
+        descriptor.serializationMethods().readObject(object, ois);
+    }
+
+    private void skipWriteObjectDataLength(UosObjectInputStream ois) throws IOException {
+        ois.readInt();
+    }
+
+    private void fireReadObjectIgnored(ClassDescriptor remoteLayer, Object object, IgniteDataInput input, UnmarshallingContext context)
+            throws SchemaMismatchException, IOException {
+        // We have additional allocations and copying here. It simplifies the code a lot, and it seems that we should
+        // not optimize for this rare corner case.
+
+        int writeObjectDataLength = input.readInt();
+        byte[] writeObjectDataBytes = new byte[writeObjectDataLength];
+        int actuallyRead = input.readFewBytes(writeObjectDataBytes, 0, writeObjectDataLength);
+        if (actuallyRead != writeObjectDataLength) {
+            throw new IOException("Premature end of the input stream: expected to read " + writeObjectDataLength
+                    + ", but only got " + actuallyRead);
+        }
+        IgniteDataInput externalDataInput = new IgniteUnsafeDataInput(writeObjectDataBytes);
+
+        try (var oos = new UosObjectInputStream(externalDataInput, valueReader, unsharedReader, this, context)) {
+            schemaMismatchHandlers.onReadObjectIgnored(remoteLayer.className(), object, oos);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
-    public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor descriptor, UnmarshallingContext context)
+    public void defaultFillFieldsFrom(IgniteDataInput input, Object object, ClassDescriptor remoteLayer, UnmarshallingContext context)
             throws IOException, UnmarshalException {
-        @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, descriptor);
+        @Nullable BitSet nullsBitSet = NullsBitsetReader.readNullsBitSet(input, remoteLayer);
 
-        for (MergedField mergedField : descriptor.mergedFields()) {
+        for (MergedField mergedField : remoteLayer.mergedFields()) {
             if (mergedField.hasRemote()) {
-                fillFieldWithNullSkippedCheckFrom(input, object, mergedField, descriptor, nullsBitSet, context);
+                fillFieldWithNullSkippedCheckFrom(input, object, mergedField, remoteLayer, nullsBitSet, context);
             } else {
-                schemaMismatchHandlers.onFieldMissed(descriptor.localClass(), object, mergedField.name());
+                schemaMismatchHandlers.onFieldMissed(remoteLayer.className(), object, mergedField.name());
             }
         }
     }
@@ -304,13 +383,13 @@ class StructuredObjectMarshaller implements DefaultFieldsReaderWriter {
 
     private void fireFieldIgnored(ClassDescriptor layerDescriptor, Object object, MergedField mergedField, Object fieldValue)
             throws SchemaMismatchException {
-        schemaMismatchHandlers.onFieldIgnored(layerDescriptor.localClass(), object, mergedField.name(), fieldValue);
+        schemaMismatchHandlers.onFieldIgnored(layerDescriptor.className(), object, mergedField.name(), fieldValue);
     }
 
     private void fireFieldTypeChanged(ClassDescriptor layerDescriptor, Object object, MergedField mergedField, Object fieldValue)
             throws SchemaMismatchException {
         schemaMismatchHandlers.onFieldTypeChanged(
-                layerDescriptor.localClass(),
+                layerDescriptor.className(),
                 object,
                 mergedField.name(),
                 mergedField.remote().localClass(),

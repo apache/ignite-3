@@ -24,7 +24,7 @@ import java.util.function.Function;
  * TransformingIterator.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
-public class TransformingIterator<TinT, ToutT> implements Iterator<ToutT> {
+public class TransformingIterator<TinT, ToutT> implements Iterator<ToutT>, AutoCloseable {
     private final Iterator<TinT> delegate;
 
     private final Function<TinT, ToutT> transformation;
@@ -54,5 +54,13 @@ public class TransformingIterator<TinT, ToutT> implements Iterator<ToutT> {
     @Override
     public void remove() {
         delegate.remove();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void close() throws Exception {
+        if (delegate instanceof AutoCloseable) {
+            ((AutoCloseable) delegate).close();
+        }
     }
 }

@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.runner.app.jdbc;
 
-import static org.apache.ignite.client.proto.query.SqlStateCode.CLIENT_CONNECTION_FAILED;
-import static org.apache.ignite.client.proto.query.SqlStateCode.INVALID_TRANSACTION_LEVEL;
-import static org.apache.ignite.client.proto.query.SqlStateCode.UNSUPPORTED_OPERATION;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.INVALID_TRANSACTION_LEVEL;
+import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.UNSUPPORTED_OPERATION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

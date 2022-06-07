@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.schema.registry.SchemaRegistryImpl.INITIAL_SCHEMA_VERSION;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.schema.SchemaManager.INITIAL_SCHEMA_VERSION;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,11 +35,13 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.schemas.store.UnknownDataStorageConfigurationSchema;
 import org.apache.ignite.configuration.schemas.table.HashIndexConfigurationSchema;
@@ -53,6 +57,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionCancelledException;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.engine.TableStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -60,10 +65,11 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.event.TableEvent;
 import org.apache.ignite.internal.table.event.TableEventParameters;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.IgniteInternalException;
 import org.apache.ignite.lang.IgniteLogger;
 import org.apache.ignite.lang.NodeStoppingException;
-import org.apache.ignite.network.ClusterLocalConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterService;
 import org.apache.ignite.network.MessagingService;
@@ -104,9 +110,6 @@ public class StopCalciteModuleTest {
     TopologyService topologySrvc;
 
     @Mock
-    ClusterLocalConfiguration localCfg;
-
-    @Mock
     InternalTable tbl;
 
     SchemaRegistry schemaReg;
@@ -124,7 +127,6 @@ public class StopCalciteModuleTest {
     public void before(TestInfo testInfo) {
         when(clusterSrvc.messagingService()).thenReturn(msgSrvc);
         when(clusterSrvc.topologyService()).thenReturn(topologySrvc);
-        when(clusterSrvc.localConfiguration()).thenReturn(localCfg);
 
         ClusterNode node = new ClusterNode("mock-node-id", NODE_NAME, null);
         when(topologySrvc.localMember()).thenReturn(node);
@@ -136,7 +138,7 @@ public class StopCalciteModuleTest {
                 new Column[]{new Column(1, "VAL", NativeTypes.INT32, false)}
         );
 
-        schemaReg = new SchemaRegistryImpl(1, (v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION);
+        schemaReg = new SchemaRegistryImpl((v) -> schemaDesc, () -> INITIAL_SCHEMA_VERSION, schemaDesc);
 
         when(tbl.name()).thenReturn("PUBLIC.TEST");
 
@@ -206,34 +208,41 @@ public class StopCalciteModuleTest {
 
         qryProc.start();
 
-        testRevisionRegister.moveRevision.accept(0L);
+        testRevisionRegister.moveRevision.apply(0L).join();
 
-        List<SqlCursor<List<?>>> cursors = qryProc.query(
+        var cursors = qryProc.queryAsync(
                 "PUBLIC",
                 "SELECT * FROM TEST"
         );
 
-        SqlCursor<List<?>> cur = cursors.get(0);
-        cur.next();
+        await(cursors.get(0).thenCompose(cursor -> cursor.requestNextAsync(1)));
 
         assertTrue(isThereNodeThreads(NODE_NAME));
 
         qryProc.stop();
 
+        var request = cursors.get(0)
+                .thenCompose(cursor -> cursor.requestNextAsync(1));
+
         // Check cursor closed.
-        assertTrue(assertThrows(IgniteException.class, cur::hasNext).getMessage().contains("Query was cancelled"));
-        assertTrue(assertThrows(IgniteException.class, cur::next).getMessage().contains("Query was cancelled"));
+        await(request.exceptionally(t -> {
+            assertInstanceOf(CompletionException.class, t);
+            assertInstanceOf(IgniteException.class, t.getCause());
+            assertInstanceOf(ExecutionCancelledException.class, t.getCause().getCause());
+
+            return null;
+        }));
+        assertTrue(request.isCompletedExceptionally());
 
         // Check execute query on stopped node.
-        assertTrue(assertThrows(IgniteException.class, () -> qryProc.query(
+        assertTrue(assertThrows(IgniteInternalException.class, () -> qryProc.queryAsync(
                 "PUBLIC",
                 "SELECT 1"
         )).getCause() instanceof NodeStoppingException);
 
         System.gc();
 
-        // Check: there are no alive Ignite threads.
-        assertFalse(isThereNodeThreads(NODE_NAME));
+        assertTrue(IgniteTestUtils.waitForCondition(() -> !isThereNodeThreads(NODE_NAME), 1000));
     }
 
     /**
@@ -252,18 +261,22 @@ public class StopCalciteModuleTest {
     /**
      * Test revision register.
      */
-    private static class TestRevisionRegister implements Consumer<Consumer<Long>> {
-
+    private static class TestRevisionRegister implements Consumer<Function<Long, CompletableFuture<?>>> {
         /** Revision consumer. */
-        Consumer<Long> moveRevision;
+        Function<Long, CompletableFuture<?>> moveRevision;
 
         /** {@inheritDoc} */
         @Override
-        public void accept(Consumer<Long> consumer) {
+        public void accept(Function<Long, CompletableFuture<?>> function) {
             if (moveRevision == null) {
-                moveRevision = consumer;
+                moveRevision = function;
             } else {
-                moveRevision = moveRevision.andThen(consumer);
+                Function<Long, CompletableFuture<?>> old = moveRevision;
+
+                moveRevision = rev -> allOf(
+                    old.apply(rev),
+                    function.apply(rev)
+                );
             }
         }
     }

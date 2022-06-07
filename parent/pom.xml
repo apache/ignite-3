@@ -50,22 +50,34 @@
 
         <!-- Dependencies versions -->
         <apache.ivy.version>2.5.0</apache.ivy.version>
+        <assertj-core.version>3.22.0</assertj-core.version>
         <asm.framework.version>9.0</asm.framework.version>
         <compile.testing.library.version>0.19</compile.testing.library.version>
+        <fliptables.version>1.1.0</fliptables.version>
         <jackson.version>2.13.1</jackson.version>
+        <jakarta.annotations.version>2.0.0</jakarta.annotations.version>
         <jansi.version>1.18</jansi.version>
         <netty.version>4.1.70.Final</netty.version>
         <javapoet.version>1.13.0</javapoet.version>
         <javax.annotation.api.version>1.3.2</javax.annotation.api.version>
         <jetbrains.annotations.version>20.1.0</jetbrains.annotations.version>
+        <jline.version>3.21.0</jline.version>
         <jmh.framework.version>1.35</jmh.framework.version>
         <junit.version>5.8.1</junit.version>
-        <micronaut.version>2.1.2</micronaut.version>
-        <micronaut.test.junit5.version>2.3.1</micronaut.test.junit5.version>
+        <google.findbug.jsr305.version>3.0.2</google.findbug.jsr305.version>
+        <okhttp.version>4.9.1</okhttp.version>
+        <gson.version>2.8.9</gson.version>
+        <gson-fire.version>1.8.5</gson-fire.version>
+        <threetenbp.version>1.5.2</threetenbp.version>
+        <micronaut.version>3.4.1</micronaut.version>
+        <micronaunt-picocli.version>4.1.0</micronaunt-picocli.version>
+        <micronaut.test.junit5.version>3.3.0</micronaut.test.junit5.version>
         <mockito.version>4.3.1</mockito.version>
-        <picocli.version>4.5.2</picocli.version>
+        <picocli.version>4.6.2</picocli.version>
         <slf4j.version>1.7.32</slf4j.version>
         <spoon.framework.version>8.4.0-beta-18</spoon.framework.version>
+        <swagger.annotations.legacy.version>1.6.4</swagger.annotations.legacy.version>
+        <swagger.annotations.version>2.1.12</swagger.annotations.version>
         <typesafe.version>1.4.1</typesafe.version>
         <hamcrest.version>2.2</hamcrest.version>
         <hamcrest.optional.version>2.0.0</hamcrest.optional.version>
@@ -105,6 +117,7 @@
         <maven.failsafe.plugin.version>3.0.0-M5</maven.failsafe.plugin.version>
         <maven.flatten.plugin.version>1.2.2</maven.flatten.plugin.version>
         <maven.javacc.plugin.version>2.6</maven.javacc.plugin.version>
+        <maven.micronaut.build.plugin.version>3.1.0</maven.micronaut.build.plugin.version>
         <maven.fmpp.plugin.version>1.0</maven.fmpp.plugin.version>
         <maven.javadoc.plugin.version>3.2.0</maven.javadoc.plugin.version>
         <maven.modernizer.plugin.version>2.3.0</maven.modernizer.plugin.version>
@@ -113,7 +126,8 @@
         <maven.shade.plugin.version>3.2.4</maven.shade.plugin.version>
         <maven.source.plugin.version>3.2.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.0.0-M5</maven.surefire.plugin.version>
-
+        <maven.openapi.plugin.version>5.4.0</maven.openapi.plugin.version>
+        <maven.micronaut.openapi.plugin.version>3.2.0</maven.micronaut.openapi.plugin.version>
         <!-- We leave it empty so that, when jacoco does not run, the unreplaced @{argLine} does not impede the build. -->
         <additional.test.argLine/>
         <common.test.argLine>
@@ -123,6 +137,7 @@
             --add-opens java.base/java.lang.reflect=ALL-UNNAMED
             --add-opens java.base/java.io=ALL-UNNAMED
             --add-opens java.base/java.nio=ALL-UNNAMED
+            --add-opens java.base/java.math=ALL-UNNAMED
             --add-opens java.base/java.util=ALL-UNNAMED
             --add-opens java.base/jdk.internal.misc=ALL-UNNAMED
             -Dio.netty.tryReflectionSetAccessible=true
@@ -145,6 +160,67 @@
 
     <dependencyManagement>
         <dependencies>
+
+            <dependency>
+                <groupId>io.micronaut.test</groupId>
+                <artifactId>micronaut-test-core</artifactId>
+                <version>${micronaut.test.junit5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-validation</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj-core.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>${gson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>jsr305</artifactId>
+                <version>${google.findbug.jsr305.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>logging-interceptor</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.threeten</groupId>
+                <artifactId>threetenbp</artifactId>
+                <version>${threetenbp.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.gsonfire</groupId>
+                <artifactId>gson-fire</artifactId>
+                <version>${gson-fire.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.jakewharton.fliptables</groupId>
+                <artifactId>fliptables</artifactId>
+                <version>${fliptables.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.ignite</groupId>
                 <artifactId>ignite-affinity</artifactId>
@@ -367,6 +443,24 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-extended-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-file-io</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ignite</groupId>
+                <artifactId>ignite-storage-page-memory</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
             <!-- 3rd party dependencies -->
             <dependency>
                 <groupId>org.jetbrains</groupId>
@@ -456,9 +550,71 @@
 
             <dependency>
                 <groupId>io.micronaut</groupId>
-                <artifactId>micronaut-inject-java</artifactId>
+                <artifactId>micronaut-runtime</artifactId>
                 <version>${micronaut.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>io.micronaut.picocli</groupId>
+                <artifactId>micronaut-picocli</artifactId>
+                <version>${micronaunt-picocli.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-inject</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http-server</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http-server-netty</artifactId>
+                <version>${micronaut.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut.openapi</groupId>
+                <artifactId>micronaut-openapi</artifactId>
+                <version>${maven.micronaut.openapi.plugin.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <scope>compile</scope>
+                <version>${jakarta.annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.inject</groupId>
+                <artifactId>jakarta.inject-api</artifactId>
+                <version>${jakarta.annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger.annotations.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger.annotations.legacy.version}</version>
+            </dependency>
+
 
             <dependency>
                 <groupId>com.typesafe</groupId>
@@ -476,6 +632,18 @@
                 <groupId>info.picocli</groupId>
                 <artifactId>picocli</artifactId>
                 <version>${picocli.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jline</groupId>
+                <artifactId>jline</artifactId>
+                <version>${jline.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jline</groupId>
+                <artifactId>jline-console</artifactId>
+                <version>${jline.version}</version>
             </dependency>
 
             <dependency>
@@ -592,6 +760,13 @@
                 <groupId>io.micronaut.test</groupId>
                 <artifactId>micronaut-test-junit5</artifactId>
                 <version>${micronaut.test.junit5.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.micronaut</groupId>
+                <artifactId>micronaut-http-client</artifactId>
+                <version>${micronaut.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -941,6 +1116,7 @@
                             <ignorePackages>
                                 <package>org.apache.ignite.internal.sql.engine</package>
                                 <package>org.apache.ignite.internal.generated</package>
+                                <package>org.apache.ignite.rest.client</package>
                             </ignorePackages>
                         </configuration>
                         <executions>
@@ -1032,6 +1208,12 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven.failsafe.plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.micronaut.build</groupId>
+                    <artifactId>micronaut-maven-plugin</artifactId>
+                    <version>${maven.micronaut.build.plugin.version}</version>
                 </plugin>
 
                 <plugin>
@@ -1134,6 +1316,12 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.maven.plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.openapitools</groupId>
+                    <artifactId>openapi-generator-maven-plugin</artifactId>
+                    <version>${maven.openapi.plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -1319,6 +1507,8 @@
                         <exclude>docs/_plugins/asciidoctor-extensions.rb</exclude> <!-- MIT license -->
                         <exclude>docs/_sass/rouge-base16-solarized.scss</exclude> <!-- MIT license. -->
                         <exclude>**/*.json</exclude> <!-- Files in JSON format -->
+                        <exclude>modules/rest/openapi/openapi.yaml</exclude> <!-- Autogenerated Open API spec -->
+                        <exclude>**/*.drawio</exclude> <!-- Draw.IO diagrams -->
                         <exclude>modules/cli/src/**/resources//builtin_modules.conf</exclude> <!-- CLI configuration files -->
                         <exclude>**/*.iml</exclude> <!-- IntelliJ IDEA project files -->
                         <exclude>modules/bytecode/src/main/java/com/facebook/presto/bytecode/ClassInfo.java</exclude> <!-- MIT license. -->
@@ -1333,6 +1523,7 @@
                         <!-- DEB package assembly files -->
                         <exclude>deliveries/deb/rules</exclude>
                         <exclude>deliveries/deb/control</exclude>
+                        <exclude>**/*.bat</exclude> <!-- Files in bat format -->
                     </excludes>
                 </configuration>
             </plugin>
@@ -1352,6 +1543,7 @@
                     <excludes>
                         <exclude>**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImplTokenManager.java</exclude>
                         <exclude>**/org/apache/ignite/internal/generated/query/calcite/sql/IgniteSqlParserImpl.java</exclude>
+                        <exclude>**/org/apache/ignite/rest/client/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>

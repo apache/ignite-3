@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.util.Util.last;
-import static org.apache.ignite.internal.sql.engine.util.Commons.nativeTypeToClass;
 import static org.apache.ignite.internal.sql.engine.util.Commons.transform;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -52,13 +51,12 @@ import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.schema.NativeType;
-import org.apache.ignite.internal.schema.NativeTypes;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.sql.SqlColumnType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -238,7 +236,7 @@ public class TypeUtils {
 
         assert fldDesc != null;
 
-        return nativeTypeToClass(fldDesc.physicalType());
+        return Commons.nativeTypeToClass(fldDesc.physicalType());
     }
 
     /**
@@ -247,6 +245,8 @@ public class TypeUtils {
      */
     public static <RowT> Function<RowT, RowT> resultTypeConverter(ExecutionContext<RowT> ectx, RelDataType resultType) {
         assert resultType.isStruct();
+
+        resultType = TypeUtils.getResultType(Commons.typeFactory(), ectx.unwrap(BaseQueryContext.class).catalogReader(), resultType, null);
 
         if (hasConvertableFields(resultType)) {
             RowHandler<RowT> handler = ectx.rowHandler();
@@ -361,42 +361,56 @@ public class TypeUtils {
     /**
      * Convert calcite date type to Ignite native type.
      */
-    public static NativeType nativeType(RelDataType type) {
+    public static SqlColumnType columnType(RelDataType type) {
         switch (type.getSqlTypeName()) {
             case VARCHAR:
             case CHAR:
-                return type.getPrecision() > 0 ? NativeTypes.stringOf(type.getPrecision()) : NativeTypes.STRING;
+                return SqlColumnType.STRING;
             case DATE:
-                return NativeTypes.DATE;
+                return SqlColumnType.DATE;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
-                return type.getPrecision() > 0 ? NativeTypes.time(type.getPrecision()) : NativeTypes.time();
+                return SqlColumnType.TIME;
             case INTEGER:
-                return NativeTypes.INT32;
+                return SqlColumnType.INT32;
             case TIMESTAMP:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return type.getPrecision() > 0 ? NativeTypes.timestamp(type.getPrecision()) : NativeTypes.timestamp();
+                return SqlColumnType.TIMESTAMP;
             case BIGINT:
-                return NativeTypes.INT64;
+                return SqlColumnType.INT64;
             case SMALLINT:
-                return NativeTypes.INT16;
+                return SqlColumnType.INT16;
             case TINYINT:
-                return NativeTypes.INT8;
-            case DECIMAL:
-                return NativeTypes.decimalOf(type.getPrecision(), type.getScale());
+                return SqlColumnType.INT8;
             case BOOLEAN:
-                return NativeTypes.INT8;
+                return SqlColumnType.BOOLEAN;
+            case DECIMAL:
+                return SqlColumnType.DECIMAL;
             case DOUBLE:
-                return NativeTypes.DOUBLE;
+                return SqlColumnType.DOUBLE;
             case REAL:
             case FLOAT:
-                return NativeTypes.FLOAT;
+                return SqlColumnType.FLOAT;
             case BINARY:
             case VARBINARY:
-                return NativeTypes.blobOf(type.getPrecision());
             case ANY:
             case OTHER:
-                return NativeTypes.blobOf(type.getPrecision());
+                return SqlColumnType.BYTE_ARRAY;
+            case INTERVAL_YEAR:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_MONTH:
+                return SqlColumnType.PERIOD;
+            case INTERVAL_DAY_HOUR:
+            case INTERVAL_DAY_MINUTE:
+            case INTERVAL_DAY_SECOND:
+            case INTERVAL_HOUR:
+            case INTERVAL_HOUR_MINUTE:
+            case INTERVAL_HOUR_SECOND:
+            case INTERVAL_MINUTE:
+            case INTERVAL_MINUTE_SECOND:
+            case INTERVAL_SECOND:
+            case INTERVAL_DAY:
+                return SqlColumnType.DURATION;
             default:
                 assert false : "Unexpected type of result: " + type.getSqlTypeName();
                 return null;

@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Internal.Compute
 {
+    using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
@@ -24,7 +26,10 @@ namespace Apache.Ignite.Internal.Compute
     using Common;
     using Ignite.Compute;
     using Ignite.Network;
+    using Ignite.Table;
     using Proto;
+    using Table;
+    using Table.Serialization;
 
     /// <summary>
     /// Compute API.
@@ -34,13 +39,21 @@ namespace Apache.Ignite.Internal.Compute
         /** Socket. */
         private readonly ClientFailoverSocket _socket;
 
+        /** Tables. */
+        private readonly Tables _tables;
+
+        /** Cached tables. */
+        private readonly ConcurrentDictionary<string, Table> _tableCache = new();
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Compute"/> class.
         /// </summary>
         /// <param name="socket">Socket.</param>
-        public Compute(ClientFailoverSocket socket)
+        /// <param name="tables">Tables.</param>
+        public Compute(ClientFailoverSocket socket, Tables tables)
         {
             _socket = socket;
+            _tables = tables;
         }
 
         /// <inheritdoc/>
@@ -49,9 +62,29 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(nodes, nameof(nodes));
             IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
 
-            // TODO: Cluster awareness (IGNITE-16823): match specified nodes to known connections.
             return await ExecuteOnOneNode<T>(GetRandomNode(nodes), jobClassName, args).ConfigureAwait(false);
         }
+
+        /// <inheritdoc/>
+        public async Task<T> ExecuteColocatedAsync<T>(string tableName, IIgniteTuple key, string jobClassName, params object[] args) =>
+            await ExecuteColocatedAsync<T, IIgniteTuple>(
+                    tableName,
+                    key,
+                    serializerHandlerFunc: _ => TupleSerializerHandler.Instance,
+                    jobClassName,
+                    args)
+                .ConfigureAwait(false);
+
+        /// <inheritdoc/>
+        public async Task<T> ExecuteColocatedAsync<T, TKey>(string tableName, TKey key, string jobClassName, params object[] args)
+            where TKey : class =>
+            await ExecuteColocatedAsync<T, TKey>(
+                    tableName,
+                    key,
+                    serializerHandlerFunc: table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
+                    jobClassName,
+                    args)
+                .ConfigureAwait(false);
 
         /// <inheritdoc/>
         public IDictionary<IClusterNode, Task<T>> BroadcastAsync<T>(IEnumerable<IClusterNode> nodes, string jobClassName, params object[] args)
@@ -83,7 +116,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         private static ICollection<IClusterNode> GetNodesCollection(IEnumerable<IClusterNode> nodes) =>
-            nodes is ICollection<IClusterNode> col ? col : nodes.ToList();
+            nodes as ICollection<IClusterNode> ?? nodes.ToList();
 
         private async Task<T> ExecuteOnOneNode<T>(IClusterNode node, string jobClassName, object[] args)
         {
@@ -130,6 +163,87 @@ namespace Apache.Ignite.Internal.Compute
                 w.WriteObjectArrayWithTypes(args);
 
                 w.Flush();
+            }
+
+            static T Read(in PooledBuffer buf)
+            {
+                var reader = buf.GetReader();
+
+                return (T)reader.ReadObjectWithType()!;
+            }
+        }
+
+        private async Task<Table> GetTableAsync(string tableName)
+        {
+            if (_tableCache.TryGetValue(tableName, out var cachedTable))
+            {
+                return cachedTable;
+            }
+
+            var table = await _tables.GetTableInternalAsync(tableName).ConfigureAwait(false);
+
+            if (table != null)
+            {
+                _tableCache[tableName] = table;
+                return table;
+            }
+
+            _tableCache.TryRemove(tableName, out _);
+
+            throw new IgniteClientException($"Table '{tableName}' does not exist.");
+        }
+
+        private async Task<T> ExecuteColocatedAsync<T, TKey>(
+            string tableName,
+            TKey key,
+            Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
+            string jobClassName,
+            params object[] args)
+            where TKey : class
+        {
+            // TODO: IGNITE-16990 - implement partition awareness.
+            IgniteArgumentCheck.NotNull(tableName, nameof(tableName));
+            IgniteArgumentCheck.NotNull(key, nameof(key));
+            IgniteArgumentCheck.NotNull(jobClassName, nameof(jobClassName));
+
+            while (true)
+            {
+                var table = await GetTableAsync(tableName).ConfigureAwait(false);
+                var schema = await table.GetLatestSchemaAsync().ConfigureAwait(false);
+
+                using var bufferWriter = Write(table, schema);
+
+                try
+                {
+                    using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, bufferWriter).ConfigureAwait(false);
+
+                    return Read(res);
+                }
+                catch (IgniteClientException e) when (e.ErrorCode == ClientErrorCode.TableIdDoesNotExist)
+                {
+                    // Table was dropped - remove from cache.
+                    // Try again in case a new table with the same name exists.
+                    _tableCache.TryRemove(tableName, out _);
+                }
+            }
+
+            PooledArrayBufferWriter Write(Table table, Schema schema)
+            {
+                var bufferWriter = new PooledArrayBufferWriter();
+                var w = bufferWriter.GetMessageWriter();
+
+                w.Write(table.Id);
+                w.Write(schema.Version);
+
+                var serializerHandler = serializerHandlerFunc(table);
+                serializerHandler.Write(ref w, schema, key, true);
+
+                w.Write(jobClassName);
+                w.WriteObjectArrayWithTypes(args);
+
+                w.Flush();
+
+                return bufferWriter;
             }
 
             static T Read(in PooledBuffer buf)

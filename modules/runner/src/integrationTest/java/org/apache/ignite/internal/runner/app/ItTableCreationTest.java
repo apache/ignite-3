@@ -190,7 +190,7 @@ class ItTableCreationTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());

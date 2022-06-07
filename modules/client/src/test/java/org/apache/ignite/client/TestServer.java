@@ -119,6 +119,8 @@ public class TestServer implements AutoCloseable {
 
         IgniteCompute compute = mock(IgniteCompute.class);
         Mockito.when(compute.execute(any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
+        Mockito.when(
+                compute.executeColocated(anyString(), any(), anyString(), any())).thenReturn(CompletableFuture.completedFuture(nodeName));
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(ignite, cfg, bootstrapFactory, shouldDropConnection, clusterService, compute)
@@ -129,7 +131,8 @@ public class TestServer implements AutoCloseable {
                         cfg,
                         compute,
                         clusterService,
-                        bootstrapFactory
+                        bootstrapFactory,
+                        ignite.sql()
                 );
 
         module.start();

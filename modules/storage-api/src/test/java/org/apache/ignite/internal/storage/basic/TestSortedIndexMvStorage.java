@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.function.IntPredicate;
 import java.util.function.ToIntFunction;
@@ -37,18 +38,22 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
 import org.apache.ignite.internal.schema.configuration.SchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.basic.TestMvPartitionStorage.TestRowId;
 import org.apache.ignite.internal.storage.index.IndexRowPrefix;
 import org.apache.ignite.internal.storage.index.PrefixComparator;
 import org.apache.ignite.internal.storage.index.SortedIndexMvStorage;
 import org.apache.ignite.internal.tx.Timestamp;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Test implementation of MV sorted index storage.
  */
 public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
-    private final NavigableSet<BinaryRow> index;
+    private final NavigableSet<Pair<BinaryRow, TestRowId>> index;
 
     private final SchemaDescriptor descriptor;
 
@@ -77,7 +82,12 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
 
         partitions = tableCfg.partitions();
 
-        index = new ConcurrentSkipListSet<>(((Comparator<BinaryRow>) this::compareColumns).thenComparing(BinaryRow::keySlice));
+        index = new ConcurrentSkipListSet<>(
+                ((Comparator<Pair<BinaryRow, TestRowId>>) (p1, p2) -> {
+                    return compareColumns(p1.getFirst(), p2.getFirst());
+                })
+                .thenComparing(pair -> pair.getSecond().uuid)
+        );
 
         // Init columns.
         NamedListView<? extends ColumnView> tblColumns = tableCfg.columns();
@@ -138,12 +148,12 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         return 0;
     }
 
-    public void append(BinaryRow row) {
-        index.add(row);
+    public void append(BinaryRow row, RowId rowId) {
+        index.add(new Pair<>(row, (TestRowId) rowId));
     }
 
-    public void remove(BinaryRow row) {
-        index.remove(row);
+    public void remove(BinaryRow row, RowId rowId) {
+        index.remove(new Pair<>(row, (TestRowId) rowId));
     }
 
     public boolean matches(BinaryRow aborted, BinaryRow existing) {
@@ -156,13 +166,38 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
             @Nullable IndexRowPrefix lowerBound,
             @Nullable IndexRowPrefix upperBound,
             int flags,
+            UUID txId,
+            @Nullable IntPredicate partitionFilter
+    ) {
+        return scan(lowerBound, upperBound, flags, null, txId, partitionFilter);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Cursor<IndexRowEx> scan(
+            @Nullable IndexRowPrefix lowerBound,
+            @Nullable IndexRowPrefix upperBound,
+            int flags,
             Timestamp timestamp,
             @Nullable IntPredicate partitionFilter
     ) {
+        return scan(lowerBound, upperBound, flags, timestamp, null, partitionFilter);
+    }
+
+    private Cursor<IndexRowEx> scan(
+            @Nullable IndexRowPrefix lowerBound,
+            @Nullable IndexRowPrefix upperBound,
+            int flags,
+            Timestamp timestamp,
+            UUID txId,
+            @Nullable IntPredicate partitionFilter
+    ) {
+        assert timestamp != null ^ txId != null;
+
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-        NavigableSet<BinaryRow> index = this.index;
+        NavigableSet<Pair<BinaryRow, TestRowId>> index = this.index;
         int direction = 1;
 
         // Swap bounds and flip index for backwards scan.
@@ -183,14 +218,10 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
         ToIntFunction<BinaryRow> upperCmp = upperBound == null ? row -> -1 : boundComparator(upperBound, direction, includeUpper ? 0 : 1);
 
         Iterator<IndexRowEx> iterator = index.stream()
-                .dropWhile(binaryRow -> lowerCmp.applyAsInt(binaryRow) < 0)
-                .takeWhile(binaryRow -> upperCmp.applyAsInt(binaryRow) <= 0)
-                .map(binaryRow -> {
-                    int partition = binaryRow.hash() % partitions;
-
-                    if (partition < 0) {
-                        partition = -partition;
-                    }
+                .dropWhile(p -> lowerCmp.applyAsInt(p.getFirst()) < 0)
+                .takeWhile(p -> upperCmp.applyAsInt(p.getFirst()) <= 0)
+                .map(p -> {
+                    int partition = p.getSecond().partitionId();
 
                     if (partitionFilter != null && !partitionFilter.test(partition)) {
                         return null;
@@ -202,9 +233,17 @@ public class TestSortedIndexMvStorage implements SortedIndexMvStorage {
                         return null;
                     }
 
-                    BinaryRow pk = partitionStorage.read(binaryRow, timestamp);
+                    try {
+                        BinaryRow pk = timestamp != null
+                                ? partitionStorage.read(p.getSecond(), timestamp)
+                                : partitionStorage.read(p.getSecond(), txId);
 
-                    return matches(binaryRow, pk) ? pk : null;
+                        return matches(p.getFirst(), pk) ? pk : null;
+                    } catch (TxIdMismatchException e) {
+                        // False-positive, old comitted value found that's already been updated in another transaction.
+                        // See "org.apache.ignite.internal.storage.AbstractSortedIndexMvStorageTest.textScanFiltersMismatchedRows"
+                        return null;
+                    }
                 })
                 .filter(Objects::nonNull)
                 .map(binaryRow -> {

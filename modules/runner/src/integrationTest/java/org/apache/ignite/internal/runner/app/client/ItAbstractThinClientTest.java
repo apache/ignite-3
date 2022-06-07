@@ -99,7 +99,7 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
         String metaStorageNode = nodesBootstrapCfg.keySet().iterator().next();
 
-        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode));
+        IgnitionManager.init(metaStorageNode, List.of(metaStorageNode), "cluster");
 
         for (CompletableFuture<Ignite> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -155,5 +155,22 @@ public abstract class ItAbstractThinClientTest extends IgniteAbstractTest {
 
     protected IgniteClient client() {
         return client;
+    }
+
+    /**
+     * Test class.
+     */
+    protected static class TestPojo {
+        public TestPojo() {
+            //No-op.
+        }
+
+        public TestPojo(int key) {
+            this.key = key;
+        }
+
+        public int key;
+
+        public String val;
     }
 }

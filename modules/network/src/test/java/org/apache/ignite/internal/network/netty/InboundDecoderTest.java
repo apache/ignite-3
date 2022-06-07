@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -123,6 +124,8 @@ public class InboundDecoderTest {
             channel.writeInbound(buffer);
         } while ((received = channel.readInbound()) == null);
 
+        assertFalse(channel.finish());
+
         return received;
     }
 
@@ -150,6 +153,8 @@ public class InboundDecoderTest {
                     channel.readInbound();
                 })
                 .get(3, TimeUnit.SECONDS);
+
+        assertFalse(channel.finish());
     }
 
     /**
@@ -218,11 +223,15 @@ public class InboundDecoderTest {
 
         decoder.decode(ctx, buffer, list);
 
+        buffer.release();
+
         assertEquals(1, list.size());
 
         TestMessage actualMessage = (TestMessage) list.get(0);
 
         assertEquals(msg, actualMessage);
+
+        assertFalse(channel.finish());
     }
 
     /**

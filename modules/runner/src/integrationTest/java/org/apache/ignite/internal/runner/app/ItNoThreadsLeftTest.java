@@ -85,7 +85,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
             stopNode(testInfo);
         }
 
-        boolean threadsKilled = waitForCondition(() -> threadsBefore.size() == getCurrentThreads().size(), 3_000);
+        boolean threadsKilled = waitForCondition(() -> getCurrentThreads().size() <= threadsBefore.size(), 3_000);
 
         if (!threadsKilled) {
             String leakedThreadNames = getCurrentThreads().stream()
@@ -102,7 +102,7 @@ public class ItNoThreadsLeftTest extends IgniteAbstractTest {
 
         CompletableFuture<Ignite> future = IgnitionManager.start(nodeName, NODE_CONFIGURATION, workDir.resolve(nodeName));
 
-        IgnitionManager.init(nodeName, List.of(nodeName));
+        IgnitionManager.init(nodeName, List.of(nodeName), "cluster");
 
         assertThat(future, willCompleteSuccessfully());
 

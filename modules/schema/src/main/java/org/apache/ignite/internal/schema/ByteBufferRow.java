@@ -28,6 +28,8 @@ import java.nio.channels.WritableByteChannel;
  * Heap byte buffer-based row.
  */
 public class ByteBufferRow implements BinaryRow {
+    public static ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
+
     /** Row buffer. */
     private final ByteBuffer buf;
 
@@ -37,7 +39,7 @@ public class ByteBufferRow implements BinaryRow {
      * @param data Array representation of the row.
      */
     public ByteBufferRow(byte[] data) {
-        this(ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN));
+        this(ByteBuffer.wrap(data).order(ORDER));
     }
 
     /**
@@ -46,7 +48,7 @@ public class ByteBufferRow implements BinaryRow {
      * @param buf Buffer representing the row.
      */
     public ByteBufferRow(ByteBuffer buf) {
-        assert buf.order() == ByteOrder.LITTLE_ENDIAN;
+        assert buf.order() == ORDER;
         assert buf.position() == 0;
 
         this.buf = buf;
@@ -90,7 +92,7 @@ public class ByteBufferRow implements BinaryRow {
         int limit = buf.limit();
 
         try {
-            return buf.limit(off + len).position(off).slice().order(ByteOrder.LITTLE_ENDIAN);
+            return buf.limit(off + len).position(off).slice().order(ORDER);
         } finally {
             buf.position(0); // Reset bounds.
             buf.limit(limit);
@@ -105,7 +107,7 @@ public class ByteBufferRow implements BinaryRow {
         int limit = buf.limit();
 
         try {
-            return buf.limit(off + len).position(off).slice().order(ByteOrder.LITTLE_ENDIAN);
+            return buf.limit(off + len).position(off).slice().order(ORDER);
         } finally {
             buf.position(0); // Reset bounds.
             buf.limit(limit);

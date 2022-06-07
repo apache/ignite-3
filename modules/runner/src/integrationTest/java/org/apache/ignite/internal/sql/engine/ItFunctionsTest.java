@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.function.LongFunction;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.schema.configuration.SchemaConfigurationConverter;
@@ -77,7 +76,7 @@ public class ItFunctionsTest extends AbstractBasicIntegrationTest {
         while (true) {
             long tsBeg = System.currentTimeMillis();
 
-            List<List<?>> res = sql(sql);
+            var res = sql(sql);
 
             long tsEnd = System.currentTimeMillis();
 

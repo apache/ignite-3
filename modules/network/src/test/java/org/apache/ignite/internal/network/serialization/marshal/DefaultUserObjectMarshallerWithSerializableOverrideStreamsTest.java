@@ -408,9 +408,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     @Test
-    void getFieldAlwaysReturnsFalseForDefaulted() {
-        // TODO: IGNITE-16571 - test that defaulted() works as intended when it's ready
-
+    void getFieldDefaultedReturnsFalseIfFieldExistsBeforeAndAfterSerialization() {
         fieldFiller = (getField, target) -> {
             assertFalse(getField.defaulted("byteVal"));
         };
@@ -611,11 +609,18 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
         byte[] overrideBytes = readOverrideBytes(marshalled);
         var dis = new IgniteUnsafeDataInput(overrideBytes);
 
+        // write object data length
+        assertThat(dis.readInt(), is(4));
+
         assertThat(dis.readInt(), is(42));
-        assertThatDrained(dis);
+        assertThatDrained((InputStream) dis);
     }
 
-    private void assertThatDrained(InputStream dis) throws IOException {
+    private static void assertThatDrained(InputStream dis) throws IOException {
+        assertThat("Stream is not drained", dis.read(), is(lessThan(0)));
+    }
+
+    private static void assertThatDrained(IgniteDataInput dis) throws IOException {
         assertThat("Stream is not drained", dis.read(), is(lessThan(0)));
     }
 
@@ -690,9 +695,20 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
             this.expectedValue = expectedValue;
         }
 
+        @SuppressWarnings("resource")
         private T parseOverrideValue(byte[] overrideBytes) throws IOException {
-            IgniteDataInput dis = new IgniteUnsafeDataInput(overrideBytes);
-            return dataReader.readFrom(dis);
+            IgniteDataInput overrideInput = new IgniteUnsafeDataInput(overrideBytes);
+
+            int overridePayloadLength = overrideInput.readInt();
+            byte[] overridePayload = overrideInput.readAllBytes();
+            assertThat(overridePayload.length, is(overridePayloadLength));
+
+            IgniteDataInput overridePayloadInput = new IgniteUnsafeDataInput(overridePayload);
+            T result = dataReader.readFrom(overridePayloadInput);
+
+            assertThatDrained(overridePayloadInput);
+
+            return result;
         }
 
         private void assertUnmarshalledValue(T value) {
@@ -747,7 +763,7 @@ class DefaultUserObjectMarshallerWithSerializableOverrideStreamsTest {
     }
 
     private interface FieldFiller {
-        void fillWith(ObjectInputStream.GetField getField, WithReadFields target) throws IOException;
+        void fillWith(ObjectInputStream.GetField getField, WithReadFields target) throws IOException, ClassNotFoundException;
     }
 
     private static class WithReadFields implements Serializable {

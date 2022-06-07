@@ -69,7 +69,6 @@ import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.RuleSets;
-import org.apache.calcite.tools.ValidationException;
 import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.IgniteMetadata;
 import org.apache.ignite.internal.sql.engine.metadata.RelMetadataQueryEx;
@@ -168,12 +167,8 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
 
     /** {@inheritDoc} */
     @Override
-    public SqlNode validate(SqlNode sqlNode) throws ValidationException {
-        try {
-            return validator().validate(sqlNode);
-        } catch (RuntimeException e) {
-            throw new ValidationException(e);
-        }
+    public SqlNode validate(SqlNode sqlNode) {
+        return validator().validate(sqlNode);
     }
 
     /** {@inheritDoc} */

@@ -65,6 +65,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.raft.server.RaftGroupEventsListener;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -3143,14 +3144,10 @@ public class ItNodeTest {
 
     @Test
     public void testChangePeersOnLeaderElected() throws Exception {
-        List<PeerId> peers = Arrays.asList(
-                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT),
-                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 1),
-                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 2),
-                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 3),
-                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 4),
-                new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + 5)
-        );
+        List<PeerId> peers = IntStream.range(0, 6)
+                .mapToObj(i -> new PeerId(TestUtils.getLocalAddress(), TestUtils.INIT_PORT + i))
+                .collect(toList());
+
         cluster = new TestCluster("testChangePeers", dataPath, peers, testInfo);
 
         var raftGrpEvtsLsnr = mock(RaftGroupEventsListener.class);

@@ -19,18 +19,16 @@ package org.apache.ignite.internal.storage.basic;
 
 import java.util.List;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageTest;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 
 /**
  * MV partition storage test implementation for {@link TestMvPartitionStorage} class.
  */
-public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest {
-    /** Test partition storage instance. */
-    private final TestMvPartitionStorage storage = new TestMvPartitionStorage(List.of());
-
-    /** {@inheritDoc} */
-    @Override
-    protected MvPartitionStorage partitionStorage() {
-        return storage;
+public class TestMvPartitionStorageTest extends AbstractMvPartitionStorageTest<TestMvPartitionStorage> {
+    /**
+     * Creates new instance.
+     */
+    public TestMvPartitionStorageTest() {
+        storage = new TestMvPartitionStorage(List.of(), 0);
     }
+
 }

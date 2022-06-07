@@ -26,53 +26,96 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Multi-versioned partition storage.
- * POC version, that represents a combination between a replicated TX-aware MV storage and physical MV storage. Their API are very similar,
- * although there are very important differences that will be addressed in the future.
+ *
+ * <p>Each MvPartitionStorage instance represents exactly one partition.
  */
-public interface MvPartitionStorage {
+public interface MvPartitionStorage extends AutoCloseable {
     /**
-     * Reads the value from the storage as it was at the given timestamp. {@code null} timestamp means reading the latest value.
+     * Reads either the committed value from the storage or the uncommitted value belonging to given transaction.
      *
-     * @param key Key.
+     * @param rowId Row id.
+     * @param txId Transaction id.
+     * @return Binary row that corresponds to the key or {@code null} if value is not found.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    @Nullable
+    BinaryRow read(RowId rowId, UUID txId) throws TxIdMismatchException, StorageException;
+
+    /**
+     * Reads the value from the storage as it was at the given timestamp.
+     *
+     * @param rowId Row id.
      * @param timestamp Timestamp.
      * @return Binary row that corresponds to the key or {@code null} if value is not found.
      */
     @Nullable
-    BinaryRow read(BinaryRow key, @Nullable Timestamp timestamp);
+    BinaryRow read(RowId rowId, Timestamp timestamp) throws StorageException;
 
     /**
-     * Creates an uncommitted version, assigned to the given transaction id.
+     * Creates an uncommitted version, assigning a new row id to it.
      *
+     * @param binaryRow Binary row to insert. Not null.
+     * @param txId Transaction id.
+     * @return Row id.
+     * @throws StorageException If failed to write data into the storage.
+     */
+    RowId insert(BinaryRow binaryRow, UUID txId) throws StorageException;
+
+    /**
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
+     * In details:
+     * - if there is no uncommitted version, a new uncommitted version is added
+     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
+     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
+     *
+     * @param rowId Row id.
      * @param row Binary row to update. Key only row means value removal.
      * @param txId Transaction id.
+     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
+     *     exists before this call
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWrite(BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
+    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * @param key Key.
+     * @param rowId Row id.
+     * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    void abortWrite(BinaryRow key) throws StorageException;
+    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * @param key Key.
+     * @param rowId Row id.
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(BinaryRow key, Timestamp timestamp) throws StorageException;
+    void commitWrite(RowId rowId, Timestamp timestamp) throws StorageException;
+
+    /**
+     * Scans the partition and returns a cursor of values. All filtered values must either be uncommitted in current transaction
+     * or already committed in different transaction.
+     *
+     * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
+     * @param txId Transaction id.
+     * @return Cursor.
+     * @throws StorageException If failed to read data from the storage.
+     */
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, UUID txId) throws TxIdMismatchException, StorageException;
 
     /**
      * Scans the partition and returns a cursor of values at the given timestamp.
      *
      * @param keyFilter Key filter. Binary rows passed to the filter may or may not have a value, filter should only check keys.
-     * @param timestamp Timestamp.
+     * @param timestamp Timestamp. Can't be {@code null}.
      * @return Cursor.
+     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @throws StorageException If failed to read data from the storage.
      */
-    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, @Nullable Timestamp timestamp) throws StorageException;
+    Cursor<BinaryRow> scan(Predicate<BinaryRow> keyFilter, Timestamp timestamp) throws StorageException;
 }

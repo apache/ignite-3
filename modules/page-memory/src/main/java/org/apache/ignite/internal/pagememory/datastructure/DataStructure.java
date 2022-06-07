@@ -41,6 +41,7 @@ import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.IgniteInternalCheckedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -93,7 +94,7 @@ public abstract class DataStructure {
             PageLockListener lockLsnr,
             byte defaultPageFlag
     ) {
-        assert !IgniteUtils.nullOrEmpty(name);
+        assert !StringUtils.nullOrEmpty(name);
         assert pageMem != null;
 
         this.name = name;

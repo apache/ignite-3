@@ -82,31 +82,31 @@ public class ClientOp {
     public static final int TUPLE_CONTAINS_KEY = 33;
 
     /** Execute sql query. */
-    public static final int SQL_EXEC = 34;
+    public static final int JDBC_EXEC = 34;
 
     /** Get next batch by query cursor. */
-    public static final int SQL_NEXT = 35;
+    public static final int JDBC_NEXT = 35;
 
     /** Execute batch query. */
-    public static final int SQL_EXEC_BATCH = 36;
+    public static final int JDBC_EXEC_BATCH = 36;
 
     /** Close query cursor. */
-    public static final int SQL_CURSOR_CLOSE = 37;
+    public static final int JDBC_CURSOR_CLOSE = 37;
 
     /** Get table metadata. */
-    public static final int SQL_TABLE_META = 38;
+    public static final int JDBC_TABLE_META = 38;
 
     /** Get column metadata. */
-    public static final int SQL_COLUMN_META = 39;
+    public static final int JDBC_COLUMN_META = 39;
 
     /** Get schemas list. */
-    public static final int SQL_SCHEMAS_META = 40;
+    public static final int JDBC_SCHEMAS_META = 40;
 
     /** Get primary key metadata. */
-    public static final int SQL_PK_META = 41;
+    public static final int JDBC_PK_META = 41;
 
     /** Get query metadata. */
-    public static final int SQL_QUERY_META = 42;
+    public static final int JDBC_QUERY_META = 42;
 
     /** Begin transaction. */
     public static final int TX_BEGIN = 43;
@@ -125,4 +125,16 @@ public class ClientOp {
 
     /** Get cluster nodes. */
     public static final int CLUSTER_GET_NODES = 48;
+
+    /** Execute compute job. */
+    public static final int COMPUTE_EXECUTE_COLOCATED = 49;
+
+    /** Execute SQL query. */
+    public static final int SQL_EXEC = 50;
+
+    /** Get next page. */
+    public static final int SQL_CURSOR_NEXT_PAGE = 51;
+
+    /** Close cursor. */
+    public static final int SQL_CURSOR_CLOSE = 52;
 }

@@ -83,7 +83,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAl
 import org.apache.ignite.internal.pagememory.datastructure.DataStructure;
 import org.apache.ignite.internal.pagememory.impl.PageMemoryNoStoreImpl;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.pagememory.mem.unsafe.UnsafeMemoryProvider;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
@@ -105,6 +104,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -155,7 +155,9 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     private volatile CompletableFuture<?> asyncRunFut;
 
     @BeforeEach
-    protected void beforeEach() throws Exception {
+    protected void beforeEach(TestInfo testInfo) throws Exception {
+        setupBase(testInfo, null);
+
         stop.set(false);
 
         long seed = System.nanoTime();
@@ -172,7 +174,7 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
     }
 
     @AfterEach
-    protected void afterTest() throws Exception {
+    protected void afterTest(TestInfo testInfo) throws Exception {
         rnd = null;
 
         try {
@@ -211,6 +213,8 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
             RMV_INC = -1;
             CNT = 10;
         }
+
+        tearDownBase(testInfo);
     }
 
     /**
@@ -2733,18 +2737,16 @@ public class ItBplusTreeSelfTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg
-                .change(c -> c.changePageSize(PAGE_SIZE).changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE))
-                .get(1, TimeUnit.SECONDS);
+        dataRegionCfg.change(c -> c.changeInitSize(MAX_MEMORY_SIZE).changeMaxSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PageMemoryNoStoreImpl(
-                new UnsafeMemoryProvider(null),
                 dataRegionCfg,
-                ioRegistry
+                ioRegistry,
+                PAGE_SIZE
         );
     }
 

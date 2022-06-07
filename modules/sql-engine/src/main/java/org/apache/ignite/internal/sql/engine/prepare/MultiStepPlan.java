@@ -33,11 +33,6 @@ public interface MultiStepPlan extends QueryPlan {
     List<Fragment> fragments();
 
     /**
-     * Get fields metadata.
-     */
-    ResultSetMetadataInternal metadata();
-
-    /**
      * Mapping.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      *

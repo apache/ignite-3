@@ -62,6 +62,13 @@ public interface Statement extends AutoCloseable {
     int pageSize();
 
     /**
+     * Returns a value indicating whether this is a prepared statement.
+     *
+     * @return Whether this is a prepared statement.
+     */
+    boolean prepared();
+
+    /**
      * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
      *
      * @param name Property name.
@@ -71,6 +78,8 @@ public interface Statement extends AutoCloseable {
 
     /**
      * Creates a new statement builder from current statement.
+     *
+     * @return Statement builder based on the current statement.
      */
     StatementBuilder toBuilder();
 
@@ -88,13 +97,26 @@ public interface Statement extends AutoCloseable {
 
         /**
          * Set SQL statement string.
+         *
+         * @param sql SQL query.
+         * @return {@code this} for chaining.
          */
         StatementBuilder query(String sql);
 
         /**
-         * Marks current statement as prepared.
+         * Returns prepared flag.
+         *
+         * @return Prepared flag.
          */
-        StatementBuilder prepared();
+        boolean prepared();
+
+        /**
+         * Marks current statement as prepared.
+         *
+         * @param prepared if {@code true} marks current statement as prepared.
+         * @return {@code this} for chaining.
+         */
+        StatementBuilder prepared(boolean prepared);
 
         /**
          * Returns query timeout.
@@ -109,6 +131,7 @@ public interface Statement extends AutoCloseable {
          *
          * @param timeout Query timeout value.
          * @param timeUnit Timeunit.
+         * @return {@code this} for chaining.
          */
         StatementBuilder queryTimeout(long timeout, @NotNull TimeUnit timeUnit);
 
@@ -123,6 +146,7 @@ public interface Statement extends AutoCloseable {
          * Sets default schema for the statement, which the queries will be executed with.
          *
          * @param schema Default schema.
+         * @return {@code this} for chaining.
          */
         StatementBuilder defaultSchema(@NotNull String schema);
 

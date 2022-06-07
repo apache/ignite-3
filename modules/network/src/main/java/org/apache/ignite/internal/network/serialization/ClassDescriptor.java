@@ -36,9 +36,16 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ClassDescriptor implements DeclaredType {
     /**
+     * Class name.
+     */
+    private final String className;
+
+    /**
      * Class. It is local to the current JVM; the descriptor could
      * be created on a remote JVM/machine where a class with same name could represent a different class.
+     * Might be absent in a descriptor describing a remote class that is not present locally.
      */
+    @Nullable
     private final Class<?> localClass;
 
     /**
@@ -73,6 +80,12 @@ public class ClassDescriptor implements DeclaredType {
      */
     private final Serialization serialization;
 
+    /**
+     * Descriptor of the local class corresponding to the remote class represented with this descriptor.
+     * If this descriptor represents a local descriptor, this field value is equal to this descriptor.
+     */
+    private final ClassDescriptor localDescriptor;
+
     private final List<MergedField> mergedFields;
 
     /** Total number of bytes needed to store all primitive fields. */
@@ -81,7 +94,7 @@ public class ClassDescriptor implements DeclaredType {
     private final int objectFieldsCount;
 
     /**
-     * Size of the nulls bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
+     * Size of the nulls' bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
      * fields that have a type known upfront.
      *
      * @see #fieldNullsBitmapIndices
@@ -90,7 +103,7 @@ public class ClassDescriptor implements DeclaredType {
     private final int fieldNullsBitmapSize;
 
     /**
-     * Map from field names to indices in the nulls bitmap corresponding to the described class. It contains an entry
+     * Map from field names to indices in the nulls' bitmap corresponding to the described class. It contains an entry
      * for each field, but only entries for nullable (that is, non-primitive) fields which types are known upfront
      * have meaningful (non-negative) indices; all other fields have -1 as a value in this map.
      *
@@ -110,12 +123,14 @@ public class ClassDescriptor implements DeclaredType {
 
     private final List<ClassDescriptor> lineage;
 
+    private final List<MergedLayer> mergedLineage;
+
     private final SpecialSerializationMethods serializationMethods;
 
     /**
      * Creates a descriptor describing a local (i.e. residing in this JVM) class.
      */
-    public static ClassDescriptor local(
+    public static ClassDescriptor forLocal(
             Class<?> localClass,
             int descriptorId,
             @Nullable ClassDescriptor superClassDescriptor,
@@ -127,9 +142,9 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
-     * Creates a descriptor describing a remote class.
+     * Creates a descriptor describing a remote class (when a local class corresponding to the remote class exists).
      */
-    public static ClassDescriptor remote(
+    public static ClassDescriptor forRemote(
             Class<?> localClass,
             int descriptorId,
             @Nullable ClassDescriptor superClassDescriptor,
@@ -142,7 +157,10 @@ public class ClassDescriptor implements DeclaredType {
             Serialization serialization,
             ClassDescriptor localDescriptor
     ) {
+        Objects.requireNonNull(localDescriptor);
+
         return new ClassDescriptor(
+                localClass.getName(),
                 localClass,
                 descriptorId,
                 superClassDescriptor,
@@ -153,7 +171,42 @@ public class ClassDescriptor implements DeclaredType {
                 isRuntimeTypeKnownUpfront,
                 fields,
                 serialization,
-                ClassDescriptorMerger.mergeFields(localDescriptor.fields(), fields)
+                ClassDescriptorMerger.mergeFields(localDescriptor.fields(), fields),
+                false,
+                localDescriptor
+        );
+    }
+
+    /**
+     * Creates a descriptor describing a remote class (when no local class corresponding to the remote class exists).
+     */
+    public static ClassDescriptor forRemote(
+            String className,
+            int descriptorId,
+            @Nullable ClassDescriptor superClassDescriptor,
+            @Nullable ClassDescriptor componentTypeDescriptor,
+            boolean isPrimitive,
+            boolean isArray,
+            boolean isRuntimeEnum,
+            boolean isRuntimeTypeKnownUpfront,
+            List<FieldDescriptor> fields,
+            Serialization serialization
+    ) {
+        return new ClassDescriptor(
+                className,
+                null,
+                descriptorId,
+                superClassDescriptor,
+                componentTypeDescriptor,
+                isPrimitive,
+                isArray,
+                isRuntimeEnum,
+                isRuntimeTypeKnownUpfront,
+                fields,
+                serialization,
+                fields.stream().map(MergedField::remoteOnly).collect(toList()),
+                false,
+                null
         );
     }
 
@@ -169,6 +222,7 @@ public class ClassDescriptor implements DeclaredType {
             Serialization serialization
     ) {
         this(
+                localClass.getName(),
                 localClass,
                 descriptorId,
                 superClassDescriptor,
@@ -179,7 +233,9 @@ public class ClassDescriptor implements DeclaredType {
                 Classes.isRuntimeTypeKnownUpfront(localClass),
                 fields,
                 serialization,
-                fields.stream().map(field -> new MergedField(field, field)).collect(toList())
+                fields.stream().map(field -> new MergedField(field, field)).collect(toList()),
+                true,
+                null
         );
     }
 
@@ -187,7 +243,8 @@ public class ClassDescriptor implements DeclaredType {
      * Constructor.
      */
     private ClassDescriptor(
-            Class<?> localClass,
+            String className,
+            @Nullable Class<?> localClass,
             int descriptorId,
             @Nullable ClassDescriptor superClassDescriptor,
             @Nullable ClassDescriptor componentTypeDescriptor,
@@ -197,8 +254,14 @@ public class ClassDescriptor implements DeclaredType {
             boolean isRuntimeTypeKnownUpfront,
             List<FieldDescriptor> fields,
             Serialization serialization,
-            List<MergedField> mergedFields
+            List<MergedField> mergedFields,
+            boolean thisIsLocal,
+            @Nullable ClassDescriptor localDescriptor
     ) {
+        assert localClass != null && (thisIsLocal || localDescriptor != null)
+                || (localClass == null && !thisIsLocal && localDescriptor == null);
+
+        this.className = className;
         this.localClass = localClass;
         this.descriptorId = descriptorId;
         this.superClassDescriptor = superClassDescriptor;
@@ -211,6 +274,8 @@ public class ClassDescriptor implements DeclaredType {
         this.fields = List.copyOf(fields);
         this.serialization = serialization;
 
+        this.localDescriptor = thisIsLocal ? this : localDescriptor;
+
         this.mergedFields = List.copyOf(mergedFields);
 
         primitiveFieldsDataSize = computePrimitiveFieldsDataSize(fields);
@@ -220,8 +285,16 @@ public class ClassDescriptor implements DeclaredType {
         fieldNullsBitmapIndices = computeFieldNullsBitmapIndices(fields);
 
         lineage = computeLineage(this);
+        if (thisIsLocal) {
+            mergedLineage = lineage.stream().map(layer -> new MergedLayer(layer, layer)).collect(toList());
+        } else if (localDescriptor == null) {
+            mergedLineage = lineage.stream().map(MergedLayer::remoteOnly).collect(toList());
+        } else {
+            mergedLineage = ClassDescriptorMerger.mergeLineages(localDescriptor.lineage(), this.lineage);
+        }
 
-        serializationMethods = new SpecialSerializationMethodsImpl(this);
+        serializationMethods = localClass != null ? new SpecialSerializationMethodsImpl(this)
+                : new BrokenSerializationMethods(className);
     }
 
     private static int computePrimitiveFieldsDataSize(List<FieldDescriptor> fields) {
@@ -375,16 +448,21 @@ public class ClassDescriptor implements DeclaredType {
      * @return Class' name.
      */
     public String className() {
-        return localClass.getName();
+        return className;
     }
 
     /**
      * Returns descriptor's class (represented by a local class). Local means 'on this machine', but the descriptor could
      * be created on a remote machine where a class with same name could represent a different class.
      *
-     * @return Class.
+     * @return local class
+     * @throws IllegalStateException if no local class exists for the described class (this could happen for a remote descriptor)
      */
     public Class<?> localClass() {
+        if (localClass == null) {
+            throw new IllegalStateException("No local class exists for '" + className + "'");
+        }
+
         return localClass;
     }
 
@@ -432,15 +510,6 @@ public class ClassDescriptor implements DeclaredType {
      */
     public boolean isExternalizable() {
         return serialization.type() == SerializationType.EXTERNALIZABLE;
-    }
-
-    /**
-     * Returns {@code true} if the described class is treated as a built-in.
-     *
-     * @return {@code true} if if the described class is treated as a built-in
-     */
-    public boolean isBuiltIn() {
-        return serializationType() == SerializationType.BUILTIN;
     }
 
     /**
@@ -554,6 +623,26 @@ public class ClassDescriptor implements DeclaredType {
         return descriptorId == BuiltInType.PROXY.descriptorId();
     }
 
+    public boolean hasLocal() {
+        return localDescriptor != null;
+    }
+
+    /**
+     * Returns descriptor of the local version of the remote class described by this descriptor
+     * (or {@code null} if the current descriptor describes a local class).
+     *
+     * @return descriptor of the local version of the remote class described by this descriptor
+     *         (or {@code null} if the current descriptor describes a local class)
+     * @throws IllegalStateException if no local counterpart exists for the described class (this could happen for a remote descriptor)
+     */
+    public ClassDescriptor local() {
+        if (localDescriptor == null) {
+            throw new IllegalStateException("No local descriptor exists for '" + className + "'");
+        }
+
+        return localDescriptor;
+    }
+
     /**
      * Returns special serialization methods facility.
      *
@@ -570,7 +659,7 @@ public class ClassDescriptor implements DeclaredType {
      * @return {@code true} if this descriptor describes same class as the given descriptor
      */
     public boolean describesSameClass(ClassDescriptor other) {
-        return localClass == other.localClass;
+        return Objects.equals(className, other.className);
     }
 
     /**
@@ -592,10 +681,10 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
-     * Returns size of the nulls bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
+     * Returns size of the nulls' bitmap for the described class; it is equal to the number of nullable (i.e. non-primitive)
      * fields that have a type known upfront.
      *
-     * @return size of the nulls bitmap for the described class
+     * @return size of the nulls' bitmap for the described class
      * @see #fieldIndexInNullsBitmap(String)
      * @see #isRuntimeTypeKnownUpfront()
      */
@@ -604,11 +693,11 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
-     * Returns index of a field in the nulls bitmap for the described class (if it's nullable and its type is known upfront),
+     * Returns index of a field in the nulls' bitmap for the described class (if it's nullable and its type is known upfront),
      * or -1 otherwise.
      *
      * @param fieldName name of the field
-     * @return index of a field in the nulls bitmap for the described class (if it's nullable and its type is known upfront),
+     * @return index of a field in the nulls' bitmap for the described class (if it's nullable and its type is known upfront),
      *     or -1 otherwise
      */
     public int fieldIndexInNullsBitmap(String fieldName) {
@@ -620,7 +709,7 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
-     * Return offset into primitive fields data (which has size {@link #primitiveFieldsDataSize()}).
+     * Returns offset into primitive fields data (which has size {@link #primitiveFieldsDataSize()}).
      * These are different from the offsets used in the context of {@link sun.misc.Unsafe}.
      *
      * @param fieldName    primitive field name
@@ -634,26 +723,36 @@ public class ClassDescriptor implements DeclaredType {
                     + ", but it was used as " + requiredTypeName);
         }
 
-        if (primitiveFieldDataOffsets == null) {
-            primitiveFieldDataOffsets = primitiveFieldDataOffsetsMap(fields);
-        }
+        ensurePrimitiveDataOffsetsMapComputed();
 
         assert primitiveFieldDataOffsets.containsKey(fieldName);
 
         return primitiveFieldDataOffsets.getInt(fieldName);
     }
 
-    private FieldDescriptor requiredFieldByName(String fieldName) {
-        if (fieldsByName == null) {
-            fieldsByName = fieldsByNameMap(fields);
+    private void ensurePrimitiveDataOffsetsMapComputed() {
+        if (primitiveFieldDataOffsets == null) {
+            primitiveFieldDataOffsets = primitiveFieldDataOffsetsMap(fields);
         }
+    }
 
-        FieldDescriptor fieldDesc = fieldsByName.get(fieldName);
+    private FieldDescriptor requiredFieldByName(String fieldName) {
+        FieldDescriptor fieldDesc = fieldByName(fieldName);
+
         if (fieldDesc == null) {
             throw new IllegalStateException("Did not find a field with name " + fieldName);
         }
 
         return fieldDesc;
+    }
+
+    @Nullable
+    private FieldDescriptor fieldByName(String fieldName) {
+        if (fieldsByName == null) {
+            fieldsByName = fieldsByNameMap(fields);
+        }
+
+        return fieldsByName.get(fieldName);
     }
 
     private static Map<String, FieldDescriptor> fieldsByNameMap(List<FieldDescriptor> fields) {
@@ -676,21 +775,55 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
+     * Returns {@code true} iff the described class has a primitive field with the given name.
+     *
+     * @param fieldName    primitive field name
+     * @return {@code true} iff the described class has a primitive field with the given name
+     */
+    private boolean hasPrimitiveField(String fieldName) {
+        FieldDescriptor fieldDesc = fieldByName(fieldName);
+
+        if (fieldDesc == null) {
+            return false;
+        }
+
+        ensurePrimitiveDataOffsetsMapComputed();
+
+        return primitiveFieldDataOffsets.containsKey(fieldName);
+    }
+
+    /**
+     * Returns {@code true} iff the given primitive field does not exist in the remote class corresponding to this descriptor,
+     * but it does exist in the local version of the class.
+     *
+     * @param fieldName    primitive field name
+     * @return {@code true} iff the given primitive field does not exist in the remote class corresponding to this descriptor,
+     *     but it does exist in the local version of the class
+     */
+    public boolean isPrimitiveFieldAddedLocally(String fieldName) {
+        return !this.hasPrimitiveField(fieldName) && this.local().hasPrimitiveField(fieldName);
+    }
+
+    /**
      * Returns index of a non-primitive (i.e. object) field in the object fields array.
      *
      * @param fieldName object field name
      * @return index of a non-primitive (i.e. object) field in the object fields array
      */
     public int objectFieldIndex(String fieldName) {
-        if (objectFieldIndices == null) {
-            objectFieldIndices = computeObjectFieldIndices(fields);
-        }
+        ensureObjectFieldIndicesComputed();
 
         if (!objectFieldIndices.containsKey(fieldName)) {
             throw new IllegalStateException("Did not find an object field with name " + fieldName);
         }
 
         return objectFieldIndices.getInt(fieldName);
+    }
+
+    private void ensureObjectFieldIndicesComputed() {
+        if (objectFieldIndices == null) {
+            objectFieldIndices = computeObjectFieldIndices(fields);
+        }
     }
 
     private Object2IntMap<String> computeObjectFieldIndices(List<FieldDescriptor> fields) {
@@ -708,12 +841,40 @@ public class ClassDescriptor implements DeclaredType {
     }
 
     /**
+     * Returns @{code true} iff the described class has an object field with the given name.
+     *
+     * @param fieldName object field name
+     * @return @{code true} iff the described class has an object field with the given name
+     */
+    private boolean hasObjectField(String fieldName) {
+        ensureObjectFieldIndicesComputed();
+
+        return objectFieldIndices.containsKey(fieldName);
+    }
+
+    /**
+     * Returns {@code true} iff the given object field does not exist in the remote class corresponding to this descriptor,
+     * but it does exist in the local version of the class.
+     *
+     * @param fieldName    object field name
+     * @return {@code true} iff the given object field does not exist in the remote class corresponding to this descriptor,
+     *     but it does exist in the local version of the class
+     */
+    public boolean isObjectFieldAddedLocally(String fieldName) {
+        return !this.hasObjectField(fieldName) && this.local().hasObjectField(fieldName);
+    }
+
+    /**
      * Returns the lineage (all the ancestors, from the progenitor (excluding Object) down the line, including this descriptor).
      *
      * @return ancestors from the progenitor (excluding Object) down the line, plus this descriptor
      */
     public List<ClassDescriptor> lineage() {
         return lineage;
+    }
+
+    public List<MergedLayer> mergedLineage() {
+        return mergedLineage;
     }
 
     /**

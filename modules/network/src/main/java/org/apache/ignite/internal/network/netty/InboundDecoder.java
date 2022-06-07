@@ -37,6 +37,9 @@ import org.apache.ignite.network.serialization.MessageReader;
  * Decodes {@link ByteBuf}s into {@link NetworkMessage}s.
  */
 public class InboundDecoder extends ByteToMessageDecoder {
+    /** Handler name. */
+    public static final String NAME = "inbound-decoder";
+
     /** Logger. */
     private static final IgniteLogger LOG = IgniteLogger.forClass(InboundDecoder.class);
 

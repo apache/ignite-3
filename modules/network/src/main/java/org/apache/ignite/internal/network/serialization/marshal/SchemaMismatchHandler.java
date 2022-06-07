@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.serialization.marshal;
 
 import java.io.ObjectInput;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 
 /**
@@ -31,6 +32,7 @@ import java.io.ObjectOutput;
  * <p>Note that the handlers are designed to work with declaring classes, not with the concrete classes representing
  * the whole class lineage.
  */
+@SuppressWarnings({"RedundantThrows", "unused"})
 public interface SchemaMismatchHandler<T> {
     /**
      * Called when a field is encountered in the serialized form (so the field was present on the remote side), but
@@ -68,6 +70,7 @@ public interface SchemaMismatchHandler<T> {
      * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
      */
     default void onFieldTypeChanged(T instance, String fieldName, Class<?> remoteType, Object fieldValue) throws SchemaMismatchException {
+        // if field type has changed in an inconvertible way, we cannot do anything with it, let's throw an exception
         throw new SchemaMismatchException(fieldName + " type changed, serialized as " + remoteType.getName() + ", value " + fieldValue
                 + " of type " + fieldName.getClass().getName());
     }
@@ -81,6 +84,7 @@ public interface SchemaMismatchHandler<T> {
      * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
      */
     default void onExternalizableIgnored(T instance, ObjectInput externalData) throws SchemaMismatchException {
+        // task-specific handling is required, so by default just throw an exception
         throw new SchemaMismatchException("Class " + instance.getClass().getName()
                 + " was serialized as an Externalizable remotely, but locally it is not an Externalizable");
     }
@@ -93,6 +97,62 @@ public interface SchemaMismatchHandler<T> {
      * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
      */
     default void onExternalizableMissed(T instance) throws SchemaMismatchException {
+        // the instance is actually filled with field data, so it seems that it's not too dangerous to ignore this by default
+    }
+
+    /**
+     * Called when a local class does not have an active readResolve() method (that is, it is neither {@link java.io.Serializable} nor
+     * {@link java.io.Externalizable} OR it has no readResolve() method at all), but the remote class does have it active
+     * (that is, the remote class is {@link java.io.Serializable} or {@link java.io.Externalizable} AND has readResolve()).
+     * The invocation happens after the instance has been filled.
+     *
+     * @param instance instance that is being deserialized
+     * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
+     */
+    default void onReadResolveDisappeared(T instance) throws SchemaMismatchException {
         // no-op
+    }
+
+    /**
+     * Called when a remote class does not have an active readResolve() method (that is, it is neither {@link java.io.Serializable} nor
+     * {@link java.io.Externalizable} OR it has no readResolve() method at all), but the local class does have it active
+     * (that is, the local class is {@link java.io.Serializable} or {@link java.io.Externalizable} AND has readResolve()).
+     * The invocation happens after the instance has been filled, but before its readResolve() is applied.
+     * The result of this call defines whether readResolve() should be applied.
+     *
+     * @param instance instance that is being deserialized
+     * @return if {@code true}, then readResolve() will be applied by the deserializer, otherwise it will not
+     * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
+     */
+    default boolean onReadResolveAppeared(T instance) throws SchemaMismatchException {
+        // readResolve() is here, so just allow it to be invoked by default; it does not look dangerous
+        return true;
+    }
+
+    /**
+     * Called when a remote class has an active writeObject() method (that is, the method exists and the class implements
+     * {@link java.io.Serializable}, but local class does not have an active readObject() method (that is, the local class
+     * is not {@link java.io.Serializable} or it does not contain readObject() method).
+     *
+     * @param instance      the object that was constructed, but the current layer is not yet filled
+     * @param objectData    data written by writeObject() remotely
+     * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
+     */
+    default void onReadObjectIgnored(T instance, ObjectInputStream objectData) throws SchemaMismatchException {
+        // task-specific handling is required, so by default just throw an exception
+        throw new SchemaMismatchException("Class " + instance.getClass().getName()
+                + " was serialized with writeObject() remotely, but locally it has no readObject()");
+    }
+
+    /**
+     * Called when a local class has an active readObject() method (that is, the method exists and the class implements
+     * {@link java.io.Serializable}, but remote class does not have an active writeObject() method (that is, the remote class
+     * is not {@link java.io.Serializable} or it does not contain writeObject() method).
+     *
+     * @param instance the instance layers of which (including the current one) are already filled
+     * @throws SchemaMismatchException thrown if the handler wills to stop the deserialization with an error
+     */
+    default void onReadObjectMissed(T instance) throws SchemaMismatchException {
+        // the instance is actually filled with field data, so it seems that it's not too dangerous to ignore this by default
     }
 }

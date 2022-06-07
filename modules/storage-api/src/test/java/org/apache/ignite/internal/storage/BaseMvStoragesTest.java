@@ -28,6 +28,8 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerException;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -84,7 +86,6 @@ public abstract class BaseMvStoragesTest {
         }
     }
 
-    @Nullable
     protected static TestKey key(BinaryRow binaryRow) {
         try {
             return kvMarshaller.unmarshalKey(new Row(schemaDescriptor, binaryRow));
@@ -140,8 +141,10 @@ public abstract class BaseMvStoragesTest {
      * Test pojo value.
      */
     protected static class TestValue implements Comparable<TestValue> {
+        @IgniteToStringInclude
         public Integer intVal;
 
+        @IgniteToStringInclude
         public String strVal;
 
         public TestValue() {
@@ -174,6 +177,11 @@ public abstract class BaseMvStoragesTest {
         @Override
         public int hashCode() {
             return Objects.hash(intVal, strVal);
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(TestValue.class, this);
         }
     }
 }

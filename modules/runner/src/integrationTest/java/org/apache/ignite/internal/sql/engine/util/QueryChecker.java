@@ -36,10 +36,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.ResultFieldMetadata;
-import org.apache.ignite.internal.sql.engine.SqlCursor;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
@@ -340,11 +338,10 @@ public abstract class QueryChecker {
         // Check plan.
         QueryProcessor qryProc = getEngine();
 
-        List<SqlCursor<List<?>>> explainCursors =
-                qryProc.query("PUBLIC", "EXPLAIN PLAN FOR " + qry);
+        var explainCursors = qryProc.queryAsync("PUBLIC", "EXPLAIN PLAN FOR " + qry);
 
-        Cursor<List<?>> explainCursor = explainCursors.get(0);
-        List<List<?>> explainRes = getAllFromCursor(explainCursor);
+        var explainCursor = explainCursors.get(0).join();
+        var explainRes = getAllFromCursor(explainCursor);
         String actualPlan = (String) explainRes.get(0).get(0);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
@@ -358,29 +355,28 @@ public abstract class QueryChecker {
         }
 
         // Check result.
-        List<SqlCursor<List<?>>> cursors =
-                qryProc.query("PUBLIC", qry, params);
+        var cursors = qryProc.queryAsync("PUBLIC", qry, params);
 
-        SqlCursor<List<?>> cur = cursors.get(0);
+        var cur = cursors.get(0).join();
 
         if (expectedColumnNames != null) {
-            List<String> colNames = cur.metadata().fields().stream()
-                    .map(ResultFieldMetadata::name)
+            List<String> colNames = cur.metadata().columns().stream()
+                    .map(ColumnMetadata::name)
                     .collect(Collectors.toList());
 
             assertThat("Column names don't match", colNames, equalTo(expectedColumnNames));
         }
 
         if (expectedColumnTypes != null) {
-            List<Type> colNames = cur.metadata().fields().stream()
-                    .map(ResultFieldMetadata::type)
-                    .map(Commons::nativeTypeToClass)
+            List<Type> colNames = cur.metadata().columns().stream()
+                    .map(ColumnMetadata::type)
+                    .map(Commons::columnTypeToClass)
                     .collect(Collectors.toList());
 
             assertThat("Column types don't match", colNames, equalTo(expectedColumnTypes));
         }
 
-        List<List<?>> res = CursorUtils.getAllFromCursor(cur);
+        var res = CursorUtils.getAllFromCursor(cur);
 
         if (expectedResult != null) {
             if (!ordered) {

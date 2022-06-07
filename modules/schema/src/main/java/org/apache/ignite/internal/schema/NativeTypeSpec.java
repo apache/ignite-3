@@ -24,7 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
-import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.InternalTuple;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -42,7 +42,7 @@ public enum NativeTypeSpec {
     INT8("int8", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.byteValueBoxed(colIdx);
         }
     },
@@ -53,7 +53,7 @@ public enum NativeTypeSpec {
     INT16("int16", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.shortValueBoxed(colIdx);
         }
     },
@@ -64,7 +64,7 @@ public enum NativeTypeSpec {
     INT32("int32", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.intValueBoxed(colIdx);
         }
     },
@@ -75,7 +75,7 @@ public enum NativeTypeSpec {
     INT64("int64", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.longValueBoxed(colIdx);
         }
     },
@@ -86,7 +86,7 @@ public enum NativeTypeSpec {
     FLOAT("float", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.floatValueBoxed(colIdx);
         }
     },
@@ -97,7 +97,7 @@ public enum NativeTypeSpec {
     DOUBLE("double", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.doubleValueBoxed(colIdx);
         }
     },
@@ -108,7 +108,7 @@ public enum NativeTypeSpec {
     DECIMAL("decimal", false) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.decimalValue(colIdx);
         }
     },
@@ -119,7 +119,7 @@ public enum NativeTypeSpec {
     UUID("uuid", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.uuidValue(colIdx);
         }
     },
@@ -130,7 +130,7 @@ public enum NativeTypeSpec {
     STRING("string") {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.stringValue(colIdx);
         }
     },
@@ -141,7 +141,7 @@ public enum NativeTypeSpec {
     BYTES("blob") {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.bytesValue(colIdx);
         }
     },
@@ -152,7 +152,7 @@ public enum NativeTypeSpec {
     BITMASK("bitmask", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.bitmaskValue(colIdx);
         }
     },
@@ -163,7 +163,7 @@ public enum NativeTypeSpec {
     NUMBER("number", false) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.numberValue(colIdx);
         }
     },
@@ -174,7 +174,7 @@ public enum NativeTypeSpec {
     DATE("date", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.dateValue(colIdx);
         }
     },
@@ -185,7 +185,7 @@ public enum NativeTypeSpec {
     TIME("time", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.timeValue(colIdx);
         }
     },
@@ -196,7 +196,7 @@ public enum NativeTypeSpec {
     DATETIME("datetime", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.dateTimeValue(colIdx);
         }
     },
@@ -207,7 +207,7 @@ public enum NativeTypeSpec {
     TIMESTAMP("timestamp", true) {
         /** {@inheritDoc} */
         @Override
-        public Object objectValue(Row tup, int colIdx) {
+        public Object objectValue(InternalTuple tup, int colIdx) {
             return tup.timestampValue(colIdx);
         }
     };
@@ -254,7 +254,7 @@ public enum NativeTypeSpec {
      * @return An Object representation of the value.
      * @throws InvalidTypeException If this native type differs from the actual type of {@code colIdx}.
      */
-    public abstract Object objectValue(Row row, int colIdx) throws InvalidTypeException;
+    public abstract Object objectValue(InternalTuple row, int colIdx) throws InvalidTypeException;
 
     /**
      * Maps class to native type.

@@ -31,15 +31,11 @@ import java.lang.annotation.Target;
 public @interface OneOf {
     /**
      * Returns list of possible values.
-     *
-     * @return List of possible values.
      */
     String[] value();
 
     /**
      * Returns {@code true} if list is case-sensitive.
-     *
-     * @return {@code true} if list is case-sensitive.
      */
     boolean caseSensitive() default false;
 }

@@ -17,13 +17,22 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import java.util.List;
+import org.apache.ignite.internal.sql.api.ColumnMetadataImpl;
+import org.apache.ignite.internal.sql.api.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlCommand;
+import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlColumnType;
 
 /**
  * DdlPlan.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class DdlPlan implements QueryPlan {
+    /** DDL metadata holder. */
+    private static final ResultSetMetadata DDL_METADATA = new ResultSetMetadataImpl(List.of(
+            new ColumnMetadataImpl("APPLIED", SqlColumnType.BOOLEAN, 1, Integer.MIN_VALUE, false, null)));
+
     private final DdlCommand cmd;
 
     public DdlPlan(DdlCommand cmd) {
@@ -38,6 +47,12 @@ public class DdlPlan implements QueryPlan {
     @Override
     public Type type() {
         return Type.DDL;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ResultSetMetadata metadata() {
+        return DDL_METADATA;
     }
 
     /** {@inheritDoc} */
